@@ -1,0 +1,16 @@
+﻿id	user_id	name	role	branch_id
+1	8547432287	Anirud sargas	Admin	4
+2	9074570974	Diviya	Front Office	4
+3	9846515904	Rajesh	Designer	4
+4	8089616171	Rajeesh	Designer	4
+5	9895185191	Siraj	Printer	4
+6	9446645869	Suku	Other Staff	4
+10	9847878028	Chandrika	Other Staff	4
+11	8547177667	Satheeshan	Other Staff	4
+12	9846925948	Rajul	Designer	5
+13	9745661898	Lali	Designer	5
+14	9746365693	Sankunni	Printer	5
+15	9496582517	Sindhu	Front Office	5
+16	9645891063	Vipin	Front Office	5
+17	9048309905	Vyshak	Front Office	5
+18	9447866998	Assinar	Front Office	4

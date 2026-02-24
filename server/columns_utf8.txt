@@ -1,0 +1,21 @@
+﻿Field	Type	Null	Key	Default	Extra
+id	int	NO	PRI	NULL	auto_increment
+customer_id	int	YES	MUL	NULL	
+job_number	varchar(20)	YES	UNI	NULL	
+job_name	varchar(150)	NO		NULL	
+description	text	YES		NULL	
+quantity	decimal(10,2)	YES		1.00	
+unit_price	decimal(10,2)	YES		0.00	
+total_amount	decimal(10,2)	YES		0.00	
+advance_paid	decimal(10,2)	YES		0.00	
+balance_amount	decimal(10,2)	YES		0.00	
+status	enum('Pending','Processing','Completed','Delivered','Cancelled')	YES		Pending	
+payment_status	enum('Unpaid','Partial','Paid')	YES		Unpaid	
+delivery_date	date	YES		NULL	
+created_at	timestamp	YES		CURRENT_TIMESTAMP	DEFAULT_GENERATED
+updated_at	timestamp	YES		CURRENT_TIMESTAMP	DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+branch_id	int	YES	MUL	NULL	
+entry_date	date	YES		NULL	
+due_date_original	date	YES		NULL	
+workbook_remarks	text	YES		NULL	
+priority	enum('Low','Medium','High','Urgent')	YES		Medium	

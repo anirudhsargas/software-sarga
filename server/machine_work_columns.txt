@@ -1,0 +1,13 @@
+﻿Field	Type	Null	Key	Default	Extra
+id	int	NO	PRI	NULL	auto_increment
+report_id	int	NO	MUL	NULL	
+customer_name	varchar(150)	NO		NULL	
+work_details	text	NO		NULL	
+copies	int	NO		NULL	
+payment_type	enum('Cash','UPI','Credit')	NO		NULL	
+cash_amount	decimal(12,2)	YES		0.00	
+upi_amount	decimal(12,2)	YES		0.00	
+credit_amount	decimal(12,2)	YES		0.00	
+total_amount	decimal(12,2)	NO		NULL	
+remarks	text	YES		NULL	
+entry_time	timestamp	YES		CURRENT_TIMESTAMP	DEFAULT_GENERATED

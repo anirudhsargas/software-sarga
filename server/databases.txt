@@ -1,0 +1,4 @@
+﻿Database
+information_schema
+performance_schema
+sarga_db

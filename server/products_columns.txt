@@ -1,0 +1,15 @@
+﻿Field	Type	Null	Key	Default	Extra
+id	int	NO	PRI	NULL	auto_increment
+subcategory_id	int	NO	MUL	NULL	
+name	varchar(150)	NO		NULL	
+calculation_type	enum('Normal','Slab','Range')	YES		Normal	
+description	text	YES		NULL	
+created_at	timestamp	YES		CURRENT_TIMESTAMP	DEFAULT_GENERATED
+updated_at	timestamp	YES		CURRENT_TIMESTAMP	DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+image_url	varchar(255)	YES		NULL	
+has_paper_rate	tinyint(1)	YES		0	
+paper_rate	decimal(10,2)	YES		0.00	
+position	int	NO		0	
+inventory_item_id	int	YES	MUL	NULL	
+product_code	varchar(80)	YES		NULL	
+has_double_side_rate	tinyint(1)	YES		0	

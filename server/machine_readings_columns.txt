@@ -1,0 +1,12 @@
+﻿Field	Type	Null	Key	Default	Extra
+id	int	NO	PRI	NULL	auto_increment
+machine_id	int	NO	MUL	NULL	
+reading_date	date	NO		NULL	
+opening_count	int	NO		0	
+closing_count	int	YES		NULL	
+total_copies	int	YES		0	
+notes	text	YES		NULL	
+created_by	int	YES	MUL	NULL	
+updated_by	int	YES	MUL	NULL	
+created_at	timestamp	YES		CURRENT_TIMESTAMP	DEFAULT_GENERATED
+updated_at	timestamp	YES		CURRENT_TIMESTAMP	DEFAULT_GENERATED on update CURRENT_TIMESTAMP

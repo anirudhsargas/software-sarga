@@ -1,0 +1,2 @@
+﻿id	customer_id	job_number	job_name	description	quantity	unit_price	total_amount	advance_paid	balance_amount	status	payment_status	delivery_date	created_at	updated_at	branch_id	entry_date	due_date_original	workbook_remarks	priority
+29	6	J-13761440-1	PTM CRICKET 01 A	NULL	1.00	300.00	300.00	100.00	200.00	Pending	Partial	NULL	2026-02-24 11:46:01	2026-02-24 11:46:01	4	NULL	NULL	NULL	Medium

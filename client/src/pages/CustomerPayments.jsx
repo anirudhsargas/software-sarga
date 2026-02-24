@@ -1,0 +1,858 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft, Calendar, CreditCard, Receipt, Loader2, Plus, Wallet,
+  User, Phone, Hash, FileText, IndianRupee, CheckCircle2, Clock,
+  AlertTriangle, Banknote, Smartphone, Building2, ChevronDown, ChevronUp,
+  Search, X, Layers, CheckCircle
+} from 'lucide-react';
+import api from '../services/api';
+import auth from '../services/auth';
+import { serverToday } from '../services/serverTime';
+import Pagination from '../components/Pagination';
+import './CustomerPayments.css';
+
+const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
+const GST_RATE = 0.18;
+
+const CustomerPayments = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [payments, setPayments] = useState([]);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsTotalPages, setPaymentsTotalPages] = useState(1);
+  const [paymentsTotal, setPaymentsTotal] = useState(0);
+  const [orderLines, setOrderLines] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [customerJobs, setCustomerJobs] = useState([]);
+  const [selectedJobId, setSelectedJobId] = useState(null);
+  const [invoiceId] = useState(() => `INV-${Date.now().toString().slice(-6)}`);
+  const [confirming, setConfirming] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const customerDropdownRef = React.useRef(null);
+
+  const [formData, setFormData] = useState({
+    customer_id: null,
+    customer_name: '',
+    customer_mobile: '',
+    total_amount: 0,
+    net_amount: 0,
+    sgst_amount: 0,
+    cgst_amount: 0,
+    advance_paid: 0,
+    balance_amount: 0,
+    reference_number: '',
+    description: '',
+    payment_date: serverToday()
+  });
+
+  const [payment, setPayment] = useState({
+    selectedMethods: ['Cash'],
+    methodAmounts: { Cash: 0, UPI: 0, Cheque: 0, 'Account Transfer': 0 },
+  });
+
+  useEffect(() => {
+    let draft = location.state;
+    if (!draft) {
+      try {
+        const stored = sessionStorage.getItem('billingPaymentDraft');
+        if (stored) {
+          draft = JSON.parse(stored);
+          sessionStorage.removeItem('billingPaymentDraft');
+        }
+      } catch (storageError) {
+        draft = null;
+      }
+    }
+
+    const prefillCustomer = draft?.customer;
+    const prefillTotals = draft?.billingPrefill;
+    const prefillOrders = draft?.orders || [];
+    const prefillJobIds = draft?.jobIds || [];
+
+    if (prefillCustomer || prefillTotals) {
+      setFormData((prev) => ({
+        ...prev,
+        customer_id: prefillCustomer?.id || null,
+        customer_name: prefillCustomer?.name || prev.customer_name,
+        customer_mobile: prefillCustomer?.mobile || prev.customer_mobile,
+        total_amount: prefillTotals?.gross ?? prev.total_amount,
+        net_amount: prefillTotals?.net ?? prev.net_amount,
+        sgst_amount: prefillTotals?.sgst ?? prev.sgst_amount,
+        cgst_amount: prefillTotals?.cgst ?? prev.cgst_amount,
+        description: prefillOrders.length > 0
+          ? `Billing for ${prefillOrders.length} item(s)`
+          : prev.description
+      }));
+      setOrderLines(prefillOrders);
+    }
+    if (prefillJobIds.length > 0) {
+      setSelectedJobId(null);
+    }
+  }, [location.state]);
+
+  // Close customer dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target)) {
+        setShowCustomerDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    fetchPayments();
+    fetchCustomers();
+  }, []);
+
+  useEffect(() => {
+    fetchPayments(paymentsPage);
+  }, [paymentsPage]);
+
+  useEffect(() => {
+    if (!formData.customer_id || orderLines.length > 0) return;
+    fetchCustomerJobs(formData.customer_id);
+  }, [formData.customer_id, orderLines.length]);
+
+  useEffect(() => {
+    if (!selectedJobId || orderLines.length > 0) return;
+
+    let total = 0;
+    let desc = '';
+
+    if (selectedJobId === 'all') {
+      // Sum all jobs — only use balance; if balance_amount is null/undefined, fall back to total_amount
+      total = customerJobs.reduce((sum, j) => {
+        return sum + getJobBalance(j);
+      }, 0);
+      desc = `Payment for all ${customerJobs.length} job(s)`;
+    } else {
+      const job = customerJobs.find((j) => String(j.id) === String(selectedJobId));
+      if (!job) return;
+      total = getJobBalance(job);
+      desc = job.job_number ? `Payment for ${job.job_number}` : '';
+    }
+
+    const net = total / (1 + GST_RATE);
+    const sgst = net * (GST_RATE / 2);
+    const cgst = net * (GST_RATE / 2);
+
+    setFormData((prev) => ({
+      ...prev,
+      total_amount: total,
+      net_amount: net,
+      sgst_amount: sgst,
+      cgst_amount: cgst,
+      description: desc || prev.description
+    }));
+  }, [selectedJobId, customerJobs, orderLines.length]);
+
+  useEffect(() => {
+    const total = Number(formData.total_amount) || 0;
+    const advance = Number(formData.advance_paid) || 0;
+    setFormData((prev) => ({
+      ...prev,
+      balance_amount: Math.max(total - advance, 0)
+    }));
+  }, [formData.total_amount, formData.advance_paid]);
+
+  // Sync advance_paid from per-method amounts
+  useEffect(() => {
+    const total = payment.selectedMethods.reduce(
+      (sum, m) => sum + (Number(payment.methodAmounts[m]) || 0), 0
+    );
+    setFormData((prev) => ({ ...prev, advance_paid: total }));
+  }, [payment.selectedMethods, payment.methodAmounts]);
+
+  const getJobBalance = (job) => {
+    const total = Number(job?.total_amount);
+    const advance = Number(job?.advance_paid);
+    let bal;
+    if (Number.isFinite(total) && Number.isFinite(advance)) {
+      bal = Math.max(total - advance, 0);
+    } else {
+      const b = job?.balance_amount;
+      bal = b != null ? Math.max(Number(b), 0) : (Number(job?.total_amount) || 0);
+    }
+    // Treat anything under ₹1 as fully paid (rounding dust)
+    return bal < 1 ? 0 : bal;
+  };
+
+  const fetchPayments = async (page = paymentsPage) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page, limit: 20 });
+      const response = await api.get(`/customer-payments?${params}`, {
+        headers: auth.getAuthHeader()
+      });
+      const res = response.data;
+      setPayments(res.data || []);
+      setPaymentsTotal(res.total || 0);
+      setPaymentsTotalPages(res.totalPages || 1);
+      if (page !== paymentsPage) {
+        setPaymentsPage(page);
+      }
+    } catch (err) {
+      setError('Failed to fetch customer payments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await api.get('/customers', {
+        headers: auth.getAuthHeader()
+      });
+      setCustomers(response.data || []);
+    } catch (err) {
+      setError('Failed to fetch customers');
+    }
+  };
+
+  const fetchCustomerJobs = async (customerId) => {
+    try {
+      const response = await api.get(`/customers/${customerId}/jobs`, {
+        headers: auth.getAuthHeader()
+      });
+      const jobs = response.data || [];
+      setCustomerJobs(jobs);
+      if (jobs.length > 1) {
+        setSelectedJobId('all');
+      } else if (jobs.length === 1) {
+        setSelectedJobId(jobs[0].id);
+      } else {
+        setSelectedJobId(null);
+      }
+    } catch (err) {
+      setCustomerJobs([]);
+      setSelectedJobId(null);
+    }
+  };
+
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearch.trim()) return customers;
+    const q = customerSearch.toLowerCase();
+    return customers.filter((c) =>
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.mobile || '').includes(q)
+    );
+  }, [customers, customerSearch]);
+
+  const handleCustomerSelect = (customerId) => {
+    const selected = customers.find((c) => String(c.id) === String(customerId));
+    if (!selected) return;
+    setCustomerSearch(selected.name);
+    setShowCustomerDropdown(false);
+    setFormData((prev) => ({
+      ...prev,
+      customer_id: selected.id,
+      customer_name: selected.name || '',
+      customer_mobile: selected.mobile || '',
+      total_amount: 0,
+      net_amount: 0,
+      sgst_amount: 0,
+      cgst_amount: 0,
+      advance_paid: 0,
+      balance_amount: 0
+    }));
+    setOrderLines([]);
+    fetchCustomerJobs(selected.id);
+  };
+
+  const handleReview = (e) => { e.preventDefault(); setConfirming(true); };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      const jobIdsToSend = orderLines.length > 0
+        ? (location.state?.jobIds || [])
+        : selectedJobId === 'all'
+          ? customerJobs.filter((j) => getJobBalance(j) > 0).map((j) => j.id)
+          : (selectedJobId ? [selectedJobId] : []);
+
+      const cashAmount = Number(payment.methodAmounts.Cash) || 0;
+      const upiAmount = Number(payment.methodAmounts.UPI) || 0;
+      const selected = payment.selectedMethods.length > 0 ? payment.selectedMethods : ['Cash'];
+      const isCashUpiCombo = selected.length === 2 && selected.includes('Cash') && selected.includes('UPI');
+      const paymentMethod = isCashUpiCombo ? 'Both' : selected[0];
+
+      await api.post('/customer-payments', {
+        ...formData,
+        payment_method: paymentMethod,
+        cash_amount: cashAmount,
+        upi_amount: upiAmount,
+        order_lines: orderLines,
+        job_ids: jobIdsToSend
+      }, {
+        headers: auth.getAuthHeader()
+      });
+
+      // Success: navigate back to customer details if this came from billing
+      if (formData.customer_id && orderLines.length > 0) {
+        navigate(`/dashboard/customers/${formData.customer_id}`, {
+          state: { fromPayment: true }
+        });
+      } else {
+        // Manual payment entry: full reset + refresh
+        setConfirming(false);
+        const keepCustomerId = formData.customer_id;
+        setFormData({
+          customer_id: keepCustomerId,
+          customer_name: formData.customer_name,
+          customer_mobile: formData.customer_mobile,
+          total_amount: 0,
+          net_amount: 0,
+          sgst_amount: 0,
+          cgst_amount: 0,
+          advance_paid: 0,
+          balance_amount: 0,
+          reference_number: '',
+          description: '',
+          payment_date: serverToday()
+        });
+        setPayment({ selectedMethods: ['Cash'], methodAmounts: { Cash: 0, UPI: 0, Cheque: 0, 'Account Transfer': 0 } });
+        setOrderLines([]);
+        setSelectedJobId(null);
+        setCustomerJobs([]);
+        // Refetch updated job balances then refresh payments list
+        if (keepCustomerId) {
+          fetchCustomerJobs(keepCustomerId);
+        }
+        fetchPayments(1);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save customer payment');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const totals = useMemo(() => ({
+    net: Number(formData.net_amount) || 0,
+    sgst: Number(formData.sgst_amount) || 0,
+    cgst: Number(formData.cgst_amount) || 0,
+    gross: Number(formData.total_amount) || 0
+  }), [formData]);
+
+  const balanceStatus = useMemo(() => {
+    if (formData.balance_amount <= 0 && formData.total_amount > 0) return 'Paid';
+    if (formData.advance_paid > 0 && formData.balance_amount > 0) return 'Partial';
+    return 'Due';
+  }, [formData.balance_amount, formData.advance_paid, formData.total_amount]);
+
+  const canSave = useMemo(() => {
+    if (!formData.customer_name.trim()) return false;
+    if (payment.selectedMethods.length === 0) return false;
+    const totalPaid = payment.selectedMethods.reduce(
+      (sum, m) => sum + (Number(payment.methodAmounts[m]) || 0), 0
+    );
+    return totalPaid > 0;
+  }, [formData.customer_name, payment.selectedMethods, payment.methodAmounts]);
+
+  const toggleMethod = (method) => {
+    setPayment((prev) => {
+      const exists = prev.selectedMethods.includes(method);
+      const selectedMethods = exists
+        ? prev.selectedMethods.filter((m) => m !== method)
+        : [...prev.selectedMethods, method];
+      return { ...prev, selectedMethods };
+    });
+  };
+
+  const updateMethodAmount = (method, value) => {
+    setPayment((prev) => ({
+      ...prev,
+      methodAmounts: { ...prev.methodAmounts, [method]: value }
+    }));
+  };
+
+  return (
+    <div className="cp-page">
+      {/* ── HEADER ── */}
+      <div className="cp-header">
+        <div className="cp-header-left">
+          <button className="btn btn-ghost" onClick={() => navigate(-1)}>
+            <ArrowLeft size={16} /> Back
+          </button>
+          <div>
+            <h1 className="cp-title">Customer Payments</h1>
+            <p className="cp-subtitle">Collect advance or full payment for customer orders</p>
+          </div>
+        </div>
+        <div className="cp-header-badge">
+          <Receipt size={14} />
+          <span>{invoiceId}</span>
+        </div>
+      </div>
+
+      {/* ── TWO-COLUMN LAYOUT ── */}
+      <div className="cp-grid">
+        {/* ─ LEFT: Customer & Bill ─ */}
+        <div className="cp-panel">
+          <div className="cp-panel-header">
+            <div className="cp-panel-icon"><User size={18} /></div>
+            <h2 className="cp-panel-title">Customer & Bill</h2>
+          </div>
+
+          {/* Customer selector (manual mode) */}
+          {orderLines.length === 0 && (
+            <div className="cp-form-grid">
+              <div ref={customerDropdownRef} className="cp-search-wrap">
+                <label className="label">Search & Select Customer</label>
+                <div className="cp-search-input-wrap">
+                  <Search size={15} className="cp-search-icon" />
+                  <input
+                    className="input-field cp-search-input"
+                    placeholder="Type name or mobile..."
+                    value={customerSearch}
+                    onChange={(e) => {
+                      setCustomerSearch(e.target.value);
+                      setShowCustomerDropdown(true);
+                    }}
+                    onFocus={() => setShowCustomerDropdown(true)}
+                  />
+                  {customerSearch && (
+                    <button
+                      type="button"
+                      className="cp-search-clear"
+                      onClick={() => {
+                        setCustomerSearch('');
+                        setShowCustomerDropdown(true);
+                      }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {showCustomerDropdown && (
+                  <div className="cp-dropdown">
+                    {filteredCustomers.length === 0 ? (
+                      <div className="cp-dropdown-empty">No customers found</div>
+                    ) : (
+                      filteredCustomers.slice(0, 50).map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={`cp-dropdown-item ${String(formData.customer_id) === String(c.id) ? 'cp-dropdown-item--active' : ''}`}
+                          onClick={() => handleCustomerSelect(c.id)}
+                        >
+                          <div className="cp-dropdown-avatar">{(c.name || '?').charAt(0).toUpperCase()}</div>
+                          <div className="cp-dropdown-info">
+                            <span className="cp-dropdown-name">{c.name}</span>
+                            <span className="cp-dropdown-mobile">{c.mobile ? `+91 ${c.mobile}` : 'No mobile'}</span>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="label">Select Job</label>
+                <select
+                  className="input-field"
+                  value={selectedJobId || ''}
+                  onChange={(e) => setSelectedJobId(e.target.value)}
+                  disabled={!formData.customer_id || customerJobs.length === 0}
+                >
+                  <option value="">Choose a job...</option>
+                  {customerJobs.length > 1 && (
+                    <option value="all">
+                      ★ All Jobs — ₹{customerJobs.reduce((s, j) => s + getJobBalance(j), 0).toFixed(2)}
+                    </option>
+                  )}
+                  {customerJobs.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.job_number || 'Job'} — ₹{getJobBalance(job).toFixed(2)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Customer info strip */}
+          <div className="cp-customer-strip">
+            <div className="cp-customer-avatar">
+              {(formData.customer_name || '?').charAt(0).toUpperCase()}
+            </div>
+            <div className="cp-customer-info">
+              <span className="cp-customer-name">{formData.customer_name || 'No customer selected'}</span>
+              <span className="cp-customer-meta">
+                {formData.customer_mobile ? `+91 ${formData.customer_mobile}` : 'No mobile'}
+              </span>
+            </div>
+            <div className="cp-info-chips">
+              <span className="cp-chip"><FileText size={12} /> {orderLines.length} item{orderLines.length !== 1 ? 's' : ''}</span>
+              <span className="cp-chip"><Calendar size={12} /> {formData.payment_date}</span>
+            </div>
+          </div>
+
+          {/* Order lines or selected job */}
+          {orderLines.length > 0 && (
+            <div className="cp-order-summary">
+              <div className="cp-order-summary-title">Order Lines</div>
+              {orderLines.map((line) => (
+                <div key={line.id} className="cp-order-line">
+                  <span className="cp-order-line-name">{line.product_name}</span>
+                  <span className="cp-order-line-qty">Qty {line.quantity} × ₹{Number(line.unit_price).toFixed(2)}</span>
+                  <span className="cp-order-line-total">₹{Number(line.total_amount).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {orderLines.length === 0 && selectedJobId === 'all' && customerJobs.length > 0 && (
+            <div className="cp-order-summary">
+              <div className="cp-order-summary-title"><Layers size={13} /> All Jobs ({customerJobs.length})</div>
+              {customerJobs.map((job) => (
+                <div key={job.id} className="cp-order-line">
+                  <span className="cp-order-line-name">{job.job_name || job.job_number || 'Job'}</span>
+                  <span className="cp-order-line-total">₹{getJobBalance(job).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {orderLines.length === 0 && selectedJobId && selectedJobId !== 'all' && (
+            <div className="cp-order-summary">
+              <div className="cp-order-summary-title">Selected Job</div>
+              {customerJobs
+                .filter((job) => String(job.id) === String(selectedJobId))
+                .map((job) => (
+                  <div key={job.id} className="cp-order-line">
+                    <span className="cp-order-line-name">{job.job_name || job.job_number || 'Job'}</span>
+                    <span className="cp-order-line-total">₹{getJobBalance(job).toFixed(2)}</span>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          {/* Bill totals */}
+          <div className="cp-totals">
+            <div className="cp-totals-row">
+              <span className="muted">Subtotal</span>
+              <span>₹{totals.net.toFixed(2)}</span>
+            </div>
+            <div className="cp-totals-row">
+              <span className="muted">SGST (9%)</span>
+              <span>₹{totals.sgst.toFixed(2)}</span>
+            </div>
+            <div className="cp-totals-row">
+              <span className="muted">CGST (9%)</span>
+              <span>₹{totals.cgst.toFixed(2)}</span>
+            </div>
+            <div className="cp-totals-row cp-totals-row--grand">
+              <span>Grand Total</span>
+              <span>₹{totals.gross.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ─ RIGHT: Payment Entry ─ */}
+        <div className="cp-panel">
+          <div className="cp-panel-header">
+            <div className="cp-panel-icon cp-panel-icon--accent"><Wallet size={18} /></div>
+            <h2 className="cp-panel-title">Payment Entry</h2>
+          </div>
+
+          {/* Amount to collect hero */}
+          <div className="cp-amount-hero">
+            <span className="cp-amount-hero-label">Amount to Collect</span>
+            <span className="cp-amount-hero-value">₹{totals.gross.toFixed(2)}</span>
+          </div>
+
+          <form onSubmit={handleReview} className="cp-form">
+            {/* Name & mobile */}
+            <div className="cp-form-grid">
+              <div>
+                <label className="label">Customer Name</label>
+                <input
+                  className="input-field"
+                  value={formData.customer_name}
+                  onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                  placeholder="Enter name"
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Mobile</label>
+                <input
+                  className="input-field"
+                  value={formData.customer_mobile}
+                  onChange={(e) => setFormData({ ...formData, customer_mobile: e.target.value })}
+                  placeholder="10-digit mobile"
+                  inputMode="numeric"
+                  maxLength={10}
+                />
+              </div>
+            </div>
+
+            {/* Amount paid / Balance / Date */}
+            <div className="cp-form-grid cp-form-grid--3">
+              <div>
+                <label className="label">Amount Paid</label>
+                <div className="cp-display-field cp-display-field--accent">
+                  ₹{Number(formData.advance_paid).toFixed(2)}
+                </div>
+              </div>
+              <div>
+                <label className="label">Balance Due</label>
+                <div className={`cp-display-field cp-display-field--${balanceStatus === 'Paid' ? 'success' : balanceStatus === 'Partial' ? 'warning' : 'error'}`}>
+                  <span>₹{Number(formData.balance_amount).toFixed(2)}</span>
+                  <span className="cp-balance-badge">{balanceStatus}</span>
+                </div>
+              </div>
+              <div>
+                <label className="label">Payment Date</label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={formData.payment_date}
+                  onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Payment method toggles - multi-select like Billing */}
+            <div>
+              <label className="label">Payment Methods</label>
+              <div className="cp-methods">
+                {paymentMethods.map((method) => {
+                  const icons = { Cash: Banknote, UPI: Smartphone, Cheque: FileText, 'Account Transfer': Building2 };
+                  const Icon = icons[method] || CreditCard;
+                  const active = payment.selectedMethods.includes(method);
+                  return (
+                    <button
+                      key={method}
+                      type="button"
+                      className={`cp-method-pill ${active ? 'cp-method-pill--active' : ''}`}
+                      onClick={() => toggleMethod(method)}
+                    >
+                      <Icon size={14} /> {method}
+                    </button>
+                  );
+                })}
+              </div>
+              {payment.selectedMethods.length === 0 && (
+                <span className="cp-field-error">Select at least one payment method</span>
+              )}
+            </div>
+
+            {/* Per-method amount inputs */}
+            <div className="cp-form-grid">
+              {payment.selectedMethods.includes('Cash') && (
+                <div>
+                  <label className="label"><Banknote size={13} /> Cash Amount</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    min="0"
+                    value={payment.methodAmounts.Cash}
+                    onChange={(e) => updateMethodAmount('Cash', e.target.value)}
+                  />
+                </div>
+              )}
+              {payment.selectedMethods.includes('UPI') && (
+                <div>
+                  <label className="label"><Smartphone size={13} /> UPI Amount</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    min="0"
+                    value={payment.methodAmounts.UPI}
+                    onChange={(e) => updateMethodAmount('UPI', e.target.value)}
+                  />
+                </div>
+              )}
+              {payment.selectedMethods.includes('Cheque') && (
+                <div>
+                  <label className="label"><FileText size={13} /> Cheque Amount</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    min="0"
+                    value={payment.methodAmounts.Cheque}
+                    onChange={(e) => updateMethodAmount('Cheque', e.target.value)}
+                  />
+                </div>
+              )}
+              {payment.selectedMethods.includes('Account Transfer') && (
+                <div>
+                  <label className="label"><Building2 size={13} /> Transfer Amount</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    min="0"
+                    value={payment.methodAmounts['Account Transfer']}
+                    onChange={(e) => updateMethodAmount('Account Transfer', e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Ref number & notes */}
+            {payment.selectedMethods.some((m) => m !== 'Cash') && (
+              <div className="cp-form-grid">
+                <div>
+                  <label className="label">UTR / Reference No</label>
+                  <input
+                    className="input-field"
+                    value={formData.reference_number}
+                    onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
+                    placeholder="Transaction reference"
+                  />
+                </div>
+                <div>
+                  <label className="label">Purpose / Notes</label>
+                  <input
+                    className="input-field"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Optional notes"
+                  />
+                </div>
+              </div>
+            )}
+
+            {payment.selectedMethods.length === 1 && payment.selectedMethods[0] === 'Cash' && (
+              <div>
+                <label className="label">Purpose / Notes</label>
+                <input
+                  className="input-field"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Optional notes"
+                />
+              </div>
+            )}
+
+            {error && (
+              <div className="alert alert--error">
+                <AlertTriangle size={14} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Submit */}
+            <button type="submit" className="btn btn-primary btn--full cp-submit" disabled={saving || !canSave}>
+              <CheckCircle2 size={16} /> Review & Confirm — ₹{totals.gross.toFixed(2)}
+            </button>
+          </form>
+
+          {/* ── Confirmation Overlay ── */}
+          {confirming && (
+            <div className="modal-backdrop" onClick={() => setConfirming(false)}>
+              <div className="em-modal em-modal--sm" onClick={e => e.stopPropagation()} style={{maxWidth: 440}}>
+                <div className="em-modal__header"><h2>Confirm Customer Payment</h2><button className="btn btn-ghost btn-icon" onClick={() => setConfirming(false)}><X size={18} /></button></div>
+                <form onSubmit={handleSubmit}>
+                  <div className="em-modal__body">
+                    <div className="em-confirm-summary">
+                      <div className="em-confirm-summary__title"><CheckCircle size={18} /> Verify Payment Details</div>
+                      <div className="em-confirm-summary__rows">
+                        <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Customer</span><span className="em-confirm-summary__value">{formData.customer_name}</span></div>
+                        {formData.customer_mobile && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Mobile</span><span className="em-confirm-summary__value">{formData.customer_mobile}</span></div>}
+                        <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Total Amount</span><span className="em-confirm-summary__value em-confirm-summary__amount">₹{totals.gross.toFixed(2)}</span></div>
+                        {totals.sgst > 0 && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">GST (SGST + CGST)</span><span className="em-confirm-summary__value">₹{(totals.sgst + totals.cgst).toFixed(2)}</span></div>}
+                        {payment.selectedMethods.map(m => (
+                          <div key={m} className="em-confirm-summary__row"><span className="em-confirm-summary__label">{m}</span><span className="em-confirm-summary__value">₹{Number(payment.methodAmounts[m] || 0).toFixed(2)}</span></div>
+                        ))}
+                        <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Date</span><span className="em-confirm-summary__value">{formData.payment_date}</span></div>
+                        {formData.reference_number && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Reference</span><span className="em-confirm-summary__value">{formData.reference_number}</span></div>}
+                        {orderLines.length > 0 && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Order Lines</span><span className="em-confirm-summary__value">{orderLines.length} item(s)</span></div>}
+                      </div>
+                      <div className="em-confirm-summary__warn"><AlertTriangle size={14} /> Please verify the payment details before confirming.</div>
+                    </div>
+                  </div>
+                  <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setConfirming(false)}>← Back to Edit</button><button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Processing...' : 'Confirm Payment'}</button></div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── RECENT PAYMENTS TABLE ── */}
+      <div className="cp-panel">
+        <div className="cp-panel-header">
+          <div className="cp-panel-icon"><Clock size={18} /></div>
+          <h2 className="cp-panel-title">Recent Payments</h2>
+          <span className="cp-panel-count">{paymentsTotal}</span>
+        </div>
+
+        <div className="cp-table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Method</th>
+                <th>Billed</th>
+                <th>Paid</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="text-center muted table-empty">
+                    <Loader2 size={20} className="cp-spin" />
+                  </td>
+                </tr>
+              ) : payments.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="text-center muted table-empty">
+                    <Receipt size={24} style={{ opacity: 0.4 }} />
+                    <div style={{ marginTop: 6 }}>No customer payments recorded yet</div>
+                  </td>
+                </tr>
+              ) : (
+                payments.map((p) => {
+                  const bal = Number(p.balance_amount);
+                  return (
+                    <tr key={p.id}>
+                      <td className="text-sm">
+                        <div className="row gap-sm">
+                          <Calendar size={13} className="muted" />
+                          {new Date(p.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="cp-table-customer">
+                          <span className="cp-table-name">{p.customer_name}</span>
+                          <span className="cp-table-mobile">{p.customer_mobile || '—'}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="cp-method-tag">
+                          <Receipt size={12} /> {p.payment_method}
+                        </span>
+                      </td>
+                      <td className="cp-table-amount">₹{Number(p.total_amount).toFixed(2)}</td>
+                      <td className="cp-table-amount cp-text-success">₹{Number(p.advance_paid).toFixed(2)}</td>
+                      <td className={`cp-table-amount ${bal > 0 ? 'cp-text-error' : 'cp-text-success'}`}>
+                        ₹{bal.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination page={paymentsPage} totalPages={paymentsTotalPages} total={paymentsTotal} onPageChange={setPaymentsPage} />
+      </div>
+    </div>
+  );
+};
+
+export default CustomerPayments;

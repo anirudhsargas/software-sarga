@@ -1,0 +1,142 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Briefcase, Plus, Edit2, Trash2, Download, IndianRupee, Receipt, X, CheckCircle, AlertTriangle } from 'lucide-react';
+import api from '../../services/api';
+import { fmt, fmtDate, today, exportRowsToCsv, OFFICE_EXPENSE_TYPES } from './constants';
+
+const defaultForm = { expense_type: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '' };
+
+const OfficeTab = ({ onError }) => {
+  const [dashboard, setDashboard] = useState(null);
+  const [expenses, setExpenses] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(defaultForm);
+  const [confirming, setConfirming] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchDashboard = useCallback(async () => { try { const r = await api.get('/office-dashboard'); setDashboard(r.data); } catch {} }, []);
+  const fetchExpenses = useCallback(async () => { try { const r = await api.get('/office-expenses'); setExpenses(r.data); } catch {} }, []);
+
+  useEffect(() => { fetchDashboard(); fetchExpenses(); }, [fetchDashboard, fetchExpenses]);
+
+  const handleReview = (e) => { e.preventDefault(); setConfirming(true); };
+
+  const submitForm = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      if (editing) await api.put(`/office-expenses/${editing.id}`, form);
+      else await api.post('/office-expenses', form);
+      setShowForm(false); setEditing(null); setForm(defaultForm); setConfirming(false);
+      fetchDashboard(); fetchExpenses();
+    } catch (err) { onError(err.response?.data?.message || 'Failed'); }
+    finally { setSubmitting(false); }
+  };
+
+  const openEdit = (row) => {
+    setEditing(row);
+    setForm({ expense_type: row.expense_type, vendor_name: row.vendor_name || '', amount: row.amount, payment_method: row.payment_method || 'Cash', reference_number: row.reference_number || '', description: row.description || '', expense_date: row.expense_date?.slice(0, 10) || today(), bill_number: row.bill_number || '' });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this office expense?')) return;
+    try { await api.delete(`/office-expenses/${id}`); fetchDashboard(); fetchExpenses(); } catch {}
+  };
+
+  return (
+    <div className="em-section">
+      <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
+        <div className="em-section-title"><Briefcase size={18} /> Office & Admin Expenses</div>
+        <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setForm(defaultForm); setShowForm(true); }}><Plus size={15} /> Add Expense</button>
+      </div>
+
+      {dashboard && (
+        <div className="em-kpi-grid">
+          <div className="em-kpi em-kpi--red"><IndianRupee size={28} /><div className="em-kpi__body"><div className="em-kpi__value">₹{fmt(dashboard.total_spent)}</div><div className="em-kpi__label">This Month</div></div></div>
+          <div className="em-kpi em-kpi--blue"><Receipt size={28} /><div className="em-kpi__body"><div className="em-kpi__value">{dashboard.transaction_count}</div><div className="em-kpi__label">Transactions</div></div></div>
+        </div>
+      )}
+
+      {dashboard?.breakdown?.length > 0 && (
+        <div className="em-card">
+          <div className="em-card__title">Breakdown by Type</div>
+          <div className="em-breakdown">
+            {dashboard.breakdown.map(b => (
+              <div key={b.expense_type} className="em-breakdown__row">
+                <div className="em-breakdown__cat">{b.expense_type}</div>
+                <div className="em-breakdown__bar-wrap"><div className="em-breakdown__bar" style={{ width: `${Math.max((Number(b.total) / Number(dashboard.total_spent || 1)) * 100, 4)}%` }} /></div>
+                <div className="em-breakdown__amt">₹{fmt(b.total)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {expenses.length > 0 ? (
+        <div className="em-card">
+          <div className="em-card__title">All Office Expenses <button className="btn btn-ghost btn-sm" onClick={() => exportRowsToCsv(expenses, 'office-expenses.csv')}><Download size={14} /> CSV</button></div>
+          <div className="em-table-wrap">
+            <table className="em-table">
+              <thead><tr><th>Date</th><th>Type</th><th>Vendor</th><th>Amount</th><th>Method</th><th>Description</th><th>Actions</th></tr></thead>
+              <tbody>
+                {expenses.map(r => (
+                  <tr key={r.id}>
+                    <td>{fmtDate(r.expense_date)}</td><td><span className="em-type-badge em-type-badge--other">{r.expense_type}</span></td><td>{r.vendor_name || '—'}</td><td className="em-amount-cell">₹{fmt(r.amount)}</td><td>{r.payment_method}</td><td className="em-desc-cell">{r.description || ''}</td>
+                    <td><button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEdit(r)}><Edit2 size={14} /></button> <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleDelete(r.id)}><Trash2 size={14} /></button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : <div className="em-empty-text">No office expenses yet</div>}
+
+      {/* Office Expense Form Modal */}
+      {showForm && (
+        <div className="modal-backdrop" onClick={() => { setShowForm(false); setConfirming(false); }}>
+          <div className="em-modal" onClick={e => e.stopPropagation()}>
+            <div className="em-modal__header"><h2>{editing ? 'Edit' : 'Add'} Office Expense</h2><button className="btn btn-ghost btn-icon" onClick={() => { setShowForm(false); setConfirming(false); }}><X size={18} /></button></div>
+            {!confirming ? (
+              <form onSubmit={!editing ? handleReview : submitForm}>
+                <div className="em-modal__body">
+                  <div className="em-form-grid">
+                    <div className="em-form-group"><label>Expense Type</label><select className="em-input" value={form.expense_type} onChange={e => setForm(p => ({ ...p, expense_type: e.target.value }))} required><option value="">Select Type</option>{OFFICE_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
+                    <div className="em-form-group"><label>Vendor / Shop</label><input className="em-input" value={form.vendor_name} onChange={e => setForm(p => ({ ...p, vendor_name: e.target.value }))} /></div>
+                    <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} required /></div>
+                    <div className="em-form-group"><label>Payment Method</label><select className="em-input" value={form.payment_method} onChange={e => setForm(p => ({ ...p, payment_method: e.target.value }))}>{['Cash', 'UPI', 'Bank Transfer', 'Cheque'].map(m => <option key={m}>{m}</option>)}</select></div>
+                    <div className="em-form-group"><label>Reference #</label><input className="em-input" value={form.reference_number} onChange={e => setForm(p => ({ ...p, reference_number: e.target.value }))} /></div>
+                    <div className="em-form-group"><label>Bill #</label><input className="em-input" value={form.bill_number} onChange={e => setForm(p => ({ ...p, bill_number: e.target.value }))} /></div>
+                    <div className="em-form-group"><label>Date</label><input className="em-input" type="date" value={form.expense_date} onChange={e => setForm(p => ({ ...p, expense_date: e.target.value }))} /></div>
+                    <div className="em-form-group em-form-group--full"><label>Description</label><input className="em-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
+                  </div>
+                </div>
+                <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button><button type="submit" className="btn btn-primary">{editing ? 'Update' : 'Review & Confirm'}</button></div>
+              </form>
+            ) : (
+              <form onSubmit={submitForm}>
+                <div className="em-modal__body">
+                  <div className="em-confirm-summary">
+                    <div className="em-confirm-summary__title"><CheckCircle size={18} /> Confirm Office Expense</div>
+                    <div className="em-confirm-summary__rows">
+                      <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Type</span><span className="em-confirm-summary__value">{form.expense_type}</span></div>
+                      {form.vendor_name && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Vendor</span><span className="em-confirm-summary__value">{form.vendor_name}</span></div>}
+                      <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Amount</span><span className="em-confirm-summary__value em-confirm-summary__amount">₹{fmt(Number(form.amount))}</span></div>
+                      <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Method</span><span className="em-confirm-summary__value">{form.payment_method}</span></div>
+                      <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Date</span><span className="em-confirm-summary__value">{form.expense_date}</span></div>
+                      {form.description && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Description</span><span className="em-confirm-summary__value">{form.description}</span></div>}
+                    </div>
+                    <div className="em-confirm-summary__warn"><AlertTriangle size={14} /> Please verify before confirming.</div>
+                  </div>
+                </div>
+                <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setConfirming(false)}>← Back to Edit</button><button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Saving...' : 'Confirm & Save'}</button></div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default OfficeTab;
