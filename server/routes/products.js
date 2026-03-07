@@ -1,6 +1,7 @@
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
+const { invalidateHierarchyCache } = require('./jobs');
 
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
@@ -13,7 +14,7 @@ module.exports = (upload, removeUploadFile) => {
             const [rows] = await pool.query("SELECT * FROM sarga_product_categories ORDER BY name ASC");
             res.json(rows);
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -30,13 +31,15 @@ module.exports = (upload, removeUploadFile) => {
                 "INSERT INTO sarga_product_categories (name, position) VALUES (?, ?)",
                 [String(name).trim(), nextPos]
             );
+            invalidateHierarchyCache();
+            auditLog(req.user.id, 'CATEGORY_ADD', `Added product category: ${name}`, { entity_type: 'product_category' });
             res.status(201).json({ message: 'Category added' });
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') {
                 return res.status(400).json({ message: 'Category already exists' });
             }
             console.error('Add category error:', err);
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -47,10 +50,13 @@ module.exports = (upload, removeUploadFile) => {
         if (!name || !String(name).trim()) return res.status(400).json({ message: 'Name is required' });
         try {
             await pool.query("UPDATE sarga_product_categories SET name = ? WHERE id = ?", [String(name).trim(), id]);
+            invalidateHierarchyCache();
+            auditLog(req.user.id, 'CATEGORY_UPDATE', `Updated category #${id}: ${name}`, { entity_type: 'product_category', entity_id: id });
             res.json({ message: 'Category updated' });
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Name already exists' });
-            res.status(500).json({ message: 'Database error' });
+            console.error('Update category error:', err);
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -58,9 +64,11 @@ module.exports = (upload, removeUploadFile) => {
     router.delete('/product-categories/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
         try {
             await pool.query("DELETE FROM sarga_product_categories WHERE id = ?", [req.params.id]);
+            invalidateHierarchyCache();
+            auditLog(req.user.id, 'CATEGORY_DELETE', `Deleted product category #${req.params.id}`, { entity_type: 'product_category', entity_id: req.params.id });
             res.json({ message: 'Category deleted' });
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -70,7 +78,7 @@ module.exports = (upload, removeUploadFile) => {
             const [rows] = await pool.query("SELECT * FROM sarga_product_subcategories WHERE category_id = ? ORDER BY name ASC", [req.params.id]);
             res.json(rows);
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -93,13 +101,15 @@ module.exports = (upload, removeUploadFile) => {
                 "INSERT INTO sarga_product_subcategories (category_id, name, position) VALUES (?, ?, ?)",
                 [category_id, String(name).trim(), nextPos]
             );
+            invalidateHierarchyCache();
+            auditLog(req.user.id, 'SUBCATEGORY_ADD', `Added subcategory: ${name}`, { entity_type: 'product_subcategory' });
             res.status(201).json({ message: 'Subcategory added' });
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') {
                 return res.status(400).json({ message: 'Subcategory already exists' });
             }
             console.error('Add subcategory error:', err);
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -110,10 +120,13 @@ module.exports = (upload, removeUploadFile) => {
         if (!name || !String(name).trim()) return res.status(400).json({ message: 'Name is required' });
         try {
             await pool.query("UPDATE sarga_product_subcategories SET name = ?, category_id = ? WHERE id = ?", [String(name).trim(), category_id, id]);
+            invalidateHierarchyCache();
+            auditLog(req.user.id, 'SUBCATEGORY_UPDATE', `Updated subcategory #${id}: ${name}`, { entity_type: 'product_subcategory', entity_id: id });
             res.json({ message: 'Subcategory updated' });
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Subcategory already exists' });
-            res.status(500).json({ message: 'Database error' });
+            console.error('Update subcategory error:', err);
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -121,9 +134,11 @@ module.exports = (upload, removeUploadFile) => {
     router.delete('/product-subcategories/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
         try {
             await pool.query("DELETE FROM sarga_product_subcategories WHERE id = ?", [req.params.id]);
+            invalidateHierarchyCache();
+            auditLog(req.user.id, 'SUBCATEGORY_DELETE', `Deleted subcategory #${req.params.id}`, { entity_type: 'product_subcategory', entity_id: req.params.id });
             res.json({ message: 'Subcategory deleted' });
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -133,13 +148,13 @@ module.exports = (upload, removeUploadFile) => {
             const [rows] = await pool.query("SELECT * FROM sarga_products WHERE subcategory_id = ? ORDER BY name ASC", [req.params.id]);
             res.json(rows);
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
     // Add Product with Slabs and Extras
     router.post('/products', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
-        const { subcategory_id, name, product_code, calculation_type, description, inventory_item_id } = req.body;
+        const { subcategory_id, name, product_code, calculation_type, description, inventory_item_id, isPhysicalProduct } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
@@ -161,8 +176,8 @@ module.exports = (upload, removeUploadFile) => {
 
             const { has_paper_rate, paper_rate, has_double_side_rate } = req.body;
             const [prodResult] = await connection.query(
-                "INSERT INTO sarga_products (subcategory_id, name, product_code, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [subcategory_id, String(name).trim(), product_code || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 ? 1 : 0, nextPos, inventory_item_id || null]
+                "INSERT INTO sarga_products (subcategory_id, name, product_code, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [subcategory_id, String(name).trim(), product_code || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 ? 1 : 0, nextPos, inventory_item_id || null, isPhysicalProduct ? 1 : 0]
             );
             const productId = prodResult.insertId;
 
@@ -194,11 +209,13 @@ module.exports = (upload, removeUploadFile) => {
             }
 
             await connection.commit();
+            invalidateHierarchyCache();
+            auditLog(req.user.id, 'PRODUCT_ADD', `Added product: ${name} (${calculation_type})`, { entity_type: 'product', entity_id: productId });
             res.status(201).json({ id: productId, message: 'Product added with slabs and extras' });
         } catch (err) {
             await connection.rollback();
             console.error('Add product error:', err);
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         } finally {
             connection.release();
         }
@@ -207,7 +224,7 @@ module.exports = (upload, removeUploadFile) => {
     // Update Product
     router.put('/products/:id', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
         const { id } = req.params;
-        const { subcategory_id, name, product_code, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, inventory_item_id } = req.body;
+        const { subcategory_id, name, product_code, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, inventory_item_id, isPhysicalProduct } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : req.body.image_url;
@@ -217,8 +234,8 @@ module.exports = (upload, removeUploadFile) => {
             await connection.beginTransaction();
 
             await connection.query(
-                "UPDATE sarga_products SET subcategory_id = ?, name = ?, product_code = ?, calculation_type = ?, description = ?, image_url = ?, has_paper_rate = ?, paper_rate = ?, has_double_side_rate = ?, inventory_item_id = ? WHERE id = ?",
-                [subcategory_id, String(name).trim(), product_code || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 ? 1 : 0, inventory_item_id || null, id]
+                "UPDATE sarga_products SET subcategory_id = ?, name = ?, product_code = ?, calculation_type = ?, description = ?, image_url = ?, has_paper_rate = ?, paper_rate = ?, has_double_side_rate = ?, inventory_item_id = ?, is_physical_product = ? WHERE id = ?",
+                [subcategory_id, String(name).trim(), product_code || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 ? 1 : 0, inventory_item_id || null, isPhysicalProduct ? 1 : 0, id]
             );
 
             // Update Slabs: DELETE and INSERT is cleaner
@@ -244,11 +261,13 @@ module.exports = (upload, removeUploadFile) => {
             }
 
             await connection.commit();
+            invalidateHierarchyCache();
+            auditLog(req.user.id, 'PRODUCT_UPDATE', `Updated product #${id}: ${name}`, { entity_type: 'product', entity_id: id });
             res.json({ message: 'Product updated successfully' });
         } catch (err) {
             await connection.rollback();
             console.error('Update product error:', err);
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         } finally {
             connection.release();
         }
@@ -258,9 +277,11 @@ module.exports = (upload, removeUploadFile) => {
     router.delete('/products/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
         try {
             await pool.query("DELETE FROM sarga_products WHERE id = ?", [req.params.id]);
+            invalidateHierarchyCache();
+            auditLog(req.user.id, 'PRODUCT_DELETE', `Deleted product #${req.params.id}`, { entity_type: 'product', entity_id: req.params.id });
             res.json({ message: 'Product deleted successfully' });
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -274,10 +295,11 @@ module.exports = (upload, removeUploadFile) => {
             if (imageUrl) await removeUploadFile(imageUrl);
 
             await pool.query("UPDATE sarga_products SET image_url = NULL WHERE id = ?", [req.params.id]);
+            auditLog(req.user.id, 'PRODUCT_IMAGE_DELETE', `Removed image from product #${req.params.id}`, { entity_type: 'product', entity_id: req.params.id });
             res.json({ message: 'Product image removed', image_url: null });
         } catch (err) {
             console.error('Remove product image error:', err);
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -308,12 +330,13 @@ module.exports = (upload, removeUploadFile) => {
                 );
             }
             await connection.commit();
+            invalidateHierarchyCache();
             auditLog(req.user.id, 'PRODUCT_POSITION_UPDATE', `Updated ${type} positions`);
             res.json({ message: 'Positions updated' });
         } catch (err) {
             await connection.rollback();
             console.error('Position update error:', err);
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         } finally {
             connection.release();
         }
@@ -333,7 +356,7 @@ module.exports = (upload, removeUploadFile) => {
             res.json({ message: 'Usage reset to default' });
         } catch (err) {
             console.error('Usage reset error:', err);
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -349,9 +372,10 @@ module.exports = (upload, removeUploadFile) => {
 
             res.json({ ...product, slabs, extras });
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
     return router;
 };
+

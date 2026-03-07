@@ -4,16 +4,20 @@ import {
   ArrowLeft, Calendar, CreditCard, Receipt, Loader2, Plus, Wallet,
   User, Phone, Hash, FileText, IndianRupee, CheckCircle2, Clock,
   AlertTriangle, Banknote, Smartphone, Building2, ChevronDown, ChevronUp,
-  Search, X, Layers, CheckCircle
+  Search, X, Layers, CheckCircle, Printer
 } from 'lucide-react';
 import api from '../services/api';
-import auth from '../services/auth';
+
 import { serverToday } from '../services/serverTime';
 import Pagination from '../components/Pagination';
+import ReceiptModal from '../components/ReceiptModal';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import './CustomerPayments.css';
+import toast from 'react-hot-toast';
+import { GST_RATE, formatCurrencyDecimal } from '../constants';
 
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
-const GST_RATE = 0.18;
 
 const CustomerPayments = () => {
   const location = useLocation();
@@ -29,11 +33,20 @@ const CustomerPayments = () => {
   const [customers, setCustomers] = useState([]);
   const [customerJobs, setCustomerJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState(null);
-  const [invoiceId] = useState(() => `INV-${Date.now().toString().slice(-6)}`);
+  const [invoiceId] = useState(() => `INV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`);
   const [confirming, setConfirming] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const customerDropdownRef = React.useRef(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [currentReceiptData, setCurrentReceiptData] = useState(null);
+  const [statementRange, setStatementRange] = useState({
+    start: serverToday().slice(0, 8) + '01', // First of current month
+    end: serverToday()
+  });
+  const [downloading, setDownloading] = useState(false);
+
+  const formatCurrency = formatCurrencyDecimal;
 
   const [formData, setFormData] = useState({
     customer_id: null,
@@ -66,6 +79,34 @@ const CustomerPayments = () => {
         }
       } catch (storageError) {
         draft = null;
+      }
+    }
+
+    // Prefill from job payment modal or navigation
+    if (draft && draft.job_id) {
+      const amountToPrefill = draft.amount || 0;
+      setFormData((prev) => ({
+        ...prev,
+        customer_id: draft.customer_id || null,
+        customer_name: draft.customer_name || prev.customer_name || 'Walk-in',
+        customer_mobile: draft.customer_mobile || prev.customer_mobile,
+        advance_paid: amountToPrefill,
+        balance_amount: amountToPrefill,
+        // Optionally prefill total_amount if present
+        total_amount: draft.total_amount || amountToPrefill,
+        net_amount: draft.net_amount || prev.net_amount,
+        sgst_amount: draft.sgst_amount || prev.sgst_amount,
+        cgst_amount: draft.cgst_amount || prev.cgst_amount,
+        job_id: draft.job_id || prev.job_id
+      }));
+      setPayment((prev) => ({
+        ...prev,
+        methodAmounts: { ...prev.methodAmounts, Cash: amountToPrefill }
+      }));
+      if (draft.customer_name) {
+        setCustomerSearch(draft.customer_name);
+      } else {
+        setCustomerSearch('Walk-in');
       }
     }
 
@@ -125,6 +166,8 @@ const CustomerPayments = () => {
 
     let total = 0;
     let desc = '';
+    const draftAmount = location.state?.amount;
+    const isPrefilledJob = String(selectedJobId) === String(location.state?.job_id);
 
     if (selectedJobId === 'all') {
       // Sum all jobs — only use balance; if balance_amount is null/undefined, fall back to total_amount
@@ -135,7 +178,8 @@ const CustomerPayments = () => {
     } else {
       const job = customerJobs.find((j) => String(j.id) === String(selectedJobId));
       if (!job) return;
-      total = getJobBalance(job);
+      // If we came from the Job Dashboard with a specific amount, use it instead of recalculating
+      total = isPrefilledJob && draftAmount !== undefined ? Number(draftAmount) : getJobBalance(job);
       desc = job.job_number ? `Payment for ${job.job_number}` : '';
     }
 
@@ -151,7 +195,7 @@ const CustomerPayments = () => {
       cgst_amount: cgst,
       description: desc || prev.description
     }));
-  }, [selectedJobId, customerJobs, orderLines.length]);
+  }, [selectedJobId, customerJobs, orderLines.length, location.state]);
 
   useEffect(() => {
     const total = Number(formData.total_amount) || 0;
@@ -188,9 +232,7 @@ const CustomerPayments = () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page, limit: 20 });
-      const response = await api.get(`/customer-payments?${params}`, {
-        headers: auth.getAuthHeader()
-      });
+      const response = await api.get(`/customer-payments?${params}`);
       const res = response.data;
       setPayments(res.data || []);
       setPaymentsTotal(res.total || 0);
@@ -207,9 +249,7 @@ const CustomerPayments = () => {
 
   const fetchCustomers = async () => {
     try {
-      const response = await api.get('/customers', {
-        headers: auth.getAuthHeader()
-      });
+      const response = await api.get('/customers');
       setCustomers(response.data || []);
     } catch (err) {
       setError('Failed to fetch customers');
@@ -218,12 +258,14 @@ const CustomerPayments = () => {
 
   const fetchCustomerJobs = async (customerId) => {
     try {
-      const response = await api.get(`/customers/${customerId}/jobs`, {
-        headers: auth.getAuthHeader()
-      });
+      const response = await api.get(`/customers/${customerId}/jobs`);
       const jobs = response.data || [];
       setCustomerJobs(jobs);
-      if (jobs.length > 1) {
+
+      const prefilledJobId = location.state?.job_id;
+      if (prefilledJobId && jobs.some(j => String(j.id) === String(prefilledJobId))) {
+        setSelectedJobId(prefilledJobId);
+      } else if (jobs.length > 1) {
         setSelectedJobId('all');
       } else if (jobs.length === 1) {
         setSelectedJobId(jobs[0].id);
@@ -274,10 +316,22 @@ const CustomerPayments = () => {
     setError('');
     try {
       const jobIdsToSend = orderLines.length > 0
-        ? (location.state?.jobIds || [])
+        ? (location.state?.jobIds || []).map(Number)
         : selectedJobId === 'all'
-          ? customerJobs.filter((j) => getJobBalance(j) > 0).map((j) => j.id)
-          : (selectedJobId ? [selectedJobId] : []);
+          ? customerJobs.filter((j) => getJobBalance(j) > 0).map((j) => Number(j.id))
+          : (selectedJobId ? [Number(selectedJobId)] : []);
+
+      // Calculate the original bill total for these jobs
+      let billAmount = 0;
+      if (orderLines.length > 0) {
+        billAmount = orderLines.reduce((sum, line) => sum + (Number(line.total_amount) || 0), 0);
+      } else {
+        const selectedJobs = customerJobs.filter(j => jobIdsToSend.includes(Number(j.id)));
+        billAmount = selectedJobs.reduce((sum, j) => sum + (Number(j.total_amount) || 0), 0);
+      }
+
+      // If we don't have job info (e.g. general credit payment), fall back to current payment total
+      if (billAmount === 0) billAmount = Number(formData.total_amount);
 
       const cashAmount = Number(payment.methodAmounts.Cash) || 0;
       const upiAmount = Number(payment.methodAmounts.UPI) || 0;
@@ -285,50 +339,63 @@ const CustomerPayments = () => {
       const isCashUpiCombo = selected.length === 2 && selected.includes('Cash') && selected.includes('UPI');
       const paymentMethod = isCashUpiCombo ? 'Both' : selected[0];
 
-      await api.post('/customer-payments', {
+      const response = await api.post('/customer-payments', {
         ...formData,
+        customer_id: formData.customer_id ? Number(formData.customer_id) : null,
+        bill_amount: billAmount,
+        total_amount: Number(formData.total_amount) || 0,
+        net_amount: Number(formData.net_amount) || 0,
+        sgst_amount: Number(formData.sgst_amount) || 0,
+        cgst_amount: Number(formData.cgst_amount) || 0,
+        advance_paid: Number(formData.advance_paid) || 0,
+        balance_amount: Number(formData.balance_amount) || 0,
         payment_method: paymentMethod,
         cash_amount: cashAmount,
         upi_amount: upiAmount,
         order_lines: orderLines,
         job_ids: jobIdsToSend
-      }, {
-        headers: auth.getAuthHeader()
       });
 
-      // Success: navigate back to customer details if this came from billing
-      if (formData.customer_id && orderLines.length > 0) {
-        navigate(`/dashboard/customers/${formData.customer_id}`, {
-          state: { fromPayment: true }
-        });
-      } else {
-        // Manual payment entry: full reset + refresh
-        setConfirming(false);
-        const keepCustomerId = formData.customer_id;
-        setFormData({
-          customer_id: keepCustomerId,
-          customer_name: formData.customer_name,
-          customer_mobile: formData.customer_mobile,
-          total_amount: 0,
-          net_amount: 0,
-          sgst_amount: 0,
-          cgst_amount: 0,
-          advance_paid: 0,
-          balance_amount: 0,
-          reference_number: '',
-          description: '',
-          payment_date: serverToday()
-        });
-        setPayment({ selectedMethods: ['Cash'], methodAmounts: { Cash: 0, UPI: 0, Cheque: 0, 'Account Transfer': 0 } });
-        setOrderLines([]);
-        setSelectedJobId(null);
-        setCustomerJobs([]);
-        // Refetch updated job balances then refresh payments list
-        if (keepCustomerId) {
-          fetchCustomerJobs(keepCustomerId);
-        }
-        fetchPayments(1);
+      const savedPayment = response.data?.payment || {
+        ...formData,
+        payment_method: paymentMethod,
+        balance_amount: Number(formData.balance_amount) || 0,
+        id: response.data?.id
+      };
+
+      // Emit global event to trigger background refresh in other active views (like JobDetail, Summary)
+      window.dispatchEvent(new CustomEvent('paymentRecorded'));
+
+      // Show receipt modal instead of immediate reset
+      setCurrentReceiptData(savedPayment);
+      setShowReceipt(true);
+
+      // Handle the rest of the success logic
+      setConfirming(false);
+      const keepCustomerId = formData.customer_id;
+      setFormData({
+        customer_id: keepCustomerId,
+        customer_name: formData.customer_name,
+        customer_mobile: formData.customer_mobile,
+        total_amount: 0,
+        net_amount: 0,
+        sgst_amount: 0,
+        cgst_amount: 0,
+        advance_paid: 0,
+        balance_amount: 0,
+        reference_number: '',
+        description: '',
+        payment_date: serverToday()
+      });
+      setPayment({ selectedMethods: ['Cash'], methodAmounts: { Cash: 0, UPI: 0, Cheque: 0, 'AccountTransfer': 0 } });
+      setOrderLines([]);
+      setSelectedJobId(null);
+      setCustomerJobs([]);
+
+      if (keepCustomerId) {
+        fetchCustomerJobs(keepCustomerId);
       }
+      fetchPayments(1);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save customer payment');
     } finally {
@@ -373,6 +440,90 @@ const CustomerPayments = () => {
       ...prev,
       methodAmounts: { ...prev.methodAmounts, [method]: value }
     }));
+  };
+
+  const setPredefinedRange = (rangeType) => {
+    const today = new Date();
+    let start, end;
+
+    if (rangeType === 'thisMonth') {
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+      end = new Date();
+    } else if (rangeType === 'lastMonth') {
+      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      end = new Date(today.getFullYear(), today.getMonth(), 0);
+    } else if (rangeType === 'financialYear') {
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+      if (currentMonth < 3) { // Jan-Mar
+        start = new Date(currentYear - 1, 3, 1);
+        end = new Date();
+      } else { // Apr-Dec
+        start = new Date(currentYear, 3, 1);
+        end = new Date();
+      }
+    }
+
+    const formatDate = (date) => date.toISOString().split('T')[0];
+    setStatementRange({ start: formatDate(start), end: formatDate(end) });
+  };
+
+  const handleDownloadStatement = async () => {
+    setDownloading(true);
+    try {
+      const params = new URLSearchParams({
+        startDate: statementRange.start,
+        endDate: statementRange.end,
+        limit: 1000 // Get a good chunk for statement
+      });
+      const res = await api.get(`/customer-payments?${params}`);
+      // Handle both raw array and paginated object response
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+
+      if (data.length === 0) {
+        toast.success('No payments found for this range');
+        return;
+      }
+
+      const doc = new jsPDF();
+      doc.setFontSize(18);
+      doc.setTextColor(40);
+      doc.text('Payment Statement', 14, 22);
+
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(`SARGA DIGITAL PRESS`, 14, 30);
+      doc.text(`Period: ${statementRange.start} to ${statementRange.end}`, 14, 35);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 40);
+
+      const tableData = data.map(p => [
+        new Date(p.payment_date).toLocaleDateString('en-IN'),
+        `${p.customer_name}\n${p.customer_mobile || ''}`,
+        p.payment_method,
+        `Rs. ${Number(p.advance_paid).toFixed(2)}`,
+        `Rs. ${Number(p.balance_amount).toFixed(2)}`
+      ]);
+
+      const totalPaid = data.reduce((sum, p) => sum + Number(p.advance_paid), 0);
+
+      autoTable(doc, {
+        startY: 50,
+        head: [['Date', 'Customer & Mobile', 'Method', 'Paid', 'Balance']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [44, 62, 80] },
+        foot: [['', '', 'TOTAL', `Rs. ${totalPaid.toFixed(2)}`, '']],
+        footStyles: { fillColor: [241, 245, 249], textColor: [44, 62, 80], fontStyle: 'bold' },
+        showFoot: 'last'
+      });
+
+      doc.save(`Payment_Statement_${statementRange.start}_to_${statementRange.end}.pdf`);
+    } catch (err) {
+      console.error('Download err:', err);
+      toast.error('Failed to generate statement');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -751,8 +902,8 @@ const CustomerPayments = () => {
 
           {/* ── Confirmation Overlay ── */}
           {confirming && (
-            <div className="modal-backdrop" onClick={() => setConfirming(false)}>
-              <div className="em-modal em-modal--sm" onClick={e => e.stopPropagation()} style={{maxWidth: 440}}>
+            <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirming(false); }}>
+              <div className="em-modal em-modal--sm" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
                 <div className="em-modal__header"><h2>Confirm Customer Payment</h2><button className="btn btn-ghost btn-icon" onClick={() => setConfirming(false)}><X size={18} /></button></div>
                 <form onSubmit={handleSubmit}>
                   <div className="em-modal__body">
@@ -789,6 +940,43 @@ const CustomerPayments = () => {
           <span className="cp-panel-count">{paymentsTotal}</span>
         </div>
 
+        {/* ── STATEMENT FILTERS ── */}
+        <div className="cp-statement-filters">
+          <div className="row gap-md wrap items-end">
+            <div>
+              <label className="label">From</label>
+              <input
+                type="date"
+                className="input-field input-field--sm"
+                value={statementRange.start}
+                onChange={e => setStatementRange(prev => ({ ...prev, start: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="label">To</label>
+              <input
+                type="date"
+                className="input-field input-field--sm"
+                value={statementRange.end}
+                onChange={e => setStatementRange(prev => ({ ...prev, end: e.target.value }))}
+              />
+            </div>
+            <div className="row gap-sm">
+              <button className="btn btn-ghost btn-xs" onClick={() => setPredefinedRange('thisMonth')}>This Month</button>
+              <button className="btn btn-ghost btn-xs" onClick={() => setPredefinedRange('lastMonth')}>Last Month</button>
+              <button className="btn btn-ghost btn-xs" onClick={() => setPredefinedRange('financialYear')}>FY</button>
+            </div>
+            <button
+              className="btn btn-primary btn-sm ml-auto"
+              onClick={handleDownloadStatement}
+              disabled={downloading}
+            >
+              {downloading ? <Loader2 size={16} className="cp-spin" /> : <FileText size={16} />}
+              Download Statement
+            </button>
+          </div>
+        </div>
+
         <div className="cp-table-wrap">
           <table className="table">
             <thead>
@@ -799,6 +987,7 @@ const CustomerPayments = () => {
                 <th>Billed</th>
                 <th>Paid</th>
                 <th>Balance</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -842,6 +1031,18 @@ const CustomerPayments = () => {
                       <td className={`cp-table-amount ${bal > 0 ? 'cp-text-error' : 'cp-text-success'}`}>
                         ₹{bal.toFixed(2)}
                       </td>
+                      <td className="text-right">
+                        <button
+                          className="btn btn-ghost btn-sm btn-icon"
+                          title="Print Receipt"
+                          onClick={() => {
+                            setCurrentReceiptData(p);
+                            setShowReceipt(true);
+                          }}
+                        >
+                          <Printer size={15} />
+                        </button>
+                      </td>
                     </tr>
                   );
                 })
@@ -851,6 +1052,13 @@ const CustomerPayments = () => {
         </div>
         <Pagination page={paymentsPage} totalPages={paymentsTotalPages} total={paymentsTotal} onPageChange={setPaymentsPage} />
       </div>
+
+      <ReceiptModal
+        isOpen={showReceipt}
+        onClose={() => setShowReceipt(false)}
+        paymentData={currentReceiptData}
+        branchInfo={{ location: 'Meppayur' }}
+      />
     </div>
   );
 };

@@ -8,10 +8,13 @@ import api from '../../services/api';
 import auth from '../../services/auth';
 import { fmt, fmtDate } from './constants';
 import { serverToday } from '../../services/serverTime';
+import { useConfirm } from '../../contexts/ConfirmContext';
+import toast from 'react-hot-toast';
 
 const emptyVendorForm = { name: '', type: 'Vendor', contact_person: '', phone: '', address: '', gstin: '', order_link: '' };
 
 const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
+  const { confirm } = useConfirm();
   const [expandedVendor, setExpandedVendor] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedVendor, setSelectedVendor] = useState(null);
@@ -91,12 +94,19 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
   };
 
   const handleDeleteVendor = async (v) => {
-    if (!window.confirm(`Delete vendor "${v.name}"? This cannot be undone.`)) return;
+    const isConfirmed = await confirm({
+      title: 'Delete Vendor',
+      message: `Are you sure you want to delete vendor "${v.name}"? This cannot be undone.`,
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
+
     try {
       await api.delete(`/vendors/${v.id}`);
       if (onRefreshVendors) onRefreshVendors();
     } catch (err) {
-      alert(err.response?.data?.error || err.response?.data?.message || 'Cannot delete this vendor');
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Cannot delete this vendor');
     }
   };
 
@@ -189,7 +199,7 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
             </div>
           </div>
           <div className="em-vendor-profile__actions" style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-sm" style={{ background: '#f59e0b', color: '#fff' }} onClick={() => openPurchaseForm(v)}>
+            <button className="btn btn-sm" style={{ background: 'var(--warning)', color: '#fff' }} onClick={() => openPurchaseForm(v)}>
               <ShoppingCart size={14} /> Record Purchase
             </button>
             <button className="btn btn-primary btn-sm" onClick={() => onPayment({ type: 'Vendor', vendor_id: v.id, payee_name: v.name })}>
@@ -214,11 +224,11 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
               <div className="em-kpi-card__value">₹{fmt(totalPaid)}</div>
             </div>
           </div>
-          <div className="em-kpi-card" style={{ borderLeft: `4px solid ${balance > 0 ? '#dc2626' : '#16a34a'}` }}>
+          <div className="em-kpi-card" style={{ borderLeft: `4px solid ${balance > 0 ? 'var(--error)' : 'var(--success)'}` }}>
             <div className="em-kpi-card__icon"><TrendingDown size={22} /></div>
             <div className="em-kpi-card__body">
               <div className="em-kpi-card__label">Balance Due</div>
-              <div className="em-kpi-card__value" style={{ color: balance > 0 ? '#dc2626' : '#16a34a' }}>₹{fmt(Math.abs(balance))}</div>
+              <div className="em-kpi-card__value" style={{ color: balance > 0 ? 'var(--error)' : 'var(--success)' }}>₹{fmt(Math.abs(balance))}</div>
               {balance > 0 && <div className="em-kpi-card__sub em-kpi-card__sub--warn">Outstanding</div>}
             </div>
           </div>
@@ -254,7 +264,7 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
                       </td>
                       <td>{r.reference_number || r.bill_number || '—'}</td>
                       <td>{r.description || r.payee_name || '—'}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600, color: r._entry_type === 'Purchase' ? '#dc2626' : '#16a34a' }}>
+                      <td style={{ textAlign: 'right', fontWeight: 600, color: r._entry_type === 'Purchase' ? 'var(--error)' : 'var(--success)' }}>
                         {r._entry_type === 'Purchase' ? '-' : '+'}₹{fmt(Number(r.amount || r.total_amount || 0))}
                       </td>
                     </tr>
@@ -320,7 +330,7 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
                 </div>
                 <div className="em-vendor-card__actions">
                   <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); openVendorDetail(v); }}>View</button>
-                  <button className="btn btn-sm" style={{ background: '#f59e0b', color: '#fff', border: 'none' }} onClick={(e) => { e.stopPropagation(); openPurchaseForm(v); }}>
+                  <button className="btn btn-sm" style={{ background: 'var(--warning)', color: '#fff', border: 'none' }} onClick={(e) => { e.stopPropagation(); openPurchaseForm(v); }}>
                     <ShoppingCart size={14} /> Purchase
                   </button>
                   <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); onPayment({ type: 'Vendor', vendor_id: v.id, payee_name: v.name }); }}>
@@ -355,7 +365,7 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
 
       {/* ── Add/Edit Vendor Modal ── */}
       {showForm && (
-        <div className="modal-backdrop" onClick={() => setShowForm(false)}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowForm(false); }}>
           <div className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
               <h2>{editingVendor ? 'Edit Vendor' : 'Add Vendor'}</h2>
@@ -413,7 +423,7 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
 
       {/* ── Vendor Request Modal (Front Office) ── */}
       {showRequestForm && (
-        <div className="modal-backdrop" onClick={() => setShowRequestForm(false)}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowRequestForm(false); }}>
           <div className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
               <h2>Request Vendor</h2>

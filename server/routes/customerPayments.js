@@ -1,16 +1,16 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getUserBranchId, hasPendingCustomerBalance, bumpUsageForUser, auditLog, normalizeMobile, asyncHandler } = require('../helpers');
+const { getUserBranchId, hasPendingCustomerBalance, bumpUsageForUser, auditLog, auditFieldChanges, getNextInvoiceNumber, normalizeMobile, asyncHandler } = require('../helpers');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
-const { validate } = require('../middleware/validation');
+const { validate } = require('../middleware/validate');
 const { customerPaymentSchema } = require('../schemas/paymentSchemas');
 
 // --- CUSTOMER PAYMENT ROUTES ---
 
 // List Customer Payments
 router.get('/customer-payments', authenticateToken, async (req, res) => {
-    const { customer_id } = req.query;
+    const { customer_id, startDate, endDate } = req.query;
     const { page, limit, offset } = parsePagination(req);
     const usePagination = !!req.query.page;
     try {
@@ -18,19 +18,26 @@ router.get('/customer-payments', authenticateToken, async (req, res) => {
         const params = [];
 
         // Branch filter for non-admin
-        if (req.user.role !== 'Admin') {
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
             try {
                 const branchId = await getUserBranchId(req.user.id);
                 where += ' AND branch_id = ?';
                 params.push(branchId);
             } catch (err) {
                 if (err.code !== 'ER_BAD_FIELD_ERROR') throw err;
-                // branch_id column may not exist yet — ignore filter
             }
         }
         if (customer_id) {
             where += ' AND customer_id = ?';
             params.push(customer_id);
+        }
+        if (startDate) {
+            where += ' AND payment_date >= ?';
+            params.push(startDate);
+        }
+        if (endDate) {
+            where += ' AND payment_date <= ?';
+            params.push(endDate);
         }
 
         const baseFrom = `FROM sarga_customer_payments WHERE 1=1 ${where}`;
@@ -44,7 +51,8 @@ router.get('/customer-payments', authenticateToken, async (req, res) => {
         const [rows] = await pool.query(`SELECT * ${baseFrom} ORDER BY payment_date DESC, created_at DESC`, params);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        console.error('List customer payments error:', err);
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
@@ -79,13 +87,13 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
     await connection.beginTransaction();
 
     try {
-        const branchId = req.user.role === 'Admin' ? null : await getUserBranchId(req.user.id);
+        const branchId = ['Admin', 'Accountant'].includes(req.user.role) ? null : await getUserBranchId(req.user.id);
         let resolvedCustomerId = customer_id || null;
 
         if (!resolvedCustomerId && customer_mobile) {
             const normalizedMobile = normalizeMobile(customer_mobile);
             if (normalizedMobile.length === 10) {
-                if (req.user.role !== 'Admin' && branchId) {
+                if (!['Admin', 'Accountant'].includes(req.user.role) && branchId) {
                     const [rows] = await connection.query(
                         "SELECT id FROM sarga_customers WHERE mobile = ? AND branch_id = ?",
                         [normalizedMobile, branchId]
@@ -100,16 +108,17 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                 }
             }
         }
-        let result;
+        let paymentId;
         try {
-            [result] = await connection.query(
+            const [result] = await connection.query(
                 `INSERT INTO sarga_customer_payments
-                (customer_id, customer_name, customer_mobile, total_amount, net_amount, sgst_amount, cgst_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date, order_lines, branch_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, order_lines)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     resolvedCustomerId,
                     String(customer_name).trim(),
                     customer_mobile || null,
+                    total,
                     total,
                     Number(net_amount) || 0,
                     Number(sgst_amount) || 0,
@@ -119,23 +128,25 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                     payment_method || 'Cash',
                     cash,
                     upi,
+                    branchId,
                     reference_number || null,
                     description || null,
                     payment_date,
-                    JSON.stringify(order_lines || []),
-                    branchId
+                    JSON.stringify(order_lines || [])
                 ]
             );
+            paymentId = result.insertId;
         } catch (err) {
-            if (err.code === 'ER_BAD_FIELD_ERROR') {
-                [result] = await connection.query(
+            if (err.code === 'ER_BAD_FIELD_ERROR' || err.code === 'ER_NO_SUCH_TABLE') {
+                const [result] = await connection.query(
                     `INSERT INTO sarga_customer_payments
-                    (customer_id, customer_name, customer_mobile, total_amount, net_amount, sgst_amount, cgst_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date, order_lines)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, order_lines)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         resolvedCustomerId,
                         String(customer_name).trim(),
                         customer_mobile || null,
+                        total,
                         total,
                         Number(net_amount) || 0,
                         Number(sgst_amount) || 0,
@@ -145,12 +156,14 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                         payment_method || 'Cash',
                         cash,
                         upi,
+                        branchId,
                         reference_number || null,
                         description || null,
                         payment_date,
                         JSON.stringify(order_lines || [])
                     ]
                 );
+                paymentId = result.insertId;
             } else {
                 throw err;
             }
@@ -178,27 +191,57 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                 const paymentStatus = lineAdvance >= lineTotal ? 'Paid' : (lineAdvance > 0 ? 'Partial' : 'Unpaid');
                 const jobNumber = `J-${Date.now().toString().slice(-8)}-${i + 1}`;
 
-                await connection.query(
-                    `INSERT INTO sarga_jobs
-                    (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-                    , [
-                        resolvedCustomerId,
-                        line.product_id || null,
-                        branchId,
-                        jobNumber,
-                        line.product_name || line.job_name || 'Job',
-                        line.description || null,
-                        Number(line.quantity) || 1,
-                        Number(line.unit_price) || 0,
-                        lineTotal,
-                        lineAdvance,
-                        lineBalance,
-                        paymentStatus,
-                        null,
-                        JSON.stringify(line.applied_extras || [])
-                    ]
-                );
+                try {
+                    await connection.query(
+                        `INSERT INTO sarga_jobs
+                        (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                        , [
+                            resolvedCustomerId,
+                            line.product_id || null,
+                            branchId,
+                            jobNumber,
+                            line.product_name || line.job_name || 'Job',
+                            line.description || null,
+                            Number(line.quantity) || 1,
+                            Number(line.unit_price) || 0,
+                            lineTotal,
+                            lineAdvance,
+                            lineBalance,
+                            paymentStatus,
+                            null,
+                            JSON.stringify(line.applied_extras || []),
+                            line.category || null,
+                            line.subcategory || null
+                        ]
+                    );
+                } catch (err) {
+                    if (err.code === 'ER_BAD_FIELD_ERROR' || err.code === 'ER_NO_SUCH_TABLE') {
+                        await connection.query(
+                            `INSERT INTO sarga_jobs
+                            (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            , [
+                                resolvedCustomerId,
+                                line.product_id || null,
+                                branchId,
+                                jobNumber,
+                                line.product_name || line.job_name || 'Job',
+                                line.description || null,
+                                Number(line.quantity) || 1,
+                                Number(line.unit_price) || 0,
+                                lineTotal,
+                                lineAdvance,
+                                lineBalance,
+                                paymentStatus,
+                                null,
+                                JSON.stringify(line.applied_extras || [])
+                            ]
+                        );
+                    } else {
+                        throw err;
+                    }
+                }
             }
         }
 
@@ -209,9 +252,11 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
 
         if (jobIds.length > 0) {
             const [jobs] = await connection.query(
-                `SELECT id, total_amount, advance_paid
-                 FROM sarga_jobs
-                 WHERE id IN (${jobIds.map(() => '?').join(',')})`,
+                `SELECT j.id, j.job_number, j.job_name, j.quantity, j.total_amount, j.advance_paid, j.balance_amount, j.payment_status, j.machine_id,
+                       COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
+                 FROM sarga_jobs j
+                 LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                 WHERE j.id IN (${jobIds.map(() => '?').join(',')})`,
                 jobIds
             );
 
@@ -256,12 +301,175 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                     "UPDATE sarga_jobs SET advance_paid = ?, balance_amount = ?, payment_status = ? WHERE id = ?",
                     [effectiveAdvance, effectiveBalance, nextStatus, job.id]
                 );
+
+                // SYNC TO MACHINE
+                if (job.machine_id) {
+                    try {
+                        // Import helper on the fly to avoid circular dependencies if any
+                        const { syncJobToMachineWorkEntry } = require('./jobs');
+
+                        // Recalculate UPI/Cash split for this specific job's share
+                        // For simplicity, we'll pass the whole payment's ratio
+                        const cashRatio = total > 0 ? cash / total : 1;
+                        const upiRatio = total > 0 ? upi / total : 0;
+
+                        await syncJobToMachineWorkEntry({
+                            id: job.id,
+                            job_number: job.job_number,
+                            job_name: job.job_name,
+                            quantity: job.quantity,
+                            total_amount: jobTotal,
+                            advance_paid: effectiveAdvance * cashRatio,
+                            cash_amount: effectiveAdvance * cashRatio,
+                            upi_amount: effectiveAdvance * upiRatio,
+                            balance_amount: effectiveBalance,
+                            payment_status: nextStatus,
+                            customer_name: job.customer_name
+                        }, job.machine_id, req.user.id);
+                    } catch (syncErr) {
+                        console.error(`[MachineSync] Trigger failed for job ${job.id}:`, syncErr);
+                    }
+                }
+            }
+        }
+
+        // ─── Generate gap-free invoice number (inside transaction for atomicity) ───
+        let invoiceNumber = null;
+        try {
+            invoiceNumber = await getNextInvoiceNumber(connection, 'INV');
+            await connection.query(
+                `INSERT INTO sarga_invoices
+                 (invoice_number, financial_year, payment_id, customer_id, total_amount, tax_amount, net_amount, generated_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    invoiceNumber,
+                    invoiceNumber.split('/')[1] || '', // extract FY from 'INV/2025-26/00042'
+                    paymentId,
+                    resolvedCustomerId,
+                    total,
+                    (Number(sgst_amount) || 0) + (Number(cgst_amount) || 0),
+                    Number(net_amount) || total,
+                    req.user.id,
+                ]
+            );
+        } catch (invErr) {
+            // Invoice generation is non-critical — log and continue
+            console.error('[Invoice] Sequence error:', invErr.message);
+        }
+
+        // ─── Audit log inside transaction ───
+        await connection.query(
+            `INSERT INTO sarga_audit_logs (user_id_internal, action, details, entity_type, entity_id, ip_address)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [req.user.id, 'CUSTOMER_PAYMENT_ADD', `Payment ${paymentId}${invoiceNumber ? ` (${invoiceNumber})` : ''} for ${customer_name}: ₹${total}`, 'payment', paymentId, req.ip]
+        );
+
+        await connection.commit();
+        res.status(201).json({ id: paymentId, invoice_number: invoiceNumber, balance_amount: balance, message: 'Customer payment recorded' });
+    } catch (err) {
+        await connection.rollback();
+        throw err;
+    } finally {
+        connection.release();
+    }
+}));
+
+
+// --- REFUND ---
+router.post('/customer-payments/refund', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), asyncHandler(async (req, res) => {
+    const { job_id, customer_id, refund_amount, refund_method, reason } = req.body;
+
+    if (!job_id) return res.status(400).json({ message: 'job_id is required' });
+    const amount = Number(refund_amount);
+    if (!amount || amount <= 0) return res.status(400).json({ message: 'Invalid refund amount' });
+
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+        // Fetch the job
+        const [jobs] = await connection.query('SELECT * FROM sarga_jobs WHERE id = ?', [job_id]);
+        if (jobs.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Job not found' });
+        }
+
+        const job = jobs[0];
+        const currentAdvance = Number(job.advance_paid) || 0;
+
+        if (amount > currentAdvance) {
+            await connection.rollback();
+            return res.status(400).json({ message: `Refund amount exceeds advance paid (₹${currentAdvance})` });
+        }
+
+        // Create refunds table if it doesn't exist
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS sarga_refunds (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                job_id INT NOT NULL,
+                customer_id INT,
+                refund_amount DECIMAL(12,2) NOT NULL,
+                refund_method ENUM('Cash','UPI','Cheque','Account Transfer') DEFAULT 'Cash',
+                reason TEXT,
+                processed_by INT,
+                branch_id INT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (job_id) REFERENCES sarga_jobs(id) ON DELETE CASCADE
+            )
+        `);
+
+        // Get branch ID
+        const branchId = ['Admin', 'Accountant'].includes(req.user.role) ? job.branch_id : await getUserBranchId(req.user.id);
+
+        // Insert refund record
+        const [refundResult] = await connection.query(
+            `INSERT INTO sarga_refunds (job_id, customer_id, refund_amount, refund_method, reason, processed_by, branch_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [job_id, customer_id || job.customer_id, amount, refund_method || 'Cash', reason || 'Refund', req.user.id, branchId]
+        );
+
+        // Update job: reduce advance_paid, increase balance_amount, update payment_status
+        const newAdvance = currentAdvance - amount;
+        const jobTotal = Number(job.total_amount) || 0;
+        const newBalance = jobTotal - newAdvance;
+        const newPaymentStatus = newAdvance >= jobTotal ? 'Paid' : (newAdvance > 0 ? 'Partial' : 'Unpaid');
+
+        await connection.query(
+            'UPDATE sarga_jobs SET advance_paid = ?, balance_amount = ?, payment_status = ? WHERE id = ?',
+            [newAdvance, newBalance, newPaymentStatus, job_id]
+        );
+
+        // Log status history for the refund
+        await connection.query(
+            `INSERT INTO sarga_job_status_history (job_id, status, staff_id) VALUES (?, ?, ?)`,
+            [job_id, `Refund: ₹${amount}`, req.user.id]
+        ).catch(() => {});
+
+        // Sync to machine if applicable
+        if (job.machine_id) {
+            try {
+                const { syncJobToMachineWorkEntry } = require('./jobs');
+                await syncJobToMachineWorkEntry({
+                    id: job.id,
+                    job_number: job.job_number,
+                    job_name: job.job_name,
+                    quantity: job.quantity,
+                    total_amount: jobTotal,
+                    advance_paid: newAdvance,
+                    cash_amount: refund_method === 'Cash' ? newAdvance : 0,
+                    upi_amount: refund_method === 'UPI' ? newAdvance : 0,
+                    balance_amount: newBalance,
+                    payment_status: newPaymentStatus,
+                    customer_name: job.customer_name
+                }, job.machine_id, req.user.id);
+            } catch (syncErr) {
+                console.error(`[MachineSync] Refund sync failed for job ${job_id}:`, syncErr);
             }
         }
 
         await connection.commit();
-        auditLog(req.user.id, 'CUSTOMER_PAYMENT_ADD', `Added customer payment ${result.insertId} for ${customer_name}`);
-        res.status(201).json({ id: result.insertId, balance_amount: balance, message: 'Customer payment recorded' });
+        auditLog(req.user.id, 'CUSTOMER_REFUND', `Refund ₹${amount} for job ${job.job_number} (ID: ${job_id})`);
+        res.json({ id: refundResult.insertId, message: `Refund of ₹${amount} processed successfully`, new_advance: newAdvance, new_balance: newBalance });
     } catch (err) {
         await connection.rollback();
         throw err;
@@ -276,19 +484,21 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
     const { branch_id, startDate, endDate } = req.query;
 
     try {
-        let branchId;
-        if (req.user.role !== 'Admin') {
-            branchId = await getUserBranchId(req.user.id);
-        } else {
-            branchId = (branch_id && branch_id !== 'undefined' && branch_id !== '') ? Number(branch_id) : null;
+        let branchIds = null;
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+            const userBranch = await getUserBranchId(req.user.id);
+            branchIds = userBranch ? [userBranch] : null;
+        } else if (branch_id && branch_id !== 'undefined' && branch_id !== '') {
+            branchIds = branch_id.split(',').map(Number).filter(Boolean);
+            if (branchIds.length === 0) branchIds = null;
         }
 
         let baseWhere = " WHERE 1=1";
         const params = [];
 
-        if (branchId) {
-            baseWhere += " AND branch_id = ?";
-            params.push(branchId);
+        if (branchIds) {
+            baseWhere += " AND branch_id IN (?)";
+            params.push(branchIds);
         }
 
         const jobWhere = baseWhere + " AND status != 'Cancelled'";
@@ -350,7 +560,7 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
             SELECT 
                 SUM(CASE WHEN DATE(payment_date) = ? AND payment_method = 'Cash' THEN advance_paid ELSE 0 END) as cash_today,
                 SUM(CASE WHEN DATE(payment_date) = ? AND payment_method = 'UPI' THEN advance_paid ELSE 0 END) as upi_today,
-                SUM(CASE WHEN DATE(payment_date) = ? AND payment_method = 'Card' THEN advance_paid ELSE 0 END) as card_today,
+                SUM(CASE WHEN DATE(payment_date) = ? AND payment_method IN ('Cheque', 'Account Transfer') THEN advance_paid ELSE 0 END) as cheque_today,
                 SUM(CASE WHEN DATE(payment_date) = ? THEN advance_paid ELSE 0 END) as total_collected_today,
                 SUM(advance_paid) as total_collected
             FROM sarga_customer_payments
@@ -379,8 +589,8 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
             SELECT m.machine_name, mr.total_copies, mr.reading_date
             FROM sarga_machine_readings mr
             JOIN sarga_machines m ON mr.machine_id = m.id
-            WHERE DATE(mr.reading_date) = ? ${branchId ? " AND m.branch_id = ?" : ""}
-        `, [today, ...(branchId ? [branchId] : [])]);
+            WHERE DATE(mr.reading_date) = ? ${branchIds ? " AND m.branch_id IN (?)" : ""}
+        `, [today, ...(branchIds ? [branchIds] : [])]);
 
         const machineMap = {};
         machineReadings.forEach(r => {
@@ -395,10 +605,10 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
                    COALESCE(c.name, 'Walk-in') as customer_name
             FROM sarga_jobs j
             LEFT JOIN sarga_customers c ON j.customer_id = c.id
-            WHERE 1=1 ${branchId ? " AND j.branch_id = ?" : ""} AND j.status != 'Cancelled'
+            WHERE 1=1 ${branchIds ? " AND j.branch_id IN (?)" : ""} AND j.status != 'Cancelled'
             ORDER BY j.created_at DESC
             LIMIT 5
-        `, branchId ? [branchId] : []);
+        `, branchIds ? [branchIds] : []);
 
         // 7. Status Counts
         const [statusCounts] = await pool.query(`
@@ -429,7 +639,7 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
             payments: {
                 cash_today: Number(payStats.cash_today) || 0,
                 upi_today: Number(payStats.upi_today) || 0,
-                card_today: Number(payStats.card_today) || 0,
+                cheque_today: Number(payStats.cheque_today) || 0,
                 total_collected_today: Number(payStats.total_collected_today) || 0,
                 total_amount: Number(payStats.total_collected) || 0
             },
@@ -451,8 +661,9 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         console.error("Dashboard stats error:", err);
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
 module.exports = router;
+

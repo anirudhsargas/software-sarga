@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { getCroppedBlob } from '../utils/imageCrop';
+import toast from 'react-hot-toast';
 
 const SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -61,7 +62,7 @@ const ImageCropModal = ({ file, title = 'Crop Image', outputSize = 512, onCancel
       onComplete(croppedFile);
     } catch (error) {
       console.error('Image crop failed', error);
-      alert('Unable to crop image. Please try another file.');
+      toast.error('Unable to crop image. Please try another file.');
       setSaving(false);
     }
   };

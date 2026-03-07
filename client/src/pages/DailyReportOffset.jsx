@@ -3,8 +3,11 @@ import { Plus, Trash2, Save, Lock, FileText, IndianRupee, TrendingUp, TrendingDo
 import auth from '../services/auth';
 import api from '../services/api';
 import { serverToday } from '../services/serverTime';
+import { useConfirm } from '../contexts/ConfirmContext';
+import toast from 'react-hot-toast';
 
 const DailyReportOffset = () => {
+    const { confirm } = useConfirm();
     const [reportDate, setReportDate] = useState(serverToday());
     const [loading, setLoading] = useState(false);
     const [report, setReport] = useState(null);
@@ -32,9 +35,7 @@ const DailyReportOffset = () => {
 
     const fetchStaff = async () => {
         try {
-            const response = await api.get('/staff', {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get('/staff');
             setStaff(response.data);
         } catch (error) {
             console.error('Error fetching staff:', error);
@@ -49,15 +50,12 @@ const DailyReportOffset = () => {
                     start_date: reportDate,
                     end_date: reportDate
                 },
-                headers: auth.getAuthHeader()
-            });
+                });
 
             if (response.data.length > 0) {
                 const existingReport = response.data[0];
                 // Load full report details
-                const detailResponse = await api.get(`/daily-reports/offset/${existingReport.id}`, {
-                    headers: auth.getAuthHeader()
-                });
+                const detailResponse = await api.get(`/daily-reports/offset/${existingReport.id}`);
 
                 setReport(detailResponse.data);
                 setOpeningBalance(detailResponse.data.opening_balance);
@@ -76,8 +74,7 @@ const DailyReportOffset = () => {
                 try {
                     const syncResp = await api.get('/daily-reports/offset/sync-data', {
                         params: { date: reportDate },
-                        headers: auth.getAuthHeader()
-                    });
+                        });
                     setOpeningBalance(syncResp.data.previous_closing_balance || 0);
                 } catch {
                     setOpeningBalance(0);
@@ -176,7 +173,13 @@ const DailyReportOffset = () => {
 
     const handleSave = async () => {
         const totalExpenses = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-        if (!window.confirm(`Save daily report for ${reportDate}?\nExpenses: ₹${totalExpenses.toFixed(2)}\nWork entries: ${workEntries.length}\nCredit txns: ${creditTransactions.length}`)) return;
+        const isConfirmed = await confirm({
+            title: 'Save Daily Report',
+            message: `Save daily report for ${reportDate}?\nExpenses: ₹${totalExpenses.toFixed(2)}\nWork entries: ${workEntries.length}\nCredit txns: ${creditTransactions.length}`,
+            confirmText: 'Save',
+            type: 'primary'
+        });
+        if (!isConfirmed) return;
         try {
             setLoading(true);
 
@@ -190,15 +193,13 @@ const DailyReportOffset = () => {
                 staff_attendance: staffAttendance
             };
 
-            await api.post('/daily-reports/offset', payload, {
-                headers: auth.getAuthHeader()
-            });
+            await api.post('/daily-reports/offset', payload);
 
-            alert('Daily report saved successfully!');
+            toast.success('Daily report saved successfully!');
             loadReport();
         } catch (error) {
             console.error('Error saving report:', error);
-            alert(error.response?.data?.error || 'Failed to save report');
+            toast.error(error.response?.data?.error || 'Failed to save report');
         } finally {
             setLoading(false);
         }
@@ -206,21 +207,25 @@ const DailyReportOffset = () => {
 
     const handleFinalize = async () => {
         if (!report?.id) {
-            alert('Please save the report first');
+            toast.success('Please save the report first');
             return;
         }
 
-        if (!confirm('Finalize this report? This action cannot be undone.')) return;
+        const isConfirmed = await confirm({
+            title: 'Finalize Report',
+            message: 'Finalize this report? This action cannot be undone.',
+            confirmText: 'Finalize',
+            type: 'warning'
+        });
+        if (!isConfirmed) return;
 
         try {
-            await api.post(`/daily-reports/offset/${report.id}/finalize`, {}, {
-                headers: auth.getAuthHeader()
-            });
-            alert('Report finalized successfully!');
+            await api.post(`/daily-reports/offset/${report.id}/finalize`, {});
+            toast.success('Report finalized successfully!');
             loadReport();
         } catch (error) {
             console.error('Error finalizing report:', error);
-            alert(error.response?.data?.error || 'Failed to finalize report');
+            toast.error(error.response?.data?.error || 'Failed to finalize report');
         }
     };
 
@@ -229,8 +234,7 @@ const DailyReportOffset = () => {
             setSyncing(true);
             const response = await api.get('/daily-reports/offset/sync-data', {
                 params: { date: reportDate },
-                headers: auth.getAuthHeader()
-            });
+                });
             const { customer_payments, completed_jobs, expense_payments, previous_closing_balance } = response.data;
 
             let addedWork = 0, addedExpenses = 0, addedCredit = 0;
@@ -317,11 +321,11 @@ const DailyReportOffset = () => {
             setTimeout(() => setSyncSummary(null), 5000);
 
             if (addedWork === 0 && addedExpenses === 0 && addedCredit === 0) {
-                alert('Everything is already synced. No new data found.');
+                toast.success('Everything is already synced. No new data found.');
             }
         } catch (error) {
             console.error('Error syncing from billing:', error);
-            alert('Failed to sync data from billing');
+            toast.error('Failed to sync data from billing');
         } finally {
             setSyncing(false);
         }
@@ -370,8 +374,8 @@ const DailyReportOffset = () => {
             </div>
 
             {syncSummary && (
-                <div className="panel" style={{ background: 'var(--success-bg, #dcfce7)', border: '1px solid var(--success, #16a34a)', padding: '10px 16px', borderRadius: '8px' }}>
-                    <span style={{ color: 'var(--success, #16a34a)', fontWeight: 500, fontSize: 14 }}>✓ {syncSummary}</span>
+                <div className="panel" style={{ background: 'var(--success-bg, #dcfce7)', border: '1px solid var(--success, var(--success))', padding: '10px 16px', borderRadius: '8px' }}>
+                    <span style={{ color: 'var(--success, var(--success))', fontWeight: 500, fontSize: 14 }}>✓ {syncSummary}</span>
                 </div>
             )}
 

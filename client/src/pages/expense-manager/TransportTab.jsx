@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Truck, Plus, Edit2, Trash2, Download, IndianRupee, TrendingUp, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, TRANSPORT_EXPENSE_TYPES } from './constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 const defaultForm = { transport_type: '', vehicle_number: '', driver_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', from_location: '', to_location: '', distance_km: '' };
 
 const TransportTab = ({ onError }) => {
+  const { confirm } = useConfirm();
   const [dashboard, setDashboard] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -14,8 +16,8 @@ const TransportTab = ({ onError }) => {
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchDashboard = useCallback(async () => { try { const r = await api.get('/transport-dashboard'); setDashboard(r.data); } catch {} }, []);
-  const fetchExpenses = useCallback(async () => { try { const r = await api.get('/transport-expenses'); setExpenses(r.data); } catch {} }, []);
+  const fetchDashboard = useCallback(async () => { try { const r = await api.get('/transport-dashboard'); setDashboard(r.data); } catch { } }, []);
+  const fetchExpenses = useCallback(async () => { try { const r = await api.get('/transport-expenses'); setExpenses(r.data); } catch { } }, []);
 
   useEffect(() => { fetchDashboard(); fetchExpenses(); }, [fetchDashboard, fetchExpenses]);
 
@@ -40,8 +42,14 @@ const TransportTab = ({ onError }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this transport expense?')) return;
-    try { await api.delete(`/transport-expenses/${id}`); fetchDashboard(); fetchExpenses(); } catch {}
+    const isConfirmed = await confirm({
+      title: 'Delete Transport Expense',
+      message: 'Are you sure you want to delete this transport expense?',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
+    try { await api.delete(`/transport-expenses/${id}`); fetchDashboard(); fetchExpenses(); } catch { }
   };
 
   return (
@@ -80,7 +88,7 @@ const TransportTab = ({ onError }) => {
 
       {/* Transport Form Modal */}
       {showForm && (
-        <div className="modal-backdrop" onClick={() => { setShowForm(false); setConfirming(false); }}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) { setShowForm(false); setConfirming(false); } }}>
           <div className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>{editing ? 'Edit' : 'Add'} Transport Expense</h2><button className="btn btn-ghost btn-icon" onClick={() => { setShowForm(false); setConfirming(false); }}><X size={18} /></button></div>
             {!confirming ? (

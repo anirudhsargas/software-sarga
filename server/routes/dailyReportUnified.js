@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const auth = require('../middleware/auth');
+const { auditLog } = require('../helpers');
 
 // ==================== HELPER: Get Branch ID ====================
 const getBranchId = (user, queryBranchId) => {
@@ -81,6 +82,7 @@ router.put('/opening-balance', auth.authenticate, async (req, res) => {
             [date, branchId, book_type, cash_opening || 0, req.user.id, isAdmin ? 0 : 1]
         );
 
+        auditLog(req.user.id, 'OPENING_BALANCE_SET', `Set ${book_type} opening balance ₹${cash_opening} for ${date}`, { entity_type: 'opening_balance' });
         res.json({ message: 'Opening balance saved', book_type, cash_opening, is_locked: !isAdmin });
     } catch (error) {
         console.error('Error saving opening balance:', error);
@@ -98,12 +100,21 @@ router.post('/change-request', auth.authenticate, async (req, res) => {
             return res.status(400).json({ error: 'Date and request_type are required' });
         }
 
-        // Check for existing pending request
+        // Check for existing pending request (more precise check)
         const [pending] = await pool.query(
             `SELECT id FROM sarga_opening_change_requests
              WHERE report_date = ? AND branch_id = ? AND request_type = ? AND status = 'Pending'
-               AND (book_type = ? OR book_type IS NULL) AND (machine_id = ? OR machine_id IS NULL)`,
-            [date, branchId, request_type, book_type || null, machine_id || null]
+               AND (
+                 (? IS NULL AND book_type IS NULL) OR (? IS NOT NULL AND book_type = ?)
+               )
+               AND (
+                 (? IS NULL AND machine_id IS NULL) OR (? IS NOT NULL AND machine_id = ?)
+               )`,
+            [
+                date, branchId, request_type,
+                book_type || null, book_type || null, book_type || null,
+                machine_id || null, machine_id || null, machine_id || null
+            ]
         );
         if (pending.length > 0) {
             return res.status(400).json({ error: 'A pending request already exists for this item.' });
@@ -114,13 +125,17 @@ router.post('/change-request', auth.authenticate, async (req, res) => {
              (requester_id, branch_id, report_date, request_type, book_type, machine_id, current_value, requested_value, note)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [req.user.id, branchId, date, request_type, book_type || null, machine_id || null,
-             current_value || 0, requested_value || 0, note || null]
+            current_value || 0, requested_value || 0, note || null]
         );
 
+        auditLog(req.user.id, 'CHANGE_REQUEST_SUBMIT', `Submitted ${request_type} change request for ${date}`, { entity_type: 'change_request' });
         res.json({ message: 'Change request submitted for Admin approval.' });
     } catch (error) {
         console.error('Error submitting change request:', error);
-        res.status(500).json({ error: 'Failed to submit change request' });
+        res.status(500).json({
+            error: 'Failed to submit change request',
+            details: error.message
+        });
     }
 });
 
@@ -152,8 +167,8 @@ router.get('/change-requests', auth.authenticate, async (req, res) => {
 
 router.post('/change-requests/:id/review', auth.authenticate, async (req, res) => {
     try {
-        if (req.user.role !== 'Admin') {
-            return res.status(403).json({ error: 'Only Admin can review requests' });
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+            return res.status(403).json({ error: 'Only Admin/Accountant can review requests' });
         }
 
         const { action } = req.body;
@@ -188,12 +203,14 @@ router.post('/change-requests/:id/review', auth.authenticate, async (req, res) =
                 `UPDATE sarga_opening_change_requests SET status = 'Approved', reviewed_by = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?`,
                 [req.user.id, requestId]
             );
+            auditLog(req.user.id, 'CHANGE_REQUEST_APPROVE', `Approved change request #${requestId}: ${request.request_type}`, { entity_type: 'change_request', entity_id: requestId });
             res.json({ message: 'Request approved and value updated' });
         } else {
             await pool.query(
                 `UPDATE sarga_opening_change_requests SET status = 'Rejected', reviewed_by = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?`,
                 [req.user.id, requestId]
             );
+            auditLog(req.user.id, 'CHANGE_REQUEST_REJECT', `Rejected change request #${requestId}: ${request.request_type}`, { entity_type: 'change_request', entity_id: requestId });
             res.json({ message: 'Request rejected' });
         }
     } catch (error) {
@@ -245,7 +262,7 @@ router.get('/offset-live', auth.authenticate, async (req, res) => {
                     cp.created_at
              FROM sarga_customer_payments cp
              WHERE DATE(cp.payment_date) = ? AND cp.branch_id = ?
-             ORDER BY cp.created_at ASC`,
+             ORDER BY cp.created_at DESC`,
             [date, branchId]
         );
 
@@ -256,7 +273,7 @@ router.get('/offset-live', auth.authenticate, async (req, res) => {
                     p.created_at
              FROM sarga_payments p
              WHERE DATE(p.payment_date) = ? AND p.branch_id = ?
-             ORDER BY p.created_at ASC`,
+             ORDER BY p.created_at DESC`,
             [date, branchId]
         );
 
@@ -341,7 +358,7 @@ router.get('/offset-live', auth.authenticate, async (req, res) => {
 
         res.json({
             entries: [...workEntries, ...expenseEntries].sort((a, b) =>
-                new Date(a.time) - new Date(b.time)
+                new Date(b.time) - new Date(a.time)
             ),
             summary: {
                 cash_opening: cashOpening,
@@ -369,14 +386,32 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
 
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
-        // 1. Get all active Digital machines for this branch
-        const [machines] = await pool.query(
-            `SELECT m.id, m.machine_name, m.machine_type, m.counter_type, m.location
-             FROM sarga_machines m
-             WHERE m.branch_id = ? AND m.is_active = 1 AND m.machine_type = 'Digital'
-             ORDER BY m.machine_name ASC`,
-            [branchId]
-        );
+        // 1. Get active Digital machines for this branch.
+        // For non-admin users, restrict to machines assigned to the user.
+        let machines;
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+            const [rows] = await pool.query(
+                `SELECT m.id, m.machine_name, m.machine_type, m.counter_type, m.location
+                 FROM sarga_machines m
+                 JOIN sarga_machine_staff_assignments msa ON msa.machine_id = m.id AND msa.staff_id = ?
+                 WHERE m.branch_id = ? AND m.is_active = 1 AND m.machine_type = 'Digital'
+                 ORDER BY m.machine_name ASC`,
+                [req.user.id, branchId]
+            );
+            machines = rows;
+        } else {
+            const [rows] = await pool.query(
+                `SELECT m.id, m.machine_name, m.machine_type, m.counter_type, m.location
+                 FROM sarga_machines m
+                 WHERE m.branch_id = ? AND m.is_active = 1 AND m.machine_type = 'Digital'
+                 ORDER BY m.machine_name ASC`,
+                [branchId]
+            );
+            machines = rows;
+        }
+        try {
+            console.log(`[DailyReport] laser-live requested by user id=${req.user.id} role=${req.user.role} branch=${branchId} -> machines_count=${machines.length}`);
+        } catch (e) { }
 
         // 2. Get machine readings for today
         const machineIds = machines.map(m => m.id);
@@ -416,20 +451,21 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
                  WHERE drm.report_date = ? AND drm.machine_id IN (${machineIds.map(() => '?').join(',')})`,
                 [date, ...machineIds]
             );
-
-            const reportIds = reports.map(r => r.id);
+            const reportIds = reports.map(r => r.report_id);
             if (reportIds.length > 0) {
                 const [entries] = await pool.query(
-                    `SELECT mwe.*, drm.machine_id
+                    `SELECT mwe.*, drm.machine_id, m.machine_name
                      FROM sarga_machine_work_entries mwe
                      JOIN sarga_daily_report_machine drm ON mwe.report_id = drm.id
+                     JOIN sarga_machines m ON drm.machine_id = m.id
                      WHERE mwe.report_id IN (${reportIds.map(() => '?').join(',')})
-                     ORDER BY mwe.entry_time ASC`,
+                     ORDER BY mwe.id DESC`,
                     [...reportIds]
                 );
                 workEntries = entries.map(e => ({
                     id: e.id,
                     machine_id: e.machine_id,
+                    machine_name: e.machine_name,
                     type: 'income',
                     description: e.customer_name,
                     details: e.work_details,
@@ -488,21 +524,17 @@ router.get('/other-live', auth.authenticate, async (req, res) => {
 
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
-        // For "Other" tab, show jobs that aren't offset printing or digital/laser work
-        // Filter by job_name patterns since product_id may not exist on all setups
+        // For "Other" tab, show jobs with category 'Other'
         const [otherJobs] = await pool.query(
             `SELECT j.id, j.job_number, j.job_name, j.description, j.total_amount,
-                    j.advance_paid, j.balance_amount, j.payment_status, j.status,
-                    COALESCE(c.name, 'Walk-in') as customer_name,
-                    j.created_at
-             FROM sarga_jobs j
-             LEFT JOIN sarga_customers c ON j.customer_id = c.id
-             WHERE DATE(j.created_at) = ? AND j.branch_id = ?
-               AND (j.job_name LIKE '%memento%' OR j.job_name LIKE '%photo%' OR j.job_name LIKE '%frame%'
-                    OR j.job_name LIKE '%gift%' OR j.job_name LIKE '%other%'
-                    OR j.job_name LIKE '%lamination%' OR j.job_name LIKE '%spiral%'
-                    OR j.job_name LIKE '%binding%' OR j.job_name LIKE '%id card%')
-             ORDER BY j.created_at ASC`,
+                                        j.advance_paid, j.balance_amount, j.payment_status, j.status,
+                                        COALESCE(c.name, 'Walk-in') as customer_name,
+                                        j.created_at
+                         FROM sarga_jobs j
+                         LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                         WHERE DATE(j.created_at) = ? AND j.branch_id = ?
+                             AND j.category = 'Other'
+                         ORDER BY j.created_at DESC`,
             [date, branchId]
         );
 
@@ -602,6 +634,27 @@ router.get('/live-counts', auth.authenticate, async (req, res) => {
             [date, branchId]
         );
 
+        // 4. Laser income counts (from machine work entries)
+        const [[laserIncome]] = await pool.query(
+            `SELECT COUNT(*) as count,
+                    COALESCE(SUM(mwe.total_amount), 0) as total_amount,
+                    COALESCE(SUM(mwe.cash_amount), 0) as total_cash,
+                    COALESCE(SUM(mwe.upi_amount), 0) as total_upi
+             FROM sarga_machine_work_entries mwe
+             JOIN sarga_daily_report_machine drm ON mwe.report_id = drm.id
+             WHERE drm.report_date = ? AND drm.branch_id = ?`,
+            [date, branchId]
+        );
+
+        // 5. Other income counts (from jobs with category 'Other')
+        const [[otherIncome]] = await pool.query(
+            `SELECT COUNT(*) as count,
+                    COALESCE(SUM(advance_paid), 0) as total_collected
+             FROM sarga_jobs
+             WHERE DATE(created_at) = ? AND branch_id = ? AND category = 'Other'`,
+            [date, branchId]
+        );
+
         res.json({
             offset: {
                 income_count: offsetCount.count,
@@ -613,7 +666,15 @@ router.get('/live-counts', auth.authenticate, async (req, res) => {
             },
             laser: {
                 machine_count: machineCount.count,
-                total_copies: Number(machineCopies.total)
+                total_copies: Number(machineCopies.total),
+                income_count: laserIncome.count,
+                total_collected: Number(laserIncome.total_cash) + Number(laserIncome.total_upi),
+                total_cash_in: Number(laserIncome.total_cash),
+                total_upi_in: Number(laserIncome.total_upi)
+            },
+            other: {
+                income_count: otherIncome.count,
+                total_collected: Number(otherIncome.total_collected)
             }
         });
     } catch (error) {
@@ -623,3 +684,4 @@ router.get('/live-counts', auth.authenticate, async (req, res) => {
 });
 
 module.exports = router;
+

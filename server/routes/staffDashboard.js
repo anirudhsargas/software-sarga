@@ -161,12 +161,35 @@ router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accou
             `, [id, base_salary, net_salary, payment_month, bonus || 0, deduction || 0, paid_date, payment_method, reference_number, notes, status]);
         }
 
+        // Fetch staff info for payment record
+        const [[staff]] = await pool.query('SELECT name, branch_id FROM sarga_staff WHERE id = ?', [id]);
+        if (!staff) return res.status(404).json({ message: 'Staff not found' });
+
         if (paidAmount > 0) {
+            // Record in staff specific table
             await pool.query(`
                 INSERT INTO sarga_staff_salary_payments
                 (staff_id, payment_date, payment_amount, payment_method, reference_number, notes, created_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             `, [id, effectiveDate, paidAmount, payment_method, reference_number, notes, req.user.id]);
+
+            // record in global payments table for Daily Report
+            await pool.query(`
+                INSERT INTO sarga_payments 
+                (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date, staff_id) 
+                VALUES (?, 'Salary', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                staff.branch_id,
+                staff.name,
+                paidAmount,
+                payment_method,
+                payment_method === 'UPI' ? 0 : paidAmount,
+                payment_method === 'UPI' ? paidAmount : 0,
+                reference_number,
+                `Salary payment for ${payment_month} ${notes ? '- ' + notes : ''}`,
+                effectiveDate,
+                id
+            ]);
         }
 
         auditLog(req.user.id, 'SALARY_PAYMENT', `Paid salary to staff ${id} for ${payment_month}`);
@@ -178,32 +201,46 @@ router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accou
 });
 
 // Record Attendance for Staff
+// Regular attendance marking: Present, Absent, Half Day only
 router.post('/:id/attendance', authenticateToken, validate(attendanceSchema), async (req, res) => {
     const { id } = req.params;
     const { attendance_date, status, notes } = req.body;
 
     // Authorization
-    if (req.user.role !== 'Admin' && req.user.role !== 'Accountant') {
-        return res.status(403).json({ message: 'Only Admin/Accountant can record attendance' });
+    const allowedRoles = ["Admin", "Accountant", "Front Office", "front office"];
+    if (!allowedRoles.includes(req.user.role)) {
+        return res.status(403).json({ message: 'Only Admin/Accountant/Front Office can record attendance' });
     }
 
     if (!attendance_date || !status) {
         return res.status(400).json({ message: 'Attendance date and status required' });
     }
 
-    const validStatus = ['Present', 'Absent', 'Leave', 'Holiday'];
+    const validStatus = ['Present', 'Absent', 'Half Day'];
     if (!validStatus.includes(status)) {
-        return res.status(400).json({ message: 'Invalid status' });
+        return res.status(400).json({ message: 'Invalid status. Only Present, Absent, Half Day allowed.' });
     }
 
     try {
-        // Check if date is Sunday (holiday)
+        // If Sunday, only Admin can override to Present
         const date = new Date(attendance_date);
         const isSunday = date.getDay() === 0;
+        if (isSunday && status === 'Present' && req.user.role !== 'Admin') {
+            return res.status(403).json({ message: 'Only Admin can mark Present on Sunday.' });
+        }
 
-        const finalStatus = isSunday ? 'Holiday' : status;
+        // Check if attendance already exists for this staff and date
+        const [existing] = await pool.query(
+            'SELECT id FROM sarga_staff_attendance WHERE staff_id = ? AND attendance_date = ?',
+            [id, attendance_date]
+        );
 
-        // Insert or update attendance
+        if (existing.length > 0 && req.user.role !== 'Admin') {
+            // Non-admins cannot update existing attendance
+            return res.status(403).json({ message: 'Attendance already marked for this date. Only Admin can update. Please send a change request to Admin.' });
+        }
+
+        // Insert or update attendance (only Admin can update)
         await pool.query(`
             INSERT INTO sarga_staff_attendance 
             (staff_id, attendance_date, status, notes, created_by)
@@ -211,13 +248,74 @@ router.post('/:id/attendance', authenticateToken, validate(attendanceSchema), as
             ON DUPLICATE KEY UPDATE 
             status = VALUES(status), 
             notes = VALUES(notes)
-        `, [id, attendance_date, finalStatus, notes, req.user.id]);
+        `, [id, attendance_date, status, notes, req.user.id]);
 
-        auditLog(req.user.id, 'ATTENDANCE_RECORD', `Recorded attendance for staff ${id} on ${attendance_date}: ${finalStatus}`);
+        auditLog(req.user.id, 'ATTENDANCE_RECORD', `Recorded attendance for staff ${id} on ${attendance_date}: ${status}`);
         res.json({ message: 'Attendance recorded successfully' });
     } catch (err) {
         console.error('Attendance error:', err);
         res.status(500).json({ message: 'Failed to record attendance' });
+    }
+});
+
+// Admin/Accountant: Mark a date as Holiday for all or selected staff
+router.post('/mark-holiday', authenticateToken, async (req, res) => {
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+        return res.status(403).json({ message: 'Only Admin/Accountant can mark holidays.' });
+    }
+    const { date, staffIds, reason } = req.body;
+    if (!date || !reason) {
+        return res.status(400).json({ message: 'Date and reason required.' });
+    }
+    try {
+        // If staffIds provided, mark holiday for those staff, else for all
+        let staffList = staffIds;
+        if (!Array.isArray(staffList) || staffList.length === 0) {
+            // Get all staff
+            const [rows] = await pool.query('SELECT id FROM sarga_staff');
+            staffList = rows.map(r => r.id);
+        }
+        for (const staffId of staffList) {
+            await pool.query(
+                'INSERT INTO sarga_staff_attendance (staff_id, attendance_date, status, notes, created_by) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status), notes = VALUES(notes)',
+                [staffId, date, 'Holiday', reason, req.user.id]
+            );
+        }
+        auditLog(req.user.id, 'HOLIDAY_MARK', `Marked holiday on ${date} for staff: ${staffList.join(', ')}. Reason: ${reason}`);
+        res.json({ message: 'Holiday marked successfully.' });
+    } catch (err) {
+        console.error('Holiday marking error:', err);
+        res.status(500).json({ message: 'Failed to mark holiday.' });
+    }
+});
+
+// Request Attendance Change (Non-Admin)
+router.post('/:id/attendance-change-request', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { attendance_date, requested_status, requested_time, requested_notes, requested_by } = req.body;
+
+    // Only Front Office/Accountant can request for themselves or others
+    const allowedRoles = ["Admin", "Accountant", "Front Office", "front office"];
+    if (!allowedRoles.includes(req.user.role)) {
+        return res.status(403).json({ message: 'Only Admin/Accountant/Front Office can request attendance change' });
+    }
+
+    if (!attendance_date || !requested_status) {
+        return res.status(400).json({ message: 'Attendance date and requested status are required' });
+    }
+
+    try {
+        await pool.query(`
+            INSERT INTO sarga_attendance_requests 
+            (staff_id, attendance_date, requested_status, requested_time, requested_notes, requested_by)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [id, attendance_date, requested_status, requested_time || null, requested_notes || null, requested_by]);
+
+        auditLog(req.user.id, 'ATTENDANCE_CHANGE_REQUEST', `Requested attendance change for staff ${id} on ${attendance_date} to ${requested_status}`);
+        res.json({ message: 'Attendance change request submitted successfully' });
+    } catch (err) {
+        console.error('Attendance change request error:', err);
+        res.status(500).json({ message: 'Failed to submit attendance change request' });
     }
 });
 
@@ -233,10 +331,10 @@ router.get('/:id/attendance/:year_month', authenticateToken, async (req, res) =>
 
         const [rows] = await pool.query(`
             SELECT * FROM sarga_staff_attendance
-            WHERE staff_id = ? 
+            WHERE staff_id = ?
             AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
-            ORDER BY attendance_date ASC
-        `, [id, year_month]);
+                ORDER BY attendance_date ASC
+            `, [id, year_month]);
 
         // Calculate summary
         const present = rows.filter(r => r.status === 'Present').length;
@@ -268,8 +366,8 @@ router.post('/:id/leaves', authenticateToken, async (req, res) => {
     const { year_month, paid_leaves, unpaid_leaves, notes } = req.body;
 
     // Authorization
-    if (req.user.role !== 'Admin') {
-        return res.status(403).json({ message: 'Only Admin can record leaves' });
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+        return res.status(403).json({ message: 'Only Admin/Accountant can record leaves' });
     }
 
     if (!year_month || paid_leaves === undefined || unpaid_leaves === undefined) {
@@ -279,7 +377,7 @@ router.post('/:id/leaves', authenticateToken, async (req, res) => {
     try {
         // Update or insert leave balance
         await pool.query(`
-            INSERT INTO sarga_staff_leave_balance 
+            INSERT INTO sarga_staff_leave_balance
             (staff_id, \`year_month\`, paid_leaves_used, unpaid_leaves_used, noted)
             VALUES (?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE 
@@ -389,3 +487,4 @@ router.get('/:id/salary-calculation/:year_month', authenticateToken, async (req,
 });
 
 module.exports = router;
+

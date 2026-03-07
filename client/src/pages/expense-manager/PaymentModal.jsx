@@ -50,7 +50,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
   const isPartial = form.is_partial_payment && billTotal > 0 && payAmount < billTotal;
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="em-modal" onClick={e => e.stopPropagation()}>
         <div className="em-modal__header">
           <h2>Record Payment</h2>
@@ -99,29 +99,31 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                   <input className="em-input" value={form.payee_name} onChange={e => setForm(p => ({ ...p, payee_name: e.target.value }))} placeholder="Name" required />
                 </div>
 
-                {/* Partial Payment Toggle */}
-                <div className="em-form-group em-form-group--full" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: 0 }}>
-                    <input type="checkbox" checked={form.is_partial_payment || false}
-                      onChange={e => setForm(p => ({ ...p, is_partial_payment: e.target.checked }))} />
-                    Partial Payment
-                  </label>
-                  {form.is_partial_payment && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-                      <label style={{ fontSize: 13, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Bill Total:</label>
-                      <input className="em-input" type="number" min="0" step="0.01" style={{ maxWidth: 140 }}
-                        value={form.bill_total_amount} placeholder="Full bill amount"
-                        onChange={e => setForm(p => ({ ...p, bill_total_amount: e.target.value }))} />
-                    </div>
-                  )}
-                </div>
+                {/* Partial Payment Toggle (Hidden for Utilities) */}
+                {form.type !== 'Utility' && (
+                  <div className="em-form-group em-form-group--full" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: 0 }}>
+                      <input type="checkbox" checked={form.is_partial_payment || false}
+                        onChange={e => setForm(p => ({ ...p, is_partial_payment: e.target.checked }))} />
+                      Partial Payment
+                    </label>
+                    {form.is_partial_payment && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                        <label style={{ fontSize: 13, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Bill Total:</label>
+                        <input className="em-input" type="number" min="0" step="0.01" style={{ maxWidth: 140 }}
+                          value={form.bill_total_amount} placeholder="Full bill amount"
+                          onChange={e => setForm(p => ({ ...p, bill_total_amount: e.target.value }))} />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="em-form-group">
                   <label>Amount (₹) *{form.is_partial_payment ? ' (paying now)' : ''}</label>
                   <input className="em-input" type="number" min="0" step="0.01" value={form.amount}
                     onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} required />
                   {isPartial && (
-                    <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 4 }}>
+                    <div style={{ fontSize: 12, color: 'var(--warning)', marginTop: 4 }}>
                       Remaining after this: ₹{fmt(billTotal - payAmount)}
                     </div>
                   )}
@@ -154,7 +156,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                           setForm(p => ({ ...p, upi_amount: e.target.value, cash_amount: String(Math.max(total - upi, 0)) }));
                         }} />
                     </div>
-                    {!bothValid && <div style={{ gridColumn: '1/-1', color: '#dc2626', fontSize: 13 }}>Cash + UPI must equal ₹{fmt(Number(form.amount))}</div>}
+                    {!bothValid && <div style={{ gridColumn: '1/-1', color: 'var(--error)', fontSize: 13 }}>Cash + UPI must equal ₹{fmt(Number(form.amount))}</div>}
                   </>
                 )}
 
@@ -162,10 +164,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                   <label>Reference #</label>
                   <input className="em-input" value={form.reference_number} onChange={e => setForm(p => ({ ...p, reference_number: e.target.value }))} placeholder="Bill/cheque/transaction number" />
                 </div>
-                <div className="em-form-group">
-                  <label>Date</label>
-                  <input className="em-input" type="date" value={form.payment_date} onChange={e => setForm(p => ({ ...p, payment_date: e.target.value }))} />
-                </div>
+
                 <div className="em-form-group em-form-group--full">
                   <label>Description</label>
                   <input className="em-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Payment notes" />
@@ -205,7 +204,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                   {isPartial && (
                     <div className="em-confirm-summary__row">
                       <span className="em-confirm-summary__label">Remaining</span>
-                      <span className="em-confirm-summary__value" style={{ color: '#f59e0b' }}>₹{fmt(billTotal - payAmount)}</span>
+                      <span className="em-confirm-summary__value" style={{ color: 'var(--warning)' }}>₹{fmt(billTotal - payAmount)}</span>
                     </div>
                   )}
                   <div className="em-confirm-summary__row">
@@ -224,10 +223,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                       </div>
                     </>
                   )}
-                  <div className="em-confirm-summary__row">
-                    <span className="em-confirm-summary__label">Date</span>
-                    <span className="em-confirm-summary__value">{form.payment_date}</span>
-                  </div>
+
                   {form.reference_number && (
                     <div className="em-confirm-summary__row">
                       <span className="em-confirm-summary__label">Reference</span>

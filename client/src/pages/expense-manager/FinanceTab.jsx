@@ -9,7 +9,7 @@ import auth from '../../services/auth';
 import { fmt, fmtDate, today, thisMonth } from './constants';
 
 const defaultEmiForm = { institution_name: '', emi_type: 'Loan', loan_amount: '', monthly_emi: '', tenure_months: '', start_date: today(), due_day: '1', branch_id: '', remarks: '' };
-const defaultKuriForm = { kuri_name: '', organizer: '', total_amount: '', monthly_installment: '', duration_months: '', start_date: today(), due_day: '1', branch_id: '', remarks: '' };
+const defaultKuriForm = { kuri_name: '', organizer_name: '', organizer_phone: '', total_amount: '', monthly_installment: '', duration_months: '', start_date: today(), due_day: '1', branch_id: '', description: '' };
 
 const FinanceTab = ({ branches, onError }) => {
   const [subTab, setSubTab] = useState('kuri');
@@ -51,16 +51,16 @@ const FinanceTab = ({ branches, onError }) => {
   const [paySubmitting, setPaySubmitting] = useState(false);
 
   const fetchEmis = useCallback(async () => {
-    try { const r = await api.get('/emi-master', { params: { is_active: 1 } }); setEmis(r.data); } catch {}
+    try { const r = await api.get('/emi-master', { params: { is_active: 1 } }); setEmis(r.data); } catch { }
   }, []);
   const fetchKuris = useCallback(async () => {
-    try { const r = await api.get('/kuri-master', { params: { is_active: 1 } }); setKuris(r.data); } catch {}
+    try { const r = await api.get('/kuri-master', { params: { is_active: 1 } }); setKuris(r.data); } catch { }
   }, []);
   const fetchEmiDash = useCallback(async () => {
-    try { const r = await api.get('/emi-dashboard'); setEmiDash(r.data); } catch {}
+    try { const r = await api.get('/emi-dashboard'); setEmiDash(r.data); } catch { }
   }, []);
   const fetchKuriDash = useCallback(async () => {
-    try { const r = await api.get('/kuri-dashboard'); setKuriDash(r.data); } catch {}
+    try { const r = await api.get('/kuri-dashboard'); setKuriDash(r.data); } catch { }
   }, []);
 
   useEffect(() => { fetchEmis(); fetchKuris(); fetchEmiDash(); fetchKuriDash(); }, [fetchEmis, fetchKuris, fetchEmiDash, fetchKuriDash]);
@@ -80,7 +80,14 @@ const FinanceTab = ({ branches, onError }) => {
   const submitEmi = async (e) => {
     e.preventDefault();
     const action = editingEmi ? 'Update' : 'Create';
-    if (!window.confirm(`${action} EMI record "${emiForm.institution_name}"?\nAmount: ₹${emiForm.emi_amount || 0}/month`)) return;
+    const isConfirmed = await confirm({
+      title: `${action} EMI Record`,
+      message: `Are you sure you want to ${action.toLowerCase()} the EMI record for "${emiForm.institution_name}"?\n\nAmount: ₹${fmt(emiForm.emi_amount || 0)}/month`,
+      confirmText: action,
+      type: 'primary'
+    });
+    if (!isConfirmed) return;
+
     try {
       if (editingEmi) await api.put(`/emi-master/${editingEmi.id}`, emiForm);
       else await api.post('/emi-master', emiForm);
@@ -90,7 +97,14 @@ const FinanceTab = ({ branches, onError }) => {
   const submitKuri = async (e) => {
     e.preventDefault();
     const action = editingKuri ? 'Update' : 'Create';
-    if (!window.confirm(`${action} Kuri record "${kuriForm.kuri_name}"?\nAmount: ₹${kuriForm.monthly_amount || 0}/month`)) return;
+    const isConfirmed = await confirm({
+      title: `${action} Kuri Record`,
+      message: `Are you sure you want to ${action.toLowerCase()} the Kuri record for "${kuriForm.kuri_name}"?\n\nAmount: ₹${fmt(kuriForm.monthly_installment || 0)}/month`,
+      confirmText: action,
+      type: 'primary'
+    });
+    if (!isConfirmed) return;
+
     try {
       if (editingKuri) await api.put(`/kuri-master/${editingKuri.id}`, kuriForm);
       else await api.post('/kuri-master', kuriForm);
@@ -121,7 +135,7 @@ const FinanceTab = ({ branches, onError }) => {
       await api.post('/vendor-requests', {
         request_type: 'Kuri',
         name: kuriRequest.kuri_name.trim(),
-        contact_person: kuriRequest.organizer || null,
+        contact_person: kuriRequest.organizer_name || null,
         branch_id: kuriRequest.branch_id || null,
         request_reason: reasonBits || null
       });
@@ -166,7 +180,7 @@ const FinanceTab = ({ branches, onError }) => {
         {loadingDetail ? <div className="em-loading"><Loader2 className="spin" size={20} /></div> : det ? (
           <>
             <div className="em-finance-header">
-              <Landmark size={24} style={{ color: '#3b82f6' }} />
+              <Landmark size={24} style={{ color: 'var(--accent-2)' }} />
               <div><h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{det.institution_name || selectedEmi.institution_name}</h2>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{det.emi_type || selectedEmi.emi_type} · Due day: {det.due_day || selectedEmi.due_day}th</span></div>
               <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => { setPayType('emi'); setPayForm(p => ({ ...p, master_id: selectedEmi.id, amount: String(selectedEmi.monthly_emi || det.monthly_emi || '') })); setShowPayForm(true); }}>
@@ -201,8 +215,12 @@ const FinanceTab = ({ branches, onError }) => {
 
   /* ── Kuri Detail View ── */
   if (selectedKuri) {
-    const det = kuriDetail;
-    const payments = det?.payments || [];
+    const det = kuriDetail?.kuri || kuriDetail;
+    const payments = kuriDetail?.payments || [];
+    const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const totalTarget = Number(det?.total_amount || selectedKuri.total_amount || 0);
+    const remaining = totalTarget - totalPaid;
+    const progressPct = totalTarget > 0 ? Math.min((totalPaid / totalTarget) * 100, 100) : 0;
     return (
       <div className="em-section">
         <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedKuri(null); setKuriDetail(null); }}><ArrowLeft size={16} /> Back to Kuri List</button>
@@ -211,16 +229,24 @@ const FinanceTab = ({ branches, onError }) => {
             <div className="em-finance-header">
               <Repeat size={24} style={{ color: '#8b5cf6' }} />
               <div><h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{det.kuri_name || selectedKuri.kuri_name}</h2>
-                <span style={{ fontSize: 13, color: 'var(--muted)' }}>Organizer: {det.organizer || selectedKuri.organizer || '—'} · Due day: {det.due_day || selectedKuri.due_day}th</span></div>
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>Organizer: {det.organizer_name || selectedKuri.organizer_name || '—'} · Due day: {det.due_day || selectedKuri.due_day}th</span></div>
               <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => { setPayType('kuri'); setPayForm(p => ({ ...p, master_id: selectedKuri.id, amount: String(selectedKuri.monthly_installment || det.monthly_installment || '') })); setShowPayForm(true); }}>
                 <IndianRupee size={14} /> Record Payment
               </button>
             </div>
-            <div className="em-kpi-grid em-kpi-grid--4">
-              <div className="em-kpi-card em-kpi-card--purple"><div className="em-kpi-card__icon"><CreditCard size={22} /></div><div className="em-kpi-card__body"><div className="em-kpi-card__label">Total Amount</div><div className="em-kpi-card__value">₹{fmt(det.total_amount || selectedKuri.total_amount)}</div></div></div>
-              <div className="em-kpi-card em-kpi-card--amber"><div className="em-kpi-card__icon"><Calendar size={22} /></div><div className="em-kpi-card__body"><div className="em-kpi-card__label">Monthly</div><div className="em-kpi-card__value">₹{fmt(det.monthly_installment || selectedKuri.monthly_installment)}</div></div></div>
-              <div className="em-kpi-card em-kpi-card--green"><div className="em-kpi-card__icon"><CheckCircle size={22} /></div><div className="em-kpi-card__body"><div className="em-kpi-card__label">Total Paid</div><div className="em-kpi-card__value">₹{fmt(det.total_paid || 0)}</div></div></div>
+            <div className="em-kpi-grid em-kpi-grid--4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              <div className="em-kpi-card em-kpi-card--purple"><div className="em-kpi-card__icon"><CreditCard size={22} /></div><div className="em-kpi-card__body"><div className="em-kpi-card__label">Total Target Amount</div><div className="em-kpi-card__value">₹{fmt(totalTarget)}</div></div></div>
+              <div className="em-kpi-card em-kpi-card--amber"><div className="em-kpi-card__icon"><Calendar size={22} /></div><div className="em-kpi-card__body"><div className="em-kpi-card__label">Monthly Installment</div><div className="em-kpi-card__value">₹{fmt(det.monthly_installment || selectedKuri.monthly_installment)}</div></div></div>
+              <div className="em-kpi-card em-kpi-card--green"><div className="em-kpi-card__icon"><CheckCircle size={22} /></div><div className="em-kpi-card__body"><div className="em-kpi-card__label">Total Paid</div><div className="em-kpi-card__value">₹{fmt(totalPaid)}</div></div></div>
+              <div className="em-kpi-card em-kpi-card--red"><div className="em-kpi-card__icon"><AlertTriangle size={22} /></div><div className="em-kpi-card__body"><div className="em-kpi-card__label">Remaining Balance</div><div className="em-kpi-card__value">₹{fmt(remaining)}</div></div></div>
               <div className="em-kpi-card em-kpi-card--teal"><div className="em-kpi-card__icon"><TrendingUp size={22} /></div><div className="em-kpi-card__body"><div className="em-kpi-card__label">Duration</div><div className="em-kpi-card__value">{det.duration_months || selectedKuri.duration_months || '—'} mo</div></div></div>
+            </div>
+            {/* Progress bar */}
+            <div className="em-card"><div className="em-card__title">Collection Progress</div>
+              <div className="em-progress-wrap">
+                <div className="em-progress-bar"><div className="em-progress-bar__fill" style={{ width: `${progressPct}%` }} /></div>
+                <div className="em-progress-label">{progressPct.toFixed(1)}% complete</div>
+              </div>
             </div>
             {payments.length > 0 && (
               <div className="em-card"><div className="em-card__title"><Calendar size={16} /> Payment History</div>
@@ -268,7 +294,7 @@ const FinanceTab = ({ branches, onError }) => {
                 return (
                   <div key={e.id} className="em-finance-card" onClick={() => openEmiDetail(e)} style={{ cursor: 'pointer' }}>
                     <div className="em-finance-card__header">
-                      <Landmark size={18} style={{ color: '#3b82f6' }} />
+                      <Landmark size={18} style={{ color: 'var(--accent-2)' }} />
                       <div className="em-finance-card__title">{e.institution_name}</div>
                       <span className="em-type-badge em-type-badge--vendor">{e.emi_type}</span>
                     </div>
@@ -323,11 +349,11 @@ const FinanceTab = ({ branches, onError }) => {
                     <div className="em-finance-card__row"><span>Monthly</span><strong>₹{fmt(k.monthly_installment)}</strong></div>
                     <div className="em-finance-card__row"><span>Due Day</span><strong>{k.due_day}th</strong></div>
                     <div className="em-finance-card__row"><span>Total</span><strong>₹{fmt(k.total_amount)}</strong></div>
-                    {k.organizer && <div className="em-finance-card__row"><span>Organizer</span><strong>{k.organizer}</strong></div>}
+                    {k.organizer_name && <div className="em-finance-card__row"><span>Organizer</span><strong>{k.organizer_name}</strong></div>}
                   </div>
                   <div className="em-finance-card__footer">
                     {isAdmin && (
-                      <button className="btn btn-ghost btn-sm" onClick={(ev) => { ev.stopPropagation(); setEditingKuri(k); setKuriForm({ kuri_name: k.kuri_name, organizer: k.organizer || '', total_amount: k.total_amount, monthly_installment: k.monthly_installment, duration_months: k.duration_months || '', start_date: k.start_date?.slice(0, 10) || '', due_day: k.due_day || '1', branch_id: k.branch_id || '', remarks: k.remarks || '' }); setShowKuriForm(true); }}><Edit2 size={14} /> Edit</button>
+                      <button className="btn btn-ghost btn-sm" onClick={(ev) => { ev.stopPropagation(); setEditingKuri(k); setKuriForm({ kuri_name: k.kuri_name, organizer_name: k.organizer_name || '', organizer_phone: k.organizer_phone || '', total_amount: k.total_amount, monthly_installment: k.monthly_installment, duration_months: k.duration_months || '', start_date: k.start_date?.slice(0, 10) || '', due_day: k.due_day || '1', branch_id: k.branch_id || '', description: k.description || '' }); setShowKuriForm(true); }}><Edit2 size={14} /> Edit</button>
                     )}
                     <button className="btn btn-primary btn-sm" onClick={(ev) => { ev.stopPropagation(); setPayType('kuri'); setPayForm(p => ({ ...p, master_id: k.id, amount: String(k.monthly_installment || '') })); setShowPayForm(true); }}><IndianRupee size={14} /> Pay</button>
                   </div>
@@ -340,7 +366,7 @@ const FinanceTab = ({ branches, onError }) => {
 
       {/* ── Kuri Request Modal (Front Office) ── */}
       {showKuriRequest && (
-        <div className="modal-backdrop" onClick={() => setShowKuriRequest(false)}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowKuriRequest(false); }}>
           <div className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>Request Kuri</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowKuriRequest(false)}><X size={18} /></button></div>
             <form onSubmit={submitKuriRequest}>
@@ -348,7 +374,7 @@ const FinanceTab = ({ branches, onError }) => {
                 {kuriRequestError && <div className="em-error" style={{ marginBottom: 12 }}>{kuriRequestError}</div>}
                 <div className="em-form-grid">
                   <div className="em-form-group"><label>Kuri Name *</label><input className="em-input" value={kuriRequest.kuri_name} onChange={e => setKuriRequest(p => ({ ...p, kuri_name: e.target.value }))} required /></div>
-                  <div className="em-form-group"><label>Organizer</label><input className="em-input" value={kuriRequest.organizer} onChange={e => setKuriRequest(p => ({ ...p, organizer: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Organizer</label><input className="em-input" value={kuriRequest.organizer_name} onChange={e => setKuriRequest(p => ({ ...p, organizer_name: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Monthly Installment (₹)</label><input className="em-input" type="number" min="0" value={kuriRequest.monthly_installment} onChange={e => setKuriRequest(p => ({ ...p, monthly_installment: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Duration (Months)</label><input className="em-input" type="number" min="0" value={kuriRequest.duration_months} onChange={e => setKuriRequest(p => ({ ...p, duration_months: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Start Date</label><input className="em-input" type="date" value={kuriRequest.start_date} onChange={e => setKuriRequest(p => ({ ...p, start_date: e.target.value }))} /></div>
@@ -365,7 +391,7 @@ const FinanceTab = ({ branches, onError }) => {
 
       {/* ── EMI Form Modal ── */}
       {showEmiForm && (
-        <div className="modal-backdrop" onClick={() => setShowEmiForm(false)}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowEmiForm(false); }}>
           <div className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>{editingEmi ? 'Edit' : 'Add'} EMI</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowEmiForm(false)}><X size={18} /></button></div>
             <form onSubmit={submitEmi}>
@@ -390,21 +416,22 @@ const FinanceTab = ({ branches, onError }) => {
 
       {/* ── Kuri Form Modal ── */}
       {showKuriForm && (
-        <div className="modal-backdrop" onClick={() => setShowKuriForm(false)}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowKuriForm(false); }}>
           <div className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>{editingKuri ? 'Edit' : 'Add'} Kuri</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowKuriForm(false)}><X size={18} /></button></div>
             <form onSubmit={submitKuri}>
               <div className="em-modal__body">
                 <div className="em-form-grid">
                   <div className="em-form-group"><label>Kuri Name</label><input className="em-input" value={kuriForm.kuri_name} onChange={e => setKuriForm(p => ({ ...p, kuri_name: e.target.value }))} required /></div>
-                  <div className="em-form-group"><label>Organizer</label><input className="em-input" value={kuriForm.organizer} onChange={e => setKuriForm(p => ({ ...p, organizer: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Organizer Name</label><input className="em-input" value={kuriForm.organizer_name} onChange={e => setKuriForm(p => ({ ...p, organizer_name: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Organizer Phone</label><input className="em-input" value={kuriForm.organizer_phone} onChange={e => setKuriForm(p => ({ ...p, organizer_phone: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Total Amount (₹)</label><input className="em-input" type="number" min="0" value={kuriForm.total_amount} onChange={e => setKuriForm(p => ({ ...p, total_amount: e.target.value }))} required /></div>
                   <div className="em-form-group"><label>Monthly Installment (₹)</label><input className="em-input" type="number" min="0" value={kuriForm.monthly_installment} onChange={e => setKuriForm(p => ({ ...p, monthly_installment: e.target.value }))} required /></div>
                   <div className="em-form-group"><label>Duration (Months)</label><input className="em-input" type="number" min="0" value={kuriForm.duration_months} onChange={e => setKuriForm(p => ({ ...p, duration_months: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Start Date</label><input className="em-input" type="date" value={kuriForm.start_date} onChange={e => setKuriForm(p => ({ ...p, start_date: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Due Day</label><input className="em-input" type="number" min="1" max="31" value={kuriForm.due_day} onChange={e => setKuriForm(p => ({ ...p, due_day: e.target.value }))} /></div>
                   {branches.length > 0 && <div className="em-form-group"><label>Branch</label><select className="em-input" value={kuriForm.branch_id} onChange={e => setKuriForm(p => ({ ...p, branch_id: e.target.value }))}><option value="">Select Branch</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
-                  <div className="em-form-group em-form-group--full"><label>Remarks</label><input className="em-input" value={kuriForm.remarks} onChange={e => setKuriForm(p => ({ ...p, remarks: e.target.value }))} /></div>
+                  <div className="em-form-group em-form-group--full"><label>Remarks</label><input className="em-input" value={kuriForm.description} onChange={e => setKuriForm(p => ({ ...p, description: e.target.value }))} /></div>
                 </div>
               </div>
               <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setShowKuriForm(false)}>Cancel</button><button type="submit" className="btn btn-primary">{editingKuri ? 'Update' : 'Add'}</button></div>
@@ -415,7 +442,7 @@ const FinanceTab = ({ branches, onError }) => {
 
       {/* ── Payment Recording Modal ── */}
       {showPayForm && (
-        <div className="modal-backdrop" onClick={() => { setShowPayForm(false); setPayConfirming(false); }}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) { setShowPayForm(false); setPayConfirming(false); } }}>
           <div className="em-modal em-modal--sm" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>Record {payType === 'emi' ? 'EMI' : 'Kuri'} Payment</h2><button className="btn btn-ghost btn-icon" onClick={() => { setShowPayForm(false); setPayConfirming(false); }}><X size={18} /></button></div>
             {!payConfirming ? (
@@ -423,7 +450,7 @@ const FinanceTab = ({ branches, onError }) => {
                 <div className="em-modal__body">
                   <div className="em-form-grid">
                     <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} required /></div>
-                    <div className="em-form-group"><label>Payment Date</label><input className="em-input" type="date" value={payForm.payment_date} onChange={e => setPayForm(p => ({ ...p, payment_date: e.target.value }))} required /></div>
+
                     <div className="em-form-group"><label>Payment Method</label><select className="em-input" value={payForm.payment_method} onChange={e => setPayForm(p => ({ ...p, payment_method: e.target.value }))}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
                     <div className="em-form-group"><label>Reference #</label><input className="em-input" value={payForm.reference_number} onChange={e => setPayForm(p => ({ ...p, reference_number: e.target.value }))} /></div>
                     <div className="em-form-group em-form-group--full"><label>Remarks</label><input className="em-input" value={payForm.remarks} onChange={e => setPayForm(p => ({ ...p, remarks: e.target.value }))} /></div>
@@ -440,7 +467,7 @@ const FinanceTab = ({ branches, onError }) => {
                       <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">{payType === 'emi' ? 'Institution' : 'Kuri'}</span><span className="em-confirm-summary__value">{getPayMasterName()}</span></div>
                       <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Amount</span><span className="em-confirm-summary__value em-confirm-summary__amount">₹{fmt(Number(payForm.amount))}</span></div>
                       <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Method</span><span className="em-confirm-summary__value">{payForm.payment_method}</span></div>
-                      <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Date</span><span className="em-confirm-summary__value">{payForm.payment_date}</span></div>
+
                       {payForm.reference_number && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Reference</span><span className="em-confirm-summary__value">{payForm.reference_number}</span></div>}
                       {payForm.remarks && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Remarks</span><span className="em-confirm-summary__value">{payForm.remarks}</span></div>}
                     </div>

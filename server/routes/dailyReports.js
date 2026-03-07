@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const auth = require('../middleware/auth');
+const { auditLog } = require('../helpers');
 
 // ==================== GET DAILY REPORTS (OFFSET) ====================
 router.get('/offset', auth.authenticate, async (req, res) => {
@@ -61,7 +62,7 @@ router.get('/offset/sync-data', auth.authenticate, async (req, res) => {
         }
 
         const branchId = (user.role === 'Admin' || user.role === 'Accountant')
-            ? (req.query.branch_id || user.branch_id)
+            ? (req.query.branch_id || null)
             : user.branch_id;
 
         // 1) Customer Payments (billing) for the day — these are INCOME work entries
@@ -199,7 +200,7 @@ router.post('/offset', auth.authenticate, async (req, res) => {
         } = req.body;
 
         const user = req.user;
-        const effectiveBranchId = user.role === 'Admin' ? (branch_id || user.branch_id) : user.branch_id;
+        const effectiveBranchId = ['Admin', 'Accountant'].includes(user.role) ? (branch_id || null) : user.branch_id;
 
         // Check if report exists for this date and branch
         const [existing] = await connection.query(
@@ -322,6 +323,7 @@ router.post('/offset', auth.authenticate, async (req, res) => {
             [reportId]
         );
 
+        auditLog(req.user.id, 'DAILY_REPORT_SAVE', `Saved offset daily report for ${report_date}, branch ${branchId}`, { entity_type: 'daily_report', entity_id: reportId });
         res.json(finalReport[0]);
     } catch (error) {
         await connection.rollback();
@@ -345,6 +347,7 @@ router.post('/offset/:id/finalize', auth.authenticate, auth.requireRole(['Admin'
             [user.id, id]
         );
 
+        auditLog(req.user.id, 'DAILY_REPORT_FINALIZE', `Finalized daily report #${id}`, { entity_type: 'daily_report', entity_id: id });
         res.json({ message: 'Report finalized successfully' });
     } catch (error) {
         console.error('Error finalizing report:', error);
@@ -353,3 +356,4 @@ router.post('/offset/:id/finalize', auth.authenticate, auth.requireRole(['Admin'
 });
 
 module.exports = router;
+

@@ -14,6 +14,11 @@ const pool = mysql.createPool({
 
 const initDb = async () => {
   const connection = await pool.getConnection();
+  const safeIndex = async (name, sql) => {
+    try { await connection.query(sql); }
+    catch (e) { if (e.code !== 'ER_DUP_KEYNAME') throw e; }
+  };
+
   try {
     // Branch Table
     await connection.query(`
@@ -22,9 +27,18 @@ const initDb = async () => {
         name VARCHAR(100) NOT NULL UNIQUE,
         address TEXT,
         phone VARCHAR(20),
+        email VARCHAR(100),
+        smtp_user VARCHAR(100),
+        smtp_pass VARCHAR(100),
+        upi_id VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Add columns if upgrading existing DB
+    try { await connection.query('ALTER TABLE sarga_branches ADD COLUMN email VARCHAR(100)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_branches ADD COLUMN smtp_user VARCHAR(100)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_branches ADD COLUMN smtp_pass VARCHAR(100)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_branches ADD COLUMN upi_id VARCHAR(100)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
 
     // Staff Table
     await connection.query(`
@@ -83,6 +97,9 @@ const initDb = async () => {
         reorder_level INT DEFAULT 0,
         cost_price DECIMAL(10, 2) DEFAULT 0,
         sell_price DECIMAL(10, 2) DEFAULT 0,
+        hsn VARCHAR(20),
+        discount DECIMAL(5, 2) DEFAULT 0,
+        gst_rate DECIMAL(5, 2) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -119,6 +136,25 @@ const initDb = async () => {
         FOREIGN KEY (customer_id) REFERENCES sarga_customers(id) ON DELETE CASCADE
       )
     `);
+
+    // Discount Approval Requests
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_discount_requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        requester_id INT NOT NULL,
+        discount_percent DECIMAL(5,2) NOT NULL,
+        total_amount DECIMAL(12,2),
+        customer_name VARCHAR(255),
+        reason TEXT,
+        approval_level ENUM('accountant_or_admin', 'admin_only') DEFAULT 'admin_only',
+        status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
+        reviewed_by INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        resolved_at TIMESTAMP NULL,
+        FOREIGN KEY (requester_id) REFERENCES sarga_staff(id) ON DELETE CASCADE
+      )
+    `);
+    try { await connection.query("ALTER TABLE sarga_discount_requests ADD COLUMN approval_level ENUM('accountant_or_admin', 'admin_only') DEFAULT 'admin_only'"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
 
     // Product Hierarchy: Categories
     await connection.query(`
@@ -157,12 +193,22 @@ const initDb = async () => {
         has_double_side_rate TINYINT(1) DEFAULT 0,
         position INT NOT NULL DEFAULT 0,
         inventory_item_id INT DEFAULT NULL,
+        is_physical_product TINYINT(1) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (subcategory_id) REFERENCES sarga_product_subcategories(id) ON DELETE CASCADE,
         FOREIGN KEY (inventory_item_id) REFERENCES sarga_inventory(id) ON DELETE SET NULL
       )
     `);
+    // Ensure is_physical_product column exists (for existing tables)
+    try {
+      await connection.query(
+        'ALTER TABLE sarga_products ADD COLUMN is_physical_product TINYINT(1) DEFAULT 0'
+      );
+    } catch (err) {
+      // Column already exists, ignore
+      if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
 
     // Product Slabs (for Interpolation and SlabPlus)
     await connection.query(`
@@ -554,11 +600,28 @@ const initDb = async () => {
         \`year_month\` VARCHAR(7) NOT NULL,
         paid_leaves_used INT DEFAULT 0,
         unpaid_leaves_used INT DEFAULT 0,
-        noted TEXT,
+        notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE,
         UNIQUE KEY unique_leave_balance (staff_id, \`year_month\`)
+      )
+    `);
+
+    // Attendance Change Requests
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_attendance_requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        staff_id INT NOT NULL,
+        attendance_date DATE NOT NULL,
+        requested_status ENUM('Present', 'Absent', 'Half Day', 'Leave', 'Holiday') NOT NULL,
+        requested_time TIME,
+        requested_notes TEXT,
+        requested_by VARCHAR(50) NOT NULL,
+        status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        resolved_at TIMESTAMP NULL,
+        FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE
       )
     `);
 
@@ -569,6 +632,7 @@ const initDb = async () => {
         customer_id INT,
         customer_name VARCHAR(150) NOT NULL,
         customer_mobile VARCHAR(20),
+        bill_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
         total_amount DECIMAL(12, 2) NOT NULL,
         net_amount DECIMAL(12, 2) DEFAULT 0,
         sgst_amount DECIMAL(12, 2) DEFAULT 0,
@@ -604,14 +668,74 @@ const initDb = async () => {
         advance_paid DECIMAL(10,2) DEFAULT 0,
         balance_amount DECIMAL(10,2) DEFAULT 0,
         applied_extras JSON,
+        category VARCHAR(100),
+        subcategory VARCHAR(100),
+        machine_id INT DEFAULT NULL,
         status ENUM('Pending', 'Processing', 'Completed', 'Delivered', 'Cancelled') DEFAULT 'Pending',
         payment_status ENUM('Unpaid', 'Partial', 'Paid') DEFAULT 'Unpaid',
         delivery_date DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (customer_id) REFERENCES sarga_customers(id) ON DELETE SET NULL,
-        FOREIGN KEY (product_id) REFERENCES sarga_products(id) ON DELETE SET NULL,
-        FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE SET NULL
+        FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE SET NULL,
+        FOREIGN KEY (machine_id) REFERENCES sarga_machines(id) ON DELETE SET NULL
+      )
+    `);
+
+    // Ensure columns exist in sarga_jobs
+    const jobsCols = [
+      { name: 'product_id', type: 'INT' },
+      { name: 'applied_extras', type: 'JSON' },
+      { name: 'category', type: 'VARCHAR(100)' },
+      { name: 'subcategory', type: 'VARCHAR(100)' },
+      { name: 'machine_id', type: 'INT' }
+    ];
+
+    for (const col of jobsCols) {
+      try {
+        await connection.query(`ALTER TABLE sarga_jobs ADD COLUMN ${col.name} ${col.type}`);
+      } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+    }
+
+    // Ensure foreign key for machine_id in sarga_jobs
+    try {
+      await connection.query(`
+        ALTER TABLE sarga_jobs 
+        ADD CONSTRAINT fk_jobs_machine 
+        FOREIGN KEY (machine_id) REFERENCES sarga_machines(id) ON DELETE SET NULL
+      `);
+    } catch (err) { }
+
+    // Ensure columns exist in sarga_customer_payments
+    const payCols = [
+      { name: 'bill_amount', type: 'DECIMAL(12, 2) NOT NULL DEFAULT 0' },
+      { name: 'net_amount', type: 'DECIMAL(12, 2) DEFAULT 0' },
+      { name: 'sgst_amount', type: 'DECIMAL(12, 2) DEFAULT 0' },
+      { name: 'cgst_amount', type: 'DECIMAL(12, 2) DEFAULT 0' },
+      { name: 'cash_amount', type: 'DECIMAL(12, 2) DEFAULT 0' },
+      { name: 'upi_amount', type: 'DECIMAL(12, 2) DEFAULT 0' },
+      { name: 'order_lines', type: 'JSON' },
+      { name: 'branch_id', type: 'INT' }
+    ];
+
+    for (const col of payCols) {
+      try {
+        await connection.query(`ALTER TABLE sarga_customer_payments ADD COLUMN ${col.name} ${col.type}`);
+      } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+    }
+
+    // Customer Refunds Table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_refunds (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        job_id INT NOT NULL,
+        customer_id INT,
+        refund_amount DECIMAL(12,2) NOT NULL,
+        refund_method ENUM('Cash','UPI','Cheque','Account Transfer') DEFAULT 'Cash',
+        reason TEXT,
+        processed_by INT,
+        branch_id INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (job_id) REFERENCES sarga_jobs(id) ON DELETE CASCADE
       )
     `);
 
@@ -743,6 +867,79 @@ const initDb = async () => {
         INDEX idx_related (related_tab, related_id)
       )
     `);
+
+    // ==================== AI FEATURES ====================
+    console.log("Setting up AI Features tables...");
+
+    // Staff Activity Log (detailed activity tracking for anomaly detection)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_staff_activity_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        staff_id INT NOT NULL,
+        action_type VARCHAR(100) NOT NULL,
+        details TEXT,
+        ip_address VARCHAR(45),
+        device_info VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE,
+        INDEX idx_activity_staff (staff_id),
+        INDEX idx_activity_type (action_type),
+        INDEX idx_activity_time (created_at)
+      )
+    `);
+
+    // Fraud Alerts (flagged anomalies)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_fraud_alerts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        staff_id INT NOT NULL,
+        alert_type VARCHAR(100) NOT NULL,
+        severity ENUM('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') DEFAULT 'MEDIUM',
+        message TEXT,
+        details JSON,
+        status ENUM('ACTIVE', 'RESOLVED', 'DISMISSED') DEFAULT 'ACTIVE',
+        resolved_by INT,
+        resolved_at DATETIME,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE,
+        FOREIGN KEY (resolved_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
+        INDEX idx_fraud_status (status),
+        INDEX idx_fraud_severity (severity),
+        INDEX idx_fraud_staff (staff_id),
+        INDEX idx_fraud_time (created_at)
+      )
+    `);
+
+    // Design Pre-flight Checks
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_design_checks (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        file_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500),
+        file_type VARCHAR(50),
+        file_size_kb INT,
+        result_json JSON,
+        passed TINYINT(1) DEFAULT 0,
+        total_issues INT DEFAULT 0,
+        critical_issues INT DEFAULT 0,
+        warnings INT DEFAULT 0,
+        checked_by INT,
+        job_id INT DEFAULT NULL,
+        proof_id INT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (checked_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
+        INDEX idx_design_time (created_at),
+        INDEX idx_design_job (job_id)
+      )
+    `);
+
+    // Add job_id and proof_id to design_checks if missing (migration)
+    try {
+      await connection.query(`ALTER TABLE sarga_design_checks ADD COLUMN job_id INT DEFAULT NULL AFTER checked_by`);
+      await connection.query(`ALTER TABLE sarga_design_checks ADD COLUMN proof_id INT DEFAULT NULL AFTER job_id`);
+      await connection.query(`ALTER TABLE sarga_design_checks ADD INDEX idx_design_job (job_id)`);
+    } catch (e) { /* columns already exist */ }
 
     // Seed Default Branch
     const [branches] = await connection.query("SELECT * FROM sarga_branches LIMIT 1");
@@ -881,12 +1078,18 @@ const initDb = async () => {
         staff_id INT NOT NULL,
         assigned_by INT,
         assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        assignment_opening_count BIGINT NOT NULL DEFAULT 0,
         FOREIGN KEY (machine_id) REFERENCES sarga_machines(id) ON DELETE CASCADE,
         FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE,
         FOREIGN KEY (assigned_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
         UNIQUE KEY unique_machine_staff (machine_id, staff_id)
       )
     `);
+
+    try {
+      await connection.query(`ALTER TABLE sarga_machine_staff_assignments ADD COLUMN assignment_opening_count BIGINT NOT NULL DEFAULT 0`);
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+
 
     // Daily Machine Report Master
     await connection.query(`
@@ -1072,6 +1275,163 @@ const initDb = async () => {
 
     console.log("Three Books System tables created successfully.");
 
+    // Job Status History and new Cost fields
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_job_status_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        job_id INT NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        staff_id INT,
+        changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (job_id) REFERENCES sarga_jobs(id) ON DELETE CASCADE,
+        FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE SET NULL
+      )
+    `);
+
+    const newJobsCols = [
+      { name: 'paper_cost', type: 'DECIMAL(10,2) DEFAULT 0' },
+      { name: 'machine_cost', type: 'DECIMAL(10,2) DEFAULT 0' },
+      { name: 'labour_cost', type: 'DECIMAL(10,2) DEFAULT 0' },
+      { name: 'total_cost', type: 'DECIMAL(10,2) DEFAULT 0' },
+      { name: 'profit', type: 'DECIMAL(10,2) DEFAULT 0' },
+      { name: 'margin', type: 'DECIMAL(6,4) DEFAULT 0' },
+      { name: 'required_sheets', type: 'INT DEFAULT 0' },
+      { name: 'used_sheets', type: 'INT DEFAULT 0' },
+      { name: 'paper_size', type: 'VARCHAR(30) DEFAULT NULL' },
+      { name: 'plate_count', type: 'INT DEFAULT 0' },
+      { name: 'plate_details', type: 'TEXT' }
+    ];
+
+    // Paper Usage Logs Table (per-stage tracking)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_paper_usage_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        job_id INT NOT NULL,
+        stage VARCHAR(80) NOT NULL,
+        paper_size VARCHAR(30) DEFAULT NULL,
+        sheets_used INT NOT NULL DEFAULT 0,
+        sheets_wasted INT NOT NULL DEFAULT 0,
+        notes TEXT,
+        logged_by INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (job_id) REFERENCES sarga_jobs(id) ON DELETE CASCADE,
+        FOREIGN KEY (logged_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
+      )
+    `);
+
+    // ─── Customer Design History ─────────────────────────────────
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_customer_designs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        customer_id INT NOT NULL,
+        job_id INT DEFAULT NULL,
+        title VARCHAR(200) NOT NULL,
+        file_url VARCHAR(500) NOT NULL,
+        file_type VARCHAR(30) DEFAULT 'image',
+        original_name VARCHAR(300),
+        file_size INT DEFAULT 0,
+        notes TEXT,
+        tags VARCHAR(500),
+        uploaded_by INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (customer_id) REFERENCES sarga_customers(id) ON DELETE CASCADE,
+        FOREIGN KEY (job_id) REFERENCES sarga_jobs(id) ON DELETE SET NULL,
+        FOREIGN KEY (uploaded_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
+      )
+    `);
+
+    // ─── Job Proofs (Proof Approval Workflow) ────────────────────
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_job_proofs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        job_id INT NOT NULL,
+        version INT NOT NULL DEFAULT 1,
+        file_url VARCHAR(500) NOT NULL,
+        original_name VARCHAR(300),
+        file_size INT DEFAULT 0,
+        file_type VARCHAR(30) DEFAULT 'image',
+        status ENUM('Pending', 'Approved', 'Rejected', 'Revision Requested') DEFAULT 'Pending',
+        designer_notes TEXT,
+        customer_feedback TEXT,
+        uploaded_by INT,
+        reviewed_by INT,
+        reviewed_at TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (job_id) REFERENCES sarga_jobs(id) ON DELETE CASCADE,
+        FOREIGN KEY (uploaded_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
+        FOREIGN KEY (reviewed_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
+      )
+    `);
+
+    for (const col of newJobsCols) {
+      try {
+        await connection.query(`ALTER TABLE sarga_jobs ADD COLUMN ${col.name} ${col.type}`);
+      } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+    }
+
+    // ─── Enhanced Audit Log columns ───
+    const auditCols = [
+      { name: 'entity_type', type: "VARCHAR(50) DEFAULT NULL AFTER details" },
+      { name: 'entity_id', type: "INT DEFAULT NULL AFTER entity_type" },
+      { name: 'field_name', type: "VARCHAR(100) DEFAULT NULL AFTER entity_id" },
+      { name: 'old_value', type: "TEXT DEFAULT NULL AFTER field_name" },
+      { name: 'new_value', type: "TEXT DEFAULT NULL AFTER old_value" },
+      { name: 'ip_address', type: "VARCHAR(45) DEFAULT NULL AFTER new_value" },
+    ];
+    for (const col of auditCols) {
+      try { await connection.query(`ALTER TABLE sarga_audit_logs ADD COLUMN ${col.name} ${col.type}`); }
+      catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+    }
+
+    // ─── Invoice Sequence Table (gap-free, per-financial-year) ───
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_invoice_sequence (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        financial_year VARCHAR(10) NOT NULL,
+        last_number INT NOT NULL DEFAULT 0,
+        prefix VARCHAR(20) NOT NULL DEFAULT 'INV',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_fy_prefix (financial_year, prefix)
+      )
+    `);
+
+    // ─── Invoice Registry (links invoice numbers to payments/jobs for traceability) ───
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_invoices (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        invoice_number VARCHAR(30) NOT NULL UNIQUE,
+        financial_year VARCHAR(10) NOT NULL,
+        payment_id INT DEFAULT NULL,
+        customer_id INT DEFAULT NULL,
+        total_amount DECIMAL(12,2) DEFAULT 0,
+        tax_amount DECIMAL(12,2) DEFAULT 0,
+        net_amount DECIMAL(12,2) DEFAULT 0,
+        status ENUM('Active', 'Cancelled', 'Credit Note') DEFAULT 'Active',
+        generated_by INT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (payment_id) REFERENCES sarga_customer_payments(id) ON DELETE SET NULL,
+        FOREIGN KEY (customer_id) REFERENCES sarga_customers(id) ON DELETE SET NULL,
+        FOREIGN KEY (generated_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
+      )
+    `);
+
+    // Indexes for audit and invoice tables
+    await safeIndex('idx_audit_entity', 'CREATE INDEX idx_audit_entity ON sarga_audit_logs (entity_type, entity_id)');
+    await safeIndex('idx_audit_action', 'CREATE INDEX idx_audit_action ON sarga_audit_logs (action)');
+    await safeIndex('idx_invoice_fy', 'CREATE INDEX idx_invoice_fy ON sarga_invoices (financial_year)');
+    await safeIndex('idx_invoice_payment', 'CREATE INDEX idx_invoice_payment ON sarga_invoices (payment_id)');
+    await safeIndex('idx_invoice_customer', 'CREATE INDEX idx_invoice_customer ON sarga_invoices (customer_id)');
+
+    try {
+      await connection.query(`ALTER TABLE sarga_job_staff_assignments ADD COLUMN stage VARCHAR(50) DEFAULT NULL`);
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+
+    // Make staff_id nullable for role-based assignments
+    try {
+      await connection.query(`ALTER TABLE sarga_job_staff_assignments MODIFY COLUMN staff_id INT NULL`);
+    } catch (err) { console.log('staff_id nullable migration:', err.message); }
+
 
     // Seed Default Admin
     const adminId = '8547432287';
@@ -1086,6 +1446,65 @@ const initDb = async () => {
       );
       console.log("Default admin seeded successfully in MySQL.");
     }
+    // Ensure sarga_inventory has new columns
+    try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN hsn VARCHAR(20)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN discount DECIMAL(5, 2) DEFAULT 0'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN gst_rate DECIMAL(5, 2) DEFAULT 0'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+
+
+    // Jobs — filtered by status, branch, customer, and date
+    await safeIndex('idx_jobs_status', 'CREATE INDEX idx_jobs_status ON sarga_jobs (status)');
+    await safeIndex('idx_jobs_branch', 'CREATE INDEX idx_jobs_branch ON sarga_jobs (branch_id)');
+    await safeIndex('idx_jobs_customer', 'CREATE INDEX idx_jobs_customer ON sarga_jobs (customer_id)');
+    await safeIndex('idx_jobs_created', 'CREATE INDEX idx_jobs_created ON sarga_jobs (created_at)');
+    await safeIndex('idx_jobs_delivery', 'CREATE INDEX idx_jobs_delivery ON sarga_jobs (delivery_date)');
+    await safeIndex('idx_jobs_payment_status', 'CREATE INDEX idx_jobs_payment_status ON sarga_jobs (payment_status)');
+
+    // Job assignments — looked up by job and staff
+    await safeIndex('idx_assignments_job', 'CREATE INDEX idx_assignments_job ON sarga_job_staff_assignments (job_id)');
+    await safeIndex('idx_assignments_staff', 'CREATE INDEX idx_assignments_staff ON sarga_job_staff_assignments (staff_id)');
+
+    // Customer payments — filtered by customer, date, branch
+    await safeIndex('idx_cp_customer', 'CREATE INDEX idx_cp_customer ON sarga_customer_payments (customer_id)');
+    await safeIndex('idx_cp_date', 'CREATE INDEX idx_cp_date ON sarga_customer_payments (payment_date)');
+    await safeIndex('idx_cp_branch', 'CREATE INDEX idx_cp_branch ON sarga_customer_payments (branch_id)');
+
+    // Vendor payments — filtered by branch, date, type
+    await safeIndex('idx_pay_branch', 'CREATE INDEX idx_pay_branch ON sarga_payments (branch_id)');
+    await safeIndex('idx_pay_date', 'CREATE INDEX idx_pay_date ON sarga_payments (payment_date)');
+    await safeIndex('idx_pay_type', 'CREATE INDEX idx_pay_type ON sarga_payments (type)');
+
+    // Staff — branch lookup
+    await safeIndex('idx_staff_branch', 'CREATE INDEX idx_staff_branch ON sarga_staff (branch_id)');
+
+    // Attendance — date-based queries
+    await safeIndex('idx_att_date', 'CREATE INDEX idx_att_date ON sarga_staff_attendance (attendance_date)');
+
+    // Audit logs — timestamp range queries
+    await safeIndex('idx_audit_ts', 'CREATE INDEX idx_audit_ts ON sarga_audit_logs (timestamp)');
+
+    // Request tables — status lookups
+    await safeIndex('idx_idreq_status', 'CREATE INDEX idx_idreq_status ON sarga_id_requests (status)');
+    await safeIndex('idx_custreq_status', 'CREATE INDEX idx_custreq_status ON sarga_customer_requests (status)');
+    await safeIndex('idx_discreq_status', 'CREATE INDEX idx_discreq_status ON sarga_discount_requests (status)');
+    await safeIndex('idx_attreq_status', 'CREATE INDEX idx_attreq_status ON sarga_attendance_requests (status)');
+    await safeIndex('idx_vendreq_status', 'CREATE INDEX idx_vendreq_status ON sarga_vendor_requests (status)');
+
+    // Refunds — job lookup
+    await safeIndex('idx_refunds_job', 'CREATE INDEX idx_refunds_job ON sarga_refunds (job_id)');
+    await safeIndex('idx_refunds_customer', 'CREATE INDEX idx_refunds_customer ON sarga_refunds (customer_id)');
+
+    // Customer designs — customer + job lookup
+    await safeIndex('idx_designs_customer', 'CREATE INDEX idx_designs_customer ON sarga_customer_designs (customer_id)');
+    await safeIndex('idx_designs_job', 'CREATE INDEX idx_designs_job ON sarga_customer_designs (job_id)');
+
+    // Job proofs — job lookup
+    await safeIndex('idx_proofs_job', 'CREATE INDEX idx_proofs_job ON sarga_job_proofs (job_id)');
+
+    console.log('Database initialized successfully');
+  } catch (err) {
+    console.error('Database initialization error:', err);
+    throw err;
   } finally {
     connection.release();
   }

@@ -6,7 +6,7 @@ const { getUserBranchId } = require('../helpers');
 // ─── FRONT OFFICE DASHBOARD ─────────────────────────────────────────
 router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
     try {
-        const branchId = req.user.role !== 'Admin'
+        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
             ? await getUserBranchId(req.user.id)
             : req.query.branch_id || null;
 
@@ -171,7 +171,7 @@ router.get('/front-office/search', authenticateToken, async (req, res) => {
     if (!q || q.length < 2) return res.json([]);
 
     try {
-        const branchId = req.user.role !== 'Admin'
+        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
             ? await getUserBranchId(req.user.id)
             : null;
         const branchWhere = branchId ? ' AND c.branch_id = ?' : '';
@@ -195,3 +195,4 @@ router.get('/front-office/search', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+

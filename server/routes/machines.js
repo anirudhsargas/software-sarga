@@ -2,6 +2,63 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const auth = require('../middleware/auth');
+const { auditLog } = require('../helpers');
+
+// ==================== ASSIGN STAFF TO MACHINE (ADMIN ONLY) ====================
+router.post('/:id/assign-staff', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { staff_ids } = req.body; // Array of staff IDs to assign
+        const assigner_id = req.user.id;
+        if (!Array.isArray(staff_ids) || staff_ids.length === 0) {
+            return res.status(400).json({ error: 'staff_ids (array) required' });
+        }
+        // Remove existing assignments for this machine
+        await pool.query('DELETE FROM sarga_machine_staff_assignments WHERE machine_id = ?', [id]);
+        // Insert new assignments
+        const values = staff_ids.map(staff_id => [id, staff_id, assigner_id]);
+        await pool.query(
+            'INSERT INTO sarga_machine_staff_assignments (machine_id, staff_id, assigned_by) VALUES ?', [values]
+        );
+        res.json({ success: true, assigned_staff_ids: staff_ids });
+    } catch (error) {
+        console.error('Error assigning staff to machine:', error);
+        res.status(500).json({ error: 'Failed to assign staff' });
+    }
+});
+
+// ==================== REMOVE STAFF FROM MACHINE (ADMIN ONLY) ====================
+router.delete('/:id/unassign-staff/:staff_id', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
+    try {
+        const { id, staff_id } = req.params;
+        await pool.query('DELETE FROM sarga_machine_staff_assignments WHERE machine_id = ? AND staff_id = ?', [id, staff_id]);
+        auditLog(req.user.id, 'MACHINE_UNASSIGN_STAFF', `Unassigned staff #${staff_id} from machine #${id}`, { entity_type: 'machine', entity_id: id });
+        res.json({ success: true, unassigned_staff_id: Number(staff_id) });
+    } catch (error) {
+        console.error('Error unassigning staff from machine:', error);
+        res.status(500).json({ error: 'Failed to unassign staff' });
+    }
+});
+
+// ==================== GET STAFF ASSIGNMENTS FOR MACHINE (ADMIN ONLY) ====================
+router.get('/:id/staff-assignments', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [assignments] = await pool.query(
+            `SELECT msa.staff_id, s.name, s.role, msa.assigned_at, assigner.name as assigned_by_name
+             FROM sarga_machine_staff_assignments msa
+             JOIN sarga_staff s ON msa.staff_id = s.id
+             LEFT JOIN sarga_staff assigner ON msa.assigned_by = assigner.id
+             WHERE msa.machine_id = ?
+             ORDER BY msa.assigned_at DESC`,
+            [id]
+        );
+        res.json(assignments);
+    } catch (error) {
+        console.error('Error fetching staff assignments:', error);
+        res.status(500).json({ error: 'Failed to fetch staff assignments' });
+    }
+});
 
 // ==================== GET ALL MACHINES ====================
 // Staff only see machines assigned to them; Admin sees all
@@ -10,30 +67,33 @@ router.get('/', auth.authenticate, async (req, res) => {
         const { branch_id, is_active } = req.query;
         const user = req.user;
 
-        let query = `
-      SELECT m.*, b.name as branch_name,
-        (SELECT GROUP_CONCAT(s.name SEPARATOR ', ') 
-         FROM sarga_machine_staff_assignments msa 
-         JOIN sarga_staff s ON msa.staff_id = s.id 
-         WHERE msa.machine_id = m.id) as assigned_staff_names,
-        (SELECT GROUP_CONCAT(msa2.staff_id) 
-         FROM sarga_machine_staff_assignments msa2 
-         WHERE msa2.machine_id = m.id) as assigned_staff_ids
-      FROM sarga_machines m
-      LEFT JOIN sarga_branches b ON m.branch_id = b.id
-      WHERE 1=1
-    `;
         const params = [];
+        // Build base select with assigned staff info
+        let query = `
+            SELECT m.*, b.name as branch_name,
+                (SELECT GROUP_CONCAT(s.name SEPARATOR ', ') 
+                 FROM sarga_machine_staff_assignments msa 
+                 JOIN sarga_staff s ON msa.staff_id = s.id 
+                 WHERE msa.machine_id = m.id) as assigned_staff_names,
+                (SELECT GROUP_CONCAT(msa2.staff_id) 
+                 FROM sarga_machine_staff_assignments msa2 
+                 WHERE msa2.machine_id = m.id) as assigned_staff_ids
+            FROM sarga_machines m
+            LEFT JOIN sarga_branches b ON m.branch_id = b.id
+        `;
 
-        // Non-admin staff: only see machines assigned to them
-        if (user.role !== 'Admin') {
-            query += ` AND m.branch_id = ?`;
-            params.push(user.branch_id);
-            query += ` AND m.id IN (SELECT machine_id FROM sarga_machine_staff_assignments WHERE staff_id = ?)`;
+        // Non-admin/accountant staff: only see machines assigned to them. Use an INNER JOIN filter to guarantee only assigned machines are returned.
+        if (!['Admin', 'Accountant'].includes(user.role)) {
+            query += ` JOIN sarga_machine_staff_assignments msa_filter ON msa_filter.machine_id = m.id AND msa_filter.staff_id = ?`;
             params.push(user.id);
-        } else if (branch_id) {
-            query += ` AND m.branch_id = ?`;
-            params.push(branch_id);
+            query += ` WHERE 1=1 AND m.branch_id = ?`;
+            params.push(user.branch_id);
+        } else {
+            query += ` WHERE 1=1`;
+            if (branch_id) {
+                query += ` AND m.branch_id = ?`;
+                params.push(branch_id);
+            }
         }
 
         // Filter by active status
@@ -45,6 +105,9 @@ router.get('/', auth.authenticate, async (req, res) => {
         query += ` ORDER BY m.machine_name ASC`;
 
         const [machines] = await pool.query(query, params);
+        try {
+            console.log(`[Machines] requested by user id=${user.id} role=${user.role} branch=${user.branch_id} params=${JSON.stringify(req.query)} -> returned ${machines.length} machines`);
+        } catch (e) { }
 
         // Parse assigned_staff_ids to array
         machines.forEach(m => {
@@ -81,8 +144,8 @@ router.get('/:id', auth.authenticate, async (req, res) => {
 
         const machine = machines[0];
 
-        // Non-admin: check assignment
-        if (user.role !== 'Admin') {
+        // Non-admin/accountant: check assignment
+        if (!['Admin', 'Accountant'].includes(user.role)) {
             const [assignment] = await pool.query(
                 'SELECT id FROM sarga_machine_staff_assignments WHERE machine_id = ? AND staff_id = ?',
                 [id, user.id]
@@ -230,6 +293,7 @@ router.post('/', auth.authenticate, auth.requireRole(['Admin']), async (req, res
             [result.insertId]
         );
 
+        auditLog(req.user.id, 'MACHINE_CREATE', `Created machine: ${machine_name} (${machine_type})`, { entity_type: 'machine', entity_id: result.insertId });
         res.status(201).json(machines[0]);
     } catch (error) {
         console.error('Error creating machine:', error);
@@ -270,6 +334,7 @@ router.put('/:id', auth.authenticate, auth.requireRole(['Admin']), async (req, r
             [id]
         );
 
+        auditLog(req.user.id, 'MACHINE_UPDATE', `Updated machine #${id}: ${machine_name}`, { entity_type: 'machine', entity_id: id });
         res.json(machines[0]);
     } catch (error) {
         console.error('Error updating machine:', error);
@@ -299,6 +364,7 @@ router.delete('/:id', auth.authenticate, auth.requireRole(['Admin']), async (req
             return res.status(404).json({ error: 'Machine not found' });
         }
 
+        auditLog(req.user.id, 'MACHINE_DELETE', `Deleted machine #${id}`, { entity_type: 'machine', entity_id: id });
         res.json({ message: 'Machine deleted successfully' });
     } catch (error) {
         console.error('Error deleting machine:', error);
@@ -366,6 +432,7 @@ router.delete('/:id/unassign-staff/:staffId', auth.authenticate, auth.requireRol
             return res.status(404).json({ error: 'Assignment not found' });
         }
 
+        auditLog(req.user.id, 'MACHINE_UNASSIGN_STAFF', `Unassigned staff #${staffId} from machine #${id}`, { entity_type: 'machine', entity_id: id });
         res.json({ message: 'Staff unassigned successfully' });
     } catch (error) {
         console.error('Error unassigning staff:', error);
@@ -465,7 +532,8 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
                 [id, reading_date]
             );
             if (existing.length > 0) {
-                if (opening_count !== undefined && parseInt(opening_count) !== existing[0].opening_count) {
+                // ALLOW staff to update opening_count if it is currently 0 (likely created by auto-sync)
+                if (opening_count !== undefined && parseInt(opening_count) !== existing[0].opening_count && existing[0].opening_count !== 0) {
                     return res.status(403).json({
                         error: 'Opening count already entered and locked. Submit a change request to Admin.',
                         is_locked: true
@@ -512,6 +580,7 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
             [id, reading_date]
         );
 
+        auditLog(req.user.id, 'MACHINE_READING', `Machine #${id} reading for ${reading_date}: open=${openCount} close=${closeCount}`, { entity_type: 'machine_reading', entity_id: id });
         res.json(saved[0]);
     } catch (error) {
         console.error('Error saving machine reading:', error);
@@ -531,8 +600,8 @@ router.post('/:id/work', auth.authenticate, async (req, res) => {
             return res.status(400).json({ error: 'Customer name, work details, and copies are required' });
         }
 
-        // Non-admin: check assignment
-        if (user.role !== 'Admin') {
+        // Non-admin/accountant: check assignment
+        if (!['Admin', 'Accountant'].includes(user.role)) {
             const [assignment] = await pool.query(
                 'SELECT id FROM sarga_machine_staff_assignments WHERE machine_id = ? AND staff_id = ?',
                 [id, user.id]
@@ -588,6 +657,7 @@ router.post('/:id/work', auth.authenticate, async (req, res) => {
             [result.insertId]
         );
 
+        auditLog(req.user.id, 'MACHINE_WORK_ADD', `Work entry for machine #${id}: ${customer_name} - ${work_details} (${copies} copies)`, { entity_type: 'machine_work', entity_id: result.insertId });
         res.status(201).json(entry[0]);
     } catch (error) {
         console.error('Error adding work entry:', error);
@@ -656,6 +726,7 @@ router.delete('/:id/work/:entryId', auth.authenticate, async (req, res) => {
             [reportId, reportId, reportId, reportId]
         );
 
+        auditLog(req.user.id, 'MACHINE_WORK_DELETE', `Deleted work entry #${entryId} from machine #${id}`, { entity_type: 'machine_work', entity_id: entryId });
         res.json({ message: 'Work entry deleted successfully' });
     } catch (error) {
         console.error('Error deleting work entry:', error);
@@ -702,3 +773,4 @@ router.get('/:id/production-summary', auth.authenticate, async (req, res) => {
 });
 
 module.exports = router;
+

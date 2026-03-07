@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { UserPlus, Search, Shield, Phone, User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote } from 'lucide-react';
+import { UserPlus, Search, Shield, Phone, User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar } from 'lucide-react';
+import HolidayCalendar from '../components/HolidayCalendar';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
 import api, { API_URL } from '../services/api';
@@ -7,16 +8,20 @@ import { serverNow } from '../services/serverTime';
 import ImageCropModal from '../components/ImageCropModal';
 import { isTouchDevice } from '../services/utils';
 import Pagination from '../components/Pagination';
+import { useConfirm } from '../contexts/ConfirmContext';
+import toast from 'react-hot-toast';
 
 const StaffManagement = () => {
+    const { confirm } = useConfirm();
     const navigate = useNavigate();
     const user = auth.getUser();
-    const isAdmin = user?.role === 'Admin';
+    const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
     const [staff, setStaff] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState(null);
+    const [showHolidayModal, setShowHolidayModal] = useState(false);
     const [showSalaryConfig, setShowSalaryConfig] = useState(false);
     const [newStaff, setNewStaff] = useState({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: '', salary_type: 'Monthly', base_salary: '', daily_rate: '' });
     const [branches, setBranches] = useState([]);
@@ -73,9 +78,7 @@ const StaffManagement = () => {
 
     const fetchBranches = async () => {
         try {
-            const response = await api.get('/branches', {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get('/branches');
             setBranches(response.data);
             // Don't auto-set branch_id here to allow "Select Branch" placeholder
         } catch (err) {
@@ -90,12 +93,10 @@ const StaffManagement = () => {
             if (selectedBranchFilter) {
                 url += `&branch_id=${selectedBranchFilter}`;
             }
-            const response = await api.get(url, {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get(url);
             const res = response.data;
             // Sort staff alphabetically by name
-            const sortedStaff = [...res.data].sort((a, b) => 
+            const sortedStaff = [...res.data].sort((a, b) =>
                 (a.name || '').localeCompare(b.name || '')
             );
             setStaff(sortedStaff);
@@ -157,9 +158,7 @@ const StaffManagement = () => {
             }
             if (newStaffImage) formData.append('image', newStaffImage);
 
-            await api.post('/staff', formData, {
-                headers: auth.getAuthHeader()
-            });
+            await api.post('/staff', formData);
             setShowAddModal(false);
             setNewStaff({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: branches[0]?.id || '', salary_type: 'Monthly', base_salary: '', daily_rate: '' });
             setNewStaffImage(null);
@@ -196,9 +195,7 @@ const StaffManagement = () => {
 
             if (editStaffImage) formData.append('image', editStaffImage);
 
-            await api.put(`/staff/${selectedStaff.id}`, formData, {
-                headers: auth.getAuthHeader()
-            });
+            await api.put(`/staff/${selectedStaff.id}`, formData);
             setShowEditModal(false);
             setSelectedStaff(null);
             setEditStaffImage(null);
@@ -212,13 +209,18 @@ const StaffManagement = () => {
 
     const handleRemoveStaffImage = async () => {
         if (!selectedStaff) return;
-        if (!window.confirm('Remove this staff photo?')) return;
+
+        const isConfirmed = await confirm({
+            title: 'Remove Photo',
+            message: 'Are you sure you want to remove this staff photo?',
+            confirmText: 'Remove',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
 
         setLoading(true);
         try {
-            await api.delete(`/staff/${selectedStaff.id}/image`, {
-                headers: auth.getAuthHeader()
-            });
+            await api.delete(`/staff/${selectedStaff.id}/image`);
             setEditStaffImage(null);
             setEditStaffPreview('');
             setSelectedStaff({ ...selectedStaff, image_url: null });
@@ -231,12 +233,16 @@ const StaffManagement = () => {
     };
 
     const handleDeleteStaff = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this staff member? This will also remove their related requests and logs.')) return;
+        const isConfirmed = await confirm({
+            title: 'Delete Staff Member',
+            message: 'Are you sure you want to delete this staff member?\n\nThis will also remove their related requests and logs. This action cannot be undone.',
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
 
         try {
-            await api.delete(`/staff/${id}`, {
-                headers: auth.getAuthHeader()
-            });
+            await api.delete(`/staff/${id}`);
             fetchStaff();
         } catch (err) {
             setError('Failed to delete staff member');
@@ -244,13 +250,17 @@ const StaffManagement = () => {
     };
 
     const handleResetPassword = async (id) => {
-        if (!window.confirm('Reset password to mobile number? The staff member will be required to change it on next login.')) return;
+        const isConfirmed = await confirm({
+            title: 'Reset Password',
+            message: 'Reset password to mobile number?\n\nThe staff member will be required to change it on next login.',
+            confirmText: 'Reset',
+            type: 'danger' // Using danger or primary contextually, it's a major action
+        });
+        if (!isConfirmed) return;
 
         try {
-            await api.put(`/staff/${id}/reset-password`, {}, {
-                headers: auth.getAuthHeader()
-            });
-            alert('Password reset successfully!');
+            await api.put(`/staff/${id}/reset-password`, {});
+            toast.success('Password reset successfully!');
         } catch (err) {
             setError('Failed to reset password');
         }
@@ -264,13 +274,23 @@ const StaffManagement = () => {
                     <p className="section-subtitle">Add and manage printing shop team members.</p>
                 </div>
                 {isAdmin && (
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="btn btn-primary"
-                    >
-                        <Plus size={20} />
-                        <span>Add Staff</span>
-                    </button>
+                    <div className="row gap-sm">
+                        <button
+                            onClick={() => setShowHolidayModal(true)}
+                            className="btn btn-ghost"
+                            style={{ gap: 8 }}
+                        >
+                            <Calendar size={20} />
+                            <span>Mark Holiday</span>
+                        </button>
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="btn btn-primary"
+                        >
+                            <Plus size={20} />
+                            <span>Add Staff</span>
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -308,7 +328,7 @@ const StaffManagement = () => {
                                 <th>Role</th>
                                 <th>Branch</th>
                                 <th>Mobile (User ID)</th>
-                                <th>Password Status</th>
+                                {/* Password Status column removed */}
                                 <th>Joined</th>
                                 <th>Actions</th>
                             </tr>
@@ -316,13 +336,13 @@ const StaffManagement = () => {
                         <tbody>
                             {loading && staff.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="text-center muted table-empty">
+                                    <td colSpan="5" className="text-center muted table-empty">
                                         <Loader2 className="animate-spin" />
                                     </td>
                                 </tr>
                             ) : staff.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="text-center muted table-empty">
+                                    <td colSpan="5" className="text-center muted table-empty">
                                         No staff members found.
                                     </td>
                                 </tr>
@@ -358,11 +378,7 @@ const StaffManagement = () => {
                                         </td>
                                         <td className="text-sm">{s.branch_name || 'N/A'}</td>
                                         <td className="text-sm">+91 {s.user_id}</td>
-                                        <td>
-                                            <span className={`badge ${s.is_first_login ? 'badge--warning' : 'badge--success'}`}>
-                                                {s.is_first_login ? 'Default (Mobile)' : 'User Defined'}
-                                            </span>
-                                        </td>
+                                        {/* Password Status cell removed */}
                                         <td className="text-sm muted">
                                             {new Date(s.created_at).toLocaleDateString()}
                                         </td>
@@ -755,6 +771,24 @@ const StaffManagement = () => {
                                 {loading ? <Loader2 className="animate-spin" /> : "Update Details"}
                             </button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Mark Holiday Modal */}
+            {showHolidayModal && (
+                <div className="modal-backdrop">
+                    <div className="modal" style={{ padding: 0, overflow: 'hidden', border: 'none', background: 'transparent' }}>
+                        <button
+                            className="modal-close"
+                            onClick={() => setShowHolidayModal(false)}
+                            style={{ zIndex: 10, top: 12, right: 12 }}
+                        >
+                            <X size={22} />
+                        </button>
+                        <HolidayCalendar onSuccess={() => {
+                            setTimeout(() => setShowHolidayModal(false), 1500);
+                        }} />
                     </div>
                 </div>
             )}

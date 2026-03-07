@@ -11,7 +11,7 @@ module.exports = (upload, removeUploadFile) => {
     // --- STAFF ROUTES (Admin Only) ---
 
     // Add Staff
-    router.post('/', authenticateToken, authorizeRoles('Admin'), upload.single('image'), validate(addStaffSchema), async (req, res) => {
+    router.post('/', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), validate(addStaffSchema), async (req, res) => {
         const { mobile, name, role, branch_id } = req.body;
         const normalizedMobile = normalizeMobile(mobile);
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
@@ -31,7 +31,7 @@ module.exports = (upload, removeUploadFile) => {
             res.status(201).json({ id: result.insertId, message: 'Staff added successfully' });
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'User ID already exists' });
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -44,12 +44,12 @@ module.exports = (upload, removeUploadFile) => {
             let where = "WHERE s.role != 'Admin'";
             const params = [];
 
-            if (req.user.role !== 'Admin') {
+            if (!['Admin', 'Accountant'].includes(req.user.role) && req.query.all !== 'true') {
                 const branchId = await getUserBranchId(req.user.id);
                 where += ' AND s.branch_id = ?';
                 params.push(branchId);
             } else if (req.query.branch_id) {
-                // Allow Admin to filter by branch via query parameter
+                // Allow Admin/Accountant to filter by branch via query parameter
                 where += ' AND s.branch_id = ?';
                 params.push(req.query.branch_id);
             }
@@ -66,7 +66,7 @@ module.exports = (upload, removeUploadFile) => {
             const [rows] = await pool.query(`${select} ${baseFrom} ORDER BY s.created_at DESC`, params);
             res.json(rows);
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -75,19 +75,19 @@ module.exports = (upload, removeUploadFile) => {
         let { id } = req.params;
         if (id === 'me') id = req.user.id;
 
-        // Authorization: Admin or Self (for profile updates only)
-        if (req.user.role !== 'Admin' && req.user.id != id) {
+        // Authorization: Admin, Accountant or Self (for profile updates only)
+        if (!['Admin', 'Accountant'].includes(req.user.role) && req.user.id != id) {
             return res.status(403).json({ message: 'Access denied. Insufficient permissions.' });
         }
 
         const { mobile, name, role, branch_id, salary_type, base_salary, daily_rate } = req.body;
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-        // Non-Admin users can ONLY update their own name and image (profile updates)
+        // Non-Admin/Accountant users can ONLY update their own name and image (profile updates)
         // They CANNOT change mobile, role, or branch_id
-        if (req.user.role !== 'Admin') {
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
             if (mobile || role || branch_id) {
-                return res.status(403).json({ message: 'Only Admin can modify user ID, role, or branch assignment.' });
+                return res.status(403).json({ message: 'Only Admin/Accountant can modify user ID, role, or branch assignment.' });
             }
 
             // Profile update only (name and/or image)
@@ -107,11 +107,11 @@ module.exports = (upload, removeUploadFile) => {
                 const [rows] = await pool.query("SELECT id, user_id, name, role, branch_id, image_url FROM sarga_staff WHERE id = ?", [id]);
                 return res.json(rows[0]);
             } catch (err) {
-                return res.status(500).json({ message: 'Database error' });
+                return res.status(500).json({ message: 'Database error', error: err.message });
             }
         }
 
-        // Admin can update everything
+        // Admin/Accountant can update everything
         // If mobile is NOT provided, it's a partial update (name/image/role/branch/salary only)
         if (!mobile) {
             if (!name && !imageUrl && !role && !branch_id && !salary_type) {
@@ -160,7 +160,7 @@ module.exports = (upload, removeUploadFile) => {
                 const [rows] = await pool.query("SELECT id, user_id, name, role, branch_id, image_url, salary_type, base_salary, daily_rate FROM sarga_staff WHERE id = ?", [id]);
                 return res.json(rows[0]);
             } catch (err) {
-                return res.status(500).json({ message: 'Database error' });
+                return res.status(500).json({ message: 'Database error', error: err.message });
             }
         }
 
@@ -204,12 +204,12 @@ module.exports = (upload, removeUploadFile) => {
             res.json({ message: 'Staff member updated successfully' });
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'User ID already exists' });
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
     // Delete Staff
-    router.delete('/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.delete('/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         const { id } = req.params;
 
         try {
@@ -218,7 +218,7 @@ module.exports = (upload, removeUploadFile) => {
             res.json({ message: 'Staff member deleted successfully' });
         } catch (err) {
             console.error("Delete staff error:", err);
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -227,7 +227,7 @@ module.exports = (upload, removeUploadFile) => {
         let { id } = req.params;
         if (id === 'me') id = req.user.id;
 
-        if (req.user.role !== 'Admin' && req.user.id != id) {
+        if (!['Admin', 'Accountant'].includes(req.user.role) && req.user.id != id) {
             return res.status(403).json({ message: 'Access denied. Insufficient permissions.' });
         }
 
@@ -242,12 +242,12 @@ module.exports = (upload, removeUploadFile) => {
             res.json({ message: 'Staff image removed', image_url: null });
         } catch (err) {
             console.error('Remove staff image error:', err);
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
     // Reset Staff Password (to their mobile/user_id)
-    router.put('/:id/reset-password', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.put('/:id/reset-password', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         const { id } = req.params;
 
         try {
@@ -262,9 +262,10 @@ module.exports = (upload, removeUploadFile) => {
             res.json({ message: 'Password reset to mobile number successfully' });
         } catch (err) {
             console.error("Reset password error:", err);
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
     return router;
 };
+

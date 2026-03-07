@@ -15,7 +15,7 @@ router.get('/payments', authenticateToken, async (req, res) => {
     try {
         let where = '';
         const params = [];
-        if (req.user.role !== 'Admin') {
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
             const branchId = await getUserBranchId(req.user.id);
             where += " AND p.branch_id = ?";
             params.push(branchId);
@@ -38,7 +38,7 @@ router.get('/payments', authenticateToken, async (req, res) => {
 
         const baseFrom = `
             FROM sarga_payments p
-            JOIN sarga_branches b ON p.branch_id = b.id
+            LEFT JOIN sarga_branches b ON p.branch_id = b.id
             LEFT JOIN sarga_vendors v ON p.vendor_id = v.id
             WHERE 1=1 ${where}`;
 
@@ -51,7 +51,7 @@ router.get('/payments', authenticateToken, async (req, res) => {
         const [rows] = await pool.query(`SELECT p.*, b.name as branch_name, v.name as vendor_name ${baseFrom} ORDER BY p.payment_date DESC, p.created_at DESC`, params);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
@@ -71,7 +71,7 @@ router.post('/payments', authenticateToken, validate(addPaymentSchema), async (r
     }
 
     try {
-        let finalBranchId = req.user.role === 'Admin' ? branch_id : await getUserBranchId(req.user.id);
+        let finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? branch_id : await getUserBranchId(req.user.id);
         if (!finalBranchId) finalBranchId = await getUserBranchId(req.user.id);
 
         // Convert datetime-local format (YYYY-MM-DDTHH:MM) to MySQL DATETIME format (YYYY-MM-DD HH:MM:SS)
@@ -133,7 +133,7 @@ router.post('/payments', authenticateToken, validate(addPaymentSchema), async (r
         }
 
         // Track payment frequency for "Other" payments to suggest adding as vendor
-        if (type === 'Other' || type === 'Miscellaneous') {
+        if (type === 'Other') {
             const expensesRouter = require('./expenses');
             if (expensesRouter.trackPaymentFrequency) {
                 await expensesRouter.trackPaymentFrequency(payee_name, type, amount);
@@ -144,18 +144,18 @@ router.post('/payments', authenticateToken, validate(addPaymentSchema), async (r
         res.status(201).json({ id: result.insertId, message: 'Payment recorded successfully' });
     } catch (err) {
         console.error('Payment creation error:', err);
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
 // Delete Payment (Admin Only)
-router.delete('/payments/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+router.delete('/payments/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     try {
         await pool.query("DELETE FROM sarga_payments WHERE id = ?", [req.params.id]);
         auditLog(req.user.id, 'PAYMENT_DELETE', `Deleted payment record ${req.params.id}`);
         res.json({ message: 'Payment record deleted successfully' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
@@ -167,12 +167,12 @@ router.get('/payment-methods', authenticateToken, async (req, res) => {
         const [rows] = await pool.query("SELECT * FROM sarga_payment_methods WHERE is_active = 1 ORDER BY name ASC");
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
 // Add Payment Method (Admin Only)
-router.post('/payment-methods', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+router.post('/payment-methods', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     const { name } = req.body;
     if (!name || !String(name).trim()) {
         return res.status(400).json({ message: 'Payment method name is required' });
@@ -186,12 +186,12 @@ router.post('/payment-methods', authenticateToken, authorizeRoles('Admin'), asyn
         res.status(201).json({ id: result.insertId, message: 'Payment method added successfully' });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Payment method already exists' });
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
 // Update Payment Method (Admin Only)
-router.put('/payment-methods/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+router.put('/payment-methods/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
     if (!name || !String(name).trim()) {
@@ -206,20 +206,21 @@ router.put('/payment-methods/:id', authenticateToken, authorizeRoles('Admin'), a
         res.json({ message: 'Payment method updated successfully' });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Payment method already exists' });
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
 // Delete Payment Method (Admin Only - Soft Delete)
-router.delete('/payment-methods/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+router.delete('/payment-methods/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query("UPDATE sarga_payment_methods SET is_active = 0 WHERE id = ?", [id]);
         auditLog(req.user.id, 'PAYMENT_METHOD_DELETE', `Deleted payment method ${id}`);
         res.json({ message: 'Payment method deleted successfully' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
 module.exports = router;
+

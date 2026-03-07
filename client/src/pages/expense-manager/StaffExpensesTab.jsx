@@ -184,7 +184,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
 
         {/* Salary Payment Modal */}
         {showPayModal && (
-          <div className="modal-backdrop" onClick={() => { setShowPayModal(false); setPayConfirming(false); }}>
+          <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) { setShowPayModal(false); setPayConfirming(false); } }}>
             <div className="em-modal em-modal--sm" onClick={e => e.stopPropagation()}>
               <div className="em-modal__header"><h2>Pay Salary — {selectedStaff.name}</h2><button className="btn btn-ghost btn-icon" onClick={() => { setShowPayModal(false); setPayConfirming(false); }}><X size={18} /></button></div>
               {!payConfirming ? (
@@ -195,7 +195,6 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
                       <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} required /></div>
                       <div className="em-form-group"><label>Bonus (₹)</label><input className="em-input" type="number" min="0" value={payForm.bonus} onChange={e => setPayForm(p => ({ ...p, bonus: e.target.value }))} /></div>
                       <div className="em-form-group"><label>Deduction (₹)</label><input className="em-input" type="number" min="0" value={payForm.deduction} onChange={e => setPayForm(p => ({ ...p, deduction: e.target.value }))} /></div>
-                      <div className="em-form-group"><label>Payment Date</label><input className="em-input" type="date" value={payForm.payment_date} onChange={e => setPayForm(p => ({ ...p, payment_date: e.target.value }))} required /></div>
                       <div className="em-form-group"><label>Payment Method</label><select className="em-input" value={payForm.payment_method} onChange={e => setPayForm(p => ({ ...p, payment_method: e.target.value }))}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
                       <div className="em-form-group"><label>Reference #</label><input className="em-input" value={payForm.reference_number} onChange={e => setPayForm(p => ({ ...p, reference_number: e.target.value }))} /></div>
                       <div className="em-form-group em-form-group--full"><label>Notes</label><input className="em-input" value={payForm.notes} onChange={e => setPayForm(p => ({ ...p, notes: e.target.value }))} /></div>
@@ -212,10 +211,9 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
                         <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Employee</span><span className="em-confirm-summary__value">{selectedStaff.name}</span></div>
                         <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">For Month</span><span className="em-confirm-summary__value">{month}</span></div>
                         <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Amount</span><span className="em-confirm-summary__value em-confirm-summary__amount">₹{fmt(Number(payForm.amount))}</span></div>
-                        {Number(payForm.bonus) > 0 && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Bonus</span><span className="em-confirm-summary__value" style={{color:'#16a34a'}}>+₹{fmt(Number(payForm.bonus))}</span></div>}
-                        {Number(payForm.deduction) > 0 && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Deduction</span><span className="em-confirm-summary__value" style={{color:'#dc2626'}}>-₹{fmt(Number(payForm.deduction))}</span></div>}
+                        {Number(payForm.bonus) > 0 && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Bonus</span><span className="em-confirm-summary__value" style={{ color: 'var(--success)' }}>+₹{fmt(Number(payForm.bonus))}</span></div>}
+                        {Number(payForm.deduction) > 0 && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Deduction</span><span className="em-confirm-summary__value" style={{ color: 'var(--error)' }}>-₹{fmt(Number(payForm.deduction))}</span></div>}
                         <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Method</span><span className="em-confirm-summary__value">{payForm.payment_method}</span></div>
-                        <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Date</span><span className="em-confirm-summary__value">{payForm.payment_date}</span></div>
                       </div>
                       <div className="em-confirm-summary__warn"><AlertTriangle size={14} /> Please verify the salary details before confirming.</div>
                     </div>

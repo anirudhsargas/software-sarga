@@ -3,10 +3,12 @@ import { Home, Plus, Edit2, Trash2, IndianRupee, X } from 'lucide-react';
 import api from '../../services/api';
 import auth from '../../services/auth';
 import { fmt, today } from './constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 const defaultRentForm = { property_name: '', location: '', owner_name: '', owner_mobile: '', monthly_rent: '', due_day: '1', advance_deposit: '', branch_id: '' };
 
 const RentTab = ({ branches, onPayment, onError }) => {
+  const { confirm } = useConfirm();
   const [rentLocations, setRentLocations] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -21,7 +23,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
 
   const fetchRentLocations = useCallback(async () => {
-    try { const r = await api.get('/rent-locations'); setRentLocations(r.data); } catch {}
+    try { const r = await api.get('/rent-locations'); setRentLocations(r.data); } catch { }
   }, []);
 
   useEffect(() => { fetchRentLocations(); }, [fetchRentLocations]);
@@ -36,8 +38,14 @@ const RentTab = ({ branches, onPayment, onError }) => {
   };
 
   const deleteRent = async (id) => {
-    if (!window.confirm('Remove this rent location?')) return;
-    try { await api.delete(`/rent-locations/${id}`); fetchRentLocations(); } catch {}
+    const isConfirmed = await confirm({
+      title: 'Remove Rent Location',
+      message: 'Are you sure you want to remove this rent location?',
+      confirmText: 'Remove',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
+    try { await api.delete(`/rent-locations/${id}`); fetchRentLocations(); } catch { }
   };
 
   const openRequestForm = () => {
@@ -106,8 +114,8 @@ const RentTab = ({ branches, onPayment, onError }) => {
                 </div>
                 <div className="em-rent-card__amounts">
                   <div className="em-rent-card__row"><span>Monthly Rent</span><span className="em-rent-card__amt">₹{fmt(rent)}</span></div>
-                  <div className="em-rent-card__row"><span>Paid</span><span className="em-rent-card__amt" style={{ color: '#16a34a' }}>₹{fmt(paid)}</span></div>
-                  <div className="em-rent-card__row em-rent-card__row--due"><span>Remaining</span><span className="em-rent-card__amt" style={{ color: '#dc2626' }}>₹{fmt(Math.max(rent - paid, 0))}</span></div>
+                  <div className="em-rent-card__row"><span>Paid</span><span className="em-rent-card__amt" style={{ color: 'var(--success)' }}>₹{fmt(paid)}</span></div>
+                  <div className="em-rent-card__row em-rent-card__row--due"><span>Remaining</span><span className="em-rent-card__amt" style={{ color: 'var(--error)' }}>₹{fmt(Math.max(rent - paid, 0))}</span></div>
                 </div>
                 <div className="em-rent-card__actions">
                   <button className="btn btn-primary btn-sm" onClick={() => onPayment({ type: 'Rent', payee_name: r.owner_name, description: r.property_name, amount: String(Math.max(rent - paid, 0)) })}><IndianRupee size={14} /> Pay</button>
@@ -126,7 +134,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
 
       {/* Rent Form Modal */}
       {showForm && (
-        <div className="modal-backdrop" onClick={() => setShowForm(false)}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowForm(false); }}>
           <div className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>{editing ? 'Edit' : 'Add'} Rent Location</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowForm(false)}><X size={18} /></button></div>
             <form onSubmit={submitRent}>
@@ -150,7 +158,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
 
       {/* ── Rent Request Modal (Front Office) ── */}
       {showRequestForm && (
-        <div className="modal-backdrop" onClick={() => setShowRequestForm(false)}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowRequestForm(false); }}>
           <div className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>Request Rent Location</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowRequestForm(false)}><X size={18} /></button></div>
             <form onSubmit={submitRentRequest}>

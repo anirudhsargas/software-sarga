@@ -8,15 +8,18 @@ import api from '../../services/api';
 import auth from '../../services/auth';
 import { fmt, fmtDate } from './constants';
 import { serverToday } from '../../services/serverTime';
+import { useConfirm } from '../../contexts/ConfirmContext';
+import toast from 'react-hot-toast';
 
 const DEFAULT_UTILITY_TYPES = [
-  { key: 'Electricity', icon: Zap, color: '#f59e0b' },
-  { key: 'Internet / Broadband', icon: Wifi, color: '#3b82f6' },
-  { key: 'Phone', icon: Phone, color: '#10b981' },
+  { key: 'Electricity', icon: Zap, color: 'var(--warning)' },
+  { key: 'Internet / Broadband', icon: Wifi, color: 'var(--accent-2)' },
+  { key: 'Phone', icon: Phone, color: 'var(--success)' },
   { key: 'Water', icon: Droplets, color: '#06b6d4' },
 ];
 
 const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
+  const { confirm } = useConfirm();
   const [selectedUtility, setSelectedUtility] = useState(null);
   const [statement, setStatement] = useState(null);
   const [loadingStmt, setLoadingStmt] = useState(false);
@@ -82,32 +85,50 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
     } finally { setRequestSaving(false); }
   };
 
-  const handleRemoveType = (name) => {
-    if (!window.confirm(`Remove "${name}" from utility types?`)) return;
+  const handleRemoveType = async (name) => {
+    const isConfirmed = await confirm({
+      title: 'Remove Utility Type',
+      message: `Are you sure you want to remove "${name}" from utility types?`,
+      confirmText: 'Remove',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
     const updated = customTypes.filter(t => t !== name);
     setCustomTypes(updated);
     localStorage.setItem('custom_utility_types', JSON.stringify(updated));
   };
 
   const handleDeletePayment = async (paymentId) => {
-    if (!window.confirm('Delete this payment record? This cannot be undone.')) return;
+    const isConfirmed = await confirm({
+      title: 'Delete Payment',
+      message: 'Are you sure you want to delete this payment record? This cannot be undone.',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
     try {
       await api.delete(`/payments/${paymentId}`);
       if (selectedUtility) openUtilityDetail(selectedUtility);
       if (onRefresh) onRefresh();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to delete payment');
+      toast.error(err.response?.data?.error || 'Failed to delete payment');
     }
   };
 
   const handleDeleteBill = async (billId) => {
-    if (!window.confirm('Delete this bill record? This cannot be undone.')) return;
+    const isConfirmed = await confirm({
+      title: 'Delete Bill',
+      message: 'Are you sure you want to delete this bill record? This cannot be undone.',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
     try {
       await api.delete(`/utility-bills/${billId}`);
       if (selectedUtility) openUtilityDetail(selectedUtility);
       if (onRefresh) onRefresh();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to delete bill');
+      toast.error(err.response?.data?.error || 'Failed to delete bill');
     }
   };
 
@@ -179,7 +200,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
             <span style={{ fontSize: 13, color: 'var(--muted)' }}>Utility Dashboard</span>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <button className="btn btn-sm" style={{ background: '#f59e0b', color: '#fff', border: 'none' }} onClick={() => openBillForm(selectedUtility)}>
+            <button className="btn btn-sm" style={{ background: 'var(--warning)', color: '#fff', border: 'none' }} onClick={() => openBillForm(selectedUtility)}>
               <ShoppingCart size={14} /> Add Bill
             </button>
             <button className="btn btn-primary btn-sm" onClick={() => onPayment({ type: 'Utility', payee_name: selectedUtility })}>
@@ -246,7 +267,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                       </td>
                       <td>{r.reference_number || r.bill_number || '—'}</td>
                       <td>{r.description || r.connection_id || r.payee_name || '—'}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600, color: r._entry_type === 'Bill' ? '#dc2626' : '#16a34a' }}>
+                      <td style={{ textAlign: 'right', fontWeight: 600, color: r._entry_type === 'Bill' ? 'var(--error)' : 'var(--success)' }}>
                         {r._entry_type === 'Bill' ? '-' : '+'}₹{fmt(Number(r.amount || 0))}
                       </td>
                       {isAdmin && (
@@ -266,7 +287,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
               <Icon size={32} strokeWidth={1} />
               <p>No transactions found for {selectedUtility}</p>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-sm" style={{ background: '#f59e0b', color: '#fff', border: 'none' }} onClick={() => openBillForm(selectedUtility)}><ShoppingCart size={14} /> Add Bill</button>
+                <button className="btn btn-sm" style={{ background: 'var(--warning)', color: '#fff', border: 'none' }} onClick={() => openBillForm(selectedUtility)}><ShoppingCart size={14} /> Add Bill</button>
                 <button className="btn btn-primary btn-sm" onClick={() => onPayment({ type: 'Utility', payee_name: selectedUtility })}><Plus size={14} /> Add Payment</button>
               </div>
             </div>
@@ -314,7 +335,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                 </div>
               </div>
               <div className="em-utility-card__actions">
-                <button className="btn btn-sm" style={{ background: '#f59e0b', color: '#fff', border: 'none', fontSize: 12 }} onClick={(e) => { e.stopPropagation(); openBillForm(u.key); }}>
+                <button className="btn btn-sm" style={{ background: 'var(--warning)', color: '#fff', border: 'none', fontSize: 12 }} onClick={(e) => { e.stopPropagation(); openBillForm(u.key); }}>
                   <ShoppingCart size={14} /> Bill
                 </button>
                 <button className="btn btn-primary btn-sm" style={{ fontSize: 12 }} onClick={(e) => { e.stopPropagation(); onPayment({ type: 'Utility', payee_name: u.key }); }}>
@@ -354,7 +375,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
 
       {/* ── Add Utility Type Modal ── */}
       {showAddType && (
-        <div className="modal-backdrop" onClick={() => setShowAddType(false)}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowAddType(false); }}>
           <div className="em-modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
               <h2>Add Utility Type</h2>
@@ -376,7 +397,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
 
       {/* ── Request Utility Type Modal (Front Office) ── */}
       {showRequestType && (
-        <div className="modal-backdrop" onClick={() => setShowRequestType(false)}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowRequestType(false); }}>
           <div className="em-modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
               <h2>Request Utility Type</h2>

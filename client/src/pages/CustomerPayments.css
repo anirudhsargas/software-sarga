@@ -584,8 +584,13 @@
 
 /* ── SPINNER ── */
 @keyframes cp-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .cp-spin {
@@ -634,9 +639,17 @@
   white-space: nowrap;
 }
 
-.cp-text-success { color: var(--success); }
-.cp-text-error { color: var(--error); }
-.cp-text-warning { color: var(--warning); }
+.cp-text-success {
+  color: var(--success);
+}
+
+.cp-text-error {
+  color: var(--error);
+}
+
+.cp-text-warning {
+  color: var(--warning);
+}
 
 .table-empty {
   padding: 32px 16px !important;
@@ -728,4 +741,29 @@
     align-items: flex-start;
     gap: 10px;
   }
+}
+
+/* ── STATEMENT FILTERS ── */
+.cp-statement-filters {
+  padding: 16px 24px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  margin: 0 -24px;
+}
+
+.input-field--sm {
+  height: 34px !important;
+  font-size: 12px !important;
+  padding: 0 10px !important;
+}
+
+.btn-xs {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+/* ── DARK MODE STATEMENT FILTERS ── */
+.dark .cp-statement-filters {
+  background: var(--bg-2);
+  border-color: var(--border);
 }

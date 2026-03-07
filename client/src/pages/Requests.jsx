@@ -3,8 +3,11 @@ import { CheckCircle2, XCircle, Loader2, AlertCircle, X, User, Edit, Trash2 } fr
 import auth from '../services/auth';
 import api from '../services/api';
 import { isTouchDevice } from '../services/utils';
+import { useConfirm } from '../contexts/ConfirmContext';
+import toast from 'react-hot-toast';
 
 const Requests = () => {
+    const { confirm } = useConfirm();
     const user = auth.getUser();
     const [idRequests, setIdRequests] = useState([]);
     const [customerRequests, setCustomerRequests] = useState([]);
@@ -20,19 +23,36 @@ const Requests = () => {
     useEffect(() => {
         if (user.role === 'Admin') {
             fetchAllRequests();
+        } else if (user.role === 'Accountant') {
+            fetchDiscountRequestsForAccountant();
         } else {
             setFetching(false);
         }
     }, []);
 
+    const fetchDiscountRequestsForAccountant = async () => {
+        setFetching(true);
+        try {
+            const res = await api.get('/requests/discount');
+            const combined = res.data.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' }));
+            setAllRequests(combined);
+        } catch (err) {
+            console.error('Failed to fetch discount requests:', err);
+        } finally {
+            setFetching(false);
+        }
+    };
+
     const fetchAllRequests = async () => {
         setFetching(true);
         try {
-            const [idResponse, customerResponse, vendorResponse, openingResponse] = await Promise.all([
-                api.get('/requests/id-change', { headers: auth.getAuthHeader() }),
-                api.get('/requests/customer-change', { headers: auth.getAuthHeader() }),
-                api.get('/vendor-requests', { headers: auth.getAuthHeader(), params: { status: 'Pending' } }),
-                api.get('/daily-report/change-requests', { headers: auth.getAuthHeader(), params: { status: 'Pending' } }).catch(() => ({ data: [] }))
+            const [idResponse, customerResponse, vendorResponse, openingResponse, attendanceResponse, discountResponse] = await Promise.all([
+                api.get('/requests/id-change'),
+                api.get('/requests/customer-change'),
+                api.get('/vendor-requests', { params: { status: 'Pending' } }),
+                api.get('/daily-report/change-requests', { params: { status: 'Pending' } }).catch(() => ({ data: [] })),
+                api.get('/requests/attendance').catch(() => ({ data: [] })),
+                api.get('/requests/discount').catch(() => ({ data: [] }))
             ]);
 
             setIdRequests(idResponse.data);
@@ -44,7 +64,9 @@ const Requests = () => {
                 ...idResponse.data.map(r => ({ ...r, request_type: 'ID_CHANGE' })),
                 ...customerResponse.data.map(r => ({ ...r, request_type: 'CUSTOMER_CHANGE' })),
                 ...vendorResponse.data.map(r => ({ ...r, request_type: 'VENDOR_REQUEST', request_type_value: r.request_type })),
-                ...openingResponse.data.map(r => ({ ...r, request_type: 'OPENING_CHANGE' }))
+                ...openingResponse.data.map(r => ({ ...r, request_type: 'OPENING_CHANGE' })),
+                ...attendanceResponse.data.map(r => ({ ...r, request_type: 'ATTENDANCE_CHANGE' })),
+                ...discountResponse.data.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' }))
             ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             setAllRequests(combined);
@@ -57,13 +79,18 @@ const Requests = () => {
 
     const handleSubmitRequest = async (e) => {
         e.preventDefault();
-        if (!window.confirm(`Submit ID change request to "${newId}"?`)) return;
+        const isConfirmed = await confirm({
+            title: 'Submit Request',
+            message: `Submit ID change request to "${newId}"?`,
+            confirmText: 'Submit',
+            type: 'primary'
+        });
+        if (!isConfirmed) return;
         setLoading(true);
         try {
             await api.post(
                 '/requests/id-change',
-                { new_user_id: newId },
-                { headers: auth.getAuthHeader() }
+                { new_user_id: newId }
             );
             setMessage('Request submitted successfully. Waiting for Admin approval.');
             setNewId('');
@@ -80,52 +107,81 @@ const Requests = () => {
     };
 
     const handleReview = async (request, action) => {
-        const label = action === 'approve' ? 'Approve' : 'Reject';
+        const actionUpper = action.toUpperCase();
+        const label = actionUpper === 'APPROVE' ? 'Approve' : 'Reject';
         const typeLabel = request.request_type === 'ID_CHANGE'
             ? 'ID change'
             : request.request_type === 'CUSTOMER_CHANGE'
                 ? 'customer change'
-                : 'admin setup';
-        if (!window.confirm(`${label} this ${typeLabel} request?`)) return;
+                : request.request_type === 'ATTENDANCE_CHANGE'
+                    ? 'attendance change'
+                    : request.request_type === 'DISCOUNT_REQUEST'
+                        ? 'discount approval'
+                        : 'admin setup';
+
+        const isConfirmed = await confirm({
+            title: `${label} Request`,
+            message: `Are you sure you want to ${label.toLowerCase()} this ${typeLabel} request?`,
+            confirmText: label,
+            type: actionUpper === 'APPROVE' ? 'primary' : 'danger'
+        });
+        if (!isConfirmed) return;
+
         try {
             if (request.request_type === 'ID_CHANGE') {
-                await api.post(`/requests/id-change/${request.id}/review`, { action }, { headers: auth.getAuthHeader() });
+                await api.post(`/requests/id-change/${request.id}/review`, { action });
             } else if (request.request_type === 'CUSTOMER_CHANGE') {
-                await api.post(`/requests/customer-change/${request.id}/review`, { action }, { headers: auth.getAuthHeader() });
+                await api.post(`/requests/customer-change/${request.id}/review`, { action });
             } else if (request.request_type === 'OPENING_CHANGE') {
                 await api.post(`/daily-report/change-requests/${request.id}/review`, {
                     action: action === 'APPROVE' ? 'Approve' : 'Reject'
-                }, { headers: auth.getAuthHeader() });
+                });
+            } else if (request.request_type === 'ATTENDANCE_CHANGE') {
+                await api.post(`/requests/attendance/${request.id}/review`, { action });
+            } else if (request.request_type === 'DISCOUNT_REQUEST') {
+                await api.post(`/requests/discount/${request.id}/review`, { action });
             } else {
                 await api.put(`/vendor-requests/${request.id}/review`, {
                     status: action === 'APPROVE' ? 'Approved' : 'Rejected'
-                }, { headers: auth.getAuthHeader() });
+                });
             }
             setShowDetailModal(false);
             setSelectedRequest(null);
-            fetchAllRequests();
+            if (user.role === 'Accountant') {
+                fetchDiscountRequestsForAccountant();
+            } else {
+                fetchAllRequests();
+            }
+            // Update badge count immediately
+            window.dispatchEvent(new Event('requestReviewed'));
         } catch (err) {
-            alert(err.response?.data?.message || 'Action failed');
+            toast.error(err.response?.data?.message || 'Action failed');
         }
     };
 
     const getRequestTypeBadge = (type) => {
         if (type === 'ID_CHANGE') {
-            return <span className="badge" style={{ backgroundColor: 'var(--primary-light)' }}>ID Change</span>;
+            return <span className="badge" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent)' }}>ID Change</span>;
         }
         if (type === 'CUSTOMER_CHANGE') {
-            return <span className="badge" style={{ backgroundColor: 'var(--accent-light)' }}>Customer {selectedRequest?.action}</span>;
+            return <span className="badge" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent)' }}>Customer {selectedRequest?.action}</span>;
         }
         if (type === 'VENDOR_REQUEST') {
-            return <span className="badge" style={{ backgroundColor: 'var(--warning)' }}>Admin Setup</span>;
+            return <span className="badge" style={{ backgroundColor: 'var(--warning)', color: '#fff' }}>Admin Setup</span>;
         }
         if (type === 'OPENING_CHANGE') {
-            return <span className="badge" style={{ backgroundColor: '#7c3aed', color: '#fff' }}>Opening Change</span>;
+            return <span className="badge" style={{ backgroundColor: 'var(--accent)', color: '#fff' }}>Opening Change</span>;
+        }
+        if (type === 'ATTENDANCE_CHANGE') {
+            return <span className="badge" style={{ backgroundColor: 'var(--success)', color: '#fff' }}>Attendance Change</span>;
+        }
+        if (type === 'DISCOUNT_REQUEST') {
+            return <span className="badge" style={{ backgroundColor: 'var(--warning)', color: '#fff' }}>Discount Approval</span>;
         }
         return <span className="badge">{type}</span>;
     };
 
-    if (user.role !== 'Admin') {
+    if (user.role !== 'Admin' && user.role !== 'Accountant') {
         return (
             <div className="stack-lg container-sm">
                 <div className="text-center">
@@ -174,7 +230,11 @@ const Requests = () => {
         <div className="stack-lg">
             <div>
                 <h1 className="section-title">Requests</h1>
-                <p className="section-subtitle">Review and approve staff requests for ID changes and customer modifications. Double-click a row to view details.</p>
+                <p className="section-subtitle">
+                    {user.role === 'Accountant'
+                        ? 'Review and approve discount requests (up to 10%). Double-click a row to view details.'
+                        : 'Review and approve staff requests for ID changes and customer modifications. Double-click a row to view details.'}
+                </p>
             </div>
 
             <div className="panel panel--tight">
@@ -217,7 +277,9 @@ const Requests = () => {
                                         <td className="user-name">
                                             {req.request_type === 'ID_CHANGE'
                                                 ? req.name
-                                                : req.requester_name}
+                                                : req.request_type === 'ATTENDANCE_CHANGE'
+                                                    ? req.staff_name
+                                                    : req.requester_name}
                                         </td>
                                         <td className="text-sm">
                                             {req.request_type === 'ID_CHANGE' ? (
@@ -232,6 +294,10 @@ const Requests = () => {
                                                     }
                                                     {req.branch_name && ` (${req.branch_name})`}
                                                 </span>
+                                            ) : req.request_type === 'ATTENDANCE_CHANGE' ? (
+                                                <span>Update attendance on {new Date(req.attendance_date).toLocaleDateString()} to {req.requested_status}</span>
+                                            ) : req.request_type === 'DISCOUNT_REQUEST' ? (
+                                                <span>{Number(req.discount_percent).toFixed(1)}% discount on ₹{Number(req.total_amount || 0).toFixed(2)} — by {req.requester_name}</span>
                                             ) : (
                                                 <span>{req.request_type_value || req.request_type} request: {req.name}</span>
                                             )}
@@ -273,7 +339,9 @@ const Requests = () => {
                                 <div className="row gap-sm items-center">
                                     <User size={16} className="muted" />
                                     <span className="user-name">
-                                        {selectedRequest.request_type === 'ID_CHANGE' ? selectedRequest.name : (selectedRequest.requester_name || selectedRequest.name)}
+                                        {selectedRequest.request_type === 'ID_CHANGE' ? selectedRequest.name :
+                                            selectedRequest.request_type === 'ATTENDANCE_CHANGE' ? selectedRequest.staff_name :
+                                                (selectedRequest.requester_name || selectedRequest.name)}
                                     </span>
                                 </div>
                             </div>
@@ -354,6 +422,60 @@ const Requests = () => {
                                         <div>
                                             <label className="label">Note</label>
                                             <textarea className="input-field" rows="2" value={selectedRequest.note} disabled />
+                                        </div>
+                                    )}
+                                </>
+                            ) : selectedRequest.request_type === 'DISCOUNT_REQUEST' ? (
+                                <>
+                                    <div className="row gap-md">
+                                        <div className="flex-1">
+                                            <label className="label">Discount Requested</label>
+                                            <input type="text" className="input-field" value={`${Number(selectedRequest.discount_percent).toFixed(1)}%`} disabled style={{ fontWeight: 600, color: 'var(--primary)' }} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="label">Order Total</label>
+                                            <input type="text" className="input-field" value={`₹${Number(selectedRequest.total_amount || 0).toFixed(2)}`} disabled />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="label">Discount Amount</label>
+                                        <input type="text" className="input-field" value={`₹${(Number(selectedRequest.total_amount || 0) * Number(selectedRequest.discount_percent) / 100).toFixed(2)}`} disabled style={{ fontWeight: 600, color: 'var(--warning)' }} />
+                                    </div>
+                                    {selectedRequest.customer_name && (
+                                        <div>
+                                            <label className="label">Customer</label>
+                                            <input type="text" className="input-field" value={selectedRequest.customer_name} disabled />
+                                        </div>
+                                    )}
+                                    {selectedRequest.reason && (
+                                        <div>
+                                            <label className="label">Reason</label>
+                                            <textarea className="input-field" rows={3} value={selectedRequest.reason} disabled />
+                                        </div>
+                                    )}
+                                </>
+                            ) : selectedRequest.request_type === 'ATTENDANCE_CHANGE' ? (
+                                <>
+                                    <div className="row gap-md">
+                                        <div className="flex-1">
+                                            <label className="label">Attendance Date</label>
+                                            <input type="text" className="input-field" value={new Date(selectedRequest.attendance_date).toLocaleDateString()} disabled />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="label">Requested Status</label>
+                                            <input type="text" className="input-field" value={selectedRequest.requested_status} disabled style={{ fontWeight: 600, color: 'var(--primary)' }} />
+                                        </div>
+                                    </div>
+                                    {selectedRequest.requested_time && (
+                                        <div>
+                                            <label className="label">Requested Time</label>
+                                            <input type="time" className="input-field" value={selectedRequest.requested_time} disabled />
+                                        </div>
+                                    )}
+                                    {selectedRequest.requested_notes && (
+                                        <div>
+                                            <label className="label">Requested Notes</label>
+                                            <textarea className="input-field" rows="2" value={selectedRequest.requested_notes} disabled />
                                         </div>
                                     )}
                                 </>

@@ -36,10 +36,10 @@ const uploadDocs = multer({ storage: documentStorage, fileFilter: documentFileFi
 router.get('/office-dashboard', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
-    
+
     // Build branch filter
-    const branchFilter = role === 'Admin' ? '' : 'WHERE o.branch_id = ?';
-    const branchParams = role === 'Admin' ? [] : [branch_id];
+    const branchFilter = ['Admin', 'Accountant'].includes(role) ? '' : 'WHERE o.branch_id = ?';
+    const branchParams = ['Admin', 'Accountant'].includes(role) ? [] : [branch_id];
 
     // Total spent this month
     const [totalRows] = await pool.query(
@@ -112,7 +112,7 @@ router.get('/office-expenses', authenticateToken, async (req, res) => {
     `;
     const params = [];
 
-    if (role !== 'Admin') {
+    if (!['Admin', 'Accountant'].includes(role)) {
       query += ' AND o.branch_id = ?';
       params.push(branch_id);
     }
@@ -155,6 +155,24 @@ router.post('/office-expenses', authenticateToken, async (req, res) => {
       [branch_id, expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number, created_by]
     );
 
+    // SYNC WITH GLOBAL PAYMENTS TABLE
+    await pool.query(`
+      INSERT INTO sarga_payments 
+      (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date) 
+      VALUES (?, 'Other', ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      branch_id,
+      vendor_name || 'Office Expense',
+      amount,
+      payment_method || 'Cash',
+      payment_method === 'UPI' ? 0 : amount,
+      payment_method === 'UPI' ? amount : 0,
+      reference_number,
+      `Office Expense: ${expense_type}${description ? ' - ' + description : ''}`,
+      expense_date || new Date()
+    ]);
+
+    auditLog(req.user.id, 'OFFICE_EXPENSE_ADD', `Added office expense: ${expense_type} ₹${amount}`, { entity_type: 'office_expense', entity_id: result.insertId });
     res.json({ success: true, id: result.insertId });
   } catch (error) {
     console.error('Add office expense error:', error);
@@ -175,6 +193,7 @@ router.put('/office-expenses/:id', authenticateToken, async (req, res) => {
       [expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number, id]
     );
 
+    auditLog(req.user.id, 'OFFICE_EXPENSE_UPDATE', `Updated office expense #${id}: ${expense_type} ₹${amount}`, { entity_type: 'office_expense', entity_id: id });
     res.json({ success: true });
   } catch (error) {
     console.error('Update office expense error:', error);
@@ -185,12 +204,13 @@ router.put('/office-expenses/:id', authenticateToken, async (req, res) => {
 // Delete office expense
 router.delete('/office-expenses/:id', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only admins can delete expenses' });
     }
 
     const { id } = req.params;
     await pool.query('DELETE FROM sarga_office_expenses WHERE id = ?', [id]);
+    auditLog(req.user.id, 'OFFICE_EXPENSE_DELETE', `Deleted office expense #${id}`, { entity_type: 'office_expense', entity_id: id });
     res.json({ success: true });
   } catch (error) {
     console.error('Delete office expense error:', error);
@@ -204,9 +224,9 @@ router.delete('/office-expenses/:id', authenticateToken, async (req, res) => {
 router.get('/transport-dashboard', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
-    
-    const branchFilter = role === 'Admin' ? '' : 'WHERE t.branch_id = ?';
-    const branchParams = role === 'Admin' ? [] : [branch_id];
+
+    const branchFilter = ['Admin', 'Accountant'].includes(role) ? '' : 'WHERE t.branch_id = ?';
+    const branchParams = ['Admin', 'Accountant'].includes(role) ? [] : [branch_id];
 
     // Total spent this month
     const [totalRows] = await pool.query(
@@ -290,7 +310,7 @@ router.get('/transport-expenses', authenticateToken, async (req, res) => {
     `;
     const params = [];
 
-    if (role !== 'Admin') {
+    if (!['Admin', 'Accountant'].includes(role)) {
       query += ' AND t.branch_id = ?';
       params.push(branch_id);
     }
@@ -329,10 +349,10 @@ router.get('/transport-expenses', authenticateToken, async (req, res) => {
 router.post('/transport-expenses', authenticateToken, async (req, res) => {
   try {
     const { branch_id, id: created_by } = req.user;
-    const { 
-      transport_type, vehicle_number, driver_name, amount, payment_method, 
-      reference_number, description, expense_date, bill_number, 
-      from_location, to_location, distance_km 
+    const {
+      transport_type, vehicle_number, driver_name, amount, payment_method,
+      reference_number, description, expense_date, bill_number,
+      from_location, to_location, distance_km
     } = req.body;
 
     const [result] = await pool.query(
@@ -340,10 +360,28 @@ router.post('/transport-expenses', authenticateToken, async (req, res) => {
        (branch_id, transport_type, vehicle_number, driver_name, amount, payment_method, reference_number, 
         description, expense_date, bill_number, from_location, to_location, distance_km, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [branch_id, transport_type, vehicle_number, driver_name, amount, payment_method, reference_number, 
-       description, expense_date, bill_number, from_location, to_location, distance_km, created_by]
+      [branch_id, transport_type, vehicle_number, driver_name, amount, payment_method, reference_number,
+        description, expense_date, bill_number, from_location, to_location, distance_km, created_by]
     );
 
+    // SYNC WITH GLOBAL PAYMENTS TABLE
+    await pool.query(`
+      INSERT INTO sarga_payments 
+      (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date) 
+      VALUES (?, 'Other', ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      branch_id,
+      driver_name || 'Transport Expense',
+      amount,
+      payment_method || 'Cash',
+      payment_method === 'UPI' ? 0 : amount,
+      payment_method === 'UPI' ? amount : 0,
+      reference_number,
+      `Transport Expense: ${transport_type}${description ? ' - ' + description : ''}`,
+      expense_date || new Date()
+    ]);
+
+    auditLog(req.user.id, 'TRANSPORT_EXPENSE_ADD', `Added transport expense: ${transport_type} ₹${amount}`, { entity_type: 'transport_expense', entity_id: result.insertId });
     res.json({ success: true, id: result.insertId });
   } catch (error) {
     console.error('Add transport expense error:', error);
@@ -355,10 +393,10 @@ router.post('/transport-expenses', authenticateToken, async (req, res) => {
 router.put('/transport-expenses/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { 
-      transport_type, vehicle_number, driver_name, amount, payment_method, 
+    const {
+      transport_type, vehicle_number, driver_name, amount, payment_method,
       reference_number, description, expense_date, bill_number,
-      from_location, to_location, distance_km 
+      from_location, to_location, distance_km
     } = req.body;
 
     await pool.query(
@@ -366,10 +404,11 @@ router.put('/transport-expenses/:id', authenticateToken, async (req, res) => {
        SET transport_type=?, vehicle_number=?, driver_name=?, amount=?, payment_method=?, reference_number=?, 
            description=?, expense_date=?, bill_number=?, from_location=?, to_location=?, distance_km=?
        WHERE id=?`,
-      [transport_type, vehicle_number, driver_name, amount, payment_method, reference_number, 
-       description, expense_date, bill_number, from_location, to_location, distance_km, id]
+      [transport_type, vehicle_number, driver_name, amount, payment_method, reference_number,
+        description, expense_date, bill_number, from_location, to_location, distance_km, id]
     );
 
+    auditLog(req.user.id, 'TRANSPORT_EXPENSE_UPDATE', `Updated transport expense #${id}: ₹${amount}`, { entity_type: 'transport_expense', entity_id: id });
     res.json({ success: true });
   } catch (error) {
     console.error('Update transport expense error:', error);
@@ -380,12 +419,13 @@ router.put('/transport-expenses/:id', authenticateToken, async (req, res) => {
 // Delete transport expense
 router.delete('/transport-expenses/:id', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only admins can delete expenses' });
     }
 
     const { id } = req.params;
     await pool.query('DELETE FROM sarga_transport_expenses WHERE id = ?', [id]);
+    auditLog(req.user.id, 'TRANSPORT_EXPENSE_DELETE', `Deleted transport expense #${id}`, { entity_type: 'transport_expense', entity_id: id });
     res.json({ success: true });
   } catch (error) {
     console.error('Delete transport expense error:', error);
@@ -399,9 +439,9 @@ router.delete('/transport-expenses/:id', authenticateToken, async (req, res) => 
 router.get('/misc-dashboard', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
-    
-    const branchFilter = role === 'Admin' ? '' : 'WHERE m.branch_id = ?';
-    const branchParams = role === 'Admin' ? [] : [branch_id];
+
+    const branchFilter = ['Admin', 'Accountant'].includes(role) ? '' : 'WHERE m.branch_id = ?';
+    const branchParams = ['Admin', 'Accountant'].includes(role) ? [] : [branch_id];
 
     // Total spent this month
     const [totalRows] = await pool.query(
@@ -488,7 +528,7 @@ router.get('/misc-expenses', authenticateToken, async (req, res) => {
     `;
     const params = [];
 
-    if (role !== 'Admin') {
+    if (!['Admin', 'Accountant'].includes(role)) {
       query += ' AND m.branch_id = ?';
       params.push(branch_id);
     }
@@ -527,9 +567,9 @@ router.get('/misc-expenses', authenticateToken, async (req, res) => {
 router.post('/misc-expenses', authenticateToken, async (req, res) => {
   try {
     const { branch_id, id: created_by } = req.user;
-    const { 
-      expense_category, vendor_name, amount, payment_method, reference_number, 
-      description, expense_date, bill_number, is_recurring 
+    const {
+      expense_category, vendor_name, amount, payment_method, reference_number,
+      description, expense_date, bill_number, is_recurring
     } = req.body;
 
     const [result] = await pool.query(
@@ -537,10 +577,28 @@ router.post('/misc-expenses', authenticateToken, async (req, res) => {
        (branch_id, expense_category, vendor_name, amount, payment_method, reference_number, 
         description, expense_date, bill_number, is_recurring, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [branch_id, expense_category, vendor_name, amount, payment_method, reference_number, 
-       description, expense_date, bill_number, is_recurring ? 1 : 0, created_by]
+      [branch_id, expense_category, vendor_name, amount, payment_method, reference_number,
+        description, expense_date, bill_number, is_recurring ? 1 : 0, created_by]
     );
 
+    // SYNC WITH GLOBAL PAYMENTS TABLE
+    await pool.query(`
+      INSERT INTO sarga_payments 
+      (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date) 
+      VALUES (?, 'Other', ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      branch_id,
+      vendor_name || 'Misc Expense',
+      amount,
+      payment_method || 'Cash',
+      payment_method === 'UPI' ? 0 : amount,
+      payment_method === 'UPI' ? amount : 0,
+      reference_number,
+      `Misc Expense: ${expense_category}${description ? ' - ' + description : ''}`,
+      expense_date || new Date()
+    ]);
+
+    auditLog(req.user.id, 'MISC_EXPENSE_ADD', `Added misc expense: ${expense_category} ₹${amount}`, { entity_type: 'misc_expense', entity_id: result.insertId });
     res.json({ success: true, id: result.insertId });
   } catch (error) {
     console.error('Add misc expense error:', error);
@@ -552,9 +610,9 @@ router.post('/misc-expenses', authenticateToken, async (req, res) => {
 router.put('/misc-expenses/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { 
-      expense_category, vendor_name, amount, payment_method, reference_number, 
-      description, expense_date, bill_number, is_recurring 
+    const {
+      expense_category, vendor_name, amount, payment_method, reference_number,
+      description, expense_date, bill_number, is_recurring
     } = req.body;
 
     await pool.query(
@@ -562,10 +620,11 @@ router.put('/misc-expenses/:id', authenticateToken, async (req, res) => {
        SET expense_category=?, vendor_name=?, amount=?, payment_method=?, reference_number=?, 
            description=?, expense_date=?, bill_number=?, is_recurring=?
        WHERE id=?`,
-      [expense_category, vendor_name, amount, payment_method, reference_number, 
-       description, expense_date, bill_number, is_recurring ? 1 : 0, id]
+      [expense_category, vendor_name, amount, payment_method, reference_number,
+        description, expense_date, bill_number, is_recurring ? 1 : 0, id]
     );
 
+    auditLog(req.user.id, 'MISC_EXPENSE_UPDATE', `Updated misc expense #${id}: ${expense_category} ₹${amount}`, { entity_type: 'misc_expense', entity_id: id });
     res.json({ success: true });
   } catch (error) {
     console.error('Update misc expense error:', error);
@@ -576,12 +635,13 @@ router.put('/misc-expenses/:id', authenticateToken, async (req, res) => {
 // Delete miscellaneous expense
 router.delete('/misc-expenses/:id', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Only admins can delete expenses' });
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Only admins/accountants can delete expenses' });
     }
 
     const { id } = req.params;
     await pool.query('DELETE FROM sarga_misc_expenses WHERE id = ?', [id]);
+    auditLog(req.user.id, 'MISC_EXPENSE_DELETE', `Deleted misc expense #${id}`, { entity_type: 'misc_expense', entity_id: id });
     res.json({ success: true });
   } catch (error) {
     console.error('Delete misc expense error:', error);
@@ -595,9 +655,9 @@ router.delete('/misc-expenses/:id', authenticateToken, async (req, res) => {
 router.get('/petty-cash-dashboard', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
-    
-    const branchFilter = role === 'Admin' ? '' : 'WHERE p.branch_id = ?';
-    const branchParams = role === 'Admin' ? [] : [branch_id];
+
+    const branchFilter = ['Admin', 'Accountant'].includes(role) ? '' : 'WHERE p.branch_id = ?';
+    const branchParams = ['Admin', 'Accountant'].includes(role) ? [] : [branch_id];
 
     // Current balance (latest balance_after)
     const [balanceRows] = await pool.query(
@@ -681,7 +741,7 @@ router.get('/petty-cash-ledger', authenticateToken, async (req, res) => {
     `;
     const params = [];
 
-    if (role !== 'Admin') {
+    if (!['Admin', 'Accountant'].includes(role)) {
       query += ' AND p.branch_id = ?';
       params.push(branch_id);
     }
@@ -715,9 +775,9 @@ router.get('/petty-cash-ledger', authenticateToken, async (req, res) => {
 router.post('/petty-cash', authenticateToken, async (req, res) => {
   try {
     const { branch_id, id: created_by, role } = req.user;
-    const { 
+    const {
       transaction_date, transaction_type, amount, description, reference_number,
-      received_from, paid_to, category 
+      received_from, paid_to, category
     } = req.body;
 
     // Get current balance
@@ -730,7 +790,7 @@ router.post('/petty-cash', authenticateToken, async (req, res) => {
     );
 
     let currentBalance = balanceRows.length > 0 ? parseFloat(balanceRows[0].balance_after) : 0;
-    
+
     // Calculate new balance
     let newBalance = currentBalance;
     if (transaction_type === 'Opening') {
@@ -746,10 +806,28 @@ router.post('/petty-cash', authenticateToken, async (req, res) => {
        (branch_id, transaction_date, transaction_type, amount, description, reference_number, 
         balance_after, received_from, paid_to, category, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [branch_id, transaction_date, transaction_type, amount, description, reference_number, 
-       newBalance, received_from, paid_to, category, created_by]
+      [branch_id, transaction_date, transaction_type, amount, description, reference_number,
+        newBalance, received_from, paid_to, category, created_by]
     );
 
+    // SYNC WITH GLOBAL PAYMENTS TABLE (ONLY FOR CASH OUT)
+    if (transaction_type === 'Cash Out') {
+      await pool.query(`
+        INSERT INTO sarga_payments 
+        (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date) 
+        VALUES (?, 'Other', ?, ?, 'Cash', ?, 0, ?, ?, ?)
+      `, [
+        branch_id,
+        paid_to || 'Petty Cash Payment',
+        amount,
+        amount,
+        reference_number,
+        `Petty Cash Out: ${category}${description ? ' - ' + description : ''}`,
+        transaction_date || new Date()
+      ]);
+    }
+
+    auditLog(req.user.id, 'PETTY_CASH_ADD', `Petty cash ${transaction_type}: ₹${amount} (${category || 'uncategorized'})`, { entity_type: 'petty_cash', entity_id: result.insertId });
     res.json({ success: true, id: result.insertId, new_balance: newBalance });
   } catch (error) {
     console.error('Add petty cash transaction error:', error);
@@ -757,17 +835,17 @@ router.post('/petty-cash', authenticateToken, async (req, res) => {
   }
 });
 
-// Update petty cash transaction (Admin only, recalculates balances)
+// Update petty cash transaction (Admin/Accountant only, recalculates balances)
 router.put('/petty-cash/:id', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Only admins can edit petty cash transactions' });
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Only admins/accountants can edit petty cash transactions' });
     }
 
     const { id } = req.params;
-    const { 
+    const {
       transaction_date, transaction_type, amount, description, reference_number,
-      received_from, paid_to, category 
+      received_from, paid_to, category
     } = req.body;
 
     // Get the transaction to update
@@ -784,8 +862,8 @@ router.put('/petty-cash/:id', authenticateToken, async (req, res) => {
        SET transaction_date=?, transaction_type=?, amount=?, description=?, reference_number=?,
            received_from=?, paid_to=?, category=?
        WHERE id=?`,
-      [transaction_date, transaction_type, amount, description, reference_number, 
-       received_from, paid_to, category, id]
+      [transaction_date, transaction_type, amount, description, reference_number,
+        received_from, paid_to, category, id]
     );
 
     // Recalculate all balances for this branch from the updated date onwards
@@ -822,6 +900,7 @@ router.put('/petty-cash/:id', authenticateToken, async (req, res) => {
       );
     }
 
+    auditLog(req.user.id, 'PETTY_CASH_UPDATE', `Updated petty cash #${id}: ${transaction_type} ₹${amount}`, { entity_type: 'petty_cash', entity_id: id });
     res.json({ success: true });
   } catch (error) {
     console.error('Update petty cash error:', error);
@@ -829,15 +908,15 @@ router.put('/petty-cash/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete petty cash transaction (Admin only)
+// Delete petty cash transaction (Admin/Accountant only)
 router.delete('/petty-cash/:id', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Only admins can delete petty cash transactions' });
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Only admins/accountants can delete petty cash transactions' });
     }
 
     const { id } = req.params;
-    
+
     // Get transaction details
     const [txRows] = await pool.query('SELECT * FROM sarga_petty_cash WHERE id = ?', [id]);
     if (txRows.length === 0) {
@@ -881,6 +960,7 @@ router.delete('/petty-cash/:id', authenticateToken, async (req, res) => {
       );
     }
 
+    auditLog(req.user.id, 'PETTY_CASH_DELETE', `Deleted petty cash #${id}: ${tx.transaction_type} ₹${tx.amount}`, { entity_type: 'petty_cash', entity_id: id });
     res.json({ success: true });
   } catch (error) {
     console.error('Delete petty cash error:', error);
@@ -905,7 +985,7 @@ router.get('/bills-documents', authenticateToken, async (req, res) => {
     `;
     const params = [];
 
-    if (role !== 'Admin') {
+    if (!['Admin', 'Accountant'].includes(role)) {
       query += ' AND bd.branch_id = ?';
       params.push(branch_id);
     }
@@ -982,6 +1062,7 @@ router.post('/bills-documents/upload', authenticateToken, uploadDocs.single('fil
       ]
     );
 
+    auditLog(req.user.id, 'BILL_UPLOAD', `Uploaded bill: ${req.file.originalname}`, { entity_type: 'bill_document', entity_id: result.insertId });
     res.json({ success: true, id: result.insertId, file_path: filePath });
   } catch (error) {
     console.error('Upload bill/document error:', error);
@@ -1004,9 +1085,10 @@ router.post('/bills-documents', authenticateToken, async (req, res) => {
         amount, file_path, file_name, file_type, file_size_kb, description, uploaded_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [branch_id, document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
-       amount, file_path, file_name, file_type, file_size_kb, description, uploaded_by]
+        amount, file_path, file_name, file_type, file_size_kb, description, uploaded_by]
     );
 
+    auditLog(req.user.id, 'BILL_DOCUMENT_ADD', `Added bill document: ${document_type} ${vendor_name || ''} ₹${amount || 0}`, { entity_type: 'bill_document', entity_id: result.insertId });
     res.json({ success: true, id: result.insertId });
   } catch (error) {
     console.error('Add bill/document error:', error);
@@ -1028,10 +1110,11 @@ router.put('/bills-documents/:id', authenticateToken, async (req, res) => {
        SET document_type=?, related_tab=?, related_id=?, vendor_name=?, bill_number=?, 
            bill_date=?, amount=?, description=?
        WHERE id=?`,
-      [document_type, related_tab, related_id, vendor_name, bill_number, bill_date, 
-       amount, description, id]
+      [document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
+        amount, description, id]
     );
 
+    auditLog(req.user.id, 'BILL_DOCUMENT_UPDATE', `Updated bill document #${id}: ${document_type}`, { entity_type: 'bill_document', entity_id: id });
     res.json({ success: true });
   } catch (error) {
     console.error('Update bill/document error:', error);
@@ -1042,8 +1125,8 @@ router.put('/bills-documents/:id', authenticateToken, async (req, res) => {
 // Delete bill/document
 router.delete('/bills-documents/:id', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Only admins can delete documents' });
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Only admins/accountants can delete documents' });
     }
 
     const { id } = req.params;
@@ -1058,6 +1141,7 @@ router.delete('/bills-documents/:id', authenticateToken, async (req, res) => {
       }
     }
 
+    auditLog(req.user.id, 'BILL_DOCUMENT_DELETE', `Deleted bill document #${id}`, { entity_type: 'bill_document', entity_id: id });
     res.json({ success: true });
   } catch (error) {
     console.error('Delete bill/document error:', error);
@@ -1065,9 +1149,124 @@ router.delete('/bills-documents/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Extract bill details from uploaded document (OCR + AI)
+router.post('/bills-documents/extract-details', authenticateToken, (req, res, next) => {
+  uploadDocs.single('file')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      console.error('[Multer Error]', err.code, err.message);
+      return res.status(400).json({ error: `Upload error: ${err.message}` });
+    } else if (err) {
+      console.error('[Upload Error]', err.message);
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    console.log('[Bill Extraction] Request received');
+    console.log('[Bill Extraction] req.file:', req.file ? { filename: req.file.filename, size: req.file.size } : 'NO FILE');
+    console.log('[Bill Extraction] req.body:', req.body);
+
+    if (!req.file) {
+      console.error('Bill extraction: No file provided');
+      return res.status(400).json({ error: 'File is required' });
+    }
+
+    console.log('[Bill Extraction] Starting extraction for:', req.file.filename);
+    const { processBillDocument } = require('../helpers/billExtraction');
+    const filePath = req.file.path;
+
+    // Process bill and extract details
+    const result = await processBillDocument(filePath);
+
+    // Clean up temp file
+    fs.promises.unlink(filePath).catch((err) => console.log('File cleanup issue:', err.message));
+
+    if (!result.success) {
+      console.error('[Bill Extraction] Processing failed:', result.message);
+      return res.status(400).json({ error: result.message, details: result.error });
+    }
+
+    console.log('[Bill Extraction] Success, returning suggestions');
+    res.json(result.suggestions);
+  } catch (error) {
+    console.error('Bill extraction error:', error.message, error.stack);
+    res.status(500).json({ error: 'Failed to extract bill details', details: error.message });
+  }
+});
+
+// Get inventory products for bill linking
+router.get('/bills-documents/suggest-products', authenticateToken, async (req, res) => {
+  try {
+    const { keyword, category } = req.query;
+
+    let query = `
+      SELECT id, name, sku, category, unit, quantity,
+             reorder_level, cost_price, sell_price, hsn, gst_rate, created_at
+      FROM sarga_inventory
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (keyword) {
+      const keywords = keyword.split(/[\s,]+/).filter(k => k.length >= 2);
+      if (keywords.length > 0) {
+        const conditions = keywords.map(() => '(name LIKE ? OR category LIKE ? OR sku LIKE ?)');
+        query += ' AND (' + conditions.join(' OR ') + ')';
+        keywords.forEach(k => {
+          params.push(`%${k}%`, `%${k}%`, `%${k}%`);
+        });
+      }
+    }
+
+    if (category) {
+      query += ' AND category = ?';
+      params.push(category);
+    }
+
+    query += ' ORDER BY name ASC LIMIT 20';
+
+    const [products] = await pool.query(query, params);
+    res.json(products);
+  } catch (error) {
+    console.error('Suggest products error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Link bill document to inventory product
+router.post('/bills-documents/:id/link-product', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { product_id, quantity, unit_price, add_to_inventory } = req.body;
+
+    // Update bill document with product link
+    await pool.query(
+      `UPDATE sarga_bills_documents SET product_id = ?, product_quantity = ?, product_unit_price = ?
+       WHERE id = ?`,
+      [product_id, quantity, unit_price, id]
+    );
+
+    // If add_to_inventory is true, create inventory entry
+    if (add_to_inventory && product_id) {
+      await pool.query(
+        `INSERT INTO sarga_inventory_movements 
+         (inventory_id, movement_type, quantity, reference_type, reference_id, notes)
+         VALUES (?, 'Purchase', ?, 'Bill Document', ?, ?)`,
+        [product_id, quantity, id, 'Linked from bill document']
+      );
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Link product error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ========== REPORTS & ANALYTICS ==========
 const buildBranchFilter = (alias, req, params) => {
-  if (req.user.role !== 'Admin') {
+  if (!['Admin', 'Accountant'].includes(req.user.role)) {
     params.push(req.user.branch_id);
     return ` AND ${alias}.branch_id = ?`;
   }
@@ -1274,7 +1473,7 @@ router.get('/reports/utility-statement', authenticateToken, async (req, res) => 
 
     const billParams = [];
     let billFilter = " WHERE 1=1";
-    if (req.user.role !== 'Admin') { billFilter += " AND ub.branch_id = ?"; billParams.push(req.user.branch_id); }
+    if (!['Admin', 'Accountant'].includes(req.user.role)) { billFilter += " AND ub.branch_id = ?"; billParams.push(req.user.branch_id); }
     if (start_date) { billFilter += " AND ub.bill_date >= ?"; billParams.push(start_date); }
     if (end_date) { billFilter += " AND ub.bill_date <= ?"; billParams.push(end_date); }
     if (utility_type) { billFilter += " AND ub.utility_type = ?"; billParams.push(utility_type); }
@@ -1298,7 +1497,7 @@ router.get('/reports/utility-statement', authenticateToken, async (req, res) => 
 // Record a utility bill
 router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   const { utility_type, amount, bill_number, bill_date, description, connection_id, branch_id } = req.body;
-  const finalBranchId = req.user.role === 'Admin' ? (branch_id || req.user.branch_id) : req.user.branch_id;
+  const finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? (branch_id || req.user.branch_id) : req.user.branch_id;
 
   if (!utility_type || !amount || Number(amount) <= 0) {
     return res.status(400).json({ message: 'Utility type and amount are required' });
@@ -1309,11 +1508,26 @@ router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accoun
       "INSERT INTO sarga_utility_bills (utility_type, branch_id, bill_number, bill_date, amount, description, connection_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [utility_type, finalBranchId, bill_number || null, bill_date || new Date().toISOString().split('T')[0], Number(amount), description || null, connection_id || null]
     );
+
+    // SYNC WITH GLOBAL PAYMENTS TABLE (Assuming utility bill record is also a payment in this context)
+    await pool.query(`
+      INSERT INTO sarga_payments 
+      (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, description, payment_date) 
+      VALUES (?, 'Utility', ?, ?, 'Cash', ?, 0, ?, ?)
+    `, [
+      finalBranchId,
+      utility_type,
+      amount,
+      amount,
+      `Utility Bill Payment: ${utility_type}${description ? ' - ' + description : ''}`,
+      bill_date || new Date()
+    ]);
+
     auditLog(req.user.id, 'UTILITY_BILL', `Utility bill ₹${amount} for ${utility_type}`);
     res.status(201).json({ id: result.insertId, message: 'Utility bill recorded' });
   } catch (err) {
     console.error('Utility bill error:', err);
-    res.status(500).json({ message: 'Database error' });
+    res.status(500).json({ message: 'Database error', error: err.message });
   }
 });
 
@@ -1324,14 +1538,14 @@ router.get('/utility-bills', authenticateToken, async (req, res) => {
     let query = `SELECT ub.*, b.name as branch_name FROM sarga_utility_bills ub JOIN sarga_branches b ON ub.branch_id = b.id WHERE 1=1`;
     const params = [];
     if (utility_type) { query += " AND ub.utility_type = ?"; params.push(utility_type); }
-    if (req.user.role !== 'Admin') { query += " AND ub.branch_id = ?"; params.push(req.user.branch_id); }
+    if (!['Admin', 'Accountant'].includes(req.user.role)) { query += " AND ub.branch_id = ?"; params.push(req.user.branch_id); }
     else if (branch_id) { query += " AND ub.branch_id = ?"; params.push(branch_id); }
     query += " ORDER BY ub.bill_date DESC";
     const [rows] = await pool.query(query, params);
     res.json(rows);
   } catch (err) {
     console.error('Utility bills list error:', err);
-    res.status(500).json({ message: 'Database error' });
+    res.status(500).json({ message: 'Database error', error: err.message });
   }
 });
 
@@ -1344,7 +1558,7 @@ router.delete('/utility-bills/:id', authenticateToken, authorizeRoles('Admin'), 
     res.json({ message: 'Utility bill deleted' });
   } catch (err) {
     console.error('Delete utility bill error:', err);
-    res.status(500).json({ message: 'Database error' });
+    res.status(500).json({ message: 'Database error', error: err.message });
   }
 });
 
@@ -1442,3 +1656,4 @@ router.get('/reports/cash-vs-bank', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+

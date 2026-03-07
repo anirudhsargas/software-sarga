@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Lock, Loader2, CheckCircle2 } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 const ChangePassword = () => {
+    const { confirm } = useConfirm();
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -20,7 +22,13 @@ const ChangePassword = () => {
         if (newPassword.length < 4) {
             return setError('Password must be at least 4 characters');
         }
-        if (!window.confirm('Are you sure you want to change your password?')) return;
+        const isConfirmed = await confirm({
+            title: 'Change Password',
+            message: 'Are you sure you want to change your password?',
+            confirmText: 'Change',
+            type: 'warning'
+        });
+        if (!isConfirmed) return;
 
         setLoading(true);
         setError('');
@@ -28,8 +36,7 @@ const ChangePassword = () => {
         try {
             await api.post(
                 '/auth/change-password',
-                { newPassword },
-                { headers: auth.getAuthHeader() }
+                { newPassword }
             );
 
             // Update local user state

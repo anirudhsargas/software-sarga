@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import api, { API_URL } from '../services/api';
-import auth from '../services/auth';
+
 import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy } from 'lucide-react';
-import ImageCropModal from '../components/ImageCropModal';
 import { isTouchDevice } from '../services/utils';
+import { useConfirm } from '../contexts/ConfirmContext';
 import {
     DndContext,
     closestCenter,
@@ -21,6 +21,8 @@ import {
     useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import toast from 'react-hot-toast';
+import ImageCropModal from '../components/ImageCropModal';
 
 const SortableItem = ({ id, children, className, ...props }) => {
     const {
@@ -56,6 +58,7 @@ const SortableItem = ({ id, children, className, ...props }) => {
 };
 
 const ProductLibrary = () => {
+    const { confirm } = useConfirm();
     const [hierarchy, setHierarchy] = useState([]);
     const [loading, setLoading] = useState(true);
     // Navigation state: [] = categories, [catId] = subcategories, [catId, subId] = products
@@ -98,7 +101,8 @@ const ProductLibrary = () => {
         paper_rate: 0,
         has_double_side_rate: false,
         slabs: [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
-        extras: []
+        extras: [],
+        isPhysicalProduct: false // Checklist: show in inventory
     });
 
     const fileBaseUrl = API_URL.replace(/\/api$/, '');
@@ -119,7 +123,7 @@ const ProductLibrary = () => {
 
     const fetchHierarchy = async () => {
         try {
-            const res = await api.get('/product-hierarchy', { headers: auth.getAuthHeader() });
+            const res = await api.get('/product-hierarchy');
             setHierarchy(res.data);
             setLoading(false);
         } catch (err) {
@@ -184,7 +188,8 @@ const ProductLibrary = () => {
             paper_rate: 0,
             has_double_side_rate: false,
             slabs: [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
-            extras: []
+            extras: [],
+            isPhysicalProduct: false
         });
         setProductImage(null);
         setProductImagePreview('');
@@ -196,9 +201,9 @@ const ProductLibrary = () => {
         e.preventDefault();
         try {
             if (isEditing) {
-                await api.put(`/product-categories/${editId}`, { name: newCatName }, { headers: auth.getAuthHeader() });
+                await api.put(`/product-categories/${editId}`, { name: newCatName });
             } else {
-                await api.post('/product-categories', { name: newCatName }, { headers: auth.getAuthHeader() });
+                await api.post('/product-categories', { name: newCatName });
             }
             setNewCatName('');
             setIsEditing(false);
@@ -206,7 +211,7 @@ const ProductLibrary = () => {
             setShowCatModal(false);
             fetchHierarchy();
         } catch (err) {
-            alert(err.response?.data?.message || 'Error saving category');
+            toast.error(err.response?.data?.message || 'Error saving category');
         }
     };
 
@@ -214,9 +219,9 @@ const ProductLibrary = () => {
         e.preventDefault();
         try {
             if (isEditing) {
-                await api.put(`/product-subcategories/${editId}`, { category_id: selectedCatId, name: newSubName }, { headers: auth.getAuthHeader() });
+                await api.put(`/product-subcategories/${editId}`, { category_id: selectedCatId, name: newSubName });
             } else {
-                await api.post('/product-subcategories', { category_id: selectedCatId, name: newSubName }, { headers: auth.getAuthHeader() });
+                await api.post('/product-subcategories', { category_id: selectedCatId, name: newSubName });
             }
             setNewSubName('');
             setIsEditing(false);
@@ -224,14 +229,14 @@ const ProductLibrary = () => {
             setShowSubModal(false);
             fetchHierarchy();
         } catch (err) {
-            alert(err.response?.data?.message || 'Error saving subcategory');
+            toast.error(err.response?.data?.message || 'Error saving subcategory');
         }
     };
 
     const handleSaveProduct = async (e) => {
         e.preventDefault();
         if (!selectedSubId) {
-            alert('Please select a sub-category for this product.');
+            toast.success('Please select a sub-category for this product.');
             return;
         }
         try {
@@ -246,33 +251,42 @@ const ProductLibrary = () => {
             formData.append('has_double_side_rate', newProduct.has_double_side_rate);
             formData.append('slabs', JSON.stringify(newProduct.slabs));
             formData.append('extras', JSON.stringify(newProduct.extras));
+            formData.append('isPhysicalProduct', newProduct.isPhysicalProduct ? 1 : 0);
             if (productImage) formData.append('image', productImage);
             else if (isEditing && newProduct.image_url) formData.append('image_url', newProduct.image_url);
 
             if (isEditing) {
-                await api.put(`/products/${editId}`, formData, { headers: auth.getAuthHeader() });
+                await api.put(`/products/${editId}`, formData);
             } else {
-                await api.post('/products', formData, { headers: auth.getAuthHeader() });
+                await api.post('/products', formData);
             }
             resetProductForm();
             setShowProdModal(false);
             fetchHierarchy();
         } catch (err) {
-            alert(err.response?.data?.message || 'Error saving product');
+            toast.error(err.response?.data?.message || 'Error saving product');
         }
     };
 
     const handleRemoveProductImage = async () => {
         if (!isEditing || !editId) return;
-        if (!window.confirm('Remove this product image?')) return;
+
+        const isConfirmed = await confirm({
+            title: 'Remove Image',
+            message: 'Are you sure you want to remove this product image?',
+            confirmText: 'Remove',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
+
         try {
-            await api.delete(`/products/${editId}/image`, { headers: auth.getAuthHeader() });
+            await api.delete(`/products/${editId}/image`);
             setProductImage(null);
             setProductImagePreview('');
             setNewProduct({ ...newProduct, image_url: null });
             fetchHierarchy();
         } catch (err) {
-            alert(err.response?.data?.message || 'Failed to remove product image');
+            toast.error(err.response?.data?.message || 'Failed to remove product image');
         }
     };
 
@@ -328,13 +342,20 @@ const ProductLibrary = () => {
     };
 
     const handleDelete = async (type, id, name) => {
-        if (!window.confirm(`Are you sure you want to delete this ${type}: "${name}"?`)) return;
+        const isConfirmed = await confirm({
+            title: `Delete ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+            message: `Are you sure you want to delete this ${type}: "${name}"?`,
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
+
         try {
             const endpoint = type === 'category' ? `/product-categories/${id}` : type === 'subcategory' ? `/product-subcategories/${id}` : `/products/${id}`;
-            await api.delete(endpoint, { headers: auth.getAuthHeader() });
+            await api.delete(endpoint);
             fetchHierarchy();
         } catch (err) {
-            alert(err.response?.data?.message || `Error deleting ${type}`);
+            toast.error(err.response?.data?.message || `Error deleting ${type}`);
         }
     };
 
@@ -355,7 +376,7 @@ const ProductLibrary = () => {
 
     const startEditProduct = async (prodId) => {
         try {
-            const res = await api.get(`/products/${prodId}`, { headers: auth.getAuthHeader() });
+            const res = await api.get(`/products/${prodId}`);
             const prod = res.data;
             const parentCategory = hierarchy.find(c => c.subcategories.some(s => s.id === prod.subcategory_id));
             setIsEditing(true);
@@ -373,19 +394,27 @@ const ProductLibrary = () => {
                 inventory_item_id: prod.inventory_item_id || '',
                 slabs: prod.slabs && prod.slabs.length > 0 ? prod.slabs : [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
                 extras: prod.extras || [],
-                image_url: prod.image_url
+                image_url: prod.image_url,
+                isPhysicalProduct: prod.is_physical_product === 1 || prod.is_physical_product === true
             });
             setProductImagePreview(prod.image_url ? `${fileBaseUrl}${prod.image_url}` : '');
             setShowProdModal(true);
         } catch (err) {
-            alert('Error fetching product details');
+            toast.error('Error fetching product details');
         }
     };
 
     const handleDuplicateProduct = async (prodId) => {
-        if (!window.confirm('Duplicate this product? This will pre-fill the form with its details.')) return;
+        const isConfirmed = await confirm({
+            title: 'Duplicate Product',
+            message: 'Are you sure you want to duplicate this product? This will pre-fill the form with its details.',
+            confirmText: 'Duplicate',
+            type: 'primary'
+        });
+        if (!isConfirmed) return;
+
         try {
-            const res = await api.get(`/products/${prodId}`, { headers: auth.getAuthHeader() });
+            const res = await api.get(`/products/${prodId}`);
             const prod = res.data;
             const parentCategory = hierarchy.find(c => c.subcategories.some(s => s.id === prod.subcategory_id));
 
@@ -416,7 +445,7 @@ const ProductLibrary = () => {
             setShowProdModal(true);
         } catch (err) {
             console.error("Duplicate error:", err);
-            alert('Error duplicating product');
+            toast.error('Error duplicating product');
         }
     };
 
@@ -510,10 +539,10 @@ const ProductLibrary = () => {
         if (!updates.length) return;
         setSavingOrder(true);
         try {
-            await api.put('/product-positions', { type, updates }, { headers: auth.getAuthHeader() });
+            await api.put('/product-positions', { type, updates });
             fetchHierarchy();
         } catch (err) {
-            alert(err.response?.data?.message || 'Failed to update order');
+            toast.error(err.response?.data?.message || 'Failed to update order');
         } finally {
             setSavingOrder(false);
         }
@@ -533,12 +562,19 @@ const ProductLibrary = () => {
     };
 
     const handleResetUsage = async () => {
-        if (!window.confirm('Reset usage-based ordering for all staff?')) return;
+        const isConfirmed = await confirm({
+            title: 'Reset Usage Order',
+            message: 'Are you sure you want to reset usage-based ordering for all staff?',
+            confirmText: 'Reset',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
+
         try {
-            await api.post('/product-usage/reset', {}, { headers: auth.getAuthHeader() });
-            alert('Usage order reset to default.');
+            await api.post('/product-usage/reset', {});
+            toast.success('Usage order reset to default.');
         } catch (err) {
-            alert(err.response?.data?.message || 'Failed to reset usage order');
+            toast.error(err.response?.data?.message || 'Failed to reset usage order');
         }
     };
 
@@ -835,6 +871,16 @@ const ProductLibrary = () => {
                                     onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
                                     required
                                 />
+                            </div>
+                            <div>
+                                <label className="label row items-center gap-xs">
+                                    <input
+                                        type="checkbox"
+                                        checked={newProduct.isPhysicalProduct}
+                                        onChange={e => setNewProduct({ ...newProduct, isPhysicalProduct: e.target.checked })}
+                                    />
+                                    This is a physical product (show in inventory)
+                                </label>
                             </div>
                             <div>
                                 <label className="label">Product Code (for QR)</label>

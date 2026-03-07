@@ -68,12 +68,13 @@ module.exports = (upload) => {
                     user_id: user.user_id,
                     role: user.role,
                     name: user.name,
+                    branch_id: user.branch_id || null,
                     image_url: user.image_url || null,
                     is_first_login: !!user.is_first_login
                 }
             });
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -103,7 +104,7 @@ module.exports = (upload) => {
             if (!rows[0]) return res.status(404).json({ message: 'User not found' });
             res.json(rows[0]);
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
@@ -143,9 +144,10 @@ module.exports = (upload) => {
             auditLog(req.user.id, 'PROFILE_UPDATE', 'Updated profile details');
             res.json(rows[0]);
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            res.status(500).json({ message: 'Database error', error: err.message });
         }
     });
 
     return router;
 };
+

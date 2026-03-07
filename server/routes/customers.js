@@ -17,7 +17,7 @@ router.get('/customers', authenticateToken, async (req, res) => {
         let where = '';
         const params = [];
 
-        if (req.user.role !== 'Admin') {
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
             const branchId = await getUserBranchId(req.user.id);
             where += ' AND branch_id = ?';
             params.push(branchId);
@@ -43,7 +43,7 @@ router.get('/customers', authenticateToken, async (req, res) => {
         const [rows] = await pool.query(`SELECT * ${baseFrom} ORDER BY name ASC`, params);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
@@ -51,7 +51,7 @@ router.get('/customers', authenticateToken, async (req, res) => {
 router.get('/customers/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     try {
-        if (req.user.role !== 'Admin') {
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
             const branchId = await getUserBranchId(req.user.id);
             const [rows] = await pool.query("SELECT * FROM sarga_customers WHERE id = ? AND branch_id = ?", [id, branchId]);
             if (!rows[0]) return res.status(404).json({ message: 'Customer not found' });
@@ -61,7 +61,7 @@ router.get('/customers/:id', authenticateToken, async (req, res) => {
         if (!rows[0]) return res.status(404).json({ message: 'Customer not found' });
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
@@ -75,7 +75,7 @@ router.post('/customers', authenticateToken, validate(addCustomerSchema), async 
     }
 
     try {
-        const branchId = req.user.role === 'Admin' ? null : await getUserBranchId(req.user.id);
+        const branchId = ['Admin', 'Accountant'].includes(req.user.role) ? null : await getUserBranchId(req.user.id);
         const [result] = await pool.query(
             "INSERT INTO sarga_customers (mobile, name, type, email, gst, address, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [normalizedMobile, name, type, email, gst, address, branchId]
@@ -83,8 +83,9 @@ router.post('/customers', authenticateToken, validate(addCustomerSchema), async 
         auditLog(req.user.id, 'CUSTOMER_ADD', `Added customer ${name} (${normalizedMobile})`);
         res.status(201).json({ id: result.insertId, message: 'Customer added successfully' });
     } catch (err) {
+        console.error('Add Customer error:', err);
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Mobile number already exists' });
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
@@ -99,6 +100,13 @@ router.put('/customers/:id', authenticateToken, async (req, res) => {
     }
 
     try {
+        // Branch ownership check: non-admin/accountant users can only update customers in their own branch
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+            const branchId = await getUserBranchId(req.user.id);
+            const [check] = await pool.query("SELECT id FROM sarga_customers WHERE id = ? AND branch_id = ?", [id, branchId]);
+            if (!check[0]) return res.status(403).json({ message: 'Access denied. Customer belongs to a different branch.' });
+        }
+
         await pool.query(
             "UPDATE sarga_customers SET mobile = ?, name = ?, type = ?, email = ?, gst = ?, address = ? WHERE id = ?",
             [normalizedMobile, name, type, email, gst, address, id]
@@ -107,20 +115,29 @@ router.put('/customers/:id', authenticateToken, async (req, res) => {
         res.json({ message: 'Customer details updated' });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Mobile number already exists' });
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
 // Delete Customer
-router.delete('/customers/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+router.delete('/customers/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     const { id } = req.params;
 
     try {
+        // Check for linked jobs or payments before deleting
+        const [[{ jobCount }]] = await pool.query("SELECT COUNT(*) as jobCount FROM sarga_jobs WHERE customer_id = ?", [id]);
+        if (jobCount > 0) {
+            return res.status(409).json({ message: `Cannot delete customer: ${jobCount} job(s) are linked to this customer. Remove them first.` });
+        }
+
         await pool.query("DELETE FROM sarga_customers WHERE id = ?", [id]);
         auditLog(req.user.id, 'CUSTOMER_DELETE', `Deleted customer ${id}`);
         res.json({ message: 'Customer deleted successfully' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+            return res.status(409).json({ message: 'Cannot delete customer: linked records exist.' });
+        }
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
@@ -236,8 +253,9 @@ router.get('/customers/:id/dashboard', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         console.error('Customer dashboard error:', err);
-        res.status(500).json({ message: 'Failed to load customer dashboard' });
+        res.status(500).json({ message: 'Failed to load customer dashboard', error: err.message });
     }
 });
 
 module.exports = router;
+

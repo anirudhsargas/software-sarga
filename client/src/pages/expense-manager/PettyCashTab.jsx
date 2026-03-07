@@ -5,11 +5,13 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, thisMonth, exportRowsToCsv } from './constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 const defaultForm = { transaction_date: today(), transaction_type: 'Cash Out', amount: '', description: '', reference_number: '', received_from: '', paid_to: '', category: '' };
 const PETTY_CATEGORIES = ['Tea / Snacks', 'Stationery', 'Cleaning', 'Travel', 'Courier', 'Tips', 'Parking', 'Photocopies', 'Misc Purchases', 'Other'];
 
 const PettyCashTab = ({ onError }) => {
+  const { confirm } = useConfirm();
   const [dashboard, setDashboard] = useState(null);
   const [ledger, setLedger] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -20,10 +22,10 @@ const PettyCashTab = ({ onError }) => {
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchDashboard = useCallback(async () => { try { const r = await api.get('/petty-cash-dashboard'); setDashboard(r.data); } catch {} }, []);
+  const fetchDashboard = useCallback(async () => { try { const r = await api.get('/petty-cash-dashboard'); setDashboard(r.data); } catch { } }, []);
   const fetchLedger = useCallback(async () => {
     setLoading(true);
-    try { const r = await api.get('/petty-cash-ledger'); setLedger(r.data); } catch {}
+    try { const r = await api.get('/petty-cash-ledger'); setLedger(r.data); } catch { }
     finally { setLoading(false); }
   }, []);
 
@@ -50,8 +52,14 @@ const PettyCashTab = ({ onError }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this daily cash entry?')) return;
-    try { await api.delete(`/petty-cash/${id}`); fetchDashboard(); fetchLedger(); } catch {}
+    const isConfirmed = await confirm({
+      title: 'Delete Cash Entry',
+      message: 'Are you sure you want to delete this daily cash entry?',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
+    try { await api.delete(`/petty-cash/${id}`); fetchDashboard(); fetchLedger(); } catch { }
   };
 
   // Filter ledger by month
@@ -169,7 +177,7 @@ const PettyCashTab = ({ onError }) => {
 
       {/* Petty Cash Form Modal */}
       {showForm && (
-        <div className="modal-backdrop" onClick={() => { setShowForm(false); setConfirming(false); }}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) { setShowForm(false); setConfirming(false); } }}>
           <div className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>{editing ? 'Edit' : 'New'} Daily Cash Entry</h2><button className="btn btn-ghost btn-icon" onClick={() => { setShowForm(false); setConfirming(false); }}><X size={18} /></button></div>
             {!confirming ? (

@@ -3,11 +3,6 @@ const { pool } = require('../database');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-if (!JWT_SECRET) {
-    console.warn('WARNING: JWT_SECRET is not defined in environment variables. Authentication may fail.');
-}
-
-
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -52,6 +47,10 @@ const authenticate = async (req, res, next) => {
         }
 
         req.user = users[0];
+        // Debug log: help trace which user is authenticated for incoming requests
+        try {
+            console.log(`[Auth] user loaded id=${req.user.id} role=${req.user.role} branch_id=${req.user.branch_id}`);
+        } catch (e) { }
         next();
     } catch (error) {
         console.error('Auth error:', error);

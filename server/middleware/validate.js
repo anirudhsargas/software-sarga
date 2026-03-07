@@ -13,12 +13,12 @@ const loginSchema = z.object({
 });
 
 const changePasswordSchema = z.object({
-    newPassword: z.string().min(4, 'Password must be at least 4 characters')
+    newPassword: z.string().min(8, 'Password must be at least 8 characters')
 });
 
 // ---- Staff ----
 const addStaffSchema = z.object({
-    mobile: z.string().min(1, 'Mobile is required'),
+    mobile: z.string().min(1, 'Mobile is required').regex(/^\d{10}$/, 'Mobile must be exactly 10 digits'),
     name: requiredString('Name'),
     role: z.enum(['Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff']),
     branch_id: z.preprocess(Number, z.number().int().positive()).optional().nullable()
@@ -40,7 +40,7 @@ const addPaymentSchema = z.object({
     type: z.enum(['Vendor', 'Utility', 'Salary', 'Rent', 'Other']),
     payee_name: requiredString('Payee name'),
     amount: z.preprocess(Number, z.number().positive('Amount must be greater than 0')),
-    payment_method: z.string().optional().default('Cash'),
+    payment_method: z.enum(['Cash', 'UPI', 'Cheque', 'Both', 'Account Transfer']).optional().default('Cash'),
     reference_number: z.string().optional().nullable().or(z.literal('')),
     description: z.string().optional().nullable().or(z.literal('')),
     payment_date: z.string().min(1, 'Payment date is required'),
@@ -58,7 +58,8 @@ const addPaymentSchema = z.object({
 const branchSchema = z.object({
     name: requiredString('Branch name'),
     address: z.string().optional().nullable().or(z.literal('')),
-    phone: z.string().optional().nullable().or(z.literal(''))
+    phone: z.string().optional().nullable().or(z.literal('')),
+    upi_id: z.string().optional().nullable().or(z.literal(''))
 });
 
 // ---- Vendors ----
@@ -97,7 +98,11 @@ const addInventorySchema = z.object({
     quantity: z.preprocess(Number, z.number().int().min(0)).optional().default(0),
     reorder_level: z.preprocess(Number, z.number().int().min(0)).optional().default(0),
     cost_price: positiveDecimal,
-    sell_price: positiveDecimal
+    sell_price: positiveDecimal,
+    hsn: z.string().optional().nullable().or(z.literal('')),
+    discount: positiveDecimal,
+    gst_rate: positiveDecimal,
+    product_id: z.preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().int().positive().optional())
 });
 
 // ---- Attendance ----
@@ -107,14 +112,18 @@ const attendanceSchema = z.object({
 });
 
 // ---- Middleware factory ----
-const validate = (schema) => (req, res, next) => {
-    const result = schema.safeParse(req.body);
-    if (!result.success) {
-        const messages = result.error.errors.map((e) => e.message).join(', ');
-        return res.status(400).json({ message: messages });
+const validate = (schema, property = 'body') => (req, res, next) => {
+    try {
+        const validatedData = schema.parse(req[property]);
+        req[property] = validatedData; // use cleaned/coerced data (includes defaults/transforms)
+        next();
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            const messages = error.errors.map((e) => e.message).join(', ');
+            return res.status(400).json({ message: messages });
+        }
+        next(error);
     }
-    req.body = result.data; // use cleaned/coerced data
-    next();
 };
 
 module.exports = {

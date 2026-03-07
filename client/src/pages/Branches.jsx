@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Edit2, Trash2, MapPin, Phone, Loader2, Building2 } from 'lucide-react';
-import auth from '../services/auth';
+import { Plus, X, Edit2, Trash2, MapPin, Phone, Loader2, Building2, CreditCard } from 'lucide-react';
+
 import api from '../services/api';
 import { isTouchDevice } from '../services/utils';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 const Branches = () => {
+    const { confirm } = useConfirm();
     const [branches, setBranches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingBranch, setEditingBranch] = useState(null);
-    const [formData, setFormData] = useState({ name: '', address: '', phone: '' });
+    const [formData, setFormData] = useState({ name: '', address: '', phone: '', upi_id: '' });
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -18,9 +20,7 @@ const Branches = () => {
 
     const fetchBranches = async () => {
         try {
-            const response = await api.get('/branches', {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get('/branches');
             setBranches(response.data);
         } catch (err) {
             setError('Failed to fetch branches');
@@ -34,17 +34,13 @@ const Branches = () => {
         setLoading(true);
         try {
             if (editingBranch) {
-                await api.put(`/branches/${editingBranch.id}`, formData, {
-                    headers: auth.getAuthHeader()
-                });
+                await api.put(`/branches/${editingBranch.id}`, formData);
             } else {
-                await api.post('/branches', formData, {
-                    headers: auth.getAuthHeader()
-                });
+                await api.post('/branches', formData);
             }
             setShowModal(false);
             setEditingBranch(null);
-            setFormData({ name: '', address: '', phone: '' });
+            setFormData({ name: '', address: '', phone: '', upi_id: '' });
             fetchBranches();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to save branch');
@@ -54,11 +50,15 @@ const Branches = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure? Deleting a branch will affect staff and jobs associated with it.')) return;
+        const isConfirmed = await confirm({
+            title: 'Delete Branch',
+            message: 'Are you sure? Deleting a branch will affect staff and jobs associated with it.',
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
         try {
-            await api.delete(`/branches/${id}`, {
-                headers: auth.getAuthHeader()
-            });
+            await api.delete(`/branches/${id}`);
             fetchBranches();
         } catch (err) {
             setError('Failed to delete branch');
@@ -75,7 +75,7 @@ const Branches = () => {
                 <button
                     onClick={() => {
                         setEditingBranch(null);
-                        setFormData({ name: '', address: '', phone: '' });
+                        setFormData({ name: '', address: '', phone: '', upi_id: '' });
                         setShowModal(true);
                     }}
                     className="btn btn-primary"
@@ -93,19 +93,20 @@ const Branches = () => {
                                 <th>Branch Name</th>
                                 <th>Address</th>
                                 <th>Phone</th>
+                                <th>UPI ID</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading && branches.length === 0 ? (
                                 <tr>
-                                    <td colSpan="4" className="text-center muted table-empty">
+                                    <td colSpan="5" className="text-center muted table-empty">
                                         <Loader2 className="animate-spin" />
                                     </td>
                                 </tr>
                             ) : branches.length === 0 ? (
                                 <tr>
-                                    <td colSpan="4" className="text-center muted table-empty">
+                                    <td colSpan="5" className="text-center muted table-empty">
                                         No branches found.
                                     </td>
                                 </tr>
@@ -114,8 +115,8 @@ const Branches = () => {
                                     <tr
                                         key={b.id}
                                         {...(isTouchDevice()
-                                            ? { onClick: () => { setEditingBranch(b); setFormData({ name: b.name, address: b.address || '', phone: b.phone || '' }); setShowModal(true); } }
-                                            : { onDoubleClick: () => { setEditingBranch(b); setFormData({ name: b.name, address: b.address || '', phone: b.phone || '' }); setShowModal(true); } }
+                                            ? { onClick: () => { setEditingBranch(b); setFormData({ name: b.name, address: b.address || '', phone: b.phone || '', upi_id: b.upi_id || '' }); setShowModal(true); } }
+                                            : { onDoubleClick: () => { setEditingBranch(b); setFormData({ name: b.name, address: b.address || '', phone: b.phone || '', upi_id: b.upi_id || '' }); setShowModal(true); } }
                                         )}
                                         title={isTouchDevice() ? "Click to edit" : "Double click to edit"}
                                         style={{ cursor: 'pointer' }}
@@ -140,6 +141,16 @@ const Branches = () => {
                                                 {b.phone || 'N/A'}
                                             </div>
                                         </td>
+                                        <td className="text-sm muted">
+                                            {b.upi_id ? (
+                                                <div className="row gap-sm">
+                                                    <CreditCard size={14} />
+                                                    {b.upi_id}
+                                                </div>
+                                            ) : (
+                                                <span style={{ opacity: 0.4 }}>Not set</span>
+                                            )}
+                                        </td>
                                         <td>
                                             <div className="row gap-sm" onClick={(e) => e.stopPropagation()}>
                                                 <button
@@ -148,7 +159,7 @@ const Branches = () => {
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setEditingBranch(b);
-                                                        setFormData({ name: b.name, address: b.address || '', phone: b.phone || '' });
+                                                        setFormData({ name: b.name, address: b.address || '', phone: b.phone || '', upi_id: b.upi_id || '' });
                                                         setShowModal(true);
                                                     }}
                                                 >
@@ -208,6 +219,16 @@ const Branches = () => {
                                     className="input-field"
                                     value={formData.phone}
                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="label">UPI ID (for payment QR code)</label>
+                                <input
+                                    type="text"
+                                    className="input-field"
+                                    placeholder="e.g. shopname@upi"
+                                    value={formData.upi_id}
+                                    onChange={(e) => setFormData({ ...formData, upi_id: e.target.value })}
                                 />
                             </div>
                             {error && <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>}

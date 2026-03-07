@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Lock, User, Loader2, AlertCircle } from 'lucide-react';
-import auth from '../services/auth';
+import useAuth from '../hooks/useAuth';
 
 const Login = () => {
+    const { login } = useAuth();
     const [userId, setUserId] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -39,7 +40,7 @@ const Login = () => {
         setLoading(true);
         setError('');
         try {
-            const data = await auth.login(cleanedUserId, password);
+            const data = await login(cleanedUserId, password);
             if (data.user.is_first_login) {
                 navigate('/change-password');
             } else {

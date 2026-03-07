@@ -1,7 +1,3 @@
-    getRole: () => {
-        const user = auth.getUser();
-        return user && user.role ? user.role : '';
-    },
 import { jwtDecode } from 'jwt-decode';
 import api from './api';
 
@@ -41,6 +37,10 @@ const auth = {
         } catch (e) {
             return false;
         }
+    },
+    getRole: () => {
+        const user = auth.getUser();
+        return user && user.role ? user.role : '';
     },
 
     getAuthHeader: () => {

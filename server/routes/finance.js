@@ -2,14 +2,17 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
+const { getUserBranchId, auditLog } = require('../helpers');
 
 // ==================== EMI MASTER ROUTES ====================
 
 // Get all EMI commitments with filters
 router.get('/emi-master', authenticateToken, async (req, res) => {
   try {
-    const { branch_id, is_active, emi_type } = req.query;
-    
+    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+      ? await getUserBranchId(req.user.id)
+      : req.query.branch_id;
+
     let query = `
       SELECT 
         em.*,
@@ -20,26 +23,28 @@ router.get('/emi-master', authenticateToken, async (req, res) => {
       LEFT JOIN sarga_branches b ON em.branch_id = b.id
       WHERE 1=1
     `;
-    
+
     const params = [];
-    
-    if (branch_id) {
+
+    if (branchId) {
       query += ' AND em.branch_id = ?';
-      params.push(branch_id);
+      params.push(branchId);
     }
-    
+
+    const { is_active, emi_type } = req.query;
+
     if (is_active !== undefined) {
       query += ' AND em.is_active = ?';
       params.push(is_active);
     }
-    
+
     if (emi_type) {
       query += ' AND em.emi_type = ?';
       params.push(emi_type);
     }
-    
+
     query += ' ORDER BY em.due_day ASC, em.created_at DESC';
-    
+
     const [emis] = await pool.query(query, params);
     res.json(emis);
   } catch (error) {
@@ -51,26 +56,29 @@ router.get('/emi-master', authenticateToken, async (req, res) => {
 // Get EMI dashboard KPIs
 router.get('/emi-dashboard', authenticateToken, async (req, res) => {
   try {
-    const { branch_id } = req.query;
+    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+      ? await getUserBranchId(req.user.id)
+      : req.query.branch_id;
+
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
-    
+
     let branchCondition = '';
     const params = [];
-    
-    if (branch_id) {
+
+    if (branchId) {
       branchCondition = ' AND branch_id = ?';
-      params.push(branch_id);
+      params.push(branchId);
     }
-    
+
     // Total EMI per month
     const [totalEmi] = await pool.query(`
       SELECT COALESCE(SUM(monthly_emi), 0) as total
       FROM sarga_emi_master
       WHERE is_active = 1 ${branchCondition}
     `, params);
-    
+
     // Due this month (not yet paid)
     const [dueMonth] = await pool.query(`
       SELECT em.*, b.name as branch_name
@@ -84,7 +92,7 @@ router.get('/emi-dashboard', authenticateToken, async (req, res) => {
         ${branchCondition}
       ORDER BY em.due_day ASC
     `, [currentMonth, currentYear, ...params]);
-    
+
     // Paid this month
     const [paidMonth] = await pool.query(`
       SELECT COALESCE(SUM(ep.amount), 0) as total, COUNT(*) as count
@@ -94,11 +102,11 @@ router.get('/emi-dashboard', authenticateToken, async (req, res) => {
         AND YEAR(ep.payment_date) = ?
         ${branchCondition ? 'AND em.branch_id = ?' : ''}
     `, branchCondition ? [currentMonth, currentYear, params[0]] : [currentMonth, currentYear]);
-    
+
     // Upcoming in next 7 days
     const nextWeek = new Date(today);
     nextWeek.setDate(today.getDate() + 7);
-    
+
     const [upcoming] = await pool.query(`
       SELECT em.*, b.name as branch_name
       FROM sarga_emi_master em
@@ -112,7 +120,7 @@ router.get('/emi-dashboard', authenticateToken, async (req, res) => {
         ${branchCondition}
       ORDER BY em.due_day ASC
     `, [today, nextWeek, currentMonth, currentYear, ...params]);
-    
+
     res.json({
       totalEmiPerMonth: totalEmi[0].total,
       dueThisMonth: dueMonth,
@@ -131,19 +139,23 @@ router.get('/emi-dashboard', authenticateToken, async (req, res) => {
 // Get single EMI with payment history
 router.get('/emi-master/:id', authenticateToken, async (req, res) => {
   try {
+    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+      ? await getUserBranchId(req.user.id)
+      : null;
+
     const [emis] = await pool.query(`
       SELECT 
         em.*,
         b.name as branch_name
       FROM sarga_emi_master em
       LEFT JOIN sarga_branches b ON em.branch_id = b.id
-      WHERE em.id = ?
-    `, [req.params.id]);
-    
+      WHERE em.id = ? ${branchId ? 'AND em.branch_id = ?' : ''}
+    `, branchId ? [req.params.id, branchId] : [req.params.id]);
+
     if (emis.length === 0) {
       return res.status(404).json({ error: 'EMI not found' });
     }
-    
+
     const [payments] = await pool.query(`
       SELECT 
         ep.*,
@@ -153,7 +165,7 @@ router.get('/emi-master/:id', authenticateToken, async (req, res) => {
       WHERE ep.emi_id = ?
       ORDER BY ep.payment_date DESC
     `, [req.params.id]);
-    
+
     res.json({
       emi: emis[0],
       payments
@@ -167,10 +179,10 @@ router.get('/emi-master/:id', authenticateToken, async (req, res) => {
 // Create new EMI
 router.post('/emi-master', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Only Admin can add EMI commitments' });
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Only Admin and Accountant can add EMI commitments' });
     }
-    
+
     const {
       emi_type,
       institution_name,
@@ -183,7 +195,7 @@ router.post('/emi-master', authenticateToken, async (req, res) => {
       branch_id,
       description
     } = req.body;
-    
+
     const [result] = await pool.query(`
       INSERT INTO sarga_emi_master (
         emi_type, institution_name, loan_amount, monthly_emi, 
@@ -202,10 +214,11 @@ router.post('/emi-master', authenticateToken, async (req, res) => {
       branch_id || null,
       description || null
     ]);
-    
-    res.status(201).json({ 
-      id: result.insertId, 
-      message: 'EMI commitment created successfully' 
+
+    auditLog(req.user.id, 'EMI_CREATE', `Created EMI: ${institution_name} ₹${monthly_emi}/month`, { entity_type: 'emi', entity_id: result.insertId });
+    res.status(201).json({
+      id: result.insertId,
+      message: 'EMI commitment created successfully'
     });
   } catch (error) {
     console.error('Error creating EMI:', error);
@@ -216,10 +229,10 @@ router.post('/emi-master', authenticateToken, async (req, res) => {
 // Update EMI
 router.put('/emi-master/:id', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Only Admin can update EMI commitments' });
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Only Admin and Accountant can update EMI commitments' });
     }
-    
+
     const {
       emi_type,
       institution_name,
@@ -233,7 +246,7 @@ router.put('/emi-master/:id', authenticateToken, async (req, res) => {
       description,
       is_active
     } = req.body;
-    
+
     await pool.query(`
       UPDATE sarga_emi_master SET
         emi_type = ?,
@@ -262,7 +275,8 @@ router.put('/emi-master/:id', authenticateToken, async (req, res) => {
       is_active !== undefined ? is_active : 1,
       req.params.id
     ]);
-    
+
+    auditLog(req.user.id, 'EMI_UPDATE', `Updated EMI #${req.params.id}: ${institution_name}`, { entity_type: 'emi', entity_id: req.params.id });
     res.json({ message: 'EMI commitment updated successfully' });
   } catch (error) {
     console.error('Error updating EMI:', error);
@@ -273,24 +287,25 @@ router.put('/emi-master/:id', authenticateToken, async (req, res) => {
 // Delete EMI
 router.delete('/emi-master/:id', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Only Admin can delete EMI commitments' });
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Only Admin and Accountant can delete EMI commitments' });
     }
-    
+
     // Check if payments exist
     const [payments] = await pool.query(
       'SELECT COUNT(*) as count FROM sarga_emi_payments WHERE emi_id = ?',
       [req.params.id]
     );
-    
+
     if (payments[0].count > 0) {
-      return res.status(400).json({ 
-        error: `Cannot delete EMI with ${payments[0].count} payment record(s). Please deactivate instead.` 
+      return res.status(400).json({
+        error: `Cannot delete EMI with ${payments[0].count} payment record(s). Please deactivate instead.`
       });
     }
-    
+
     await pool.query('DELETE FROM sarga_emi_master WHERE id = ?', [req.params.id]);
-    
+
+    auditLog(req.user.id, 'EMI_DELETE', `Deleted EMI #${req.params.id}`, { entity_type: 'emi', entity_id: req.params.id });
     res.json({ message: 'EMI commitment deleted successfully' });
   } catch (error) {
     console.error('Error deleting EMI:', error);
@@ -311,7 +326,8 @@ router.post('/emi-payments', authenticateToken, async (req, res) => {
       reference_number,
       notes
     } = req.body;
-    
+
+    // Record EMI payment
     const [result] = await pool.query(`
       INSERT INTO sarga_emi_payments (
         emi_id, payment_date, amount, payment_method,
@@ -326,10 +342,31 @@ router.post('/emi-payments', authenticateToken, async (req, res) => {
       notes || null,
       req.user.id
     ]);
-    
-    res.status(201).json({ 
-      id: result.insertId, 
-      message: 'EMI payment recorded successfully' 
+
+    // SYNC WITH GLOBAL PAYMENTS TABLE
+    const [[emiMaster]] = await pool.query('SELECT institution_name, branch_id FROM sarga_emi_master WHERE id = ?', [emi_id]);
+    if (emiMaster) {
+      await pool.query(`
+        INSERT INTO sarga_payments 
+        (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date) 
+        VALUES (?, 'Other', ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        emiMaster.branch_id,
+        emiMaster.institution_name,
+        amount,
+        payment_method || 'Cash',
+        payment_method === 'UPI' ? 0 : amount,
+        payment_method === 'UPI' ? amount : 0,
+        reference_number,
+        `EMI Payment: ${emiMaster.institution_name}${notes ? ' - ' + notes : ''}`,
+        payment_date || new Date()
+      ]);
+    }
+
+    auditLog(req.user.id, 'EMI_PAYMENT', `EMI payment ₹${amount} for EMI #${emi_id}`, { entity_type: 'emi_payment', entity_id: result.insertId });
+    res.status(201).json({
+      id: result.insertId,
+      message: 'EMI payment recorded successfully'
     });
   } catch (error) {
     console.error('Error recording EMI payment:', error);
@@ -342,8 +379,10 @@ router.post('/emi-payments', authenticateToken, async (req, res) => {
 // Get all Kuri commitments with filters
 router.get('/kuri-master', authenticateToken, async (req, res) => {
   try {
-    const { branch_id, is_active, prize_taken } = req.query;
-    
+    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+      ? await getUserBranchId(req.user.id)
+      : req.query.branch_id;
+
     let query = `
       SELECT 
         km.*,
@@ -354,26 +393,28 @@ router.get('/kuri-master', authenticateToken, async (req, res) => {
       LEFT JOIN sarga_branches b ON km.branch_id = b.id
       WHERE 1=1
     `;
-    
+
     const params = [];
-    
-    if (branch_id) {
-      query += ' AND km.branch_id = ?';
-      params.push(branch_id);
+
+    if (branchId) {
+      query += ' AND (km.branch_id = ? OR km.branch_id IS NULL)';
+      params.push(branchId);
     }
-    
+
+    const { is_active, prize_taken } = req.query;
+
     if (is_active !== undefined) {
       query += ' AND km.is_active = ?';
       params.push(is_active);
     }
-    
+
     if (prize_taken !== undefined) {
       query += ' AND km.prize_taken = ?';
       params.push(prize_taken);
     }
-    
+
     query += ' ORDER BY km.due_day ASC, km.created_at DESC';
-    
+
     const [kuris] = await pool.query(query, params);
     res.json(kuris);
   } catch (error) {
@@ -385,26 +426,29 @@ router.get('/kuri-master', authenticateToken, async (req, res) => {
 // Get Kuri dashboard KPIs
 router.get('/kuri-dashboard', authenticateToken, async (req, res) => {
   try {
-    const { branch_id } = req.query;
+    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+      ? await getUserBranchId(req.user.id)
+      : req.query.branch_id;
+
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
-    
+
     let branchCondition = '';
     const params = [];
-    
-    if (branch_id) {
-      branchCondition = ' AND branch_id = ?';
-      params.push(branch_id);
+
+    if (branchId) {
+      branchCondition = ' AND (branch_id = ? OR branch_id IS NULL)';
+      params.push(branchId);
     }
-    
+
     // Total Kuri per month
     const [totalKuri] = await pool.query(`
       SELECT COALESCE(SUM(monthly_installment), 0) as total
       FROM sarga_kuri_master
       WHERE is_active = 1 ${branchCondition}
     `, params);
-    
+
     // Due this month
     const [dueMonth] = await pool.query(`
       SELECT km.*, b.name as branch_name,
@@ -420,7 +464,7 @@ router.get('/kuri-dashboard', authenticateToken, async (req, res) => {
       HAVING remaining_this_month > 0
       ORDER BY km.due_day ASC
     `, [currentMonth, currentYear, ...params]);
-    
+
     // Paid this month
     const [paidMonth] = await pool.query(`
       SELECT COALESCE(SUM(kp.amount), 0) as total, COUNT(*) as count
@@ -430,7 +474,7 @@ router.get('/kuri-dashboard', authenticateToken, async (req, res) => {
         AND YEAR(kp.payment_date) = ?
         ${branchCondition ? 'AND km.branch_id = ?' : ''}
     `, branchCondition ? [currentMonth, currentYear, params[0]] : [currentMonth, currentYear]);
-    
+
     // Prize information
     const [prizes] = await pool.query(`
       SELECT km.*, b.name as branch_name
@@ -441,7 +485,7 @@ router.get('/kuri-dashboard', authenticateToken, async (req, res) => {
         ${branchCondition}
       ORDER BY km.prize_date DESC
     `, params);
-    
+
     res.json({
       totalKuriPerMonth: totalKuri[0].total,
       dueThisMonth: dueMonth,
@@ -460,19 +504,23 @@ router.get('/kuri-dashboard', authenticateToken, async (req, res) => {
 // Get single Kuri with payment history
 router.get('/kuri-master/:id', authenticateToken, async (req, res) => {
   try {
+    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+      ? await getUserBranchId(req.user.id)
+      : null;
+
     const [kuris] = await pool.query(`
       SELECT 
         km.*,
         b.name as branch_name
       FROM sarga_kuri_master km
       LEFT JOIN sarga_branches b ON km.branch_id = b.id
-      WHERE km.id = ?
-    `, [req.params.id]);
-    
+      WHERE km.id = ? ${branchId ? 'AND km.branch_id = ?' : ''}
+    `, branchId ? [req.params.id, branchId] : [req.params.id]);
+
     if (kuris.length === 0) {
       return res.status(404).json({ error: 'Kuri not found' });
     }
-    
+
     const [payments] = await pool.query(`
       SELECT 
         kp.*,
@@ -482,7 +530,7 @@ router.get('/kuri-master/:id', authenticateToken, async (req, res) => {
       WHERE kp.kuri_id = ?
       ORDER BY kp.payment_date DESC
     `, [req.params.id]);
-    
+
     res.json({
       kuri: kuris[0],
       payments
@@ -496,10 +544,10 @@ router.get('/kuri-master/:id', authenticateToken, async (req, res) => {
 // Create new Kuri
 router.post('/kuri-master', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Only Admin can add Kuri commitments' });
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Only Admin and Accountant can add Kuri commitments' });
     }
-    
+
     const {
       kuri_name,
       organizer_name,
@@ -515,7 +563,7 @@ router.post('/kuri-master', authenticateToken, async (req, res) => {
       branch_id,
       description
     } = req.body;
-    
+
     const [result] = await pool.query(`
       INSERT INTO sarga_kuri_master (
         kuri_name, organizer_name, organizer_phone,
@@ -538,10 +586,11 @@ router.post('/kuri-master', authenticateToken, async (req, res) => {
       branch_id || null,
       description || null
     ]);
-    
-    res.status(201).json({ 
-      id: result.insertId, 
-      message: 'Kuri commitment created successfully' 
+
+    auditLog(req.user.id, 'KURI_CREATE', `Created Kuri: ${kuri_name} ₹${monthly_installment}/month`, { entity_type: 'kuri', entity_id: result.insertId });
+    res.status(201).json({
+      id: result.insertId,
+      message: 'Kuri commitment created successfully'
     });
   } catch (error) {
     console.error('Error creating Kuri:', error);
@@ -552,10 +601,10 @@ router.post('/kuri-master', authenticateToken, async (req, res) => {
 // Update Kuri
 router.put('/kuri-master/:id', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Only Admin can update Kuri commitments' });
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Only Admin and Accountant can update Kuri commitments' });
     }
-    
+
     const {
       kuri_name,
       organizer_name,
@@ -572,7 +621,7 @@ router.put('/kuri-master/:id', authenticateToken, async (req, res) => {
       description,
       is_active
     } = req.body;
-    
+
     await pool.query(`
       UPDATE sarga_kuri_master SET
         kuri_name = ?,
@@ -607,7 +656,8 @@ router.put('/kuri-master/:id', authenticateToken, async (req, res) => {
       is_active !== undefined ? is_active : 1,
       req.params.id
     ]);
-    
+
+    auditLog(req.user.id, 'KURI_UPDATE', `Updated Kuri #${req.params.id}: ${kuri_name}`, { entity_type: 'kuri', entity_id: req.params.id });
     res.json({ message: 'Kuri commitment updated successfully' });
   } catch (error) {
     console.error('Error updating Kuri:', error);
@@ -618,24 +668,25 @@ router.put('/kuri-master/:id', authenticateToken, async (req, res) => {
 // Delete Kuri
 router.delete('/kuri-master/:id', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Only Admin can delete Kuri commitments' });
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Only Admin and Accountant can delete Kuri commitments' });
     }
-    
+
     // Check if payments exist
     const [payments] = await pool.query(
       'SELECT COUNT(*) as count FROM sarga_kuri_payments WHERE kuri_id = ?',
       [req.params.id]
     );
-    
+
     if (payments[0].count > 0) {
-      return res.status(400).json({ 
-        error: `Cannot delete Kuri with ${payments[0].count} payment record(s). Please deactivate instead.` 
+      return res.status(400).json({
+        error: `Cannot delete Kuri with ${payments[0].count} payment record(s). Please deactivate instead.`
       });
     }
-    
+
     await pool.query('DELETE FROM sarga_kuri_master WHERE id = ?', [req.params.id]);
-    
+
+    auditLog(req.user.id, 'KURI_DELETE', `Deleted Kuri #${req.params.id}`, { entity_type: 'kuri', entity_id: req.params.id });
     res.json({ message: 'Kuri commitment deleted successfully' });
   } catch (error) {
     console.error('Error deleting Kuri:', error);
@@ -656,7 +707,8 @@ router.post('/kuri-payments', authenticateToken, async (req, res) => {
       reference_number,
       notes
     } = req.body;
-    
+
+    // Record Kuri payment (supports daily small payments)
     const [result] = await pool.query(`
       INSERT INTO sarga_kuri_payments (
         kuri_id, payment_date, amount, payment_method,
@@ -671,10 +723,31 @@ router.post('/kuri-payments', authenticateToken, async (req, res) => {
       notes || null,
       req.user.id
     ]);
-    
-    res.status(201).json({ 
-      id: result.insertId, 
-      message: 'Kuri payment recorded successfully' 
+
+    // SYNC WITH GLOBAL PAYMENTS TABLE
+    const [[kuriMaster]] = await pool.query('SELECT kuri_name, branch_id FROM sarga_kuri_master WHERE id = ?', [kuri_id]);
+    if (kuriMaster) {
+      await pool.query(`
+        INSERT INTO sarga_payments 
+        (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date) 
+        VALUES (?, 'Other', ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        kuriMaster.branch_id,
+        kuriMaster.kuri_name,
+        amount,
+        payment_method || 'Cash',
+        payment_method === 'UPI' ? 0 : amount,
+        payment_method === 'UPI' ? amount : 0,
+        reference_number,
+        `Kuri Payment: ${kuriMaster.kuri_name}${notes ? ' - ' + notes : ''}`,
+        payment_date || new Date()
+      ]);
+    }
+
+    auditLog(req.user.id, 'KURI_PAYMENT', `Kuri payment ₹${amount} for Kuri #${kuri_id}`, { entity_type: 'kuri_payment', entity_id: result.insertId });
+    res.status(201).json({
+      id: result.insertId,
+      message: 'Kuri payment recorded successfully'
     });
   } catch (error) {
     console.error('Error recording Kuri payment:', error);
@@ -683,3 +756,4 @@ router.post('/kuri-payments', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+

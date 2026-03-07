@@ -47,12 +47,25 @@
 
 .employee-detail__card {
   margin-top: 18px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: var(--surface);
+  background: var(--surface);
+  color: var(--text);
   border-radius: 22px;
   padding: 28px;
-  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   animation: liftIn 0.35s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.employee-detail__card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--accent);
 }
 
 .employee-detail__card-body {
@@ -94,12 +107,13 @@
 }
 
 .employee-detail__tabs {
-  margin-top: 20px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  background: var(--bg-2);
+  border-radius: 12px;
+  padding: 6px;
+  gap: 6px;
+  margin-bottom: 24px;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
@@ -150,12 +164,33 @@
   margin-bottom: 14px;
 }
 
-.employee-detail__section-head {
+.employee-detail__month-selector {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.employee-detail__month-selector:hover {
+  border-color: var(--accent);
+}
+
+.employee-detail__month-selector:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-alpha);
+}
+
+.employee-detail__section-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .employee-detail__cta {
@@ -581,6 +616,7 @@
     transform: translateY(10px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -592,6 +628,7 @@
     transform: translateY(8px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Filter, Loader2, Building2, Activity, Printer, AlertTriangle, CheckCircle2, Clock, Wallet, Users, Package, TrendingUp, Layers, Sparkles, BarChart3, Target, Gauge, BadgePercent, UserCheck, LineChart, Megaphone, ClipboardList } from 'lucide-react';
-import auth from '../services/auth';
+
 import api from '../services/api';
+import { formatCurrency as formatCurrencyShared } from '../constants';
 
 const Summary = () => {
     const [statsToday, setStatsToday] = useState(null);
@@ -16,13 +17,17 @@ const Summary = () => {
 
     useEffect(() => {
         fetchStatsSplit();
+
+        const handlePaymentUpdate = () => {
+            fetchStatsSplit();
+        };
+        window.addEventListener('paymentRecorded', handlePaymentUpdate);
+        return () => window.removeEventListener('paymentRecorded', handlePaymentUpdate);
     }, [filters.branch_id, filters.startDate, filters.endDate]);
 
     const fetchBranches = async () => {
         try {
-            const response = await api.get('/branches', {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get('/branches');
             setBranches(response.data);
         } catch (err) {
             console.error('Failed to fetch branches');
@@ -39,17 +44,13 @@ const Summary = () => {
             const today = new Date().toISOString().split('T')[0];
             paramsToday.append('startDate', today);
             paramsToday.append('endDate', today);
-            const responseToday = await api.get(`/stats/dashboard?${paramsToday.toString()}`, {
-                headers: auth.getAuthHeader()
-            });
+            const responseToday = await api.get(`/stats/dashboard?${paramsToday.toString()}`);
             setStatsToday(responseToday.data);
 
             // Overall stats
             const paramsOverall = new URLSearchParams();
             if (filters.branch_id) paramsOverall.append('branch_id', filters.branch_id);
-            const responseOverall = await api.get(`/stats/dashboard?${paramsOverall.toString()}`, {
-                headers: auth.getAuthHeader()
-            });
+            const responseOverall = await api.get(`/stats/dashboard?${paramsOverall.toString()}`);
             setStatsOverall(responseOverall.data);
         } catch (err) {
             console.error('Failed to fetch dashboard stats');
@@ -58,7 +59,7 @@ const Summary = () => {
         }
     };
 
-    const formatCurrency = (value) => (typeof value === 'number' ? `₹${value.toLocaleString()}` : '—');
+    const formatCurrency = (value) => (typeof value === 'number' ? formatCurrencyShared(value, true) : '—');
     const formatCount = (value) => (typeof value === 'number' ? value.toLocaleString() : '—');
 
     const selectedBranchName = filters.branch_id

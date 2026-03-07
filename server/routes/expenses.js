@@ -9,11 +9,15 @@ const { getUserBranchId, auditLog } = require('../helpers');
 router.get('/expense-dashboard', authenticateToken, async (req, res) => {
     try {
         const { month } = req.query; // YYYY-MM
-        const branchId = req.user.role !== 'Admin'
-            ? await getUserBranchId(req.user.id)
-            : req.query.branch_id || null;
-        const bw = branchId ? ' AND p.branch_id = ?' : '';
-        const bp = branchId ? [branchId] : [];
+        let branchIds = null;
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+            branchIds = [req.user.branch_id];
+        } else if (req.query.branch_id) {
+            branchIds = req.query.branch_id.split(',').map(Number).filter(Boolean);
+            if (branchIds.length === 0) branchIds = null;
+        }
+        const bw = branchIds ? ' AND p.branch_id IN (?)' : '';
+        const bp = branchIds ? [branchIds] : [];
 
         // Date range for the month (calculate correct last day)
         const m = month || new Date().toISOString().slice(0, 7);
@@ -38,7 +42,7 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
         });
 
         // 2. Vendor totals: purchases vs payments
-        const vbw = branchId ? ' AND vb.branch_id = ?' : '';
+        const vbw = branchIds ? ' AND vb.branch_id IN (?)' : '';
         const [[vendorPurchases]] = await pool.query(
             `SELECT COALESCE(SUM(vb.total_amount), 0) as total
              FROM sarga_vendor_bills vb
@@ -54,7 +58,7 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
 
         // 3. Total payable to vendors (all time purchases - all time payments)
         const [[allTimePurchases]] = await pool.query(
-            `SELECT COALESCE(SUM(vb.total_amount), 0) as total FROM sarga_vendor_bills vb ${branchId ? 'WHERE vb.branch_id = ?' : ''}`,
+            `SELECT COALESCE(SUM(vb.total_amount), 0) as total FROM sarga_vendor_bills vb ${branchIds ? 'WHERE vb.branch_id IN (?)' : ''}`,
             bp
         );
         const [[allTimeVendorPayments]] = await pool.query(
@@ -72,7 +76,7 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
              FROM sarga_vendors v
              LEFT JOIN (
                 SELECT vb.vendor_id, SUM(vb.total_amount) as total
-                FROM sarga_vendor_bills vb ${branchId ? 'WHERE vb.branch_id = ?' : ''}
+                FROM sarga_vendor_bills vb ${branchIds ? 'WHERE vb.branch_id IN (?)' : ''}
                 GROUP BY vb.vendor_id
              ) pur ON pur.vendor_id = v.id
              LEFT JOIN (
@@ -97,9 +101,9 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
                 WHERE p.type = 'Rent' AND p.payment_date >= ? AND p.payment_date <= ? ${bw}
                 GROUP BY p.description
              ) paid ON paid.description = r.property_name
-             WHERE r.is_active = 1
+             WHERE r.is_active = 1 ${branchIds ? ' AND r.branch_id IN (?)' : ''}
              ORDER BY r.property_name`,
-            [startDate, endDate, ...bp]
+            [startDate, endDate, ...bp, ...(branchIds ? [branchIds] : [])]
         );
 
         // 6. Utility summary this month (payments)
@@ -113,7 +117,7 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
         );
 
         // 6b. Utility bills this month
-        const ubw = branchId ? ' AND ub.branch_id = ?' : '';
+        const ubw = branchIds ? ' AND ub.branch_id IN (?)' : '';
         const [[utilityBillTotal]] = await pool.query(
             `SELECT COALESCE(SUM(ub.amount), 0) as total
              FROM sarga_utility_bills ub
@@ -121,7 +125,7 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
             [startDate, endDate, ...bp]
         );
         const [[allTimeUtilityBills]] = await pool.query(
-            `SELECT COALESCE(SUM(ub.amount), 0) as total FROM sarga_utility_bills ub ${branchId ? 'WHERE ub.branch_id = ?' : ''}`, bp
+            `SELECT COALESCE(SUM(ub.amount), 0) as total FROM sarga_utility_bills ub ${branchIds ? 'WHERE ub.branch_id IN (?)' : ''}`, bp
         );
         const [[allTimeUtilityPayments]] = await pool.query(
             `SELECT COALESCE(SUM(p.amount), 0) as total FROM sarga_payments p WHERE p.type = 'Utility' ${bw}`, bp
@@ -139,12 +143,12 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
         );
 
         // 8. Jobs revenue this month (for net profit calc)
-        const jbw = branchId ? ' AND j.branch_id = ?' : '';
+        const jbw = branchIds ? ' AND j.branch_id IN (?)' : '';
         const [[monthRevenue]] = await pool.query(
             `SELECT COALESCE(SUM(j.advance_paid), 0) as collected
              FROM sarga_jobs j
              WHERE j.created_at >= ? AND j.created_at <= ? ${jbw}`,
-            [startDate, endDate, ...(branchId ? [branchId] : [])]
+            [startDate, endDate, ...(branchIds ? [branchIds] : [])]
         );
 
         // Highest category
@@ -167,12 +171,12 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
              ORDER BY month ASC`,
             [startDate, ...bp]
         );
-        
+
         // 11. Due alerts
         const today = new Date().toISOString().slice(0, 10);
         const currentMonth = new Date().getMonth() + 1;
         const currentYear = new Date().getFullYear();
-        
+
         // Overdue utilities (no payment this month)
         const [overdueUtilities] = await pool.query(
             `SELECT p1.payee_name, MAX(p1.amount) as last_amount
@@ -185,7 +189,7 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
                    AND MONTH(p2.payment_date) = ? 
                    AND YEAR(p2.payment_date) = ?
                )
-               ${bw}
+               ${branchIds ? ' AND p1.branch_id IN (?)' : ''}
              GROUP BY p1.payee_name
              ORDER BY MAX(p1.payment_date) DESC
              LIMIT 10`,
@@ -201,9 +205,9 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
                  SELECT emi_id FROM sarga_emi_payments 
                  WHERE MONTH(payment_date) = ? AND YEAR(payment_date) = ?
                )
-               ${branchId ? 'AND em.branch_id = ?' : 'AND (em.branch_id IS NULL OR 1=1)'}
+               ${branchIds ? 'AND em.branch_id IN (?)' : ''}
              ORDER BY em.due_day ASC`,
-            [currentMonth, currentYear, ...(branchId ? [branchId] : [])]
+            [currentMonth, currentYear, ...(branchIds ? [branchIds] : [])]
         );
 
         // Due Kuris
@@ -220,10 +224,10 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
                 ), 0) as remaining
              FROM sarga_kuri_master km
              WHERE km.is_active = 1 
-               ${branchId ? 'AND km.branch_id = ?' : 'AND (km.branch_id IS NULL OR 1=1)'}
+               ${branchIds ? 'AND km.branch_id IN (?)' : ''}
              HAVING remaining > 0
              ORDER BY km.due_day ASC`,
-            [currentMonth, currentYear, ...(branchId ? [branchId] : [])]
+            [currentMonth, currentYear, ...(branchIds ? [branchIds] : [])]
         );
 
         const responseData = {
@@ -287,10 +291,10 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
             }
         };
 
-        // Add branch expenses for Admin
-        if (req.user.role === 'Admin' && !branchId) {
+        // Add branch expenses for Admin/Accountant
+        if (['Admin', 'Accountant'].includes(req.user.role)) {
             const [branchExpenses] = await pool.query(
-                `SELECT b.name as branch_name, COALESCE(SUM(p.amount), 0) as total
+                `SELECT b.id as branch_id, b.name as branch_name, COALESCE(SUM(p.amount), 0) as total
                  FROM sarga_branches b
                  LEFT JOIN sarga_payments p ON p.branch_id = b.id 
                    AND p.payment_date >= ? AND p.payment_date <= ?
@@ -298,10 +302,46 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
                  ORDER BY total DESC`,
                 [startDate, endDate]
             );
-            responseData.branch_expenses = branchExpenses.map(b => ({
-                branch: b.branch_name,
-                total: Number(b.total)
-            }));
+
+            // Per-branch revenue (jobs)
+            const [branchRevenue] = await pool.query(
+                `SELECT b.id as branch_id, b.name as branch_name,
+                        COUNT(j.id) as job_count,
+                        COALESCE(SUM(j.total_amount), 0) as revenue,
+                        COALESCE(SUM(j.advance_paid), 0) as collected,
+                        COALESCE(SUM(j.balance_amount), 0) as balance
+                 FROM sarga_branches b
+                 LEFT JOIN sarga_jobs j ON j.branch_id = b.id 
+                   AND j.created_at >= ? AND j.created_at <= ?
+                   AND j.status != 'Cancelled'
+                 GROUP BY b.id, b.name
+                 ORDER BY revenue DESC`,
+                [startDate, endDate]
+            );
+
+            const revenueMap = {};
+            branchRevenue.forEach(r => {
+                revenueMap[r.branch_id] = {
+                    job_count: r.job_count || 0,
+                    revenue: Number(r.revenue),
+                    collected: Number(r.collected),
+                    balance: Number(r.balance)
+                };
+            });
+
+            responseData.branch_expenses = branchExpenses.map(b => {
+                const rev = revenueMap[b.branch_id] || { job_count: 0, revenue: 0, collected: 0, balance: 0 };
+                return {
+                    branch: b.branch_name,
+                    branch_id: b.branch_id,
+                    total: Number(b.total),
+                    revenue: rev.revenue,
+                    collected: rev.collected,
+                    balance: rev.balance,
+                    job_count: rev.job_count,
+                    profit: rev.revenue - Number(b.total)
+                };
+            });
         }
 
         res.json(responseData);
@@ -316,14 +356,27 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════
 router.get('/rent-locations', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT * FROM sarga_rent_locations WHERE is_active = 1 ORDER BY property_name');
+        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+            ? req.user.branch_id
+            : req.query.branch_id || null;
+
+        let query = 'SELECT * FROM sarga_rent_locations WHERE is_active = 1';
+        const params = [];
+
+        if (branchId) {
+            query += ' AND branch_id = ?';
+            params.push(branchId);
+        }
+
+        query += ' ORDER BY property_name';
+        const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
-router.post('/rent-locations', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+router.post('/rent-locations', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     const { property_name, location, owner_name, owner_mobile, monthly_rent, due_day, advance_deposit, branch_id } = req.body;
     if (!property_name) return res.status(400).json({ message: 'Property name is required' });
     try {
@@ -335,11 +388,11 @@ router.post('/rent-locations', authenticateToken, authorizeRoles('Admin'), async
         auditLog(req.user.id, 'RENT_LOCATION_ADD', `Added rent location: ${property_name}`);
         res.status(201).json({ id: result.insertId, message: 'Rent location added' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
-router.put('/rent-locations/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+router.put('/rent-locations/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     const { property_name, location, owner_name, owner_mobile, monthly_rent, due_day, advance_deposit, branch_id } = req.body;
     try {
         await pool.query(
@@ -348,16 +401,16 @@ router.put('/rent-locations/:id', authenticateToken, authorizeRoles('Admin'), as
         );
         res.json({ message: 'Rent location updated' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
-router.delete('/rent-locations/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+router.delete('/rent-locations/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     try {
         await pool.query('UPDATE sarga_rent_locations SET is_active = 0 WHERE id = ?', [req.params.id]);
         res.json({ message: 'Rent location removed' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
 
@@ -389,7 +442,7 @@ router.get('/vendor-requests', authenticateToken, async (req, res) => {
     try {
         const { status } = req.query; // 'Pending', 'Approved', 'Rejected', or undefined (all)
         const isAdmin = ['Admin', 'Accountant'].includes(req.user.role);
-        
+
         let query = `
             SELECT vr.*, 
                    req.name as requested_by_name, req.role as requester_role,
@@ -401,19 +454,19 @@ router.get('/vendor-requests', authenticateToken, async (req, res) => {
             LEFT JOIN sarga_branches b ON b.id = vr.branch_id
         `;
         const params = [];
-        
+
         if (!isAdmin) {
             query += ' WHERE vr.requested_by = ?';
             params.push(req.user.id);
         }
-        
+
         if (status) {
             query += (params.length > 0 ? ' AND' : ' WHERE') + ' vr.status = ?';
             params.push(status);
         }
-        
+
         query += ' ORDER BY vr.created_at DESC';
-        
+
         const [requests] = await pool.query(query, params);
         res.json(requests);
     } catch (err) {
@@ -426,24 +479,24 @@ router.get('/vendor-requests', authenticateToken, async (req, res) => {
 router.post('/vendor-requests', authenticateToken, async (req, res) => {
     try {
         const { request_type, name, contact_person, phone, address, gstin, branch_id, request_reason } = req.body;
-        
+
         if (!['Vendor', 'Utility', 'Rent', 'Kuri'].includes(request_type)) {
             return res.status(400).json({ error: 'Invalid request_type. Must be Vendor, Utility, Rent, or Kuri.' });
         }
         if (!name || name.trim() === '') {
             return res.status(400).json({ error: 'Name is required' });
         }
-        
+
         const [result] = await pool.query(
             `INSERT INTO sarga_vendor_requests 
             (request_type, name, contact_person, phone, address, gstin, branch_id, requested_by, request_reason, status) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')`,
-            [request_type, name.trim(), contact_person || null, phone || null, address || null, 
-             gstin || null, branch_id || null, req.user.id, request_reason || null]
+            [request_type, name.trim(), contact_person || null, phone || null, address || null,
+                gstin || null, branch_id || null, req.user.id, request_reason || null]
         );
-        
+
         await auditLog(req.user.id, 'INSERT', `Requested new ${request_type}: ${name} (Request ID: ${result.insertId})`);
-        
+
         res.json({ id: result.insertId, message: `${request_type} request submitted successfully` });
     } catch (err) {
         console.error('POST /vendor-requests error:', err);
@@ -456,27 +509,27 @@ router.put('/vendor-requests/:id/review', authenticateToken, authorizeRoles('Adm
     try {
         const { id } = req.params;
         const { status, rejection_reason } = req.body; // 'Approved' or 'Rejected'
-        
+
         if (!['Approved', 'Rejected'].includes(status)) {
             return res.status(400).json({ error: 'Status must be Approved or Rejected' });
         }
-        
+
         const [[request]] = await pool.query(
             'SELECT * FROM sarga_vendor_requests WHERE id = ?',
             [id]
         );
-        
+
         if (!request) {
             return res.status(404).json({ error: 'Request not found' });
         }
         if (request.status !== 'Pending') {
             return res.status(400).json({ error: 'Request has already been reviewed' });
         }
-        
+
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
-            
+
             // Update request status
             await connection.query(
                 `UPDATE sarga_vendor_requests 
@@ -484,7 +537,7 @@ router.put('/vendor-requests/:id/review', authenticateToken, authorizeRoles('Adm
                  WHERE id = ?`,
                 [status, req.user.id, rejection_reason || null, id]
             );
-            
+
             // If approved, create the actual vendor/utility; rent/kuri requests are informational
             if (status === 'Approved') {
                 if (['Vendor', 'Utility'].includes(request.request_type)) {
@@ -492,10 +545,10 @@ router.put('/vendor-requests/:id/review', authenticateToken, authorizeRoles('Adm
                         `INSERT INTO sarga_vendors 
                         (name, type, contact_person, phone, address, gstin, branch_id) 
                         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                        [request.name, request.request_type, request.contact_person, request.phone, 
-                         request.address, request.gstin, request.branch_id]
+                        [request.name, request.request_type, request.contact_person, request.phone,
+                        request.address, request.gstin, request.branch_id]
                     );
-                    
+
                     await auditLog(req.user.id, 'INSERT', `Approved vendor request #${id} and created ${request.request_type}: ${request.name} (Vendor ID: ${vendorResult.insertId})`);
                 } else {
                     await auditLog(req.user.id, 'UPDATE', `Approved ${request.request_type} request #${id}: ${request.name}`);
@@ -503,7 +556,7 @@ router.put('/vendor-requests/:id/review', authenticateToken, authorizeRoles('Adm
             } else {
                 await auditLog(req.user.id, 'UPDATE', `Rejected ${request.request_type} request #${id}: ${request.name}`);
             }
-            
+
             await connection.commit();
             res.json({ message: `Request ${status.toLowerCase()} successfully` });
         } catch (err) {
@@ -526,7 +579,7 @@ router.put('/vendor-requests/:id/review', authenticateToken, authorizeRoles('Adm
 router.get('/payment-suggestions', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     try {
         const { min_occurrences = 3 } = req.query;
-        
+
         const [suggestions] = await pool.query(
             `SELECT * FROM sarga_payment_suggestions 
              WHERE occurrence_count >= ? 
@@ -536,7 +589,7 @@ router.get('/payment-suggestions', authenticateToken, authorizeRoles('Admin', 'A
              LIMIT 50`,
             [min_occurrences]
         );
-        
+
         res.json(suggestions);
     } catch (err) {
         console.error('GET /payment-suggestions error:', err);
@@ -548,12 +601,12 @@ router.get('/payment-suggestions', authenticateToken, authorizeRoles('Admin', 'A
 router.put('/payment-suggestions/:id/convert', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         await pool.query(
             'UPDATE sarga_payment_suggestions SET suggested_as_vendor = 1 WHERE id = ?',
             [id]
         );
-        
+
         res.json({ message: 'Suggestion marked as converted' });
     } catch (err) {
         console.error('PUT /payment-suggestions/:id/convert error:', err);
@@ -565,12 +618,12 @@ router.put('/payment-suggestions/:id/convert', authenticateToken, authorizeRoles
 router.put('/payment-suggestions/:id/dismiss', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         await pool.query(
             'UPDATE sarga_payment_suggestions SET suggestion_dismissed = 1 WHERE id = ?',
             [id]
         );
-        
+
         res.json({ message: 'Suggestion dismissed' });
     } catch (err) {
         console.error('PUT /payment-suggestions/:id/dismiss error:', err);
@@ -583,7 +636,7 @@ router.put('/payment-suggestions/:id/dismiss', authenticateToken, authorizeRoles
 // ═══════════════════════════════════════════════════════════════════════
 async function trackPaymentFrequency(payeeName, category, amount) {
     if (!payeeName || payeeName.trim() === '') return;
-    
+
     try {
         // Insert or update payment suggestion tracking
         await pool.query(
@@ -606,4 +659,5 @@ async function trackPaymentFrequency(payeeName, category, amount) {
 router.trackPaymentFrequency = trackPaymentFrequency;
 
 module.exports = router;
+
 

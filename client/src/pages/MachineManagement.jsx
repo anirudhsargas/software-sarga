@@ -7,10 +7,13 @@ import {
 import auth from '../services/auth';
 import api from '../services/api';
 import { serverToday } from '../services/serverTime';
+import { useConfirm } from '../contexts/ConfirmContext';
+import toast from 'react-hot-toast';
 
 const MachineManagement = () => {
+    const { confirm } = useConfirm();
     const user = auth.getUser();
-    const isAdmin = user?.role === 'Admin';
+    const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
 
     const [machines, setMachines] = useState([]);
     const [branches, setBranches] = useState([]);
@@ -51,14 +54,14 @@ const MachineManagement = () => {
 
     const fetchBranches = async () => {
         try {
-            const res = await api.get('/branches', { headers: auth.getAuthHeader() });
+            const res = await api.get('/branches');
             setBranches(res.data);
         } catch (e) { console.error('Error fetching branches:', e); }
     };
 
     const fetchStaff = async () => {
         try {
-            const res = await api.get('/staff', { headers: auth.getAuthHeader() });
+            const res = await api.get('/staff');
             setStaffList(Array.isArray(res.data) ? res.data : res.data.data || []);
         } catch (e) { console.error('Error fetching staff:', e); }
     };
@@ -66,7 +69,7 @@ const MachineManagement = () => {
     const fetchMachines = async () => {
         try {
             setLoading(true);
-            const res = await api.get('/machines', { headers: auth.getAuthHeader() });
+            const res = await api.get('/machines');
             setMachines(res.data);
         } catch (e) { console.error('Error fetching machines:', e); }
         finally { setLoading(false); }
@@ -75,7 +78,7 @@ const MachineManagement = () => {
     const fetchMachineDetails = useCallback(async (id) => {
         try {
             setDetailLoading(true);
-            const res = await api.get(`/machines/${id}`, { headers: auth.getAuthHeader() });
+            const res = await api.get(`/machines/${id}`);
             setMachineDetails(res.data);
             // Pre-fill reading form with today's reading
             if (res.data.today_reading) {
@@ -89,7 +92,7 @@ const MachineManagement = () => {
             }
         } catch (e) {
             console.error('Error fetching machine details:', e);
-            alert(e.response?.data?.error || 'Failed to load machine details');
+            toast.error(e.response?.data?.error || 'Failed to load machine details');
         } finally { setDetailLoading(false); }
     }, []);
 
@@ -98,15 +101,15 @@ const MachineManagement = () => {
         e.preventDefault();
         try {
             if (editingMachine) {
-                await api.put(`/machines/${editingMachine.id}`, formData, { headers: auth.getAuthHeader() });
+                await api.put(`/machines/${editingMachine.id}`, formData);
             } else {
-                await api.post('/machines', formData, { headers: auth.getAuthHeader() });
+                await api.post('/machines', formData);
             }
             setShowModal(false);
             resetForm();
             fetchMachines();
         } catch (e) {
-            alert(e.response?.data?.error || 'Failed to save machine');
+            toast.error(e.response?.data?.error || 'Failed to save machine');
         }
     };
 
@@ -124,20 +127,36 @@ const MachineManagement = () => {
     const handleToggleActive = async (machine, e) => {
         if (e) e.stopPropagation();
         const newState = machine.is_active === 1 ? 'Inactive' : 'Active';
-        if (!window.confirm(`Set ${machine.machine_name} to ${newState}?`)) return;
+
+        const isConfirmed = await confirm({
+            title: `Set ${newState}`,
+            message: `Are you sure you want to set ${machine.machine_name} to ${newState}?`,
+            confirmText: 'Yes',
+            type: 'primary'
+        });
+        if (!isConfirmed) return;
+
         try {
-            await api.put(`/machines/${machine.id}`, { is_active: machine.is_active === 1 ? 0 : 1 }, { headers: auth.getAuthHeader() });
+            await api.put(`/machines/${machine.id}`, { is_active: machine.is_active === 1 ? 0 : 1 });
             fetchMachines();
-        } catch (e) { alert(e.response?.data?.error || 'Failed to update machine'); }
+        } catch (e) { toast.error(e.response?.data?.error || 'Failed to update machine'); }
     };
 
     const handleDelete = async (machine, e) => {
         if (e) e.stopPropagation();
-        if (!confirm(`Delete ${machine.machine_name}?`)) return;
+
+        const isConfirmed = await confirm({
+            title: 'Delete Machine',
+            message: `Are you sure you want to delete ${machine.machine_name}?`,
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
+
         try {
-            await api.delete(`/machines/${machine.id}`, { headers: auth.getAuthHeader() });
+            await api.delete(`/machines/${machine.id}`);
             fetchMachines();
-        } catch (e) { alert(e.response?.data?.error || 'Failed to delete machine'); }
+        } catch (e) { toast.error(e.response?.data?.error || 'Failed to delete machine'); }
     };
 
     const resetForm = () => {
@@ -161,11 +180,11 @@ const MachineManagement = () => {
 
     const handleAssignStaff = async () => {
         try {
-            await api.post(`/machines/${assignMachineId}/assign-staff`, { staff_ids: selectedStaffIds }, { headers: auth.getAuthHeader() });
+            await api.post(`/machines/${assignMachineId}/assign-staff`, { staff_ids: selectedStaffIds });
             setShowAssignModal(false);
             fetchMachines();
             if (selectedMachine?.id === assignMachineId) fetchMachineDetails(assignMachineId);
-        } catch (e) { alert(e.response?.data?.error || 'Failed to assign staff'); }
+        } catch (e) { toast.error(e.response?.data?.error || 'Failed to assign staff'); }
     };
 
     const toggleStaff = (staffId) => {
@@ -185,10 +204,10 @@ const MachineManagement = () => {
                 opening_count: readingForm.opening_count ? parseInt(readingForm.opening_count) : 0,
                 closing_count: readingForm.closing_count ? parseInt(readingForm.closing_count) : null,
                 notes: readingForm.notes || null
-            }, { headers: auth.getAuthHeader() });
+            });
             fetchMachineDetails(selectedMachine.id);
         } catch (e) {
-            alert(e.response?.data?.error || 'Failed to save reading');
+            toast.error(e.response?.data?.error || 'Failed to save reading');
         } finally { setReadingSaving(false); }
     };
 
@@ -207,20 +226,27 @@ const MachineManagement = () => {
                 credit_amount: parseFloat(workForm.credit_amount) || 0,
                 total_amount: parseFloat(workForm.total_amount) || 0,
                 work_date: today
-            }, { headers: auth.getAuthHeader() });
+            });
             setShowWorkModal(false);
             setWorkForm({ customer_name: '', work_details: '', copies: '', payment_type: 'Cash', cash_amount: '', upi_amount: '', credit_amount: '', total_amount: '', remarks: '' });
             fetchMachineDetails(selectedMachine.id);
-        } catch (e) { alert(e.response?.data?.error || 'Failed to add work'); }
+        } catch (e) { toast.error(e.response?.data?.error || 'Failed to add work'); }
         finally { setWorkSaving(false); }
     };
 
     const handleDeleteWork = async (entryId) => {
-        if (!confirm('Delete this work entry?')) return;
+        const isConfirmed = await confirm({
+            title: 'Delete Work Entry',
+            message: 'Are you sure you want to delete this work entry?',
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
+
         try {
-            await api.delete(`/machines/${selectedMachine.id}/work/${entryId}`, { headers: auth.getAuthHeader() });
+            await api.delete(`/machines/${selectedMachine.id}/work/${entryId}`);
             fetchMachineDetails(selectedMachine.id);
-        } catch (e) { alert(e.response?.data?.error || 'Failed to delete'); }
+        } catch (e) { toast.error(e.response?.data?.error || 'Failed to delete'); }
     };
 
     // ─── Helpers ─────────────────────────────────────────────────
@@ -258,9 +284,6 @@ const MachineManagement = () => {
                         </div>
                     </div>
                     <div className="row gap-sm">
-                        <button className="btn btn-ghost" onClick={() => fetchMachineDetails(selectedMachine.id)} title="Refresh">
-                            <RefreshCw size={18} />
-                        </button>
                         <button className="btn btn-primary" onClick={() => setShowWorkModal(true)}>
                             <Plus size={18} /> Add Work
                         </button>
@@ -677,11 +700,15 @@ const MachineManagement = () => {
 
     // ─── Assign Modal Component ──────────────────────────────────
     function renderAssignModal() {
-        // Filter staff by branch if machine is in Meppayur branch
+        // Filter staff by branch if machine is in MPR/Meppayur branch
         let filteredStaff = staffList;
         const machine = machines.find(m => m.id === assignMachineId);
-        if (machine && machine.branch_name && machine.branch_name.toLowerCase().includes('meppayur')) {
-            filteredStaff = staffList.filter(s => s.branch_name && s.branch_name.toLowerCase().includes('meppayur'));
+        if (machine && machine.branch_name) {
+            const bn = machine.branch_name.toLowerCase();
+            // match common identifiers for Meppayur/MPR branch
+            if (bn.includes('meppayur') || bn.includes('mpr')) {
+                filteredStaff = staffList.filter(s => s.branch_name && (s.branch_name.toLowerCase().includes('meppayur') || s.branch_name.toLowerCase().includes('mpr')));
+            }
         }
         return (
             <div className="modal-overlay" onClick={() => setShowAssignModal(false)}>
@@ -704,7 +731,7 @@ const MachineManagement = () => {
                                         onChange={() => toggleStaff(s.id)} />
                                     <div style={{
                                         width: 28, height: 28, borderRadius: '50%',
-                                        background: 'var(--clr-primary)', color: '#fff',
+                                        background: 'var(--accent)', color: '#fff',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: 12, fontWeight: 600, flexShrink: 0
                                     }}>

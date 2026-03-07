@@ -6,8 +6,10 @@ import api from '../services/api';
 import { isTouchDevice } from '../services/utils';
 import { calculateProductPrice } from '../utils/pricing';
 import Pagination from '../components/Pagination';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 const Customers = () => {
+    const { confirm } = useConfirm();
     const navigate = useNavigate();
     const user = auth.getUser();
     const isAdmin = user?.role === 'Admin';
@@ -52,9 +54,7 @@ const Customers = () => {
             const params = new URLSearchParams({ page, limit: 20 });
             if (searchQuery.trim()) params.append('search', searchQuery.trim());
             if (typeFilter) params.append('type', typeFilter);
-            const response = await api.get(`/customers?${params}`, {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get(`/customers?${params}`);
             const res = response.data;
             setCustomers(res.data);
             setTotal(res.total);
@@ -77,9 +77,7 @@ const Customers = () => {
         }
         setLoading(true);
         try {
-            await api.post('/customers', newCustomer, {
-                headers: auth.getAuthHeader()
-            });
+            await api.post('/customers', newCustomer);
             setShowAddModal(false);
             setNewCustomer({ mobile: '', name: '', type: 'Walk-in', email: '', gst: '', address: '' });
             fetchCustomers();
@@ -109,8 +107,6 @@ const Customers = () => {
                         gst: selectedCustomer.gst,
                         address: selectedCustomer.address
                     }
-                }, {
-                    headers: auth.getAuthHeader()
                 });
                 setShowEditModal(false);
                 setSelectedCustomer(null);
@@ -124,9 +120,7 @@ const Customers = () => {
 
         setLoading(true);
         try {
-            await api.put(`/customers/${selectedCustomer.id}`, selectedCustomer, {
-                headers: auth.getAuthHeader()
-            });
+            await api.put(`/customers/${selectedCustomer.id}`, selectedCustomer);
             setShowEditModal(false);
             setSelectedCustomer(null);
             fetchCustomers();
@@ -145,8 +139,6 @@ const Customers = () => {
                     customer_id: id,
                     action: 'DELETE',
                     note: note || ''
-                }, {
-                    headers: auth.getAuthHeader()
                 });
                 setError('');
             } catch (err) {
@@ -155,12 +147,16 @@ const Customers = () => {
             return;
         }
 
-        if (!window.confirm('Are you sure you want to delete this customer?')) return;
+        const isConfirmed = await confirm({
+            title: 'Delete Customer',
+            message: 'Are you sure you want to delete this customer?',
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
 
         try {
-            await api.delete(`/customers/${id}`, {
-                headers: auth.getAuthHeader()
-            });
+            await api.delete(`/customers/${id}`);
             fetchCustomers();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to delete customer');
@@ -198,9 +194,7 @@ const Customers = () => {
 
     const fetchBranches = async () => {
         try {
-            const response = await api.get('/branches', {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get('/branches');
             setBranches(response.data);
             if (response.data.length > 0) {
                 setJobData(prev => ({ ...prev, branch_id: response.data[0].id }));
@@ -212,7 +206,7 @@ const Customers = () => {
 
     const fetchHierarchy = async () => {
         try {
-            const res = await api.get('/product-hierarchy', { headers: auth.getAuthHeader() });
+            const res = await api.get('/product-hierarchy');
             setHierarchy(res.data);
         } catch (err) {
             console.error("Hierarchy error", err);
@@ -222,7 +216,7 @@ const Customers = () => {
     const handleProductSelect = async (prod) => {
         setLoading(true);
         try {
-            const res = await api.get(`/products/${prod.id}`, { headers: auth.getAuthHeader() });
+            const res = await api.get(`/products/${prod.id}`);
             const fullProd = res.data;
             setSelectedProduct(fullProd);
             setJobData(prev => ({
@@ -269,7 +263,13 @@ const Customers = () => {
 
     const handleAddJob = async (e) => {
         e.preventDefault();
-        if (!window.confirm(`Create job for ${selectedCustomer?.name || 'customer'}?\nAmount: ₹${Number(jobData.total_amount).toFixed(2)}`)) return;
+        const isConfirmed = await confirm({
+            title: 'Create Job',
+            message: `Create job for ${selectedCustomer?.name || 'customer'}?\nAmount: ₹${Number(jobData.total_amount).toFixed(2)}`,
+            confirmText: 'Create',
+            type: 'primary'
+        });
+        if (!isConfirmed) return;
         setLoading(true);
         try {
             await api.post('/jobs', {
@@ -277,8 +277,6 @@ const Customers = () => {
                 product_id: selectedProduct?.id,
                 customer_id: selectedCustomer?.id || null,
                 applied_extras: extraInputs
-            }, {
-                headers: auth.getAuthHeader()
             });
             setShowJobModal(false);
             resetJobForm();
@@ -314,14 +312,14 @@ const Customers = () => {
 
     return (
         <div className="stack-lg">
-            <header className="row space-between items-center bg-surface p-16 rounded-lg shadow-sm">
+            <header className="page-header bg-surface p-16 rounded-lg shadow-sm">
                 <div>
                     <h1 className="page-title row items-center gap-sm">
                         <Users className="text-accent" /> Customer Management
                     </h1>
                     <p className="muted">Manage your client database and create new job orders.</p>
                 </div>
-                <div className="row gap-sm">
+                <div className="row gap-sm flex-wrap">
                     <button
                         className="btn btn-ghost"
                         onClick={() => {
@@ -348,8 +346,8 @@ const Customers = () => {
                 </div>
             </header>
 
-            <div className="row gap-md items-center bg-surface p-12 rounded-lg border">
-                <div className="flex-1 relative">
+            <div className="row gap-md items-center bg-surface p-12 rounded-lg border flex-wrap">
+                <div className="flex-1 relative" style={{ minWidth: '200px' }}>
                     <Search className="absolute left-12 top-11 muted" size={18} />
                     <input
                         type="text"
@@ -374,101 +372,103 @@ const Customers = () => {
             </div>
 
             <div className="card p-0 overflow-hidden shadow-sm">
-                <table className="table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Contact</th>
-                            <th>Type</th>
-                            <th>Address</th>
-                            <th className="text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading && customers.length === 0 ? (
-                            <tr><td colSpan="5" className="text-center p-40 muted">Loading customers...</td></tr>
-                        ) : customers.length === 0 ? (
-                            <tr><td colSpan="5" className="text-center p-40 muted">No customers found.</td></tr>
-                        ) : customers.map(c => (
-                            <tr
-                                key={c.id}
-                                {...(isTouchDevice()
-                                    ? { onClick: () => navigate(`/dashboard/customers/${c.id}`) }
-                                    : { onDoubleClick: () => navigate(`/dashboard/customers/${c.id}`) }
-                                )}
-                                title={isTouchDevice() ? "Click to view details" : "Double click to view details"}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                <td>
-                                    <div className="font-bold">{c.name}</div>
-                                    <div className="text-xs muted row items-center gap-xs">
-                                        <Mail size={10} /> {c.email || 'No email'}
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="row items-center gap-xs font-mono text-sm">
-                                        <Phone size={14} className="muted" /> +91 {c.mobile}
-                                    </div>
-                                </td>
-                                <td><span className={`badge badge--${c.type.toLowerCase().replace(' ', '')}`}>{c.type}</span></td>
-                                <td className="text-xs muted" style={{ maxWidth: '200px' }}>
-                                    <div className="row items-start gap-xs">
-                                        <MapPin size={12} className="mt-2 shrink-0" />
-                                        <span className="truncate-2">{c.address || 'No address'}</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="row gap-sm justify-end">
-                                        <button
-                                            className="btn btn-ghost"
-                                            style={{ color: 'var(--accent-2)', background: 'var(--accent-soft)' }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigate('/dashboard/billing', {
-                                                    state: {
-                                                        customer: {
-                                                            id: c.id,
-                                                            name: c.name,
-                                                            mobile: c.mobile,
-                                                            type: c.type,
-                                                            email: c.email || '',
-                                                            address: c.address || '',
-                                                            gst: c.gst || ''
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                            title="Quick Add Job"
-                                        >
-                                            <Plus size={16} className="mr-4" /> Job
-                                        </button>
-                                        <button
-                                            className="btn btn-ghost"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedCustomer(c);
-                                                setShowEditModal(true);
-                                            }}
-                                            title={isAdmin ? 'Edit Customer' : 'Request Edit'}
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button
-                                            className="btn btn-ghost text-error"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteCustomer(c.id);
-                                            }}
-                                            title={isAdmin ? 'Delete Customer' : 'Request Delete'}
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </td>
+                <div className="table-scroll">
+                    <table className="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Contact</th>
+                                <th>Type</th>
+                                <th>Address</th>
+                                <th className="text-right">Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {loading && customers.length === 0 ? (
+                                <tr><td colSpan="5" className="text-center p-40 muted">Loading customers...</td></tr>
+                            ) : customers.length === 0 ? (
+                                <tr><td colSpan="5" className="text-center p-40 muted">No customers found.</td></tr>
+                            ) : customers.map(c => (
+                                <tr
+                                    key={c.id}
+                                    {...(isTouchDevice()
+                                        ? { onClick: () => navigate(`/dashboard/customers/${c.id}`) }
+                                        : { onDoubleClick: () => navigate(`/dashboard/customers/${c.id}`) }
+                                    )}
+                                    title={isTouchDevice() ? "Click to view details" : "Double click to view details"}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <td>
+                                        <div className="font-bold">{c.name}</div>
+                                        <div className="text-xs muted row items-center gap-xs">
+                                            <Mail size={10} /> {c.email || 'No email'}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div className="row items-center gap-xs font-mono text-sm">
+                                            <Phone size={14} className="muted" /> +91 {c.mobile}
+                                        </div>
+                                    </td>
+                                    <td><span className={`badge badge--${c.type.toLowerCase().replace(' ', '')}`}>{c.type}</span></td>
+                                    <td className="text-xs muted" style={{ maxWidth: '200px' }}>
+                                        <div className="row items-start gap-xs">
+                                            <MapPin size={12} className="mt-2 shrink-0" />
+                                            <span className="truncate-2">{c.address || 'No address'}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div className="row gap-sm justify-end">
+                                            <button
+                                                className="btn btn-ghost"
+                                                style={{ color: 'var(--accent-2)', background: 'var(--accent-soft)' }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate('/dashboard/billing', {
+                                                        state: {
+                                                            customer: {
+                                                                id: c.id,
+                                                                name: c.name,
+                                                                mobile: c.mobile,
+                                                                type: c.type,
+                                                                email: c.email || '',
+                                                                address: c.address || '',
+                                                                gst: c.gst || ''
+                                                            }
+                                                        }
+                                                    });
+                                                }}
+                                                title="Quick Add Job"
+                                            >
+                                                <Plus size={16} className="mr-4" /> Job
+                                            </button>
+                                            <button
+                                                className="btn btn-ghost"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedCustomer(c);
+                                                    setShowEditModal(true);
+                                                }}
+                                                title={isAdmin ? 'Edit Customer' : 'Request Edit'}
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button
+                                                className="btn btn-ghost text-error"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteCustomer(c.id);
+                                                }}
+                                                title={isAdmin ? 'Delete Customer' : 'Request Delete'}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
             <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 

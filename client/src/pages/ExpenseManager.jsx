@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import usePolling from '../hooks/usePolling';
 import {
   LayoutDashboard, Store, Home, Zap, Landmark,
   Truck, HelpCircle, Users, FileText, BarChart3,
-  Plus, X, RefreshCw, Briefcase
+  Plus, X, Briefcase
 } from 'lucide-react';
 import api from '../services/api';
 import './ExpenseManager.css';
@@ -54,19 +55,22 @@ const ExpenseManager = () => {
 
   /* ── Shared fetchers ── */
   const fetchBranches = useCallback(async () => {
-    try { const r = await api.get('/branches'); setBranches(r.data); } catch {}
+    try { const r = await api.get('/branches'); setBranches(r.data); } catch { }
   }, []);
 
   const fetchVendors = useCallback(async () => {
-    try { const r = await api.get('/vendors'); setVendors(r.data); } catch {}
+    try { const r = await api.get('/vendors'); setVendors(r.data); } catch { }
   }, []);
 
   const fetchDashboardForUtilities = useCallback(async () => {
-    try { const r = await api.get('/expense-dashboard'); setDashboard(r.data); } catch {}
+    try { const r = await api.get('/expense-dashboard'); setDashboard(r.data); } catch { }
   }, []);
 
   useEffect(() => { fetchBranches(); fetchVendors(); }, [fetchBranches, fetchVendors]);
   useEffect(() => { if (activeTab === 'utilities') fetchDashboardForUtilities(); }, [activeTab, fetchDashboardForUtilities]);
+
+  /* ── Auto-refresh every 60s (pauses when tab hidden) ── */
+  usePolling(() => setRefreshKey(k => k + 1), 60000);
 
   /* ── Payment submit ── */
   const submitPayment = async (e) => {
@@ -105,7 +109,6 @@ const ExpenseManager = () => {
           <span className="em-subtitle">Track, manage & analyze all expenses</span>
         </div>
         <div className="em-header__actions">
-          <button className="btn btn-ghost btn-sm" onClick={handleRefresh}><RefreshCw size={15} /> Refresh</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setShowBillsPanel(true)}><FileText size={15} /> Bills & Docs</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('reports')}><BarChart3 size={15} /> Reports</button>
           <button className="btn btn-primary btn-sm" onClick={() => openPayment()}><Plus size={15} /> New Payment</button>
@@ -145,7 +148,7 @@ const ExpenseManager = () => {
               <button className="btn btn-ghost btn-icon" onClick={() => setShowBillsPanel(false)}><X size={18} /></button>
             </div>
             <div className="em-sidepanel__content">
-              <BillsDocsTab key={`bills-${refreshKey}`} onError={setError} />
+              <BillsDocsTab onError={setError} />
             </div>
           </div>
         </div>

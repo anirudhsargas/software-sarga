@@ -31,10 +31,10 @@ class ErrorBoundary extends React.Component {
           fontFamily: 'system-ui, -apple-system, sans-serif',
           textAlign: 'center'
         }}>
-          <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#dc2626' }}>
+          <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--error)' }}>
             Something went wrong
           </h1>
-          <p style={{ color: '#6b7280', marginBottom: '1.5rem', maxWidth: '400px' }}>
+          <p style={{ color: 'var(--muted)', marginBottom: '1.5rem', maxWidth: '400px' }}>
             An unexpected error occurred. Please try refreshing the page.
           </p>
           {this.state.error && (
@@ -57,7 +57,7 @@ class ErrorBoundary extends React.Component {
               onClick={this.handleReset}
               style={{
                 padding: '0.5rem 1.5rem',
-                backgroundColor: '#3b82f6',
+                backgroundColor: 'var(--accent-2)',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '0.375rem',
@@ -71,7 +71,7 @@ class ErrorBoundary extends React.Component {
               onClick={() => window.location.href = '/'}
               style={{
                 padding: '0.5rem 1.5rem',
-                backgroundColor: '#6b7280',
+                backgroundColor: 'var(--muted)',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '0.375rem',

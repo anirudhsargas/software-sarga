@@ -1,32 +1,54 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, Suspense, useCallback } from 'react';
+import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import {
-    Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen
+    Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2,
+    Brain, Search, FileCheck, Layers, Zap, TrendingUp
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { API_URL } from '../services/api';
-import auth from '../services/auth';
 import ImageCropModal from '../components/ImageCropModal';
+import SmartSearch from '../components/SmartSearch';
 import sargaLogo from '../assets/sarga-logo.png';
-import StaffManagement from './StaffManagement';
-import EmployeeDetail from './EmployeeDetail';
-import Customers from './Customers';
-import CustomerDetails from './CustomerDetails';
-import Jobs from './Jobs';
-import ProductLibrary from './ProductLibrary';
-import IDChangeRequests from './Requests';
-import Inventory from './Inventory';
-import Branches from './Branches';
-import CustomerPayments from './CustomerPayments';
-import Summary from './Summary';
-import Billing from './Billing';
-import FrontOffice from './FrontOffice';
-import ExpenseManager from './ExpenseManager';
-import MachineManagement from './MachineManagement';
-import DailyReport from './DailyReport';
+import { useConfirm } from '../contexts/ConfirmContext';
+
+// Lazy-loaded pages — each becomes a separate chunk
+const StaffManagement = React.lazy(() => import('./StaffManagement'));
+const EmployeeDetail = React.lazy(() => import('./EmployeeDetail'));
+const Customers = React.lazy(() => import('./Customers'));
+const CustomerDetails = React.lazy(() => import('./CustomerDetails'));
+const Jobs = React.lazy(() => import('./Jobs'));
+const JobDetail = React.lazy(() => import('./JobDetail'));
+const ProductLibrary = React.lazy(() => import('./ProductLibrary'));
+const IDChangeRequests = React.lazy(() => import('./Requests'));
+const Inventory = React.lazy(() => import('./Inventory'));
+const Branches = React.lazy(() => import('./Branches'));
+const CustomerPayments = React.lazy(() => import('./CustomerPayments'));
+const Summary = React.lazy(() => import('./Summary'));
+const Billing = React.lazy(() => import('./Billing'));
+const FrontOffice = React.lazy(() => import('./FrontOffice'));
+const ExpenseManager = React.lazy(() => import('./ExpenseManager'));
+const MachineManagement = React.lazy(() => import('./MachineManagement'));
+const DailyReport = React.lazy(() => import('./DailyReport'));
+const AttendanceSalary = React.lazy(() => import('./AttendanceSalary'));
+const AccountantDashboard = React.lazy(() => import('./AccountantDashboard'));
+const NotFound = React.lazy(() => import('./NotFound'));
+const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
+const DesignChecker = React.lazy(() => import('./DesignChecker'));
+const PaperLayoutGenerator = React.lazy(() => import('./PaperLayoutGenerator'));
+const JobPriority = React.lazy(() => import('./JobPriority'));
+const SalesPrediction = React.lazy(() => import('./SalesPrediction'));
+import SmartSearchBar from '../components/SmartSearchBar';
+
+const PageLoader = () => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: '8px', color: 'var(--text-muted, var(--muted))' }}>
+        <Loader2 size={20} className="animate-spin" /> Loading...
+    </div>
+);
 
 const Dashboard = () => {
     const { user, logout, updateUser } = useAuth();
+    const { confirm } = useConfirm();
     const navigate = useNavigate();
     const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -36,6 +58,8 @@ const Dashboard = () => {
     const [profilePreview, setProfilePreview] = useState('');
     const [profileSaving, setProfileSaving] = useState(false);
     const [cropState, setCropState] = useState(null);
+    const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+    const [searchOpen, setSearchOpen] = useState(false);
 
     const fileBaseUrl = useMemo(() => API_URL.replace(/\/api$/, ''), []);
 
@@ -51,22 +75,58 @@ const Dashboard = () => {
         { name: 'Customer Payments', icon: Receipt, path: '/dashboard/customer-payments', roles: ['Admin', 'Front Office'] },
         { name: 'Staff', icon: Users, path: '/dashboard/staff', roles: ['Front Office'] },
         { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Front Office'] },
-        { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Front Office', 'Admin', 'Accountant'] },
+        { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Front Office', 'Admin'] },
         { name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Admin'] },
         { name: 'Branches', icon: Building2, path: '/dashboard/branches', roles: ['Admin'] },
         { name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin'] },
         { name: 'Jobs & Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Designer', 'Printer'] },
+        { name: 'Attendance & Salary', icon: Receipt, path: '/dashboard/attendance-salary', roles: ['Designer', 'Printer', 'Front Office'] },
         { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Admin'] },
         { name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin'] },
         { name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office', 'Designer', 'Printer'] },
-        { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Admin', 'Front Office', 'Accountant'] },
+        { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Admin', 'Front Office'] },
+        // Accountant-specific menu items
+        { name: 'Dashboard', icon: Grid, path: '/dashboard', roles: ['Accountant'] },
+        { name: 'Customers', icon: UserSquare, path: '/dashboard/customers', roles: ['Accountant'] },
+        { name: 'Jobs & Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Accountant'] },
+        { name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Accountant'] },
+        { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Accountant'] },
+        { name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Accountant'] },
+        { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Accountant'] },
+        // AI Features
+        { name: 'AI Monitoring', icon: Brain, path: '/dashboard/ai-monitoring', roles: ['Admin'] },
+        { name: 'Design Check', icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
+        { name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer', 'Printer'] },
+        { name: 'Sales Prediction', icon: TrendingUp, path: '/dashboard/sales-prediction', roles: ['Admin', 'Accountant'] },
     ];
 
-    const filteredMenu = menuItems.filter(item => item.roles.includes(user.role));
+    const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role));
+
+    // Ctrl+K / Cmd+K to open smart search
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                setSearchOpen(prev => !prev);
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const handleLogout = () => {
         logout();
         navigate('/login');
+    };
+
+    const fetchPendingCount = async () => {
+        if (user?.role !== 'Admin' && user?.role !== 'Accountant') return;
+        try {
+            const response = await api.get('/requests/pending-count');
+            setPendingRequestsCount(response.data.pending_count);
+        } catch (err) {
+            console.error('Failed to fetch pending requests count:', err);
+        }
     };
 
     useEffect(() => {
@@ -83,6 +143,22 @@ const Dashboard = () => {
         return () => URL.revokeObjectURL(url);
     }, [profileImage]);
 
+    const isAdminOrAccountant = user?.role === 'Admin' || user?.role === 'Accountant';
+    usePolling(fetchPendingCount, 60000, isAdminOrAccountant);
+
+    useEffect(() => {
+        if (isAdminOrAccountant) {
+            fetchPendingCount();
+
+            const handleRefresh = () => fetchPendingCount();
+            window.addEventListener('requestReviewed', handleRefresh);
+
+            return () => {
+                window.removeEventListener('requestReviewed', handleRefresh);
+            };
+        }
+    }, [user]);
+
     const handleProfileSave = async (e) => {
         e.preventDefault();
         setProfileSaving(true);
@@ -90,9 +166,7 @@ const Dashboard = () => {
             const formData = new FormData();
             formData.append('name', profileName);
             if (profileImage) formData.append('image', profileImage);
-            const response = await api.put('/staff/me', formData, {
-                headers: { ...auth.getAuthHeader() }
-            });
+            const response = await api.put('/staff/me', formData);
             updateUser({
                 ...user,
                 name: response.data.name,
@@ -100,17 +174,23 @@ const Dashboard = () => {
             });
             setShowProfileModal(false);
         } catch (err) {
-            alert(err.response?.data?.message || 'Failed to update profile');
+            import('react-hot-toast').then(m => m.default.error(err.response?.data?.message || 'Failed to update profile'));
         } finally {
             setProfileSaving(false);
         }
     };
 
     const handleRemoveProfileImage = async () => {
-        if (!window.confirm('Remove your profile photo?')) return;
+        const isConfirmed = await confirm({
+            title: 'Remove Profile Photo',
+            message: 'Remove your profile photo?',
+            confirmText: 'Remove',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
         setProfileSaving(true);
         try {
-            await api.delete('/staff/me/image', { headers: auth.getAuthHeader() });
+            await api.delete('/staff/me/image');
             updateUser({
                 ...user,
                 image_url: null
@@ -118,7 +198,7 @@ const Dashboard = () => {
             setProfileImage(null);
             setProfilePreview('');
         } catch (err) {
-            alert(err.response?.data?.message || 'Failed to remove profile photo');
+            import('react-hot-toast').then(m => m.default.error(err.response?.data?.message || 'Failed to remove profile photo'));
         } finally {
             setProfileSaving(false);
         }
@@ -133,7 +213,7 @@ const Dashboard = () => {
         if (!user?.role) return <Summary />;
         if (user.role === 'Admin') return <Summary />;
         if (user.role === 'Front Office') return <FrontOffice />;
-        if (user.role === 'Accountant') return <ExpenseManager />;
+        if (user.role === 'Accountant') return <AccountantDashboard />;
         return <Jobs />;
     };
 
@@ -176,8 +256,13 @@ const Dashboard = () => {
                             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                             onClick={closeSidebar}
                         >
-                            <item.icon size={20} />
-                            <span className="nav-label">{item.name}</span>
+                            <div className="nav-item-inner">
+                                <item.icon size={20} />
+                                <span className="nav-label">{item.name}</span>
+                                {item.name === 'Requests' && pendingRequestsCount > 0 && (
+                                    <span className="side-badge">{pendingRequestsCount}</span>
+                                )}
+                            </div>
                         </NavLink>
                     ))}
                 </nav>
@@ -209,6 +294,7 @@ const Dashboard = () => {
                     <button className="icon-button" onClick={toggleSidebar}>
                         <Grid size={20} />
                     </button>
+                    <SmartSearchBar />
                     <div className="logo-text">SARGA</div>
                     <div className="user-avatar avatar-sm" onClick={() => setShowProfileModal(true)}>
                         {user?.image_url ? (
@@ -219,26 +305,46 @@ const Dashboard = () => {
                     </div>
                 </div>
 
+                {/* Desktop Content Topbar with Smart Search */}
+                <div className="content-topbar">
+                    <button className="smart-search-trigger" onClick={() => setSearchOpen(true)}>
+                        <Search size={15} /> Search anything... <kbd>Ctrl K</kbd>
+                    </button>
+                </div>
+
                 <div className="content-container">
-                    <Routes>
-                        <Route path="" element={<DashboardHome />} />
-                        <Route path="billing" element={<Billing />} />
-                        <Route path="staff" element={<StaffManagement />} />
-                        <Route path="employee/:staffId" element={<EmployeeDetail />} />
-                        <Route path="branches" element={<Branches />} />
-                        <Route path="customers" element={<Customers />} />
-                        <Route path="customers/:id" element={<CustomerDetails />} />
-                        <Route path="products" element={<ProductLibrary />} />
-                        <Route path="jobs" element={<Jobs />} />
-                        <Route path="requests" element={<IDChangeRequests />} />
-                        <Route path="inventory" element={<Inventory />} />
-                        <Route path="customer-payments" element={<CustomerPayments />} />
-                        <Route path="expenses" element={<ExpenseManager />} />
-                        <Route path="machines" element={<MachineManagement />} />
-                        <Route path="daily-report" element={<DailyReport />} />
-                    </Routes>
+                    <Suspense fallback={<PageLoader />}>
+                        <Routes>
+                            <Route path="" element={<DashboardHome />} />
+                            <Route path="billing" element={<Billing />} />
+                            <Route path="staff" element={<StaffManagement />} />
+                            <Route path="employee/:staffId" element={<EmployeeDetail />} />
+                            <Route path="branches" element={<Branches />} />
+                            <Route path="customers" element={<Customers />} />
+                            <Route path="customers/:id" element={<CustomerDetails />} />
+                            <Route path="products" element={<ProductLibrary />} />
+                            <Route path="jobs" element={<Jobs />} />
+                            <Route path="jobs/:id" element={<JobDetail />} />
+                            <Route path="requests" element={<IDChangeRequests />} />
+                            <Route path="inventory" element={<Inventory />} />
+                            <Route path="customer-payments" element={<CustomerPayments />} />
+                            <Route path="expenses" element={<ExpenseManager />} />
+                            <Route path="machines" element={<MachineManagement />} />
+                            <Route path="daily-report" element={<DailyReport />} />
+                            <Route path="attendance-salary" element={<AttendanceSalary />} />
+                            <Route path="ai-monitoring" element={<AIMonitoring />} />
+                            <Route path="design-check" element={<DesignChecker />} />
+                            <Route path="paper-layout" element={<PaperLayoutGenerator />} />
+                            <Route path="job-priority" element={<JobPriority />} />
+                            <Route path="sales-prediction" element={<SalesPrediction />} />
+                            <Route path="*" element={<NotFound />} />
+                        </Routes>
+                    </Suspense>
                 </div>
             </main>
+
+            {/* Smart Search Overlay */}
+            <SmartSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
             {showProfileModal && (
                 <div className="modal-backdrop">

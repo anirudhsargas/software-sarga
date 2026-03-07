@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import usePolling from '../hooks/usePolling';
 import {
     BookOpen, Printer, Package, RefreshCw, TrendingUp, TrendingDown,
     Monitor, Hash, Building2, Check, Edit3, Lock, Send, FileText,
@@ -10,11 +11,13 @@ import autoTable from 'jspdf-autotable';
 import api from '../services/api';
 import auth from '../services/auth';
 import { serverToday, serverNow } from '../services/serverTime';
+import toast from 'react-hot-toast';
+import { formatCurrencyDecimal } from '../constants';
 
 const TABS = [
-    { key: 'Offset', label: 'Offset', icon: BookOpen, color: '#2563eb', bg: 'rgba(37,99,235,0.08)' },
-    { key: 'Laser', label: 'Laser', icon: Printer, color: '#7c3aed', bg: 'rgba(124,58,237,0.08)' },
-    { key: 'Other', label: 'Other', icon: Package, color: '#059669', bg: 'rgba(5,150,105,0.08)' }
+    { key: 'Offset', label: 'Offset', icon: BookOpen, color: 'var(--accent)', bg: 'rgba(37,99,235,0.08)' },
+    { key: 'Laser', label: 'Laser', icon: Printer, color: 'var(--accent)', bg: 'rgba(124,58,237,0.08)' },
+    { key: 'Other', label: 'Other', icon: Package, color: 'var(--success)', bg: 'rgba(5,150,105,0.08)' }
 ];
 
 const AUTO_REFRESH_INTERVAL = 30000;
@@ -23,6 +26,8 @@ const DailyReport = () => {
     const [activeTab, setActiveTab] = useState('Offset');
     const [reportDate, setReportDate] = useState(serverToday());
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
+
     const [openingBalances, setOpeningBalances] = useState({ Offset: 0, Laser: 0, Other: 0 });
     const [lockedBalances, setLockedBalances] = useState({ Offset: false, Laser: false, Other: false });
     const [editingBalance, setEditingBalance] = useState(null);
@@ -50,23 +55,25 @@ const DailyReport = () => {
     const [laserData, setLaserData] = useState({ machines: [], entries: [], summary: {} });
     const [otherData, setOtherData] = useState({ entries: [], summary: {} });
     const [liveCounts, setLiveCounts] = useState(null);
+    const [tabErrors, setTabErrors] = useState({ Offset: null, Laser: null, Other: null });
+
 
     // Machine editing
     const [editingMachine, setEditingMachine] = useState(null);
     const [machineReadingTemp, setMachineReadingTemp] = useState({ opening_count: '', closing_count: '' });
 
     const [lastRefresh, setLastRefresh] = useState(null);
-    const refreshTimerRef = useRef(null);
 
     const user = auth.getUser();
-    const headers = auth.getAuthHeader();
     const isAdmin = user.role === 'Admin';
+    const isAccountant = user.role === 'Accountant';
     const isFrontOffice = user.role === 'Front Office';
+    const canViewAllBranches = isAdmin || isAccountant;
     const canEditBalance = isFrontOffice || isAdmin;
 
-    const branchParam = isAdmin && selectedBranch ? { branch_id: selectedBranch } : {};
+    const branchParam = canViewAllBranches && selectedBranch ? { branch_id: selectedBranch } : {};
 
-    const formatCurrency = (val) => `₹${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const formatCurrency = formatCurrencyDecimal;
     const formatNum = (val) => (Number(val) || 0).toLocaleString('en-IN');
     const formatTime = (ts) => {
         if (!ts) return '';
@@ -81,12 +88,12 @@ const DailyReport = () => {
     const currentTabMeta = TABS.find(t => t.key === activeTab);
     const branchName = branches.find(b => b.id === selectedBranch)?.name || '';
 
-    // ─── Fetch Branches (Admin Only) ────────────────────────────
+    // ─── Fetch Branches (Admin & Accountant) ────────────────────────────
     useEffect(() => {
-        if (!isAdmin) return;
+        if (!canViewAllBranches) return;
         (async () => {
             try {
-                const res = await api.get('/branches', { headers });
+                const res = await api.get('/branches');
                 setBranches(res.data);
                 if (res.data.length > 0 && !selectedBranch) setSelectedBranch(res.data[0].id);
             } catch (err) { console.error('Error fetching branches:', err); }
@@ -101,7 +108,7 @@ const DailyReport = () => {
 
         (async () => {
             try {
-                const res = await api.get('/daily-report/opening-balance', { params: { date: todayStr }, headers });
+                const res = await api.get('/daily-report/opening-balance', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
                 const data = res.data;
                 const balances = data.balances || data;
                 const locked = data.locked || {};
@@ -109,7 +116,7 @@ const DailyReport = () => {
                 const anyLocked = Object.values(locked).some(v => v);
                 if (!anyEntered && !anyLocked && !promptDone) {
                     try {
-                        const machRes = await api.get('/machines', { params: { is_active: 'true' }, headers });
+                        const machRes = await api.get('/machines', { params: { branch_id: selectedBranch || branchParam } });
                         const digitalMachines = (machRes.data || []).filter(m => m.machine_type === 'Digital');
                         setPromptMachines(digitalMachines.map(m => ({
                             id: m.id, machine_name: m.machine_name, location: m.location, opening_count: ''
@@ -129,13 +136,13 @@ const DailyReport = () => {
             const balancePromises = ['Offset', 'Laser', 'Other'].map(bookType =>
                 api.put('/daily-report/opening-balance', {
                     date: reportDate, book_type: bookType, cash_opening: parseFloat(promptBalances[bookType]) || 0
-                }, { headers })
+                })
             );
             const machinePromises = promptMachines
                 .filter(m => m.opening_count !== '' && m.opening_count !== null)
                 .map(m => api.post(`/machines/${m.id}/readings`, {
                     reading_date: reportDate, opening_count: parseInt(m.opening_count) || 0
-                }, { headers }));
+                }));
 
             await Promise.all([...balancePromises, ...machinePromises]);
             setShowOpeningPrompt(false);
@@ -143,16 +150,14 @@ const DailyReport = () => {
             loadAllData();
         } catch (err) {
             console.error('Error saving opening data:', err);
-            alert('Failed to save opening data. Please try again.');
+            toast.error('Failed to save opening data. Please try again.');
         } finally { setSavingPrompt(false); }
     };
 
     // ─── Fetch Opening Balances ─────────────────────────────────
     const fetchOpeningBalances = useCallback(async () => {
         try {
-            const res = await api.get('/daily-report/opening-balance', {
-                params: { date: reportDate, ...branchParam }, headers
-            });
+            const res = await api.get('/daily-report/opening-balance', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
             const data = res.data;
             if (data.balances) {
                 setOpeningBalances(data.balances);
@@ -168,18 +173,18 @@ const DailyReport = () => {
         try {
             const res = await api.put('/daily-report/opening-balance', {
                 date: reportDate, book_type: bookType, cash_opening: parseFloat(value) || 0, ...branchParam
-            }, { headers });
+            });
             setOpeningBalances(prev => ({ ...prev, [bookType]: parseFloat(value) || 0 }));
             if (res.data.is_locked) setLockedBalances(prev => ({ ...prev, [bookType]: true }));
             setEditingBalance(null);
             loadTabData(bookType);
         } catch (err) {
             if (err.response?.status === 403 && err.response?.data?.is_locked) {
-                alert('This balance is locked. Please submit a change request to Admin.');
+                toast.success('This balance is locked. Please submit a change request to Admin.');
                 setLockedBalances(prev => ({ ...prev, [bookType]: true }));
             } else {
                 console.error('Error saving opening balance:', err);
-                alert('Failed to save opening balance');
+                toast.error('Failed to save opening balance');
             }
             setEditingBalance(null);
         }
@@ -192,15 +197,15 @@ const DailyReport = () => {
                 reading_date: reportDate,
                 opening_count: parseInt(machineReadingTemp.opening_count) || 0,
                 closing_count: machineReadingTemp.closing_count !== '' ? parseInt(machineReadingTemp.closing_count) : null
-            }, { headers });
+            });
             setEditingMachine(null);
             loadTabData('Laser');
         } catch (err) {
             if (err.response?.status === 403 && err.response?.data?.is_locked) {
-                alert('Opening count is locked. You can still update the closing count, or submit a change request.');
+                toast.success('Opening count is locked. You can still update the closing count, or submit a change request.');
             } else {
                 console.error('Error saving machine reading:', err);
-                alert('Failed to save machine reading');
+                toast.error('Failed to save machine reading');
             }
             setEditingMachine(null);
         }
@@ -217,200 +222,236 @@ const DailyReport = () => {
                 current_value: showChangeRequest.currentValue || 0,
                 requested_value: parseFloat(changeRequestValue) || 0,
                 note: changeRequestNote || null, ...branchParam
-            }, { headers });
-            alert('Change request submitted! Admin will review it.');
+            });
+            toast.success('Change request submitted! Admin will review it.');
             setShowChangeRequest(null);
             setChangeRequestValue('');
             setChangeRequestNote('');
         } catch (err) {
-            alert(err.response?.data?.error || 'Failed to submit change request');
+            toast.error(err.response?.data?.error || 'Failed to submit change request');
         } finally { setSubmittingRequest(false); }
     };
 
     // ─── Fetch Tab Data ─────────────────────────────────────────
     const loadTabData = useCallback(async (tab) => {
+        setTabErrors(prev => ({ ...prev, [tab]: null }));
         try {
             const endpoint = tab === 'Offset' ? '/daily-report/offset-live'
                 : tab === 'Laser' ? '/daily-report/laser-live' : '/daily-report/other-live';
-            const res = await api.get(endpoint, { params: { date: reportDate, ...branchParam }, headers });
+            const res = await api.get(endpoint, { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
             if (tab === 'Offset') setOffsetData(res.data);
             else if (tab === 'Laser') setLaserData(res.data);
             else setOtherData(res.data);
-        } catch (err) { console.error(`Error fetching ${tab} data:`, err); }
-    }, [reportDate, selectedBranch]);
+        } catch (err) {
+            console.error(`Error fetching ${tab} data:`, err);
+            setTabErrors(prev => ({ ...prev, [tab]: err.message || 'Failed to load' }));
+        }
+    }, [reportDate, selectedBranch, branchParam]);
+
 
     const fetchLiveCounts = useCallback(async () => {
         try {
-            const res = await api.get('/daily-report/live-counts', { params: { date: reportDate, ...branchParam }, headers });
+            const res = await api.get('/daily-report/live-counts', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
             setLiveCounts(res.data);
             setLastRefresh(serverNow());
         } catch (err) { console.error('Error fetching live counts:', err); }
     }, [reportDate, selectedBranch]);
 
-    const loadAllData = useCallback(async () => {
-        setLoading(true);
-        try { await Promise.all([fetchOpeningBalances(), loadTabData(activeTab), fetchLiveCounts()]); }
-        finally { setLoading(false); }
-    }, [fetchOpeningBalances, loadTabData, fetchLiveCounts, activeTab]);
+    const loadAllData = useCallback(async (isInitial = false) => {
+        if (isInitial) setInitialLoading(true);
+        else setLoading(true);
+
+        try {
+            await Promise.all([
+                fetchOpeningBalances(),
+                loadTabData('Offset'),
+                loadTabData('Laser'),
+                loadTabData('Other'),
+                fetchLiveCounts()
+            ]);
+        }
+        finally {
+            setLoading(false);
+            setInitialLoading(false);
+        }
+    }, [fetchOpeningBalances, loadTabData, fetchLiveCounts]);
 
     useEffect(() => {
-        if (isAdmin && !selectedBranch) return;
-        loadAllData();
+        if (canViewAllBranches && !selectedBranch) return;
+        loadAllData(true);
     }, [reportDate, selectedBranch]);
 
     useEffect(() => {
-        if (isAdmin && !selectedBranch) return;
-        loadTabData(activeTab);
-    }, [activeTab, reportDate, selectedBranch]);
-
-    useEffect(() => {
-        refreshTimerRef.current = setInterval(() => {
-            if (isAdmin && !selectedBranch) return;
-            fetchLiveCounts();
+        if (canViewAllBranches && !selectedBranch) return;
+        // Skip if initial load just happened (all data already fetched)
+        if (!initialLoading) {
             loadTabData(activeTab);
-        }, AUTO_REFRESH_INTERVAL);
-        return () => clearInterval(refreshTimerRef.current);
-    }, [activeTab, reportDate, selectedBranch, fetchLiveCounts, loadTabData]);
+        }
+    }, [activeTab]);
 
-    const manualRefresh = () => { fetchLiveCounts(); loadTabData(activeTab); };
+    const pollingEnabled = !(canViewAllBranches && !selectedBranch);
+    usePolling(useCallback(() => {
+        fetchLiveCounts();
+        loadTabData('Offset');
+        loadTabData('Laser');
+        loadTabData('Other');
+    }, [fetchLiveCounts, loadTabData]), AUTO_REFRESH_INTERVAL, pollingEnabled);
+
+    const manualRefresh = () => { loadAllData(); };
 
     // ─── PDF Export ─────────────────────────────────────────────
     const generatePDF = () => {
-        const doc = new jsPDF('p', 'mm', 'a4');
-        const pageW = doc.internal.pageSize.getWidth();
-        const margin = 14;
-        let y = 16;
+        try {
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pageW = doc.internal.pageSize.getWidth();
+            const margin = 14;
 
-        const displayBranch = branchName || 'Branch';
-        const dateStr = formatDateDisplay(reportDate);
+            const displayBranch = branchName || 'Branch';
+            const dateStr = formatDateDisplay(reportDate);
 
-        // Header
-        doc.setFillColor(31, 42, 51);
-        doc.rect(0, 0, pageW, 36, 'F');
-        doc.setTextColor(247, 246, 243);
-        doc.setFontSize(20);
-        doc.setFont('helvetica', 'bold');
-        doc.text('SARGA', margin, 16);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('DAILY CASH BOOK REPORT', margin, 23);
-        doc.setFontSize(9);
-        doc.text(`${displayBranch}  |  ${dateStr}`, margin, 30);
-        doc.setFontSize(8);
-        doc.text(`Generated: ${serverNow().toLocaleString('en-IN')}`, pageW - margin, 30, { align: 'right' });
-
-        y = 44;
-
-        const sectionHeader = (title, color) => {
-            doc.setFillColor(...color);
-            doc.roundedRect(margin, y, pageW - margin * 2, 8, 1.5, 1.5, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'bold');
-            doc.text(title, margin + 4, y + 5.5);
-            y += 12;
-            doc.setTextColor(30, 30, 30);
-            doc.setFont('helvetica', 'normal');
-        };
-
-        const kvRow = (label, value, options = {}) => {
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(100, 100, 100);
-            doc.text(label, margin + 2, y);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(options.color || [30, 30, 30]);
-            doc.text(String(value), pageW - margin - 2, y, { align: 'right' });
-            y += 5.5;
-        };
-
-        const allData = [
-            { key: 'Offset', data: offsetData, color: [37, 99, 235] },
-            { key: 'Laser', data: laserData, color: [124, 58, 237] },
-            { key: 'Other', data: otherData, color: [5, 150, 105] }
-        ];
-
-        allData.forEach(({ key, data, color }) => {
-            const summary = data.summary || {};
-            const entries = data.entries || [];
-            const opening = openingBalances[key] || 0;
-
-            if (y > 250) { doc.addPage(); y = 16; }
-
-            sectionHeader(`${key.toUpperCase()} BOOK`, color);
-            kvRow('Opening Cash Balance', formatCurrency(opening));
-
-            if (key === 'Laser' && data.machines?.length > 0) {
-                data.machines.forEach(m => {
-                    kvRow(`${m.machine_name} — Opening`, formatNum(m.opening_count || 0));
-                    kvRow(`${m.machine_name} — Closing`, formatNum(m.closing_count || 0));
-                    kvRow(`${m.machine_name} — Copies`, formatNum(m.today_copies || 0), { color: [5, 150, 105] });
-                });
-            }
-
-            if (entries.length > 0) {
-                const isLaser = key === 'Laser';
-                const head = isLaser
-                    ? [['Time', 'Description', 'Copies', 'Cash', 'UPI', 'Total']]
-                    : [['Time', 'Description', 'Type', 'Cash', 'UPI', 'Total']];
-
-                const body = entries.map(e => {
-                    const isExp = e.type === 'expense';
-                    const sign = isExp ? '-' : '';
-                    if (isLaser) {
-                        return [formatTime(e.time), e.description || '', String(e.copies || ''),
-                            `${sign}${formatCurrency(e.cash_amount)}`, `${sign}${formatCurrency(e.upi_amount)}`, `${sign}${formatCurrency(e.total)}`];
-                    }
-                    return [formatTime(e.time), e.description || '', isExp ? 'Expense' : 'Income',
-                        `${sign}${formatCurrency(e.cash_amount)}`, `${sign}${formatCurrency(e.upi_amount)}`, `${sign}${formatCurrency(e.total)}`];
-                });
-
-                autoTable(doc, {
-                    startY: y,
-                    head,
-                    body,
-                    margin: { left: margin, right: margin },
-                    styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
-                    headStyles: { fillColor: color, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
-                    alternateRowStyles: { fillColor: [248, 248, 248] },
-                    columnStyles: isLaser
-                        ? { 0: { cellWidth: 18 }, 2: { halign: 'right', cellWidth: 16 }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right', fontStyle: 'bold' } }
-                        : { 0: { cellWidth: 18 }, 2: { cellWidth: 18 }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right', fontStyle: 'bold' } }
-                });
-                y = doc.lastAutoTable.finalY + 4;
-            } else {
+            const renderHeader = () => {
+                doc.setFillColor(31, 42, 51);
+                doc.rect(0, 0, pageW, 36, 'F');
+                doc.setTextColor(247, 246, 243);
+                doc.setFontSize(20);
+                doc.setFont('helvetica', 'bold');
+                doc.text('SARGA', margin, 16);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.text('DAILY CASH BOOK REPORT', margin, 23);
+                doc.setFontSize(9);
+                doc.text(`${displayBranch}  |  ${dateStr}`, margin, 30);
                 doc.setFontSize(8);
-                doc.setTextColor(150, 150, 150);
-                doc.text('No entries recorded', margin + 2, y);
-                y += 6;
+                doc.text(`Generated: ${serverNow().toLocaleString('en-IN')}`, pageW - margin, 30, { align: 'right' });
+            };
+
+            const sectionHeader = (title, color, yPos) => {
+                doc.setFillColor(...color);
+                doc.roundedRect(margin, yPos, pageW - margin * 2, 8, 1.5, 1.5, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.text(title, margin + 4, yPos + 5.5);
+                return yPos + 12;
+            };
+
+            const kvRow = (label, value, yPos, options = {}) => {
+                try {
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(100, 100, 100);
+                    doc.text(label, margin + 2, yPos);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(options.color || [30, 30, 30]);
+
+                    const cleanValue = String(value).replace('₹', 'Rs. ');
+                    doc.text(cleanValue, pageW - margin - 2, yPos, { align: 'right' });
+                    return yPos + 5.5;
+                } catch (err) {
+                    return yPos + 5.5;
+                }
+            };
+
+            const allData = [
+                { key: 'Offset', data: offsetData, color: [37, 99, 235] },
+                { key: 'Laser', data: laserData, color: [124, 58, 237] },
+                { key: 'Other', data: otherData, color: [5, 150, 105] }
+            ];
+
+            allData.forEach(({ key, data, color }, index) => {
+                if (index > 0) doc.addPage();
+
+                renderHeader();
+                let currentY = 44;
+
+                const summary = data.summary || {};
+                const entries = data.entries || [];
+                const opening = openingBalances[key] || 0;
+
+                currentY = sectionHeader(`${key.toUpperCase()} BOOK`, color, currentY);
+                doc.setTextColor(30, 30, 30);
+                doc.setFont('helvetica', 'normal');
+
+                currentY = kvRow('Opening Cash Balance', formatCurrency(opening), currentY);
+
+                if (key === 'Laser' && data.machines?.length > 0) {
+                    data.machines.forEach(m => {
+                        currentY = kvRow(`${m.machine_name} — Opening`, formatNum(m.opening_count || 0), currentY);
+                        currentY = kvRow(`${m.machine_name} — Closing`, formatNum(m.closing_count || 0), currentY);
+                        currentY = kvRow(`${m.machine_name} — Copies`, formatNum(m.today_copies || 0), currentY, { color: [5, 150, 105] });
+                    });
+                }
+
+                if (entries.length > 0) {
+                    const isLaser = key === 'Laser';
+                    const head = isLaser
+                        ? [['Time', 'Description', 'Machine', 'Copies', 'Mode', 'Cash', 'UPI', 'Total']]
+                        : [['Time', 'Description', 'Type', 'Mode', 'Cash', 'UPI', 'Total']];
+
+                    const body = entries.map(e => {
+                        const isExp = e.type === 'expense';
+                        const sign = isExp ? '-' : '';
+                        const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+                        if (isLaser) {
+                            return [formatTime(e.time), e.description || '', e.machine_name || '—', String(e.copies || ''),
+                            e.payment_method || 'Cash', fPdf(e.cash_amount), fPdf(e.upi_amount), fPdf(e.total)];
+                        }
+                        return [formatTime(e.time), e.description || '', isExp ? 'Expense' : 'Income',
+                        e.payment_method || 'Cash', fPdf(e.cash_amount), fPdf(e.upi_amount), fPdf(e.total)];
+                    });
+
+                    autoTable(doc, {
+                        startY: currentY,
+                        head,
+                        body,
+                        margin: { left: margin, right: margin },
+                        styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
+                        headStyles: { fillColor: color, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+                        alternateRowStyles: { fillColor: [248, 248, 248] },
+                        columnStyles: isLaser
+                            ? { 0: { cellWidth: 18 }, 2: { halign: 'right', cellWidth: 16 }, 3: { halign: 'right' }, 4: { halign: 'left' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right', fontStyle: 'bold' } }
+                            : { 0: { cellWidth: 18 }, 2: { cellWidth: 18 }, 3: { halign: 'left' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right', fontStyle: 'bold' } }
+                    });
+                    currentY = doc.lastAutoTable.finalY + 6;
+                } else {
+                    doc.setFontSize(8);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text('No entries recorded', margin + 2, currentY);
+                    currentY += 8;
+                }
+
+                if (currentY > 260) { doc.addPage(); renderHeader(); currentY = 44; }
+
+                currentY = kvRow('Cash In', formatCurrency(summary.total_cash_in || 0), currentY, { color: [47, 125, 74] });
+                currentY = kvRow('UPI In', formatCurrency(summary.total_upi_in || 0), currentY, { color: [47, 125, 74] });
+                if (summary.total_cash_out !== undefined && summary.total_cash_out !== null) {
+                    currentY = kvRow('Cash Out', formatCurrency(summary.total_cash_out), currentY, { color: [176, 58, 46] });
+                }
+                if (summary.total_copies !== undefined) {
+                    currentY = kvRow('Total Copies', formatNum(summary.total_copies), currentY);
+                }
+
+                doc.setFillColor(245, 245, 240);
+                doc.roundedRect(margin, currentY - 1, pageW - margin * 2, 8, 1.5, 1.5, 'F');
+                currentY = kvRow('CASH CLOSING BALANCE', formatCurrency(summary.cash_closing || 0), currentY, { color: color });
+            });
+
+            // Footer (Page Numbers)
+            const totalPages = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.setFontSize(7);
+                doc.setTextColor(160, 160, 160);
+                doc.text(`Page ${i} of ${totalPages}`, pageW / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' });
+                doc.text('SARGA — Confidential', margin, doc.internal.pageSize.getHeight() - 8);
             }
 
-            kvRow('Cash In', formatCurrency(summary.total_cash_in), { color: [47, 125, 74] });
-            kvRow('UPI In', formatCurrency(summary.total_upi_in), { color: [47, 125, 74] });
-            if (summary.total_cash_out !== undefined && summary.total_cash_out !== null) {
-                kvRow('Cash Out', formatCurrency(summary.total_cash_out), { color: [176, 58, 46] });
-            }
-            if (summary.total_copies !== undefined) {
-                kvRow('Total Copies', formatNum(summary.total_copies));
-            }
-
-            doc.setFillColor(245, 245, 240);
-            doc.roundedRect(margin, y - 1, pageW - margin * 2, 8, 1.5, 1.5, 'F');
-            kvRow('CASH CLOSING BALANCE', formatCurrency(summary.cash_closing), { color: color });
-            y += 6;
-        });
-
-        // Footer on all pages
-        const totalPages = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-            doc.setFontSize(7);
-            doc.setTextColor(160, 160, 160);
-            doc.text(`Page ${i} of ${totalPages}`, pageW / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' });
-            doc.text('SARGA — Confidential', margin, doc.internal.pageSize.getHeight() - 8);
+            doc.save(`Daily-Report_${displayBranch}_${reportDate}.pdf`);
+        } catch (error) {
+            console.error('PDF Generation failed:', error);
+            toast.error('PDF Generation failed. Error: ' + error.message);
         }
-
-        doc.save(`Daily-Report_${displayBranch}_${reportDate}.pdf`);
     };
 
     // ═══════════════════ SUB-COMPONENTS ═══════════════════
@@ -498,10 +539,12 @@ const DailyReport = () => {
                         <tr>
                             <th style={{ width: 70 }}>Time</th>
                             <th>{isLaser ? 'Customer / Work' : 'Description'}</th>
+                            {isLaser && <th style={{ width: 100 }}>Machine</th>}
                             {isLaser
                                 ? <th style={{ textAlign: 'right', width: 70 }}>Copies</th>
                                 : <th style={{ width: 80 }}>Type</th>
                             }
+                            <th style={{ width: 80 }}>Mode</th>
                             <th style={{ textAlign: 'right', width: 100 }}>Cash</th>
                             <th style={{ textAlign: 'right', width: 100 }}>UPI</th>
                             <th style={{ textAlign: 'right', width: 100 }}>Total</th>
@@ -521,6 +564,13 @@ const DailyReport = () => {
                                         <div style={{ fontWeight: 500 }}>{entry.description}</div>
                                         {entry.details && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{entry.details}</div>}
                                     </td>
+                                    {isLaser && (
+                                        <td>
+                                            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--primary)' }}>
+                                                {entry.machine_name || '—'}
+                                            </div>
+                                        </td>
+                                    )}
                                     {isLaser ? (
                                         <td style={{ textAlign: 'right', fontWeight: 600 }}>{entry.copies}</td>
                                     ) : (
@@ -533,6 +583,11 @@ const DailyReport = () => {
                                             </span>
                                         </td>
                                     )}
+                                    <td>
+                                        <span className="badge badge--default" style={{ fontSize: 10 }}>
+                                            {entry.payment_method || 'Cash'}
+                                        </span>
+                                    </td>
                                     <td style={{ textAlign: 'right', color: isExpense ? 'var(--error)' : 'var(--success)', fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
                                         {isExpense ? '-' : '+'}{formatCurrency(entry.cash_amount)}
                                     </td>
@@ -612,7 +667,28 @@ const DailyReport = () => {
     );
 
     const MachineSection = () => {
+        if (loading && !laserData.machines?.length) {
+            return (
+                <div className="panel" style={{ textAlign: 'center', padding: '30px 0' }}>
+                    <RefreshCw size={24} className="spin" style={{ color: 'var(--primary)', marginBottom: 10, opacity: 0.5 }} />
+                    <p style={{ fontSize: 13, color: 'var(--muted)' }}>Fetching machines...</p>
+                </div>
+            );
+        }
+
+        if (tabErrors.Laser) {
+            return (
+                <div className="panel dr-error" style={{ borderColor: 'var(--error)' }}>
+                    <div className="dr-empty__icon" style={{ borderColor: 'rgba(239, 68, 68, 0.2)', color: 'var(--error)' }}><Monitor size={22} /></div>
+                    <p style={{ fontWeight: 600, color: 'var(--error)' }}>Connection Error</p>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{tabErrors.Laser}</p>
+                    <button className="btn btn-ghost btn-sm mt-12" onClick={() => loadTabData('Laser')}>Try Again</button>
+                </div>
+            );
+        }
+
         if (!laserData.machines?.length) return (
+
             <div className="panel">
                 <h3 className="panel-title" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Monitor size={16} /> Machines
@@ -735,7 +811,7 @@ const DailyReport = () => {
             <OpeningBalanceCard bookType="Offset" />
             {liveCounts?.offset && (
                 <StatRow items={[
-                    { value: liveCounts.offset.income_count, label: 'Billings', icon: BarChart3, color: '#2563eb' },
+                    { value: liveCounts.offset.income_count, label: 'Billings', icon: BarChart3, color: 'var(--accent)' },
                     { value: liveCounts.offset.expense_count, label: 'Expenses', icon: TrendingDown, color: 'var(--error)' },
                     { value: formatCurrency(liveCounts.offset.total_collected), label: 'Collected', icon: TrendingUp, color: 'var(--success)' },
                     { value: formatCurrency(liveCounts.offset.total_expenses), label: 'Spent', icon: ArrowDownRight, color: 'var(--error)' }
@@ -759,8 +835,10 @@ const DailyReport = () => {
             <MachineSection />
             {liveCounts?.laser && (
                 <StatRow items={[
-                    { value: liveCounts.laser.machine_count, label: 'Machines', icon: Monitor, color: '#7c3aed' },
-                    { value: formatNum(liveCounts.laser.total_copies), label: 'Total Copies', icon: Hash, color: 'var(--success)' }
+                    { value: liveCounts.laser.income_count, label: 'Billings', icon: BarChart3, color: 'var(--accent)' },
+                    { value: liveCounts.laser.machine_count, label: 'Machines', icon: Monitor, color: 'var(--accent)' },
+                    { value: formatNum(liveCounts.laser.total_copies), label: 'Total Copies', icon: Hash, color: 'var(--success)' },
+                    { value: formatCurrency(liveCounts.laser.total_collected), label: 'Collected', icon: TrendingUp, color: 'var(--success)' }
                 ]} />
             )}
             <div className="panel">
@@ -803,7 +881,7 @@ const DailyReport = () => {
                     <div className="modal" style={{ maxWidth: 560 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
                             <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(37,99,235,0.1)', display: 'grid', placeItems: 'center' }}>
-                                <IndianRupee size={20} style={{ color: '#2563eb' }} />
+                                <IndianRupee size={20} style={{ color: 'var(--accent)' }} />
                             </div>
                             <div>
                                 <h2 className="section-title" style={{ marginBottom: 0 }}>Good Morning!</h2>
@@ -943,7 +1021,7 @@ const DailyReport = () => {
                         <h1 className="section-title" style={{ marginBottom: 2 }}>Daily Report</h1>
                         <p style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
                             Live cash book — auto-synced
-                            {isAdmin && branchName && (
+                            {canViewAllBranches && branchName && (
                                 <span className="badge badge--info" style={{ fontSize: 10 }}>{branchName}</span>
                             )}
                             {lastRefresh && (
@@ -956,7 +1034,7 @@ const DailyReport = () => {
                 </div>
 
                 <div className="dr-controls">
-                    {isAdmin && branches.length > 0 && (
+                    {canViewAllBranches && branches.length > 0 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <Building2 size={15} style={{ color: 'var(--muted)' }} />
                             <select className="input-field" value={selectedBranch || ''}
@@ -974,9 +1052,6 @@ const DailyReport = () => {
                             style={{ width: 160, padding: '8px 12px', fontSize: 13 }}
                         />
                     </div>
-                    <button className="btn btn-ghost btn-sm" onClick={manualRefresh} disabled={loading} title="Refresh">
-                        <RefreshCw size={15} className={loading ? 'spin' : ''} />
-                    </button>
                     <button className="btn btn-primary btn-sm" onClick={generatePDF} title="Download PDF" style={{ gap: 4 }}>
                         <FileText size={15} /> PDF
                     </button>
@@ -1002,7 +1077,12 @@ const DailyReport = () => {
                             )}
                             {tab.key === 'Laser' && liveCounts?.laser && (
                                 <span className="dr-tab__badge" style={{ background: isActive ? `${tab.color}15` : 'var(--accent-soft)', color: isActive ? tab.color : 'var(--muted)' }}>
-                                    {formatNum(liveCounts.laser.total_copies)}
+                                    {liveCounts.laser.income_count}
+                                </span>
+                            )}
+                            {tab.key === 'Other' && liveCounts?.other && (
+                                <span className="dr-tab__badge" style={{ background: isActive ? `${tab.color}15` : 'var(--accent-soft)', color: isActive ? tab.color : 'var(--muted)' }}>
+                                    {liveCounts.other.income_count}
                                 </span>
                             )}
                         </button>
@@ -1011,7 +1091,7 @@ const DailyReport = () => {
             </div>
 
             {/* Content */}
-            {loading ? (
+            {initialLoading ? (
                 <div style={{ textAlign: 'center', padding: 60 }}>
                     <RefreshCw size={28} className="spin" style={{ color: currentTabMeta.color }} />
                     <p style={{ marginTop: 10, color: 'var(--muted)', fontSize: 13 }}>Loading report...</p>

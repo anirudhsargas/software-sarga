@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import usePolling from '../hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
 import {
     ShoppingBag, Clock, CheckCircle2, IndianRupee, TrendingUp, Truck,
@@ -7,7 +8,7 @@ import {
     Wallet, Users, Package, Eye, CreditCard, X
 } from 'lucide-react';
 import api from '../services/api';
-import auth from '../services/auth';
+
 import { serverNow } from '../services/serverTime';
 import './FrontOffice.css';
 
@@ -30,9 +31,7 @@ const FrontOffice = () => {
         if (!silent) setLoading(true);
         else setRefreshing(true);
         try {
-            const res = await api.get('/front-office/dashboard', {
-                headers: auth.getAuthHeader()
-            });
+            const res = await api.get('/front-office/dashboard');
             setData(res.data);
             setError('');
         } catch (err) {
@@ -43,10 +42,19 @@ const FrontOffice = () => {
         }
     }, []);
 
+    usePolling(() => fetchDashboard(true), 60000);
+
     useEffect(() => {
         fetchDashboard();
-        const interval = setInterval(() => fetchDashboard(true), 60000); // Auto-refresh every minute
-        return () => clearInterval(interval);
+
+        const handlePaymentUpdate = () => {
+            fetchDashboard(true);
+        };
+        window.addEventListener('paymentRecorded', handlePaymentUpdate);
+
+        return () => {
+            window.removeEventListener('paymentRecorded', handlePaymentUpdate);
+        };
     }, [fetchDashboard]);
 
     // ─── Customer Search ─────────────────────────────────────────
@@ -61,9 +69,7 @@ const FrontOffice = () => {
         searchTimeout.current = setTimeout(async () => {
             setSearchLoading(true);
             try {
-                const res = await api.get(`/front-office/search?q=${encodeURIComponent(val)}`, {
-                    headers: auth.getAuthHeader()
-                });
+                const res = await api.get(`/front-office/search?q=${encodeURIComponent(val)}`);
                 setSearchResults(res.data);
                 setShowSearchResults(true);
             } catch {
@@ -88,24 +94,30 @@ const FrontOffice = () => {
     // ─── Keyboard Shortcuts ──────────────────────────────────────
     useEffect(() => {
         const handler = (e) => {
+            const key = e.key.toLowerCase();
+            const isMod = e.ctrlKey || e.metaKey;
+
             // Ctrl+K or Cmd+K → focus search
-            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            if (isMod && key === 'k') {
                 e.preventDefault();
                 document.getElementById('fo-search')?.focus();
             }
-            // Ctrl+N → new order (billing)
-            if ((e.ctrlKey || e.metaKey) && e.key === 'n' && !e.shiftKey) {
+            // Alt+N → new order (billing)
+            if (e.altKey && key === 'n') {
                 e.preventDefault();
+                e.stopImmediatePropagation();
                 navigate('/dashboard/billing');
             }
-            // Ctrl+P → customer payments
-            if ((e.ctrlKey || e.metaKey) && e.key === 'p' && !e.shiftKey) {
+            // Alt+P → customer payments
+            if (e.altKey && key === 'p') {
                 e.preventDefault();
+                e.stopImmediatePropagation();
                 navigate('/dashboard/customer-payments');
             }
         };
-        document.addEventListener('keydown', handler);
-        return () => document.removeEventListener('keydown', handler);
+        // Use capture phase to intercept before browser defaults if possible
+        window.addEventListener('keydown', handler, true);
+        return () => window.removeEventListener('keydown', handler, true);
     }, [navigate]);
 
     // ─── Helpers ─────────────────────────────────────────────────
@@ -167,13 +179,6 @@ const FrontOffice = () => {
                     <span className="fo-date">{serverNow().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
                 </div>
                 <div className="fo-header__actions">
-                    <button
-                        className="btn btn-ghost btn-icon"
-                        onClick={() => fetchDashboard(true)}
-                        title="Refresh"
-                    >
-                        <RefreshCw size={18} className={refreshing ? 'spin' : ''} />
-                    </button>
                 </div>
             </div>
 
@@ -240,12 +245,12 @@ const FrontOffice = () => {
                 <button className="fo-action-btn fo-action-btn--primary" onClick={() => navigate('/dashboard/billing')}>
                     <Plus size={20} />
                     <span>New Order</span>
-                    <kbd>Ctrl+N</kbd>
+                    <kbd>Alt+N</kbd>
                 </button>
                 <button className="fo-action-btn fo-action-btn--success" onClick={() => navigate('/dashboard/customer-payments')}>
                     <Wallet size={20} />
                     <span>Take Payment</span>
-                    <kbd>Ctrl+P</kbd>
+                    <kbd>Alt+P</kbd>
                 </button>
                 <button className="fo-action-btn fo-action-btn--accent" onClick={() => navigate('/dashboard/customers')}>
                     <Users size={20} />
@@ -347,7 +352,12 @@ const FrontOffice = () => {
                                             const dueToday = due === 0;
                                             const balance = job.balance < 1 ? 0 : job.balance;
                                             return (
-                                                <tr key={job.id} className={overdue ? 'fo-row--overdue' : dueToday ? 'fo-row--due-today' : ''}>
+                                                <tr
+                                                    key={job.id}
+                                                    className={overdue ? 'fo-row--overdue' : dueToday ? 'fo-row--due-today' : ''}
+                                                    style={{ cursor: 'pointer' }}
+                                                    onDoubleClick={() => navigate(`/dashboard/jobs/${job.id}`)}
+                                                >
                                                     <td>
                                                         <div className="fo-job-cell">
                                                             <span className="fo-job-number">{job.job_number}</span>
@@ -386,7 +396,7 @@ const FrontOffice = () => {
                                                     <td>
                                                         <button
                                                             className="btn btn-ghost btn-icon btn-sm"
-                                                            onClick={() => navigate(`/dashboard/jobs`)}
+                                                            onClick={() => navigate(`/dashboard/jobs/${job.id}`)}
                                                             title="View"
                                                         >
                                                             <Eye size={16} />

@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FileText, Upload, Search, Eye, Trash2, Loader2, X } from 'lucide-react';
+import { FileText, Upload, Search, Eye, Trash2, Loader2, X, Sparkles } from 'lucide-react';
 import api from '../../services/api';
 import { fmtDate, today, fmt, baseFileUrl, DOCUMENT_TYPES } from './constants';
+import { useConfirm } from '../../contexts/ConfirmContext';
+import SmartBillUpload from './SmartBillUpload';
 
 const defaultForm = { document_type: 'Invoice', related_tab: '', vendor_name: '', bill_number: '', bill_date: today(), amount: '', description: '', file: null };
 
 const BillsDocsTab = ({ onError }) => {
+  const { confirm } = useConfirm();
   const [docs, setDocs] = useState([]);
   const [filter, setFilter] = useState({ document_type: '', vendor_name: '' });
   const [showUpload, setShowUpload] = useState(false);
+  const [showSmartUpload, setShowSmartUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState(defaultForm);
 
@@ -16,7 +20,7 @@ const BillsDocsTab = ({ onError }) => {
     try {
       const r = await api.get('/bills-documents', { params: { document_type: filter.document_type || undefined, vendor_name: filter.vendor_name || undefined } });
       setDocs(r.data);
-    } catch {}
+    } catch { }
   }, [filter]);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
@@ -41,15 +45,28 @@ const BillsDocsTab = ({ onError }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this document?')) return;
-    try { await api.delete(`/bills-documents/${id}`); fetchDocs(); } catch {}
+    const isConfirmed = await confirm({
+      title: 'Delete Document',
+      message: 'Are you sure you want to delete this document?',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
+    try { await api.delete(`/bills-documents/${id}`); fetchDocs(); } catch { }
   };
 
   return (
     <div className="em-section">
       <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
         <div className="em-section-title"><FileText size={18} /> Bills & Documents</div>
-        <button className="btn btn-primary btn-sm" onClick={() => { setForm(defaultForm); setShowUpload(true); }}><Upload size={15} /> Upload Document</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowSmartUpload(true)}>
+            <Sparkles size={15} /> Smart Upload
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => { setForm(defaultForm); setShowUpload(true); }}>
+            <Upload size={15} /> Upload Document
+          </button>
+        </div>
       </div>
 
       <div className="em-filter-row">
@@ -79,7 +96,7 @@ const BillsDocsTab = ({ onError }) => {
 
       {/* Bill Upload Modal */}
       {showUpload && (
-        <div className="modal-backdrop" onClick={() => setShowUpload(false)}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowUpload(false); }}>
           <div className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>Upload Document</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowUpload(false)}><X size={18} /></button></div>
             <form onSubmit={uploadDoc}>
@@ -102,6 +119,17 @@ const BillsDocsTab = ({ onError }) => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Smart Bill Upload Modal */}
+      {showSmartUpload && (
+        <SmartBillUpload
+          onClose={() => setShowSmartUpload(false)}
+          onSuccess={() => {
+            fetchDocs();
+          }}
+          onError={(err) => onError(err.response?.data?.message || 'Smart upload failed')}
+        />
       )}
     </div>
   );

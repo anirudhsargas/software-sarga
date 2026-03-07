@@ -162,36 +162,35 @@ const DashboardTab = ({ branches, onPayment }) => {
       </div>
 
       {/* ═══════ Upcoming Payment Alerts (Color Coded) ═══════ */}
-      {d.alerts && (d.alerts.due_emis?.length > 0 || d.alerts.due_kuris?.length > 0 || d.alerts.overdue_utilities?.length > 0) && (
+      {d.alerts && (d.alerts.due_emis?.length > 0 || d.alerts.overdue_utilities?.length > 0) && (
         <div className="em-card em-alerts-panel">
-          <div className="em-card__title"><AlertTriangle size={16} color="#dc2626" /> Upcoming & Overdue Payments</div>
+          <div className="em-card__title"><AlertTriangle size={16} color="var(--error)" /> Upcoming & Overdue Payments</div>
           <div className="em-alerts-grid">
             {d.alerts.overdue_utilities?.map((u, i) => (
               <div key={`u-${i}`} className="em-alert-card em-alert-card--red">
-                <div className="em-alert-card__badge">OVERDUE</div>
                 <div className="em-alert-card__icon"><Zap size={20} /></div>
-                <div className="em-alert-card__title">{u.name}</div>
-                <div className="em-alert-card__desc">Utility not paid this month</div>
-                {u.last_amount > 0 && <div className="em-alert-card__amount">Last: ₹{fmt(u.last_amount)}</div>}
-                <button className="btn btn-sm btn-primary" onClick={() => onPayment({ type: 'Utility', payee_name: u.name, amount: String(u.last_amount || '') })}>Quick Pay</button>
+                <div className="em-alert-card__content">
+                  <div className="em-alert-card__title">{u.name}</div>
+                  <div className="em-alert-card__desc">Utility not paid this month</div>
+                  {u.last_amount > 0 && <div className="em-alert-card__desc" style={{ marginTop: 2 }}>Last: ₹{fmt(u.last_amount)}</div>}
+                </div>
+                <div className="em-alert-card__actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                  <div className="em-alert-card__badge">OVERDUE</div>
+                  <button className="btn btn-sm btn-primary" onClick={() => onPayment({ type: 'Utility', payee_name: u.name, amount: String(u.last_amount || '') })}>Quick Pay</button>
+                </div>
               </div>
             ))}
             {d.alerts.due_emis?.map((e, i) => (
               <div key={`e-${i}`} className="em-alert-card em-alert-card--amber">
-                <div className="em-alert-card__badge">EMI DUE</div>
                 <div className="em-alert-card__icon"><CreditCard size={20} /></div>
-                <div className="em-alert-card__title">{e.name}</div>
-                <div className="em-alert-card__desc">Due on {e.due_day}th of every month</div>
-                <div className="em-alert-card__amount">₹{fmt(e.amount)}</div>
-              </div>
-            ))}
-            {d.alerts.due_kuris?.map((k, i) => (
-              <div key={`k-${i}`} className="em-alert-card em-alert-card--yellow">
-                <div className="em-alert-card__badge">KURI DUE</div>
-                <div className="em-alert-card__icon"><Wallet size={20} /></div>
-                <div className="em-alert-card__title">{k.name}</div>
-                <div className="em-alert-card__desc">Remaining this month</div>
-                <div className="em-alert-card__amount">₹{fmt(k.remaining)}</div>
+                <div className="em-alert-card__content">
+                  <div className="em-alert-card__title">{e.name}</div>
+                  <div className="em-alert-card__desc">Due on {e.due_day}th of every month</div>
+                </div>
+                <div className="em-alert-card__actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                  <div className="em-alert-card__badge">EMI DUE</div>
+                  <div className="em-alert-card__amount">₹{fmt(e.amount)}</div>
+                </div>
               </div>
             ))}
           </div>
@@ -206,7 +205,7 @@ const DashboardTab = ({ branches, onPayment }) => {
             <>
               <div className="em-donut-legend">
                 {Object.entries(d.by_category).sort((a, b) => b[1] - a[1]).map(([cat, val], i) => {
-                  const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+                  const colors = ['var(--error)', 'var(--warning)', 'var(--accent-2)', 'var(--success)', '#8b5cf6', '#ec4899', '#06b6d4', 'var(--warning)'];
                   const pct = ((val / d.total_expenses) * 100).toFixed(1);
                   return (
                     <div key={cat} className="em-donut-legend__item">
@@ -220,7 +219,7 @@ const DashboardTab = ({ branches, onPayment }) => {
               </div>
               <div className="em-breakdown" style={{ marginTop: 14 }}>
                 {Object.entries(d.by_category).sort((a, b) => b[1] - a[1]).map(([cat, val], i) => {
-                  const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+                  const colors = ['var(--error)', 'var(--warning)', 'var(--accent-2)', 'var(--success)', '#8b5cf6', '#ec4899', '#06b6d4', 'var(--warning)'];
                   return (
                     <div key={cat} className="em-breakdown__row">
                       <div className="em-breakdown__cat">{cat}</div>
@@ -283,10 +282,10 @@ const DashboardTab = ({ branches, onPayment }) => {
           {cashVsBank ? (
             <div className="em-payment-modes">
               {[
-                { label: 'Cash', value: cashTotal, color: '#10b981', icon: '💵' },
-                { label: 'UPI', value: upiTotal, color: '#3b82f6', icon: '📱' },
+                { label: 'Cash', value: cashTotal, color: 'var(--success)', icon: '💵' },
+                { label: 'UPI', value: upiTotal, color: 'var(--accent-2)', icon: '📱' },
                 { label: 'Bank Transfer', value: bankTotal, color: '#8b5cf6', icon: '🏦' },
-                { label: 'Other', value: otherTotal, color: '#f59e0b', icon: '💳' },
+                { label: 'Other', value: otherTotal, color: 'var(--warning)', icon: '💳' },
               ].filter(m => m.value > 0).map(mode => (
                 <div key={mode.label} className="em-payment-mode">
                   <div className="em-payment-mode__header">
@@ -334,7 +333,7 @@ const DashboardTab = ({ branches, onPayment }) => {
       {/* ═══════ Overdue Vendors ═══════ */}
       {d.overdue_vendors?.length > 0 && (
         <div className="em-card">
-          <div className="em-card__title"><AlertTriangle size={16} color="#dc2626" /> Overdue Vendors</div>
+          <div className="em-card__title"><AlertTriangle size={16} color="var(--error)" /> Overdue Vendors</div>
           <div className="em-table-wrap">
             <table className="em-table">
               <thead><tr><th>Vendor</th><th>Total Purchases</th><th>Total Paid</th><th>Balance Due</th><th>Action</th></tr></thead>

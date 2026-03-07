@@ -43,12 +43,16 @@ export function serverNow() {
 
 /** Returns server date as "YYYY-MM-DD" */
 export function serverToday() {
-    return serverNow().toISOString().split('T')[0];
+    const d = serverNow();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /** Returns server month as "YYYY-MM" */
 export function serverThisMonth() {
-    return serverNow().toISOString().slice(0, 7);
+    const d = serverNow();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
 }
 
 /** Returns ISO datetime string for form defaults "YYYY-MM-DDTHH:MM" */

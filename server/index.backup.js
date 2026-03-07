@@ -12,7 +12,7 @@ const { authenticateToken, authorizeRoles, JWT_SECRET } = require('./middleware/
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -183,6 +183,34 @@ app.post('/api/auth/login', async (req, res) => {
         );
 
         auditLog(user.id, 'LOGIN', `User ${user.user_id} logged in`);
+        // --- Opening Count for Assigned Machines ---
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        // Get machines assigned to this staff
+        const [assignedMachines] = await pool.query(
+            'SELECT machine_id FROM sarga_machine_staff_assignments WHERE staff_id = ?',
+            [user.id]
+        );
+        for (const m of assignedMachines) {
+            // Check if today's reading exists
+            const [todayReading] = await pool.query(
+                'SELECT id FROM sarga_machine_readings WHERE machine_id = ? AND reading_date = ?',
+                [m.machine_id, today]
+            );
+            if (todayReading.length === 0) {
+                // Get yesterday's closing count
+                const [yesterdayReading] = await pool.query(
+                    'SELECT closing_count FROM sarga_machine_readings WHERE machine_id = ? AND reading_date = ?',
+                    [m.machine_id, yesterday]
+                );
+                const openingCount = (yesterdayReading.length > 0 && yesterdayReading[0].closing_count != null)
+                    ? yesterdayReading[0].closing_count : 0;
+                await pool.query(
+                    'INSERT INTO sarga_machine_readings (machine_id, reading_date, opening_count, created_by) VALUES (?, ?, ?, ?)',
+                    [m.machine_id, today, openingCount, user.id]
+                );
+            }
+        }
 
         res.json({
             token,
@@ -1396,7 +1424,17 @@ app.post('/api/requests/customer-change', authenticateToken, async (req, res) =>
     try {
         const [rows] = await pool.query("SELECT id FROM sarga_customers WHERE id = ?", [customer_id]);
         if (!rows[0]) return res.status(404).json({ message: 'Customer not found' });
-
+            res.json({
+                token,
+                user: {
+                    id: user.id,
+                    user_id: user.user_id,
+                    role: user.role,
+                    name: user.name,
+                    image_url: user.image_url || null,
+                    is_first_login: !!user.is_first_login
+                }
+            });
         if (String(action).toUpperCase() === 'DELETE' && req.user.role !== 'Admin') {
             const hasPending = await hasPendingCustomerBalance(customer_id);
             if (hasPending) {

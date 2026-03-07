@@ -5,8 +5,10 @@ import auth from '../services/auth';
 import api from '../services/api';
 import { serverToday, serverDateTimeLocal } from '../services/serverTime';
 import Pagination from '../components/Pagination';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 const Payments = () => {
+    const { confirm } = useConfirm();
     const location = useLocation();
     const [payments, setPayments] = useState([]);
     const [branches, setBranches] = useState([]);
@@ -79,14 +81,14 @@ const Payments = () => {
 
     const fetchStaff = async () => {
         try {
-            const res = await api.get('/staff', { headers: auth.getAuthHeader() });
+            const res = await api.get('/staff');
             setStaffList(Array.isArray(res.data) ? res.data : (res.data?.data || []));
         } catch (err) { console.error('Failed to fetch staff', err); }
     };
 
     const fetchInventory = async () => {
         try {
-            const res = await api.get('/inventory', { headers: auth.getAuthHeader() });
+            const res = await api.get('/inventory');
             setInventory(Array.isArray(res.data) ? res.data : (res.data?.data || []));
         } catch (err) { console.error('Failed to fetch inventory', err); }
     };
@@ -108,9 +110,7 @@ const Payments = () => {
 
     const fetchBranches = async () => {
         try {
-            const response = await api.get('/branches', {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get('/branches');
             const branchData = Array.isArray(response.data) ? response.data : (response.data?.data || []);
             setBranches(branchData);
             if (branchData.length > 0) {
@@ -123,9 +123,7 @@ const Payments = () => {
 
     const fetchPaymentMethods = async () => {
         try {
-            const response = await api.get('/payment-methods', {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get('/payment-methods');
             setPaymentMethods(Array.isArray(response.data) ? response.data : (response.data?.data || []));
         } catch (err) {
             console.error('Failed to fetch payment methods');
@@ -135,9 +133,7 @@ const Payments = () => {
     const fetchVendors = async (type = '') => {
         try {
             const params = type ? `?type=${type}` : '';
-            const response = await api.get(`/vendors${params}`, {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get(`/vendors${params}`);
             setVendors(Array.isArray(response.data) ? response.data : (response.data?.data || []));
         } catch (err) {
             console.error('Failed to fetch vendors');
@@ -147,9 +143,7 @@ const Payments = () => {
     const fetchPayeeStatement = async (payeeId) => {
         setLoading(true);
         try {
-            const response = await api.get(`/vendors/${payeeId}/statement`, {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get(`/vendors/${payeeId}/statement`);
             setPayeeStatement(response.data);
             setShowStatementModal(true);
         } catch (err) {
@@ -168,9 +162,7 @@ const Payments = () => {
             if (filters.startDate) params.append('startDate', filters.startDate);
             if (filters.endDate) params.append('endDate', filters.endDate);
 
-            const response = await api.get(`/payments?${params.toString()}`, {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.get(`/payments?${params.toString()}`);
             const res = response.data;
             setPayments(Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []));
             setTotal(res.total || 0);
@@ -204,13 +196,17 @@ const Payments = () => {
                 ...formData,
                 payment_date: formData.payment_date || serverDateTimeLocal()
             };
-            if (!window.confirm(`Record payment of ₹${Number(formData.amount).toFixed(2)} to ${formData.payee_name || 'payee'} via ${formData.payment_method}?`)) {
+            const isConfirmed = await confirm({
+                title: 'Record Payment',
+                message: `Record payment of ₹${Number(formData.amount).toFixed(2)} to ${formData.payee_name || 'payee'} via ${formData.payment_method}?`,
+                confirmText: 'Record',
+                type: 'primary'
+            });
+            if (!isConfirmed) {
                 setLoading(false);
                 return;
             }
-            await api.post('/payments', finalFormData, {
-                headers: auth.getAuthHeader()
-            });
+            await api.post('/payments', finalFormData);
             setSuccess('Payment recorded successfully!');
             setTimeout(() => setSuccess(''), 3000);
             setShowModal(false);
@@ -250,11 +246,17 @@ const Payments = () => {
         setError('');
         try {
             const billTotal = billData.items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
-            if (!window.confirm(`Record purchase bill of ₹${billTotal.toFixed(2)}?\nBill #: ${billData.bill_number || 'N/A'}\nItems: ${billData.items.length}`)) {
+            const isConfirmed = await confirm({
+                title: 'Record Purchase Bill',
+                message: `Record purchase bill of ₹${billTotal.toFixed(2)}?\nBill #: ${billData.bill_number || 'N/A'}\nItems: ${billData.items.length}`,
+                confirmText: 'Record',
+                type: 'primary'
+            });
+            if (!isConfirmed) {
                 setLoading(false);
                 return;
             }
-            await api.post('/vendor-bills', billData, { headers: auth.getAuthHeader() });
+            await api.post('/vendor-bills', billData);
             setSuccess('Purchase bill recorded successfully!');
             setTimeout(() => {
                 setSuccess('');
@@ -315,9 +317,7 @@ const Payments = () => {
         setLoading(true);
         setError('');
         try {
-            await api.post('/payment-methods', { name: newMethodName }, {
-                headers: auth.getAuthHeader()
-            });
+            await api.post('/payment-methods', { name: newMethodName });
             setShowAddMethodModal(false);
             setNewMethodName('');
             fetchPaymentMethods();
@@ -338,9 +338,7 @@ const Payments = () => {
         setLoading(true);
         setError('');
         try {
-            const response = await api.post('/vendors', newVendor, {
-                headers: auth.getAuthHeader()
-            });
+            const response = await api.post('/vendors', newVendor);
             setSuccess('Payee added successfully!');
             await fetchVendors(); // Await refresh
             setTimeout(() => {
@@ -357,11 +355,15 @@ const Payments = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this payment record?')) return;
+        const isConfirmed = await confirm({
+            title: 'Delete Payment',
+            message: 'Are you sure you want to delete this payment record?',
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
         try {
-            await api.delete(`/payments/${id}`, {
-                headers: auth.getAuthHeader()
-            });
+            await api.delete(`/payments/${id}`);
             fetchPayments();
         } catch (err) {
             setError('Failed to delete payment');
@@ -376,7 +378,7 @@ const Payments = () => {
                     <p className="section-subtitle">Record and track vendor payments, utility bills, and other expenses.</p>
                 </div>
                 <div className="row gap-sm">
-                    {auth.getUser()?.role === 'Admin' && (
+                    {['Admin', 'Accountant'].includes(auth.getUser()?.role) && (
                         <>
                             <button onClick={() => { fetchVendors(); setShowPayeeListModal(true); }} className="btn btn-ghost">
                                 <User size={20} />
@@ -737,7 +739,7 @@ const Payments = () => {
                                         >
                                             {(paymentMethods || []).map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                                         </select>
-                                        {auth.getUser()?.role === 'Admin' && (
+                                        {['Admin', 'Accountant'].includes(auth.getUser()?.role) && (
                                             <button
                                                 type="button"
                                                 className="btn btn-ghost"
@@ -990,7 +992,7 @@ const Payments = () => {
                                     onChange={(e) => setNewVendor({ ...newVendor, gstin: e.target.value })}
                                 />
                             </div>
-                            {auth.getUser()?.role === 'Admin' && (
+                            {['Admin', 'Accountant'].includes(auth.getUser()?.role) && (
                                 <div>
                                     <label className="label">Applicable Branch</label>
                                     <select

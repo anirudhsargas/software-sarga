@@ -12,7 +12,7 @@ const REPORT_ICONS = {
   'emi-statement': Banknote, 'kuri-statement': Banknote, 'cash-vs-bank': CreditCard
 };
 
-const CATEGORY_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#64748b'];
+const CATEGORY_COLORS = ['var(--accent-2)', 'var(--success)', 'var(--warning)', 'var(--error)', '#8b5cf6', '#ec4899', '#06b6d4', 'var(--warning)', '#84cc16', '#64748b'];
 
 const ReportsTab = ({ branches, onError }) => {
   const [reportType, setReportType] = useState('monthly-expenses');
@@ -211,9 +211,9 @@ const ReportsTab = ({ branches, onError }) => {
           {reportType === 'cash-vs-bank' && data.rows?.length > 0 && (() => {
             const r = data.rows[0] || {};
             const modes = [
-              { label: 'Cash', value: r.cash_total, color: '#10b981', icon: '💵' },
-              { label: 'UPI', value: r.upi_total, color: '#3b82f6', icon: '📱' },
-              { label: 'Bank Transfer', value: r.bank_total, color: '#f59e0b', icon: '🏦' },
+              { label: 'Cash', value: r.cash_total, color: 'var(--success)', icon: '💵' },
+              { label: 'UPI', value: r.upi_total, color: 'var(--accent-2)', icon: '📱' },
+              { label: 'Bank Transfer', value: r.bank_total, color: 'var(--warning)', icon: '🏦' },
               { label: 'Other', value: r.other_total, color: '#64748b', icon: '📋' },
             ];
             const total = modes.reduce((s, m) => s + Number(m.value || 0), 0);
