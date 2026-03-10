@@ -1971,11 +1971,12 @@ button {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 14px;
+  padding: 12px 14px;
   border-radius: 12px;
   color: var(--muted);
   transition: background 0.2s, color 0.2s;
+  font-size: 0.95rem;
 }
 
 .sidebar--collapsed .logo-text,

@@ -303,12 +303,13 @@
 .fo-stat-card {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     padding: 16px;
     border-radius: var(--radius);
     background: var(--surface);
     border: 1.5px solid var(--border);
     transition: transform 0.15s, box-shadow 0.15s;
+    min-height: 70px;
 }
 
 .fo-stat-card:hover {
@@ -317,39 +318,41 @@
 }
 
 .fo-stat-card__icon {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    font-size: 1.2rem;
 }
 
 .fo-stat-card__body {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
     min-width: 0;
+    flex: 1;
 }
 
 .fo-stat-card__value {
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 1.25rem;
-    font-weight: 700;
+    font-size: 1.35rem;
+    font-weight: 800;
     color: var(--text);
-    line-height: 1.2;
+    line-height: 1.1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .fo-stat-card__label {
-    font-size: 0.72rem;
-    font-weight: 500;
+    font-size: 0.73rem;
+    font-weight: 600;
     color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
 }
 
 /* Card color themes */
@@ -508,20 +511,25 @@
 
 .fo-table th {
     text-align: left;
-    padding: 10px 14px;
+    padding: 12px 10px;
     font-size: 0.72rem;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--muted);
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
+    color: var(--text);
+    background: var(--surface-2);
+    border-bottom: 1.5px solid var(--border);
+    white-space: normal;
+    word-break: break-word;
 }
 
 .fo-table td {
-    padding: 10px 14px;
+    padding: 11px 10px;
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
 .fo-table tbody tr:last-child td {
@@ -870,6 +878,7 @@
 /* ─── Pipeline ────────────────────────────────────────────────────── */
 .fo-pipeline {
     margin-top: 0;
+    margin-bottom: 24px;
 }
 
 .fo-section-title {
@@ -877,42 +886,49 @@
     font-size: 0.95rem;
     font-weight: 600;
     color: var(--accent);
-    margin-bottom: 12px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .fo-pipeline-bar {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+    gap: 12px;
 }
 
 .fo-pipeline-stage {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 16px 8px;
+    justify-content: center;
+    gap: 8px;
+    padding: 18px 10px;
     border-radius: var(--radius);
     border: 1.5px solid var(--border);
     background: var(--surface);
-    transition: transform 0.15s;
+    transition: transform 0.15s, box-shadow 0.15s;
+    min-height: 100px;
 }
 
 .fo-pipeline-stage:hover {
     transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
 }
 
 .fo-pipeline-stage__count {
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 1.5rem;
-    font-weight: 700;
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1;
 }
 
 .fo-pipeline-stage__label {
-    font-size: 0.74rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
+    text-align: center;
 }
 
 .fo-pipeline-stage--pending .fo-pipeline-stage__count {
@@ -1008,17 +1024,23 @@
     }
 
     .fo-stat-card {
-        padding: 12px;
-        gap: 10px;
+        padding: 14px;
+        min-height: 65px;
+        gap: 12px;
     }
 
     .fo-stat-card__icon {
-        width: 38px;
-        height: 38px;
+        width: 42px;
+        height: 42px;
     }
 
     .fo-stat-card__value {
-        font-size: 1.05rem;
+        font-size: 1.1rem;
+        font-weight: 800;
+    }
+
+    .fo-stat-card__label {
+        font-size: 0.70rem;
     }
 
     .fo-tabs {
@@ -1049,6 +1071,21 @@
 
     .fo-pipeline-bar {
         grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .fo-pipeline-stage {
+        padding: 14px 8px;
+        min-height: 85px;
+        gap: 6px;
+    }
+
+    .fo-pipeline-stage__count {
+        font-size: 1.4rem;
+    }
+
+    .fo-pipeline-stage__label {
+        font-size: 0.68rem;
     }
 
     .fo-action-btn kbd {
