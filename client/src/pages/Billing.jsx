@@ -432,13 +432,39 @@ const Billing = () => {
   };
 
   const ensureCustomer = async () => {
-    if (existingCustomer) return existingCustomer;
-
     const trimmedName = form.name?.trim() || (isWalkIn ? 'Walk-in Customer' : '');
     const trimmedMobile = form.mobile?.replace(/\D/g, '').slice(0, 10) || '';
     const trimmedEmail = form.email?.trim() || '';
     const trimmedGst = form.gst?.trim().toUpperCase() || '';
     const trimmedAddress = form.address?.trim() || '';
+
+    if (existingCustomer) {
+      const existingMobile = String(existingCustomer.mobile || '').replace(/\D/g, '').slice(0, 10);
+      const payload = {
+        mobile: existingMobile,
+        name: trimmedName || existingCustomer.name || 'Walk-in Customer',
+        type: form.type,
+        email: trimmedEmail || null,
+        gst: trimmedGst || null,
+        address: trimmedAddress || null
+      };
+
+      const shouldUpdate =
+        String(existingCustomer.type || '') !== String(payload.type || '') ||
+        String(existingCustomer.name || '') !== String(payload.name || '') ||
+        String(existingCustomer.email || '') !== String(payload.email || '') ||
+        String(existingCustomer.gst || '') !== String(payload.gst || '') ||
+        String(existingCustomer.address || '') !== String(payload.address || '');
+
+      if (shouldUpdate && existingCustomer.id) {
+        await api.put(`/customers/${existingCustomer.id}`, payload);
+        const updatedCustomer = { ...existingCustomer, ...payload };
+        setExistingCustomer(updatedCustomer);
+        return updatedCustomer;
+      }
+
+      return existingCustomer;
+    }
 
     // Walk-ins without mobile: skip customer creation, return null
     if (isWalkIn && !trimmedMobile) {
@@ -1196,6 +1222,32 @@ const Billing = () => {
                     {existingCustomer.mobile && <span>📱 {existingCustomer.mobile}</span>}
                     {existingCustomer.email && <span>✉ {existingCustomer.email}</span>}
                     {existingCustomer.address && <span>📍 {existingCustomer.address}</span>}
+                  </div>
+                  <div className="row gap-sm mt-8 wrap">
+                    <div>
+                      <label className="label">Customer Type</label>
+                      <select
+                        className="input-field"
+                        value={form.type}
+                        onChange={(e) => handleChange('type', e.target.value)}
+                      >
+                        {customerTypes.map((type) => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {form.type !== 'Walk-in' && (
+                      <div>
+                        <label className="label">GST Number (optional)</label>
+                        <input
+                          className={`input-field ${fieldErrors.gst ? 'input-field--error' : ''}`}
+                          value={form.gst}
+                          onChange={(e) => handleChange('gst', e.target.value.toUpperCase())}
+                          placeholder="e.g. 29ABCDE1234F1Z5"
+                          maxLength={15}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
                 <button className="btn btn-ghost" type="button" onClick={handleChangeCustomer}>
