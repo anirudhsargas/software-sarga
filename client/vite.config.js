@@ -11,6 +11,8 @@ export default defineConfig({
       includeAssets: ['vite.svg', 'icons/*.png'],
       manifest: false, // we already have public/manifest.json
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         // Cache JS, CSS, HTML, images, fonts
         globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
         // Runtime caching for the API

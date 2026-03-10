@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import auth from '../services/auth';
 import { serverToday } from '../services/serverTime';
-import { Camera, Download, Printer, Scissors, WifiOff } from 'lucide-react';
+import { Camera, Download, Printer, Scissors, WifiOff, Plus, Minus } from 'lucide-react';
 import ScannerModal from '../components/ScannerModal';
 import PaperOptimizer from '../components/PaperOptimizer';
 import { calculateProductPrice } from '../utils/pricing';
@@ -38,7 +38,6 @@ const Billing = () => {
   const [extraInputs, setExtraInputs] = useState([]);
   const [qrInput, setQrInput] = useState('');
   const [orderLines, setOrderLines] = useState([]);
-  const [showAddedItems, setShowAddedItems] = useState(false);
   const [showPostBillOptions, setShowPostBillOptions] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignJobs, setAssignJobs] = useState([]);
@@ -74,8 +73,10 @@ const Billing = () => {
   const [showPaperOptimizer, setShowPaperOptimizer] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [lastOrderCustomerType, setLastOrderCustomerType] = useState('');
+  const [lastOrderAutoDelivered, setLastOrderAutoDelivered] = useState(false);
   const [lastBillData, setLastBillData] = useState(null);
   const [branchUpiId, setBranchUpiId] = useState('');
+  const [scannedPreview, setScannedPreview] = useState(null); // { item, unitPrice, mrp } for inventory preview
 
   // Discount states
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -111,7 +112,6 @@ const Billing = () => {
     });
     setExistingCustomer(null);
     setOrderLines([]);
-    setShowAddedItems(false);
     setQrInput('');
     setSelectedProduct(null);
     setExtraInputs([]);
@@ -352,6 +352,19 @@ const Billing = () => {
     };
   }, [form.mobile]);
 
+  // Warn user before refresh/close if there's unsaved billing data
+  useEffect(() => {
+    const hasData = orderLines.length > 0 || form.mobile.length > 0 || form.name.trim().length > 0;
+    const handler = (e) => {
+      if (hasData) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [orderLines.length, form.mobile, form.name]);
+
   const isWalkIn = form.type === 'Walk-in';
   const needsGst = form.type === 'Association' || form.type === 'Offset' || form.type === 'Retail';
 
@@ -408,7 +421,6 @@ const Billing = () => {
     if (payment.selectedMethods.length === 0) errors.paymentMethod = 'Select at least one payment method';
     if (advancePaid < 0) errors.advancePaid = 'Payment amount cannot be negative';
     if (advancePaid > totals.gross * 1.01) errors.advancePaid = 'Payment exceeds total amount';
-    if (!payment.paymentDate) errors.paymentDate = 'Payment date is required';
     payment.selectedMethods.forEach((method) => {
       const amt = Number(payment.methodAmounts[method]) || 0;
       if (amt < 0) errors[method] = `${method} amount cannot be negative`;
@@ -483,6 +495,12 @@ const Billing = () => {
       }
     }
 
+    // Block negative or zero bill total (e.g. discount exceeds subtotal)
+    if (totals.gross <= 0) {
+      setError('Bill total must be greater than zero. Please adjust items or discount.');
+      return;
+    }
+
     // Validate payment
     const payErrors = validatePayment();
     if (Object.keys(payErrors).length > 0) {
@@ -552,6 +570,9 @@ const Billing = () => {
       if (transferAmount > 0) transferNotes.push(`Transfer ₹${transferAmount.toFixed(2)}`);
       const autoDescription = [methodNote, transferNotes.join(', ')].filter(Boolean).join('. ');
 
+      // Walk-in + fully paid → auto-deliver (no staff assignment needed)
+      const isAutoDeliver = isWalkIn && advancePaid >= totals.gross * 0.99;
+
       const paymentRes = await api.post('/customer-payments', {
         customer_id: customer?.id || null,
         customer_name: customerName,
@@ -570,7 +591,8 @@ const Billing = () => {
         description: payment.description || autoDescription,
         payment_date: payment.paymentDate,
         order_lines: orderLines,
-        job_ids: createdJobs.map((job) => job.id)
+        job_ids: createdJobs.map((job) => job.id),
+        auto_deliver: isAutoDeliver
       });
       const jobsForAssign = createdJobs.map((job, index) => {
         const orderLine = orderLines[index] || {};
@@ -622,6 +644,7 @@ const Billing = () => {
       const currentCustomerType = form.type;
       resetBillingState();
       setLastOrderCustomerType(currentCustomerType);
+      setLastOrderAutoDelivered(isAutoDeliver);
       setShowPostBillOptions(true);
     } catch (err) {
       // Detect network failure → queue bill offline
@@ -734,19 +757,63 @@ const Billing = () => {
     }
   };
 
-  const handleQrLookup = (providedCode) => {
+  const handleQrLookup = async (providedCode) => {
     const code = providedCode || qrInput;
     const normalized = normalizeCode(code);
     if (!normalized) return;
+
+    // 1. Try product hierarchy lookup first (O(1))
     const entry = qrLookupMap.get(normalized);
-    if (!entry) {
-      setProductError('No product found for this code');
+    if (entry) {
+      setQrInput('');
+      setSelectedCategoryId(entry.catId || selectedCategoryId);
+      setSelectedSubcategoryId(entry.subId || selectedSubcategoryId);
+
+      // If it's an inventory-only item, show preview popup
+      if (entry.product.is_inventory_only) {
+        setProductError('');
+        try {
+          const { data: invItem } = await api.get(`/inventory/by-sku/${encodeURIComponent(normalized)}`);
+          setScannedPreview({
+            item: invItem,
+            unitPrice: Number(invItem.sell_price) || 0,
+            mrp: Number(invItem.mrp) || 0,
+            category: entry.catId ? (hierarchy.find(c => c.id === entry.catId)?.name || 'Inventory') : 'Inventory',
+            subcategory: entry.subId ? (hierarchy.find(c => c.id === entry.catId)?.subcategories?.find(s => s.id === entry.subId)?.name || '') : '',
+          });
+        } catch {
+          // Fallback: add directly if preview fetch fails
+          const unitPrice = Number(entry.product.sell_price) || 0;
+          setScannedPreview({
+            item: { id: entry.product.inventory_id, name: entry.product.name, sell_price: unitPrice, quantity: '?', image_url: null },
+            unitPrice,
+            mrp: unitPrice,
+            category: 'Inventory',
+            subcategory: '',
+          });
+        }
+        return;
+      }
+
+      handleProductSelect(entry.product);
       return;
     }
-    setQrInput(''); // Clear input after successful lookup
-    setSelectedCategoryId(entry.catId || selectedCategoryId);
-    setSelectedSubcategoryId(entry.subId || selectedSubcategoryId);
-    handleProductSelect(entry.product);
+
+    // 2. Fallback: look up inventory item by SKU — show preview
+    try {
+      const { data: invItem } = await api.get(`/inventory/by-sku/${encodeURIComponent(normalized)}`);
+      setQrInput('');
+      setProductError('');
+      setScannedPreview({
+        item: invItem,
+        unitPrice: Number(invItem.sell_price) || 0,
+        mrp: Number(invItem.mrp) || 0,
+        category: invItem.category || 'Inventory',
+        subcategory: '',
+      });
+    } catch {
+      setProductError('No product found for this code');
+    }
   };
 
   const updateExtraInput = (idx, field, val) => {
@@ -773,6 +840,34 @@ const Billing = () => {
       is_double_side: false,
       machine_id: ''
     });
+  };
+
+  const addScannedItemToOrder = (preview) => {
+    if (!preview) return;
+    const item = preview.item;
+    const unitPrice = preview.unitPrice;
+    const line = {
+      id: `inv-${item.id}-${Date.now()}`,
+      product_id: null,
+      inventory_item_id: item.id,
+      product_name: item.name,
+      calculation_type: 'flat',
+      quantity: 1,
+      unit_price: unitPrice,
+      total_amount: unitPrice,
+      applied_extras: [],
+      customPaperRate: 0,
+      is_double_side: false,
+      description: `Inventory item${preview.category ? ` (${preview.category})` : ''}`,
+      category: preview.category || 'Inventory',
+      subcategory: preview.subcategory || '',
+      machine_id: null,
+      is_inventory_item: true
+    };
+    setOrderLines((prev) => [...prev, line]);
+    toast.success(`Added: ${item.name} — ₹${unitPrice % 1 === 0 ? unitPrice : unitPrice.toFixed(2)}`);
+    setScannedPreview(null);
+    setQrInput('');
   };
 
   const handleAddLineItem = () => {
@@ -828,7 +923,8 @@ const Billing = () => {
   };
 
   const totals = useMemo(() => {
-    const subtotal = orderLines.reduce((sum, line) => sum + (Number(line.total_amount) || 0), 0);
+    const round2 = (n) => Math.round(n * 100) / 100;
+    const subtotal = round2(orderLines.reduce((sum, line) => sum + (Number(line.total_amount) || 0), 0));
     // Derive the active discount percent from whichever mode is active
     const activePct = discountMode === 'amount'
       ? (subtotal > 0 ? Math.min((discountInputAmount / subtotal) * 100, 100) : 0)
@@ -840,11 +936,11 @@ const Billing = () => {
         discountRequest?.status === 'APPROVED' &&
         Math.abs(Number(discountRequest.discount_percent) - activePct) < 0.1
       ) ? activePct : 0;
-    const gross = subtotal * (1 - effectiveDiscount / 100);
-    const discountAmount = subtotal - gross;
-    const net = gross / (1 + GST_RATE);
-    const sgst = net * (GST_RATE / 2);
-    const cgst = net * (GST_RATE / 2);
+    const gross = round2(subtotal * (1 - effectiveDiscount / 100));
+    const discountAmount = round2(subtotal - gross);
+    const net = round2(gross / (1 + GST_RATE));
+    const sgst = round2(net * (GST_RATE / 2));
+    const cgst = round2(net * (GST_RATE / 2));
     return { gross, net, sgst, cgst, subtotal, effectiveDiscount, discountAmount, activePct };
   }, [orderLines, discountPercent, discountInputAmount, discountMode, discountRequest]);
 
@@ -1043,149 +1139,179 @@ const Billing = () => {
   return (
     <>
       <section className="panel billing-panel">
-        <div className="row items-center justify-between billing-header">
+        <div className="billing-header">
           <div>
-            <h1 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 className="billing-title">
               Billing
               {!isOnline && (
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '5px',
-                  padding: '3px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-                  background: 'rgba(176,58,46,0.08)', color: 'var(--error)', border: '1px solid rgba(176,58,46,0.2)'
-                }}>
-                  <WifiOff size={13} /> Offline Mode
+                <span className="billing-offline-tag">
+                  <WifiOff size={13} /> Offline
                 </span>
               )}
             </h1>
-            <p className="section-subtitle">
+            <p className="billing-subtitle">
               {isOnline
-                ? 'Add customer details, choose products, and build the bill.'
-                : 'Offline — bills will be saved locally and synced when internet returns.'}
+                ? 'Create bills in 3 simple steps — Customer → Products → Payment'
+                : 'Offline — bills will sync when internet returns.'}
             </p>
           </div>
         </div>
 
         {loading && <div className="muted">Loading products...</div>}
-        {customerSearching && <div className="muted">Searching customer...</div>}
+        {customerSearching && <div className="muted" style={{ fontSize: '13px', padding: '4px 0' }}>Searching customer...</div>}
         {!loading && error && <div className="alert alert--error mb-16">{error}</div>}
+
+        {/* Step Indicators */}
+        <div className="billing-steps">
+          <div className={`billing-step ${orderLines.length === 0 ? 'billing-step--active' : 'billing-step--done'}`}>
+            <span className="billing-step__num">{orderLines.length > 0 ? '✓' : '1'}</span>
+            <span className="billing-step__label">Customer</span>
+          </div>
+          <div className="billing-step__line" />
+          <div className={`billing-step ${orderLines.length > 0 && !canProceed ? 'billing-step--active' : orderLines.length > 0 ? 'billing-step--done' : ''}`}>
+            <span className="billing-step__num">{canProceed ? '✓' : '2'}</span>
+            <span className="billing-step__label">Products</span>
+          </div>
+          <div className="billing-step__line" />
+          <div className={`billing-step ${canProceed ? 'billing-step--active' : ''}`}>
+            <span className="billing-step__num">3</span>
+            <span className="billing-step__label">Payment</span>
+          </div>
+        </div>
 
         <div className="stack-md billing-stack">
           <div className="billing-card">
-            <h2 className="section-title mb-12">Customer Details</h2>
-            <div className="stack-md">
-              <div className="row gap-md billing-row">
-                <div className="flex-1">
-                  <label className="label">Customer Type</label>
-                  <select
-                    className="input-field"
-                    value={form.type}
-                    onChange={(e) => handleChange('type', e.target.value)}
-                  >
-                    {customerTypes.map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="label">Mobile Number {isWalkIn ? '(optional)' : ''}</label>
-                  <input
-                    className={`input-field ${fieldErrors.mobile ? 'input-field--error' : ''}`}
-                    value={form.mobile}
-                    onChange={(e) => handleMobileChange(e.target.value)}
-                    placeholder="10 digit mobile"
-                    maxLength={10}
-                    inputMode="numeric"
-                  />
-                  {fieldErrors.mobile && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.mobile}</span>}
-                </div>
-              </div>
-
-              <div className="row gap-md billing-row">
-                <div className="flex-1">
-                  <label className="label">Customer Name {isWalkIn ? '(optional)' : ''}</label>
-                  <input
-                    className={`input-field ${fieldErrors.name ? 'input-field--error' : ''}`}
-                    value={form.name}
-                    onChange={(e) => handleChange('name', e.target.value)}
-                    placeholder="Customer name"
-                    maxLength={100}
-                  />
-                  {fieldErrors.name && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.name}</span>}
-                </div>
-                <div className="flex-1">
-                  <label className="label">Email Address (optional)</label>
-                  <input
-                    type="email"
-                    className={`input-field ${fieldErrors.email ? 'input-field--error' : ''}`}
-                    value={form.email}
-                    onChange={(e) => {
-                      handleChange('email', e.target.value);
-                      if (e.target.value && !validateEmail(e.target.value)) {
-                        setFieldErrors((prev) => ({ ...prev, email: 'Invalid email format' }));
-                      } else {
-                        setFieldErrors((prev) => { const { email, ...rest } = prev; return rest; });
-                      }
-                    }}
-                    placeholder="Email"
-                  />
-                  {fieldErrors.email && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.email}</span>}
-                </div>
-              </div>
-
-              <div className="row gap-md billing-row">
-                <div className="flex-1">
-                  <label className="label">Address (optional)</label>
-                  <textarea
-                    className="input-field"
-                    style={{ minHeight: '80px', resize: 'vertical' }}
-                    value={form.address}
-                    onChange={(e) => handleChange('address', e.target.value)}
-                    placeholder="Address"
-                    maxLength={500}
-                  />
-                  {fieldErrors.address && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.address}</span>}
-                </div>
-                {needsGst && (
-                  <div className="flex-1">
-                    <label className="label">GST Number (optional)</label>
-                    <input
-                      className={`input-field ${fieldErrors.gst ? 'input-field--error' : ''}`}
-                      value={form.gst}
-                      onChange={(e) => {
-                        const val = e.target.value.toUpperCase();
-                        handleChange('gst', val);
-                        if (val && !validateGST(val)) {
-                          setFieldErrors((prev) => ({ ...prev, gst: 'Invalid GST format' }));
-                        } else {
-                          setFieldErrors((prev) => { const { gst, ...rest } = prev; return rest; });
-                        }
-                      }}
-                      placeholder="e.g. 29ABCDE1234F1Z5"
-                      maxLength={15}
-                    />
-                    {fieldErrors.gst && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.gst}</span>}
-                  </div>
-                )}
-              </div>
+            <div className="billing-card__header">
+              <h2 className="billing-card__title">Customer Details</h2>
+              {existingCustomer && (
+                <span className="billing-badge billing-badge--success">Returning Customer</span>
+              )}
             </div>
 
-            {existingCustomer && (
-              <div className="row items-center justify-between alert alert--info mt-16">
-                <div>
-                  <div className="font-bold">{existingCustomer.name || 'Customer'}</div>
-                  <div className="text-xs">{existingCustomer.mobile || ''}</div>
-                  <div className="text-xs">{existingCustomer.address || ''}</div>
-                  <div className="text-xs">{existingCustomer.email || ''}</div>
+            {existingCustomer ? (
+              <div className="billing-customer-found">
+                <div className="billing-customer-found__info">
+                  <div className="billing-customer-found__name">{existingCustomer.name || 'Customer'}</div>
+                  <div className="billing-customer-found__details">
+                    {existingCustomer.mobile && <span>📱 {existingCustomer.mobile}</span>}
+                    {existingCustomer.email && <span>✉ {existingCustomer.email}</span>}
+                    {existingCustomer.address && <span>📍 {existingCustomer.address}</span>}
+                  </div>
                 </div>
                 <button className="btn btn-ghost" type="button" onClick={handleChangeCustomer}>
                   Change
                 </button>
               </div>
+            ) : (
+              <div className="stack-md">
+                {/* Row 1: Type + Mobile */}
+                <div className="billing-form-grid billing-form-grid--2">
+                  <div>
+                    <label className="label">Customer Type</label>
+                    <select
+                      className="input-field"
+                      value={form.type}
+                      onChange={(e) => handleChange('type', e.target.value)}
+                    >
+                      {customerTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Mobile Number {isWalkIn ? '(optional)' : ''}</label>
+                    <input
+                      className={`input-field ${fieldErrors.mobile ? 'input-field--error' : ''}`}
+                      value={form.mobile}
+                      onChange={(e) => handleMobileChange(e.target.value)}
+                      placeholder="10 digit mobile"
+                      maxLength={10}
+                      inputMode="numeric"
+                    />
+                    {fieldErrors.mobile && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.mobile}</span>}
+                  </div>
+                </div>
+
+                {/* Row 2: Name + Email */}
+                <div className="billing-form-grid billing-form-grid--2">
+                  <div>
+                    <label className="label">Customer Name {isWalkIn ? '(optional)' : ''}</label>
+                    <input
+                      className={`input-field ${fieldErrors.name ? 'input-field--error' : ''}`}
+                      value={form.name}
+                      onChange={(e) => handleChange('name', e.target.value)}
+                      placeholder="Customer name"
+                      maxLength={100}
+                    />
+                    {fieldErrors.name && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.name}</span>}
+                  </div>
+                  <div>
+                    <label className="label">Email Address (optional)</label>
+                    <input
+                      type="email"
+                      className={`input-field ${fieldErrors.email ? 'input-field--error' : ''}`}
+                      value={form.email}
+                      onChange={(e) => {
+                        handleChange('email', e.target.value);
+                        if (e.target.value && !validateEmail(e.target.value)) {
+                          setFieldErrors((prev) => ({ ...prev, email: 'Invalid email format' }));
+                        } else {
+                          setFieldErrors((prev) => { const { email, ...rest } = prev; return rest; });
+                        }
+                      }}
+                      placeholder="Email"
+                    />
+                    {fieldErrors.email && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.email}</span>}
+                  </div>
+                </div>
+
+                {/* Row 3: Address + GST */}
+                <div className={`billing-form-grid ${needsGst ? 'billing-form-grid--2' : 'billing-form-grid--1'}`}>
+                  <div>
+                    <label className="label">Address (optional)</label>
+                    <textarea
+                      className="input-field"
+                      style={{ minHeight: '70px', resize: 'vertical' }}
+                      value={form.address}
+                      onChange={(e) => handleChange('address', e.target.value)}
+                      placeholder="Address"
+                      maxLength={500}
+                    />
+                    {fieldErrors.address && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.address}</span>}
+                  </div>
+                  {needsGst && (
+                    <div>
+                      <label className="label">GST Number (optional)</label>
+                      <input
+                        className={`input-field ${fieldErrors.gst ? 'input-field--error' : ''}`}
+                        value={form.gst}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          handleChange('gst', val);
+                          if (val && !validateGST(val)) {
+                            setFieldErrors((prev) => ({ ...prev, gst: 'Invalid GST format' }));
+                          } else {
+                            setFieldErrors((prev) => { const { gst, ...rest } = prev; return rest; });
+                          }
+                        }}
+                        placeholder="e.g. 29ABCDE1234F1Z5"
+                        maxLength={15}
+                      />
+                      {fieldErrors.gst && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.gst}</span>}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
 
           <div className="billing-card">
-            <h2 className="section-title mb-12">Add Product</h2>
+            <div className="billing-card__header">
+              <h2 className="billing-card__title">Add Product</h2>
+              {orderLines.length > 0 && (
+                <span className="billing-badge">{orderLines.length} item{orderLines.length > 1 ? 's' : ''} added</span>
+              )}
+            </div>
             <div className="stack-md">
               <div>
                 <label className="label">Scan / Search Product</label>
@@ -1194,6 +1320,12 @@ const Billing = () => {
                     className="input-field"
                     value={qrInput}
                     onChange={(e) => setQrInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleQrLookup();
+                      }
+                    }}
                     placeholder="Scan QR or type product code"
                   />
                   <button className="btn btn-ghost" type="button" onClick={() => setShowScanner(true)}>
@@ -1210,6 +1342,50 @@ const Billing = () => {
                   handleQrLookup(code);
                 }}
               />
+
+              {/* Scanned Item Preview Popup */}
+              {scannedPreview && (
+                <div className="modal-overlay" onClick={() => setScannedPreview(null)}>
+                  <div className="modal" style={{ maxWidth: 420, padding: 24 }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                      {scannedPreview.item.image_url ? (
+                        <img src={scannedPreview.item.image_url} alt={scannedPreview.item.name}
+                          style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                      ) : (
+                        <div style={{ width: 100, height: 100, borderRadius: 8, background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 12 }}>No Image</div>
+                      )}
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>{scannedPreview.item.name}</h3>
+                        {scannedPreview.item.sku && <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>SKU: {scannedPreview.item.sku}</div>}
+                        <div style={{ fontSize: 13, color: 'var(--muted)' }}>{scannedPreview.category}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, margin: '16px 0', textAlign: 'center' }}>
+                      <div className="sev-success" style={{ borderRadius: 8, padding: '10px 8px' }}>
+                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>MRP</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--success)' }}>₹{scannedPreview.mrp % 1 === 0 ? scannedPreview.mrp : Number(scannedPreview.mrp).toFixed(2)}</div>
+                      </div>
+                      <div className="sev-info" style={{ borderRadius: 8, padding: '10px 8px' }}>
+                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>Sell Price</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-2)' }}>₹{scannedPreview.unitPrice % 1 === 0 ? scannedPreview.unitPrice : scannedPreview.unitPrice.toFixed(2)}</div>
+                      </div>
+                      <div className={Number(scannedPreview.item.quantity) > 0 ? 'sev-success' : 'sev-error'} style={{ borderRadius: 8, padding: '10px 8px' }}>
+                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>In Stock</div>
+                        <div style={{ fontSize: 18, fontWeight: 700 }}>{scannedPreview.item.quantity ?? '?'}</div>
+                      </div>
+                    </div>
+                    {Number(scannedPreview.item.quantity) === 0 && (
+                      <div className="sev-error" style={{ borderRadius: 6, padding: '8px 12px', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>Out of stock</div>
+                    )}
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => addScannedItemToOrder(scannedPreview)}>
+                        <Plus size={16} /> Add to Bill
+                      </button>
+                      <button className="btn btn-ghost" onClick={() => setScannedPreview(null)}>Cancel</button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <PaperOptimizer
                 isOpen={showPaperOptimizer}
@@ -1267,47 +1443,49 @@ const Billing = () => {
 
               {selectedProduct && (
                 <>
-                  <div className="row items-center justify-between billing-product-spotlight">
-                    <div>
-                      <div className="font-bold">{selectedProduct.name}</div>
-                      <div className="text-xs muted">{selectedProduct.calculation_type}</div>
+                  <div className="billing-product-spotlight">
+                    <div className="row items-center justify-between" style={{ marginBottom: 4 }}>
+                      <span className="billing-product-name">{selectedProduct.name}</span>
+                      <span className="billing-product-unit">₹{jobData.unit_price.toFixed(2)} <span className="muted" style={{ fontSize: 11, fontWeight: 400 }}>/ unit</span></span>
                     </div>
-                    <div className="text-sm">Unit ₹{jobData.unit_price.toFixed(2)}</div>
+                    <div className="billing-product-type">{selectedProduct.calculation_type}</div>
                   </div>
 
-                  <div className="row gap-md items-center billing-row">
-                    <div className="row gap-sm items-center" style={{ minWidth: '180px', width: '100%' }}>
-                      <button
-                        className="btn btn-ghost"
-                        style={{ flex: 1 }}
-                        type="button"
-                        onClick={() => calculateDynamicPrice(selectedProduct, Math.max(1, Number(jobData.quantity) - 1), extraInputs, jobData.customPaperRate)}
-                      >
-                        -
-                      </button>
-                      <input
-                        type="number"
-                        className="input-field"
-                        value={jobData.quantity}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setJobData((prev) => ({ ...prev, quantity: value }));
-                          calculateDynamicPrice(selectedProduct, value, extraInputs, jobData.customPaperRate);
-                        }}
-                        min="1"
-                        style={{ maxWidth: '80px', textAlign: 'center' }}
-                      />
-                      <button
-                        className="btn btn-ghost"
-                        style={{ flex: 1 }}
-                        type="button"
-                        onClick={() => calculateDynamicPrice(selectedProduct, Number(jobData.quantity) + 1, extraInputs, jobData.customPaperRate)}
-                      >
-                        +
-                      </button>
+                  {/* Quantity & Options Row */}
+                  <div className="billing-qty-options">
+                    <div className="billing-qty-group">
+                      <label className="label">Quantity</label>
+                      <div className="billing-qty-stepper">
+                        <button
+                          className="billing-qty-btn"
+                          type="button"
+                          onClick={() => calculateDynamicPrice(selectedProduct, Math.max(1, Number(jobData.quantity) - 1), extraInputs, jobData.customPaperRate)}
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <input
+                          type="number"
+                          className="billing-qty-input"
+                          value={jobData.quantity}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setJobData((prev) => ({ ...prev, quantity: value }));
+                            calculateDynamicPrice(selectedProduct, value, extraInputs, jobData.customPaperRate);
+                          }}
+                          min="1"
+                        />
+                        <button
+                          className="billing-qty-btn"
+                          type="button"
+                          onClick={() => calculateDynamicPrice(selectedProduct, Number(jobData.quantity) + 1, extraInputs, jobData.customPaperRate)}
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
                     </div>
+
                     {selectedProduct.has_paper_rate && (
-                      <div className="flex-1" style={{ width: '100%' }}>
+                      <div className="billing-option-field">
                         <label className="label">Paper Rate (Add-on)</label>
                         <input
                           type="number"
@@ -1323,7 +1501,7 @@ const Billing = () => {
                       </div>
                     )}
                     {selectedProduct.has_double_side_rate && (
-                      <div className="flex-1" style={{ width: '100%' }}>
+                      <div className="billing-option-field">
                         <label className="label row items-center gap-xs">
                           <input
                             type="checkbox"
@@ -1339,7 +1517,7 @@ const Billing = () => {
                       </div>
                     )}
                     {isMachineRequired && (
-                      <div className="flex-1" style={{ minWidth: '150px' }}>
+                      <div className="billing-option-field">
                         <label className="label">Machine (Required)</label>
                         <select
                           className="input-field"
@@ -1355,19 +1533,26 @@ const Billing = () => {
                         </select>
                       </div>
                     )}
-                    <div className="text-sm font-bold">Total ₹{jobData.total_amount.toFixed(2)}</div>
-                    <button
-                      className="btn btn-ghost"
-                      type="button"
-                      title="Paper Size Optimizer"
-                      onClick={() => setShowPaperOptimizer(true)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '6px 12px' }}
-                    >
-                      <Scissors size={14} /> Paper Calc
-                    </button>
-                    <button className="btn btn-primary btn--full" type="button" onClick={handleAddLineItem}>
-                      Add to Bill
-                    </button>
+                  </div>
+
+                  {/* Total & Actions Row */}
+                  <div className="billing-total-bar">
+                    <div className="billing-total-amount">
+                      Total <span>₹{jobData.total_amount.toFixed(2)}</span>
+                    </div>
+                    <div className="row gap-sm">
+                      <button
+                        className="btn btn-ghost billing-paper-calc-btn"
+                        type="button"
+                        title="Paper Size Optimizer"
+                        onClick={() => setShowPaperOptimizer(true)}
+                      >
+                        <Scissors size={14} /> Paper Calc
+                      </button>
+                      <button className="btn btn-primary billing-add-btn" type="button" onClick={handleAddLineItem}>
+                        <Plus size={16} /> Add to Bill
+                      </button>
+                    </div>
                   </div>
 
                   {extraInputs.length > 0 && (
@@ -1395,128 +1580,87 @@ const Billing = () => {
 
           {orderLines.length > 0 && (
             <div className="billing-card">
-              <div className="row items-center mb-12">
-                <h2 className="section-title">Added Items</h2>
-                <button
-                  className="btn btn-ghost billing-toggle"
-                  type="button"
-                  onClick={() => setShowAddedItems((prev) => !prev)}
-                >
-                  {showAddedItems ? 'Hide details' : 'Show full details'}
-                </button>
+              <div className="billing-card__header">
+                <h2 className="billing-card__title">Order Summary</h2>
+                <span className="billing-badge">{orderLines.length} item{orderLines.length > 1 ? 's' : ''}</span>
               </div>
 
-              {!showAddedItems && (
-                <div className="table-scroll">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Product</th>
-                        <th>Qty</th>
-                        <th>Unit</th>
-                        <th>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orderLines.map((line, index) => (
-                        <tr key={line.id}>
-                          <td>{index + 1}. {line.product_name}</td>
-                          <td>{line.quantity}</td>
-                          <td>₹{Number(line.unit_price).toFixed(2)}</td>
-                          <td>₹{Number(line.total_amount).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {showAddedItems && (
-                <>
-                  <div className="table-scroll">
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Product</th>
-                          <th>Qty</th>
-                          <th>Unit</th>
-                          <th>Total</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {orderLines.map((line, index) => (
-                          <React.Fragment key={line.id}>
-                            <tr>
-                              <td>{index + 1}. {line.product_name}</td>
-                              <td>{line.quantity}</td>
-                              <td>₹{Number(line.unit_price).toFixed(2)}</td>
-                              <td>₹{Number(line.total_amount).toFixed(2)}</td>
-                              <td className="text-right">
-                                <button className="btn btn-ghost" type="button" onClick={() => removeOrderLine(line.id)}>
-                                  Remove
-                                </button>
-                              </td>
-                            </tr>
-                            <tr>
-                              <td colSpan="5" className="text-xs muted">
-                                Qty {line.quantity} x ₹{Number(line.unit_price).toFixed(2)}
-                              </td>
-                            </tr>
-                          </React.Fragment>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="billing-totals">
-                    <div className="billing-totals__row">
-                      <div className="muted">Subtotal (excl. GST)</div>
-                      <div>₹{totals.net.toFixed(2)}</div>
-                    </div>
-                    <div className="billing-totals__row">
-                      <div className="muted">SGST (9%)</div>
-                      <div>₹{totals.sgst.toFixed(2)}</div>
-                    </div>
-                    <div className="billing-totals__row">
-                      <div className="muted">CGST (9%)</div>
-                      <div>₹{totals.cgst.toFixed(2)}</div>
-                    </div>
-                    {totals.effectiveDiscount > 0 && (
-                      <div className="billing-totals__row" style={{ color: 'var(--clr-success, #22c55e)' }}>
-                        <div>Discount ({totals.effectiveDiscount}%)</div>
-                        <div>-₹{totals.discountAmount.toFixed(2)}</div>
+              <div className="billing-items-list">
+                {orderLines.map((line, index) => (
+                  <div key={line.id} className="billing-item-row">
+                    <div className="billing-item-row__num">{index + 1}</div>
+                    <div className="billing-item-row__info">
+                      <div className="billing-item-row__name">{line.product_name}</div>
+                      <div className="billing-item-row__meta">
+                        Qty {line.quantity} × ₹{Number(line.unit_price).toFixed(2)}
+                        {line.category && <span> · {line.category}</span>}
                       </div>
-                    )}
-                    <div className="billing-totals__row billing-totals__grand">
-                      <div className="font-bold">Grand Total</div>
-                      <div className="font-bold">₹{totals.gross.toFixed(2)}</div>
                     </div>
-                  </div>
-
-                  <div className="row justify-end mt-16 gap-sm billing-actions">
-                    <button className="btn btn-ghost" type="button" onClick={handleSaveDraft}>
-                      Save Draft
+                    <div className="billing-item-row__amount">₹{Number(line.total_amount).toFixed(2)}</div>
+                    <button className="billing-item-row__remove" type="button" onClick={() => removeOrderLine(line.id)} title="Remove">
+                      ×
                     </button>
                   </div>
-                </>
-              )}
+                ))}
+              </div>
+
+              <div className="billing-totals">
+                <div className="billing-totals__row">
+                  <div className="muted">Subtotal (excl. GST)</div>
+                  <div>₹{totals.net.toFixed(2)}</div>
+                </div>
+                <div className="billing-totals__row">
+                  <div className="muted">SGST (9%)</div>
+                  <div>₹{totals.sgst.toFixed(2)}</div>
+                </div>
+                <div className="billing-totals__row">
+                  <div className="muted">CGST (9%)</div>
+                  <div>₹{totals.cgst.toFixed(2)}</div>
+                </div>
+                {totals.effectiveDiscount > 0 && (
+                  <div className="billing-totals__row" style={{ color: 'var(--clr-success, #22c55e)' }}>
+                    <div>Discount ({totals.effectiveDiscount}%)</div>
+                    <div>-₹{totals.discountAmount.toFixed(2)}</div>
+                  </div>
+                )}
+                <div className="billing-totals__row billing-totals__grand">
+                  <div className="font-bold">Grand Total</div>
+                  <div className="font-bold" style={{ fontSize: '18px' }}>₹{totals.gross.toFixed(2)}</div>
+                </div>
+              </div>
             </div>
           )}
 
           {orderLines.length > 0 && (
             <div className="billing-card">
-              <h2 className="section-title mb-12">Customer Payment</h2>
+              <div className="billing-card__header">
+                <h2 className="billing-card__title">Payment</h2>
+              </div>
               <div className="stack-md">
+                {/* Amount Summary Cards */}
+                <div className="billing-amount-cards">
+                  <div className="billing-amount-card billing-amount-card--total">
+                    <div className="billing-amount-card__label">To Collect</div>
+                    <div className="billing-amount-card__value">₹{totals.gross.toFixed(2)}</div>
+                  </div>
+                  <div className="billing-amount-card billing-amount-card--paid">
+                    <div className="billing-amount-card__label">Paid</div>
+                    <div className="billing-amount-card__value">₹{Number(advancePaid).toFixed(2)}</div>
+                  </div>
+                  <div className={`billing-amount-card ${paymentBalance > 0 ? 'billing-amount-card--due' : 'billing-amount-card--clear'}`}>
+                    <div className="billing-amount-card__label">Balance</div>
+                    <div className="billing-amount-card__value">₹{Number(paymentBalance).toFixed(2)}</div>
+                  </div>
+                </div>
+
                 {/* Discount */}
-                <div>
+                <div className="billing-discount-section">
                   <div className="row gap-sm items-center mb-8">
                     <label className="label" style={{ margin: 0 }}>Discount</label>
-                    <div className="row gap-sm" style={{ marginLeft: '8px' }}>
+                    <div className="billing-discount-toggle">
                       <button
                         type="button"
-                        className={`btn ${discountMode === 'percent' ? 'btn-primary' : 'btn-ghost'}`}
-                        style={{ padding: '2px 12px', fontSize: '13px' }}
+                        className={`billing-discount-btn ${discountMode === 'percent' ? 'billing-discount-btn--active' : ''}`}
                         onClick={() => {
                           setDiscountMode('percent');
                           if (totals.subtotal > 0) {
@@ -1527,8 +1671,7 @@ const Billing = () => {
                       >%</button>
                       <button
                         type="button"
-                        className={`btn ${discountMode === 'amount' ? 'btn-primary' : 'btn-ghost'}`}
-                        style={{ padding: '2px 12px', fontSize: '13px' }}
+                        className={`billing-discount-btn ${discountMode === 'amount' ? 'billing-discount-btn--active' : ''}`}
                         onClick={() => {
                           setDiscountMode('amount');
                           if (totals.subtotal > 0) {
@@ -1539,7 +1682,7 @@ const Billing = () => {
                       >₹</button>
                     </div>
                   </div>
-                  <div className="row gap-md items-center">
+                  <div className="row gap-md items-center" style={{ flexWrap: 'wrap' }}>
                     {discountMode === 'percent' ? (
                       <input
                         type="number"
@@ -1575,7 +1718,6 @@ const Billing = () => {
                         }}
                       />
                     )}
-                    {/* Derived display */}
                     {totals.activePct > 0 && (
                       <span className="text-sm muted">
                         {discountMode === 'percent'
@@ -1585,78 +1727,42 @@ const Billing = () => {
                       </span>
                     )}
                     {totals.activePct > 0 && totals.activePct <= 5 && (
-                      <span className="text-sm" style={{ color: 'var(--clr-success, #22c55e)' }}>
-                        ✓ Applied
-                      </span>
+                      <span className="billing-discount-status billing-discount-status--ok">✓ Applied</span>
                     )}
                     {totals.activePct > 5 && discountRequest?.status === 'APPROVED' && (
-                      <span className="text-sm" style={{ color: 'var(--clr-success, #22c55e)' }}>
-                        ✓ Admin approved
-                      </span>
+                      <span className="billing-discount-status billing-discount-status--ok">✓ Admin approved</span>
                     )}
                     {totals.activePct > 5 && discountRequest?.status === 'PENDING' && (
                       <div className="row gap-sm items-center">
-                        <span className="text-sm" style={{ color: 'var(--clr-warning, var(--warning))' }}>⏳ Pending admin approval</span>
+                        <span className="billing-discount-status billing-discount-status--warn">⏳ Pending approval</span>
                         <button type="button" className="btn btn-ghost" style={{ padding: '2px 10px', fontSize: '12px' }} onClick={checkDiscountApproval}>
-                          Check Status
+                          Check
                         </button>
                       </div>
                     )}
                     {totals.activePct > 5 && discountRequest?.status === 'REJECTED' && (
-                      <span className="text-sm" style={{ color: 'var(--clr-error, var(--error))' }}>✗ Admin rejected — request again or lower discount</span>
+                      <span className="billing-discount-status billing-discount-status--err">✗ Rejected</span>
                     )}
                     {totals.activePct > 5 && totals.activePct <= 10 && !discountRequest && (
-                      <span className="text-sm" style={{ color: 'var(--clr-warning, var(--warning))' }}>
-                        ⚠ &gt;5% requires approval (Accountant or Admin)
-                      </span>
+                      <span className="billing-discount-status billing-discount-status--warn">⚠ &gt;5% needs approval</span>
                     )}
                     {totals.activePct > 10 && !discountRequest && (
-                      <span className="text-sm" style={{ color: 'var(--clr-error, var(--error))' }}>
-                        ⚠ &gt;10% requires Admin approval only
-                      </span>
+                      <span className="billing-discount-status billing-discount-status--err">⚠ &gt;10% Admin only</span>
                     )}
-                  </div>
-                </div>
-                <div className="row gap-md billing-row">
-                  <div className="flex-1">
-                    <label className="label">Amount to Collect</label>
-                    <div className="input-field" style={{ fontSize: '20px', textAlign: 'center', fontWeight: 600 }}>
-                      ₹{totals.gross.toFixed(2)}
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <label className="label">Amount Paid</label>
-                    <div className="input-field" style={{ fontWeight: 600 }}>
-                      ₹{Number(advancePaid).toFixed(2)}
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <label className="label">Balance Due</label>
-                    <div className="input-field" style={{ fontWeight: 600 }}>
-                      ₹{Number(paymentBalance).toFixed(2)}
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <label className="label">Payment Date</label>
-                    <input
-                      type="date"
-                      className="input-field"
-                      value={payment.paymentDate}
-                      onChange={(e) => setPayment((prev) => ({ ...prev, paymentDate: e.target.value }))}
-                    />
                   </div>
                 </div>
 
+                {/* Payment Methods */}
                 <div>
-                  <label className="label">Payment Methods</label>
-                  <div className="row gap-sm">
+                  <label className="label">Payment Method</label>
+                  <div className="billing-method-pills">
                     {paymentMethods.map((method) => {
                       const active = payment.selectedMethods.includes(method);
                       return (
                         <button
                           key={method}
                           type="button"
-                          className={`btn ${active ? 'btn-primary' : 'btn-ghost'}`}
+                          className={`billing-method-pill ${active ? 'billing-method-pill--active' : ''}`}
                           onClick={() => {
                             setPayment((prev) => {
                               const exists = prev.selectedMethods.includes(method);
@@ -1676,9 +1782,10 @@ const Billing = () => {
                   {fieldErrors.paymentMethod && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.paymentMethod}</span>}
                 </div>
 
-                <div className="row gap-md billing-row">
+                {/* Amount inputs for selected methods */}
+                <div className="billing-form-grid billing-form-grid--2">
                   {payment.selectedMethods.includes('Cash') && (
-                    <div className="flex-1">
+                    <div>
                       <label className="label">Cash Amount</label>
                       <input
                         type="number"
@@ -1693,7 +1800,7 @@ const Billing = () => {
                     </div>
                   )}
                   {payment.selectedMethods.includes('UPI') && (
-                    <div className="flex-1">
+                    <div>
                       <label className="label">UPI Amount</label>
                       <input
                         type="number"
@@ -1708,7 +1815,7 @@ const Billing = () => {
                     </div>
                   )}
                   {payment.selectedMethods.includes('Cheque') && (
-                    <div className="flex-1">
+                    <div>
                       <label className="label">Cheque Amount</label>
                       <input
                         type="number"
@@ -1723,7 +1830,7 @@ const Billing = () => {
                     </div>
                   )}
                   {payment.selectedMethods.includes('Account Transfer') && (
-                    <div className="flex-1">
+                    <div>
                       <label className="label">Transfer Amount</label>
                       <input
                         type="number"
@@ -1739,9 +1846,10 @@ const Billing = () => {
                   )}
                 </div>
 
+                {/* Ref & Notes for non-cash */}
                 {(payment.selectedMethods.some((m) => m !== 'Cash')) && (
-                  <div className="row gap-md billing-row">
-                    <div className="flex-1">
+                  <div className="billing-form-grid billing-form-grid--2">
+                    <div>
                       <label className="label">UTR / Ref No</label>
                       <input
                         className="input-field"
@@ -1752,7 +1860,7 @@ const Billing = () => {
                         <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.referenceNumber}</span>
                       )}
                     </div>
-                    <div className="flex-1">
+                    <div>
                       <label className="label">Purpose / Notes (optional)</label>
                       <input
                         className="input-field"
@@ -1763,6 +1871,7 @@ const Billing = () => {
                   </div>
                 )}
 
+                {/* Notes for cash only */}
                 {payment.selectedMethods.length === 1 && payment.selectedMethods[0] === 'Cash' && (
                   <div>
                     <label className="label">Purpose / Notes (optional)</label>
@@ -1774,9 +1883,10 @@ const Billing = () => {
                   </div>
                 )}
 
-                <div className="row justify-end mt-16 gap-sm billing-actions">
-                  <button className="btn btn-primary" type="button" onClick={handleAddOrder} disabled={!canProceed || saving}>
-                    {saving ? 'Saving...' : totals.activePct > 5 && !discountRequest ? `Request Discount & Create Bill` : `Create Bill ₹${totals.gross.toFixed(2)}`}
+                {/* Create Bill Button */}
+                <div className="billing-create-bar">
+                  <button className="btn btn-primary billing-create-btn" type="button" onClick={handleAddOrder} disabled={!canProceed || saving}>
+                    {saving ? 'Creating Bill...' : totals.activePct > 5 && !discountRequest ? `Request Discount & Create Bill` : `Create Bill — ₹${totals.gross.toFixed(2)}`}
                   </button>
                 </div>
               </div>
@@ -1831,61 +1941,64 @@ const Billing = () => {
 
       {showPostBillOptions && (
         <div className="modal-backdrop">
-          <div className="modal" style={{ maxWidth: '400px', textAlign: 'center' }}>
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '48px', marginBottom: '12px' }}>✓</div>
-              <h2 className="section-title" style={{ marginBottom: '8px' }}>Bill Created Successfully</h2>
-              <p className="section-subtitle">Your order has been recorded.</p>
-              {lastOrderCustomerType !== 'Walk-in' && (
-                <div className="alert alert--warning mt-16" style={{ fontSize: '14px', textAlign: 'left' }}>
-                  <strong>Suggestion:</strong> This is a {lastOrderCustomerType} order. Please assign staff to track production progress.
-                </div>
-              )}
-            </div>
+          <div className="modal" style={{ maxWidth: '420px', textAlign: 'center' }}>
+            <div className="billing-success-icon">✓</div>
+            <h2 className="section-title" style={{ marginBottom: '6px' }}>
+              {lastOrderAutoDelivered ? 'Bill Created & Delivered!' : 'Bill Created!'}
+            </h2>
+            <p className="muted" style={{ fontSize: '14px', marginBottom: '20px' }}>
+              {lastOrderAutoDelivered
+                ? 'Fully paid walk-in order — automatically marked as Delivered.'
+                : 'Invoice has been recorded successfully.'}
+            </p>
+            {!lastOrderAutoDelivered && lastOrderCustomerType !== 'Walk-in' && (
+              <div className="alert alert--warning" style={{ fontSize: '13px', textAlign: 'left', marginBottom: '16px' }}>
+                <strong>Tip:</strong> Assign staff to track production for this {lastOrderCustomerType} order.
+              </div>
+            )}
 
-            {/* Invoice actions */}
-            <div className="row" style={{ gap: '8px', marginTop: '20px', justifyContent: 'center' }}>
+            <div className="row" style={{ gap: '8px', justifyContent: 'center', marginBottom: '16px' }}>
               <button
                 className="btn btn-ghost"
                 type="button"
                 onClick={() => lastBillData && downloadInvoicePDF(lastBillData)}
-                title="Download PDF"
               >
-                <Download size={16} /> Download PDF
+                <Download size={16} /> PDF
               </button>
               <button
                 className="btn btn-ghost"
                 type="button"
                 onClick={() => lastBillData && printInvoicePDF(lastBillData)}
-                title="Print Invoice"
               >
-                <Printer size={16} /> Print Invoice
+                <Printer size={16} /> Print
               </button>
             </div>
 
-            <div className="stack-md" style={{ marginTop: '16px' }}>
+            <div className="stack-sm">
+              {!lastOrderAutoDelivered && (
+                <button
+                  className="btn btn-primary btn--full"
+                  type="button"
+                  onClick={() => {
+                    setShowPostBillOptions(false);
+                    setShowAssignModal(true);
+                  }}
+                >
+                  Assign Staff
+                </button>
+              )}
               <button
-                className="btn btn-primary btn--full"
-                type="button"
-                onClick={() => {
-                  setShowPostBillOptions(false);
-                  setShowAssignModal(true);
-                }}
-              >
-                Assign Staff
-              </button>
-              <button
-                className="btn btn-ghost btn--full"
+                className={lastOrderAutoDelivered ? "btn btn-primary btn--full" : "btn btn-ghost btn--full"}
                 type="button"
                 onClick={async () => {
-                  const isConfirmed = await confirm({
-                    title: 'No Staff Assigned',
-                    message: 'You have not assigned any staff to this job. Are you sure you want to continue without assigning staff?',
-                    confirmText: 'Continue Without Staff',
-                    type: 'warning'
-                  });
-                  if (!isConfirmed) {
-                    return;
+                  if (!lastOrderAutoDelivered) {
+                    const isConfirmed = await confirm({
+                      title: 'No Staff Assigned',
+                      message: 'Continue without assigning staff to this job?',
+                      confirmText: 'Continue',
+                      type: 'warning'
+                    });
+                    if (!isConfirmed) return;
                   }
                   setShowPostBillOptions(false);
                 }}

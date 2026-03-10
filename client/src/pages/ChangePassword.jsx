@@ -7,6 +7,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 
 const ChangePassword = () => {
     const { confirm } = useConfirm();
+    const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -14,13 +15,25 @@ const ChangePassword = () => {
     const [success, setSuccess] = useState(false);
     const navigate = useNavigate();
 
+    const user = auth.getUser();
+    const isFirstLogin = user?.is_first_login;
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (newPassword !== confirmPassword) {
             return setError('Passwords do not match');
         }
-        if (newPassword.length < 4) {
-            return setError('Password must be at least 4 characters');
+        if (newPassword.length < 8) {
+            return setError('Password must be at least 8 characters');
+        }
+        if (!/[A-Z]/.test(newPassword)) {
+            return setError('Password must contain at least one uppercase letter');
+        }
+        if (!/[0-9]/.test(newPassword)) {
+            return setError('Password must contain at least one number');
+        }
+        if (!isFirstLogin && !currentPassword) {
+            return setError('Current password is required');
         }
         const isConfirmed = await confirm({
             title: 'Change Password',
@@ -36,7 +49,7 @@ const ChangePassword = () => {
         try {
             await api.post(
                 '/auth/change-password',
-                { newPassword }
+                { currentPassword, newPassword }
             );
 
             // Update local user state
@@ -80,6 +93,23 @@ const ChangePassword = () => {
                 )}
 
                 <form onSubmit={handleSubmit} className="stack-lg">
+                    {!isFirstLogin && (
+                        <div>
+                            <label className="label">Current Password</label>
+                            <div className="input-group">
+                                <Lock className="input-icon" size={18} />
+                                <input
+                                    type="password"
+                                    placeholder="Current Password"
+                                    className="input-field input-field--icon"
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     <div>
                         <label className="label">New Password</label>
                         <div className="input-group">

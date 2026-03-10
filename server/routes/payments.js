@@ -51,7 +51,7 @@ router.get('/payments', authenticateToken, async (req, res) => {
         const [rows] = await pool.query(`SELECT p.*, b.name as branch_name, v.name as vendor_name ${baseFrom} ORDER BY p.payment_date DESC, p.created_at DESC`, params);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -144,7 +144,7 @@ router.post('/payments', authenticateToken, validate(addPaymentSchema), async (r
         res.status(201).json({ id: result.insertId, message: 'Payment recorded successfully' });
     } catch (err) {
         console.error('Payment creation error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -155,7 +155,7 @@ router.delete('/payments/:id', authenticateToken, authorizeRoles('Admin', 'Accou
         auditLog(req.user.id, 'PAYMENT_DELETE', `Deleted payment record ${req.params.id}`);
         res.json({ message: 'Payment record deleted successfully' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -167,7 +167,7 @@ router.get('/payment-methods', authenticateToken, async (req, res) => {
         const [rows] = await pool.query("SELECT * FROM sarga_payment_methods WHERE is_active = 1 ORDER BY name ASC");
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -186,7 +186,7 @@ router.post('/payment-methods', authenticateToken, authorizeRoles('Admin', 'Acco
         res.status(201).json({ id: result.insertId, message: 'Payment method added successfully' });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Payment method already exists' });
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -206,7 +206,7 @@ router.put('/payment-methods/:id', authenticateToken, authorizeRoles('Admin', 'A
         res.json({ message: 'Payment method updated successfully' });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Payment method already exists' });
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -218,7 +218,7 @@ router.delete('/payment-methods/:id', authenticateToken, authorizeRoles('Admin',
         auditLog(req.user.id, 'PAYMENT_METHOD_DELETE', `Deleted payment method ${id}`);
         res.json({ message: 'Payment method deleted successfully' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 

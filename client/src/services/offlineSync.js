@@ -47,9 +47,9 @@ function emit(event) {
  */
 export async function prefetchBillingData() {
     const tasks = [
-        { key: CACHE_KEYS.HIERARCHY, url: '/product-hierarchy' },
-        { key: CACHE_KEYS.BRANCHES, url: '/branches' },
-        { key: CACHE_KEYS.MACHINES, url: '/machines' },
+        { key: CACHE_KEYS.HIERARCHY, url: 'product-hierarchy' },
+        { key: CACHE_KEYS.BRANCHES, url: 'branches' },
+        { key: CACHE_KEYS.MACHINES, url: 'machines' },
     ];
 
     const results = await Promise.allSettled(
@@ -108,7 +108,7 @@ export async function syncPendingBills() {
             // Step 1: Create jobs
             let createdJobs = [];
             if (bill.orderLines?.length > 0) {
-                const jobRes = await api.post('/jobs/bulk', {
+                const jobRes = await api.post('jobs/bulk', {
                     customer_id: bill.customerId || null,
                     order_lines: bill.orderLines,
                 });
@@ -116,7 +116,7 @@ export async function syncPendingBills() {
             }
 
             // Step 2: Create payment
-            await api.post('/customer-payments', {
+            await api.post('customer-payments', {
                 customer_id: bill.customerId || null,
                 customer_name: bill.customerName,
                 customer_mobile: bill.customerMobile || null,

@@ -239,7 +239,7 @@ router.get('/queue', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         console.error('Job priority queue error:', err);
-        res.status(500).json({ message: 'Failed to compute priority queue', error: err.message });
+        res.status(500).json({ message: 'Failed to compute priority queue' });
     }
 });
 
@@ -301,7 +301,7 @@ router.get('/machine/:id', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         console.error('Machine priority queue error:', err);
-        res.status(500).json({ message: 'Failed to compute machine queue', error: err.message });
+        res.status(500).json({ message: 'Failed to compute machine queue' });
     }
 });
 
@@ -329,7 +329,7 @@ router.post('/override', authenticateToken, authorizeRoles('Admin', 'Front Offic
         res.json({ message: `Job #${job_id} priority set to ${priority}` });
     } catch (err) {
         console.error('Priority override error:', err);
-        res.status(500).json({ message: 'Failed to update priority', error: err.message });
+        res.status(500).json({ message: 'Failed to update priority' });
     }
 });
 
@@ -384,7 +384,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         console.error('Priority stats error:', err);
-        res.status(500).json({ message: 'Failed to fetch stats', error: err.message });
+        res.status(500).json({ message: 'Failed to fetch stats' });
     }
 });
 

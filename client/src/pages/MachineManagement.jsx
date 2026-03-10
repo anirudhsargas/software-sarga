@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Plus, Edit2, Trash2, Power, PowerOff, Loader2, Building2, Settings,
     Users, UserPlus, X, Eye, Hash, Gauge, IndianRupee, ClipboardList,
-    Calendar, TrendingUp, Package, ChevronLeft, RefreshCw, Printer
+    Calendar, TrendingUp, Package, ChevronLeft, RefreshCw, Printer, AlertTriangle, CheckCircle, XCircle
 } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
@@ -40,6 +40,8 @@ const MachineManagement = () => {
     });
     const [readingForm, setReadingForm] = useState({ opening_count: '', closing_count: '', notes: '' });
     const [readingSaving, setReadingSaving] = useState(false);
+    const [countRequests, setCountRequests] = useState([]);
+    const [countRequestWorking, setCountRequestWorking] = useState(false);
 
     const machineTypes = ['Offset', 'Digital', 'Binding', 'Lamination', 'Cutting', 'Other'];
 
@@ -80,6 +82,7 @@ const MachineManagement = () => {
             setDetailLoading(true);
             const res = await api.get(`/machines/${id}`);
             setMachineDetails(res.data);
+            setCountRequests(res.data.pending_count_requests || []);
             // Pre-fill reading form with today's reading
             if (res.data.today_reading) {
                 setReadingForm({
@@ -88,7 +91,13 @@ const MachineManagement = () => {
                     notes: res.data.today_reading.notes || ''
                 });
             } else {
-                setReadingForm({ opening_count: '', closing_count: '', notes: '' });
+                // Auto-carry forward: pre-fill opening count from yesterday's closing count
+                const expected = res.data.expected_opening_count;
+                setReadingForm({
+                    opening_count: expected != null ? expected.toString() : '',
+                    closing_count: '',
+                    notes: ''
+                });
             }
         } catch (e) {
             console.error('Error fetching machine details:', e);
@@ -199,16 +208,33 @@ const MachineManagement = () => {
         setReadingSaving(true);
         try {
             const today = serverToday ? serverToday() : new Date().toISOString().split('T')[0];
-            await api.post(`/machines/${selectedMachine.id}/readings`, {
+            const res = await api.post(`/machines/${selectedMachine.id}/readings`, {
                 reading_date: today,
                 opening_count: readingForm.opening_count ? parseInt(readingForm.opening_count) : 0,
                 closing_count: readingForm.closing_count ? parseInt(readingForm.closing_count) : null,
                 notes: readingForm.notes || null
             });
+            if (res.data.count_request_created) {
+                toast('Count mismatch flagged — sent to admin for review', { icon: '⚠️', duration: 4000 });
+            } else {
+                toast.success('Counter reading saved');
+            }
             fetchMachineDetails(selectedMachine.id);
         } catch (e) {
             toast.error(e.response?.data?.error || 'Failed to save reading');
         } finally { setReadingSaving(false); }
+    };
+
+    // ─── Count Request Review (Admin) ──────────────────────────
+    const handleCountRequestReview = async (reqId, status, adminNote) => {
+        setCountRequestWorking(true);
+        try {
+            await api.put(`/machines/count-requests/${reqId}`, { status, admin_note: adminNote || null });
+            toast.success(`Count request ${status.toLowerCase()}`);
+            fetchMachineDetails(selectedMachine.id);
+        } catch (e) {
+            toast.error(e.response?.data?.error || 'Failed to review request');
+        } finally { setCountRequestWorking(false); }
     };
 
     // ─── Work Entry ──────────────────────────────────────────────
@@ -351,6 +377,22 @@ const MachineManagement = () => {
                                         disabled={machineDetails.today_reading && !isAdmin}
                                         placeholder="0"
                                     />
+                                    {/* Show expected count hint */}
+                                    {machineDetails.expected_opening_count != null && (
+                                        <div style={{ fontSize: 12, marginTop: 4, color: 'var(--clr-muted, #888)' }}>
+                                            Last count: <strong>{machineDetails.expected_opening_count.toLocaleString('en-IN')}</strong>
+                                        </div>
+                                    )}
+                                    {/* Warn if staff has changed from expected */}
+                                    {!isAdmin && !machineDetails.today_reading &&
+                                        machineDetails.expected_opening_count != null &&
+                                        readingForm.opening_count !== '' &&
+                                        parseInt(readingForm.opening_count) !== machineDetails.expected_opening_count && (
+                                        <div style={{ fontSize: 12, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--clr-warning, #d97706)' }}>
+                                            <AlertTriangle size={12} />
+                                            Differs from last count — will be sent to admin for review
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="form-group" style={{ flex: 1, minWidth: 140, margin: 0 }}>
                                     <label className="form-label text-sm">Closing Count</label>
@@ -359,6 +401,13 @@ const MachineManagement = () => {
                                         onChange={e => setReadingForm({ ...readingForm, closing_count: e.target.value })}
                                         placeholder="—"
                                     />
+                                    {/* Show calculated copies */}
+                                    {readingForm.closing_count !== '' && readingForm.opening_count !== '' &&
+                                        parseInt(readingForm.closing_count) > parseInt(readingForm.opening_count) && (
+                                        <div style={{ fontSize: 12, marginTop: 4, color: 'var(--clr-primary)' }}>
+                                            Copies today: <strong>{(parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count)).toLocaleString('en-IN')}</strong>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="form-group" style={{ flex: 2, minWidth: 200, margin: 0 }}>
                                     <label className="form-label text-sm">Notes</label>
@@ -396,6 +445,24 @@ const MachineManagement = () => {
                                     <tab.icon size={15} /> {tab.label}
                                 </button>
                             ))}
+                            {/* Count Requests tab — admin only */}
+                            {isAdmin && (
+                                <button
+                                    className={`btn ${detailTab === 'requests' ? 'btn-primary' : 'btn-ghost'}`}
+                                    onClick={() => setDetailTab('requests')}
+                                    style={{ borderRadius: '8px 8px 0 0', fontSize: 13, position: 'relative' }}>
+                                    <AlertTriangle size={15} /> Count Requests
+                                    {countRequests.length > 0 && (
+                                        <span style={{
+                                            position: 'absolute', top: 4, right: 4,
+                                            background: 'var(--clr-danger, #ef4444)', color: '#fff',
+                                            borderRadius: '50%', width: 16, height: 16,
+                                            fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontWeight: 700, lineHeight: 1
+                                        }}>{countRequests.length}</span>
+                                    )}
+                                </button>
+                            )}
                         </div>
 
                         {/* Tab Content */}
@@ -601,6 +668,79 @@ const MachineManagement = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Count Requests Tab (Admin only) */}
+                        {detailTab === 'requests' && isAdmin && (
+                            <div className="panel panel--tight">
+                                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--clr-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <AlertTriangle size={16} style={{ color: 'var(--clr-warning, #d97706)' }} />
+                                        Pending Count Mismatch Requests
+                                    </h3>
+                                    <span className="text-sm muted">Staff-entered counts that differ from the previous day's closing count</span>
+                                </div>
+                                <div className="table-scroll">
+                                    <table className="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Expected (Last Close)</th>
+                                                <th>Entered by Staff</th>
+                                                <th>Difference</th>
+                                                <th>Submitted By</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {countRequests.length === 0 ? (
+                                                <tr><td colSpan="6" className="text-center muted table-empty">No pending count requests</td></tr>
+                                            ) : countRequests.map(req => {
+                                                const diff = req.entered_count - (req.expected_count || 0);
+                                                return (
+                                                    <tr key={req.id}>
+                                                        <td className="font-medium">{new Date(req.reading_date).toLocaleDateString('en-IN')}</td>
+                                                        <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+                                                            {req.expected_count != null ? req.expected_count.toLocaleString('en-IN') : '—'}
+                                                        </td>
+                                                        <td style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>
+                                                            {req.entered_count.toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td style={{ fontFamily: 'var(--font-mono, monospace)', color: diff > 0 ? 'var(--clr-success)' : diff < 0 ? 'var(--clr-danger, #ef4444)' : undefined, fontWeight: 600 }}>
+                                                            {diff > 0 ? '+' : ''}{diff.toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className="text-sm">{req.submitted_by_name || '—'}</td>
+                                                        <td>
+                                                            <div className="row gap-sm">
+                                                                <button
+                                                                    className="btn btn-sm"
+                                                                    style={{ background: 'var(--clr-success)', color: '#fff', padding: '4px 10px', fontSize: 12 }}
+                                                                    disabled={countRequestWorking}
+                                                                    onClick={() => handleCountRequestReview(req.id, 'Approved', null)}>
+                                                                    <CheckCircle size={13} /> Approve
+                                                                </button>
+                                                                <button
+                                                                    className="btn btn-sm btn-danger"
+                                                                    style={{ padding: '4px 10px', fontSize: 12 }}
+                                                                    disabled={countRequestWorking}
+                                                                    onClick={() => handleCountRequestReview(req.id, 'Rejected', null)}>
+                                                                    <XCircle size={13} /> Reject
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {countRequests.length > 0 && (
+                                    <div className="text-sm muted" style={{ padding: '10px 16px', borderTop: '1px solid var(--clr-border)' }}>
+                                        <strong>Approve</strong> = accept the staff's entered count &nbsp;|&nbsp;
+                                        <strong>Reject</strong> = revert to the expected count (last day's closing)
+                                    </div>
+                                )}
                             </div>
                         )}
                     </>

@@ -34,7 +34,7 @@ router.get('/vendors', authenticateToken, async (req, res) => {
         const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -53,7 +53,7 @@ router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant',
         auditLog(req.user.id, 'VENDOR_ADD', `Added vendor: ${name} (${type})`, { entity_type: 'vendor', entity_id: result.insertId });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Payee name already exists' });
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -81,7 +81,7 @@ router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountan
         res.json({ message: 'Payee updated successfully' });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Payee name already exists' });
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -123,7 +123,7 @@ router.post('/vendor-purchases', authenticateToken, authorizeRoles('Admin', 'Acc
         res.status(201).json({ id: result.insertId, message: 'Purchase recorded' });
     } catch (err) {
         console.error('Quick purchase error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -156,7 +156,7 @@ router.get('/vendor-bills', authenticateToken, async (req, res) => {
         const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -191,11 +191,30 @@ router.post('/vendor-bills', authenticateToken, authorizeRoles('Admin', 'Account
                 "UPDATE sarga_inventory SET quantity = quantity + ? WHERE id = ?",
                 [item.quantity, item.inventory_item_id]
             );
+
+            // Auto-generate SKU for items that don't have one yet
+            const [[invItem]] = await connection.query("SELECT sku, category FROM sarga_inventory WHERE id = ?", [item.inventory_item_id]);
+            if (invItem && !invItem.sku) {
+                const prefix = (invItem.category || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
+                const autoSku = `${prefix}-${String(item.inventory_item_id).padStart(4, '0')}`;
+                await connection.query("UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL", [autoSku, item.inventory_item_id]);
+            }
         }
 
         await connection.commit();
+        
+        // Fetch updated items with SKUs for label suggestion
+        const itemIds = items.map(i => i.inventory_item_id);
+        const [updatedItems] = await pool.query(
+            "SELECT id, name, sku, quantity FROM sarga_inventory WHERE id IN (?)", [itemIds]
+        );
+        const labelSuggestions = items.map(i => {
+            const inv = updatedItems.find(u => u.id === Number(i.inventory_item_id));
+            return { inventory_item_id: i.inventory_item_id, name: inv?.name, sku: inv?.sku, quantity_added: i.quantity };
+        });
+
         auditLog(req.user.id, 'VENDOR_BILL_ADD', `Added bill ${bill_number} for vendor ${vendor_id}, total ${total_amount}`);
-        res.status(201).json({ id: billId, message: 'Bill recorded and inventory updated' });
+        res.status(201).json({ id: billId, label_suggestions: labelSuggestions, message: 'Bill recorded and inventory updated' });
     } catch (err) {
         await connection.rollback();
         console.error('Vendor bill error:', err);
@@ -227,6 +246,11 @@ router.get('/vendors/:id/statement', authenticateToken, async (req, res) => {
 
         const [payee] = await pool.query("SELECT * FROM sarga_vendors WHERE id = ?", [id]);
 
+        // Compute outstanding balance
+        const totalPurchases = bills.reduce((s, b) => s + Number(b.total_amount || 0), 0);
+        const totalPaid = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+        const outstandingBalance = totalPurchases - totalPaid;
+
         // Combine and sort by date
         const transactions = [...payments, ...bills].sort((a, b) => {
             const dateA = new Date(a.payment_date || a.bill_date);
@@ -236,11 +260,16 @@ router.get('/vendors/:id/statement', authenticateToken, async (req, res) => {
 
         res.json({
             payee: payee[0],
-            transactions: transactions
+            transactions: transactions,
+            summary: {
+                total_purchases: totalPurchases,
+                total_paid: totalPaid,
+                outstanding_balance: outstandingBalance
+            }
         });
     } catch (err) {
         console.error('Statement error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 

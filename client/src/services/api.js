@@ -3,14 +3,20 @@ import axios from 'axios';
 // Centralized API URL for mobile/network access
 export const API_URL =
     import.meta.env.VITE_API_BASE_URL ||
-    `http://${window.location.hostname}:5000/api`;
+    `${window.location.protocol}//${window.location.hostname}:5000/api/`;
 
 const api = axios.create({
-    baseURL: API_URL
+    baseURL: API_URL,
+    timeout: 30000
 });
 
-// Automatically attach auth token to every request
+// Automatically attach auth token to every request and fix absolute routes
 api.interceptors.request.use((config) => {
+    // Ensure URL is relative to baseURL by stripping leading slash
+    if (config.url && config.url.startsWith('/')) {
+        config.url = config.url.substring(1);
+    }
+
     const token = localStorage.getItem('token');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;

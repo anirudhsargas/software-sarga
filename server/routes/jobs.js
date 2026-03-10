@@ -249,7 +249,7 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
 // List All Jobs (with Customer details)
 router.get('/jobs', authenticateToken, async (req, res) => {
     try {
-        const { search, status, branch_id: qBranch } = req.query;
+        const { search, status, branch_id: qBranch, category } = req.query;
         const { page, limit, offset } = parsePagination(req);
         const usePagination = !!req.query.page;
 
@@ -265,7 +265,7 @@ router.get('/jobs', authenticateToken, async (req, res) => {
             myStatusParams.push(req.user.id, req.user.role);
         }
 
-        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+        if (!['Admin', 'Accountant', 'Front Office', 'front office'].includes(req.user.role)) {
             // Show jobs assigned to this staff directly OR by role, restricted to their branch
             const userBranchId = await getUserBranchId(req.user.id);
             where += ' AND EXISTS (SELECT 1 FROM sarga_job_staff_assignments jsa WHERE jsa.job_id = j.id AND (jsa.staff_id = ? OR (jsa.staff_id IS NULL AND jsa.role = ?)))';
@@ -273,6 +273,19 @@ router.get('/jobs', authenticateToken, async (req, res) => {
             if (userBranchId) {
                 where += ' AND j.branch_id = ?';
                 params.push(userBranchId);
+            }
+        } else if (!['Admin', 'Accountant'].includes(req.user.role)) {
+            // Front Office: can see all jobs in their branch
+            try {
+                const userBranchId = await getUserBranchId(req.user.id);
+                if (userBranchId && !qBranch) {
+                    where += ' AND j.branch_id = ?';
+                    params.push(userBranchId);
+                }
+            } catch (e) { /* ignore if no branch assigned */ }
+            if (qBranch) {
+                where += ' AND j.branch_id = ?';
+                params.push(qBranch);
             }
         } else if (qBranch) {
             where += ' AND j.branch_id = ?';
@@ -282,10 +295,20 @@ router.get('/jobs', authenticateToken, async (req, res) => {
             where += ' AND j.status = ?';
             params.push(status);
         }
+        if (category) {
+            const cat = String(category).trim().toUpperCase();
+            if (cat === 'OTHER') {
+                // "Others" means everything except explicit Offset/Laser buckets.
+                where += " AND (j.category IS NULL OR UPPER(j.category) NOT IN ('OFFSET', 'LASER'))";
+            } else {
+                where += ' AND UPPER(COALESCE(j.category, "")) = ?';
+                params.push(cat);
+            }
+        }
         if (search) {
-            where += ' AND (COALESCE(c.name, "Walk-in") LIKE ? OR c.mobile LIKE ? OR j.id LIKE ?)';
+            where += ' AND (COALESCE(c.name, "Walk-in") LIKE ? OR c.mobile LIKE ? OR j.id LIKE ? OR j.job_name LIKE ?)';
             const s = `%${search}%`;
-            params.push(s, s, s);
+            params.push(s, s, s, s);
         }
 
         const baseFrom = `
@@ -310,7 +333,7 @@ router.get('/jobs', authenticateToken, async (req, res) => {
         res.json(rows);
     } catch (err) {
         console.error('List jobs error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -363,20 +386,32 @@ router.get('/jobs/completed-by-date', authenticateToken, async (req, res) => {
         res.json(rows);
     } catch (err) {
         console.error('Error fetching completed jobs:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
-// List Jobs for a specific Customer
+// List Jobs for a specific Customer (with optional search by name)
 router.get('/customers/:id/jobs', authenticateToken, async (req, res) => {
     try {
-        console.log('Fetching jobs for customer:', req.params.id);
-        const [rows] = await pool.query("SELECT * FROM sarga_jobs WHERE customer_id = ? ORDER BY created_at DESC", [req.params.id]);
+        const customerId = req.params.id;
+        const { search } = req.query;
+        console.log('Fetching jobs for customer:', customerId, 'search=', search);
+
+        let sql = "SELECT * FROM sarga_jobs WHERE customer_id = ?";
+        const params = [customerId];
+
+        if (search) {
+            sql += " AND job_name LIKE ?";
+            params.push(`%${search}%`);
+        }
+
+        sql += " ORDER BY created_at DESC";
+        const [rows] = await pool.query(sql, params);
         console.log('Found jobs:', rows.length);
         res.json(rows);
     } catch (err) {
         console.error('Error fetching customer jobs:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -504,7 +539,7 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
     } catch (err) {
         await connection.rollback();
         console.error('Bulk job creation error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     } finally {
         connection.release();
     }
@@ -584,7 +619,7 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
 
         // Post-commit side effects (non-critical, outside transaction)
         if (product_id) {
-            bumpUsageForUser(req.user.id, product_id).catch(() => {});
+            bumpUsageForUser(req.user.id, product_id).catch(() => { });
         }
 
         const { calculateAndUpdateJobCost } = require('../helpers/jobCost');
@@ -606,7 +641,7 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
     } catch (err) {
         await connection.rollback();
         console.error("Job create error:", err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     } finally {
         connection.release();
     }
@@ -675,7 +710,7 @@ router.get('/product-hierarchy', authenticateToken, async (req, res) => {
         res.json(hierarchy);
     } catch (err) {
         console.error('Hierarchy error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -731,7 +766,7 @@ router.get('/jobs/assignments/suggestions', authenticateToken, async (req, res) 
 
         res.json({ suggestions });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -829,7 +864,7 @@ router.post('/jobs/assignments/bulk', authenticateToken, async (req, res) => {
         auditLog(req.user.id, 'JOB_ASSIGNMENT_BULK', `Assigned staff to ${assignments.length} jobs`, { entity_type: 'job_assignment' });
         res.json({ message: 'Assignments saved', count: assignments.length });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -853,7 +888,47 @@ router.put('/jobs/assignments/:id/status', authenticateToken, async (req, res) =
         res.json({ message: 'Assignment status updated successfully' });
     } catch (err) {
         console.error('Update assignment status error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// GET /jobs/offset-pending — Fetch jobs explicitly for Offset Print Ganging (Plate Management)
+router.get('/jobs/offset-pending', authenticateToken, async (req, res) => {
+    try {
+        const { branch_id: qBranch } = req.query;
+
+        // Fetch jobs where category is 'Offset' and status is pending/processing (i.e. not completed, delivered, cancelled)
+        let where = " AND j.category = 'Offset' AND j.status NOT IN ('Completed', 'Delivered', 'Cancelled')";
+        const params = [];
+
+        // Apply branch filtering
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+            const branchId = await getUserBranchId(req.user.id);
+            if (branchId) {
+                where += ' AND j.branch_id = ?';
+                params.push(branchId);
+            }
+        } else if (qBranch) {
+            where += ' AND j.branch_id = ?';
+            params.push(qBranch);
+        }
+
+        const [rows] = await pool.query(`
+            SELECT 
+                j.id, j.job_number, j.job_name, j.quantity, j.status, j.created_at,
+                j.description, j.subcategory,
+                b.name as branch_name, COALESCE(c.name, 'Walk-in') as customer_name
+            FROM sarga_jobs j
+            LEFT JOIN sarga_branches b ON j.branch_id = b.id
+            LEFT JOIN sarga_customers c ON j.customer_id = c.id
+            WHERE 1=1 ${where}
+            ORDER BY j.created_at ASC
+        `, params);
+
+        res.json(rows);
+    } catch (err) {
+        console.error('Fetch offset-pending jobs error:', err);
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -892,16 +967,17 @@ router.get('/jobs/:id', authenticateToken, async (req, res) => {
             WHERE jsa.job_id = ?
         `, [id]);
 
-        // Payment history
+        // Payment history — link via payment_id on the job
         let payments = [];
         try {
-            const [rows] = await pool.query(`
-                SELECT * FROM sarga_customer_payments
-                WHERE job_id = ?
-                ORDER BY payment_date DESC
-            `, [id]);
-            payments = rows;
-        } catch (e) { /* column may not exist in older schema */ }
+            if (job.payment_id) {
+                const [rows] = await pool.query(
+                    `SELECT * FROM sarga_customer_payments WHERE id = ?`,
+                    [job.payment_id]
+                );
+                payments = rows;
+            }
+        } catch (e) { /* ignore if column not yet migrated */ }
 
         // Status history
         let statusHistory = [];
@@ -923,7 +999,7 @@ router.get('/jobs/:id', authenticateToken, async (req, res) => {
         res.json({ job: { ...job, ...analytics }, assignments, payments, statusHistory });
     } catch (err) {
         console.error('Error fetching job details:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -940,6 +1016,22 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
     const VALID_JOB_STATUSES = ['Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production', 'Approval Pending', 'Completed', 'Delivered', 'Cancelled'];
     const VALID_PAYMENT_STATUSES = ['Unpaid', 'Partial', 'Paid'];
 
+    // Status transition matrix — defines which statuses can move to which (C-06)
+    const VALID_TRANSITIONS = {
+        'Pending': ['Processing', 'Designing', 'Printing', 'Production', 'Cancelled'],
+        'Processing': ['Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production', 'Approval Pending', 'Completed', 'Cancelled'],
+        'Designing': ['Processing', 'Printing', 'Approval Pending', 'Cancelled'],
+        'Printing': ['Cutting', 'Lamination', 'Binding', 'Completed', 'Cancelled'],
+        'Cutting': ['Lamination', 'Binding', 'Completed', 'Cancelled'],
+        'Lamination': ['Cutting', 'Binding', 'Completed', 'Cancelled'],
+        'Binding': ['Completed', 'Cancelled'],
+        'Production': ['Approval Pending', 'Completed', 'Cancelled'],
+        'Approval Pending': ['Completed', 'Cancelled', 'Processing', 'Designing'],
+        'Completed': ['Delivered'],
+        'Delivered': [],
+        'Cancelled': ['Pending']
+    };
+
     if (updates.status !== undefined && !VALID_JOB_STATUSES.includes(updates.status)) {
         return res.status(400).json({ message: `Invalid status. Allowed: ${VALID_JOB_STATUSES.join(', ')}` });
     }
@@ -954,6 +1046,29 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Job not found' });
         }
         const currentJob = currentRows[0];
+
+        // Cannot mark as Delivered unless fully paid.
+        if (updates.status === 'Delivered') {
+            const total = updates.total_amount !== undefined ? Number(updates.total_amount) : Number(currentJob.total_amount);
+            const paid = updates.advance_paid !== undefined ? Number(updates.advance_paid) : Number(currentJob.advance_paid);
+            const remaining = Math.max(total - paid, 0);
+            if (remaining > 0) {
+                return res.status(409).json({
+                    message: 'Cannot mark as Delivered until full payment is collected.',
+                    remaining_amount: Number(remaining.toFixed(2)),
+                    customer_id: currentJob.customer_id || null,
+                    job_id: Number(id)
+                });
+            }
+        }
+
+        // Validate status transition (C-06)
+        if (updates.status !== undefined && updates.status !== currentJob.status) {
+            const allowed = VALID_TRANSITIONS[currentJob.status] || [];
+            if (!allowed.includes(updates.status)) {
+                return res.status(400).json({ message: `Cannot transition from '${currentJob.status}' to '${updates.status}'. Allowed: ${allowed.join(', ') || 'none'}` });
+            }
+        }
 
         const fields = [];
         const params = [];
@@ -1019,18 +1134,29 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
         res.json({ message: 'Job updated successfully' });
     } catch (err) {
         console.error('Update failure:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
 // Delete Job
 router.delete('/jobs/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     try {
+        // Check for linked payments before deletion (C-01)
+        const [payments] = await pool.query(
+            "SELECT COUNT(*) as cnt FROM sarga_customer_payments WHERE JSON_CONTAINS(job_ids, CAST(? AS JSON))",
+            [req.params.id]
+        ).catch(() => [[{ cnt: 0 }]]); // Fallback if job_ids column doesn't exist
+
+        if (payments[0].cnt > 0) {
+            return res.status(409).json({ message: `Cannot delete: ${payments[0].cnt} payment(s) linked to this job. Remove payments first.` });
+        }
+
         await pool.query("DELETE FROM sarga_jobs WHERE id = ?", [req.params.id]);
         auditLog(req.user.id, 'JOB_DELETE', `Deleted job ${req.params.id}`);
         res.json({ message: 'Job deleted successfully' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        console.error('Delete job error:', err);
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -1083,7 +1209,7 @@ router.post('/jobs/:id/repeat', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         console.error('Repeat order error:', err);
-        res.status(500).json({ message: 'Failed to repeat order', error: err.message });
+        res.status(500).json({ message: 'Failed to repeat order' });
     }
 });
 
@@ -1123,7 +1249,7 @@ router.get('/jobs/:id/paper-logs', authenticateToken, async (req, res) => {
     } catch (err) {
         if (err.code === 'ER_NO_SUCH_TABLE') return res.json({ logs: [], summary: { required_sheets: 0, used_sheets: 0, paper_size: null, total_logged_used: 0, total_logged_waste: 0, waste_sheets: 0, waste_percent: '0' } });
         console.error('Paper logs error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -1160,7 +1286,7 @@ router.post('/jobs/:id/paper-logs', authenticateToken, async (req, res) => {
             return res.status(500).json({ message: 'Paper logging table not initialized. Restart server to auto-create.' });
         }
         console.error('Paper log error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -1177,7 +1303,7 @@ router.delete('/jobs/:jobId/paper-logs/:logId', authenticateToken, async (req, r
         auditLog(req.user.id, 'PAPER_LOG_DELETE', `Deleted paper log #${req.params.logId} from job ${req.params.jobId}`, { entity_type: 'paper_log', entity_id: req.params.logId });
         res.json({ message: 'Paper log deleted' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -1264,7 +1390,7 @@ router.get('/jobs/:id/proofs', authenticateToken, async (req, res) => {
     } catch (err) {
         if (err.code === 'ER_NO_SUCH_TABLE') return res.json([]);
         console.error('Proofs list error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -1342,7 +1468,7 @@ router.post('/jobs/:id/proofs', authenticateToken, uploadProof.single('file'), a
                 checks: analysis.checks
             };
 
-            auditLog(req.user.id, 'AUTO_DESIGN_CHECK', 
+            auditLog(req.user.id, 'AUTO_DESIGN_CHECK',
                 `Auto design check for proof v${nextVersion} of job ${jobId}: ${analysis.passed ? 'PASSED' : 'FAILED'} (${analysis.critical_issues} critical, ${analysis.warnings} warnings)`,
                 { entity_type: 'job', entity_id: jobId }
             );
@@ -1352,16 +1478,16 @@ router.post('/jobs/:id/proofs', authenticateToken, uploadProof.single('file'), a
             designCheckResult = { error: 'Design check could not be completed', message: dcErr.message };
         }
 
-        res.status(201).json({ 
-            id: result.insertId, 
-            version: nextVersion, 
+        res.status(201).json({
+            id: result.insertId,
+            version: nextVersion,
             message: `Proof v${nextVersion} uploaded`,
             designCheck: designCheckResult
         });
     } catch (err) {
         await removeProofFile(`/uploads/proofs/${req.file.filename}`);
         console.error('Proof upload error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -1407,7 +1533,7 @@ router.put('/jobs/:id/proofs/:proofId/review', authenticateToken, async (req, re
         res.json({ message: `Proof ${status.toLowerCase()}` });
     } catch (err) {
         console.error('Proof review error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -1425,9 +1551,11 @@ router.delete('/jobs/:id/proofs/:proofId', authenticateToken, async (req, res) =
         auditLog(req.user.id, 'PROOF_DELETE', `Deleted proof from job ${req.params.id}`);
         res.json({ message: 'Proof deleted' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
+
+
 
 module.exports = { router, syncJobToMachineWorkEntry, invalidateHierarchyCache };
 

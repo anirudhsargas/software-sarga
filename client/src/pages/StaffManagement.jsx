@@ -36,7 +36,7 @@ const StaffManagement = () => {
     const [total, setTotal] = useState(0);
     const [selectedBranchFilter, setSelectedBranchFilter] = useState('');
 
-    const fileBaseUrl = API_URL.replace(/\/api$/, '');
+    const fileBaseUrl = API_URL.replace(/\/api\/?$/, '');
 
     const roles = ['Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'];
 

@@ -4,12 +4,15 @@ require('dotenv').config();
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  // Enable SSL when DB_SSL=true (required for Aiven and most cloud MySQL providers)
+  ...(process.env.DB_SSL === 'true' && { ssl: { rejectUnauthorized: false } }),
 });
 
 const initDb = async () => {
@@ -100,9 +103,52 @@ const initDb = async () => {
         hsn VARCHAR(20),
         discount DECIMAL(5, 2) DEFAULT 0,
         gst_rate DECIMAL(5, 2) DEFAULT 0,
+        source_code VARCHAR(3),
+        model_name VARCHAR(100),
+        size_code VARCHAR(10),
+        item_type ENUM('Retail', 'Consumable') DEFAULT 'Retail',
+        vendor_name VARCHAR(255),
+        vendor_contact VARCHAR(255),
+        purchase_link TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Add columns if upgrading existing DB
+    try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN source_code VARCHAR(3)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN model_name VARCHAR(100)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN size_code VARCHAR(10)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query("ALTER TABLE sarga_inventory ADD COLUMN item_type ENUM('Retail', 'Consumable') DEFAULT 'Retail'"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN vendor_name VARCHAR(255)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN vendor_contact VARCHAR(255)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN purchase_link TEXT'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+
+    // Inventory Consumption Auditing
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_inventory_consumption (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        inventory_item_id INT NOT NULL,
+        quantity_consumed DECIMAL(10, 2) NOT NULL,
+        consumed_by_user_id INT NOT NULL,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (inventory_item_id) REFERENCES sarga_inventory(id) ON DELETE CASCADE,
+        FOREIGN KEY (consumed_by_user_id) REFERENCES sarga_staff(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Inventory Reorders Tracking
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_inventory_reorders (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        inventory_item_id INT NOT NULL,
+        quantity_received DECIMAL(10, 2) NOT NULL,
+        cost_price DECIMAL(10, 2) NOT NULL,
+        days_since_last_reorder INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (inventory_item_id) REFERENCES sarga_inventory(id) ON DELETE CASCADE
+      )
+    `);
+
 
     // Customers Table
     await connection.query(`
@@ -645,6 +691,8 @@ const initDb = async () => {
         branch_id INT,
         reference_number VARCHAR(100),
         description TEXT,
+        discount_percent DECIMAL(5,2) DEFAULT 0,
+        discount_amount DECIMAL(12,2) DEFAULT 0,
         payment_date DATE NOT NULL,
         order_lines JSON,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -687,7 +735,8 @@ const initDb = async () => {
       { name: 'applied_extras', type: 'JSON' },
       { name: 'category', type: 'VARCHAR(100)' },
       { name: 'subcategory', type: 'VARCHAR(100)' },
-      { name: 'machine_id', type: 'INT' }
+      { name: 'machine_id', type: 'INT' },
+      { name: 'payment_id', type: 'INT DEFAULT NULL' }
     ];
 
     for (const col of jobsCols) {
@@ -714,7 +763,13 @@ const initDb = async () => {
       { name: 'cash_amount', type: 'DECIMAL(12, 2) DEFAULT 0' },
       { name: 'upi_amount', type: 'DECIMAL(12, 2) DEFAULT 0' },
       { name: 'order_lines', type: 'JSON' },
-      { name: 'branch_id', type: 'INT' }
+      { name: 'branch_id', type: 'INT' },
+      { name: 'discount_percent', type: 'DECIMAL(5,2) DEFAULT 0' },
+      { name: 'discount_amount', type: 'DECIMAL(12,2) DEFAULT 0' },
+      { name: 'verification_status', type: "ENUM('Pending','Verified','Rejected','Not in Statement') DEFAULT 'Pending'" },
+      { name: 'verified_by', type: 'INT' },
+      { name: 'verified_at', type: 'TIMESTAMP NULL' },
+      { name: 'verification_note', type: 'TEXT' }
     ];
 
     for (const col of payCols) {
@@ -722,6 +777,11 @@ const initDb = async () => {
         await connection.query(`ALTER TABLE sarga_customer_payments ADD COLUMN ${col.name} ${col.type}`);
       } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
     }
+
+    // Ensure verification_status ENUM includes 'Not in Statement'
+    try {
+      await connection.query(`ALTER TABLE sarga_customer_payments MODIFY COLUMN verification_status ENUM('Pending','Verified','Rejected','Not in Statement') DEFAULT 'Pending'`);
+    } catch (err) { /* ignore if already correct */ }
 
     // Customer Refunds Table
     await connection.query(`
@@ -996,6 +1056,26 @@ const initDb = async () => {
         FOREIGN KEY (created_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
         FOREIGN KEY (updated_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
         UNIQUE KEY unique_machine_date (machine_id, reading_date)
+      )
+    `);
+
+    // Machine Counter Mismatch Requests
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_machine_count_requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        machine_id INT NOT NULL,
+        reading_date DATE NOT NULL,
+        expected_count INT DEFAULT NULL,
+        entered_count INT NOT NULL,
+        submitted_by INT,
+        status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
+        admin_note TEXT,
+        reviewed_by INT,
+        reviewed_at DATETIME,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (machine_id) REFERENCES sarga_machines(id) ON DELETE CASCADE,
+        FOREIGN KEY (submitted_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
+        FOREIGN KEY (reviewed_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
       )
     `);
 
@@ -1490,6 +1570,10 @@ const initDb = async () => {
     await safeIndex('idx_attreq_status', 'CREATE INDEX idx_attreq_status ON sarga_attendance_requests (status)');
     await safeIndex('idx_vendreq_status', 'CREATE INDEX idx_vendreq_status ON sarga_vendor_requests (status)');
 
+    // Machine count requests — status lookup
+    await safeIndex('idx_mcount_status', 'CREATE INDEX idx_mcount_status ON sarga_machine_count_requests (status)');
+    await safeIndex('idx_mcount_machine', 'CREATE INDEX idx_mcount_machine ON sarga_machine_count_requests (machine_id)');
+
     // Refunds — job lookup
     await safeIndex('idx_refunds_job', 'CREATE INDEX idx_refunds_job ON sarga_refunds (job_id)');
     await safeIndex('idx_refunds_customer', 'CREATE INDEX idx_refunds_customer ON sarga_refunds (customer_id)');
@@ -1500,6 +1584,13 @@ const initDb = async () => {
 
     // Job proofs — job lookup
     await safeIndex('idx_proofs_job', 'CREATE INDEX idx_proofs_job ON sarga_job_proofs (job_id)');
+
+    // Additional performance indexes
+    await safeIndex('idx_staff_userid', 'CREATE INDEX idx_staff_userid ON sarga_staff (user_id)');
+    await safeIndex('idx_att_staff', 'CREATE INDEX idx_att_staff ON sarga_staff_attendance (staff_id)');
+    await safeIndex('idx_salary_staff', 'CREATE INDEX idx_salary_staff ON sarga_staff_salary (staff_id)');
+    await safeIndex('idx_inventory_sku', 'CREATE INDEX idx_inventory_sku ON sarga_inventory (sku)');
+    await safeIndex('idx_customers_mobile', 'CREATE INDEX idx_customers_mobile ON sarga_customers (mobile)');
 
     console.log('Database initialized successfully');
   } catch (err) {

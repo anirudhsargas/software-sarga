@@ -49,6 +49,7 @@ const DailyReport = () => {
     const [promptMachines, setPromptMachines] = useState([]);
     const [savingPrompt, setSavingPrompt] = useState(false);
     const [promptDone, setPromptDone] = useState(false);
+    const [prevClosing, setPrevClosing] = useState({ Offset: 0, Laser: 0, Other: 0 });
 
     // Tab data
     const [offsetData, setOffsetData] = useState({ entries: [], summary: {} });
@@ -115,14 +116,27 @@ const DailyReport = () => {
                 const anyEntered = Object.values(balances).some(v => Number(v) > 0);
                 const anyLocked = Object.values(locked).some(v => v);
                 if (!anyEntered && !anyLocked && !promptDone) {
+                    // Fetch previous day closing to pre-fill inputs
+                    let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
+                    try {
+                        const prevRes = await api.get('/daily-report/previous-closing', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
+                        prevData = prevRes.data;
+                    } catch { }
+                    setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
+
                     try {
                         const machRes = await api.get('/machines', { params: { branch_id: selectedBranch || branchParam } });
                         const digitalMachines = (machRes.data || []).filter(m => m.machine_type === 'Digital');
                         setPromptMachines(digitalMachines.map(m => ({
-                            id: m.id, machine_name: m.machine_name, location: m.location, opening_count: ''
+                            id: m.id, machine_name: m.machine_name, location: m.location,
+                            opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''
                         })));
                     } catch { }
-                    setPromptBalances({ Offset: '', Laser: '', Other: '' });
+                    setPromptBalances({
+                        Offset: prevData.Offset > 0 ? String(prevData.Offset) : '',
+                        Laser:  prevData.Laser  > 0 ? String(prevData.Laser)  : '',
+                        Other:  prevData.Other  > 0 ? String(prevData.Other)  : '',
+                    });
                     setShowOpeningPrompt(true);
                 }
             } catch (err) { console.error('Error checking opening balance:', err); }
@@ -901,11 +915,18 @@ const DailyReport = () => {
                                                 <div style={{ width: 8, height: 8, borderRadius: 3, background: tab.color }} />
                                                 {tab.label}
                                             </div>
-                                            <input type="number" className="input-field"
-                                                value={promptBalances[tab.key]}
-                                                onChange={(e) => setPromptBalances(prev => ({ ...prev, [tab.key]: e.target.value }))}
-                                                placeholder="₹ 0.00" step="0.01" style={{ flex: 1 }}
-                                            />
+                                            <div style={{ flex: 1, position: 'relative' }}>
+                                                <input type="number" className="input-field"
+                                                    value={promptBalances[tab.key]}
+                                                    onChange={(e) => setPromptBalances(prev => ({ ...prev, [tab.key]: e.target.value }))}
+                                                    placeholder="₹ 0.00" step="0.01" style={{ width: '100%' }}
+                                                />
+                                                {prevClosing[tab.key] > 0 && (
+                                                    <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--muted)', pointerEvents: 'none' }}>
+                                                        prev: ₹{Number(prevClosing[tab.key]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

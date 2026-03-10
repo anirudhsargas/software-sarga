@@ -6,6 +6,38 @@ const { validate, addInventorySchema } = require('../middleware/validate');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
+const multer = require('multer');
+const os = require('os');
+const path = require('path');
+const fs = require('fs');
+const { extractBillData } = require('../utils/ocrParser');
+
+// Configure Multer for file uploads (temporary storage)
+const upload = multer({ dest: os.tmpdir() });
+
+const normalizeScannedCode = (value) => String(value || '').trim().replace(/\s+/g, '').toUpperCase();
+
+async function findInventoryByScannedCode(rawCode) {
+    const normalized = normalizeScannedCode(rawCode);
+    if (!normalized) return { normalized, item: null, matchType: null };
+
+    let rows;
+    const itemIdMatch = normalized.match(/^ITEM-(\d+)$/i);
+
+    if (itemIdMatch) {
+        [rows] = await pool.query(
+            'SELECT i.*, p.image_url FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id WHERE i.id = ? LIMIT 1',
+            [itemIdMatch[1]]
+        );
+        return { normalized, item: rows[0] || null, matchType: rows[0] ? 'fallback-id' : null };
+    }
+
+    [rows] = await pool.query(
+        "SELECT i.*, p.image_url FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id WHERE REPLACE(UPPER(i.sku), ' ', '') = ? LIMIT 1",
+        [normalized]
+    );
+    return { normalized, item: rows[0] || null, matchType: rows[0] ? 'sku' : null };
+}
 
 // --- INVENTORY ROUTES (Admin Only) ---
 
@@ -28,13 +60,114 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
         const [rows] = await pool.query(dataQuery);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Lookup inventory item by SKU — used by billing QR scan and sidebar scanner
+router.get('/inventory/by-sku/:sku', authenticateToken, async (req, res) => {
+    try {
+        const rawSku = req.params.sku || '';
+        const { normalized, item } = await findInventoryByScannedCode(rawSku);
+        if (!item) return res.status(404).json({ message: `No item found for code: ${rawSku}` });
+
+        // Use stored mrp first; fall back to formula
+        const costPrice = Number(item.cost_price) || 0;
+        const gstRate = Number(item.gst_rate) || 0;
+        const gstAmount = (costPrice * gstRate) / 100;
+        const calculatedMrp = (costPrice + gstAmount) * 2;
+        const finalMrp = Number(item.mrp) || calculatedMrp || 0;
+
+        res.json({ ...item, scanned_code: normalized, mrp: finalMrp % 1 === 0 ? finalMrp.toFixed(0) : finalMrp.toFixed(2) });
+    } catch (err) {
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Quick verification endpoint for scanner diagnostics
+router.get('/inventory/qr-diagnostic/:code', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
+    try {
+        const rawCode = req.params.code || '';
+        const { normalized, item, matchType } = await findInventoryByScannedCode(rawCode);
+
+        if (!normalized) {
+            return res.status(400).json({
+                found: false,
+                input: rawCode,
+                normalized: '',
+                message: 'Empty/invalid code'
+            });
+        }
+
+        if (!item) {
+            return res.status(404).json({
+                found: false,
+                input: rawCode,
+                normalized,
+                message: 'No inventory item matches this code'
+            });
+        }
+
+        res.json({
+            found: true,
+            input: rawCode,
+            normalized,
+            match_type: matchType,
+            item: {
+                id: item.id,
+                sku: item.sku,
+                name: item.name,
+                category: item.category,
+                quantity: item.quantity,
+                reorder_level: item.reorder_level,
+                image_url: item.image_url
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Extract data from uploaded bill
+router.post('/inventory/extract-bill', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('bill_file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        const filePath = req.file.path;
+        const mimeType = req.file.mimetype;
+
+        // Ensure supported type
+        if (!['image/jpeg', 'image/png', 'application/pdf'].includes(mimeType)) {
+            await fs.promises.unlink(filePath).catch(() => { });
+            return res.status(400).json({ message: 'Unsupported file type. Please upload a JPG, PNG, or PDF.' });
+        }
+
+        const extractedData = await extractBillData(filePath, mimeType);
+
+        // Clean up uploaded file
+        await fs.promises.unlink(filePath).catch(console.error);
+
+        res.json(extractedData);
+    } catch (err) {
+        console.error('OCR Extraction error:', err);
+        if (req.file) {
+            await fs.promises.unlink(req.file.path).catch(() => { });
+        }
+        res.status(500).json({ message: 'Failed to extract data from bill' });
     }
 });
 
 // Add Inventory Item
+// Auto-generate SKU from category prefix + item ID
+function generateAutoSku(category, itemId) {
+    const prefix = (category || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '');
+    return `${prefix || 'INV'}-${String(itemId).padStart(4, '0')}`;
+}
+
 router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(addInventorySchema), async (req, res) => {
-    const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id } = req.body;
+    const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link } = req.body;
 
     try {
         // 1. Check if an item with the same SKU already exists
@@ -58,7 +191,8 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
             const newQuantity = Number(existingItem.quantity) + (Number(quantity) || 0);
             await pool.query(
                 `UPDATE sarga_inventory 
-                 SET quantity = ?, sku = COALESCE(?, sku), category = ?, unit = ?, reorder_level = ?, cost_price = ?, sell_price = ?, hsn = ?, discount = ?, gst_rate = ?
+                 SET quantity = ?, sku = COALESCE(?, sku), category = ?, unit = ?, reorder_level = ?, cost_price = ?, sell_price = ?, hsn = ?, discount = ?, gst_rate = ?,
+                     source_code = ?, model_name = ?, size_code = ?, item_type = ?, vendor_name = ?, vendor_contact = ?, purchase_link = ?
                  WHERE id = ?`,
                 [
                     newQuantity,
@@ -71,6 +205,13 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
                     hsn || null,
                     Number(discount) || 0,
                     Number(gst_rate) || 0,
+                    source_code || null,
+                    model_name || null,
+                    size_code || null,
+                    item_type || 'Retail',
+                    vendor_name || null,
+                    vendor_contact || null,
+                    purchase_link || null,
                     existingItem.id
                 ]
             );
@@ -89,8 +230,8 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
 
         // 3. Normal Insert if no existing item found
         const [result] = await pool.query(
-            `INSERT INTO sarga_inventory (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            `INSERT INTO sarga_inventory (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             , [
                 name,
                 sku || null,
@@ -102,11 +243,25 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
                 Number(sell_price) || 0,
                 hsn || null,
                 Number(discount) || 0,
-                Number(gst_rate) || 0
+                Number(gst_rate) || 0,
+                source_code || null,
+                model_name || null,
+                size_code || null,
+                item_type || 'Retail',
+                vendor_name || null,
+                vendor_contact || null,
+                purchase_link || null
             ]
         );
 
         const inventoryId = result.insertId;
+
+        // Auto-generate SKU if none was provided
+        let finalSku = sku || null;
+        if (!finalSku) {
+            finalSku = generateAutoSku(category, inventoryId);
+            await pool.query("UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL", [finalSku, inventoryId]);
+        }
 
         // If a product_id was provided, link it to this inventory item
         if (product_id) {
@@ -116,23 +271,24 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
             );
         }
 
-        auditLog(req.user.id, 'INVENTORY_ADD', `Added new item ${name} (${sku || 'no-sku'})`);
-        res.status(201).json({ id: inventoryId, message: 'Inventory item added' });
+        auditLog(req.user.id, 'INVENTORY_ADD', `Added new item ${name} (${finalSku || 'no-sku'})`);
+        res.status(201).json({ id: inventoryId, sku: finalSku, message: 'Inventory item added' });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'SKU already exists' });
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
 // Update Inventory Item
 router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     const { id } = req.params;
-    const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id } = req.body;
+    const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link } = req.body;
 
     try {
         await pool.query(
             `UPDATE sarga_inventory
-             SET name = ?, sku = ?, category = ?, unit = ?, quantity = ?, reorder_level = ?, cost_price = ?, sell_price = ?, hsn = ?, discount = ?, gst_rate = ?
+             SET name = ?, sku = ?, category = ?, unit = ?, quantity = ?, reorder_level = ?, cost_price = ?, sell_price = ?, hsn = ?, discount = ?, gst_rate = ?,
+                 source_code = ?, model_name = ?, size_code = ?, item_type = ?, vendor_name = ?, vendor_contact = ?, purchase_link = ?
              WHERE id = ?`
             , [
                 name,
@@ -146,6 +302,13 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
                 hsn || null,
                 Number(discount) || 0,
                 Number(gst_rate) || 0,
+                source_code || null,
+                model_name || null,
+                size_code || null,
+                item_type || 'Retail',
+                vendor_name || null,
+                vendor_contact || null,
+                purchase_link || null,
                 id
             ]
         );
@@ -162,9 +325,90 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
         res.json({ message: 'Inventory item updated' });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'SKU already exists' });
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
+
+// Consume Inventory Item
+router.post('/inventory/:id/consume', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
+    const { id } = req.params;
+    const { quantity_consumed, notes } = req.body;
+
+    if (!quantity_consumed || Number(quantity_consumed) <= 0) {
+        return res.status(400).json({ message: 'Invalid consume quantity' });
+    }
+
+    try {
+        const [rows] = await pool.query('SELECT name, quantity FROM sarga_inventory WHERE id = ?', [id]);
+        if (!rows.length) return res.status(404).json({ message: 'Inventory item not found' });
+
+        const currentQty = Number(rows[0].quantity);
+        const qtyToConsume = Number(quantity_consumed);
+
+        if (qtyToConsume > currentQty) {
+            return res.status(400).json({ message: `Insufficient stock. Available: ${currentQty}, Requested: ${qtyToConsume}` });
+        }
+
+        await pool.query('UPDATE sarga_inventory SET quantity = quantity - ? WHERE id = ?', [qtyToConsume, id]);
+
+        await pool.query(
+            'INSERT INTO sarga_inventory_consumption (inventory_item_id, quantity_consumed, consumed_by_user_id, notes) VALUES (?, ?, ?, ?)',
+            [id, qtyToConsume, req.user.id, notes || null]
+        );
+
+        auditLog(req.user.id, 'INVENTORY_CONSUME', `Consumed ${qtyToConsume} of item ${id} (${rows[0].name})`);
+        res.json({ message: 'Stock consumed successfully' });
+    } catch (err) {
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Restock Inventory Item
+router.post('/inventory/:id/restock', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+    const { id } = req.params;
+    const { quantity_received, cost_price, notes } = req.body;
+
+    if (!quantity_received || Number(quantity_received) <= 0) {
+        return res.status(400).json({ message: 'Invalid restock quantity' });
+    }
+
+    try {
+        // Calculate days since last reorder
+        const [lastReorderRows] = await pool.query(
+            'SELECT created_at FROM sarga_inventory_reorders WHERE inventory_item_id = ? ORDER BY created_at DESC LIMIT 1',
+            [id]
+        );
+        let daysSince = null;
+        if (lastReorderRows.length > 0) {
+            const lastDate = new Date(lastReorderRows[0].created_at);
+            const now = new Date();
+            const diffTime = Math.abs(now - lastDate);
+            daysSince = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        const [itemRows] = await pool.query('SELECT name, cost_price, quantity FROM sarga_inventory WHERE id = ?', [id]);
+        if (!itemRows.length) return res.status(404).json({ message: 'Inventory item not found' });
+
+        const item = itemRows[0];
+        const received = Number(quantity_received);
+        const newCost = cost_price ? Number(cost_price) : Number(item.cost_price);
+
+        // Update main inventory stock
+        await pool.query('UPDATE sarga_inventory SET quantity = quantity + ?, cost_price = ? WHERE id = ?', [received, newCost, id]);
+
+        // Log the reorder
+        await pool.query(
+            'INSERT INTO sarga_inventory_reorders (inventory_item_id, quantity_received, cost_price, days_since_last_reorder) VALUES (?, ?, ?, ?)',
+            [id, received, newCost, daysSince]
+        );
+
+        auditLog(req.user.id, 'INVENTORY_RESTOCK', `Restocked ${received} of item ${id} (${item.name}). Days gap: ${daysSince}`);
+        res.json({ message: 'Restocked successfully', days_since_last_reorder: daysSince });
+    } catch (err) {
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
 
 // Generate Labels PDF
 router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
@@ -190,7 +434,7 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
         for (const reqItem of items) {
             const dbItem = itemMap[reqItem.id];
             if (dbItem) {
-                const qty = Math.min(Number(reqItem.quantity_to_print) || 1, 100); // Cap at 100 per item
+                const qty = Math.min(Number(reqItem.quantity_to_print) || 1, 5000); // Cap at 5000 per item to prevent extreme memory overload
                 for (let i = 0; i < qty; i++) {
                     labelData.push(dbItem);
                 }
@@ -235,44 +479,65 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             const x = margin + col * (labelWidth + colGap);
             const y = margin + row * (labelHeight + rowGap);
 
-            // QR Code generation
-            // Formula: (Cost Price + GST) * 2
-            const gstAmount = (item.cost_price * item.gst_rate) / 100;
-            const mrp = (Number(item.cost_price) + gstAmount) * 2;
+            // Reset color state for each label
+            doc.fillColor('#000000');
 
-            const qrData = JSON.stringify({
-                name: item.name,
-                sku: item.sku,
-                mrp: mrp.toFixed(2),
-                hsn: item.hsn
-            });
+            // QR Code generation
+            // Use stored MRP first; fallback to formula: (Cost + GST) * 2
+            const costPrice = Number(item.cost_price) || 0;
+            const gstRate = Number(item.gst_rate) || 0;
+            const gstAmount = (costPrice * gstRate) / 100;
+            const calculatedMrp = (costPrice + gstAmount) * 2;
+            const mrp = Number(item.mrp) || calculatedMrp || 0;
+
+            // QR encodes just the unique product SKU (or fallback ID) for direct scanning in billing
+            const qrData = normalizeScannedCode(item.sku) || `ITEM-${item.id}`;
 
             const qrCodeBuffer = await QRCode.toBuffer(qrData, {
-                margin: 0,
-                width: mmToPt(12)
+                margin: 2, // Slightly larger quiet zone improves decode reliability on printed labels
+                errorCorrectionLevel: 'H', // High error correction helps Google Lens read it easily
+                width: 256 // Higher source resolution helps with cleaner downscaling in PDF
             });
 
-            // Layout Content
-            doc.fontSize(7).font('Helvetica-Bold');
-            doc.text(item.name.substring(0, 25), x + 2, y + 2, { width: labelWidth - mmToPt(14), height: 10 });
+            // Layout Content — new design: Category / Name / MRP + QR
+            const textAreaW = labelWidth - mmToPt(19);
 
-            doc.fontSize(6).font('Helvetica');
-            doc.text(`SKU: ${item.sku || 'N/A'}`, x + 2, y + 10);
-            doc.text(`MRP: Rs. ${mrp.toFixed(2)}`, x + 2, y + 18);
-            if (item.hsn) doc.text(`HSN: ${item.hsn}`, x + 2, y + 26);
+            // Category name 
+            const categoryLabel = (item.category || 'Inventory').toUpperCase();
+            const catFontSize = categoryLabel.length > 18 ? 5.5 : 7;
+            doc.fontSize(catFontSize).font('Helvetica-Bold').fillColor('#000000');
+            doc.text(categoryLabel, x + 2, y + 5, { width: textAreaW, lineBreak: false });
 
-            // Place QR Code
-            doc.image(qrCodeBuffer, x + labelWidth - mmToPt(13), y + 2, { width: mmToPt(11) });
+            // Product model name (or name if model missing)
+            const modelNameText = (item.model_name || item.name).toUpperCase();
+            // Allow more characters since we are wrapping to 2 lines
+            const shortName = modelNameText.length > 50 ? modelNameText.substring(0, 49) + '…' : modelNameText;
+            doc.fontSize(6).font('Helvetica').fillColor('#000000');
+            // Use lineBreak: true and specify a restricted height for up to 2 lines
+            doc.text(shortName, x + 2, y + 15, { width: textAreaW, lineBreak: true, height: 16 });
 
-            // Small Company identifier if space allows
-            doc.fontSize(5).text('SARGA INVENTORY', x + 2, y + labelHeight - 7, { characterSpacing: 1 });
+            // MRP — positioned tightly below the worst-case 2-line name spacing
+            doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#000000');
+            doc.text(`MRP: Rs. ${mrp % 1 === 0 ? mrp.toFixed(0) : mrp.toFixed(2)}`, x + 2, y + 30, { width: textAreaW, lineBreak: false });
+
+
+            // Place QR Code (right side)
+            // Adjusted position due to increased QR size (16mm width)
+            doc.image(qrCodeBuffer, x + labelWidth - mmToPt(18), y + 2, {
+                width: mmToPt(16)
+            });
+
+            // Unique code text below QR
+            const uniqueCode = qrData;
+            doc.fontSize(5).font('Helvetica').fillColor('#000000');
+            doc.text(uniqueCode, x + labelWidth - mmToPt(18), y + mmToPt(18), { width: mmToPt(16), align: 'center', lineBreak: false });
         }
 
         doc.end();
 
     } catch (err) {
         console.error('Label gen error:', err);
-        res.status(500).json({ message: 'Error generating PDF', error: err.message });
+        res.status(500).json({ message: 'Error generating PDF' });
     }
 });
 
@@ -281,11 +546,18 @@ router.delete('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Acco
     const { id } = req.params;
 
     try {
+        // Check current stock and unlink any product references before deleting
+        const [rows] = await pool.query('SELECT name, quantity FROM sarga_inventory WHERE id = ?', [id]);
+        if (!rows.length) return res.status(404).json({ message: 'Inventory item not found' });
+
+        // Unlink products that reference this inventory item
+        await pool.query('UPDATE sarga_products SET inventory_item_id = NULL, is_physical_product = 0 WHERE inventory_item_id = ?', [id]);
+
         await pool.query("DELETE FROM sarga_inventory WHERE id = ?", [id]);
-        auditLog(req.user.id, 'INVENTORY_DELETE', `Deleted item ${id}`);
+        auditLog(req.user.id, 'INVENTORY_DELETE', `Deleted item ${id} (${rows[0].name}), had qty=${rows[0].quantity}`);
         res.json({ message: 'Inventory item deleted' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 

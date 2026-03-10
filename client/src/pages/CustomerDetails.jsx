@@ -146,15 +146,19 @@ const CustomerDetails = () => {
     setUploading(true);
     try {
       const formData = new FormData();
-      for (const f of uploadFiles) formData.append('files', f);
+      for (const f of uploadFiles) {
+        console.log(`Adding file to upload: ${f.name} (${f.type})`);
+        formData.append('files', f);
+      }
       if (uploadTitle) formData.append('title', uploadTitle);
       if (uploadNotes) formData.append('notes', uploadNotes);
       if (uploadTags) formData.append('tags', uploadTags);
       if (uploadJobId) formData.append('job_id', uploadJobId);
 
-      await api.post(`/customers/${id}/designs`, formData, {
+      const response = await api.post(`/customers/${id}/designs`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
+      console.log('Upload response:', response);
       toast.success(`${uploadFiles.length} design(s) uploaded`);
       setUploadModal(false);
       setUploadFiles([]);
@@ -164,7 +168,10 @@ const CustomerDetails = () => {
       setUploadJobId('');
       fetchDesigns();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Upload failed');
+      console.error('Upload error details:', err);
+      const errorMsg = err.response?.data?.message || err.message || 'Upload failed';
+      console.error('Error message:', errorMsg);
+      toast.error(errorMsg);
     } finally {
       setUploading(false);
     }
@@ -662,8 +669,8 @@ const CustomerDetails = () => {
             >
               <Upload size={28} style={{ color: 'var(--muted)', marginBottom: 8 }} />
               <div style={{ fontSize: 14, fontWeight: 500 }}>Click or drag files here</div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>JPG, PNG, PDF, AI, PSD, CDR, TIFF, ZIP — up to 25MB each</div>
-              <input id="design-file-input" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.ai,.eps,.psd,.cdr,.tiff,.tif,.bmp,.zip,.rar"
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>JPG, PNG, PDF, AI, PSD, EPS, CorelDRAW, InDesign, TIFF, ZIP — up to 150MB each</div>
+              <input id="design-file-input" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.ai,.eps,.psd,.cdr,.indd,.tiff,.tif,.bmp,.zip,.rar"
                 style={{ display: 'none' }}
                 onChange={e => setUploadFiles(prev => [...prev, ...Array.from(e.target.files)])}
               />

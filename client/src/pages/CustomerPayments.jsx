@@ -4,9 +4,10 @@ import {
   ArrowLeft, Calendar, CreditCard, Receipt, Loader2, Plus, Wallet,
   User, Phone, Hash, FileText, IndianRupee, CheckCircle2, Clock,
   AlertTriangle, Banknote, Smartphone, Building2, ChevronDown, ChevronUp,
-  Search, X, Layers, CheckCircle, Printer
+  Search, X, Layers, CheckCircle, Printer, ShieldCheck, ShieldX, ShieldAlert
 } from 'lucide-react';
 import api from '../services/api';
+import useAuth from '../hooks/useAuth';
 
 import { serverToday } from '../services/serverTime';
 import Pagination from '../components/Pagination';
@@ -16,13 +17,17 @@ import autoTable from 'jspdf-autotable';
 import './CustomerPayments.css';
 import toast from 'react-hot-toast';
 import { GST_RATE, formatCurrencyDecimal } from '../constants';
+import { Tag } from 'lucide-react';
 
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
 
 const CustomerPayments = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canVerify = ['Admin', 'Accountant'].includes(user?.role);
   const [loading, setLoading] = useState(false);
+  const [verifyFilter, setVerifyFilter] = useState('all');
   const [payments, setPayments] = useState([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -45,6 +50,15 @@ const CustomerPayments = () => {
     end: serverToday()
   });
   const [downloading, setDownloading] = useState(false);
+
+  // Discount states
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [discountMode, setDiscountMode] = useState('amount'); // 'percent' | 'amount'
+  const [discountInputAmount, setDiscountInputAmount] = useState(0);
+  const [discountRequest, setDiscountRequest] = useState(null); // { id, status, discount_percent }
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [discountReason, setDiscountReason] = useState('');
+  const [discountRequestLoading, setDiscountRequestLoading] = useState(false);
 
   const formatCurrency = formatCurrencyDecimal;
 
@@ -247,9 +261,29 @@ const CustomerPayments = () => {
     }
   };
 
+  const handleVerify = async (paymentId, status) => {
+    try {
+      await api.patch(`/customer-payments/${paymentId}/verify`, { status });
+      toast.success(`Payment ${status.toLowerCase()} successfully`);
+      fetchPayments(paymentsPage);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Verification failed');
+    }
+  };
+
+  const needsVerification = (p) => p.payment_method !== 'Cash' && (!p.verification_status || p.verification_status === 'Pending');
+
+  const filteredPayments = useMemo(() => {
+    if (verifyFilter === 'all') return payments;
+    if (verifyFilter === 'pending') return payments.filter(p => needsVerification(p));
+    if (verifyFilter === 'verified') return payments.filter(p => p.verification_status === 'Verified');
+    if (verifyFilter === 'rejected') return payments.filter(p => p.verification_status === 'Rejected');
+    return payments;
+  }, [payments, verifyFilter]);
+
   const fetchCustomers = async () => {
     try {
-      const response = await api.get('/customers');
+      const response = await api.get('/customers?cross_branch=1');
       setCustomers(response.data || []);
     } catch (err) {
       setError('Failed to fetch customers');
@@ -308,7 +342,21 @@ const CustomerPayments = () => {
     fetchCustomerJobs(selected.id);
   };
 
-  const handleReview = (e) => { e.preventDefault(); setConfirming(true); };
+  const handleReview = (e) => {
+    e.preventDefault();
+    // Discount approval check (same rules as Billing)
+    if (totals.activePct > 5) {
+      if (!discountRequest || discountRequest.status === 'REJECTED') {
+        setShowDiscountModal(true);
+        return;
+      }
+      if (discountRequest.status === 'PENDING') {
+        setError('Discount approval is still pending. Please wait for admin to approve, then try again.');
+        return;
+      }
+    }
+    setConfirming(true);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -343,12 +391,14 @@ const CustomerPayments = () => {
         ...formData,
         customer_id: formData.customer_id ? Number(formData.customer_id) : null,
         bill_amount: billAmount,
-        total_amount: Number(formData.total_amount) || 0,
-        net_amount: Number(formData.net_amount) || 0,
-        sgst_amount: Number(formData.sgst_amount) || 0,
-        cgst_amount: Number(formData.cgst_amount) || 0,
+        total_amount: totals.gross,
+        net_amount: totals.net,
+        sgst_amount: totals.sgst,
+        cgst_amount: totals.cgst,
+        discount_percent: totals.effectiveDiscount || null,
+        discount_amount: totals.discountAmount || null,
         advance_paid: Number(formData.advance_paid) || 0,
-        balance_amount: Number(formData.balance_amount) || 0,
+        balance_amount: Math.max(totals.gross - (Number(formData.advance_paid) || 0), 0),
         payment_method: paymentMethod,
         cash_amount: cashAmount,
         upi_amount: upiAmount,
@@ -388,6 +438,11 @@ const CustomerPayments = () => {
         payment_date: serverToday()
       });
       setPayment({ selectedMethods: ['Cash'], methodAmounts: { Cash: 0, UPI: 0, Cheque: 0, 'AccountTransfer': 0 } });
+      setDiscountPercent(0);
+      setDiscountInputAmount(0);
+      setDiscountMode('amount');
+      setDiscountRequest(null);
+      setDiscountReason('');
       setOrderLines([]);
       setSelectedJobId(null);
       setCustomerJobs([]);
@@ -403,12 +458,63 @@ const CustomerPayments = () => {
     }
   };
 
-  const totals = useMemo(() => ({
-    net: Number(formData.net_amount) || 0,
-    sgst: Number(formData.sgst_amount) || 0,
-    cgst: Number(formData.cgst_amount) || 0,
-    gross: Number(formData.total_amount) || 0
-  }), [formData]);
+  const totals = useMemo(() => {
+    const round2 = (n) => Math.round(n * 100) / 100;
+    const subtotal = round2(Number(formData.total_amount) || 0);
+    const activePct = discountMode === 'amount'
+      ? (subtotal > 0 ? Math.min((discountInputAmount / subtotal) * 100, 100) : 0)
+      : discountPercent;
+    const effectiveDiscount = (
+      activePct > 0 && activePct <= 5
+    ) || (
+      activePct > 5 &&
+      discountRequest?.status === 'APPROVED' &&
+      Math.abs(Number(discountRequest.discount_percent) - activePct) < 0.1
+    ) ? activePct : 0;
+    const gross = round2(subtotal * (1 - effectiveDiscount / 100));
+    const discountAmount = round2(subtotal - gross);
+    const net = round2(gross / (1 + GST_RATE));
+    const sgst = round2(net * (GST_RATE / 2));
+    const cgst = round2(net * (GST_RATE / 2));
+    return { gross, net, sgst, cgst, subtotal, effectiveDiscount, discountAmount, activePct };
+  }, [formData.total_amount, discountPercent, discountInputAmount, discountMode, discountRequest]);
+
+  const checkDiscountApproval = async () => {
+    try {
+      const res = await api.get('/requests/discount/my');
+      if (res.data) {
+        setDiscountRequest(res.data);
+        if (res.data.status === 'APPROVED') {
+          setDiscountPercent(Number(res.data.discount_percent));
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to check discount approval', e);
+    }
+  };
+
+  const handleSubmitDiscountRequest = async () => {
+    if (!discountReason.trim()) {
+      toast.error('Please provide a reason for the discount.');
+      return;
+    }
+    setDiscountRequestLoading(true);
+    try {
+      const res = await api.post('/requests/discount', {
+        discount_percent: totals.activePct,
+        total_amount: totals.subtotal,
+        customer_name: formData.customer_name || 'Customer',
+        reason: discountReason.trim()
+      });
+      setDiscountRequest({ id: res.data.id, status: 'PENDING', discount_percent: totals.activePct });
+      setShowDiscountModal(false);
+      setDiscountReason('');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to submit request.');
+    } finally {
+      setDiscountRequestLoading(false);
+    }
+  };
 
   const balanceStatus = useMemo(() => {
     if (formData.balance_amount <= 0 && formData.total_amount > 0) return 'Paid';
@@ -688,8 +794,120 @@ const CustomerPayments = () => {
             </div>
           )}
 
+          {/* Discount */}
+          {totals.subtotal > 0 && (
+            <div className="cp-discount-section">
+              <div className="row gap-sm items-center mb-8">
+                <label className="label" style={{ margin: 0 }}><Tag size={13} /> Discount</label>
+                <div className="cp-discount-toggle">
+                  <button
+                    type="button"
+                    className={`cp-discount-btn ${discountMode === 'percent' ? 'cp-discount-btn--active' : ''}`}
+                    onClick={() => {
+                      setDiscountMode('percent');
+                      if (totals.subtotal > 0) {
+                        setDiscountPercent(Math.round((discountInputAmount / totals.subtotal) * 1000) / 10);
+                      }
+                      if (discountRequest) setDiscountRequest(null);
+                    }}
+                  >%</button>
+                  <button
+                    type="button"
+                    className={`cp-discount-btn ${discountMode === 'amount' ? 'cp-discount-btn--active' : ''}`}
+                    onClick={() => {
+                      setDiscountMode('amount');
+                      if (totals.subtotal > 0) {
+                        setDiscountInputAmount(Math.round(totals.subtotal * discountPercent / 100 * 100) / 100);
+                      }
+                      if (discountRequest) setDiscountRequest(null);
+                    }}
+                  >₹</button>
+                </div>
+              </div>
+              <div className="row gap-md items-center" style={{ flexWrap: 'wrap' }}>
+                {discountMode === 'percent' ? (
+                  <input
+                    type="number"
+                    className="input-field"
+                    style={{ maxWidth: '120px' }}
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={discountPercent || ''}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const val = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                      setDiscountPercent(val);
+                      if (discountRequest && Math.abs(Number(discountRequest.discount_percent) - val) >= 0.1) {
+                        setDiscountRequest(null);
+                      }
+                    }}
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    className="input-field"
+                    style={{ maxWidth: '120px' }}
+                    min="0"
+                    max={totals.subtotal}
+                    step="1"
+                    value={discountInputAmount || ''}
+                    placeholder="0.00"
+                    onChange={(e) => {
+                      const val = Math.max(0, Math.min(totals.subtotal, Number(e.target.value) || 0));
+                      setDiscountInputAmount(val);
+                      if (discountRequest) setDiscountRequest(null);
+                    }}
+                  />
+                )}
+                {totals.activePct > 0 && (
+                  <span className="text-sm muted">
+                    {discountMode === 'percent'
+                      ? `= ₹${(totals.subtotal * totals.activePct / 100).toFixed(2)} off`
+                      : `= ${totals.activePct.toFixed(1)}% off`}
+                  </span>
+                )}
+                {totals.activePct > 0 && totals.activePct <= 5 && (
+                  <span className="cp-discount-status cp-discount-status--ok">✓ Applied</span>
+                )}
+                {totals.activePct > 5 && discountRequest?.status === 'APPROVED' && (
+                  <span className="cp-discount-status cp-discount-status--ok">✓ Admin approved</span>
+                )}
+                {totals.activePct > 5 && discountRequest?.status === 'PENDING' && (
+                  <div className="row gap-sm items-center">
+                    <span className="cp-discount-status cp-discount-status--warn">⏳ Pending approval</span>
+                    <button type="button" className="btn btn-ghost" style={{ padding: '2px 10px', fontSize: '12px' }} onClick={checkDiscountApproval}>
+                      Check
+                    </button>
+                  </div>
+                )}
+                {totals.activePct > 5 && discountRequest?.status === 'REJECTED' && (
+                  <span className="cp-discount-status cp-discount-status--err">✗ Rejected</span>
+                )}
+                {totals.activePct > 5 && totals.activePct <= 10 && !discountRequest && (
+                  <span className="cp-discount-status cp-discount-status--warn">⚠ &gt;5% needs approval</span>
+                )}
+                {totals.activePct > 10 && !discountRequest && (
+                  <span className="cp-discount-status cp-discount-status--err">⚠ &gt;10% Admin only</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Bill totals */}
           <div className="cp-totals">
+            {totals.effectiveDiscount > 0 && (
+              <div className="cp-totals-row">
+                <span className="muted">Original Amount</span>
+                <span className="cp-discount-strike">₹{totals.subtotal.toFixed(2)}</span>
+              </div>
+            )}
+            {totals.effectiveDiscount > 0 && (
+              <div className="cp-totals-row cp-totals-row--discount">
+                <span>Discount ({totals.effectiveDiscount.toFixed(1)}%)</span>
+                <span>−₹{totals.discountAmount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="cp-totals-row">
               <span className="muted">Subtotal</span>
               <span>₹{totals.net.toFixed(2)}</span>
@@ -913,6 +1131,7 @@ const CustomerPayments = () => {
                         <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Customer</span><span className="em-confirm-summary__value">{formData.customer_name}</span></div>
                         {formData.customer_mobile && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Mobile</span><span className="em-confirm-summary__value">{formData.customer_mobile}</span></div>}
                         <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Total Amount</span><span className="em-confirm-summary__value em-confirm-summary__amount">₹{totals.gross.toFixed(2)}</span></div>
+                        {totals.effectiveDiscount > 0 && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Discount ({totals.effectiveDiscount.toFixed(1)}%)</span><span className="em-confirm-summary__value" style={{ color: 'var(--clr-success, #10b981)' }}>−₹{totals.discountAmount.toFixed(2)}</span></div>}
                         {totals.sgst > 0 && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">GST (SGST + CGST)</span><span className="em-confirm-summary__value">₹{(totals.sgst + totals.cgst).toFixed(2)}</span></div>}
                         {payment.selectedMethods.map(m => (
                           <div key={m} className="em-confirm-summary__row"><span className="em-confirm-summary__label">{m}</span><span className="em-confirm-summary__value">₹{Number(payment.methodAmounts[m] || 0).toFixed(2)}</span></div>
@@ -932,6 +1151,50 @@ const CustomerPayments = () => {
         </div>
       </div>
 
+      {/* ── Discount Approval Request Modal ── */}
+      {showDiscountModal && (
+        <div className="modal-backdrop">
+          <div className="modal" style={{ maxWidth: '420px' }}>
+            <div className="row items-center justify-between mb-16">
+              <h2 className="section-title">Request Discount Approval</h2>
+              <button type="button" className="btn btn-ghost" onClick={() => { setShowDiscountModal(false); setDiscountReason(''); }}>Close</button>
+            </div>
+            <div className="stack-md">
+              <div className="alert alert--warning">
+                {totals.activePct > 10
+                  ? <>Discount of <strong>{totals.activePct.toFixed(1)}%</strong> exceeds 10% — only <strong>Admin</strong> can approve this.</>
+                  : <>Discount of <strong>{totals.activePct.toFixed(1)}%</strong> exceeds 5% — <strong>Accountant or Admin</strong> can approve this.</>
+                } You can proceed once approved.
+              </div>
+              <div>
+                <label className="label">Discount Amount</label>
+                <div className="input-field" style={{ fontWeight: 600 }}>
+                  {totals.activePct.toFixed(1)}% off ₹{totals.subtotal.toFixed(2)} = ₹{(totals.subtotal * totals.activePct / 100).toFixed(2)} discount
+                </div>
+              </div>
+              <div>
+                <label className="label">Reason for Discount <span style={{ color: 'var(--clr-error, var(--error))' }}>*</span></label>
+                <textarea
+                  className="input-field"
+                  rows={3}
+                  placeholder="Explain why this discount is needed..."
+                  value={discountReason}
+                  onChange={(e) => setDiscountReason(e.target.value)}
+                />
+              </div>
+              <div className="row gap-sm justify-end">
+                <button type="button" className="btn btn-ghost" onClick={() => { setShowDiscountModal(false); setDiscountReason(''); }} disabled={discountRequestLoading}>
+                  Cancel
+                </button>
+                <button type="button" className="btn btn-primary" onClick={handleSubmitDiscountRequest} disabled={discountRequestLoading || !discountReason.trim()}>
+                  {discountRequestLoading ? 'Sending...' : 'Submit Request'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── RECENT PAYMENTS TABLE ── */}
       <div className="cp-panel">
         <div className="cp-panel-header">
@@ -939,6 +1202,23 @@ const CustomerPayments = () => {
           <h2 className="cp-panel-title">Recent Payments</h2>
           <span className="cp-panel-count">{paymentsTotal}</span>
         </div>
+
+        {/* ── VERIFICATION FILTER ── */}
+        {canVerify && (
+          <div className="cp-verify-filters" style={{ padding: '8px 16px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending', icon: ShieldAlert, color: '#f59e0b' }, { key: 'verified', label: 'Verified', icon: ShieldCheck, color: '#10b981' }, { key: 'rejected', label: 'Rejected', icon: ShieldX, color: '#ef4444' }].map(f => (
+              <button
+                key={f.key}
+                className={`btn btn-xs ${verifyFilter === f.key ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setVerifyFilter(f.key)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                {f.icon && <f.icon size={13} style={{ color: verifyFilter === f.key ? undefined : f.color }} />}
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* ── STATEMENT FILTERS ── */}
         <div className="cp-statement-filters">
@@ -984,6 +1264,7 @@ const CustomerPayments = () => {
                 <th>Date</th>
                 <th>Customer</th>
                 <th>Method</th>
+                <th>Status</th>
                 <th>Billed</th>
                 <th>Paid</th>
                 <th>Balance</th>
@@ -993,20 +1274,21 @@ const CustomerPayments = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="text-center muted table-empty">
+                  <td colSpan="7" className="text-center muted table-empty">
                     <Loader2 size={20} className="cp-spin" />
                   </td>
                 </tr>
-              ) : payments.length === 0 ? (
+              ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="text-center muted table-empty">
+                  <td colSpan="7" className="text-center muted table-empty">
                     <Receipt size={24} style={{ opacity: 0.4 }} />
                     <div style={{ marginTop: 6 }}>No customer payments recorded yet</div>
                   </td>
                 </tr>
               ) : (
-                payments.map((p) => {
+                filteredPayments.map((p) => {
                   const bal = Number(p.balance_amount);
+                  const vStatus = p.payment_method === 'Cash' ? 'N/A' : (p.verification_status || 'Pending');
                   return (
                     <tr key={p.id}>
                       <td className="text-sm">
@@ -1026,12 +1308,49 @@ const CustomerPayments = () => {
                           <Receipt size={12} /> {p.payment_method}
                         </span>
                       </td>
+                      <td>
+                        {vStatus === 'N/A' ? (
+                          <span className="cp-verify-badge cp-verify-na" style={{ fontSize: 11, color: '#9ca3af' }}>—</span>
+                        ) : vStatus === 'Verified' ? (
+                          <span className="cp-verify-badge cp-verify-ok" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#10b981', fontWeight: 600 }}>
+                            <ShieldCheck size={13} /> Verified
+                          </span>
+                        ) : vStatus === 'Rejected' ? (
+                          <span className="cp-verify-badge cp-verify-fail" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#ef4444', fontWeight: 600 }}>
+                            <ShieldX size={13} /> Rejected
+                          </span>
+                        ) : (
+                          <span className="cp-verify-badge cp-verify-pending" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>
+                            <ShieldAlert size={13} /> Pending
+                          </span>
+                        )}
+                      </td>
                       <td className="cp-table-amount">₹{Number(p.total_amount).toFixed(2)}</td>
                       <td className="cp-table-amount cp-text-success">₹{Number(p.advance_paid).toFixed(2)}</td>
                       <td className={`cp-table-amount ${bal > 0 ? 'cp-text-error' : 'cp-text-success'}`}>
                         ₹{bal.toFixed(2)}
                       </td>
-                      <td className="text-right">
+                      <td className="text-right" style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                        {canVerify && vStatus === 'Pending' && (
+                          <>
+                            <button
+                              className="btn btn-ghost btn-xs"
+                              title="Verify Payment"
+                              style={{ color: '#10b981' }}
+                              onClick={() => handleVerify(p.id, 'Verified')}
+                            >
+                              <ShieldCheck size={15} />
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-xs"
+                              title="Reject Payment"
+                              style={{ color: '#ef4444' }}
+                              onClick={() => handleVerify(p.id, 'Rejected')}
+                            >
+                              <ShieldX size={15} />
+                            </button>
+                          </>
+                        )}
                         <button
                           className="btn btn-ghost btn-sm btn-icon"
                           title="Print Receipt"

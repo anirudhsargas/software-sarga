@@ -66,7 +66,16 @@ function gracefulShutdown(signal) {
 // Security headers
 app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow uploads to be served cross-origin
-    contentSecurityPolicy: false // Disable CSP (SPA serves its own)
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "blob:"],
+            connectSrc: ["'self'"],
+        }
+    }
 }));
 
 // Response compression
@@ -82,8 +91,12 @@ app.use(cors({
         // Allow requests with no origin (mobile apps, curl, server-to-server)
         if (!origin) return callback(null, true);
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        // In development, also allow localhost on any port
-        if (process.env.NODE_ENV !== 'production' && origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        // Allow localhost on any port
+        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+            return callback(null, true);
+        }
+        // Allow LAN / private network IPs (10.x.x.x, 192.168.x.x, 172.16-31.x.x) on any port
+        if (/^https?:\/\/(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
             return callback(null, true);
         }
         callback(new Error(`CORS: origin '${origin}' not allowed`));
@@ -197,8 +210,11 @@ app.use('/api/ai', require('./routes/designCheck'));
 app.use('/api/ai/paper-layout', require('./routes/paperLayout'));
 app.use('/api', require('./routes/search'));
 app.use('/api', require('./routes/auditInvoice'));
+app.use('/api', require('./routes/accounts'));
 app.use('/api/job-priority', require('./routes/jobPriority'));
 app.use('/api/ai/sales-prediction', require('./routes/salesPrediction'));
+app.use('/api/ai/order-predictions', require('./routes/orderPredictions'));
+app.use('/api/production-tracker', require('./routes/productionTracker'));
 
 // Health check with DB ping (must be before the error handler)
 app.get('/api/ping', async (req, res) => {

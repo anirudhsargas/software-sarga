@@ -372,7 +372,7 @@ router.get('/rent-locations', authenticateToken, async (req, res) => {
         const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -388,7 +388,7 @@ router.post('/rent-locations', authenticateToken, authorizeRoles('Admin', 'Accou
         auditLog(req.user.id, 'RENT_LOCATION_ADD', `Added rent location: ${property_name}`);
         res.status(201).json({ id: result.insertId, message: 'Rent location added' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -401,7 +401,7 @@ router.put('/rent-locations/:id', authenticateToken, authorizeRoles('Admin', 'Ac
         );
         res.json({ message: 'Rent location updated' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -410,7 +410,7 @@ router.delete('/rent-locations/:id', authenticateToken, authorizeRoles('Admin', 
         await pool.query('UPDATE sarga_rent_locations SET is_active = 0 WHERE id = ?', [req.params.id]);
         res.json({ message: 'Rent location removed' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 

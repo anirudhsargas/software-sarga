@@ -4,6 +4,7 @@ import { Plus, X, Edit2, Trash2, MapPin, Phone, Loader2, Building2, CreditCard }
 import api from '../services/api';
 import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
+import toast from 'react-hot-toast';
 
 const Branches = () => {
     const { confirm } = useConfirm();
@@ -17,6 +18,16 @@ const Branches = () => {
     useEffect(() => {
         fetchBranches();
     }, []);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && showModal) {
+                setShowModal(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showModal]);
 
     const fetchBranches = async () => {
         try {
@@ -35,8 +46,10 @@ const Branches = () => {
         try {
             if (editingBranch) {
                 await api.put(`/branches/${editingBranch.id}`, formData);
+                toast.success('Branch updated successfully');
             } else {
                 await api.post('/branches', formData);
+                toast.success('Branch created successfully');
             }
             setShowModal(false);
             setEditingBranch(null);
@@ -59,6 +72,7 @@ const Branches = () => {
         if (!isConfirmed) return;
         try {
             await api.delete(`/branches/${id}`);
+            toast.success('Branch deleted successfully');
             fetchBranches();
         } catch (err) {
             setError('Failed to delete branch');

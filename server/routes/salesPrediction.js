@@ -266,7 +266,7 @@ router.get('/forecast', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         console.error('Sales forecast error:', err);
-        res.status(500).json({ message: 'Failed to generate forecast', error: err.message });
+        res.status(500).json({ message: 'Failed to generate forecast' });
     }
 });
 
@@ -392,7 +392,7 @@ router.get('/insights', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         console.error('Sales insights error:', err);
-        res.status(500).json({ message: 'Failed to generate insights', error: err.message });
+        res.status(500).json({ message: 'Failed to generate insights' });
     }
 });
 
@@ -477,7 +477,7 @@ router.get('/stock-recommendations', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         console.error('Stock recommendations error:', err);
-        res.status(500).json({ message: 'Failed to generate stock recommendations', error: err.message });
+        res.status(500).json({ message: 'Failed to generate stock recommendations' });
     }
 });
 
@@ -554,7 +554,7 @@ router.get('/seasonal', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         console.error('Seasonal analysis error:', err);
-        res.status(500).json({ message: 'Failed to generate seasonal analysis', error: err.message });
+        res.status(500).json({ message: 'Failed to generate seasonal analysis' });
     }
 });
 

@@ -13,7 +13,10 @@ const loginSchema = z.object({
 });
 
 const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1, 'Current password is required'),
     newPassword: z.string().min(8, 'Password must be at least 8 characters')
+        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+        .regex(/[0-9]/, 'Password must contain at least one number')
 });
 
 // ---- Staff ----
@@ -67,11 +70,11 @@ const addVendorSchema = z.object({
     name: requiredString('Vendor name'),
     type: z.enum(['Vendor', 'Utility', 'Salary', 'Rent', 'Other']).optional().default('Vendor'),
     contact_person: z.string().optional().nullable(),
-    phone: z.string().optional().nullable(),
+    phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits').optional().nullable().or(z.literal('')),
     address: z.string().optional().nullable(),
     branch_id: z.preprocess(Number, z.number().int().positive()).optional().nullable(),
     order_link: z.string().optional().nullable(),
-    gstin: z.string().optional().nullable()
+    gstin: z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GSTIN format').optional().nullable().or(z.literal(''))
 });
 
 // ---- Jobs ----
@@ -81,12 +84,15 @@ const addJobSchema = z.object({
     branch_id: z.preprocess(Number, z.number().int().positive()).optional().nullable(),
     job_name: requiredString('Job name'),
     description: z.string().optional().nullable(),
-    quantity: z.preprocess(Number, z.number().min(0)).optional().default(1),
+    quantity: z.preprocess(Number, z.number().min(1, 'Quantity must be at least 1')).optional().default(1),
     unit_price: positiveDecimal,
     total_amount: positiveDecimal,
     advance_paid: positiveDecimal,
-    applied_extras: z.any().optional(),
-    delivery_date: z.string().optional().nullable().or(z.literal(''))
+    applied_extras: z.array(z.object({
+        purpose: z.string(),
+        amount: z.preprocess(Number, z.number().min(0))
+    })).optional().default([]),
+    delivery_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD').optional().nullable().or(z.literal(''))
 });
 
 // ---- Inventory ----
@@ -102,12 +108,20 @@ const addInventorySchema = z.object({
     hsn: z.string().optional().nullable().or(z.literal('')),
     discount: positiveDecimal,
     gst_rate: positiveDecimal,
-    product_id: z.preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().int().positive().optional())
+    product_id: z.preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().int().positive().optional()),
+    source_code: z.string().optional().nullable().or(z.literal('')),
+    model_name: z.string().optional().nullable().or(z.literal('')),
+    size_code: z.string().optional().nullable().or(z.literal('')),
+    item_type: z.enum(['Retail', 'Consumable']).optional().default('Retail'),
+    vendor_name: z.string().optional().nullable().or(z.literal('')),
+    vendor_contact: z.string().optional().nullable().or(z.literal('')),
+    purchase_link: z.string().optional().nullable().or(z.literal(''))
 });
 
 // ---- Attendance ----
 const attendanceSchema = z.object({
-    attendance_date: z.string().min(1, 'Date is required'),
+    attendance_date: z.string().min(1, 'Date is required').regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
+        .refine((d) => new Date(d) <= new Date(), { message: 'Attendance date cannot be in the future' }),
     status: z.enum(['Present', 'Absent', 'Leave', 'Holiday'])
 });
 

@@ -223,12 +223,19 @@ const JobDetail = () => {
         setUploadingDesign(true);
         try {
             const formData = new FormData();
-            for (const file of files) formData.append('files', file);
-            await api.post(`/jobs/${id}/designs`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            for (const file of files) {
+                console.log(`Adding file to upload: ${file.name} (${file.type})`);
+                formData.append('files', file);
+            }
+            const response = await api.post(`/jobs/${id}/designs`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            console.log('Design upload response:', response);
             toast.success(`${files.length} design(s) uploaded`);
             fetchDesigns();
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Upload failed');
+            console.error('Design upload error details:', err);
+            const errorMsg = err.response?.data?.message || err.message || 'Upload failed';
+            console.error('Error message:', errorMsg);
+            toast.error(errorMsg);
         } finally {
             setUploadingDesign(false);
             if (designFileRef.current) designFileRef.current.value = '';
@@ -528,15 +535,22 @@ const JobDetail = () => {
                                         total_amount: job.total_amount,
                                         category: job.category,
                                     }],
-                                    totals: {
-                                        subtotal: Number(job.total_amount || 0),
-                                        gross: Number(job.total_amount || 0),
-                                        net: Number(job.total_amount || 0) / 1.18,
-                                        sgst: (Number(job.total_amount || 0) / 1.18) * 0.09,
-                                        cgst: (Number(job.total_amount || 0) / 1.18) * 0.09,
-                                        effectiveDiscount: 0,
-                                        discountAmount: 0,
-                                    },
+                                    totals: (() => {
+                                        const pmt = payments?.[0];
+                                        const discPct = Number(pmt?.discount_percent) || 0;
+                                        const subtotal = Number(job.total_amount || 0);
+                                        const discAmt = subtotal * discPct / 100;
+                                        const gross = subtotal - discAmt;
+                                        return {
+                                            subtotal,
+                                            gross,
+                                            net: gross / 1.18,
+                                            sgst: (gross / 1.18) * 0.09,
+                                            cgst: (gross / 1.18) * 0.09,
+                                            effectiveDiscount: discPct,
+                                            discountAmount: discAmt,
+                                        };
+                                    })(),
                                     payment: {
                                         advancePaid: job.advance_paid || 0,
                                         balance: job.balance_amount || 0,
@@ -1140,7 +1154,7 @@ const JobDetail = () => {
                     {/* Job Designs — with upload */}
                     <Section title={`Design Files${jobDesigns.length ? ` (${jobDesigns.length})` : ''}`} icon={Image}>
                         {/* Hidden file input */}
-                        <input type="file" ref={designFileRef} onChange={handleDesignUpload} multiple accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.ai,.eps,.psd,.cdr,.tiff,.tif,.bmp,.zip,.rar" style={{ display: 'none' }} />
+                        <input type="file" ref={designFileRef} onChange={handleDesignUpload} multiple accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.ai,.eps,.psd,.cdr,.indd,.tiff,.tif,.bmp,.zip,.rar" style={{ display: 'none' }} />
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
                             <button onClick={() => designFileRef.current?.click()} disabled={uploadingDesign}
                                 style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--accent, var(--accent))', background: 'transparent', color: 'var(--accent, var(--accent))', cursor: 'pointer', fontSize: '12px', fontWeight: 600, opacity: uploadingDesign ? 0.5 : 1 }}>

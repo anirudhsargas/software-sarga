@@ -3,11 +3,12 @@ import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2,
-    Brain, Search, FileCheck, Layers, Zap, TrendingUp
+    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { API_URL } from '../services/api';
 import ImageCropModal from '../components/ImageCropModal';
+import ScannerModal from '../components/ScannerModal';
 import SmartSearch from '../components/SmartSearch';
 import sargaLogo from '../assets/sarga-logo.png';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -32,12 +33,17 @@ const MachineManagement = React.lazy(() => import('./MachineManagement'));
 const DailyReport = React.lazy(() => import('./DailyReport'));
 const AttendanceSalary = React.lazy(() => import('./AttendanceSalary'));
 const AccountantDashboard = React.lazy(() => import('./AccountantDashboard'));
+const PaymentVerification = React.lazy(() => import('./PaymentVerification'));
 const NotFound = React.lazy(() => import('./NotFound'));
 const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
 const DesignChecker = React.lazy(() => import('./DesignChecker'));
 const PaperLayoutGenerator = React.lazy(() => import('./PaperLayoutGenerator'));
 const JobPriority = React.lazy(() => import('./JobPriority'));
 const SalesPrediction = React.lazy(() => import('./SalesPrediction'));
+const Accounts = React.lazy(() => import('./Accounts'));
+const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
+const ProductionTracker = React.lazy(() => import('./ProductionTracker'));
+const PlateManagement = React.lazy(() => import('./PlateManagement'));
 import SmartSearchBar from '../components/SmartSearchBar';
 
 const PageLoader = () => (
@@ -60,47 +66,90 @@ const Dashboard = () => {
     const [cropState, setCropState] = useState(null);
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
     const [searchOpen, setSearchOpen] = useState(false);
+    const [showInventoryScan, setShowInventoryScan] = useState(false);
+    const [inventoryScanResult, setInventoryScanResult] = useState(null);
+    const [inventoryScanLoading, setInventoryScanLoading] = useState(false);
 
-    const fileBaseUrl = useMemo(() => API_URL.replace(/\/api$/, ''), []);
+    const fileBaseUrl = useMemo(() => API_URL.replace(/\/api\/?$/, ''), []);
 
     const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
     const closeSidebar = () => setSidebarOpen(false);
 
     const menuItems = [
-        { name: 'Summary', icon: Grid, path: '/dashboard', roles: ['Admin'] },
-        { name: 'Front Office', icon: Grid, path: '/dashboard', roles: ['Front Office'] },
-        { name: 'Customers', icon: UserSquare, path: '/dashboard/customers', roles: ['Admin', 'Front Office'] },
-        { name: 'Billing', icon: Receipt, path: '/dashboard/billing', roles: ['Front Office'] },
-        { name: 'Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Front Office'] },
-        { name: 'Customer Payments', icon: Receipt, path: '/dashboard/customer-payments', roles: ['Admin', 'Front Office'] },
-        { name: 'Staff', icon: Users, path: '/dashboard/staff', roles: ['Front Office'] },
-        { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Front Office'] },
-        { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Front Office', 'Admin'] },
-        { name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Admin'] },
-        { name: 'Branches', icon: Building2, path: '/dashboard/branches', roles: ['Admin'] },
-        { name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin'] },
-        { name: 'Jobs & Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Designer', 'Printer'] },
-        { name: 'Attendance & Salary', icon: Receipt, path: '/dashboard/attendance-salary', roles: ['Designer', 'Printer', 'Front Office'] },
-        { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Admin'] },
-        { name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin'] },
-        { name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office', 'Designer', 'Printer'] },
-        { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Admin', 'Front Office'] },
+        { name: 'Summary', icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
+        { name: 'Front Office', icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
+        { name: 'Customers', icon: UserSquare, path: '/dashboard/customers', roles: ['Admin', 'Front Office'], group: 'business' },
+        { name: 'Billing', icon: Receipt, path: '/dashboard/billing', roles: ['Front Office'], group: 'business' },
+        { name: 'Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Front Office'], group: 'business' },
+        { name: 'Customer Payments', icon: Receipt, path: '/dashboard/customer-payments', roles: ['Admin', 'Front Office'], group: 'business' },
+        { name: 'Staff', icon: Users, path: '/dashboard/staff', roles: ['Front Office'], group: 'manage' },
+        { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Front Office'], group: 'operations' },
+        { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Front Office'], group: 'business' },
+        { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Admin'], group: 'finance' },
+        { name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Admin'], group: 'manage' },
+        { name: 'Branches', icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'manage' },
+        { name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin'], group: 'operations' },
+        { name: 'Jobs & Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Designer', 'Printer'], group: 'business' },
+        { name: 'Plate Management', icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'operations' },
+        { name: 'Attendance & Salary', icon: Receipt, path: '/dashboard/attendance-salary', roles: ['Designer', 'Printer', 'Front Office'], group: 'finance' },
+        { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Admin'], group: 'operations' },
+        { name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin'], group: 'manage' },
+        { name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office', 'Designer', 'Printer'], group: 'operations' },
+        { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office'], group: 'business' },
+        { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Admin'], group: 'operations' },
         // Accountant-specific menu items
         { name: 'Dashboard', icon: Grid, path: '/dashboard', roles: ['Accountant'] },
+        { name: 'Payment Verification', icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'finance' },
         { name: 'Customers', icon: UserSquare, path: '/dashboard/customers', roles: ['Accountant'] },
         { name: 'Jobs & Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Accountant'] },
         { name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Accountant'] },
         { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Accountant'] },
         { name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Accountant'] },
+        { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Accountant'] },
         { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Accountant'] },
+        { name: 'Accounts & GST', icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
         // AI Features
-        { name: 'AI Monitoring', icon: Brain, path: '/dashboard/ai-monitoring', roles: ['Admin'] },
         { name: 'Design Check', icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
-        { name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer', 'Printer'] },
-        { name: 'Sales Prediction', icon: TrendingUp, path: '/dashboard/sales-prediction', roles: ['Admin', 'Accountant'] },
+        { name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer', 'Printer'], group: 'operations' },
+        { name: 'Production Tracker', icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office', 'Designer', 'Printer'], group: 'operations' },
     ];
 
     const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role));
+
+    // Collapsible sidebar groups for Admin
+    const sidebarGroupDefs = [
+        { key: 'main', label: null },
+        { key: 'business', label: 'Business' },
+        { key: 'operations', label: 'Operations' },
+        { key: 'finance', label: 'Finance' },
+        { key: 'manage', label: 'Administration' },
+        { key: 'analytics', label: 'Analytics' },
+    ];
+
+    const [collapsedGroups, setCollapsedGroups] = useState(() => {
+        try {
+            const saved = sessionStorage.getItem('sargaSidebarGroups');
+            return saved ? new Set(JSON.parse(saved)) : new Set(['manage', 'analytics']);
+        } catch { return new Set(['manage', 'analytics']); }
+    });
+
+    const toggleGroup = useCallback((groupKey) => {
+        setCollapsedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(groupKey)) next.delete(groupKey);
+            else next.add(groupKey);
+            sessionStorage.setItem('sargaSidebarGroups', JSON.stringify([...next]));
+            return next;
+        });
+    }, []);
+
+    const groupedMenu = useMemo(() => {
+        if (!['Admin', 'Front Office'].includes(user?.role)) return null;
+        return sidebarGroupDefs.map(g => ({
+            ...g,
+            items: filteredMenu.filter(i => i.group === g.key)
+        })).filter(g => g.items.length > 0);
+    }, [user?.role, filteredMenu]);
 
     // Ctrl+K / Cmd+K to open smart search
     useEffect(() => {
@@ -113,6 +162,65 @@ const Dashboard = () => {
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, []);
+
+    // ── Global hardware barcode/QR scanner listener ──────────────────────────
+    // Hardware scanners send characters very fast (< 50 ms apart) then Enter.
+    // We accumulate keystrokes; if >= 3 chars arrive in < 100 ms total then
+    // Enter is pressed, treat it as a scanner event rather than keyboard input.
+    useEffect(() => {
+        let buffer = '';
+        let lastTime = 0;
+        const TIMEOUT_MS = 100; // max gap between scanner chars
+
+        const handleScannerKey = (e) => {
+            // Ignore events that fire while an input/textarea/select is focused
+            const tag = document.activeElement?.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            // Ignore modifier-combos (Ctrl+K etc.)
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+            const now = Date.now();
+
+            if (e.key === 'Enter') {
+                const code = buffer.trim();
+                buffer = '';
+                lastTime = 0;
+                if (code.length >= 3) {
+                    // It's a scanner hit — look it up
+                    handleInventoryScan(code);
+                }
+                return;
+            }
+
+            // Only accumulate printable single characters
+            if (e.key.length === 1) {
+                if (now - lastTime > TIMEOUT_MS) {
+                    // Gap too large — reset buffer (human typing, not scanner)
+                    buffer = '';
+                }
+                buffer += e.key;
+                lastTime = now;
+            }
+        };
+
+        document.addEventListener('keydown', handleScannerKey);
+        return () => document.removeEventListener('keydown', handleScannerKey);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleInventoryScan = async (scannedCode) => {
+        setShowInventoryScan(false);
+        setInventoryScanLoading(true);
+        setInventoryScanResult(null);
+        try {
+            const normalized = scannedCode.trim().toUpperCase();
+            const { data: item } = await api.get(`/inventory/by-sku/${encodeURIComponent(normalized)}`);
+            setInventoryScanResult(item);
+        } catch {
+            import('react-hot-toast').then(m => m.default.error(`No inventory item found for: ${scannedCode.trim()}`));
+        } finally {
+            setInventoryScanLoading(false);
+        }
+    };
 
     const handleLogout = () => {
         logout();
@@ -248,23 +356,75 @@ const Dashboard = () => {
                 </div>
 
                 <nav className="sidebar-nav">
-                    {filteredMenu.map(item => (
-                        <NavLink
-                            key={item.path}
-                            to={item.path}
-                            end={item.path === '/dashboard'}
-                            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                            onClick={closeSidebar}
+                    {['Admin', 'Front Office'].includes(user?.role) && groupedMenu ? (
+                        groupedMenu.map(group => {
+                            const showLabel = group.label && group.items.length > 1;
+                            const isCollapsed = showLabel && collapsedGroups.has(group.key);
+                            return (
+                                <div key={group.key} className="sidebar-group">
+                                    {showLabel && (
+                                        <button
+                                            className="sidebar-group-toggle"
+                                            onClick={() => toggleGroup(group.key)}
+                                        >
+                                            <span className="sidebar-group-label">{group.label}</span>
+                                            <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} />
+                                        </button>
+                                    )}
+                                    {!isCollapsed && group.items.map(item => (
+                                        <NavLink
+                                            key={item.name}
+                                            to={item.path}
+                                            end={item.path === '/dashboard'}
+                                            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                                            onClick={closeSidebar}
+                                        >
+                                            <div className="nav-item-inner">
+                                                <item.icon size={20} />
+                                                <span className="nav-label">{item.name}</span>
+                                                {item.name === 'Requests' && pendingRequestsCount > 0 && (
+                                                    <span className="side-badge">{pendingRequestsCount}</span>
+                                                )}
+                                            </div>
+                                        </NavLink>
+                                    ))}
+                                </div>
+                            );
+                        })
+                    ) : (
+                        filteredMenu.map(item => (
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                end={item.path === '/dashboard'}
+                                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                                onClick={closeSidebar}
+                            >
+                                <div className="nav-item-inner">
+                                    <item.icon size={20} />
+                                    <span className="nav-label">{item.name}</span>
+                                    {item.name === 'Requests' && pendingRequestsCount > 0 && (
+                                        <span className="side-badge">{pendingRequestsCount}</span>
+                                    )}
+                                </div>
+                            </NavLink>
+                        ))
+                    )}
+                    {['Admin', 'Front Office', 'Accountant'].includes(user?.role) && (
+                        <button
+                            className="nav-item"
+                            style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}
+                            onClick={() => { closeSidebar(); setShowInventoryScan(true); }}
+                            title="Scan product QR code"
                         >
                             <div className="nav-item-inner">
-                                <item.icon size={20} />
-                                <span className="nav-label">{item.name}</span>
-                                {item.name === 'Requests' && pendingRequestsCount > 0 && (
-                                    <span className="side-badge">{pendingRequestsCount}</span>
-                                )}
+                                <Camera size={20} />
+                                <span className="nav-label">
+                                    {inventoryScanLoading ? 'Looking up…' : 'Scan Item'}
+                                </span>
                             </div>
-                        </NavLink>
-                    ))}
+                        </button>
+                    )}
                 </nav>
 
                 <div className="sidebar-footer">
@@ -328,6 +488,7 @@ const Dashboard = () => {
                             <Route path="requests" element={<IDChangeRequests />} />
                             <Route path="inventory" element={<Inventory />} />
                             <Route path="customer-payments" element={<CustomerPayments />} />
+                            <Route path="payment-verification" element={<PaymentVerification />} />
                             <Route path="expenses" element={<ExpenseManager />} />
                             <Route path="machines" element={<MachineManagement />} />
                             <Route path="daily-report" element={<DailyReport />} />
@@ -337,6 +498,10 @@ const Dashboard = () => {
                             <Route path="paper-layout" element={<PaperLayoutGenerator />} />
                             <Route path="job-priority" element={<JobPriority />} />
                             <Route path="sales-prediction" element={<SalesPrediction />} />
+                            <Route path="accounts" element={<Accounts />} />
+                            <Route path="plates" element={<PlateManagement />} />
+                            <Route path="order-predictions" element={<OrderPredictions />} />
+                            <Route path="production-tracker" element={<ProductionTracker />} />
                             <Route path="*" element={<NotFound />} />
                         </Routes>
                     </Suspense>
@@ -408,6 +573,78 @@ const Dashboard = () => {
                 onCancel={handleCropCancel}
                 onComplete={handleCropComplete}
             />
+
+            {/* Inventory QR Scanner */}
+            <ScannerModal
+                isOpen={showInventoryScan}
+                onClose={() => setShowInventoryScan(false)}
+                onScan={handleInventoryScan}
+            />
+
+            {/* Loading overlay when hardware scanner fires */}
+            {inventoryScanLoading && (
+                <div className="modal-backdrop" style={{ zIndex: 1002 }}>
+                    <div className="modal" style={{ maxWidth: '300px', width: '90%', textAlign: 'center', padding: '32px 24px' }}>
+                        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--primary)', margin: '0 auto 12px' }} />
+                        <div style={{ fontWeight: 600, fontSize: '15px' }}>Looking up item…</div>
+                        <div className="muted" style={{ fontSize: '13px', marginTop: '4px' }}>Reading scanned code</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Inventory Scan Result */}
+            {inventoryScanResult && (
+                <div className="modal-backdrop" style={{ zIndex: 1001 }}>
+                    <div className="modal" style={{ maxWidth: '400px', width: '90%' }}>
+                        <div className="row space-between items-center mb-16">
+                            <h2 className="section-title">Product Details</h2>
+                            <button className="icon-button" onClick={() => setInventoryScanResult(null)}><X size={20} /></button>
+                        </div>
+                        <div className="stack-md">
+                            {/* SKU — prominently at the top */}
+                            {inventoryScanResult.sku && (
+                                <div style={{ background: 'var(--primary)', color: '#fff', borderRadius: '8px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '11px', textTransform: 'uppercase', opacity: 0.85, whiteSpace: 'nowrap' }}>SKU</span>
+                                    <span style={{ fontWeight: 700, fontSize: '16px', letterSpacing: '0.04em', flex: 1 }}>{inventoryScanResult.sku}</span>
+                                </div>
+                            )}
+                            <div className="row gap-md items-center">
+                                {inventoryScanResult.image_url && (
+                                    <img
+                                        src={`${fileBaseUrl}${inventoryScanResult.image_url}`}
+                                        alt={inventoryScanResult.name}
+                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)' }}
+                                    />
+                                )}
+                                <div>
+                                    <div style={{ fontSize: '18px', fontWeight: 700 }}>{inventoryScanResult.name}</div>
+                                    {inventoryScanResult.category && (
+                                        <div className="muted" style={{ fontSize: '13px', marginTop: '2px' }}>{inventoryScanResult.category}</div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="row gap-md" style={{ flexWrap: 'wrap' }}>
+                                <div style={{ flex: '1', minWidth: '90px', background: 'var(--surface)', borderRadius: '8px', padding: '10px 14px' }}>
+                                    <div className="muted" style={{ fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>MRP</div>
+                                    <div style={{ fontWeight: 700, fontSize: '20px', color: 'var(--primary)' }}>₹{inventoryScanResult.mrp}</div>
+                                </div>
+                                <div style={{ flex: '1', minWidth: '90px', background: 'var(--surface)', borderRadius: '8px', padding: '10px 14px' }}>
+                                    <div className="muted" style={{ fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Qty Available</div>
+                                    <div style={{ fontWeight: 700, fontSize: '20px', color: inventoryScanResult.quantity <= (inventoryScanResult.reorder_level || 0) ? 'var(--error)' : 'var(--success)' }}>
+                                        {inventoryScanResult.quantity} {inventoryScanResult.unit || ''}
+                                    </div>
+                                </div>
+                            </div>
+                            {inventoryScanResult.hsn && (
+                                <div style={{ fontSize: '13px' }}>
+                                    <span className="muted">HSN: <strong>{inventoryScanResult.hsn}</strong></span>
+                                </div>
+                            )}
+                        </div>
+                        <button className="btn btn-ghost btn--full mt-16" onClick={() => setInventoryScanResult(null)}>Close</button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -20,7 +20,7 @@ const Login = () => {
     }, []);
 
     const validateMobile = (value) => {
-        return value.replace(/\D/g, '').slice(0, 10);
+        return value.replace(/\D/g, '').slice(-10);
     };
 
     const handleSubmit = async (e) => {

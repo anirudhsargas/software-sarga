@@ -31,7 +31,7 @@ module.exports = (upload, removeUploadFile) => {
             res.status(201).json({ id: result.insertId, message: 'Staff added successfully' });
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'User ID already exists' });
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -66,7 +66,7 @@ module.exports = (upload, removeUploadFile) => {
             const [rows] = await pool.query(`${select} ${baseFrom} ORDER BY s.created_at DESC`, params);
             res.json(rows);
         } catch (err) {
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -107,7 +107,7 @@ module.exports = (upload, removeUploadFile) => {
                 const [rows] = await pool.query("SELECT id, user_id, name, role, branch_id, image_url FROM sarga_staff WHERE id = ?", [id]);
                 return res.json(rows[0]);
             } catch (err) {
-                return res.status(500).json({ message: 'Database error', error: err.message });
+                return res.status(500).json({ message: 'Database error' });
             }
         }
 
@@ -160,7 +160,7 @@ module.exports = (upload, removeUploadFile) => {
                 const [rows] = await pool.query("SELECT id, user_id, name, role, branch_id, image_url, salary_type, base_salary, daily_rate FROM sarga_staff WHERE id = ?", [id]);
                 return res.json(rows[0]);
             } catch (err) {
-                return res.status(500).json({ message: 'Database error', error: err.message });
+                return res.status(500).json({ message: 'Database error' });
             }
         }
 
@@ -204,7 +204,7 @@ module.exports = (upload, removeUploadFile) => {
             res.json({ message: 'Staff member updated successfully' });
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'User ID already exists' });
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -213,12 +213,34 @@ module.exports = (upload, removeUploadFile) => {
         const { id } = req.params;
 
         try {
+            // C-02: Check for linked records before deletion
+            const [assignments] = await pool.query(
+                "SELECT COUNT(*) as cnt FROM sarga_job_staff_assignments WHERE staff_id = ?", [id]
+            ).catch(() => [[{ cnt: 0 }]]);
+            
+            const [salaryRecords] = await pool.query(
+                "SELECT COUNT(*) as cnt FROM sarga_staff_salary WHERE staff_id = ?", [id]
+            ).catch(() => [[{ cnt: 0 }]]);
+            
+            const [attendance] = await pool.query(
+                "SELECT COUNT(*) as cnt FROM sarga_staff_attendance WHERE staff_id = ?", [id]
+            ).catch(() => [[{ cnt: 0 }]]);
+
+            const linked = [];
+            if (assignments[0].cnt > 0) linked.push(`${assignments[0].cnt} job assignment(s)`);
+            if (salaryRecords[0].cnt > 0) linked.push(`${salaryRecords[0].cnt} salary record(s)`);
+            if (attendance[0].cnt > 0) linked.push(`${attendance[0].cnt} attendance record(s)`);
+
+            if (linked.length > 0) {
+                return res.status(409).json({ message: `Cannot delete: staff has ${linked.join(', ')}. Deactivate instead.` });
+            }
+
             await pool.query("DELETE FROM sarga_staff WHERE id = ?", [id]);
             auditLog(req.user.id, 'STAFF_DELETE', `Deleted staff member ID: ${id}`);
             res.json({ message: 'Staff member deleted successfully' });
         } catch (err) {
             console.error("Delete staff error:", err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -242,7 +264,7 @@ module.exports = (upload, removeUploadFile) => {
             res.json({ message: 'Staff image removed', image_url: null });
         } catch (err) {
             console.error('Remove staff image error:', err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -262,7 +284,7 @@ module.exports = (upload, removeUploadFile) => {
             res.json({ message: 'Password reset to mobile number successfully' });
         } catch (err) {
             console.error("Reset password error:", err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 

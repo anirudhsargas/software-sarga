@@ -123,6 +123,30 @@ router.get('/', auth.authenticate, async (req, res) => {
     }
 });
 
+// ==================== GET ALL PENDING COUNT REQUESTS (ADMIN) ====================
+router.get('/count-requests', auth.authenticate, auth.requireRole(['Admin', 'Accountant']), async (req, res) => {
+    try {
+        const { status = 'Pending' } = req.query;
+        const [requests] = await pool.query(
+            `SELECT mcr.*, m.machine_name, b.name as branch_name,
+                    sub.name as submitted_by_name,
+                    rev.name as reviewed_by_name
+             FROM sarga_machine_count_requests mcr
+             JOIN sarga_machines m ON mcr.machine_id = m.id
+             LEFT JOIN sarga_branches b ON m.branch_id = b.id
+             LEFT JOIN sarga_staff sub ON mcr.submitted_by = sub.id
+             LEFT JOIN sarga_staff rev ON mcr.reviewed_by = rev.id
+             WHERE mcr.status = ?
+             ORDER BY mcr.created_at DESC`,
+            [status]
+        );
+        res.json(requests);
+    } catch (error) {
+        console.error('Error fetching count requests:', error);
+        res.status(500).json({ error: 'Failed to fetch count requests' });
+    }
+});
+
 // ==================== GET SINGLE MACHINE (FULL DETAILS) ====================
 router.get('/:id', auth.authenticate, async (req, res) => {
     try {
@@ -182,6 +206,25 @@ router.get('/:id', auth.authenticate, async (req, res) => {
         const [todayReading] = await pool.query(
             `SELECT * FROM sarga_machine_readings WHERE machine_id = ? AND reading_date = ?`,
             [id, today]
+        );
+
+        // Expected opening count for today = last recorded closing count before today
+        const [lastClosing] = await pool.query(
+            `SELECT closing_count, reading_date FROM sarga_machine_readings
+             WHERE machine_id = ? AND reading_date < ? AND closing_count IS NOT NULL
+             ORDER BY reading_date DESC LIMIT 1`,
+            [id, today]
+        );
+        const expectedOpeningCount = lastClosing.length > 0 ? lastClosing[0].closing_count : null;
+
+        // Pending count requests for this machine (admin use)
+        const [pendingCountRequests] = await pool.query(
+            `SELECT mcr.*, s.name as submitted_by_name
+             FROM sarga_machine_count_requests mcr
+             LEFT JOIN sarga_staff s ON mcr.submitted_by = s.id
+             WHERE mcr.machine_id = ? AND mcr.status = 'Pending'
+             ORDER BY mcr.created_at DESC`,
+            [id]
         );
 
         // Fetch today's work entries
@@ -259,6 +302,8 @@ router.get('/:id', auth.authenticate, async (req, res) => {
             assigned_staff: assignedStaff,
             readings,
             today_reading: todayReading.length > 0 ? todayReading[0] : null,
+            expected_opening_count: expectedOpeningCount,
+            pending_count_requests: pendingCountRequests,
             today_work: todayWork,
             production_summary: productionSummary,
             job_queue: jobQueue,
@@ -560,6 +605,33 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
             ? parseInt(closing_count) : null;
         const totalCopies = closeCount !== null ? Math.max(0, closeCount - openCount) : 0;
 
+        // ─── Mismatch detection (non-admin only, new reading for the day) ───
+        let countRequestCreated = false;
+        if (!isAdmin) {
+            const [lastClose] = await pool.query(
+                `SELECT closing_count FROM sarga_machine_readings
+                 WHERE machine_id = ? AND reading_date < ? AND closing_count IS NOT NULL
+                 ORDER BY reading_date DESC LIMIT 1`,
+                [id, reading_date]
+            );
+            if (lastClose.length > 0 && lastClose[0].closing_count !== null) {
+                const expectedCount = lastClose[0].closing_count;
+                if (openCount !== expectedCount) {
+                    // Remove any existing pending request for the same machine+date
+                    await pool.query(
+                        `DELETE FROM sarga_machine_count_requests WHERE machine_id = ? AND reading_date = ? AND status = 'Pending'`,
+                        [id, reading_date]
+                    );
+                    await pool.query(
+                        `INSERT INTO sarga_machine_count_requests (machine_id, reading_date, expected_count, entered_count, submitted_by)
+                         VALUES (?, ?, ?, ?, ?)`,
+                        [id, reading_date, expectedCount, openCount, req.user.id]
+                    );
+                    countRequestCreated = true;
+                }
+            }
+        }
+
         await pool.query(
             `INSERT INTO sarga_machine_readings (machine_id, reading_date, opening_count, closing_count, total_copies, notes, created_by)
              VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -581,7 +653,7 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
         );
 
         auditLog(req.user.id, 'MACHINE_READING', `Machine #${id} reading for ${reading_date}: open=${openCount} close=${closeCount}`, { entity_type: 'machine_reading', entity_id: id });
-        res.json(saved[0]);
+        res.json({ ...saved[0], count_request_created: countRequestCreated });
     } catch (error) {
         console.error('Error saving machine reading:', error);
         res.status(500).json({ error: 'Failed to save machine reading' });
@@ -769,6 +841,56 @@ router.get('/:id/production-summary', auth.authenticate, async (req, res) => {
     } catch (error) {
         console.error('Error fetching production summary:', error);
         res.status(500).json({ error: 'Failed to fetch production summary' });
+    }
+});
+
+// ==================== REVIEW COUNT REQUEST (ADMIN APPROVE/REJECT) ====================
+router.put('/count-requests/:reqId', auth.authenticate, auth.requireRole(['Admin', 'Accountant']), async (req, res) => {
+    try {
+        const { reqId } = req.params;
+        const { status, admin_note } = req.body;
+
+        if (!['Approved', 'Rejected'].includes(status)) {
+            return res.status(400).json({ error: 'Status must be Approved or Rejected' });
+        }
+
+        const [rows] = await pool.query(
+            'SELECT * FROM sarga_machine_count_requests WHERE id = ?', [reqId]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Count request not found' });
+        }
+
+        await pool.query(
+            `UPDATE sarga_machine_count_requests
+             SET status = ?, admin_note = ?, reviewed_by = ?, reviewed_at = NOW()
+             WHERE id = ?`,
+            [status, admin_note || null, req.user.id, reqId]
+        );
+
+        // If Approved, update the actual reading with entered_count (already saved, no action needed)
+        // If Rejected, revert the opening_count back to expected_count
+        if (status === 'Rejected' && rows[0].expected_count !== null) {
+            const { machine_id, reading_date, expected_count } = rows[0];
+            const [existing] = await pool.query(
+                'SELECT id, closing_count FROM sarga_machine_readings WHERE machine_id = ? AND reading_date = ?',
+                [machine_id, reading_date]
+            );
+            if (existing.length > 0) {
+                const ec = existing[0].closing_count;
+                const totalCopies = ec !== null ? Math.max(0, ec - expected_count) : 0;
+                await pool.query(
+                    'UPDATE sarga_machine_readings SET opening_count = ?, total_copies = ?, updated_by = ? WHERE id = ?',
+                    [expected_count, totalCopies, req.user.id, existing[0].id]
+                );
+            }
+        }
+
+        auditLog(req.user.id, 'MACHINE_COUNT_REVIEW', `${status} count request #${reqId}`, { entity_type: 'machine_count_request', entity_id: reqId });
+        res.json({ success: true, status });
+    } catch (error) {
+        console.error('Error reviewing count request:', error);
+        res.status(500).json({ error: 'Failed to review count request' });
     }
 });
 

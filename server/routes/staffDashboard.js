@@ -49,6 +49,12 @@ router.get('/:id/work-history', authenticateToken, async (req, res) => {
 router.get('/:id/salary-info', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // M-14: Prevent cross-user salary data access
+        if (String(req.user.id) !== String(id) && !['Admin', 'Accountant'].includes(req.user.role)) {
+            return res.status(403).json({ message: 'Access denied. You can only view your own salary info.' });
+        }
+
         console.log('Fetching salary info for staff ID:', id);
 
         // Get staff details and salary settings
@@ -397,6 +403,11 @@ router.post('/:id/leaves', authenticateToken, async (req, res) => {
 // Calculate Salary with Attendance and Leaves
 router.get('/:id/salary-calculation/:year_month', authenticateToken, async (req, res) => {
     const { id, year_month } = req.params;
+
+    // M-14: Prevent cross-user salary data access
+    if (String(req.user.id) !== String(id) && !['Admin', 'Accountant'].includes(req.user.role)) {
+        return res.status(403).json({ message: 'Access denied. You can only view your own salary info.' });
+    }
 
     try {
         // Get staff info

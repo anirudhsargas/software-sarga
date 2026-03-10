@@ -52,7 +52,7 @@ router.get('/customer-payments', authenticateToken, async (req, res) => {
         res.json(rows);
     } catch (err) {
         console.error('List customer payments error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -66,6 +66,8 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
         net_amount,
         sgst_amount,
         cgst_amount,
+        discount_percent,
+        discount_amount,
         advance_paid,
         payment_method,
         cash_amount,
@@ -74,7 +76,8 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
         description,
         payment_date,
         order_lines,
-        job_ids
+        job_ids,
+        auto_deliver
     } = req.body;
 
     const total = Number(total_amount) || 0;
@@ -82,6 +85,16 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
     const cash = Number(cash_amount) || 0;
     const upi = Number(upi_amount) || 0;
     const balance = total - advance;
+
+    // C-03: Advance cannot exceed total
+    if (advance > total) {
+        return res.status(400).json({ message: `Advance (₹${advance}) cannot exceed total amount (₹${total})` });
+    }
+
+    // C-07: Cash + UPI must equal advance (with tolerance for floating point)
+    if (advance > 0 && Math.abs((cash + upi) - advance) > 0.01) {
+        return res.status(400).json({ message: `Cash (₹${cash}) + UPI (₹${upi}) must equal advance paid (₹${advance})` });
+    }
 
     const connection = await pool.getConnection();
     await connection.beginTransaction();
@@ -93,27 +106,20 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
         if (!resolvedCustomerId && customer_mobile) {
             const normalizedMobile = normalizeMobile(customer_mobile);
             if (normalizedMobile.length === 10) {
-                if (!['Admin', 'Accountant'].includes(req.user.role) && branchId) {
-                    const [rows] = await connection.query(
-                        "SELECT id FROM sarga_customers WHERE mobile = ? AND branch_id = ?",
-                        [normalizedMobile, branchId]
-                    );
-                    resolvedCustomerId = rows[0]?.id || null;
-                } else {
-                    const [rows] = await connection.query(
-                        "SELECT id FROM sarga_customers WHERE mobile = ?",
-                        [normalizedMobile]
-                    );
-                    resolvedCustomerId = rows[0]?.id || null;
-                }
+                // Search across all branches — a customer can pay at any branch
+                const [rows] = await connection.query(
+                    "SELECT id FROM sarga_customers WHERE mobile = ?",
+                    [normalizedMobile]
+                );
+                resolvedCustomerId = rows[0]?.id || null;
             }
         }
         let paymentId;
         try {
             const [result] = await connection.query(
                 `INSERT INTO sarga_customer_payments
-                (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, order_lines)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, discount_percent, discount_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, order_lines)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     resolvedCustomerId,
                     String(customer_name).trim(),
@@ -123,6 +129,8 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                     Number(net_amount) || 0,
                     Number(sgst_amount) || 0,
                     Number(cgst_amount) || 0,
+                    Number(discount_percent) || 0,
+                    Number(discount_amount) || 0,
                     advance,
                     balance,
                     payment_method || 'Cash',
@@ -297,10 +305,18 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                 const effectiveAdvance = effectiveBalance === 0 ? jobTotal : nextAdvance;
                 const nextStatus = effectiveBalance === 0 ? 'Paid' : (effectiveAdvance > 0 ? 'Partial' : 'Unpaid');
 
-                await connection.query(
-                    "UPDATE sarga_jobs SET advance_paid = ?, balance_amount = ?, payment_status = ? WHERE id = ?",
-                    [effectiveAdvance, effectiveBalance, nextStatus, job.id]
-                );
+                // If auto_deliver and fully paid, also mark job as Delivered
+                if (auto_deliver && nextStatus === 'Paid') {
+                    await connection.query(
+                        "UPDATE sarga_jobs SET advance_paid = ?, balance_amount = ?, payment_status = ?, status = 'Delivered' WHERE id = ?",
+                        [effectiveAdvance, effectiveBalance, nextStatus, job.id]
+                    );
+                } else {
+                    await connection.query(
+                        "UPDATE sarga_jobs SET advance_paid = ?, balance_amount = ?, payment_status = ? WHERE id = ?",
+                        [effectiveAdvance, effectiveBalance, nextStatus, job.id]
+                    );
+                }
 
                 // SYNC TO MACHINE
                 if (job.machine_id) {
@@ -333,6 +349,18 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
             }
         }
 
+        // ─── Link jobs to this payment ───
+        if (jobIds.length > 0) {
+            try {
+                await connection.query(
+                    `UPDATE sarga_jobs SET payment_id = ? WHERE id IN (${jobIds.map(() => '?').join(',')})`,
+                    [paymentId, ...jobIds]
+                );
+            } catch (linkErr) {
+                if (linkErr.code !== 'ER_BAD_FIELD_ERROR') console.error('[Payment] Link jobs error:', linkErr.message);
+            }
+        }
+
         // ─── Generate gap-free invoice number (inside transaction for atomicity) ───
         let invoiceNumber = null;
         try {
@@ -355,6 +383,19 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
         } catch (invErr) {
             // Invoice generation is non-critical — log and continue
             console.error('[Invoice] Sequence error:', invErr.message);
+        }
+
+        // ─── Deduct inventory stock for inventory items in order ───
+        if (Array.isArray(order_lines)) {
+            for (const line of order_lines) {
+                if (line.is_inventory_item && line.inventory_item_id) {
+                    const qty = Number(line.quantity) || 1;
+                    await connection.query(
+                        "UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?",
+                        [qty, line.inventory_item_id]
+                    );
+                }
+            }
         }
 
         // ─── Audit log inside transaction ───
@@ -439,11 +480,28 @@ router.post('/customer-payments/refund', authenticateToken, authorizeRoles('Admi
             [newAdvance, newBalance, newPaymentStatus, job_id]
         );
 
+        // C-04: Create reverse payment ledger entry for audit trail
+        await connection.query(
+            `INSERT INTO sarga_customer_payments 
+            (customer_id, customer_name, bill_amount, total_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, description, payment_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE())`,
+            [
+                customer_id || job.customer_id,
+                job.customer_name || 'Refund',
+                -amount, -amount, -amount, 0,
+                refund_method || 'Cash',
+                refund_method === 'Cash' ? -amount : 0,
+                refund_method === 'UPI' ? -amount : 0,
+                branchId,
+                `Refund for job ${job.job_number}: ${reason || 'Refund'}`
+            ]
+        ).catch(err => console.error('Reverse ledger entry failed:', err.message));
+
         // Log status history for the refund
         await connection.query(
             `INSERT INTO sarga_job_status_history (job_id, status, staff_id) VALUES (?, ?, ?)`,
             [job_id, `Refund: ₹${amount}`, req.user.id]
-        ).catch(() => {});
+        ).catch(() => { });
 
         // Sync to machine if applicable
         if (job.machine_id) {
@@ -621,6 +679,156 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
         const statusMap = {};
         statusCounts.forEach(r => statusMap[r.status] = r.count);
 
+        // 8. Low Stock Alerts
+        let lowStockItems = [];
+        try {
+            const [lowStock] = await pool.query(`
+                SELECT id, name, sku, category, quantity, reorder_level
+                FROM sarga_inventory
+                WHERE quantity <= GREATEST(reorder_level, 1)
+                ORDER BY quantity ASC
+                LIMIT 10
+            `);
+            lowStockItems = lowStock;
+        } catch { /* ignore if table missing */ }
+
+        // 9. Inventory Summary
+        let inventorySummary = {};
+        try {
+            const [[invStats]] = await pool.query(`
+                SELECT 
+                    COUNT(*) as total_items,
+                    SUM(quantity) as total_quantity,
+                    SUM(quantity * cost_price) as total_value,
+                    COUNT(CASE WHEN quantity <= GREATEST(reorder_level, 1) THEN 1 END) as low_stock_count
+                FROM sarga_inventory
+            `);
+            inventorySummary = invStats;
+        } catch { /* ignore */ }
+
+        // 10. Top Customers This Month
+        let topCustomers = [];
+        try {
+            const [topCust] = await pool.query(`
+                SELECT c.name, c.mobile, COUNT(j.id) as job_count, SUM(j.total_amount) as total_spent
+                FROM sarga_jobs j
+                JOIN sarga_customers c ON j.customer_id = c.id
+                WHERE DATE(j.created_at) >= ? AND j.status != 'Cancelled'
+                ${branchIds ? " AND j.branch_id IN (?)" : ""}
+                GROUP BY c.id ORDER BY total_spent DESC LIMIT 5
+            `, [monthStartStr, ...(branchIds ? [branchIds] : [])]);
+            topCustomers = topCust;
+        } catch { /* ignore */ }
+
+        // 11. Staff Productivity (jobs assigned per staff)
+        let staffProductivity = [];
+        try {
+            const [staffStats] = await pool.query(`
+                SELECT s.name, s.role, COUNT(ja.id) as jobs_handled
+                FROM sarga_job_assignments ja
+                JOIN sarga_staff s ON ja.staff_id = s.id
+                WHERE DATE(ja.created_at) >= ?
+                GROUP BY ja.staff_id ORDER BY jobs_handled DESC LIMIT 5
+            `, [monthStartStr]);
+            staffProductivity = staffStats;
+        } catch { /* ignore */ }
+
+        // 12. Expense Summary
+        let expenseSummary = {};
+        try {
+            const [[expStats]] = await pool.query(`
+                SELECT 
+                    SUM(CASE WHEN DATE(payment_date) = ? THEN amount ELSE 0 END) as expenses_today,
+                    SUM(CASE WHEN DATE(payment_date) >= ? THEN amount ELSE 0 END) as expenses_month
+                FROM sarga_payments
+                WHERE 1=1 ${branchIds ? " AND branch_id IN (?)" : ""}
+            `, [today, monthStartStr, ...(branchIds ? [branchIds] : [])]);
+            expenseSummary = expStats || {};
+        } catch { /* ignore */ }
+
+        // 13. AI Growth & Peak Day Analysis
+        let ai_insights = {
+            revenue_growth: 0,
+            peak_day: 'N/A',
+            predicted_revenue_next_month: 0
+        };
+        try {
+            const [[growthStats]] = await pool.query(`
+                SELECT 
+                    SUM(CASE WHEN MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) THEN total_amount ELSE 0 END) as cur_month_rev,
+                    SUM(CASE WHEN MONTH(created_at) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) AND YEAR(created_at) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) THEN total_amount ELSE 0 END) as prev_month_rev
+                FROM sarga_jobs WHERE status != 'Cancelled'
+                ${branchIds ? " AND branch_id IN (?)" : ""}
+            `, branchIds ? [branchIds] : []);
+
+            const curMonthRev = Number(growthStats.cur_month_rev) || 0;
+            const prevMonthRev = Number(growthStats.prev_month_rev) || 0;
+            if (prevMonthRev > 0) {
+                ai_insights.revenue_growth = Math.round(((curMonthRev - prevMonthRev) / prevMonthRev) * 100);
+            } else if (curMonthRev > 0) {
+                ai_insights.revenue_growth = 100;
+            }
+
+            const [dowPattern] = await pool.query(`
+                SELECT DAYOFWEEK(created_at) AS dow, COUNT(*) AS orders
+                FROM sarga_jobs
+                WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH) AND status != 'Cancelled'
+                ${branchIds ? " AND branch_id IN (?)" : ""}
+                GROUP BY dow ORDER BY orders DESC LIMIT 1
+            `, branchIds ? [branchIds] : []);
+
+            if (dowPattern.length > 0) {
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                ai_insights.peak_day = dayNames[dowPattern[0].dow - 1];
+            }
+
+            // Simple linear forecast based on last 6 months
+            const [monthlyTrend] = await pool.query(`
+                SELECT SUM(total_amount) as revenue
+                FROM sarga_jobs
+                WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) AND status != 'Cancelled'
+                ${branchIds ? " AND branch_id IN (?)" : ""}
+                GROUP BY YEAR(created_at), MONTH(created_at)
+                ORDER BY YEAR(created_at) ASC, MONTH(created_at) ASC
+            `, branchIds ? [branchIds] : []);
+
+            if (monthlyTrend.length >= 2) {
+                const points = monthlyTrend.map((r, i) => ({ x: i, y: Number(r.revenue) }));
+                const n = points.length;
+                let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                for (const { x, y } of points) {
+                    sumX += x; sumY += y; sumXY += x * y; sumX2 += x * x;
+                }
+                const denom = n * sumX2 - sumX * sumX;
+                const slope = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
+                const intercept = (sumY - slope * sumX) / n;
+                ai_insights.predicted_revenue_next_month = Math.round(slope * n + intercept);
+            } else {
+                ai_insights.predicted_revenue_next_month = curMonthRev;
+            }
+        } catch (err) { console.error('AI Insight calculation failed:', err.message); }
+
+        // 14. Financial Roadmap (EMI/Kuri Commitments)
+        let financial_roadmap = {
+            total_monthly_commitment: 0,
+            emi_total: 0,
+            kuri_total: 0
+        };
+        try {
+            const [[emiStats]] = await pool.query("SELECT SUM(monthly_emi) as total FROM sarga_emi_master WHERE is_active = 1");
+            const [[kuriStats]] = await pool.query("SELECT SUM(monthly_installment) as total FROM sarga_kuri_master WHERE is_active = 1");
+            financial_roadmap.emi_total = Number(emiStats.total) || 0;
+            financial_roadmap.kuri_total = Number(kuriStats.total) || 0;
+            financial_roadmap.total_monthly_commitment = financial_roadmap.emi_total + financial_roadmap.kuri_total;
+        } catch (err) { /* ignore if tables missing */ }
+
+        // 15. Monitoring Stats (Fraud Alerts)
+        let monitoring_stats = { active_alerts: 0 };
+        try {
+            const [[alertStats]] = await pool.query("SELECT COUNT(*) as count FROM sarga_fraud_alerts WHERE status = 'ACTIVE'");
+            monitoring_stats.active_alerts = alertStats.count || 0;
+        } catch (err) { /* ignore */ }
+
         res.json({
             jobs: {
                 total_count: jobStats.total_count || 0,
@@ -657,11 +865,121 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
             },
             machines: machineMap,
             recent_jobs: recentJobs,
-            status_counts: statusMap
+            status_counts: statusMap,
+            low_stock: lowStockItems,
+            inventory: {
+                total_items: Number(inventorySummary.total_items) || 0,
+                total_quantity: Number(inventorySummary.total_quantity) || 0,
+                total_value: Number(inventorySummary.total_value) || 0,
+                low_stock_count: Number(inventorySummary.low_stock_count) || 0
+            },
+            top_customers: topCustomers,
+            staff_productivity: staffProductivity,
+            expenses: {
+                today: Number(expenseSummary.expenses_today) || 0,
+                month: Number(expenseSummary.expenses_month) || 0
+            },
+            ai_insights,
+            financial_roadmap,
+            monitoring_stats
         });
     } catch (err) {
         console.error("Dashboard stats error:", err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// --- PAYMENT VERIFICATION ROUTES ---
+
+// List payments pending verification (UPI, Cheque, Account Transfer only)
+router.get('/customer-payments/pending-verification', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    try {
+        const { page, limit, offset } = parsePagination(req);
+        const usePagination = !!req.query.page;
+        const { status: filterStatus, startDate, endDate, search } = req.query;
+
+        let where = `WHERE payment_method IN ('UPI', 'Cheque', 'Account Transfer', 'Both')`;
+        const params = [];
+
+        if (filterStatus === 'Pending') {
+            where += ` AND (verification_status = 'Pending' OR verification_status IS NULL)`;
+        } else if (filterStatus && filterStatus !== 'all') {
+            where += ` AND verification_status = ?`;
+            params.push(filterStatus);
+        }
+        if (startDate) { where += ` AND payment_date >= ?`; params.push(startDate); }
+        if (endDate) { where += ` AND payment_date <= ?`; params.push(endDate); }
+        if (search) { where += ` AND (customer_name LIKE ? OR reference_number LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+
+        const baseFrom = `FROM sarga_customer_payments ${where}`;
+
+        if (usePagination) {
+            const [[{ cnt }]] = await pool.query(`SELECT COUNT(*) as cnt ${baseFrom}`, params);
+            const [rows] = await pool.query(`SELECT * ${baseFrom} ORDER BY created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+            return res.json(paginatedResponse(rows, cnt, page, limit));
+        }
+        const [rows] = await pool.query(`SELECT * ${baseFrom} ORDER BY created_at DESC`, params);
+        res.json(rows);
+    } catch (err) {
+        console.error('Pending verification list error:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Verify or Reject a payment
+router.patch('/customer-payments/:id/verify', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { status, note } = req.body;
+
+    if (!['Verified', 'Rejected', 'Not in Statement', 'Pending'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid verification status' });
+    }
+
+    const [[payment]] = await pool.query('SELECT id, payment_method, verification_status FROM sarga_customer_payments WHERE id = ?', [id]);
+    if (!payment) {
+        return res.status(404).json({ message: 'Payment not found' });
+    }
+
+    if (payment.payment_method === 'Cash') {
+        return res.status(400).json({ message: 'Cash payments do not require verification' });
+    }
+
+    await pool.query(
+        `UPDATE sarga_customer_payments SET verification_status = ?, verified_by = ?, verified_at = NOW(), verification_note = ? WHERE id = ?`,
+        [status, req.user.id, note || null, id]
+    );
+
+    await auditLog(req.user.id, 'PAYMENT_VERIFICATION', `Payment #${id} marked as ${status}`, {
+        entity_type: 'sarga_customer_payments',
+        entity_id: id,
+        old_value: payment.verification_status,
+        new_value: status
+    });
+
+    res.json({ message: `Payment ${status.toLowerCase()} successfully`, id, status });
+}));
+
+// Verification summary stats
+router.get('/customer-payments/verification-stats', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    try {
+        const [[stats]] = await pool.query(`
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN (verification_status = 'Pending' OR verification_status IS NULL) THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN verification_status = 'Verified' THEN 1 ELSE 0 END) as verified,
+                SUM(CASE WHEN verification_status = 'Rejected' THEN 1 ELSE 0 END) as rejected,
+                SUM(CASE WHEN verification_status = 'Not in Statement' THEN 1 ELSE 0 END) as not_in_statement,
+                SUM(CASE WHEN (verification_status = 'Pending' OR verification_status IS NULL) THEN advance_paid ELSE 0 END) as pending_amount,
+                SUM(CASE WHEN verification_status = 'Verified' THEN advance_paid ELSE 0 END) as verified_amount,
+                SUM(CASE WHEN verification_status = 'Rejected' THEN advance_paid ELSE 0 END) as rejected_amount,
+                SUM(CASE WHEN verification_status = 'Not in Statement' THEN advance_paid ELSE 0 END) as not_in_statement_amount
+            FROM sarga_customer_payments
+            WHERE payment_method IN ('UPI', 'Cheque', 'Account Transfer', 'Both')
+        `);
+        res.json(stats);
+    } catch (err) {
+        console.error('Verification stats error:', err);
+        res.status(500).json({ message: 'Database error' });
     }
 });
 

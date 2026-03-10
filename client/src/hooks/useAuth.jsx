@@ -36,15 +36,8 @@ export const AuthProvider = ({ children }) => {
 
 const useAuth = () => {
     const context = useContext(AuthContext);
-    // Fallback for components outside AuthProvider (backward compatibility)
     if (!context) {
-        // eslint-disable-next-line react-hooks/rules-of-hooks
-        const [user, setUser] = useState(auth.getUser());
-        return {
-            user,
-            logout: () => auth.logout(),
-            updateUser: (u) => { auth.setUser(u); setUser(u); }
-        };
+        throw new Error('useAuth must be used within an AuthProvider');
     }
     return context;
 };

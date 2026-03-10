@@ -57,13 +57,21 @@ const Jobs = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [branchFilter, setBranchFilter] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
     const [branches, setBranches] = useState([]);
     const [error, setError] = useState('');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
-    const [activeTab, setActiveTab] = useState('active');
+    const [activeTab, setActiveTab] = useState('active'); // active, completed, delivered, due, overdue, payments
     const [sortByPriority, setSortByPriority] = useState(false);
+    const [deliveryDueModal, setDeliveryDueModal] = useState({
+        isOpen: false,
+        job: null,
+        remaining: 0,
+        message: ''
+    });
+    const [creditRequesting, setCreditRequesting] = useState(false);
 
     const userRole = auth.getUser()?.role;
     const isFinancialsVisible = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
@@ -77,7 +85,9 @@ const Jobs = () => {
     const fetchJobs = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await api.get(`/jobs?page=${page}&search=${searchQuery}&status=${statusFilter}&branch_id=${branchFilter}`);
+            let url = `/jobs?page=${page}&search=${searchQuery}&status=${statusFilter}&branch_id=${branchFilter}`;
+            if (categoryFilter) url += `&category=${encodeURIComponent(categoryFilter)}`;
+            const res = await api.get(url);
             setJobs(res.data.data || []);
             setTotalPages(res.data.total_pages || 1);
             setTotal(res.data.total || 0);
@@ -87,7 +97,7 @@ const Jobs = () => {
         } finally {
             setLoading(false);
         }
-    }, [page, searchQuery, statusFilter, branchFilter]);
+    }, [page, searchQuery, statusFilter, branchFilter, categoryFilter]);
 
     usePolling(fetchJobs, 30000);
 
@@ -105,7 +115,22 @@ const Jobs = () => {
 
     useEffect(() => {
         fetchJobs();
-    }, [page, statusFilter, branchFilter]);
+    }, [page, statusFilter, branchFilter, categoryFilter]);
+
+    // reset to first page whenever filters change
+    useEffect(() => {
+        setPage(1);
+    }, [searchQuery, statusFilter, branchFilter, categoryFilter]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && deliveryDueModal.isOpen) {
+                closeDeliveryDueModal();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [deliveryDueModal.isOpen]);
 
     const fetchBranches = async () => {
         try {
@@ -116,13 +141,81 @@ const Jobs = () => {
         }
     };
 
-    const handleUpdateStatus = async (jobId, newStatus) => {
+    const handleUpdateStatus = async (job, newStatus) => {
+        const balance = Number(job.balance_amount) || 0;
+
+        if (newStatus === 'Delivered' && balance > 0) {
+            setDeliveryDueModal({
+                isOpen: true,
+                job,
+                remaining: balance,
+                message: 'Full payment is required before marking this order as Delivered.'
+            });
+            return;
+        }
+
         try {
-            await api.put(`/jobs/${jobId}`, { status: newStatus });
+            await api.put(`/jobs/${job.id}`, { status: newStatus });
+            toast.success('Job status updated successfully');
             fetchJobs();
         } catch (error) {
             console.error('Error updating status:', error);
-            toast.error(error.response?.data?.message || 'Failed to update status');
+            const apiMsg = error.response?.data?.message;
+            const remaining = Number(error.response?.data?.remaining_amount) || 0;
+
+            if (newStatus === 'Delivered' && remaining > 0) {
+                setDeliveryDueModal({
+                    isOpen: true,
+                    job,
+                    remaining,
+                    message: apiMsg || 'Full payment is required before delivery.'
+                });
+                return;
+            }
+
+            toast.error(apiMsg || 'Failed to update status');
+        }
+    };
+
+    const closeDeliveryDueModal = () => {
+        setDeliveryDueModal({ isOpen: false, job: null, remaining: 0, message: '' });
+    };
+
+    const handlePayRemainingDue = () => {
+        const job = deliveryDueModal.job;
+        if (!job) return;
+        closeDeliveryDueModal();
+        navigate('/dashboard/customer-payments', {
+            state: {
+                customer_id: job.customer_id || null,
+                job_id: job.id,
+                amount: Number(deliveryDueModal.remaining) || Number(job.balance_amount) || 0
+            }
+        });
+    };
+
+    const handleRequestAdminCredit = async () => {
+        const job = deliveryDueModal.job;
+        if (!job) return;
+
+        const total = Number(job.total_amount) || 0;
+        const remaining = Number(deliveryDueModal.remaining) || Number(job.balance_amount) || 0;
+        const percent = total > 0 ? Math.min(100, Math.max(0.1, (remaining / total) * 100)) : 1;
+
+        setCreditRequesting(true);
+        try {
+            await api.post('/requests/discount', {
+                discount_percent: Number(percent.toFixed(2)),
+                total_amount: total,
+                customer_name: job.customer_name || 'Walk-in',
+                reason: `Credit request for delivery: Job ${job.job_number}, pending due Rs. ${remaining.toFixed(2)}.`
+            });
+            toast.success('Credit request sent to Admin/Accountant for approval.');
+            closeDeliveryDueModal();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to send credit request');
+        } finally {
+            setCreditRequesting(false);
         }
     };
 
@@ -144,7 +237,7 @@ const Jobs = () => {
             'Approval Pending': 'badge--warning',
             'Completed': 'badge--success',
             'Delivered': 'badge--primary',
-            'Cancelled': 'badge--error'
+            'Cancelled': 'badge--danger'
         };
         return colors[status] || 'badge--default';
     };
@@ -193,39 +286,52 @@ const Jobs = () => {
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                             </select>
                         </div>
+                        <div className="select-box glass-card row items-center gap-xs" style={{ padding: '0 12px' }}>
+                            <Filter size={16} className="muted" />
+                            <select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px', flex: 1 }}
+                            >
+                                <option value="">All Types</option>
+                                <option value="OFFSET">Offset</option>
+                                <option value="LASER">Laser</option>
+                                <option value="OTHER">Others</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Tabs for non-Front Office staff */}
-            {!['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole) && (
-                <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', marginBottom: 0 }}>
-                    <button
-                        onClick={() => setActiveTab('active')}
-                        style={{
-                            padding: '10px 24px', fontWeight: 600, fontSize: '14px', cursor: 'pointer',
-                            background: 'none', border: 'none',
-                            borderBottom: activeTab === 'active' ? '3px solid var(--accent)' : '3px solid transparent',
-                            color: activeTab === 'active' ? 'var(--accent)' : 'var(--muted)',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        Active Jobs
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('history')}
-                        style={{
-                            padding: '10px 24px', fontWeight: 600, fontSize: '14px', cursor: 'pointer',
-                            background: 'none', border: 'none',
-                            borderBottom: activeTab === 'history' ? '3px solid var(--accent)' : '3px solid transparent',
-                            color: activeTab === 'history' ? 'var(--accent)' : 'var(--muted)',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        Completed / Cancelled
-                    </button>
-                </div>
-            )}
+
+            {/* Main Tabs for all users */}
+            <div className="jobs-tab-bar">
+                {['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole) ? (
+                    <>
+                        <button onClick={() => setActiveTab('active')} className={`jobs-tab${activeTab === 'active' ? ' jobs-tab--active' : ''}`}>Active Jobs</button>
+                        <button onClick={() => setActiveTab('completed')} className={`jobs-tab${activeTab === 'completed' ? ' jobs-tab--active' : ''}`}>Completed Jobs</button>
+                        <button onClick={() => setActiveTab('delivered')} className={`jobs-tab${activeTab === 'delivered' ? ' jobs-tab--active' : ''}`}>Delivered</button>
+                        <button onClick={() => setActiveTab('due')} className={`jobs-tab${activeTab === 'due' ? ' jobs-tab--active' : ''}`}>Due Collection</button>
+                        <button onClick={() => setActiveTab('overdue')} className={`jobs-tab${activeTab === 'overdue' ? ' jobs-tab--active' : ''}`}>Overdue</button>
+                        <button onClick={() => setActiveTab('payments')} className={`jobs-tab${activeTab === 'payments' ? ' jobs-tab--active' : ''}`}>Recent Payments</button>
+                    </>
+                ) : (
+                    <>
+                        <button onClick={() => setActiveTab('active')} className={`jobs-tab${activeTab === 'active' ? ' jobs-tab--active' : ''}`}>My Active Jobs</button>
+                        <button onClick={() => setActiveTab('history')} className={`jobs-tab${activeTab === 'history' ? ' jobs-tab--active' : ''}`}>Completed / Cancelled</button>
+                    </>
+                )}
+            </div>
+
+            {/* Category Filter Row - visible for all users */}
+            <div className="row gap-sm wrap" style={{ padding: '12px 0', marginBottom: 16 }}>
+                <span className="text-sm" style={{ fontWeight: 700, color: 'var(--muted)', minWidth: 'fit-content', marginRight: 4 }}>Type:</span>
+                <button onClick={() => setCategoryFilter('')} className={`jobs-cat-btn${categoryFilter === '' ? ' jobs-cat-btn--active' : ''}`}>All</button>
+                <button onClick={() => setCategoryFilter('OFFSET')} className={`jobs-cat-btn${categoryFilter === 'OFFSET' ? ' jobs-cat-btn--active' : ''}`}>Offset</button>
+                <button onClick={() => setCategoryFilter('LASER')} className={`jobs-cat-btn${categoryFilter === 'LASER' ? ' jobs-cat-btn--active' : ''}`}>Laser</button>
+                <button onClick={() => setCategoryFilter('OTHER')} className={`jobs-cat-btn${categoryFilter === 'OTHER' ? ' jobs-cat-btn--active' : ''}`}>Others</button>
+            </div>
+
             <div className="panel panel--tight">
                 <div className="table-scroll">
                     <table className="table">
@@ -244,13 +350,30 @@ const Jobs = () => {
                         </thead>
                         <tbody>
                             {(() => {
+                                const isFrontOffice = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
+                                const now = new Date();
+
                                 let filtered = jobs.filter(j => {
-                                    const isFrontOffice = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
-                                    if (isFrontOffice) return j.status !== 'Delivered';
-                                    const myStatus = j.my_assignment_status;
-                                    if (activeTab === 'active') return myStatus !== 'Completed' && j.status !== 'Cancelled';
-                                    return myStatus === 'Completed' || j.status === 'Cancelled';
+                                    if (isFrontOffice) {
+                                        // Front Office filtering by tab
+                                        if (activeTab === 'active') return j.status !== 'Delivered' && j.status !== 'Completed' && j.status !== 'Cancelled';
+                                        if (activeTab === 'completed') return j.status === 'Completed';
+                                        if (activeTab === 'delivered') return j.status === 'Delivered';
+                                        if (activeTab === 'due') return Number(j.balance_amount || 0) > 0 && j.status !== 'Cancelled';
+                                        if (activeTab === 'overdue') {
+                                            if (!j.delivery_date) return false;
+                                            return new Date(j.delivery_date) < now && j.status !== 'Delivered' && j.status !== 'Cancelled';
+                                        }
+                                        if (activeTab === 'payments') return j.payment_status === 'Paid';
+                                    } else {
+                                        // Staff filtering (by my assignment status)
+                                        const myStatus = j.my_assignment_status;
+                                        if (activeTab === 'active') return myStatus !== 'Completed' && j.status !== 'Cancelled';
+                                        if (activeTab === 'history') return myStatus === 'Completed' || j.status === 'Cancelled';
+                                    }
+                                    return true;
                                 });
+
                                 if (sortByPriority) {
                                     filtered = filtered.map(j => {
                                         const { score, urgency } = computeClientPriority(j);
@@ -293,7 +416,7 @@ const Jobs = () => {
                                                     className={`badge ${getStatusColor(j.status)}`}
                                                     style={{ border: 'none', cursor: 'pointer', outline: 'none' }}
                                                     value={j.status}
-                                                    onChange={(e) => handleUpdateStatus(j.id, e.target.value)}
+                                                    onChange={(e) => handleUpdateStatus(j, e.target.value)}
                                                 >
                                                     {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                                                 </select>
@@ -355,6 +478,47 @@ const Jobs = () => {
                 </div>
             </div>
             <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
+
+            {deliveryDueModal.isOpen && (
+                <div className="modal-backdrop" style={{ zIndex: 1000 }}>
+                    <div className="modal" style={{ maxWidth: 520, width: '94%' }}>
+                        <h2 className="section-title" style={{ marginBottom: 8 }}>Payment Pending</h2>
+                        <p className="section-subtitle" style={{ marginBottom: 16 }}>{deliveryDueModal.message}</p>
+
+                        <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+                            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+                                <span className="muted">Job</span>
+                                <strong>{deliveryDueModal.job?.job_number} - {deliveryDueModal.job?.job_name}</strong>
+                            </div>
+                            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+                                <span className="muted">Customer</span>
+                                <strong>{deliveryDueModal.job?.customer_name || 'Walk-in'}</strong>
+                            </div>
+                            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+                                <span className="muted">Total Amount</span>
+                                <strong>Rs. {(Number(deliveryDueModal.job?.total_amount) || 0).toFixed(2)}</strong>
+                            </div>
+                            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+                                <span className="muted">Paid So Far</span>
+                                <strong>Rs. {(Number(deliveryDueModal.job?.advance_paid) || 0).toFixed(2)}</strong>
+                            </div>
+                            <div className="row" style={{ justifyContent: 'space-between' }}>
+                                <span className="muted">Remaining Due</span>
+                                <strong style={{ color: 'var(--error)' }}>Rs. {(Number(deliveryDueModal.remaining) || 0).toFixed(2)}</strong>
+                            </div>
+                        </div>
+
+                        <div className="row gap-sm" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                            <button className="btn btn-ghost" onClick={closeDeliveryDueModal}>Close</button>
+                            <button className="btn btn-secondary" onClick={handleRequestAdminCredit} disabled={creditRequesting}>
+                                {creditRequesting ? <Loader2 size={14} className="animate-spin" /> : null}
+                                <span>Request Admin to Credit</span>
+                            </button>
+                            <button className="btn btn-primary" onClick={handlePayRemainingDue}>Pay Remaining Due</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -244,6 +244,6 @@
 }
 
 .smart-search-results::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 10px;
+    background: var(--accent-soft);
+    border-radius: 999px;
 }

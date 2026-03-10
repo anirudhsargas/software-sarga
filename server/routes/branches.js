@@ -17,7 +17,7 @@ router.get('/branches', authenticateToken, async (req, res) => {
         const [rows] = await pool.query("SELECT * FROM sarga_branches ORDER BY name ASC");
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -33,7 +33,7 @@ router.post('/branches', authenticateToken, authorizeRoles('Admin'), validate(br
         auditLog(req.user.id, 'BRANCH_ADD', `Added branch: ${name}`, { entity_type: 'branch', entity_id: result.insertId });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Branch name already exists' });
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -53,7 +53,7 @@ router.put('/branches/:id', authenticateToken, authorizeRoles('Admin'), validate
     } catch (err) {
         console.error(`Error updating branch ${id}:`, err);
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Branch name already exists' });
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -65,7 +65,7 @@ router.delete('/branches/:id', authenticateToken, authorizeRoles('Admin'), async
         auditLog(req.user.id, 'BRANCH_DELETE', `Deleted branch #${id}`, { entity_type: 'branch', entity_id: id });
         res.json({ message: 'Branch deleted successfully' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 

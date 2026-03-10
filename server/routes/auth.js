@@ -74,16 +74,27 @@ module.exports = (upload) => {
                 }
             });
         } catch (err) {
-            res.status(500).json({ message: 'Database error', error: err.message });
+            console.error('Login error:', err);
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
     // Change Password
     router.post('/auth/change-password', authLimiter, authenticateToken, validate(changePasswordSchema), async (req, res) => {
-        const { newPassword } = req.body;
+        const { currentPassword, newPassword } = req.body;
         const userId = req.user.id;
 
         try {
+            // Verify current password first
+            const [users] = await pool.query("SELECT password, is_first_login FROM sarga_staff WHERE id = ?", [userId]);
+            if (!users[0]) return res.status(404).json({ message: 'User not found' });
+
+            // Skip current password check only for first-login password reset
+            if (!users[0].is_first_login) {
+                const validCurrent = await bcrypt.compare(currentPassword, users[0].password);
+                if (!validCurrent) return res.status(401).json({ message: 'Current password is incorrect' });
+            }
+
             const hashedPassword = await bcrypt.hash(newPassword, 10);
             await pool.query("UPDATE sarga_staff SET password = ?, is_first_login = 0 WHERE id = ?", [hashedPassword, userId]);
 
@@ -104,7 +115,7 @@ module.exports = (upload) => {
             if (!rows[0]) return res.status(404).json({ message: 'User not found' });
             res.json(rows[0]);
         } catch (err) {
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -144,7 +155,8 @@ module.exports = (upload) => {
             auditLog(req.user.id, 'PROFILE_UPDATE', 'Updated profile details');
             res.json(rows[0]);
         } catch (err) {
-            res.status(500).json({ message: 'Database error', error: err.message });
+            console.error('Profile fetch error:', err);
+            res.status(500).json({ message: 'Database error' });
         }
     });
 

@@ -17,7 +17,9 @@ router.get('/customers', authenticateToken, async (req, res) => {
         let where = '';
         const params = [];
 
-        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+        // cross_branch=1 allows all roles to search across branches (used by CustomerPayments page)
+        const crossBranch = req.query.cross_branch === '1';
+        if (!crossBranch && !['Admin', 'Accountant'].includes(req.user.role)) {
             const branchId = await getUserBranchId(req.user.id);
             where += ' AND branch_id = ?';
             params.push(branchId);
@@ -43,7 +45,7 @@ router.get('/customers', authenticateToken, async (req, res) => {
         const [rows] = await pool.query(`SELECT * ${baseFrom} ORDER BY name ASC`, params);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -52,8 +54,8 @@ router.get('/customers/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     try {
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            const branchId = await getUserBranchId(req.user.id);
-            const [rows] = await pool.query("SELECT * FROM sarga_customers WHERE id = ? AND branch_id = ?", [id, branchId]);
+            // Allow looking up a customer by ID regardless of branch (needed for cross-branch payments)
+            const [rows] = await pool.query("SELECT * FROM sarga_customers WHERE id = ?", [id]);
             if (!rows[0]) return res.status(404).json({ message: 'Customer not found' });
             return res.json(rows[0]);
         }
@@ -61,7 +63,7 @@ router.get('/customers/:id', authenticateToken, async (req, res) => {
         if (!rows[0]) return res.status(404).json({ message: 'Customer not found' });
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -85,7 +87,7 @@ router.post('/customers', authenticateToken, validate(addCustomerSchema), async 
     } catch (err) {
         console.error('Add Customer error:', err);
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Mobile number already exists' });
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -115,7 +117,7 @@ router.put('/customers/:id', authenticateToken, async (req, res) => {
         res.json({ message: 'Customer details updated' });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Mobile number already exists' });
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -137,7 +139,7 @@ router.delete('/customers/:id', authenticateToken, authorizeRoles('Admin', 'Acco
         if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
             return res.status(409).json({ message: 'Cannot delete customer: linked records exist.' });
         }
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -253,7 +255,7 @@ router.get('/customers/:id/dashboard', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         console.error('Customer dashboard error:', err);
-        res.status(500).json({ message: 'Failed to load customer dashboard', error: err.message });
+        res.status(500).json({ message: 'Failed to load customer dashboard' });
     }
 });
 

@@ -1,13 +1,14 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import usePolling from '../hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
 import {
     ShoppingBag, Clock, CheckCircle2, IndianRupee, TrendingUp, Truck,
     Search, Plus, UserPlus, Phone, ArrowRight, Calendar, AlertTriangle,
     Receipt, Printer, MessageSquare, RefreshCw, ChevronRight, Loader2,
-    Wallet, Users, Package, Eye, CreditCard, X
+    Wallet, Users, Package, Eye, CreditCard, X, Edit3, Check, ChevronDown, ChevronUp, List, LayoutGrid
 } from 'lucide-react';
 import api from '../services/api';
+import toast from 'react-hot-toast';
 
 import { serverNow } from '../services/serverTime';
 import './FrontOffice.css';
@@ -26,6 +27,16 @@ const FrontOffice = () => {
     const searchRef = useRef(null);
     const searchTimeout = useRef(null);
 
+    // Completed work state
+    const [completedJobs, setCompletedJobs] = useState([]);
+    const [completedLoading, setCompletedLoading] = useState(false);
+    const [completedView, setCompletedView] = useState('grouped'); // 'list' | 'grouped'
+    const [expandedCustomers, setExpandedCustomers] = useState(new Set());
+    const [editingWorkName, setEditingWorkName] = useState(null); // job id being edited
+    const [workNameInput, setWorkNameInput] = useState('');
+    const [savingWorkName, setSavingWorkName] = useState(false);
+    const [categoryFilter, setCategoryFilter] = useState('');
+
     // ─── Data Fetch ──────────────────────────────────────────────
     const fetchDashboard = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -43,6 +54,74 @@ const FrontOffice = () => {
     }, []);
 
     usePolling(() => fetchDashboard(true), 60000);
+
+    // Fetch completed jobs when tab is active
+    const fetchCompleted = useCallback(async () => {
+        setCompletedLoading(true);
+        try {
+            const res = await api.get('/front-office/completed');
+            setCompletedJobs(res.data);
+        } catch {
+            toast.error('Failed to load completed work');
+        } finally {
+            setCompletedLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'completed') fetchCompleted();
+    }, [activeTab, fetchCompleted]);
+
+    // Group completed jobs by customer
+    const groupedCompleted = useMemo(() => {
+        const map = new Map();
+        completedJobs.forEach(job => {
+            const key = job.customer_id || 'walk-in';
+            if (!map.has(key)) {
+                map.set(key, {
+                    customer_id: job.customer_id,
+                    customer_name: job.customer_name,
+                    customer_mobile: job.customer_mobile,
+                    jobs: [],
+                    total_amount: 0,
+                    total_balance: 0
+                });
+            }
+            const group = map.get(key);
+            group.jobs.push(job);
+            group.total_amount += job.total_amount;
+            group.total_balance += job.balance;
+        });
+        return Array.from(map.values()).sort((a, b) => b.jobs.length - a.jobs.length);
+    }, [completedJobs]);
+
+    const toggleCustomerExpand = (customerId) => {
+        setExpandedCustomers(prev => {
+            const next = new Set(prev);
+            if (next.has(customerId)) next.delete(customerId);
+            else next.add(customerId);
+            return next;
+        });
+    };
+
+    const startEditWorkName = (job) => {
+        setEditingWorkName(job.id);
+        setWorkNameInput(job.description || '');
+    };
+
+    const saveWorkName = async (jobId) => {
+        setSavingWorkName(true);
+        try {
+            await api.patch(`/front-office/jobs/${jobId}/work-name`, { work_name: workNameInput });
+            setCompletedJobs(prev => prev.map(j => j.id === jobId ? { ...j, description: workNameInput.trim() } : j));
+            setEditingWorkName(null);
+            toast.success('Work name saved');
+        } catch {
+            toast.error('Failed to save work name');
+        } finally {
+            setSavingWorkName(false);
+        }
+    };
 
     useEffect(() => {
         fetchDashboard();
@@ -148,6 +227,22 @@ const FrontOffice = () => {
         return map[status] || '';
     };
 
+    const matchesCategory = (categoryValue) => {
+        if (!categoryFilter) return true;
+        const cat = String(categoryValue || '').trim().toUpperCase();
+        if (categoryFilter === 'OTHER') {
+            return !cat || !['OFFSET', 'LASER'].includes(cat);
+        }
+        return cat === categoryFilter;
+    };
+
+    const { stats, active_jobs, overdue_jobs, due_customers, recent_payments, status_counts } = data || {};
+    const activeQueueJobs = useMemo(
+        () => (active_jobs || []).filter(job => !['Completed', 'Delivered', 'Cancelled'].includes(job.status)),
+        [active_jobs]
+    );
+    const completedCount = Number(status_counts?.Completed || 0) + Number(status_counts?.Delivered || 0);
+
     // ─── Render ──────────────────────────────────────────────────
     if (loading) {
         return (
@@ -167,8 +262,6 @@ const FrontOffice = () => {
             </div>
         );
     }
-
-    const { stats, active_jobs, overdue_jobs, due_customers, recent_payments, status_counts } = data || {};
 
     return (
         <div className="fo-dashboard">
@@ -311,7 +404,7 @@ const FrontOffice = () => {
             {/* ──── Tab Switcher ──── */}
             <div className="fo-tabs">
                 <button className={`fo-tab ${activeTab === 'queue' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('queue')}>
-                    <Package size={16} /> Active Jobs{active_jobs?.length > 0 && <span className="fo-tab-count">{active_jobs.length}</span>}
+                    <Package size={16} /> Active Jobs{activeQueueJobs.length > 0 && <span className="fo-tab-count">{activeQueueJobs.length}</span>}
                 </button>
                 <button className={`fo-tab ${activeTab === 'dues' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('dues')}>
                     <IndianRupee size={16} /> Due Collection{due_customers?.length > 0 && <span className="fo-tab-count">{due_customers.length}</span>}
@@ -319,9 +412,23 @@ const FrontOffice = () => {
                 <button className={`fo-tab ${activeTab === 'overdue' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('overdue')}>
                     <AlertTriangle size={16} /> Overdue{overdue_jobs?.length > 0 && <span className="fo-tab-count fo-tab-count--red">{overdue_jobs.length}</span>}
                 </button>
+                <button className={`fo-tab ${activeTab === 'completed' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('completed')}>
+                    <CheckCircle2 size={16} /> Completed Jobs{completedCount > 0 && <span className="fo-tab-count">{completedCount}</span>}
+                </button>
                 <button className={`fo-tab ${activeTab === 'payments' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('payments')}>
                     <Receipt size={16} /> Recent Payments
                 </button>
+            </div>
+
+            {/* ──── Category Filter Row ──── */}
+            <div style={{ display: 'flex', gap: 8, padding: '16px 0', marginBottom: 20, fontSize: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text)', minWidth: 'fit-content', fontSize: '13px', marginRight: 8 }}>Filter by Type:</span>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button onClick={() => setCategoryFilter('')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === '' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === '' ? '#fff' : '#888', border: categoryFilter === '' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === '' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>All</button>
+                    <button onClick={() => setCategoryFilter('OFFSET')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'OFFSET' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'OFFSET' ? '#fff' : '#888', border: categoryFilter === 'OFFSET' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'OFFSET' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Offset</button>
+                    <button onClick={() => setCategoryFilter('LASER')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'LASER' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'LASER' ? '#fff' : '#888', border: categoryFilter === 'LASER' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'LASER' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Laser</button>
+                    <button onClick={() => setCategoryFilter('OTHER')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'OTHER' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'OTHER' ? '#fff' : '#888', border: categoryFilter === 'OTHER' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'OTHER' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Others</button>
+                </div>
             </div>
 
             {/* ──── Tab Content ──── */}
@@ -329,174 +436,263 @@ const FrontOffice = () => {
                 {/* Active Jobs Queue */}
                 {activeTab === 'queue' && (
                     <div className="fo-panel">
-                        {(!active_jobs || active_jobs.length === 0) ? (
-                            <div className="fo-empty"><Package size={40} /><p>No active jobs right now</p></div>
-                        ) : (
-                            <div className="fo-table-wrap">
-                                <table className="fo-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Job</th>
-                                            <th>Customer</th>
-                                            <th>Status</th>
-                                            <th>Amount</th>
-                                            <th>Due</th>
-                                            <th>Delivery</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {active_jobs.map(job => {
-                                            const due = daysUntil(job.delivery_date);
-                                            const overdue = due !== null && due < 0;
-                                            const dueToday = due === 0;
-                                            const balance = job.balance < 1 ? 0 : job.balance;
-                                            return (
-                                                <tr
-                                                    key={job.id}
-                                                    className={overdue ? 'fo-row--overdue' : dueToday ? 'fo-row--due-today' : ''}
-                                                    style={{ cursor: 'pointer' }}
-                                                    onDoubleClick={() => navigate(`/dashboard/jobs/${job.id}`)}
-                                                >
-                                                    <td>
-                                                        <div className="fo-job-cell">
-                                                            <span className="fo-job-number">{job.job_number}</span>
-                                                            <span className="fo-job-name">{job.job_name}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <div className="fo-customer-cell">
-                                                            <span>{job.customer_name}</span>
-                                                            {job.customer_mobile && <span className="fo-mobile">{job.customer_mobile}</span>}
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <span className={`fo-badge ${getStatusBadge(job.status)}`}>{job.status}</span>
-                                                    </td>
-                                                    <td className="fo-amount">{fmt(job.total_amount)}</td>
-                                                    <td>
-                                                        {balance > 0 ? (
-                                                            <span className="fo-due-amount">{fmt(balance)}</span>
-                                                        ) : (
-                                                            <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>
-                                                        )}
-                                                    </td>
-                                                    <td>
-                                                        <div className={`fo-delivery ${overdue ? 'fo-delivery--overdue' : dueToday ? 'fo-delivery--today' : ''}`}>
-                                                            {job.delivery_date ? (
-                                                                <>
-                                                                    <Calendar size={13} />
-                                                                    <span>{fmtDate(job.delivery_date)}</span>
-                                                                    {overdue && <span className="fo-overdue-tag">Overdue</span>}
-                                                                    {dueToday && <span className="fo-today-tag">Today</span>}
-                                                                </>
-                                                            ) : '—'}
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <button
-                                                            className="btn btn-ghost btn-icon btn-sm"
-                                                            onClick={() => navigate(`/dashboard/jobs/${job.id}`)}
-                                                            title="View"
-                                                        >
-                                                            <Eye size={16} />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                        {(() => {
+                            const filteredJobs = activeQueueJobs.filter(job => matchesCategory(job.category));
+                            return filteredJobs.length === 0 ? (
+                                <div className="fo-empty"><Package size={40} /><p>{categoryFilter ? 'No jobs in this category' : 'No active jobs right now'}</p></div>
+                            ) : (
+                                <div className="fo-table-wrap">
+                                    <table className="fo-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Job</th>
+                                                <th>Customer</th>
+                                                <th>Status</th>
+                                                <th>Amount</th>
+                                                <th>Due</th>
+                                                <th>Delivery</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredJobs.map(job => {
+                                                const due = daysUntil(job.delivery_date);
+                                                const overdue = due !== null && due < 0;
+                                                const dueToday = due === 0;
+                                                const balance = job.balance < 1 ? 0 : job.balance;
+                                                return (
+                                                    <tr
+                                                        key={job.id}
+                                                        className={overdue ? 'fo-row--overdue' : dueToday ? 'fo-row--due-today' : ''}
+                                                        style={{ cursor: 'pointer' }}
+                                                        onDoubleClick={() => navigate(`/dashboard/jobs/${job.id}`)}
+                                                    >
+                                                        <td>
+                                                            <div className="fo-job-cell">
+                                                                <span className="fo-job-number">{job.job_number}</span>
+                                                                <span className="fo-job-name">{job.job_name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div className="fo-customer-cell">
+                                                                <span>{job.customer_name}</span>
+                                                                {job.customer_mobile && <span className="fo-mobile">{job.customer_mobile}</span>}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <span className={`fo-badge ${getStatusBadge(job.status)}`}>{job.status}</span>
+                                                        </td>
+                                                        <td className="fo-amount">{fmt(job.total_amount)}</td>
+                                                        <td>
+                                                            {balance > 0 ? (
+                                                                <span className="fo-due-amount">{fmt(balance)}</span>
+                                                            ) : (
+                                                                <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            <div className={`fo-delivery ${overdue ? 'fo-delivery--overdue' : dueToday ? 'fo-delivery--today' : ''}`}>
+                                                                {job.delivery_date ? (
+                                                                    <>
+                                                                        <Calendar size={13} />
+                                                                        <span>{fmtDate(job.delivery_date)}</span>
+                                                                        {overdue && <span className="fo-overdue-tag">Overdue</span>}
+                                                                        {dueToday && <span className="fo-today-tag">Today</span>}
+                                                                    </>
+                                                                ) : '—'}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <button
+                                                                className="btn btn-ghost btn-icon btn-sm"
+                                                                onClick={() => navigate(`/dashboard/jobs/${job.id}`)}
+                                                                title="View"
+                                                            >
+                                                                <Eye size={16} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
 
                 {/* Due Collection */}
                 {activeTab === 'dues' && (
                     <div className="fo-panel">
-                        {(!due_customers || due_customers.length === 0) ? (
-                            <div className="fo-empty"><CheckCircle2 size={40} /><p>No pending dues — all clear!</p></div>
-                        ) : (
-                            <div className="fo-due-list">
-                                {due_customers.map(c => (
-                                    <div key={c.id} className="fo-due-card">
-                                        <div className="fo-due-card__info">
-                                            <span className="fo-due-card__name">{c.name}</span>
-                                            <span className="fo-due-card__mobile">
-                                                <Phone size={13} /> {c.mobile}
-                                            </span>
-                                            <span className="fo-due-card__jobs">{c.job_count} job{c.job_count > 1 ? 's' : ''}</span>
-                                        </div>
-                                        <div className="fo-due-card__amounts">
-                                            <div className="fo-due-card__billed">
-                                                <span className="fo-due-card__label">Billed</span>
-                                                <span>{fmt(c.total_billed)}</span>
+                        {(() => {
+                            const filteredDues = (!due_customers || due_customers.length === 0) ? [] : due_customers;
+                            return filteredDues.length === 0 ? (
+                                <div className="fo-empty"><CheckCircle2 size={40} /><p>{categoryFilter ? 'No pending dues in this category' : 'No pending dues — all clear!'}</p></div>
+                            ) : (
+                                <div className="fo-due-list">
+                                    {filteredDues.map(c => (
+                                        <div key={c.id} className="fo-due-card">
+                                            <div className="fo-due-card__info">
+                                                <span className="fo-due-card__name">{c.name}</span>
+                                                <span className="fo-due-card__mobile">
+                                                    <Phone size={13} /> {c.mobile}
+                                                </span>
+                                                <span className="fo-due-card__jobs">{c.job_count} job{c.job_count > 1 ? 's' : ''}</span>
                                             </div>
-                                            <div className="fo-due-card__paid">
-                                                <span className="fo-due-card__label">Paid</span>
-                                                <span>{fmt(c.total_paid)}</span>
+                                            <div className="fo-due-card__amounts">
+                                                <div className="fo-due-card__billed">
+                                                    <span className="fo-due-card__label">Billed</span>
+                                                    <span>{fmt(c.total_billed)}</span>
+                                                </div>
+                                                <div className="fo-due-card__paid">
+                                                    <span className="fo-due-card__label">Paid</span>
+                                                    <span>{fmt(c.total_paid)}</span>
+                                                </div>
+                                                <div className="fo-due-card__due">
+                                                    <span className="fo-due-card__label">Due</span>
+                                                    <span className="fo-due-amount">{fmt(c.due_amount)}</span>
+                                                </div>
                                             </div>
-                                            <div className="fo-due-card__due">
-                                                <span className="fo-due-card__label">Due</span>
-                                                <span className="fo-due-amount">{fmt(c.due_amount)}</span>
-                                            </div>
-                                        </div>
-                                        <div className="fo-due-card__actions">
-                                            <button
-                                                className="btn btn-primary btn-sm"
-                                                onClick={() => navigate(`/dashboard/customer-payments?customer=${c.id}`)}
-                                            >
-                                                <CreditCard size={14} /> Collect
-                                            </button>
-                                            <button
-                                                className="btn btn-ghost btn-sm"
-                                                onClick={() => navigate(`/dashboard/customers/${c.id}`)}
-                                            >
-                                                <Eye size={14} /> View
-                                            </button>
-                                            {c.mobile && (
-                                                <a
-                                                    href={`tel:${c.mobile}`}
-                                                    className="btn btn-ghost btn-sm btn-icon"
-                                                    title="Call"
+                                            <div className="fo-due-card__actions">
+                                                <button
+                                                    className="btn btn-primary btn-sm"
+                                                    onClick={() => navigate(`/dashboard/customer-payments?customer=${c.id}`)}
                                                 >
-                                                    <Phone size={14} />
-                                                </a>
-                                            )}
+                                                    <CreditCard size={14} /> Collect
+                                                </button>
+                                                <button
+                                                    className="btn btn-ghost btn-sm"
+                                                    onClick={() => navigate(`/dashboard/customers/${c.id}`)}
+                                                >
+                                                    <Eye size={14} /> View
+                                                </button>
+                                                {c.mobile && (
+                                                    <a
+                                                        href={`tel:${c.mobile}`}
+                                                        className="btn btn-ghost btn-sm btn-icon"
+                                                        title="Call"
+                                                    >
+                                                        <Phone size={14} />
+                                                    </a>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                    ))}
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
 
                 {/* Overdue Jobs */}
                 {activeTab === 'overdue' && (
                     <div className="fo-panel">
-                        {(!overdue_jobs || overdue_jobs.length === 0) ? (
-                            <div className="fo-empty"><CheckCircle2 size={40} /><p>No overdue jobs! 🎉</p></div>
-                        ) : (
-                            <div className="fo-table-wrap">
-                                <table className="fo-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Job</th>
-                                            <th>Customer</th>
-                                            <th>Status</th>
-                                            <th>Delivery Was</th>
-                                            <th>Overdue By</th>
-                                            <th>Balance</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {overdue_jobs.map(job => {
-                                            const days = Math.abs(daysUntil(job.delivery_date));
-                                            const balance = job.balance < 1 ? 0 : job.balance;
-                                            return (
-                                                <tr key={job.id} className="fo-row--overdue">
+                        {(() => {
+                            const filteredOverdue = (!overdue_jobs || overdue_jobs.length === 0) ? [] : overdue_jobs.filter(job => matchesCategory(job.category));
+                            return filteredOverdue.length === 0 ? (
+                                <div className="fo-empty"><CheckCircle2 size={40} /><p>{categoryFilter ? 'No overdue jobs in this category! 🎉' : 'No overdue jobs! 🎉'}</p></div>
+                            ) : (
+                                <div className="fo-table-wrap">
+                                    <table className="fo-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Job</th>
+                                                <th>Customer</th>
+                                                <th>Status</th>
+                                                <th>Delivery Was</th>
+                                                <th>Overdue By</th>
+                                                <th>Balance</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredOverdue.map(job => {
+                                                const days = Math.abs(daysUntil(job.delivery_date));
+                                                const balance = job.balance < 1 ? 0 : job.balance;
+                                                return (
+                                                    <tr key={job.id} className="fo-row--overdue">
+                                                        <td>
+                                                            <div className="fo-job-cell">
+                                                                <span className="fo-job-number">{job.job_number}</span>
+                                                                <span className="fo-job-name">{job.job_name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div className="fo-customer-cell">
+                                                                <span>{job.customer_name}</span>
+                                                                {job.customer_mobile && <span className="fo-mobile">{job.customer_mobile}</span>}
+                                                            </div>
+                                                        </td>
+                                                        <td><span className={`fo-badge ${getStatusBadge(job.status)}`}>{job.status}</span></td>
+                                                        <td>{fmtDate(job.delivery_date)}</td>
+                                                        <td><span className="fo-overdue-days">{days} day{days > 1 ? 's' : ''}</span></td>
+                                                        <td>{balance > 0 ? <span className="fo-due-amount">{fmt(balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
+                                                        <td>
+                                                            {job.customer_mobile && (
+                                                                <a href={`tel:${job.customer_mobile}`} className="btn btn-ghost btn-icon btn-sm" title="Call">
+                                                                    <Phone size={16} />
+                                                                </a>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+
+                {/* Completed Jobs */}
+                {activeTab === 'completed' && (
+                    <div className="fo-panel">
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+                            <div className="row gap-sm items-center">
+                                <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>View</span>
+                                <button
+                                    className={`btn btn-sm ${completedView === 'grouped' ? 'btn-primary' : 'btn-ghost'}`}
+                                    onClick={() => setCompletedView('grouped')}
+                                >
+                                    <LayoutGrid size={14} /> Grouped
+                                </button>
+                                <button
+                                    className={`btn btn-sm ${completedView === 'list' ? 'btn-primary' : 'btn-ghost'}`}
+                                    onClick={() => setCompletedView('list')}
+                                >
+                                    <List size={14} /> List
+                                </button>
+                            </div>
+                            <button className="btn btn-ghost btn-sm" onClick={fetchCompleted} disabled={completedLoading}>
+                                {completedLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                            </button>
+                        </div>
+
+                        {completedLoading ? (
+                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading completed jobs...</p></div>
+                        ) : (() => {
+                            const filteredCompleted = (!completedJobs || completedJobs.length === 0) ? [] : completedJobs.filter(job => matchesCategory(job.category));
+                            return filteredCompleted.length === 0 ? (
+                                <div className="fo-empty"><CheckCircle2 size={40} /><p>{categoryFilter ? 'No completed jobs in this category' : 'No completed jobs yet'}</p></div>
+                            ) : completedView === 'list' ? (
+                                <div className="fo-table-wrap">
+                                    <table className="fo-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Job</th>
+                                                <th>Customer</th>
+                                                <th>Status</th>
+                                                <th>Amount</th>
+                                                <th>Balance</th>
+                                                <th>Updated</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredCompleted.map(job => (
+                                                <tr key={job.id} style={{ cursor: 'pointer' }} onDoubleClick={() => navigate(`/dashboard/jobs/${job.id}`)}>
                                                     <td>
                                                         <div className="fo-job-cell">
                                                             <span className="fo-job-number">{job.job_number}</span>
@@ -510,23 +706,96 @@ const FrontOffice = () => {
                                                         </div>
                                                     </td>
                                                     <td><span className={`fo-badge ${getStatusBadge(job.status)}`}>{job.status}</span></td>
-                                                    <td>{fmtDate(job.delivery_date)}</td>
-                                                    <td><span className="fo-overdue-days">{days} day{days > 1 ? 's' : ''}</span></td>
-                                                    <td>{balance > 0 ? <span className="fo-due-amount">{fmt(balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
+                                                    <td className="fo-amount">{fmt(job.total_amount)}</td>
+                                                    <td>{job.balance > 0 ? <span className="fo-due-amount">{fmt(job.balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
+                                                    <td>{fmtDate(job.updated_at || job.delivery_date)}</td>
                                                     <td>
-                                                        {job.customer_mobile && (
-                                                            <a href={`tel:${job.customer_mobile}`} className="btn btn-ghost btn-icon btn-sm" title="Call">
-                                                                <Phone size={16} />
-                                                            </a>
-                                                        )}
+                                                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View">
+                                                            <Eye size={16} />
+                                                        </button>
                                                     </td>
                                                 </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="stack-md">
+                                    {groupedCompleted.map(group => {
+                                        const customerKey = group.customer_id || `walkin-${group.customer_name}`;
+                                        const isExpanded = expandedCustomers.has(customerKey);
+                                        // Filter jobs by category
+                                        const filteredGroupJobs = group.jobs.filter(j => matchesCategory(j.category));
+                                        if (filteredGroupJobs.length === 0) return null;
+                                        return (
+                                            <div key={customerKey} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', transition: 'all 0.3s ease', boxShadow: isExpanded ? '0 4px 12px rgba(0,0,0,0.1)' : '0 2px 6px rgba(0,0,0,0.05)' }}>
+                                                <button
+                                                    className="row items-center"
+                                                    style={{ width: '100%', justifyContent: 'space-between', padding: '16px 18px', border: 'none', background: 'var(--surface)', cursor: 'pointer', transition: 'background 0.2s ease' }}
+                                                    onMouseOver={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
+                                                    onMouseOut={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                                                    onClick={() => toggleCustomerExpand(customerKey)}
+                                                >
+                                                    <div className="stack-xs" style={{ alignItems: 'flex-start' }}>
+                                                        <strong style={{ fontSize: '15px', color: 'var(--text)', marginBottom: 2 }}>{group.customer_name || 'Walk-in'}</strong>
+                                                        <span className="muted" style={{ fontSize: 12 }}>
+                                                            {filteredGroupJobs.length} completed job{filteredGroupJobs.length > 1 ? 's' : ''} • Total {fmt(filteredGroupJobs.reduce((sum, j) => sum + j.total_amount, 0))}
+                                                        </span>
+                                                    </div>
+                                                    <div className="row gap-sm items-center">
+                                                        <span className="fo-badge badge--success">Completed</span>
+                                                        {isExpanded ? <ChevronUp size={18} style={{ color: 'var(--accent)' }} /> : <ChevronDown size={18} style={{ color: 'var(--muted)' }} />}
+                                                    </div>
+                                                </button>
+
+                                                {isExpanded && (
+                                                    <div style={{ borderTop: '1px solid var(--border)', background: 'var(--surface-secondary)' }}>
+                                                        {filteredGroupJobs.map(job => (
+                                                            <div key={job.id} className="row gap-sm items-center" style={{ padding: '14px 18px', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', transition: 'background 0.2s ease' }}>
+                                                                <div className="stack-xs" style={{ flex: 1, minWidth: 0 }}>
+                                                                    <strong style={{ fontSize: 13, color: 'var(--text)' }}>{job.job_number} - {job.job_name}</strong>
+                                                                    {editingWorkName === job.id ? (
+                                                                        <div className="row gap-xs" style={{ marginTop: 6 }}>
+                                                                            <input
+                                                                                className="input-field"
+                                                                                style={{ height: 32, fontSize: '12px' }}
+                                                                                value={workNameInput}
+                                                                                onChange={(e) => setWorkNameInput(e.target.value)}
+                                                                                placeholder="Work name"
+                                                                            />
+                                                                            <button className="btn btn-primary btn-sm" onClick={() => saveWorkName(job.id)} disabled={savingWorkName} style={{ padding: '6px 10px' }}>
+                                                                                <Check size={14} />
+                                                                            </button>
+                                                                            <button className="btn btn-ghost btn-sm" onClick={() => setEditingWorkName(null)} style={{ padding: '6px 10px' }}>
+                                                                                <X size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="row gap-xs items-center">
+                                                                            <span className="muted" style={{ fontSize: 12 }}>{job.description || 'No work name'}</span>
+                                                                            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => startEditWorkName(job)} title="Edit work name" style={{ padding: '4px' }}>
+                                                                                <Edit3 size={12} />
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="row gap-sm items-center">
+                                                                    <span className="muted" style={{ fontSize: 12, minWidth: 'fit-content' }}>{fmtDate(job.updated_at || job.delivery_date)}</span>
+                                                                    <span style={{ fontWeight: 700, fontSize: '13px', minWidth: 'fit-content', color: 'var(--accent)' }}>{fmt(job.total_amount)}</span>
+                                                                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View" style={{ padding: '4px' }}>
+                                                                        <Eye size={14} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    }).filter(x => x !== null)}
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
 

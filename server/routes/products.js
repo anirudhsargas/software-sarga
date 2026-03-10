@@ -14,7 +14,7 @@ module.exports = (upload, removeUploadFile) => {
             const [rows] = await pool.query("SELECT * FROM sarga_product_categories ORDER BY name ASC");
             res.json(rows);
         } catch (err) {
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -39,7 +39,7 @@ module.exports = (upload, removeUploadFile) => {
                 return res.status(400).json({ message: 'Category already exists' });
             }
             console.error('Add category error:', err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -56,7 +56,7 @@ module.exports = (upload, removeUploadFile) => {
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Name already exists' });
             console.error('Update category error:', err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -68,7 +68,7 @@ module.exports = (upload, removeUploadFile) => {
             auditLog(req.user.id, 'CATEGORY_DELETE', `Deleted product category #${req.params.id}`, { entity_type: 'product_category', entity_id: req.params.id });
             res.json({ message: 'Category deleted' });
         } catch (err) {
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -78,7 +78,7 @@ module.exports = (upload, removeUploadFile) => {
             const [rows] = await pool.query("SELECT * FROM sarga_product_subcategories WHERE category_id = ? ORDER BY name ASC", [req.params.id]);
             res.json(rows);
         } catch (err) {
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -109,7 +109,7 @@ module.exports = (upload, removeUploadFile) => {
                 return res.status(400).json({ message: 'Subcategory already exists' });
             }
             console.error('Add subcategory error:', err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -126,7 +126,7 @@ module.exports = (upload, removeUploadFile) => {
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Subcategory already exists' });
             console.error('Update subcategory error:', err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -138,7 +138,7 @@ module.exports = (upload, removeUploadFile) => {
             auditLog(req.user.id, 'SUBCATEGORY_DELETE', `Deleted subcategory #${req.params.id}`, { entity_type: 'product_subcategory', entity_id: req.params.id });
             res.json({ message: 'Subcategory deleted' });
         } catch (err) {
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -148,7 +148,7 @@ module.exports = (upload, removeUploadFile) => {
             const [rows] = await pool.query("SELECT * FROM sarga_products WHERE subcategory_id = ? ORDER BY name ASC", [req.params.id]);
             res.json(rows);
         } catch (err) {
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -215,7 +215,7 @@ module.exports = (upload, removeUploadFile) => {
         } catch (err) {
             await connection.rollback();
             console.error('Add product error:', err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         } finally {
             connection.release();
         }
@@ -267,7 +267,7 @@ module.exports = (upload, removeUploadFile) => {
         } catch (err) {
             await connection.rollback();
             console.error('Update product error:', err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         } finally {
             connection.release();
         }
@@ -281,7 +281,7 @@ module.exports = (upload, removeUploadFile) => {
             auditLog(req.user.id, 'PRODUCT_DELETE', `Deleted product #${req.params.id}`, { entity_type: 'product', entity_id: req.params.id });
             res.json({ message: 'Product deleted successfully' });
         } catch (err) {
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -299,7 +299,7 @@ module.exports = (upload, removeUploadFile) => {
             res.json({ message: 'Product image removed', image_url: null });
         } catch (err) {
             console.error('Remove product image error:', err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -336,7 +336,7 @@ module.exports = (upload, removeUploadFile) => {
         } catch (err) {
             await connection.rollback();
             console.error('Position update error:', err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         } finally {
             connection.release();
         }
@@ -356,7 +356,7 @@ module.exports = (upload, removeUploadFile) => {
             res.json({ message: 'Usage reset to default' });
         } catch (err) {
             console.error('Usage reset error:', err);
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 
@@ -372,7 +372,7 @@ module.exports = (upload, removeUploadFile) => {
 
             res.json({ ...product, slabs, extras });
         } catch (err) {
-            res.status(500).json({ message: 'Database error', error: err.message });
+            res.status(500).json({ message: 'Database error' });
         }
     });
 

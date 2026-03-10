@@ -1,0 +1,128 @@
+﻿Running Tesseract OCR extraction on: C:\Users\ANIRUDH\.gemini\antigravity\brain\ffb7173d-6e5b-40e2-9af0-bb6625950a44\dummy_receipt_1772995127256.png
+
+RAW OCR TEXT:
+ 9876543210
+Date: 26 OCT 2023 Time: 14:35
+Receipt #: 601234
+ITEM QTY PRICE AMT
+NOTEBOOKS 5 10.60 50.00
+PENS 2 5.00 10.00
+HIGH LIGHTERS 4 6.00 24.00
+ART MARKERS 3 25.00 75.00
+SKETCHBOOK' 1 35.60 35.00
+STAPLER KIT ~~ 1 15.00 15.60
+PENCIL CASE 1 20.00 20.60
+RULER 2 2.00 4.00
+ERASERS 5 3.00 15.00
+GLUE STICKS ~~ 3 4.00 12.00
+BINDER CLIPS 2 5.00 10.60
+SUBTOTAL: $270.00
+TAX (8.25%): 18.98
+TOTAL: $288.98
+TOTAL PAID (CASH): $270.00
+CHANGE DUE: $0.00
+Items: 27
+ITEMS SOLD: 27
+THANK YOU FOR SHOPPING!
+HAVE A CREATIVE DAY!
+wi. Superstationery. con
+HON
+26231626001234.
+
+
+Success!! Extracted Data:
+{
+  "vendor_name": "9876543210",
+  "vendor_contact": "9876543210",
+  "items": [
+    {
+      "name": "NOTEBOOKS",
+      "quantity": 5,
+      "cost_price": 10.6,
+      "hsn": "",
+      "gst_rate": 0,
+      "item_type": "Retail",
+      "source_code": "",
+      "model_name": "",
+      "size_code": ""
+    },
+    {
+      "name": "PENS",
+      "quantity": 2,
+      "cost_price": 5,
+      "hsn": "",
+      "gst_rate": 0,
+      "item_type": "Retail",
+      "source_code": "",
+      "model_name": "",
+      "size_code": ""
+    },
+    {
+      "name": "HIGH LIGHTERS",
+      "quantity": 4,
+      "cost_price": 6,
+      "hsn": "",
+      "gst_rate": 0,
+      "item_type": "Retail",
+      "source_code": "",
+      "model_name": "",
+      "size_code": ""
+    },
+    {
+      "name": "ART MARKERS",
+      "quantity": 3,
+      "cost_price": 25,
+      "hsn": "",
+      "gst_rate": 0,
+      "item_type": "Retail",
+      "source_code": "",
+      "model_name": "",
+      "size_code": ""
+    },
+    {
+      "name": "PENCIL CASE",
+      "quantity": 1,
+      "cost_price": 20,
+      "hsn": "",
+      "gst_rate": 0,
+      "item_type": "Retail",
+      "source_code": "",
+      "model_name": "",
+      "size_code": ""
+    },
+    {
+      "name": "RULER",
+      "quantity": 2,
+      "cost_price": 2,
+      "hsn": "",
+      "gst_rate": 0,
+      "item_type": "Retail",
+      "source_code": "",
+      "model_name": "",
+      "size_code": ""
+    },
+    {
+      "name": "ERASERS",
+      "quantity": 5,
+      "cost_price": 3,
+      "hsn": "",
+      "gst_rate": 0,
+      "item_type": "Retail",
+      "source_code": "",
+      "model_name": "",
+      "size_code": ""
+    },
+    {
+      "name": "BINDER CLIPS",
+      "quantity": 2,
+      "cost_price": 5,
+      "hsn": "",
+      "gst_rate": 0,
+      "item_type": "Retail",
+      "source_code": "",
+      "model_name": "",
+      "size_code": ""
+    }
+  ],
+  "raw_text": "9876543210\nDate: 26 OCT 2023 Time: 14:35\nReceipt #: 601234\nITEM QTY PRICE AMT\nNOTEBOOKS 5 10.60 50.00\nPENS 2 5.00 10.00\nHIGH LIGHTERS 4 6.00 24.00\nART MARKERS 3 25.00 75.00\nSKETCHBOOK' 1 35.60 35.00\nSTAPLER KIT ~~ 1 15.00 15.60\nPENCIL CASE 1 20.00 20.60\nRULER 2 2.00 4.00\nERASERS 5 3.00 15.00\nGLUE STICKS ~~ 3 4.00 12.00\nBINDER CLIPS 2 5.00 10.60\nSUBTOTAL: $270.00\nTAX (8.25%): 18.98\nTOTAL: $288.98\nTOTAL PAID (CASH): $270.00\nCHANGE DUE: $0.00\nItems: 27\nITEMS SOLD: 27\nTHANK YOU FOR SHOPPING!\nHAVE A CREATIVE DAY!\nwi. Superstationery. con\nHON\n26231626001234.\n"
+}

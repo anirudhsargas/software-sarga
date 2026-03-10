@@ -404,7 +404,7 @@ const DailyReportOffset = () => {
                     {!isFinalized && (
                         <div className="row gap-sm">
                             <button
-                                className="btn btn-ghost btn-primary btn-sm"
+                                className="btn btn-primary btn-sm"
                                 onClick={syncFromBilling}
                                 disabled={syncing || loading}
                                 title="Sync billing, jobs & expense data"
@@ -481,7 +481,7 @@ const DailyReportOffset = () => {
                                                 className="input-field"
                                                 value={entry.amount_collected}
                                                 disabled
-                                                style={{ backgroundColor: 'var(--surface-secondary)' }}
+                                                style={{ backgroundColor: 'var(--surface-2)' }}
                                             />
                                         </div>
                                     </div>
@@ -667,7 +667,7 @@ const DailyReportOffset = () => {
             </div>
 
             {/* Summary */}
-            <div className="panel" style={{ backgroundColor: 'var(--surface-secondary)' }}>
+            <div className="panel" style={{ backgroundColor: 'var(--surface-2)' }}>>
                 <h3 className="panel-title">Daily Summary</h3>
                 <div className="row gap-lg" style={{ flexWrap: 'wrap' }}>
                     <div className="stack-xs">
@@ -698,7 +698,7 @@ const DailyReportOffset = () => {
                     </div>
                     <div className="stack-xs" style={{ marginLeft: 'auto' }}>
                         <span className="text-sm muted">Closing Balance</span>
-                        <span className="text-xl font-bold" style={{ color: 'var(--primary)' }}>
+                        <span className="text-xl font-bold" style={{ color: 'var(--accent)' }}>
                             ₹{totals.closingBalance.toFixed(2)}
                         </span>
                     </div>

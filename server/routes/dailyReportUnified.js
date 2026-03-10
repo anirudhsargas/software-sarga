@@ -227,7 +227,7 @@ router.get('/previous-closing', auth.authenticate, async (req, res) => {
 
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
-        // For Offset: get previous day closing from sarga_daily_report_offset
+        // Offset: stored closing balance from sarga_daily_report_offset
         const [prevOffset] = await pool.query(
             `SELECT closing_balance FROM sarga_daily_report_offset
              WHERE report_date < ? AND branch_id = ?
@@ -235,10 +235,45 @@ router.get('/previous-closing', auth.authenticate, async (req, res) => {
             [date, branchId]
         );
 
+        // Laser & Other: get last recorded opening balances before today
+        // (closing is computed on-the-fly so we carry forward last opening as reference)
+        const [prevOthers] = await pool.query(
+            `SELECT book_type,
+                    cash_opening AS prev_balance
+             FROM sarga_daily_opening_balances
+             WHERE report_date < ? AND branch_id = ? AND book_type IN ('Laser','Other')
+             ORDER BY report_date DESC`,
+            [date, branchId]
+        );
+
+        const prevMap = {};
+        // Only keep the most recent per book_type
+        for (const row of prevOthers) {
+            if (!prevMap[row.book_type]) prevMap[row.book_type] = Number(row.prev_balance);
+        }
+
+        // Machines: last closing_count before today
+        const [prevMachines] = await pool.query(
+            `SELECT mr.machine_id, mr.closing_count
+             FROM sarga_machine_readings mr
+             JOIN sarga_machines m ON mr.machine_id = m.id
+             WHERE mr.reading_date < ? AND m.branch_id = ? AND mr.closing_count IS NOT NULL
+             ORDER BY mr.reading_date DESC`,
+            [date, branchId]
+        );
+        // Keep most recent per machine
+        const machineMap = {};
+        for (const row of prevMachines) {
+            if (machineMap[row.machine_id] === undefined) {
+                machineMap[row.machine_id] = Number(row.closing_count);
+            }
+        }
+
         res.json({
             Offset: prevOffset.length > 0 ? Number(prevOffset[0].closing_balance) : 0,
-            Laser: 0,
-            Other: 0
+            Laser: prevMap['Laser'] ?? 0,
+            Other: prevMap['Other'] ?? 0,
+            machines: machineMap   // { [machine_id]: last_closing_count }
         });
     } catch (error) {
         console.error('Error fetching previous closing:', error);

@@ -3,6 +3,31 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
+// ── Stale chunk recovery ──────────────────────────────────────────────────────
+// When the PWA service worker is updated, old dynamic-import URLs (hashed chunk
+// filenames) no longer exist in the new build. The browser gets a "Failed to
+// fetch dynamically imported module" error. Catch it here and do a hard reload
+// so the browser picks up the new files. A flag prevents infinite reload loops.
+window.addEventListener('unhandledrejection', (event) => {
+  const msg = event?.reason?.message || '';
+  const isChunkError =
+    msg.includes('Failed to fetch dynamically imported module') ||
+    msg.includes('Importing a module script failed') ||
+    msg.includes('Unable to preload CSS') ||
+    (event?.reason?.name === 'ChunkLoadError');
+  if (isChunkError) {
+    const reloadKey = 'sarga_chunk_reload';
+    if (!sessionStorage.getItem(reloadKey)) {
+      sessionStorage.setItem(reloadKey, '1');
+      console.warn('[PWA] Stale chunk detected — reloading to pick up new build.');
+      window.location.reload();
+    } else {
+      // Already tried once — remove flag so future navigations can retry
+      sessionStorage.removeItem(reloadKey);
+    }
+  }
+});
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />
@@ -14,16 +39,14 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).then((reg) => {
       console.log('[PWA] Service worker registered:', reg.scope);
-      // Listen for updates
+      // Auto-reload when a new SW activates (skipWaiting is enabled server-side)
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-              // New version available — show refresh prompt
-              if (confirm('A new version of Sarga is available. Reload now?')) {
-                window.location.reload();
-              }
+            if (newWorker.state === 'activated') {
+              console.log('[PWA] New version activated — reloading.');
+              window.location.reload();
             }
           });
         }

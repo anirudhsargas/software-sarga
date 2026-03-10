@@ -26,7 +26,7 @@ router.get('/requests/id-change', authenticateToken, authorizeRoles('Admin'), as
                                      WHERE r.status = 'PENDING'`);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 

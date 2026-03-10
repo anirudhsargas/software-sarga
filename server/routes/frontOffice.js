@@ -57,16 +57,16 @@ router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
         // 2. Active Jobs Queue ────────────────────────────────────
         const [activeJobs] = await pool.query(
             `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.balance_amount,
-                    j.status, j.payment_status, j.delivery_date, j.created_at, j.quantity,
+                    j.status, j.payment_status, j.delivery_date, j.created_at, j.quantity, j.category,
                     COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
              FROM sarga_jobs j
              LEFT JOIN sarga_customers c ON j.customer_id = c.id
-             WHERE j.status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production', 'Completed') ${branchWhere}
+             WHERE j.status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') ${branchWhere}
              ORDER BY
                 CASE j.status
-                    WHEN 'Completed' THEN 1
-                    WHEN 'Processing' THEN 2
-                    WHEN 'Designing' THEN 3
+                    WHEN 'Processing' THEN 1
+                    WHEN 'Designing' THEN 2
+                    WHEN 'Printing' THEN 3
                     WHEN 'Pending' THEN 4
                     ELSE 5
                 END,
@@ -78,7 +78,7 @@ router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
         // 3. Overdue Jobs (delivery_date passed, not delivered) ────
         const [overdueJobs] = await pool.query(
             `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid,
-                    j.status, j.delivery_date, j.created_at,
+                    j.status, j.delivery_date, j.created_at, j.category,
                     COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
              FROM sarga_jobs j
              LEFT JOIN sarga_customers c ON j.customer_id = c.id
@@ -191,6 +191,65 @@ router.get('/front-office/search', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('Front office search error:', err);
         res.status(500).json({ message: 'Search failed' });
+    }
+});
+
+// ─── COMPLETED WORK (with customer grouping) ────────────────────────
+router.get('/front-office/completed', authenticateToken, async (req, res) => {
+    try {
+        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+            ? await getUserBranchId(req.user.id)
+            : req.query.branch_id || null;
+
+        const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
+        const branchParams = branchId ? [branchId] : [];
+
+        const [jobs] = await pool.query(
+            `SELECT j.id, j.job_number, j.job_name, j.description, j.total_amount, j.advance_paid,
+                    j.balance_amount, j.status, j.payment_status, j.delivery_date, j.category,
+                    j.created_at, j.updated_at, j.quantity, j.customer_id,
+                    COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
+             FROM sarga_jobs j
+             LEFT JOIN sarga_customers c ON j.customer_id = c.id
+             WHERE j.status IN ('Completed', 'Delivered') ${branchWhere}
+             ORDER BY j.updated_at DESC
+             LIMIT 100`,
+            branchParams
+        );
+
+        const mapped = jobs.map(j => ({
+            ...j,
+            total_amount: Number(j.total_amount),
+            advance_paid: Number(j.advance_paid),
+            balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0)
+        }));
+
+        res.json(mapped);
+    } catch (err) {
+        console.error('Completed work error:', err);
+        res.status(500).json({ message: 'Failed to load completed work' });
+    }
+});
+
+// ─── UPDATE WORK NAME (description) ─────────────────────────────────
+router.patch('/front-office/jobs/:id/work-name', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { work_name } = req.body;
+
+    if (typeof work_name !== 'string') {
+        return res.status(400).json({ message: 'work_name must be a string' });
+    }
+    const trimmed = work_name.trim().slice(0, 200);
+
+    try {
+        const [rows] = await pool.query('SELECT id FROM sarga_jobs WHERE id = ?', [id]);
+        if (!rows.length) return res.status(404).json({ message: 'Job not found' });
+
+        await pool.query('UPDATE sarga_jobs SET description = ? WHERE id = ?', [trimmed || null, id]);
+        res.json({ message: 'Work name updated', work_name: trimmed });
+    } catch (err) {
+        console.error('Update work name error:', err);
+        res.status(500).json({ message: 'Failed to update work name' });
     }
 });
 

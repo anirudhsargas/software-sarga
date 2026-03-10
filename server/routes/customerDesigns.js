@@ -26,21 +26,29 @@ const designStorage = multer.diskStorage({
 const ALLOWED_EXTS = new Set([
     '.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg',  // Images
     '.pdf',                                               // PDF
-    '.ai', '.eps', '.psd', '.cdr',                        // Design software
+    '.ai', '.eps', '.psd', '.cdr', '.indd',               // Design software (Illustrator, EPS, Photoshop, CorelDRAW, InDesign)
     '.tiff', '.tif', '.bmp',                              // Print-ready formats
     '.zip', '.rar'                                        // Archives (bundled designs)
 ]);
 
 const designFileFilter = (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ALLOWED_EXTS.has(ext)) return cb(null, true);
-    cb(new Error('Invalid file type. Allowed: Images, PDF, AI, EPS, PSD, CDR, TIFF, ZIP, RAR.'));
+    console.log(`Design file filter - Name: ${file.originalname}, MIME: ${file.mimetype}, Extension: ${ext}`);
+    
+    if (ALLOWED_EXTS.has(ext)) {
+        console.log(`File accepted: ${file.originalname}`);
+        return cb(null, true);
+    }
+    
+    const errorMsg = `Invalid file type: ${ext}. Allowed: Images (JPG, PNG, GIF, SVG, WEBP), PDF, Design software (AI, PSD, EPS, CorelDRAW, InDesign), Print formats (TIFF, BMP), Archives (ZIP, RAR).`;
+    console.error(`File rejected: ${file.originalname} - ${errorMsg}`);
+    cb(new Error(errorMsg));
 };
 
 const uploadDesign = multer({
     storage: designStorage,
     fileFilter: designFileFilter,
-    limits: { fileSize: 25 * 1024 * 1024 } // 25 MB max per file
+    limits: { fileSize: 150 * 1024 * 1024 } // 150 MB max per file
 });
 
 // Helper: determine file category
@@ -48,7 +56,7 @@ const getFileCategory = (filename) => {
     const ext = path.extname(filename).toLowerCase();
     if (['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.bmp'].includes(ext)) return 'image';
     if (ext === '.pdf') return 'pdf';
-    if (['.ai', '.eps', '.psd', '.cdr'].includes(ext)) return 'design';
+    if (['.ai', '.eps', '.psd', '.cdr', '.indd'].includes(ext)) return 'design';
     if (['.tiff', '.tif'].includes(ext)) return 'print';
     if (['.zip', '.rar'].includes(ext)) return 'archive';
     return 'other';
@@ -79,14 +87,22 @@ router.get('/customers/:id/designs', authenticateToken, async (req, res) => {
     } catch (err) {
         if (err.code === 'ER_NO_SUCH_TABLE') return res.json([]);
         console.error('Designs list error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
 // ═══════════════════════════════════════════════════════════════
 // POST /customers/:id/designs — Upload one or more design files
 // ═══════════════════════════════════════════════════════════════
-router.post('/customers/:id/designs', authenticateToken, uploadDesign.array('files', 10), async (req, res) => {
+router.post('/customers/:id/designs', authenticateToken, (req, res, next) => {
+    uploadDesign.array('files', 10)(req, res, (err) => {
+        if (err) {
+            console.error('Multer error for customer designs:', err.message);
+            return res.status(400).json({ message: err.message || 'File upload validation failed' });
+        }
+        next();
+    });
+}, async (req, res) => {
     const customerId = req.params.id;
     const { title, notes, tags, job_id } = req.body;
 
@@ -95,12 +111,34 @@ router.post('/customers/:id/designs', authenticateToken, uploadDesign.array('fil
     }
 
     try {
+        // Verify customer exists and has valid ID
+        const [customerCheck] = await pool.query('SELECT id FROM sarga_customers WHERE id = ?', [customerId]);
+        if (customerCheck.length === 0) {
+            for (const file of req.files) {
+                await removeFile(`/uploads/designs/${file.filename}`);
+            }
+            console.error(`Customer ${customerId} not found`);
+            return res.status(404).json({ message: 'Customer not found. Please check the customer ID.' });
+        }
+
+        // If job_id is provided, verify it exists and belongs to this customer
+        if (job_id) {
+            const [jobCheck] = await pool.query('SELECT id FROM sarga_jobs WHERE id = ? AND customer_id = ?', [job_id, customerId]);
+            if (jobCheck.length === 0) {
+                for (const file of req.files) {
+                    await removeFile(`/uploads/designs/${file.filename}`);
+                }
+                console.error(`Job ${job_id} not found for customer ${customerId}`);
+                return res.status(400).json({ message: 'Invalid job ID for this customer. Please select a valid job.' });
+            }
+        }
+
         const insertValues = req.files.map(file => {
             const fileUrl = `/uploads/designs/${file.filename}`;
             const fileType = getFileCategory(file.originalname);
             const originalName = file.originalname;
             const fileSize = file.size;
-            return [customerId, job_id || null, title || originalName, fileUrl, fileType, originalName, fileSize, notes || null, tags || null, req.user.id];
+            return [customerId, job_id || null, title || originalName, fileUrl, fileType, originalName, fileSize, notes || null, tags || null, req.user.id || null];
         });
 
         const placeholders = insertValues.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
@@ -115,7 +153,7 @@ router.post('/customers/:id/designs', authenticateToken, uploadDesign.array('fil
 
         auditLog(req.user.id, 'DESIGN_UPLOAD', `Uploaded ${req.files.length} design(s) for customer ${customerId}`);
         res.status(201).json({
-            message: `${req.files.length} design(s) uploaded`,
+            message: `${req.files.length} design(s) uploaded successfully`,
             ids: Array.from({ length: req.files.length }, (_, i) => result.insertId + i)
         });
     } catch (err) {
@@ -123,8 +161,24 @@ router.post('/customers/:id/designs', authenticateToken, uploadDesign.array('fil
         for (const file of req.files) {
             await removeFile(`/uploads/designs/${file.filename}`);
         }
-        console.error('Design upload error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        console.error('Design upload error:', {
+            message: err.message,
+            code: err.code,
+            sqlState: err.sqlState,
+            customerId: req.params.id,
+            filesCount: req.files?.length
+        });
+        
+        // More specific error messages
+        if (err.code === 'ER_NO_SUCH_TABLE') {
+            res.status(500).json({ message: 'Design upload table not initialized. Please contact admin.' });
+        } else if (err.code === 'ER_NO_REFERENCED_ROW') {
+            res.status(400).json({ message: 'Invalid job ID or customer not found' });
+        } else if (err.message && err.message.includes('customer_id') && err.message.includes('cannot be null')) {
+            res.status(400).json({ message: 'Customer must be assigned to the job before uploading designs.' });
+        } else {
+            res.status(500).json({ message: `Database error: ${err.message}` });
+        }
     }
 });
 
@@ -140,7 +194,7 @@ router.put('/customers/:customerId/designs/:designId', authenticateToken, async 
         );
         res.json({ message: 'Design updated' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -160,7 +214,7 @@ router.delete('/customers/:customerId/designs/:designId', authenticateToken, asy
         auditLog(req.user.id, 'DESIGN_DELETE', `Deleted design ${req.params.designId} for customer ${req.params.customerId}`);
         res.json({ message: 'Design deleted' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -180,14 +234,22 @@ router.get('/jobs/:jobId/designs', authenticateToken, async (req, res) => {
         res.json(designs);
     } catch (err) {
         if (err.code === 'ER_NO_SUCH_TABLE') return res.json([]);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
 // ═══════════════════════════════════════════════════════════════
 // POST /jobs/:jobId/designs — Upload design files directly from Job page
 // ═══════════════════════════════════════════════════════════════
-router.post('/jobs/:jobId/designs', authenticateToken, uploadDesign.array('files', 10), async (req, res) => {
+router.post('/jobs/:jobId/designs', authenticateToken, (req, res, next) => {
+    uploadDesign.array('files', 10)(req, res, (err) => {
+        if (err) {
+            console.error('Multer error for job designs:', err.message);
+            return res.status(400).json({ message: err.message || 'File upload validation failed' });
+        }
+        next();
+    });
+}, async (req, res) => {
     const jobId = req.params.jobId;
     const { title, notes, tags } = req.body;
 
@@ -197,14 +259,28 @@ router.post('/jobs/:jobId/designs', authenticateToken, uploadDesign.array('files
 
     try {
         // Look up the job's customer_id
-        const [[job]] = await pool.query('SELECT customer_id FROM sarga_jobs WHERE id = ?', [jobId]);
-        if (!job) return res.status(404).json({ message: 'Job not found' });
+        const [jobRows] = await pool.query('SELECT id, customer_id, job_number FROM sarga_jobs WHERE id = ?', [jobId]);
+        if (!jobRows || jobRows.length === 0) {
+            for (const file of req.files) {
+                await removeFile(`/uploads/designs/${file.filename}`);
+            }
+            return res.status(404).json({ message: 'Job not found' });
+        }
+
+        const job = jobRows[0];
+        if (!job.customer_id) {
+            for (const file of req.files) {
+                await removeFile(`/uploads/designs/${file.filename}`);
+            }
+            console.error(`Job ${jobId} has no associated customer`);
+            return res.status(400).json({ message: 'This job is not linked to a customer. Please link a customer to this job first.' });
+        }
 
         const customerId = job.customer_id;
         const insertValues = req.files.map(file => {
             const fileUrl = `/uploads/designs/${file.filename}`;
             const fileType = getFileCategory(file.originalname);
-            return [customerId, jobId, title || file.originalname, fileUrl, fileType, file.originalname, file.size, notes || null, tags || null, req.user.id];
+            return [customerId, jobId, title || file.originalname, fileUrl, fileType, file.originalname, file.size, notes || null, tags || null, req.user.id || null];
         });
 
         const placeholders = insertValues.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
@@ -217,15 +293,30 @@ router.post('/jobs/:jobId/designs', authenticateToken, uploadDesign.array('files
 
         auditLog(req.user.id, 'JOB_DESIGN_UPLOAD', `Uploaded ${req.files.length} design(s) for job ${jobId}`);
         res.status(201).json({
-            message: `${req.files.length} design(s) uploaded`,
+            message: `${req.files.length} design(s) uploaded successfully`,
             ids: Array.from({ length: req.files.length }, (_, i) => result.insertId + i)
         });
     } catch (err) {
         for (const file of req.files) {
             await removeFile(`/uploads/designs/${file.filename}`);
         }
-        console.error('Job design upload error:', err);
-        res.status(500).json({ message: 'Database error', error: err.message });
+        console.error('Job design upload error:', {
+            message: err.message,
+            code: err.code,
+            sqlState: err.sqlState,
+            jobId: req.params.jobId,
+            filesCount: req.files?.length
+        });
+        
+        if (err.code === 'ER_NO_SUCH_TABLE') {
+            res.status(500).json({ message: 'Design upload table not initialized. Please contact admin.' });
+        } else if (err.code === 'ER_NO_REFERENCED_ROW') {
+            res.status(400).json({ message: 'Invalid job ID or customer not found' });
+        } else if (err.message.includes('customer_id') && err.message.includes('cannot be null')) {
+            res.status(400).json({ message: 'Job must be linked to a customer before uploading designs.' });
+        } else {
+            res.status(500).json({ message: `Upload failed: ${err.message}` });
+        }
     }
 });
 
@@ -245,7 +336,7 @@ router.delete('/jobs/:jobId/designs/:designId', authenticateToken, async (req, r
         auditLog(req.user.id, 'JOB_DESIGN_DELETE', `Deleted design ${req.params.designId} from job ${req.params.jobId}`);
         res.json({ message: 'Design deleted' });
     } catch (err) {
-        res.status(500).json({ message: 'Database error', error: err.message });
+        res.status(500).json({ message: 'Database error' });
     }
 });
 

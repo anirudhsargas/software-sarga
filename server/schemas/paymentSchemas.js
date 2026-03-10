@@ -15,6 +15,8 @@ const customerPaymentSchema = z.object({
     upi_amount: z.coerce.number().optional().default(0),
     reference_number: z.string().optional().nullable(),
     description: z.string().optional().nullable(),
+    discount_percent: z.coerce.number().min(0).max(100).optional().nullable().default(0),
+    discount_amount: z.coerce.number().min(0).optional().nullable().default(0),
     payment_date: z.string().min(1, "Payment date is required"),
     order_lines: z.array(z.object({
         product_id: z.coerce.number().optional().nullable(),
@@ -30,7 +32,8 @@ const customerPaymentSchema = z.object({
         subcategory: z.string().optional().nullable(),
         machine_id: z.coerce.number().optional().nullable()
     }).passthrough()).optional().default([]),
-    job_ids: z.array(z.coerce.number()).optional().default([])
+    job_ids: z.array(z.coerce.number()).optional().default([]),
+    auto_deliver: z.boolean().optional().default(false)
 }).refine(data => {
     if (data.advance_paid > data.total_amount * 1.01) return false;
     return true;

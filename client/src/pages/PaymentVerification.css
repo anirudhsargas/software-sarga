@@ -1,0 +1,493 @@
+/* ═══════════════════════════════════════════════════════════
+   PaymentVerification — Sarga Design System
+   ═══════════════════════════════════════════════════════════ */
+
+.pv-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 4px;
+}
+
+/* ── HEADER ── */
+.pv-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.pv-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.pv-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 2px 0 0;
+}
+
+/* ── STAT CARDS ── */
+.pv-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.pv-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface, #fff);
+  border: 1.5px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  font-family: inherit;
+}
+
+.pv-stat-card:hover {
+  border-color: var(--card-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.pv-stat-card--active {
+  border-color: var(--card-color);
+  background: var(--card-bg);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.pv-stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--card-color);
+  flex-shrink: 0;
+}
+
+.pv-stat-card--active .pv-stat-icon {
+  background: var(--card-color);
+  color: #fff;
+}
+
+.pv-stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pv-stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.pv-stat-count {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.pv-stat-amount {
+  font-size: 12px;
+  color: var(--card-color);
+  font-weight: 600;
+}
+
+/* ── FILTERS ── */
+.pv-filters {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pv-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.pv-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.pv-search-input {
+  width: 100%;
+  padding: 9px 36px 9px 36px;
+  border: 1.5px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--surface, #fff);
+  color: var(--text);
+  transition: border-color 0.15s;
+}
+
+.pv-search-input:focus {
+  outline: none;
+  border-color: var(--accent, #6366f1);
+}
+
+.pv-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.pv-date-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pv-date-input {
+  padding: 8px 10px;
+  border: 1.5px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--surface, #fff);
+  color: var(--text);
+}
+
+.pv-date-input:focus {
+  outline: none;
+  border-color: var(--accent, #6366f1);
+}
+
+.pv-date-sep {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── PAYMENT LIST ── */
+.pv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pv-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@keyframes pv-spin {
+  to { transform: rotate(360deg); }
+}
+.pv-spin {
+  animation: pv-spin 1s linear infinite;
+}
+
+/* ── CARD ── */
+.pv-card {
+  background: var(--surface, #fff);
+  border: 1.5px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pv-card:hover {
+  border-color: var(--accent-muted, #a5b4fc);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.pv-card--expanded {
+  border-color: var(--accent, #6366f1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.pv-card-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pv-card-method {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 64px;
+}
+
+.pv-method-emoji {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.pv-method-label {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.pv-card-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.pv-card-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pv-card-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+
+.pv-card-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pv-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pv-card-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'Space Grotesk', monospace;
+}
+
+.pv-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.pv-card-chevron {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* ── EXPANDED ── */
+.pv-card-expand {
+  border-top: 1px solid var(--border, #e5e7eb);
+  padding: 16px;
+  background: var(--bg, #f9fafb);
+}
+
+.pv-expand-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.pv-expand-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pv-expand-item--full {
+  grid-column: 1 / -1;
+}
+
+.pv-expand-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.pv-expand-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pv-text-success { color: #10b981; }
+.pv-text-error { color: #ef4444; }
+
+/* ── ACTIONS ── */
+.pv-actions {
+  border-top: 1px dashed var(--border, #e5e7eb);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pv-note-row {
+  width: 100%;
+}
+
+.pv-note-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--surface, #fff);
+  color: var(--text);
+}
+
+.pv-note-input:focus {
+  outline: none;
+  border-color: var(--accent, #6366f1);
+}
+
+.pv-action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.pv-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pv-btn--verify {
+  background: #10b981;
+  color: #fff;
+}
+.pv-btn--verify:hover:not(:disabled) {
+  background: #059669;
+}
+
+.pv-btn--missing {
+  background: #8b5cf6;
+  color: #fff;
+}
+.pv-btn--missing:hover:not(:disabled) {
+  background: #7c3aed;
+}
+
+.pv-btn--reject {
+  background: #fee2e2;
+  color: #ef4444;
+}
+.pv-btn--reject:hover:not(:disabled) {
+  background: #fecaca;
+}
+
+.pv-btn--undo {
+  background: var(--surface, #fff);
+  border: 1.5px solid var(--border, #e5e7eb);
+  color: var(--text);
+}
+
+.pv-verified-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .pv-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pv-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pv-card-main {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .pv-card-method {
+    min-width: 48px;
+  }
+  .pv-expand-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pv-action-buttons {
+    flex-direction: column;
+  }
+  .pv-btn {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .pv-stats-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .pv-stat-card {
+    padding: 10px 12px;
+  }
+  .pv-stat-count {
+    font-size: 18px;
+  }
+}

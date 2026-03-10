@@ -1247,13 +1247,11 @@ router.post('/bills-documents/:id/link-product', authenticateToken, async (req, 
       [product_id, quantity, unit_price, id]
     );
 
-    // If add_to_inventory is true, create inventory entry
+    // If add_to_inventory is true, increment inventory stock directly
     if (add_to_inventory && product_id) {
       await pool.query(
-        `INSERT INTO sarga_inventory_movements 
-         (inventory_id, movement_type, quantity, reference_type, reference_id, notes)
-         VALUES (?, 'Purchase', ?, 'Bill Document', ?, ?)`,
-        [product_id, quantity, id, 'Linked from bill document']
+        `UPDATE sarga_inventory SET quantity = quantity + ? WHERE id = ?`,
+        [Number(quantity) || 0, product_id]
       );
     }
 
@@ -1527,7 +1525,7 @@ router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accoun
     res.status(201).json({ id: result.insertId, message: 'Utility bill recorded' });
   } catch (err) {
     console.error('Utility bill error:', err);
-    res.status(500).json({ message: 'Database error', error: err.message });
+    res.status(500).json({ message: 'Database error' });
   }
 });
 
@@ -1545,7 +1543,7 @@ router.get('/utility-bills', authenticateToken, async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('Utility bills list error:', err);
-    res.status(500).json({ message: 'Database error', error: err.message });
+    res.status(500).json({ message: 'Database error' });
   }
 });
 
@@ -1558,7 +1556,7 @@ router.delete('/utility-bills/:id', authenticateToken, authorizeRoles('Admin'), 
     res.json({ message: 'Utility bill deleted' });
   } catch (err) {
     console.error('Delete utility bill error:', err);
-    res.status(500).json({ message: 'Database error', error: err.message });
+    res.status(500).json({ message: 'Database error' });
   }
 });
 
