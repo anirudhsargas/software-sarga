@@ -331,28 +331,33 @@
 .fo-stat-card__body {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 5px;
     min-width: 0;
     flex: 1;
+    justify-content: center;
 }
 
 .fo-stat-card__value {
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 1.35rem;
-    font-weight: 800;
+    font-size: 1.45rem;
+    font-weight: 900;
     color: var(--text);
-    line-height: 1.1;
+    line-height: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    margin: 0;
+    padding: 0;
 }
 
 .fo-stat-card__label {
-    font-size: 0.73rem;
-    font-weight: 600;
+    font-size: 0.74rem;
+    font-weight: 700;
     color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
+    margin: 0;
+    padding: 0;
 }
 
 /* Card color themes */
@@ -513,14 +518,15 @@
     text-align: left;
     padding: 12px 10px;
     font-size: 0.72rem;
-    font-weight: 700;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     color: var(--text);
     background: var(--surface-2);
     border-bottom: 1.5px solid var(--border);
     white-space: normal;
     word-break: break-word;
+    line-height: 1.2;
 }
 
 .fo-table td {
@@ -530,6 +536,7 @@
     word-break: break-word;
     overflow-wrap: break-word;
     white-space: normal;
+    line-height: 1.3;
 }
 
 .fo-table tbody tr:last-child td {
@@ -902,13 +909,13 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 18px 10px;
+    gap: 12px;
+    padding: 20px 10px;
     border-radius: var(--radius);
     border: 1.5px solid var(--border);
     background: var(--surface);
     transition: transform 0.15s, box-shadow 0.15s;
-    min-height: 100px;
+    min-height: 110px;
 }
 
 .fo-pipeline-stage:hover {
@@ -918,17 +925,22 @@
 
 .fo-pipeline-stage__count {
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 1.8rem;
-    font-weight: 800;
+    font-size: 2rem;
+    font-weight: 900;
     line-height: 1;
+    margin: 0;
+    padding: 0;
 }
 
 .fo-pipeline-stage__label {
-    font-size: 0.75rem;
+    font-size: 0.76rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     text-align: center;
+    margin: 0;
+    padding: 0;
+    line-height: 1.2;
 }
 
 .fo-pipeline-stage--pending .fo-pipeline-stage__count {
@@ -1025,22 +1037,24 @@
 
     .fo-stat-card {
         padding: 14px;
-        min-height: 65px;
+        min-height: 70px;
         gap: 12px;
     }
 
     .fo-stat-card__icon {
-        width: 42px;
-        height: 42px;
+        width: 44px;
+        height: 44px;
+        font-size: 1.1rem;
     }
 
     .fo-stat-card__value {
-        font-size: 1.1rem;
-        font-weight: 800;
+        font-size: 1.15rem;
+        font-weight: 900;
     }
 
     .fo-stat-card__label {
-        font-size: 0.70rem;
+        font-size: 0.71rem;
+        font-weight: 700;
     }
 
     .fo-tabs {
@@ -1075,17 +1089,19 @@
     }
 
     .fo-pipeline-stage {
-        padding: 14px 8px;
-        min-height: 85px;
-        gap: 6px;
+        padding: 16px 8px;
+        min-height: 95px;
+        gap: 10px;
     }
 
     .fo-pipeline-stage__count {
-        font-size: 1.4rem;
+        font-size: 1.6rem;
+        font-weight: 900;
     }
 
     .fo-pipeline-stage__label {
-        font-size: 0.68rem;
+        font-size: 0.69rem;
+        letter-spacing: 0.04em;
     }
 
     .fo-action-btn kbd {
@@ -1142,8 +1158,14 @@
         grid-template-columns: 1fr 1fr;
     }
 
+    .fo-stat-card__value {
+        font-size: 1.05rem;
+        font-weight: 900;
+    }
+
     .fo-stat-card__label {
-        font-size: 0.66rem;
+        font-size: 0.67rem;
+        font-weight: 700;
     }
 
     .fo-table {
@@ -1152,12 +1174,14 @@
     }
 
     .fo-table th {
-        padding: 6px 8px;
-        font-size: 0.6rem;
+        padding: 8px 8px;
+        font-size: 0.62rem;
+        font-weight: 800;
     }
 
     .fo-table td {
-        padding: 6px 8px;
+        padding: 8px 8px;
+        font-size: 0.68rem;
     }
 
     .fo-job-name {
