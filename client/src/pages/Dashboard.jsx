@@ -9,8 +9,6 @@ import useAuth from '../hooks/useAuth';
 import api, { API_URL } from '../services/api';
 import ImageCropModal from '../components/ImageCropModal';
 import ScannerModal from '../components/ScannerModal';
-import SmartSearch from '../components/SmartSearch';
-import sargaLogo from '../assets/sarga-logo.png';
 import { useConfirm } from '../contexts/ConfirmContext';
 
 // Lazy-loaded pages — each becomes a separate chunk
@@ -44,8 +42,6 @@ const Accounts = React.lazy(() => import('./Accounts'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 const ProductionTracker = React.lazy(() => import('./ProductionTracker'));
 const PlateManagement = React.lazy(() => import('./PlateManagement'));
-import SmartSearchBar from '../components/SmartSearchBar';
-
 const PageLoader = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: '8px', color: 'var(--text-muted, var(--muted))' }}>
         <Loader2 size={20} className="animate-spin" /> Loading...
@@ -65,7 +61,6 @@ const Dashboard = () => {
     const [profileSaving, setProfileSaving] = useState(false);
     const [cropState, setCropState] = useState(null);
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
-    const [searchOpen, setSearchOpen] = useState(false);
     const [showInventoryScan, setShowInventoryScan] = useState(false);
     const [inventoryScanResult, setInventoryScanResult] = useState(null);
     const [inventoryScanLoading, setInventoryScanLoading] = useState(false);
@@ -343,7 +338,7 @@ const Dashboard = () => {
             <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''} ${sidebarOpen ? 'sidebar--open' : ''}`}>
                 <div className="sidebar-header">
                     <div className="row gap-sm items-center">
-                        <img src={sargaLogo} alt="Sarga" className="logo-img" />
+                        <img src="/icons/icon-192.png" alt="Sarga" className="logo-img" />
                         <span className="logo-text">SARGA</span>
                     </div>
                     <button
@@ -454,7 +449,6 @@ const Dashboard = () => {
                     <button className="icon-button" onClick={toggleSidebar}>
                         <Grid size={20} />
                     </button>
-                    <SmartSearchBar />
                     <div className="logo-text">SARGA</div>
                     <div className="user-avatar avatar-sm" onClick={() => setShowProfileModal(true)}>
                         {user?.image_url ? (
@@ -465,12 +459,7 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Desktop Content Topbar with Smart Search */}
-                <div className="content-topbar">
-                    <button className="smart-search-trigger" onClick={() => setSearchOpen(true)}>
-                        <Search size={15} /> Search anything... <kbd>Ctrl K</kbd>
-                    </button>
-                </div>
+
 
                 <div className="content-container">
                     <Suspense fallback={<PageLoader />}>
@@ -507,9 +496,6 @@ const Dashboard = () => {
                     </Suspense>
                 </div>
             </main>
-
-            {/* Smart Search Overlay */}
-            <SmartSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
             {showProfileModal && (
                 <div className="modal-backdrop">
