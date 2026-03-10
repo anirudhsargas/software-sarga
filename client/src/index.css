@@ -2204,6 +2204,7 @@ button {
     max-width: 95vw !important;
     max-height: 90vh;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 16px;
     padding-top: 44px;
     margin: auto;
@@ -2216,6 +2217,7 @@ button {
 
   .content-container {
     padding: 16px;
+    overflow-x: hidden;
   }
 
   .page-header {
@@ -2229,27 +2231,29 @@ button {
     flex-wrap: wrap;
   }
 
-  /* ── Tables ── */
+  /* ── Tables - NO horizontal scrolling ── */
   .card>.table,
   .panel>.table {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: visible;
+    display: table;
   }
 
   .table th,
   .table td {
     padding: 10px 12px;
     font-size: 0.82rem;
-    white-space: nowrap;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   .table th:last-child,
   .table td:last-child {
-    position: sticky;
-    right: 0;
-    background: var(--surface);
-    box-shadow: -4px 0 8px rgba(0, 0, 0, 0.05);
+    position: static;
+    background: transparent;
+    box-shadow: none;
   }
 
   /* ── Rows & Flex utilities ── */
@@ -3794,6 +3798,91 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ═════════════════════════════════════════════════════════════
+   COMPREHENSIVE MOBILE NO-HORIZONTAL-SCROLLING FIX
+   Applies to all pages/components to prevent any overflow-x on mobile
+   ═════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* ── Universal overflow fix ── */
+  * {
+    overflow-x: hidden !important;
+  }
+
+  /* ── Restore vertical scrolling where needed ── */
+  .content,
+  .modal,
+  .modal-backdrop,
+  .panel,
+  .card,
+  [class*="table"],
+  [class*="grid"],
+  [class*="scroll"] {
+    overflow-y: auto !important;
+  }
+
+  /* ── Ensure body/html don't scroll horizontally ── */
+  body,
+  html {
+    overflow-x: hidden;
+    width: 100vw;
+    max-width: 100%;
+  }
+
+  /* ── Fix common container overflow issues ── */
+  .main-content,
+  .main,
+  .content-container,
+  .app-shell {
+    overflow-x: hidden !important;
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  /* ── Row/flex containers: wrap instead of scroll ── */
+  .row,
+  .flex {
+    flex-wrap: wrap;
+  }
+
+  /* ── Tables: responsive text wrapping ── */
+  .table,
+  [role="table"] {
+    width: 100%;
+    min-width: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .table th,
+  .table td,
+  [role="rowheader"],
+  [role="cell"] {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+
+  /* ── All divs with overflow-x: auto → hidden ── */
+  div[style*="overflow-x: auto"],
+  [class*="scroll"] {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+
+  /* ── Form elements responsive ── */
+  input,
+  textarea,
+  select {
+    max-width: 100%;
+  }
+
+  /* ── Image responsiveness ── */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
 .search-box input {

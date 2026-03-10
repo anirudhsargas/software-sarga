@@ -927,8 +927,10 @@ select.em-input {
 
 /* ─── Full Table ──────────────────────────────────────── */
 .em-table-wrap {
-    overflow-x: auto;
+    overflow-x: hidden;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
+    width: 100%;
 }
 
 .em-table {

@@ -4,8 +4,24 @@
     .jobs-filter-row > div { width: 100%; max-width: none !important; }
     .jobs-filter-group { flex-direction: column; width: 100%; }
     .jobs-filter-group > div { width: 100%; }
-    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 0 16px; width: calc(100% + 32px); }
+    .table-scroll { 
+        overflow-x: hidden; 
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch; 
+        margin: 0;
+        padding: 0;
+        width: 100%;
+    }
     .table-scroll::-webkit-scrollbar { height: 6px; }
     .table-scroll::-webkit-scrollbar-thumb { background: var(--accent-soft); border-radius: 999px; }
-    .table { min-width: 800px; }
+    .table { 
+        width: 100%;
+        min-width: auto;
+    }
+    .table th,
+    .table td {
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
 }

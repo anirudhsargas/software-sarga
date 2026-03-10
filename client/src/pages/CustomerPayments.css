@@ -657,9 +657,11 @@
 
 /* ── TABLE TWEAKS ── */
 .cp-table-wrap {
-  overflow-x: auto;
-  margin: 0 -24px;
-  padding: 0 24px;
+  overflow-x: hidden;
+  overflow-y: visible;
+  margin: 0;
+  padding: 0;
+  width: 100%;
 }
 
 .cp-table-customer {

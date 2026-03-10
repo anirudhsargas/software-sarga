@@ -314,8 +314,10 @@
 
 /* ── Tables ── */
 .acc-table-wrap {
-  overflow-x: auto;
+  overflow-x: hidden;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
+  width: 100%;
 }
 
 .acc-table {
