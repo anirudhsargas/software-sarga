@@ -19,6 +19,9 @@ const customerTypes = ['Walk-in', 'Retail', 'Association', 'Offset'];
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
 
 const Billing = () => {
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState(null);
+    const isAdmin = auth.getUser()?.role === 'Admin';
   const { confirm } = useConfirm();
   const isOnline = useOnlineStatus();
   const location = useLocation();
@@ -214,10 +217,8 @@ const Billing = () => {
       try {
         const response = await api.get('/machines?is_active=true');
         setMachines(response.data || []);
-        // Cache for offline use
         offlineDb.cacheData('machines', response.data || []).catch(() => {});
       } catch (err) {
-        console.warn('Failed to load machines from server, trying offline cache...');
         try {
           const cached = await getCachedMachines();
           if (cached) setMachines(cached);
@@ -225,19 +226,25 @@ const Billing = () => {
       }
     };
 
-    const fetchBranchUpi = async () => {
+    const fetchBranches = async () => {
       try {
         const res = await api.get('/branches');
+        setBranches(res.data || []);
+        if (isAdmin && res.data?.length > 0 && !selectedBranchId) {
+          setSelectedBranchId(res.data[0].id);
+        }
         const userBranchId = auth.getUser()?.branch_id;
         const branch = (res.data || []).find(b => b.id === userBranchId);
         if (branch?.upi_id) setBranchUpiId(branch.upi_id);
-        // Cache for offline
         offlineDb.cacheData('branches', res.data || []).catch(() => {});
       } catch {
-        // Try offline cache
         try {
           const cached = await getCachedBranches();
           if (cached) {
+            setBranches(cached);
+            if (isAdmin && cached.length > 0 && !selectedBranchId) {
+              setSelectedBranchId(cached[0].id);
+            }
             const userBranchId = auth.getUser()?.branch_id;
             const branch = cached.find(b => b.id === userBranchId);
             if (branch?.upi_id) setBranchUpiId(branch.upi_id);
@@ -247,7 +254,7 @@ const Billing = () => {
     };
 
     fetchMachines();
-    fetchBranchUpi();
+    fetchBranches();
   }, []);
 
   useEffect(() => {
@@ -563,10 +570,14 @@ const Billing = () => {
       let createdJobs = [];
 
       if (orderLines.length > 0) {
-        const jobRes = await api.post('/jobs/bulk', {
+        const payload = {
           customer_id: customer?.id || null,
           order_lines: orderLines
-        });
+        };
+        if (isAdmin && selectedBranchId) {
+          payload.branch_id = selectedBranchId;
+        }
+        const jobRes = await api.post('/jobs/bulk', payload);
         createdJobs = jobRes.data?.jobs || [];
         console.log('✓ Jobs created from /jobs/bulk:', createdJobs);
         createdJobs.forEach((j, idx) => {
@@ -724,7 +735,16 @@ const Billing = () => {
     }
   };
 
-  const normalizeCode = (value) => String(value || '').replace(/\s+/g, '').toUpperCase();
+  // Normalize code: remove BOM, trim, remove all whitespace, toUpperCase
+  const normalizeCode = (value) => {
+    let code = String(value || '');
+    code = code.replace(/^\uFEFF/, ''); // Remove BOM if present
+    code = code.trim();
+    code = code.replace(/\s+/g, '');
+    code = code.replace(/[\r\n]+/g, '');
+    code = code.toUpperCase();
+    return code;
+  };
 
   // O(1) QR code lookup map built from hierarchy
   const qrLookupMap = useMemo(() => {
@@ -786,6 +806,7 @@ const Billing = () => {
   const handleQrLookup = async (providedCode) => {
     const code = providedCode || qrInput;
     const normalized = normalizeCode(code);
+    console.log('QR/Product code input:', { raw: code, normalized });
     if (!normalized) return;
 
     // 1. Try product hierarchy lookup first (O(1))
@@ -1164,6 +1185,21 @@ const Billing = () => {
 
   return (
     <>
+      {/* Branch selection for admin */}
+      {isAdmin && branches.length > 0 && (
+        <div className="mb-16">
+          <label className="input-label">Select Branch</label>
+          <select
+            className="input-field"
+            value={selectedBranchId || ''}
+            onChange={e => setSelectedBranchId(Number(e.target.value))}
+          >
+            {branches.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
       <section className="panel billing-panel">
         <div className="billing-header">
           <div>

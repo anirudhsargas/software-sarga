@@ -57,6 +57,7 @@ const Login = () => {
         <div className="auth-shell">
             <div className="auth-card">
                 <div className="brand">
+                    <img src="/icons/icon-192.png" alt="Sarga" className="login-logo" />
                     <h1>SARGA</h1>
                     <p>Printing Management System</p>
                 </div>

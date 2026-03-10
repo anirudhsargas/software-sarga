@@ -500,7 +500,7 @@ const Dashboard = () => {
             {showProfileModal && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '520px' }}>
-                        <button className="modal-close" onClick={() => setShowProfileModal(false)}><ChevronRight size={18} /></button>
+                        <button className="modal-close" onClick={() => setShowProfileModal(false)} title="Close"><X size={20} /></button>
                         <h2 className="section-title mb-16">Edit Profile</h2>
                         <form onSubmit={handleProfileSave} className="stack-md">
                             <div className="row gap-md items-center">
