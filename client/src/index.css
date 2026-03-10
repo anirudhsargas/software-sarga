@@ -3802,57 +3802,82 @@ button {
 
 /* ═════════════════════════════════════════════════════════════
    COMPREHENSIVE MOBILE NO-HORIZONTAL-SCROLLING FIX
-   Applies to all pages/components to prevent any overflow-x on mobile
+   Constrains widths to prevent page shift on mobile (≤768px)
    ═════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
-  /* ── Universal overflow fix ── */
-  * {
-    overflow-x: hidden !important;
+  /* ── Prevent page shift by constraining body ── */
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
   }
 
-  /* ── Restore vertical scrolling where needed ── */
+  /* ── Constrain main layout containers ── */
+  .app-shell,
+  .dashboard-layout,
+  .main,
+  .main-content {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ── Content areas ── */
   .content,
+  .content-container {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    margin: 0;
+    padding: 16px;
+  }
+
+  /* ── Modal & backdrop ── */
   .modal,
-  .modal-backdrop,
+  .modal-backdrop {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* ── Panels, cards, forms ── */
   .panel,
   .card,
-  [class*="table"],
-  [class*="grid"],
-  [class*="scroll"] {
-    overflow-y: auto !important;
-  }
-
-  /* ── Ensure body/html don't scroll horizontally ── */
-  body,
-  html {
-    overflow-x: hidden;
-    width: 100vw;
-    max-width: 100%;
-  }
-
-  /* ── Fix common container overflow issues ── */
-  .main-content,
-  .main,
-  .content-container,
-  .app-shell {
-    overflow-x: hidden !important;
+  .form-group,
+  [class*="panel-"] {
     width: 100%;
-    max-width: 100vw;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   /* ── Row/flex containers: wrap instead of scroll ── */
   .row,
-  .flex {
-    flex-wrap: wrap;
+  .flex,
+  [class*="row-"],
+  [class*="flex-"] {
+    flex-wrap: wrap !important;
+    width: 100%;
+    max-width: 100%;
   }
 
   /* ── Tables: responsive text wrapping ── */
   .table,
-  [role="table"] {
+  [role="table"],
+  .table-scroll,
+  [class*="table-"] {
     width: 100%;
-    min-width: auto !important;
-    overflow-x: hidden !important;
+    min-width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: visible;
   }
 
   .table th,
@@ -3862,26 +3887,40 @@ button {
     white-space: normal !important;
     word-break: break-word !important;
     overflow-wrap: break-word !important;
-  }
-
-  /* ── All divs with overflow-x: auto → hidden ── */
-  div[style*="overflow-x: auto"],
-  [class*="scroll"] {
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
+    padding: 10px 8px !important;
   }
 
   /* ── Form elements responsive ── */
   input,
   textarea,
-  select {
+  select,
+  [class*="input-"],
+  [class*="field-"] {
+    width: 100%;
     max-width: 100%;
+    box-sizing: border-box;
   }
 
-  /* ── Image responsiveness ── */
+  /* ── Images responsive ── */
   img {
+    width: 100%;
     max-width: 100%;
     height: auto;
+    display: block;
+  }
+
+  /* ── Prevent negative margins from causing overflow ── */
+  [style*="margin"],
+  [class*="margin-"] {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* ── Any scrollable containers ── */
+  [style*="overflow-x: auto"],
+  [class*="scroll"] {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
   }
 }
 
