@@ -496,6 +496,8 @@
 /* ─── Table ───────────────────────────────────────────────────────── */
 .fo-table-wrap {
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
 }
 
 .fo-table {
@@ -1052,6 +1054,46 @@
     .fo-action-btn kbd {
         display: none;
     }
+
+    /* ─── Mobile Table Fixes ─── */
+    .fo-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: calc(100vw - 32px);
+        margin: 0 -16px;
+        padding: 0 16px;
+    }
+
+    .fo-table {
+        font-size: 0.75rem;
+        min-width: 500px;
+    }
+
+    .fo-table th {
+        padding: 8px 10px;
+        font-size: 0.65rem;
+    }
+
+    .fo-table td {
+        padding: 8px 10px;
+    }
+
+    .fo-job-name {
+        max-width: 100px;
+        font-size: 0.75rem;
+    }
+
+    .fo-mobile {
+        font-size: 0.7rem;
+    }
+
+    .fo-amount {
+        font-size: 0.7rem;
+    }
+
+    .fo-due-amount {
+        font-size: 0.75rem;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1065,5 +1107,28 @@
 
     .fo-stat-card__label {
         font-size: 0.66rem;
+    }
+
+    .fo-table {
+        font-size: 0.68rem;
+        min-width: 450px;
+    }
+
+    .fo-table th {
+        padding: 6px 8px;
+        font-size: 0.6rem;
+    }
+
+    .fo-table td {
+        padding: 6px 8px;
+    }
+
+    .fo-job-name {
+        max-width: 80px;
+        font-size: 0.7rem;
+    }
+
+    .fo-pipeline-bar {
+        grid-template-columns: 1fr;
     }
 }
