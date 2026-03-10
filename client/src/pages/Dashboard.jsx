@@ -547,6 +547,16 @@ const Dashboard = () => {
                             <button type="submit" className="btn btn-primary btn--full" disabled={profileSaving}>
                                 {profileSaving ? 'Saving...' : 'Save Changes'}
                             </button>
+                            <button 
+                                type="button" 
+                                className="btn btn-ghost btn--full text-error"
+                                onClick={() => {
+                                    setShowProfileModal(false);
+                                    logout();
+                                }}
+                            >
+                                <LogOut size={16} /> Logout
+                            </button>
                         </form>
                     </div>
                 </div>
