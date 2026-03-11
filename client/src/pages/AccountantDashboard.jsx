@@ -5,7 +5,7 @@ import {
   CheckCircle2, Clock, ArrowUpRight, ArrowDownRight, RefreshCw,
   ShieldAlert, FileText, CalendarDays, ChevronRight, Package,
   PieChart, ArrowRight, Banknote, CircleDollarSign,
-  AlertCircle, Target
+  AlertCircle, Target, Truck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -88,6 +88,7 @@ const AccountantDashboard = () => {
   const [cashVsBank, setCashVsBank] = useState(null);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [recentJobs, setRecentJobs] = useState([]);
+  const [stockVerification, setStockVerification] = useState(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -99,12 +100,13 @@ const AccountantDashboard = () => {
       const branchParam = selectedBranches.length > 0 ? { branch_id: selectedBranches.join(',') } : {};
       const todayStr = new Date().toISOString().split('T')[0];
 
-      const [expRes, salesRes, todayRes, cashRes, reqRes] = await Promise.allSettled([
+      const [expRes, salesRes, todayRes, cashRes, reqRes, stockRes] = await Promise.allSettled([
         api.get('/expense-dashboard', { params: { month, ...branchParam } }),
         api.get('/stats/dashboard', { params: { startDate, endDate, ...branchParam } }),
         api.get('/stats/dashboard', { params: { startDate: todayStr, endDate: todayStr, ...branchParam } }),
         api.get('/reports/cash-vs-bank', { params: { start_date: startDate, end_date: endDate } }),
         api.get('/requests/discount').catch(() => ({ data: [] })),
+        api.get(`/inventory/stock-verification/${month}`),
       ]);
 
       if (expRes.status === 'fulfilled') setExpDash(expRes.value.data);
@@ -115,6 +117,7 @@ const AccountantDashboard = () => {
       if (todayRes.status === 'fulfilled') setTodayStats(todayRes.value.data);
       if (cashRes.status === 'fulfilled') setCashVsBank(cashRes.value.data?.rows?.[0] || null);
       if (reqRes.status === 'fulfilled') setPendingRequests(reqRes.value.data || []);
+      if (stockRes.status === 'fulfilled') setStockVerification(stockRes.value.data);
     } catch (err) {
       console.error('AccountantDashboard fetch error', err);
     } finally {
@@ -432,6 +435,69 @@ const AccountantDashboard = () => {
               <KpiCard label="Rent Pending" value={fmtCur(unpaidRents.reduce((s, r) => s + Number(r.remaining), 0))} sub={`${unpaidRents.length} of ${rentLocations.length} locations`} color={unpaidRents.length > 0 ? 'acc-kpi--amber' : 'acc-kpi--green'} icon={Building2} />
             </div>
           </Section>
+
+          {/* ═══ Stock Verification Monthly ═══ */}
+          {stockVerification && (
+            <Section title={`Stock Verification — ${monthLabel(month)}`} icon={Package}>
+              <div className="acc-kpi-grid acc-kpi-grid--4">
+                <KpiCard 
+                  label="Low Stock Items" 
+                  value={stockVerification.summary.total_low_stock} 
+                  sub="Need reordering" 
+                  color={stockVerification.summary.total_low_stock > 0 ? 'acc-kpi--red' : 'acc-kpi--green'} 
+                  icon={AlertTriangle} 
+                />
+                <KpiCard 
+                  label="Active Consumption" 
+                  value={stockVerification.summary.total_consumption_items} 
+                  sub="Items used this month" 
+                  color="acc-kpi--blue" 
+                  icon={Truck} 
+                />
+                <KpiCard 
+                  label="Total Stock Value" 
+                  value={fmtCur(stockVerification.summary.total_category_value)} 
+                  sub={`${stockVerification.category_stats.length} categories`} 
+                  color="acc-kpi--amber" 
+                  icon={IndianRupee} 
+                />
+                <KpiCard 
+                  label="Potential Discrepancies" 
+                  value={stockVerification.summary.total_items_with_movement} 
+                  sub="Items to verify" 
+                  color={stockVerification.summary.total_items_with_movement > 0 ? 'acc-kpi--yellow' : 'acc-kpi--green'} 
+                  icon={ShieldAlert} 
+                />
+              </div>
+              
+              {stockVerification.low_stock_items.length > 0 && (
+                <div style={{ marginTop: 24 }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'var(--text)' }}>⚠️ Low Stock Items</h3>
+                  <div>
+                    {stockVerification.low_stock_items.slice(0, 5).map((item) => (
+                      <div key={item.id} className="acc-list-item">
+                        <div className="acc-list-item__left">
+                          <div className="acc-list-item__primary">{item.name}</div>
+                          <div className="acc-list-item__secondary">{item.category || '—'} • {item.unit}</div>
+                        </div>
+                        <div className="acc-list-item__right">
+                          <div className="acc-list-item__amount" style={{ color: 'var(--error)' }}>
+                            {item.quantity} / {item.reorder_level}
+                          </div>
+                          <div className="acc-list-item__secondary">{item.quantity < item.reorder_level ? ' Below limit' : 'OK'}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {stockVerification.low_stock_items.length > 5 && (
+                      <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
+                        +{stockVerification.low_stock_items.length - 5} more items
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </Section>
+          )}
 
           {/* ═══ Two-column: Recent Jobs + Vendor Payables ═══ */}
           <div className="acc-two-col">
