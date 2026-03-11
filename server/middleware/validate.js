@@ -13,7 +13,7 @@ const loginSchema = z.object({
 });
 
 const changePasswordSchema = z.object({
-    currentPassword: z.string().min(1, 'Current password is required'),
+    currentPassword: z.string().min(0, 'Current password is required for password change').optional().nullable(),
     newPassword: z.string().min(8, 'Password must be at least 8 characters')
         .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
         .regex(/[0-9]/, 'Password must contain at least one number')

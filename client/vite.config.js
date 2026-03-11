@@ -48,6 +48,14 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
     host: '0.0.0.0',
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        rewrite: (path) => path,
+        secure: false,
+      }
+    }
   },
   test: {
     globals: true,
