@@ -22,36 +22,60 @@ module.exports = (upload) => {
     router.post('/auth/login', authLimiter, validate(loginSchema), async (req, res) => {
         const { user_id, password } = req.body;
         const normalizedUserId = normalizeMobile(user_id);
+        
+        console.log(`[LOGIN] Attempt: user_id=${user_id}, normalized=${normalizedUserId}, password_length=${password?.length || 0}`);
 
         if (normalizedUserId.length !== 10) {
+            console.log(`[LOGIN] ❌ Invalid format: ${normalizedUserId}`);
             return res.status(400).json({ message: 'Invalid user ID format' });
         }
 
         try {
             const [users] = await pool.query("SELECT * FROM sarga_staff WHERE RIGHT(user_id, 10) = ?", [normalizedUserId]);
             const user = users[0];
+            
+            console.log(`[LOGIN] User query returned: ${users.length} user(s)`);
+            if (user) {
+                console.log(`[LOGIN] Found user: ID=${user.id}, Name=${user.name}, HasPassword=${!!user.password}, FirstLogin=${user.is_first_login}`);
+            }
 
-            if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+            if (!user) {
+                console.log(`[LOGIN] ❌ User not found for mobile ${normalizedUserId}`);
+                return res.status(401).json({ message: 'Invalid credentials' });
+            }
 
             let validPassword = await bcrypt.compare(password, user.password);
+            console.log(`[LOGIN] bcrypt.compare result: ${validPassword}`);
 
             if (!validPassword && user.is_first_login) {
+                console.log(`[LOGIN] Password didn't match, trying fallback checks (first_login=true)`);
                 const normalizedPassword = normalizeMobile(password);
+                console.log(`[LOGIN] Normalized password: "${normalizedPassword}" (length=${normalizedPassword.length})`);
+                
                 if (normalizedPassword.length === 10) {
                     validPassword = await bcrypt.compare(normalizedPassword, user.password);
+                    console.log(`[LOGIN] Normalized password bcrypt result: ${validPassword}`);
                 }
 
                 if (!validPassword && /^\d{10}$/.test(password)) {
                     const candidates = [`+91${password}`, `91${password}`];
+                    console.log(`[LOGIN] Trying +91 prefixes...`);
                     for (const candidate of candidates) {
                         if (await bcrypt.compare(candidate, user.password)) {
                             validPassword = true;
+                            console.log(`[LOGIN] ✅ Matched with candidate: ${candidate}`);
                             break;
                         }
                     }
                 }
             }
-            if (!validPassword) return res.status(401).json({ message: 'Invalid credentials' });
+            
+            if (!validPassword) {
+                console.log(`[LOGIN] ❌ All password checks failed for user ${user.id}`);
+                return res.status(401).json({ message: 'Invalid credentials' });
+            }
+            
+            console.log(`[LOGIN] ✅ Authentication successful for user ${user.id}`);
 
             const token = jwt.sign(
                 { id: user.id, user_id: user.user_id, role: user.role, branch_id: user.branch_id },
