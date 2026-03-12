@@ -100,8 +100,8 @@ const Login = () => {
 
                     <div>
                         <label className="label">Password</label>
-                        <div className="input-group--flex">
-                            <div className="input-icon">
+                        <div style={{ position: 'relative', width: '100%' }}>
+                            <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none', zIndex: 1, display: 'flex', alignItems: 'center' }}>
                                 <Lock size={18} />
                             </div>
                             <input
@@ -109,14 +109,16 @@ const Login = () => {
                                 placeholder="Password"
                                 autoComplete="current-password"
                                 className="input-field"
+                                style={{ paddingLeft: 40, paddingRight: 52 }}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 disabled={loading}
                             />
                             <button
                                 type="button"
-                                className="input-action"
+                                onPointerDown={(e) => e.preventDefault()}
                                 onClick={() => setShowPassword(!showPassword)}
+                                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 48, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', borderRadius: '0 14px 14px 0' }}
                             >
                                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
