@@ -100,7 +100,7 @@ const Login = () => {
 
                     <div>
                         <label className="label">Password</label>
-                        <div className="input-group">
+                        <div className="input-group--flex">
                             <div className="input-icon">
                                 <Lock size={18} />
                             </div>
@@ -108,7 +108,7 @@ const Login = () => {
                                 type={showPassword ? "text" : "password"}
                                 placeholder="Password"
                                 autoComplete="current-password"
-                                className="input-field input-field--icon input-field--icon-right"
+                                className="input-field"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 disabled={loading}

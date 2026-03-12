@@ -167,6 +167,64 @@ button {
   width: 100%;
 }
 
+/* Flex-row variant used for password field — avoids z-index overlap on mobile */
+.input-group--flex {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 1px solid rgba(var(--text-rgb), 0.1);
+  border-radius: 14px;
+  background: var(--surface-2);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+
+.input-group--flex:focus-within {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 3px rgba(47, 59, 70, 0.15);
+  background: #ffffff;
+}
+
+.dark .input-group--flex:focus-within {
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(201, 195, 183, 0.2);
+}
+
+.input-group--flex .input-icon {
+  position: static;
+  transform: none;
+  padding-left: 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.input-group--flex .input-field {
+  flex: 1;
+  min-width: 0;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 14px 8px;
+}
+
+.input-group--flex .input-field:focus {
+  outline: none;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.input-group--flex .input-action {
+  position: static;
+  transform: none;
+  flex-shrink: 0;
+  padding: 0 12px;
+  height: 100%;
+  min-height: 48px;
+  border-radius: 0;
+}
+
 .input-icon {
   position: absolute;
   left: 12px;
