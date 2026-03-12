@@ -13,9 +13,10 @@ const PrinterDashboard = () => {
   const [branches, setBranches] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
-  const [selectedType, setSelectedType] = useState('');
+  const [selectedType, setSelectedType] = useState('All');
+  const [selectedPriority, setSelectedPriority] = useState('All');
+  const [activeTab, setActiveTab] = useState('active');
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
 
   const fetchDashboard = useCallback(async () => {
     if (!staffId) return;
@@ -38,9 +39,32 @@ const PrinterDashboard = () => {
     fetchDashboard();
   }, [fetchDashboard]);
 
+  // Auto-refresh when returning to the page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchDashboard();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => window.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchDashboard]);
+
   const handleJobClick = (jobId) => {
     navigate(`/dashboard/jobs/${jobId}`);
   };
+
+  const getBranchName = useCallback((branchId) => {
+    if (!branches || branches.length === 0) return `Branch ${branchId}`;
+    const idStr = String(branchId).trim();
+    for (let b of branches) {
+      if (String(b.id).trim() === idStr || parseInt(b.id) === parseInt(branchId)) {
+        return b.name || `Branch ${branchId}`;
+      }
+    }
+    return `Branch ${branchId}`;
+  }, [branches]);
 
   const getStatusColor = (status) => {
     const statusMap = {
@@ -55,29 +79,48 @@ const PrinterDashboard = () => {
     return statusMap[status] || { bg: '#6b7280', text: '#ffffff' };
   };
 
-  // Get unique job types from work history
-  const jobTypes = useMemo(() => {
-    const types = new Set();
-    workHistory.forEach(job => {
-      if (job.assignment_role) types.add(job.assignment_role);
-    });
-    return Array.from(types).sort();
-  }, [workHistory]);
+  // Job types and priorities
+  const jobTypes = ['All', 'Offset', 'Laser', 'Other'];
+  const priorities = ['All', 'High', 'Medium', 'Low'];
 
-  // Filter jobs based on search and filters
+  // Filter jobs based on tab, search, branch, type, and priority
   const filteredJobs = useMemo(() => {
     return workHistory.filter(job => {
+      // Tab filter - active vs completed/cancelled based on ASSIGNMENT status
+      const isActive = ['Pending', 'In Progress'].includes(job.assignment_status);
+      const isCompleted = ['Completed', 'Cancelled'].includes(job.assignment_status);
+      
+      const matchesTab = activeTab === 'active' ? isActive : isCompleted;
+
+      // Search filter
       const matchesSearch = search === '' || 
         job.job_number?.toLowerCase().includes(search.toLowerCase()) ||
         job.job_name?.toLowerCase().includes(search.toLowerCase()) ||
         job.customer_name?.toLowerCase().includes(search.toLowerCase());
       
+      // Branch filter
       const matchesBranch = selectedBranch === '' || job.branch_id === parseInt(selectedBranch);
-      const matchesType = selectedType === '' || job.assignment_role === selectedType;
       
-      return matchesSearch && matchesBranch && matchesType;
+      // Type filter - map job type to our categories
+      let jobType = 'Other';
+      if (job.job_name?.toLowerCase().includes('offset')) jobType = 'Offset';
+      else if (job.job_name?.toLowerCase().includes('laser')) jobType = 'Laser';
+      const matchesType = selectedType === 'All' || selectedType === jobType;
+      
+      // Priority filter
+      const matchesPriority = selectedPriority === 'All';
+      
+      return matchesTab && matchesSearch && matchesBranch && matchesType && matchesPriority;
     });
-  }, [workHistory, search, selectedBranch, selectedType]);
+  }, [workHistory, activeTab, search, selectedBranch, selectedType, selectedPriority]);
+
+  const activeCount = useMemo(() => {
+    return workHistory.filter(j => ['Pending', 'In Progress'].includes(j.assignment_status)).length;
+  }, [workHistory]);
+
+  const completedCount = useMemo(() => {
+    return workHistory.filter(j => ['Completed', 'Cancelled'].includes(j.assignment_status)).length;
+  }, [workHistory]);
 
   if (loading) {
     return (
@@ -100,27 +143,78 @@ const PrinterDashboard = () => {
         <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>View and manage your assigned printing jobs</p>
       </div>
 
+      {/* Tabs */}
+      <div style={{
+        display: 'flex',
+        gap: '24px',
+        borderBottom: '1px solid var(--border)',
+        marginBottom: '24px',
+        paddingBottom: '12px'
+      }}>
+        <button
+          onClick={() => setActiveTab('active')}
+          style={{
+            background: 'none',
+            border: 'none',
+            fontSize: '15px',
+            fontWeight: activeTab === 'active' ? 600 : 400,
+            color: activeTab === 'active' ? 'var(--text-primary)' : 'var(--muted)',
+            cursor: 'pointer',
+            paddingBottom: '8px',
+            borderBottom: activeTab === 'active' ? '2px solid var(--accent)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          My Active Jobs <span style={{ fontSize: 12, marginLeft: '6px', background: activeTab === 'active' ? 'var(--accent)' : 'var(--bg-tertiary)', color: activeTab === 'active' ? '#000' : 'var(--text-primary)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{activeCount}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('completed')}
+          style={{
+            background: 'none',
+            border: 'none',
+            fontSize: '15px',
+            fontWeight: activeTab === 'completed' ? 600 : 400,
+            color: activeTab === 'completed' ? 'var(--text-primary)' : 'var(--muted)',
+            cursor: 'pointer',
+            paddingBottom: '8px',
+            borderBottom: activeTab === 'completed' ? '2px solid var(--accent)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          Completed / Cancelled <span style={{ fontSize: 12, marginLeft: '6px', background: activeTab === 'completed' ? 'var(--accent)' : 'var(--bg-tertiary)', color: activeTab === 'completed' ? '#000' : 'var(--text-primary)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{completedCount}</span>
+        </button>
+      </div>
+
       {/* Search & Filter Bar */}
       <div style={{
         display: 'flex',
         gap: '12px',
         marginBottom: '24px',
-        flexWrap: 'wrap'
+        flexWrap: 'wrap',
+        alignItems: 'center'
       }}>
         {/* Search Input */}
         <div style={{
           position: 'relative',
-          flex: '1 1 250px',
+          flex: '1 1 300px',
           minWidth: '200px'
         }}>
+          <Search size={16} style={{
+            position: 'absolute',
+            left: '12px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: 'var(--muted)',
+            pointerEvents: 'none'
+          }} />
           <input
             type="text"
-            placeholder="Search by job number, name, or customer..."
+            placeholder="Search by Job No, Name, or Customer..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
               width: '100%',
-              padding: '10px 16px 10px 36px',
+              padding: '10px 12px 10px 36px',
               background: 'var(--bg-secondary)',
               border: '1px solid var(--border)',
               borderRadius: '6px',
@@ -136,22 +230,15 @@ const PrinterDashboard = () => {
               e.currentTarget.style.borderColor = 'var(--border)';
             }}
           />
-          <Search size={14} style={{
-            position: 'absolute',
-            left: '12px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            color: 'var(--muted)',
-            pointerEvents: 'none'
-          }} />
         </div>
 
-        {/* Branches Dropdown */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowBranchDropdown(!showBranchDropdown)}
+        {/* Branch Filter */}
+        {branches.length > 0 && (
+          <select
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value)}
             style={{
-              padding: '10px 14px',
+              padding: '10px 32px 10px 14px',
               background: 'var(--bg-secondary)',
               border: '1px solid var(--border)',
               borderRadius: '6px',
@@ -159,178 +246,105 @@ const PrinterDashboard = () => {
               fontWeight: 500,
               color: 'var(--text-primary)',
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              outline: 'none',
               transition: 'all 0.2s ease'
             }}
-            onMouseEnter={(e) => {
-              if (!showBranchDropdown) {
-                e.currentTarget.style.background = 'var(--bg-tertiary)';
-                e.currentTarget.style.borderColor = 'var(--accent)';
-              }
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent)';
             }}
-            onMouseLeave={(e) => {
-              if (!showBranchDropdown) {
-                e.currentTarget.style.background = 'var(--bg-secondary)';
-                e.currentTarget.style.borderColor = 'var(--border)';
-              }
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border)';
             }}
           >
-            🏢 {selectedBranch ? branches.find(b => b.id === parseInt(selectedBranch))?.name || 'All Branches' : 'All Branches'}
-            <ChevronDown size={14} style={{ transition: 'transform 0.2s', transform: showBranchDropdown ? 'rotate(180deg)' : 'rotate(0)' }} />
-          </button>
-          {showBranchDropdown && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              marginTop: '4px',
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border)',
-              borderRadius: '6px',
-              minWidth: '200px',
-              zIndex: 10,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-            }}>
-              <button
-                onClick={() => {
-                  setSelectedBranch('');
-                  setShowBranchDropdown(false);
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '10px 16px',
-                  background: selectedBranch === '' ? 'var(--bg-tertiary)' : 'transparent',
-                  border: 'none',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  color: 'var(--text-primary)'
-                }}
-              >
-                All Branches
-              </button>
-              {branches.map(branch => (
-                <button
-                  key={branch.id}
-                  onClick={() => {
-                    setSelectedBranch(branch.id.toString());
-                    setShowBranchDropdown(false);
-                  }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '10px 16px',
-                    background: selectedBranch === branch.id.toString() ? 'var(--bg-tertiary)' : 'transparent',
-                    border: 'none',
-                    borderTop: '1px solid var(--border)',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    color: 'var(--text-primary)'
-                  }}
-                >
-                  {branch.name}
-                </button>
-              ))}
-            </div>
-          )}
+            <option value="">All Branches</option>
+            {branches.map(branch => (
+              <option key={branch.id} value={branch.id.toString()}>
+                {branch.name}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Type & Priority Filter Pills */}
+      <div style={{
+        display: 'flex',
+        gap: '16px',
+        marginBottom: '24px',
+        flexWrap: 'wrap'
+      }}>
+        {/* Type Pills */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>Type:</span>
+          {jobTypes.map(type => (
+            <button
+              key={type}
+              onClick={() => setSelectedType(type)}
+              style={{
+                padding: '8px 16px',
+                background: selectedType === type ? 'var(--accent)' : 'var(--bg-secondary)',
+                color: selectedType === type ? '#000' : 'var(--text-primary)',
+                border: selectedType === type ? '1px solid var(--accent)' : '1px solid var(--border)',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                opacity: selectedType === type ? 1 : 0.8
+              }}
+              onMouseEnter={(e) => {
+                if (selectedType !== type) {
+                  e.currentTarget.style.borderColor = 'var(--accent)';
+                  e.currentTarget.style.background = 'var(--bg-tertiary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (selectedType !== type) {
+                  e.currentTarget.style.borderColor = 'var(--border)';
+                  e.currentTarget.style.background = 'var(--bg-secondary)';
+                }
+              }}
+            >
+              {type}
+            </button>
+          ))}
         </div>
 
-        {/* Job Types Dropdown */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-            style={{
-              padding: '10px 14px',
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border)',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: 500,
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              if (!showTypeDropdown) {
-                e.currentTarget.style.background = 'var(--bg-tertiary)';
-                e.currentTarget.style.borderColor = 'var(--accent)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!showTypeDropdown) {
-                e.currentTarget.style.background = 'var(--bg-secondary)';
-                e.currentTarget.style.borderColor = 'var(--border)';
-              }
-            }}
-          >
-            🏷️ {selectedType || 'All Types'}
-            <ChevronDown size={14} style={{ transition: 'transform 0.2s', transform: showTypeDropdown ? 'rotate(180deg)' : 'rotate(0)' }} />
-          </button>
-          {showTypeDropdown && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              right: 0,
-              marginTop: '4px',
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border)',
-              borderRadius: '6px',
-              minWidth: '200px',
-              zIndex: 10,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-            }}>
-              <button
-                onClick={() => {
-                  setSelectedType('');
-                  setShowTypeDropdown(false);
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '10px 16px',
-                  background: selectedType === '' ? 'var(--bg-tertiary)' : 'transparent',
-                  border: 'none',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  color: 'var(--text-primary)'
-                }}
-              >
-                All Types
-              </button>
-              {jobTypes.map(type => (
-                <button
-                  key={type}
-                  onClick={() => {
-                    setSelectedType(type);
-                    setShowTypeDropdown(false);
-                  }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '10px 16px',
-                    background: selectedType === type ? 'var(--bg-tertiary)' : 'transparent',
-                    border: 'none',
-                    borderTop: '1px solid var(--border)',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    color: 'var(--text-primary)',
-                    borderTop: '1px solid var(--border)'
-                  }}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Priority Pills */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>Priority:</span>
+          {priorities.map(priority => (
+            <button
+              key={priority}
+              onClick={() => setSelectedPriority(priority)}
+              style={{
+                padding: '8px 16px',
+                background: selectedPriority === priority ? 'var(--accent)' : 'var(--bg-secondary)',
+                color: selectedPriority === priority ? '#000' : 'var(--text-primary)',
+                border: selectedPriority === priority ? '1px solid var(--accent)' : '1px solid var(--border)',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                opacity: selectedPriority === priority ? 1 : 0.8
+              }}
+              onMouseEnter={(e) => {
+                if (selectedPriority !== priority) {
+                  e.currentTarget.style.borderColor = 'var(--accent)';
+                  e.currentTarget.style.background = 'var(--bg-tertiary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (selectedPriority !== priority) {
+                  e.currentTarget.style.borderColor = 'var(--border)';
+                  e.currentTarget.style.background = 'var(--bg-secondary)';
+                }
+              }}
+            >
+              {priority}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -344,15 +358,15 @@ const PrinterDashboard = () => {
           {/* Table Header */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '200px 200px 120px 120px 120px 60px',
+            gridTemplateColumns: '1.4fr 1.2fr 1fr 0.9fr 1fr 80px',
             gap: '12px',
-            padding: '16px',
+            padding: '14px 20px',
             background: 'var(--bg-tertiary)',
             borderBottom: '1px solid var(--border)',
             fontWeight: 600,
-            fontSize: '12px',
+            fontSize: '11px',
             textTransform: 'uppercase',
-            letterSpacing: '0.5px',
+            letterSpacing: '0.6px',
             color: 'var(--muted)'
           }}>
             <div>Job Details</div>
@@ -360,7 +374,7 @@ const PrinterDashboard = () => {
             <div>Branch</div>
             <div>Status</div>
             <div>Delivery</div>
-            <div>Actions</div>
+            <div style={{ textAlign: 'center' }}>Actions</div>
           </div>
 
           {/* Table Rows */}
@@ -369,11 +383,12 @@ const PrinterDashboard = () => {
             return (
               <div
                 key={idx}
+                onClick={() => handleJobClick(job.id)}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '200px 200px 120px 120px 120px 60px',
+                  gridTemplateColumns: '1.4fr 1.2fr 1fr 0.9fr 1fr 80px',
                   gap: '12px',
-                  padding: '14px 16px',
+                  padding: '14px 20px',
                   borderBottom: idx < filteredJobs.length - 1 ? '1px solid var(--border)' : 'none',
                   alignItems: 'center',
                   cursor: 'pointer',
@@ -400,7 +415,7 @@ const PrinterDashboard = () => {
 
                 {/* Branch */}
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  Branch {job.branch_id}
+                  {getBranchName(job.branch_id)}
                 </div>
 
                 {/* Status */}
@@ -425,17 +440,17 @@ const PrinterDashboard = () => {
                 {/* Actions */}
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                   <button
-                    onClick={() => handleJobClick(job.id)}
                     style={{
                       background: 'var(--error)',
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
-                      padding: '6px 10px',
+                      padding: '8px 12px',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      gap: '8px',
                       fontSize: '14px',
                       transition: 'opacity 0.2s ease'
                     }}

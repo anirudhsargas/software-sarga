@@ -609,7 +609,7 @@ const JobDetail = () => {
                     {/* Staff Action Buttons */}
                     {currentUserAssignment && (
                         <div className="job-staff-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            {currentUserAssignment.status === 'Pending' && (
+                            {currentUserAssignment.status === 'Pending' && !['Completed', 'Delivered', 'Cancelled'].includes(job.status) && (
                                 <button className="btn btn-primary" onClick={async () => {
                                     await handleAssignmentStatus(currentUserAssignment.id, 'In Progress');
                                     if (job.status === 'Pending') await handleUpdateStatus('Processing');

@@ -346,22 +346,23 @@ const Customers = () => {
                 </div>
             </header>
 
-            <div className="row gap-md items-center bg-surface p-12 rounded-lg border flex-wrap">
-                <div className="flex-1 relative" style={{ minWidth: '200px' }}>
-                    <Search className="absolute left-12 top-11 muted" size={18} />
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--surface)', padding: '12px 16px', borderRadius: 12, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 200, position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Search size={16} style={{ position: 'absolute', left: 12, color: 'var(--muted)', pointerEvents: 'none' }} />
                     <input
                         type="text"
                         placeholder="Search by name or mobile..."
-                        className="input-field pl-40"
+                        className="input-field"
+                        style={{ paddingLeft: 36, width: '100%' }}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
-                <div className="row gap-sm items-center">
-                    <Filter size={18} className="muted" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Filter size={16} style={{ color: 'var(--muted)', flexShrink: 0 }} />
                     <select
                         className="input-field"
-                        style={{ width: '160px' }}
+                        style={{ width: 160 }}
                         value={typeFilter}
                         onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
                     >

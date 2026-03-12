@@ -197,7 +197,7 @@ const Summary = () => {
 
                     {/* ─── Section 1.5: AI Insights & Roadmap (New) ─── */}
                     <div className="summary-grid summary-grid--split mb-24">
-                        <section className="summary-section ai-insights-card" style={{ border: '1px solid var(--accent-light, #e2e8f0)', background: 'linear-gradient(135deg, #fff 0%, #f0f9ff 100%)' }}>
+                        <section className="summary-section ai-insights-card" style={{ border: '1px solid var(--border)' }}>
                             <div className="summary-section__header">
                                 <div>
                                     <h2 className="section-title row items-center gap-xs">
@@ -208,22 +208,22 @@ const Summary = () => {
                                 <Sparkles size={20} className="text-accent animate-pulse" />
                             </div>
                             <div className="summary-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-                                <div className="p-16 rounded shadow-sm bg-white border-all">
-                                    <div className="text-xs muted mb-4 uppercase font-bold tracking-wider">Revenue Growth</div>
-                                    <div className={`text-2xl font-bold row items-center gap-xs ${statsToday?.ai_insights?.revenue_growth >= 0 ? 'text-ok' : 'text-error'}`}>
-                                        {statsToday?.ai_insights?.revenue_growth >= 0 ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                                <div style={{ padding: 16, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                                    <div className="text-xs muted mb-4" style={{ textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Revenue Growth</div>
+                                    <div className="row items-center gap-xs" style={{ fontSize: 22, fontWeight: 700, color: (statsToday?.ai_insights?.revenue_growth ?? 0) >= 0 ? 'var(--success)' : 'var(--error)' }}>
+                                        {(statsToday?.ai_insights?.revenue_growth ?? 0) >= 0 ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
                                         {Math.abs(statsToday?.ai_insights?.revenue_growth || 0)}%
                                     </div>
                                     <div className="text-xs muted mt-4">vs. last month</div>
                                 </div>
-                                <div className="p-16 rounded shadow-sm bg-white border-all">
-                                    <div className="text-xs muted mb-4 uppercase font-bold tracking-wider">Peak Demand</div>
-                                    <div className="text-2xl font-bold text-primary">{statsToday?.ai_insights?.peak_day || '—'}</div>
+                                <div style={{ padding: 16, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                                    <div className="text-xs muted mb-4" style={{ textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Peak Demand</div>
+                                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{statsToday?.ai_insights?.peak_day || '—'}</div>
                                     <div className="text-xs muted mt-4">Busiest day locally</div>
                                 </div>
-                                <div className="p-16 rounded shadow-sm bg-white border-all">
-                                    <div className="text-xs muted mb-4 uppercase font-bold tracking-wider">Next Month Forecast</div>
-                                    <div className="text-2xl font-bold text-accent">{fmt(statsToday?.ai_insights?.predicted_revenue_next_month)}</div>
+                                <div style={{ padding: 16, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                                    <div className="text-xs muted mb-4" style={{ textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Next Month Forecast</div>
+                                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent)' }}>{fmt(statsToday?.ai_insights?.predicted_revenue_next_month)}</div>
                                     <div className="text-xs muted mt-4">AI prediction</div>
                                 </div>
                             </div>

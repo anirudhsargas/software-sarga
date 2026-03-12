@@ -98,7 +98,7 @@ const OrderPredictions = () => {
                     <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
                         <Building2 size={13} style={{ marginBottom: -2 }} /> Branch
                     </label>
-                    <select className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ minWidth: 120, height: 32 }}>
+                    <select className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ minWidth: 120, height: 36, padding: '6px 28px 6px 12px', fontSize: 13, color: 'var(--text)' }}>
                         <option value="">All Branches</option>
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
@@ -109,7 +109,7 @@ const OrderPredictions = () => {
                     <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
                         <Filter size={13} style={{ marginBottom: -2 }} /> Lookahead
                     </label>
-                    <select className="input-field" value={lookahead} onChange={e => setLookahead(Number(e.target.value))} style={{ minWidth: 100, height: 32 }}>
+                    <select className="input-field" value={lookahead} onChange={e => setLookahead(Number(e.target.value))} style={{ minWidth: 100, height: 36, padding: '6px 28px 6px 12px', fontSize: 13, color: 'var(--text)' }}>
                         <option value={30}>Next 30 days</option>
                         <option value={45}>Next 45 days</option>
                         <option value={60}>Next 60 days</option>
@@ -122,7 +122,7 @@ const OrderPredictions = () => {
                     <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
                         <Sparkles size={13} style={{ marginBottom: -2 }} /> Confidence
                     </label>
-                    <select className="input-field" value={confFilter} onChange={e => setConfFilter(e.target.value)} style={{ minWidth: 100, height: 32 }}>
+                    <select className="input-field" value={confFilter} onChange={e => setConfFilter(e.target.value)} style={{ minWidth: 100, height: 36, padding: '6px 28px 6px 12px', fontSize: 13, color: 'var(--text)' }}>
                         <option value="all">All levels</option>
                         <option value="High">High only</option>
                         <option value="Medium">Medium+</option>
@@ -136,7 +136,7 @@ const OrderPredictions = () => {
                         <Search size={13} style={{ marginBottom: -2 }} /> Search
                     </label>
                     <input type="text" className="input-field" placeholder="Customer, category..."
-                        value={search} onChange={e => setSearch(e.target.value)} style={{ minWidth: 160, height: 32 }} />
+                        value={search} onChange={e => setSearch(e.target.value)} style={{ minWidth: 160, height: 36, padding: '6px 12px', fontSize: 13, color: 'var(--text)' }} />
                 </div>
             </div>
 

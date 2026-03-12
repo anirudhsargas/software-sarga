@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Briefcase, Plus, Edit2, Trash2, Download, IndianRupee, Receipt, X, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Briefcase, Plus, Edit2, Trash2, Download, IndianRupee, Receipt, X, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, OFFICE_EXPENSE_TYPES } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
 
 const defaultForm = { expense_type: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '' };
+const PAGE_SIZE = 50;
 
 const OfficeTab = ({ onError }) => {
   const { confirm } = useConfirm();
@@ -15,9 +16,10 @@ const OfficeTab = ({ onError }) => {
   const [form, setForm] = useState(defaultForm);
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [page, setPage] = useState(1);
 
   const fetchDashboard = useCallback(async () => { try { const r = await api.get('/office-dashboard'); setDashboard(r.data); } catch { } }, []);
-  const fetchExpenses = useCallback(async () => { try { const r = await api.get('/office-expenses'); setExpenses(r.data); } catch { } }, []);
+  const fetchExpenses = useCallback(async () => { try { const r = await api.get('/office-expenses'); setExpenses(r.data); setPage(1); } catch { } }, []);
 
   useEffect(() => { fetchDashboard(); fetchExpenses(); }, [fetchDashboard, fetchExpenses]);
 
@@ -52,6 +54,9 @@ const OfficeTab = ({ onError }) => {
     try { await api.delete(`/office-expenses/${id}`); fetchDashboard(); fetchExpenses(); } catch { }
   };
 
+  const totalPages = Math.ceil(expenses.length / PAGE_SIZE);
+  const pagedExpenses = expenses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="em-section">
       <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
@@ -84,11 +89,18 @@ const OfficeTab = ({ onError }) => {
       {expenses.length > 0 ? (
         <div className="em-card">
           <div className="em-card__title">All Office Expenses <button className="btn btn-ghost btn-sm" onClick={() => exportRowsToCsv(expenses, 'office-expenses.csv')}><Download size={14} /> CSV</button></div>
+          {expenses.length > PAGE_SIZE && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, expenses.length)} of {expenses.length}</span>
+              <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
+              <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
+            </div>
+          )}
           <div className="em-table-wrap">
             <table className="em-table">
               <thead><tr><th>Date</th><th>Type</th><th>Vendor</th><th>Amount</th><th>Method</th><th>Description</th><th>Actions</th></tr></thead>
               <tbody>
-                {expenses.map(r => (
+                {pagedExpenses.map(r => (
                   <tr key={r.id}>
                     <td>{fmtDate(r.expense_date)}</td><td><span className="em-type-badge em-type-badge--other">{r.expense_type}</span></td><td>{r.vendor_name || '—'}</td><td className="em-amount-cell">₹{fmt(r.amount)}</td><td>{r.payment_method}</td><td className="em-desc-cell">{r.description || ''}</td>
                     <td><button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEdit(r)}><Edit2 size={14} /></button> <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleDelete(r.id)}><Trash2 size={14} /></button></td>

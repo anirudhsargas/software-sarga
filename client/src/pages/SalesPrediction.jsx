@@ -240,7 +240,7 @@ const SalesPrediction = () => {
     }
 
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ width: '100%' }}>
 
             {/* ─── Header ─── */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
@@ -254,7 +254,7 @@ const SalesPrediction = () => {
                 </div>
                 <button onClick={fetchAll} style={{
                     display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
-                    borderRadius: '10px', border: 'none', background: 'var(--accent)', color: 'white',
+                    borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#000',
                     fontSize: '13px', fontWeight: 500, cursor: 'pointer'
                 }}>
                     <RefreshCw size={15} /> Refresh

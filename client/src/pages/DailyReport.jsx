@@ -4,7 +4,7 @@ import {
     BookOpen, Printer, Package, RefreshCw, TrendingUp, TrendingDown,
     Monitor, Hash, Building2, Check, Edit3, Lock, Send, FileText,
     Calendar, Clock, ArrowUpRight, ArrowDownRight, X, Wallet, CreditCard,
-    IndianRupee, ChevronRight, BarChart3
+    IndianRupee, ChevronRight, ChevronLeft, BarChart3
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -534,6 +534,11 @@ const DailyReport = () => {
     };
 
     const EntryTable = ({ entries, type = 'offset' }) => {
+        const PAGE_SIZE = 50;
+        const [page, setPage] = useState(1);
+        const totalPages = Math.ceil((entries?.length || 0) / PAGE_SIZE);
+        const pagedEntries = (entries || []).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
         if (!entries?.length) return (
             <div className="dr-empty">
                 <div className="dr-empty__icon"><FileText size={22} /></div>
@@ -548,6 +553,15 @@ const DailyReport = () => {
 
         return (
             <div style={{ overflowX: 'auto', borderRadius: 12 }}>
+                {entries.length > PAGE_SIZE && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, entries.length)} of {entries.length}
+                        </span>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
+                    </div>
+                )}
                 <table className="data-table">
                     <thead>
                         <tr>
@@ -565,7 +579,7 @@ const DailyReport = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {entries.map((entry, i) => {
+                        {pagedEntries.map((entry, i) => {
                             const isExpense = entry.type === 'expense';
                             return (
                                 <tr key={`${type}-${entry.id}-${i}`}>

@@ -14,7 +14,9 @@ const Login = () => {
     const userIdRef = useRef(null);
 
     useEffect(() => {
-        if (userIdRef.current) {
+        // Only auto-focus on desktop; on mobile let the user tap
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (!isMobile && userIdRef.current) {
             userIdRef.current.focus();
         }
     }, []);
@@ -86,6 +88,7 @@ const Login = () => {
                                 type="tel"
                                 inputMode="numeric"
                                 pattern="[0-9]*"
+                                autoComplete="tel"
                                 placeholder="User ID / Mobile Number"
                                 className="input-field input-field--icon"
                                 value={userId}
@@ -104,6 +107,7 @@ const Login = () => {
                             <input
                                 type={showPassword ? "text" : "password"}
                                 placeholder="Password"
+                                autoComplete="current-password"
                                 className="input-field input-field--icon input-field--icon-right"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}

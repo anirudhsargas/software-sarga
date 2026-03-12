@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FileText, Upload, Search, Eye, Trash2, Loader2, X, Sparkles } from 'lucide-react';
+import { FileText, Upload, Search, Eye, Trash2, Loader2, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../../services/api';
 import { fmtDate, today, fmt, baseFileUrl, DOCUMENT_TYPES } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import SmartBillUpload from './SmartBillUpload';
 
 const defaultForm = { document_type: 'Invoice', related_tab: '', vendor_name: '', bill_number: '', bill_date: today(), amount: '', description: '', file: null };
+const PAGE_SIZE = 50;
 
 const BillsDocsTab = ({ onError }) => {
   const { confirm } = useConfirm();
@@ -14,12 +15,13 @@ const BillsDocsTab = ({ onError }) => {
   const [showUpload, setShowUpload] = useState(false);
   const [showSmartUpload, setShowSmartUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState(defaultForm);
 
   const fetchDocs = useCallback(async () => {
     try {
       const r = await api.get('/bills-documents', { params: { document_type: filter.document_type || undefined, vendor_name: filter.vendor_name || undefined } });
-      setDocs(r.data);
+      setDocs(r.data); setPage(1);
     } catch { }
   }, [filter]);
 
@@ -55,6 +57,9 @@ const BillsDocsTab = ({ onError }) => {
     try { await api.delete(`/bills-documents/${id}`); fetchDocs(); } catch { }
   };
 
+  const totalPages = Math.ceil(docs.length / PAGE_SIZE);
+  const pagedDocs = docs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="em-section">
       <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
@@ -78,11 +83,19 @@ const BillsDocsTab = ({ onError }) => {
       </div>
 
       {docs.length > 0 ? (
-        <div className="em-table-wrap">
+        <>
+          {docs.length > PAGE_SIZE && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, docs.length)} of {docs.length}</span>
+              <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
+              <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
+            </div>
+          )}
+          <div className="em-table-wrap">
           <table className="em-table">
             <thead><tr><th>Date</th><th>Type</th><th>Vendor</th><th>Bill #</th><th>Amount</th><th>File</th><th>Actions</th></tr></thead>
             <tbody>
-              {docs.map(d => (
+              {pagedDocs.map(d => (
                 <tr key={d.id}>
                   <td>{fmtDate(d.bill_date)}</td><td><span className="em-type-badge em-type-badge--other">{d.document_type}</span></td><td>{d.vendor_name || '—'}</td><td>{d.bill_number || '—'}</td><td className="em-amount-cell">{d.amount ? `₹${fmt(d.amount)}` : '—'}</td>
                   <td>{d.file_path ? <a href={`${baseFileUrl}${d.file_path}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm"><Eye size={14} /> View</a> : '—'}</td>
@@ -92,6 +105,7 @@ const BillsDocsTab = ({ onError }) => {
             </tbody>
           </table>
         </div>
+        </>
       ) : <div className="em-empty-text">No documents yet</div>}
 
       {/* Bill Upload Modal */}

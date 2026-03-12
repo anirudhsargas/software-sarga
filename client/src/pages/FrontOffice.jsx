@@ -4,14 +4,21 @@ import { useNavigate } from 'react-router-dom';
 import {
     ShoppingBag, Clock, CheckCircle2, IndianRupee, TrendingUp, Truck,
     Search, Plus, UserPlus, Phone, ArrowRight, Calendar, AlertTriangle,
-    Receipt, Printer, MessageSquare, RefreshCw, ChevronRight, Loader2,
-    Wallet, Users, Package, Eye, CreditCard, X, Edit3, Check, ChevronDown, ChevronUp, List, LayoutGrid
+    Receipt, Printer, MessageSquare, RefreshCw, ChevronRight, ChevronLeft, Loader2,
+    Wallet, Users, Package, Eye, CreditCard, X, Edit3, Check, ChevronDown, ChevronUp, List, LayoutGrid, Monitor
 } from 'lucide-react';
 import api from '../services/api';
+import auth from '../services/auth';
 import toast from 'react-hot-toast';
 
-import { serverNow } from '../services/serverTime';
+import { serverNow, serverToday } from '../services/serverTime';
 import './FrontOffice.css';
+
+const OPENING_TABS = [
+    { key: 'Offset', label: 'Offset', color: 'var(--accent)' },
+    { key: 'Laser',  label: 'Laser',  color: 'var(--accent)' },
+    { key: 'Other',  label: 'Other',  color: 'var(--success)' },
+];
 
 const FrontOffice = () => {
     const navigate = useNavigate();
@@ -31,6 +38,54 @@ const FrontOffice = () => {
     const [completedJobs, setCompletedJobs] = useState([]);
     const [completedLoading, setCompletedLoading] = useState(false);
     const [completedView, setCompletedView] = useState('grouped'); // 'list' | 'grouped'
+    const [completedPage, setCompletedPage] = useState(1);
+    const [completedTotal, setCompletedTotal] = useState(0);
+    const [completedTotalPages, setCompletedTotalPages] = useState(1);
+    const PAGE_SIZE = 50;
+
+    // Active Jobs pagination state
+    const [activeJobs, setActiveJobs] = useState([]);
+    const [activeLoading, setActiveLoading] = useState(false);
+    const [activePage, setActivePage] = useState(1);
+    const [activeTotal, setActiveTotal] = useState(0);
+    const [activeTotalPages, setActiveTotalPages] = useState(1);
+
+    // Due Collection pagination state
+    const [dueCustomers, setDueCustomers] = useState([]);
+    const [dueLoading, setDueLoading] = useState(false);
+    const [duePage, setDuePage] = useState(1);
+    const [dueTotal, setDueTotal] = useState(0);
+    const [dueTotalPages, setDueTotalPages] = useState(1);
+
+    // Overdue pagination state
+    const [overdueJobs, setOverdueJobs] = useState([]);
+    const [overdueLoading, setOverdueLoading] = useState(false);
+    const [overduePage, setOverduePage] = useState(1);
+    const [overdueTotal, setOverdueTotal] = useState(0);
+    const [overdueTotalPages, setOverdueTotalPages] = useState(1);
+
+    // Recent Payments pagination state
+    const [recentPayments, setRecentPayments] = useState([]);
+    const [paymentsLoading, setPaymentsLoading] = useState(false);
+    const [paymentsPage, setPaymentsPage] = useState(1);
+    const [paymentsTotal, setPaymentsTotal] = useState(0);
+    const [paymentsTotalPages, setPaymentsTotalPages] = useState(1);
+
+    // Delivered Jobs pagination state
+    const [deliveredJobs, setDeliveredJobs] = useState([]);
+    const [deliveredLoading, setDeliveredLoading] = useState(false);
+    const [deliveredPage, setDeliveredPage] = useState(1);
+    const [deliveredTotal, setDeliveredTotal] = useState(0);
+    const [deliveredTotalPages, setDeliveredTotalPages] = useState(1);
+
+    // Opening balance prompt
+    const [showOpeningPrompt, setShowOpeningPrompt] = useState(false);
+    const [promptBalances, setPromptBalances] = useState({ Offset: '', Laser: '', Other: '' });
+    const [promptMachines, setPromptMachines] = useState([]);
+    const [savingPrompt, setSavingPrompt] = useState(false);
+    const [promptDone, setPromptDone] = useState(false);
+    const [prevClosing, setPrevClosing] = useState({ Offset: 0, Laser: 0, Other: 0 });
+
     const [expandedCustomers, setExpandedCustomers] = useState(new Set());
     const [editingWorkName, setEditingWorkName] = useState(null); // job id being edited
     const [workNameInput, setWorkNameInput] = useState('');
@@ -55,22 +110,176 @@ const FrontOffice = () => {
 
     usePolling(() => fetchDashboard(true), 60000);
 
+    // ─── Opening Balance Check (Front Office only) ────────────────
+    useEffect(() => {
+        const user = auth.getUser();
+        if (user?.role !== 'Front Office') return;
+        const today = serverToday();
+        (async () => {
+            try {
+                const res = await api.get('/daily-report/opening-balance', { params: { date: today } });
+                const balances = res.data.balances || res.data;
+                const locked = res.data.locked || {};
+                const anyEntered = Object.values(balances).some(v => Number(v) > 0);
+                const anyLocked = Object.values(locked).some(v => v);
+                if (!anyEntered && !anyLocked) {
+                    let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
+                    try {
+                        const prevRes = await api.get('/daily-report/previous-closing', { params: { date: today } });
+                        prevData = prevRes.data;
+                    } catch { }
+                    setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
+                    try {
+                        const machRes = await api.get('/machines');
+                        const digitalMachines = (machRes.data || []).filter(m => m.machine_type === 'Digital');
+                        setPromptMachines(digitalMachines.map(m => ({
+                            id: m.id, machine_name: m.machine_name, location: m.location,
+                            opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''
+                        })));
+                    } catch { }
+                    setPromptBalances({
+                        Offset: prevData.Offset > 0 ? String(prevData.Offset) : '',
+                        Laser:  prevData.Laser  > 0 ? String(prevData.Laser)  : '',
+                        Other:  prevData.Other  > 0 ? String(prevData.Other)  : '',
+                    });
+                    setShowOpeningPrompt(true);
+                }
+            } catch (err) { console.error('Opening balance check error:', err); }
+        })();
+    }, []);
+
+    const handleSavePrompt = async () => {
+        setSavingPrompt(true);
+        const today = serverToday();
+        try {
+            const balancePromises = ['Offset', 'Laser', 'Other'].map(bookType =>
+                api.put('/daily-report/opening-balance', {
+                    date: today, book_type: bookType, cash_opening: parseFloat(promptBalances[bookType]) || 0
+                })
+            );
+            const machinePromises = promptMachines
+                .filter(m => m.opening_count !== '' && m.opening_count !== null)
+                .map(m => api.post(`/machines/${m.id}/readings`, {
+                    reading_date: today, opening_count: parseInt(m.opening_count) || 0
+                }));
+            await Promise.all([...balancePromises, ...machinePromises]);
+            setShowOpeningPrompt(false);
+            setPromptDone(true);
+            toast.success('Opening values saved!');
+        } catch (err) {
+            console.error('Save opening prompt error:', err);
+            toast.error('Failed to save opening values');
+        } finally {
+            setSavingPrompt(false);
+        }
+    };
+
     // Fetch completed jobs when tab is active
-    const fetchCompleted = useCallback(async () => {
+    const fetchCompleted = useCallback(async (pg) => {
         setCompletedLoading(true);
         try {
-            const res = await api.get('/front-office/completed');
-            setCompletedJobs(res.data);
+            const res = await api.get(`/front-office/completed?page=${pg || 1}`);
+            const resData = res.data;
+            // Handle both paginated { data, total, totalPages } and legacy flat array
+            if (Array.isArray(resData)) {
+                setCompletedJobs(resData);
+                setCompletedTotal(resData.length);
+                setCompletedTotalPages(Math.ceil(resData.length / PAGE_SIZE) || 1);
+            } else {
+                setCompletedJobs(resData.data || []);
+                setCompletedTotal(resData.total || 0);
+                setCompletedTotalPages(resData.totalPages || 1);
+            }
         } catch {
             toast.error('Failed to load completed work');
         } finally {
             setCompletedLoading(false);
         }
+    }, []); // stable — uses only the pg parameter
+
+    useEffect(() => {
+        if (activeTab === 'completed') fetchCompleted(completedPage);
+    }, [activeTab, completedPage, fetchCompleted]);
+
+    // Fetch active jobs
+    const fetchActiveJobs = useCallback(async (pg) => {
+        setActiveLoading(true);
+        try {
+            const res = await api.get(`/front-office/active-jobs?page=${pg || 1}`);
+            setActiveJobs(res.data.data || []);
+            setActiveTotal(res.data.total || 0);
+            setActiveTotalPages(res.data.totalPages || 1);
+        } catch { /* dashboard fallback handles it */ }
+        finally { setActiveLoading(false); }
     }, []);
 
     useEffect(() => {
-        if (activeTab === 'completed') fetchCompleted();
-    }, [activeTab, fetchCompleted]);
+        if (activeTab === 'queue') fetchActiveJobs(activePage);
+    }, [activeTab, activePage, fetchActiveJobs]);
+
+    // Fetch due customers
+    const fetchDueCustomers = useCallback(async (pg) => {
+        setDueLoading(true);
+        try {
+            const res = await api.get(`/front-office/due-customers?page=${pg || 1}`);
+            setDueCustomers(res.data.data || []);
+            setDueTotal(res.data.total || 0);
+            setDueTotalPages(res.data.totalPages || 1);
+        } catch { /* dashboard fallback handles it */ }
+        finally { setDueLoading(false); }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'dues') fetchDueCustomers(duePage);
+    }, [activeTab, duePage, fetchDueCustomers]);
+
+    // Fetch overdue jobs
+    const fetchOverdueJobs = useCallback(async (pg) => {
+        setOverdueLoading(true);
+        try {
+            const res = await api.get(`/front-office/overdue-jobs?page=${pg || 1}`);
+            setOverdueJobs(res.data.data || []);
+            setOverdueTotal(res.data.total || 0);
+            setOverdueTotalPages(res.data.totalPages || 1);
+        } catch { /* dashboard fallback handles it */ }
+        finally { setOverdueLoading(false); }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'overdue') fetchOverdueJobs(overduePage);
+    }, [activeTab, overduePage, fetchOverdueJobs]);
+
+    // Fetch recent payments
+    const fetchRecentPayments = useCallback(async (pg) => {
+        setPaymentsLoading(true);
+        try {
+            const res = await api.get(`/front-office/recent-payments?page=${pg || 1}`);
+            setRecentPayments(res.data.data || []);
+            setPaymentsTotal(res.data.total || 0);
+            setPaymentsTotalPages(res.data.totalPages || 1);
+        } catch { /* dashboard fallback handles it */ }
+        finally { setPaymentsLoading(false); }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'payments') fetchRecentPayments(paymentsPage);
+    }, [activeTab, paymentsPage, fetchRecentPayments]);
+
+    // Fetch delivered jobs
+    const fetchDeliveredJobs = useCallback(async (pg) => {
+        setDeliveredLoading(true);
+        try {
+            const res = await api.get(`/front-office/delivered?page=${pg || 1}`);
+            setDeliveredJobs(res.data.data || []);
+            setDeliveredTotal(res.data.total || 0);
+            setDeliveredTotalPages(res.data.totalPages || 1);
+        } catch { toast.error('Failed to load delivered jobs'); }
+        finally { setDeliveredLoading(false); }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'delivered') fetchDeliveredJobs(deliveredPage);
+    }, [activeTab, deliveredPage, fetchDeliveredJobs]);
 
     // Group completed jobs by customer
     const groupedCompleted = useMemo(() => {
@@ -236,12 +445,12 @@ const FrontOffice = () => {
         return cat === categoryFilter;
     };
 
-    const { stats, active_jobs, overdue_jobs, due_customers, recent_payments, status_counts } = data || {};
+    const { stats, status_counts } = data || {};
     const activeQueueJobs = useMemo(
-        () => (active_jobs || []).filter(job => !['Completed', 'Delivered', 'Cancelled'].includes(job.status)),
-        [active_jobs]
+        () => (activeJobs || []).filter(job => !['Completed', 'Delivered', 'Cancelled'].includes(job.status)),
+        [activeJobs]
     );
-    const completedCount = Number(status_counts?.Completed || 0) + Number(status_counts?.Delivered || 0);
+    const completedCount = Number(status_counts?.Completed || 0);
 
     // ─── Render ──────────────────────────────────────────────────
     if (loading) {
@@ -264,6 +473,7 @@ const FrontOffice = () => {
     }
 
     return (
+        <>
         <div className="fo-dashboard">
             {/* ──── Header Bar ──── */}
             <div className="fo-header">
@@ -404,19 +614,22 @@ const FrontOffice = () => {
             {/* ──── Tab Switcher ──── */}
             <div className="fo-tabs">
                 <button className={`fo-tab ${activeTab === 'queue' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('queue')}>
-                    <Package size={16} /> Active Jobs{activeQueueJobs.length > 0 && <span className="fo-tab-count">{activeQueueJobs.length}</span>}
+                    <Package size={16} /> Active Jobs{activeTotal > 0 && <span className="fo-tab-count">{activeTotal}</span>}
                 </button>
                 <button className={`fo-tab ${activeTab === 'dues' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('dues')}>
-                    <IndianRupee size={16} /> Due Collection{due_customers?.length > 0 && <span className="fo-tab-count">{due_customers.length}</span>}
+                    <IndianRupee size={16} /> Due Collection{dueTotal > 0 && <span className="fo-tab-count">{dueTotal}</span>}
                 </button>
                 <button className={`fo-tab ${activeTab === 'overdue' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('overdue')}>
-                    <AlertTriangle size={16} /> Overdue{overdue_jobs?.length > 0 && <span className="fo-tab-count fo-tab-count--red">{overdue_jobs.length}</span>}
+                    <AlertTriangle size={16} /> Overdue{overdueTotal > 0 && <span className="fo-tab-count fo-tab-count--red">{overdueTotal}</span>}
                 </button>
                 <button className={`fo-tab ${activeTab === 'completed' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('completed')}>
                     <CheckCircle2 size={16} /> Completed Jobs{completedCount > 0 && <span className="fo-tab-count">{completedCount}</span>}
                 </button>
                 <button className={`fo-tab ${activeTab === 'payments' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('payments')}>
-                    <Receipt size={16} /> Recent Payments
+                    <Receipt size={16} /> Recent Payments{paymentsTotal > 0 && <span className="fo-tab-count">{paymentsTotal}</span>}
+                </button>
+                <button className={`fo-tab ${activeTab === 'delivered' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('delivered')}>
+                    <Truck size={16} /> Delivered{deliveredTotal > 0 && <span className="fo-tab-count">{deliveredTotal}</span>}
                 </button>
             </div>
 
@@ -424,10 +637,10 @@ const FrontOffice = () => {
             <div style={{ display: 'flex', gap: 8, padding: '16px 0', marginBottom: 20, fontSize: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ fontWeight: 700, color: 'var(--text)', minWidth: 'fit-content', fontSize: '13px', marginRight: 8 }}>Filter by Type:</span>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button onClick={() => setCategoryFilter('')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === '' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === '' ? '#fff' : '#888', border: categoryFilter === '' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === '' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>All</button>
-                    <button onClick={() => setCategoryFilter('OFFSET')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'OFFSET' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'OFFSET' ? '#fff' : '#888', border: categoryFilter === 'OFFSET' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'OFFSET' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Offset</button>
-                    <button onClick={() => setCategoryFilter('LASER')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'LASER' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'LASER' ? '#fff' : '#888', border: categoryFilter === 'LASER' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'LASER' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Laser</button>
-                    <button onClick={() => setCategoryFilter('OTHER')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'OTHER' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'OTHER' ? '#fff' : '#888', border: categoryFilter === 'OTHER' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'OTHER' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Others</button>
+                    <button onClick={() => setCategoryFilter('')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === '' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === '' ? '#000' : '#888', border: categoryFilter === '' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === '' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>All</button>
+                    <button onClick={() => setCategoryFilter('OFFSET')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'OFFSET' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'OFFSET' ? '#000' : '#888', border: categoryFilter === 'OFFSET' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'OFFSET' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Offset</button>
+                    <button onClick={() => setCategoryFilter('LASER')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'LASER' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'LASER' ? '#000' : '#888', border: categoryFilter === 'LASER' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'LASER' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Laser</button>
+                    <button onClick={() => setCategoryFilter('OTHER')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'OTHER' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'OTHER' ? '#000' : '#888', border: categoryFilter === 'OTHER' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'OTHER' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Others</button>
                 </div>
             </div>
 
@@ -436,11 +649,28 @@ const FrontOffice = () => {
                 {/* Active Jobs Queue */}
                 {activeTab === 'queue' && (
                     <div className="fo-panel">
-                        {(() => {
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'flex-end', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
+                            <div className="row gap-sm items-center">
+                                {activeTotal > 0 && (
+                                    <span className="muted" style={{ fontSize: 13 }}>
+                                        {((activePage - 1) * PAGE_SIZE) + 1}–{Math.min(activePage * PAGE_SIZE, activeTotal)} of {activeTotal.toLocaleString()}
+                                    </span>
+                                )}
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setActivePage(p => Math.max(1, p - 1))} disabled={activePage <= 1 || activeLoading} title="Previous page"><ChevronLeft size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setActivePage(p => Math.min(activeTotalPages, p + 1))} disabled={activePage >= activeTotalPages || activeLoading} title="Next page"><ChevronRight size={16} /></button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => fetchActiveJobs(activePage)} disabled={activeLoading}>
+                                    {activeLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                </button>
+                            </div>
+                        </div>
+                        {activeLoading ? (
+                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading active jobs...</p></div>
+                        ) : (() => {
                             const filteredJobs = activeQueueJobs.filter(job => matchesCategory(job.category));
                             return filteredJobs.length === 0 ? (
                                 <div className="fo-empty"><Package size={40} /><p>{categoryFilter ? 'No jobs in this category' : 'No active jobs right now'}</p></div>
                             ) : (
+                                <>
                                 <div className="fo-table-wrap">
                                     <table className="fo-table">
                                         <thead>
@@ -517,6 +747,7 @@ const FrontOffice = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                                </>
                             );
                         })()}
                     </div>
@@ -525,11 +756,28 @@ const FrontOffice = () => {
                 {/* Due Collection */}
                 {activeTab === 'dues' && (
                     <div className="fo-panel">
-                        {(() => {
-                            const filteredDues = (!due_customers || due_customers.length === 0) ? [] : due_customers;
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'flex-end', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
+                            <div className="row gap-sm items-center">
+                                {dueTotal > 0 && (
+                                    <span className="muted" style={{ fontSize: 13 }}>
+                                        {((duePage - 1) * PAGE_SIZE) + 1}–{Math.min(duePage * PAGE_SIZE, dueTotal)} of {dueTotal.toLocaleString()}
+                                    </span>
+                                )}
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDuePage(p => Math.max(1, p - 1))} disabled={duePage <= 1 || dueLoading} title="Previous page"><ChevronLeft size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDuePage(p => Math.min(dueTotalPages, p + 1))} disabled={duePage >= dueTotalPages || dueLoading} title="Next page"><ChevronRight size={16} /></button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => fetchDueCustomers(duePage)} disabled={dueLoading}>
+                                    {dueLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                </button>
+                            </div>
+                        </div>
+                        {dueLoading ? (
+                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading due collection...</p></div>
+                        ) : (() => {
+                            const filteredDues = (!dueCustomers || dueCustomers.length === 0) ? [] : dueCustomers;
                             return filteredDues.length === 0 ? (
                                 <div className="fo-empty"><CheckCircle2 size={40} /><p>{categoryFilter ? 'No pending dues in this category' : 'No pending dues — all clear!'}</p></div>
                             ) : (
+                                <>
                                 <div className="fo-due-list">
                                     {filteredDues.map(c => (
                                         <div key={c.id} className="fo-due-card">
@@ -580,6 +828,7 @@ const FrontOffice = () => {
                                         </div>
                                     ))}
                                 </div>
+                                </>
                             );
                         })()}
                     </div>
@@ -588,11 +837,28 @@ const FrontOffice = () => {
                 {/* Overdue Jobs */}
                 {activeTab === 'overdue' && (
                     <div className="fo-panel">
-                        {(() => {
-                            const filteredOverdue = (!overdue_jobs || overdue_jobs.length === 0) ? [] : overdue_jobs.filter(job => matchesCategory(job.category));
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'flex-end', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
+                            <div className="row gap-sm items-center">
+                                {overdueTotal > 0 && (
+                                    <span className="muted" style={{ fontSize: 13 }}>
+                                        {((overduePage - 1) * PAGE_SIZE) + 1}–{Math.min(overduePage * PAGE_SIZE, overdueTotal)} of {overdueTotal.toLocaleString()}
+                                    </span>
+                                )}
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setOverduePage(p => Math.max(1, p - 1))} disabled={overduePage <= 1 || overdueLoading} title="Previous page"><ChevronLeft size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setOverduePage(p => Math.min(overdueTotalPages, p + 1))} disabled={overduePage >= overdueTotalPages || overdueLoading} title="Next page"><ChevronRight size={16} /></button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => fetchOverdueJobs(overduePage)} disabled={overdueLoading}>
+                                    {overdueLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                </button>
+                            </div>
+                        </div>
+                        {overdueLoading ? (
+                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading overdue jobs...</p></div>
+                        ) : (() => {
+                            const filteredOverdue = (!overdueJobs || overdueJobs.length === 0) ? [] : overdueJobs.filter(job => matchesCategory(job.category));
                             return filteredOverdue.length === 0 ? (
                                 <div className="fo-empty"><CheckCircle2 size={40} /><p>{categoryFilter ? 'No overdue jobs in this category! 🎉' : 'No overdue jobs! 🎉'}</p></div>
                             ) : (
+                                <>
                                 <div className="fo-table-wrap">
                                     <table className="fo-table">
                                         <thead>
@@ -641,6 +907,7 @@ const FrontOffice = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                                </>
                             );
                         })()}
                     </div>
@@ -649,7 +916,7 @@ const FrontOffice = () => {
                 {/* Completed Jobs */}
                 {activeTab === 'completed' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
                             <div className="row gap-sm items-center">
                                 <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>View</span>
                                 <button
@@ -665,9 +932,32 @@ const FrontOffice = () => {
                                     <List size={14} /> List
                                 </button>
                             </div>
-                            <button className="btn btn-ghost btn-sm" onClick={fetchCompleted} disabled={completedLoading}>
-                                {completedLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
-                            </button>
+                            <div className="row gap-sm items-center">
+                                {completedTotal > 0 && (
+                                    <span className="muted" style={{ fontSize: 13 }}>
+                                        {((completedPage - 1) * PAGE_SIZE) + 1}–{Math.min(completedPage * PAGE_SIZE, completedTotal)} of {completedTotal.toLocaleString()}
+                                    </span>
+                                )}
+                                <button
+                                    className="btn btn-ghost btn-icon btn-sm"
+                                    onClick={() => setCompletedPage(p => Math.max(1, p - 1))}
+                                    disabled={completedPage <= 1 || completedLoading}
+                                    title="Previous page"
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
+                                <button
+                                    className="btn btn-ghost btn-icon btn-sm"
+                                    onClick={() => setCompletedPage(p => Math.min(completedTotalPages, p + 1))}
+                                    disabled={completedPage >= completedTotalPages || completedLoading}
+                                    title="Next page"
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => fetchCompleted(completedPage)} disabled={completedLoading}>
+                                    {completedLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                </button>
+                            </div>
                         </div>
 
                         {completedLoading ? (
@@ -802,11 +1092,27 @@ const FrontOffice = () => {
                 {/* Recent Payments */}
                 {activeTab === 'payments' && (
                     <div className="fo-panel">
-                        {(!recent_payments || recent_payments.length === 0) ? (
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'flex-end', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
+                            <div className="row gap-sm items-center">
+                                {paymentsTotal > 0 && (
+                                    <span className="muted" style={{ fontSize: 13 }}>
+                                        {((paymentsPage - 1) * PAGE_SIZE) + 1}–{Math.min(paymentsPage * PAGE_SIZE, paymentsTotal)} of {paymentsTotal.toLocaleString()}
+                                    </span>
+                                )}
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage <= 1 || paymentsLoading} title="Previous page"><ChevronLeft size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))} disabled={paymentsPage >= paymentsTotalPages || paymentsLoading} title="Next page"><ChevronRight size={16} /></button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => fetchRecentPayments(paymentsPage)} disabled={paymentsLoading}>
+                                    {paymentsLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                </button>
+                            </div>
+                        </div>
+                        {paymentsLoading ? (
+                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading payments...</p></div>
+                        ) : (!recentPayments || recentPayments.length === 0) ? (
                             <div className="fo-empty"><Receipt size={40} /><p>No recent payments</p></div>
                         ) : (
                             <div className="fo-payments-list">
-                                {recent_payments.map(p => (
+                                {recentPayments.map(p => (
                                     <div key={p.id} className="fo-payment-item">
                                         <div className="fo-payment-item__icon">
                                             <Wallet size={18} />
@@ -820,6 +1126,75 @@ const FrontOffice = () => {
                                 ))}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* Delivered Jobs */}
+                {activeTab === 'delivered' && (
+                    <div className="fo-panel">
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'flex-end', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
+                            <div className="row gap-sm items-center">
+                                {deliveredTotal > 0 && (
+                                    <span className="muted" style={{ fontSize: 13 }}>
+                                        {((deliveredPage - 1) * PAGE_SIZE) + 1}–{Math.min(deliveredPage * PAGE_SIZE, deliveredTotal)} of {deliveredTotal.toLocaleString()}
+                                    </span>
+                                )}
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDeliveredPage(p => Math.max(1, p - 1))} disabled={deliveredPage <= 1 || deliveredLoading} title="Previous page"><ChevronLeft size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDeliveredPage(p => Math.min(deliveredTotalPages, p + 1))} disabled={deliveredPage >= deliveredTotalPages || deliveredLoading} title="Next page"><ChevronRight size={16} /></button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => fetchDeliveredJobs(deliveredPage)} disabled={deliveredLoading}>
+                                    {deliveredLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                </button>
+                            </div>
+                        </div>
+                        {deliveredLoading ? (
+                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading delivered jobs...</p></div>
+                        ) : (() => {
+                            const filteredDelivered = (deliveredJobs || []).filter(job => matchesCategory(job.category));
+                            return filteredDelivered.length === 0 ? (
+                                <div className="fo-empty"><Truck size={40} /><p>{categoryFilter ? 'No delivered jobs in this category' : 'No delivered jobs yet'}</p></div>
+                            ) : (
+                                <div className="fo-table-wrap">
+                                    <table className="fo-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Job</th>
+                                                <th>Customer</th>
+                                                <th>Amount</th>
+                                                <th>Balance</th>
+                                                <th>Delivery Date</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredDelivered.map(job => (
+                                                <tr key={job.id} style={{ cursor: 'pointer' }} onDoubleClick={() => navigate(`/dashboard/jobs/${job.id}`)}>
+                                                    <td>
+                                                        <div className="fo-job-cell">
+                                                            <span className="fo-job-number">{job.job_number}</span>
+                                                            <span className="fo-job-name">{job.job_name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div className="fo-customer-cell">
+                                                            <span>{job.customer_name}</span>
+                                                            {job.customer_mobile && <span className="fo-mobile">{job.customer_mobile}</span>}
+                                                        </div>
+                                                    </td>
+                                                    <td className="fo-amount">{fmt(job.total_amount)}</td>
+                                                    <td>{job.balance > 0 ? <span className="fo-due-amount">{fmt(job.balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
+                                                    <td>{fmtDate(job.delivery_date)}</td>
+                                                    <td>
+                                                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View">
+                                                            <Eye size={16} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
             </div>
@@ -837,6 +1212,90 @@ const FrontOffice = () => {
                 </div>
             </div>
         </div>
+
+            {/* ──── Opening Balance Prompt Modal ──── */}
+            {showOpeningPrompt && (
+                <div className="modal-backdrop">
+                    <div className="modal" style={{ maxWidth: 560 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(37,99,235,0.1)', display: 'grid', placeItems: 'center' }}>
+                                <IndianRupee size={20} style={{ color: 'var(--accent)' }} />
+                            </div>
+                            <div>
+                                <h2 className="section-title" style={{ marginBottom: 0 }}>Good Morning!</h2>
+                                <p style={{ fontSize: 13, color: 'var(--muted)' }}>Set opening values for today</p>
+                            </div>
+                        </div>
+
+                        <div className="stack-md" style={{ marginTop: 20 }}>
+                            <div className="panel panel--tight" style={{ background: 'var(--surface-2)' }}>
+                                <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
+                                    <Wallet size={14} /> CASH OPENING BALANCES
+                                </h4>
+                                <div className="stack-sm">
+                                    {OPENING_TABS.map(tab => (
+                                        <div key={tab.key} className="row gap-md items-center">
+                                            <div style={{ width: 80, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                                                <div style={{ width: 8, height: 8, borderRadius: 3, background: tab.color }} />
+                                                {tab.label}
+                                            </div>
+                                            <div style={{ flex: 1, position: 'relative' }}>
+                                                <input type="number" className="input-field"
+                                                    value={promptBalances[tab.key]}
+                                                    onChange={(e) => setPromptBalances(prev => ({ ...prev, [tab.key]: e.target.value }))}
+                                                    placeholder="₹ 0.00" step="0.01" style={{ width: '100%' }}
+                                                />
+                                                {prevClosing[tab.key] > 0 && (
+                                                    <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--muted)', pointerEvents: 'none' }}>
+                                                        prev: ₹{Number(prevClosing[tab.key]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {promptMachines.length > 0 && (
+                                <div className="panel panel--tight" style={{ background: 'var(--surface-2)' }}>
+                                    <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
+                                        <Monitor size={14} /> MACHINE OPENING COUNTS
+                                    </h4>
+                                    <div className="stack-sm">
+                                        {promptMachines.map((m, idx) => (
+                                            <div key={m.id} className="row gap-md items-center">
+                                                <div style={{ flex: 1, minWidth: 120 }}>
+                                                    <div style={{ fontWeight: 600, fontSize: 14 }}>{m.machine_name}</div>
+                                                    {m.location && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{m.location}</div>}
+                                                </div>
+                                                <input type="number" className="input-field"
+                                                    value={m.opening_count}
+                                                    onChange={(e) => {
+                                                        const updated = [...promptMachines];
+                                                        updated[idx] = { ...updated[idx], opening_count: e.target.value };
+                                                        setPromptMachines(updated);
+                                                    }}
+                                                    placeholder="Counter reading" style={{ width: 140 }}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="row gap-sm justify-end" style={{ marginTop: 20 }}>
+                            <button className="btn btn-ghost" onClick={() => { setShowOpeningPrompt(false); setPromptDone(true); }}>
+                                Skip for now
+                            </button>
+                            <button className="btn btn-primary" onClick={handleSavePrompt} disabled={savingPrompt}>
+                                <Check size={16} /> {savingPrompt ? 'Saving...' : 'Save & Continue'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 

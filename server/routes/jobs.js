@@ -306,8 +306,8 @@ router.get('/jobs', authenticateToken, async (req, res) => {
             }
         }
         if (search) {
-            where += ' AND (COALESCE(c.name, "Walk-in") LIKE ? OR c.mobile LIKE ? OR j.id LIKE ? OR j.job_name LIKE ?)';
-            const s = `%${search}%`;
+            where += ' AND (LOWER(COALESCE(c.name, "Walk-in")) LIKE ? OR LOWER(c.mobile) LIKE ? OR LOWER(j.job_number) LIKE ? OR LOWER(j.job_name) LIKE ?)';
+            const s = `%${search.trim().toLowerCase()}%`;
             params.push(s, s, s, s);
         }
 
@@ -880,10 +880,41 @@ router.put('/jobs/assignments/:id/status', authenticateToken, async (req, res) =
             return res.status(400).json({ message: `Invalid status. Allowed: ${VALID_ASSIGNMENT_STATUSES.join(', ')}` });
         }
 
+        // Get the assignment to find the job_id
+        const [assignments] = await pool.query(
+            'SELECT job_id FROM sarga_job_staff_assignments WHERE id = ?',
+            [id]
+        );
+
+        if (assignments.length === 0) {
+            return res.status(404).json({ message: 'Assignment not found' });
+        }
+
+        const job_id = assignments[0].job_id;
+
         await pool.query(
             'UPDATE sarga_job_staff_assignments SET status = ? WHERE id = ?',
             [status, id]
         );
+
+        // If assignment is marked Completed, check if ALL assignments for this job are now Completed
+        if (status === 'Completed') {
+            const [allAssignments] = await pool.query(
+                'SELECT status FROM sarga_job_staff_assignments WHERE job_id = ?',
+                [job_id]
+            );
+
+            const allCompleted = allAssignments.every(a => a.status === 'Completed');
+            
+            if (allCompleted) {
+                // Mark job as Completed if all assignments are done
+                await pool.query(
+                    'UPDATE sarga_jobs SET status = ? WHERE id = ?',
+                    ['Completed', job_id]
+                );
+            }
+        }
+
         auditLog(req.user.id, 'ASSIGNMENT_STATUS_UPDATE', `Assignment #${id} status changed to ${status}`, { entity_type: 'job_assignment', entity_id: id });
         res.json({ message: 'Assignment status updated successfully' });
     } catch (err) {
@@ -1104,6 +1135,16 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
         const updateQuery = `UPDATE sarga_jobs SET ${fields.join(', ')} WHERE id = ?`;
 
         await pool.query(updateQuery, params);
+
+        // If job is marked as Completed/Delivered, also mark all assignments as Completed
+        if ((updates.status === 'Completed' || updates.status === 'Delivered') && updates.status !== currentJob.status) {
+            console.log(`[SYNC] Job ${id} marked as ${updates.status} - updating all assignments...`);
+            const [result] = await pool.query(
+                `UPDATE sarga_job_staff_assignments SET status = 'Completed' WHERE job_id = ? AND status != 'Completed'`,
+                [id]
+            );
+            console.log(`[SYNC] Updated ${result.affectedRows} assignments for job ${id}`);
+        }
 
         // ─── Field-level audit logging ───
         const auditOldData = {};

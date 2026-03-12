@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Loader2, Building2, Search, AlertTriangle, Clock, Phone,
-    IndianRupee, ChevronDown, ChevronUp, ArrowRight, Zap,
+    IndianRupee, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ArrowRight, Zap,
     CheckCircle2, Timer, Package, Palette, Printer, Scissors,
     Layers, BookOpen, Settings, RefreshCw
 } from 'lucide-react';
@@ -34,6 +34,8 @@ const ProductionTracker = () => {
     const [branchId, setBranchId] = useState('');
     const [search, setSearch] = useState('');
     const [collapsedStages, setCollapsedStages] = useState(new Set());
+    const [stagePage, setStagePage] = useState({});
+    const STAGE_PAGE_SIZE = 20;
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -47,6 +49,7 @@ const ProductionTracker = () => {
             if (search) params.append('search', search);
             const res = await api.get(`/production-tracker?${params}`);
             setData(res.data);
+            setStagePage({});
         } catch { setData(null); }
         finally { setLoading(false); }
     }, [branchId, search]);
@@ -141,6 +144,9 @@ const ProductionTracker = () => {
                         const conf = STAGE_CONFIG[stage] || STAGE_CONFIG.Processing;
                         const jobs = data.stages[stage] || [];
                         const isCollapsed = collapsedStages.has(stage);
+                        const page = stagePage[stage] || 1;
+                        const totalPages = Math.ceil(jobs.length / STAGE_PAGE_SIZE);
+                        const pagedJobs = jobs.slice((page - 1) * STAGE_PAGE_SIZE, page * STAGE_PAGE_SIZE);
                         return (
                             <div key={stage} id={`stage-${stage}`} className="production-stage-section mb-16">
                                 <button className="production-stage-header" onClick={() => toggleStage(stage)}>
@@ -154,11 +160,22 @@ const ProductionTracker = () => {
                                 </button>
 
                                 {!isCollapsed && (
-                                    <div className="production-jobs-grid">
-                                        {jobs.map(job => (
-                                            <JobCard key={job.id} job={job} stageColor={conf.color} onNavigate={() => navigate(`/dashboard/jobs/${job.id}`)} />
-                                        ))}
-                                    </div>
+                                    <>
+                                        <div className="production-jobs-grid">
+                                            {pagedJobs.map(job => (
+                                                <JobCard key={job.id} job={job} stageColor={conf.color} onNavigate={() => navigate(`/dashboard/jobs/${job.id}`)} />
+                                            ))}
+                                        </div>
+                                        {jobs.length > STAGE_PAGE_SIZE && (
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 4px 4px' }}>
+                                                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                                                    {(page - 1) * STAGE_PAGE_SIZE + 1}–{Math.min(page * STAGE_PAGE_SIZE, jobs.length)} of {jobs.length}
+                                                </span>
+                                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setStagePage(p => ({ ...p, [stage]: Math.max(1, (p[stage] || 1) - 1) }))} disabled={page <= 1}><ChevronLeft size={15} /></button>
+                                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setStagePage(p => ({ ...p, [stage]: Math.min(totalPages, (p[stage] || 1) + 1) }))} disabled={page >= totalPages}><ChevronRight size={15} /></button>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         );

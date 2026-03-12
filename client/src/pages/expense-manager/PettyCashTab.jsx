@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Wallet, Plus, Edit2, Trash2, Download, TrendingUp, TrendingDown,
-  Receipt, X, Calendar, ArrowUpRight, ArrowDownRight, Loader2, CheckCircle, AlertTriangle
+  Receipt, X, Calendar, ArrowUpRight, ArrowDownRight, Loader2, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, thisMonth, exportRowsToCsv } from './constants';
@@ -9,6 +9,7 @@ import { useConfirm } from '../../contexts/ConfirmContext';
 
 const defaultForm = { transaction_date: today(), transaction_type: 'Cash Out', amount: '', description: '', reference_number: '', received_from: '', paid_to: '', category: '' };
 const PETTY_CATEGORIES = ['Tea / Snacks', 'Stationery', 'Cleaning', 'Travel', 'Courier', 'Tips', 'Parking', 'Photocopies', 'Misc Purchases', 'Other'];
+const PAGE_SIZE = 50;
 
 const PettyCashTab = ({ onError }) => {
   const { confirm } = useConfirm();
@@ -21,6 +22,7 @@ const PettyCashTab = ({ onError }) => {
   const [filterMonth, setFilterMonth] = useState(thisMonth());
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [page, setPage] = useState(1);
 
   const fetchDashboard = useCallback(async () => { try { const r = await api.get('/petty-cash-dashboard'); setDashboard(r.data); } catch { } }, []);
   const fetchLedger = useCallback(async () => {
@@ -30,6 +32,7 @@ const PettyCashTab = ({ onError }) => {
   }, []);
 
   useEffect(() => { fetchDashboard(); fetchLedger(); }, [fetchDashboard, fetchLedger]);
+  useEffect(() => { setPage(1); }, [filterMonth]);
 
   const handleReview = (e) => { e.preventDefault(); setConfirming(true); };
 
@@ -67,6 +70,9 @@ const PettyCashTab = ({ onError }) => {
     if (!filterMonth) return true;
     return r.transaction_date?.startsWith(filterMonth);
   });
+
+  const totalPages = Math.ceil(filteredLedger.length / PAGE_SIZE);
+  const pagedLedger = filteredLedger.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // Calculate opening/closing balance for filtered period
   const openingBalance = ledger.length > 0 ? (() => {
@@ -139,11 +145,18 @@ const PettyCashTab = ({ onError }) => {
             Daily Cash Ledger
             <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => exportRowsToCsv(filteredLedger, 'petty-cash.csv')}><Download size={14} /> CSV</button>
           </div>
+          {filteredLedger.length > PAGE_SIZE && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredLedger.length)} of {filteredLedger.length}</span>
+              <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
+              <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
+            </div>
+          )}
           <div className="em-table-wrap">
             <table className="em-table">
               <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>In</th><th>Out</th><th>Balance</th><th>Actions</th></tr></thead>
               <tbody>
-                {filteredLedger.map(r => (
+                {pagedLedger.map(r => (
                   <tr key={r.id}>
                     <td>{fmtDate(r.transaction_date)}</td>
                     <td><span className={`em-type-badge ${r.transaction_type === 'Cash In' || r.transaction_type === 'Opening' ? 'em-type-badge--payment' : 'em-type-badge--purchase'}`}>{r.transaction_type}</span></td>

@@ -9,11 +9,7 @@ const { validate, branchSchema } = require('../middleware/validate');
 // List Branches
 router.get('/branches', authenticateToken, async (req, res) => {
     try {
-        if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            const branchId = await getUserBranchId(req.user.id);
-            const [rows] = await pool.query("SELECT * FROM sarga_branches WHERE id = ?", [branchId]);
-            return res.json(rows);
-        }
+        // Return all branches for all users (needed for dashboards to display branch names)
         const [rows] = await pool.query("SELECT * FROM sarga_branches ORDER BY name ASC");
         res.json(rows);
     } catch (err) {

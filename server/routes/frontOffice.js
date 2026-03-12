@@ -165,6 +165,148 @@ router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
     }
 });
 
+// ─── PAGINATED ACTIVE JOBS ──────────────────────────────────────────
+router.get('/front-office/active-jobs', authenticateToken, async (req, res) => {
+    try {
+        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+            ? await getUserBranchId(req.user.id)
+            : req.query.branch_id || null;
+        const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
+        const branchParams = branchId ? [branchId] : [];
+
+        const PAGE_SIZE = 50;
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const offset = (page - 1) * PAGE_SIZE;
+
+        const activeStatuses = "('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production')";
+        const [[{ total }]] = await pool.query(
+            `SELECT COUNT(*) as total FROM sarga_jobs j WHERE j.status IN ${activeStatuses} ${branchWhere}`, branchParams
+        );
+        const [jobs] = await pool.query(
+            `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.balance_amount,
+                    j.status, j.payment_status, j.delivery_date, j.created_at, j.quantity, j.category,
+                    COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
+             FROM sarga_jobs j LEFT JOIN sarga_customers c ON j.customer_id = c.id
+             WHERE j.status IN ${activeStatuses} ${branchWhere}
+             ORDER BY CASE j.status WHEN 'Processing' THEN 1 WHEN 'Designing' THEN 2 WHEN 'Printing' THEN 3 WHEN 'Pending' THEN 4 ELSE 5 END, j.delivery_date ASC, j.created_at DESC
+             LIMIT ? OFFSET ?`, [...branchParams, PAGE_SIZE, offset]
+        );
+        res.json({ data: jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
+    } catch (err) {
+        console.error('Active jobs error:', err);
+        res.status(500).json({ message: 'Failed to load active jobs' });
+    }
+});
+
+// ─── PAGINATED DUE COLLECTION ───────────────────────────────────────
+router.get('/front-office/due-customers', authenticateToken, async (req, res) => {
+    try {
+        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+            ? await getUserBranchId(req.user.id)
+            : req.query.branch_id || null;
+        const custBranchWhere = branchId ? ' AND j.branch_id = ?' : '';
+        const branchParams = branchId ? [branchId] : [];
+
+        const PAGE_SIZE = 50;
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const offset = (page - 1) * PAGE_SIZE;
+
+        const [[{ total }]] = await pool.query(
+            `SELECT COUNT(*) as total FROM (
+                SELECT c.id FROM sarga_customers c
+                INNER JOIN sarga_jobs j ON j.customer_id = c.id AND j.status != 'Cancelled'
+                WHERE 1=1 ${custBranchWhere}
+                GROUP BY c.id
+                HAVING SUM(CASE WHEN (j.total_amount - j.advance_paid) >= 1 THEN (j.total_amount - j.advance_paid) ELSE 0 END) >= 1
+            ) sub`, branchParams
+        );
+        const [rows] = await pool.query(
+            `SELECT c.id, c.name, c.mobile,
+                    COUNT(j.id) as job_count,
+                    SUM(j.total_amount) as total_billed,
+                    SUM(j.advance_paid) as total_paid,
+                    SUM(CASE WHEN (j.total_amount - j.advance_paid) >= 1 THEN (j.total_amount - j.advance_paid) ELSE 0 END) as due_amount
+             FROM sarga_customers c
+             INNER JOIN sarga_jobs j ON j.customer_id = c.id AND j.status != 'Cancelled'
+             WHERE 1=1 ${custBranchWhere}
+             GROUP BY c.id
+             HAVING due_amount >= 1
+             ORDER BY due_amount DESC
+             LIMIT ? OFFSET ?`, [...branchParams, PAGE_SIZE, offset]
+        );
+        res.json({ data: rows.map(c => ({ ...c, total_billed: Number(c.total_billed), total_paid: Number(c.total_paid), due_amount: Number(c.due_amount) })), total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
+    } catch (err) {
+        console.error('Due customers error:', err);
+        res.status(500).json({ message: 'Failed to load due customers' });
+    }
+});
+
+// ─── PAGINATED OVERDUE JOBS ─────────────────────────────────────────
+router.get('/front-office/overdue-jobs', authenticateToken, async (req, res) => {
+    try {
+        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+            ? await getUserBranchId(req.user.id)
+            : req.query.branch_id || null;
+        const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
+        const branchParams = branchId ? [branchId] : [];
+        const today = new Date().toISOString().split('T')[0];
+
+        const PAGE_SIZE = 50;
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const offset = (page - 1) * PAGE_SIZE;
+
+        const [[{ total }]] = await pool.query(
+            `SELECT COUNT(*) as total FROM sarga_jobs j WHERE j.delivery_date < ? AND j.status NOT IN ('Delivered', 'Cancelled') ${branchWhere}`,
+            [today, ...branchParams]
+        );
+        const [jobs] = await pool.query(
+            `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid,
+                    j.status, j.delivery_date, j.created_at, j.category,
+                    COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
+             FROM sarga_jobs j LEFT JOIN sarga_customers c ON j.customer_id = c.id
+             WHERE j.delivery_date < ? AND j.status NOT IN ('Delivered', 'Cancelled') ${branchWhere}
+             ORDER BY j.delivery_date ASC
+             LIMIT ? OFFSET ?`, [today, ...branchParams, PAGE_SIZE, offset]
+        );
+        res.json({ data: jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
+    } catch (err) {
+        console.error('Overdue jobs error:', err);
+        res.status(500).json({ message: 'Failed to load overdue jobs' });
+    }
+});
+
+// ─── PAGINATED RECENT PAYMENTS ──────────────────────────────────────
+router.get('/front-office/recent-payments', authenticateToken, async (req, res) => {
+    try {
+        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+            ? await getUserBranchId(req.user.id)
+            : req.query.branch_id || null;
+        const payBranchWhere = branchId ? ' AND p.branch_id = ?' : '';
+        const branchParams = branchId ? [branchId] : [];
+
+        const PAGE_SIZE = 50;
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const offset = (page - 1) * PAGE_SIZE;
+
+        const [[{ total }]] = await pool.query(
+            `SELECT COUNT(*) as total FROM sarga_customer_payments p WHERE 1=1 ${payBranchWhere}`, branchParams
+        );
+        const [rows] = await pool.query(
+            `SELECT p.id, p.advance_paid as amount, p.payment_method, p.payment_date, p.created_at,
+                    COALESCE(c.name, 'Walk-in') as customer_name
+             FROM sarga_customer_payments p
+             LEFT JOIN sarga_customers c ON p.customer_id = c.id
+             WHERE 1=1 ${payBranchWhere}
+             ORDER BY p.created_at DESC
+             LIMIT ? OFFSET ?`, [...branchParams, PAGE_SIZE, offset]
+        );
+        res.json({ data: rows.map(p => ({ ...p, amount: Number(p.amount) })), total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
+    } catch (err) {
+        console.error('Recent payments error:', err);
+        res.status(500).json({ message: 'Failed to load recent payments' });
+    }
+});
+
 // ─── QUICK CUSTOMER SEARCH ──────────────────────────────────────────
 router.get('/front-office/search', authenticateToken, async (req, res) => {
     const { q } = req.query;
@@ -194,6 +336,52 @@ router.get('/front-office/search', authenticateToken, async (req, res) => {
     }
 });
 
+// ─── DELIVERED JOBS ────────────────────────────────────────────────
+router.get('/front-office/delivered', authenticateToken, async (req, res) => {
+    try {
+        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
+            ? await getUserBranchId(req.user.id)
+            : req.query.branch_id || null;
+
+        const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
+        const branchParams = branchId ? [branchId] : [];
+
+        const PAGE_SIZE = 50;
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const offset = (page - 1) * PAGE_SIZE;
+
+        const [[{ total }]] = await pool.query(
+            `SELECT COUNT(*) as total FROM sarga_jobs j WHERE j.status = 'Delivered' ${branchWhere}`,
+            branchParams
+        );
+
+        const [jobs] = await pool.query(
+            `SELECT j.id, j.job_number, j.job_name, j.description, j.total_amount, j.advance_paid,
+                    j.balance_amount, j.status, j.payment_status, j.delivery_date, j.category,
+                    j.created_at, j.updated_at, j.quantity, j.customer_id,
+                    COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
+             FROM sarga_jobs j
+             LEFT JOIN sarga_customers c ON j.customer_id = c.id
+             WHERE j.status = 'Delivered' ${branchWhere}
+             ORDER BY j.updated_at DESC
+             LIMIT ? OFFSET ?`,
+            [...branchParams, PAGE_SIZE, offset]
+        );
+
+        const mapped = jobs.map(j => ({
+            ...j,
+            total_amount: Number(j.total_amount),
+            advance_paid: Number(j.advance_paid),
+            balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0)
+        }));
+
+        res.json({ data: mapped, total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
+    } catch (err) {
+        console.error('Delivered jobs error:', err);
+        res.status(500).json({ message: 'Failed to load delivered jobs' });
+    }
+});
+
 // ─── COMPLETED WORK (with customer grouping) ────────────────────────
 router.get('/front-office/completed', authenticateToken, async (req, res) => {
     try {
@@ -204,6 +392,15 @@ router.get('/front-office/completed', authenticateToken, async (req, res) => {
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
 
+        const PAGE_SIZE = 50;
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const offset = (page - 1) * PAGE_SIZE;
+
+        const [[{ total }]] = await pool.query(
+            `SELECT COUNT(*) as total FROM sarga_jobs j WHERE j.status = 'Completed' ${branchWhere}`,
+            branchParams
+        );
+
         const [jobs] = await pool.query(
             `SELECT j.id, j.job_number, j.job_name, j.description, j.total_amount, j.advance_paid,
                     j.balance_amount, j.status, j.payment_status, j.delivery_date, j.category,
@@ -211,10 +408,10 @@ router.get('/front-office/completed', authenticateToken, async (req, res) => {
                     COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
              FROM sarga_jobs j
              LEFT JOIN sarga_customers c ON j.customer_id = c.id
-             WHERE j.status IN ('Completed', 'Delivered') ${branchWhere}
+             WHERE j.status = 'Completed' ${branchWhere}
              ORDER BY j.updated_at DESC
-             LIMIT 100`,
-            branchParams
+             LIMIT ? OFFSET ?`,
+            [...branchParams, PAGE_SIZE, offset]
         );
 
         const mapped = jobs.map(j => ({
@@ -224,7 +421,7 @@ router.get('/front-office/completed', authenticateToken, async (req, res) => {
             balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0)
         }));
 
-        res.json(mapped);
+        res.json({ data: mapped, total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
     } catch (err) {
         console.error('Completed work error:', err);
         res.status(500).json({ message: 'Failed to load completed work' });

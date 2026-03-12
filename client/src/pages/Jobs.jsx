@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import usePolling from '../hooks/usePolling';
-import { Clock, Search, FileText, User, Loader2, Plus, X, Edit2, Trash2, Filter, IndianRupee, Calendar, CheckCircle2, Building2, RotateCcw, ArrowUpDown, Zap } from 'lucide-react';
+import { Clock, Search, FileText, User, Loader2, Plus, X, Edit2, Trash2, Filter, IndianRupee, Calendar, CheckCircle2, Building2, RotateCcw, ArrowUpDown, Zap, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
 import api from '../services/api';
@@ -275,29 +275,31 @@ const Jobs = () => {
                         >
                             <Zap size={14} /> Priority
                         </button>
-                        <div className="select-box glass-card row items-center gap-xs" style={{ padding: '0 12px' }}>
-                            <Building2 size={16} className="muted" />
+                        <div className="select-box glass-card" style={{ padding: '0 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Building2 size={16} className="muted" style={{ flexShrink: 0 }} />
                             <select
                                 value={branchFilter}
                                 onChange={(e) => setBranchFilter(e.target.value)}
-                                style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px', flex: 1 }}
+                                style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', cursor: 'pointer', minWidth: 0 }}
                             >
                                 <option value="">All Branches</option>
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                             </select>
+                            <ChevronDown size={14} className="muted" style={{ flexShrink: 0, pointerEvents: 'none' }} />
                         </div>
-                        <div className="select-box glass-card row items-center gap-xs" style={{ padding: '0 12px' }}>
-                            <Filter size={16} className="muted" />
+                        <div className="select-box glass-card" style={{ padding: '0 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Filter size={16} className="muted" style={{ flexShrink: 0 }} />
                             <select
                                 value={categoryFilter}
                                 onChange={(e) => setCategoryFilter(e.target.value)}
-                                style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px', flex: 1 }}
+                                style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', cursor: 'pointer', minWidth: 0 }}
                             >
                                 <option value="">All Types</option>
                                 <option value="OFFSET">Offset</option>
                                 <option value="LASER">Laser</option>
                                 <option value="OTHER">Others</option>
                             </select>
+                            <ChevronDown size={14} className="muted" style={{ flexShrink: 0, pointerEvents: 'none' }} />
                         </div>
                     </div>
                 </div>
@@ -354,6 +356,9 @@ const Jobs = () => {
                                 const now = new Date();
 
                                 let filtered = jobs.filter(j => {
+                                    // If there's a search query, skip tab filtering and show all results
+                                    if (searchQuery.trim()) return true;
+
                                     if (isFrontOffice) {
                                         // Front Office filtering by tab
                                         if (activeTab === 'active') return j.status !== 'Delivered' && j.status !== 'Completed' && j.status !== 'Cancelled';

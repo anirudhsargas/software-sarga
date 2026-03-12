@@ -114,17 +114,19 @@ const StockVerification = () => {
 
     return (
         <div className="section">
-            <div className="row space-between items-center mb-16">
+            {/* ── Page Header ── */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
                 <div>
-                    <h1 className="page-title">Monthly Stock Verification</h1>
-                    <p className="muted">Enter physical counts to adjust system inventory.</p>
+                    <h1 className="page-title" style={{ marginBottom: 4 }}>Monthly Stock Verification</h1>
+                    <p className="muted" style={{ margin: 0 }}>Enter physical counts to adjust system inventory.</p>
                 </div>
-                <div className="row gap-md">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <button
                         className={`btn ${showHistory ? 'btn-primary' : 'btn-outline'}`}
                         onClick={() => setShowHistory(!showHistory)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                     >
-                        <FileText size={16} className="mr-8" />
+                        <FileText size={15} />
                         {showHistory ? 'Hide History' : 'View History'}
                     </button>
                     {!isCompleted && !showHistory && (
@@ -133,15 +135,17 @@ const StockVerification = () => {
                                 className="btn btn-outline"
                                 onClick={() => handleSave('Draft')}
                                 disabled={saving || loading}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                             >
-                                <Save size={16} className="mr-8" /> Save Draft
+                                <Save size={15} /> Save Draft
                             </button>
                             <button
                                 className="btn btn-primary"
                                 onClick={() => handleSave('Completed')}
                                 disabled={saving || loading}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                             >
-                                <CheckCircle size={16} className="mr-8" /> Complete Verification
+                                <CheckCircle size={15} /> Complete Verification
                             </button>
                         </>
                     )}
@@ -184,51 +188,50 @@ const StockVerification = () => {
                 </div>
             ) : (
                 <div className="card p-16">
-                    <div className="row gap-md items-center mb-16" style={{ flexWrap: 'wrap' }}>
-                        <div style={{ flex: 1, minWidth: '200px' }}>
-                            <label className="label">Verification Month</label>
-                            <div className="search-group" style={{ maxWidth: '300px' }}>
-                                <Calendar size={18} className="search-icon" />
+                    {/* ── Controls Row ── */}
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                        {/* Month picker */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 180 }}>
+                            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <Calendar size={13} /> Verification Month
+                            </label>
+                            <input
+                                type="month"
+                                className="input-field"
+                                value={month}
+                                onChange={(e) => setMonth(e.target.value)}
+                                disabled={loading || saving}
+                                style={{ padding: '6px 12px', height: 36, fontSize: 13 }}
+                            />
+                        </div>
+
+                        {/* Search */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 200 }}>
+                            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <Search size={13} /> Search
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
                                 <input
-                                    type="month"
+                                    type="text"
                                     className="input-field"
-                                    value={month}
-                                    onChange={(e) => setMonth(e.target.value)}
-                                    style={{ paddingLeft: '40px' }}
-                                    disabled={loading || saving}
+                                    placeholder="Search by name, SKU or category..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    style={{ paddingLeft: 32, padding: '6px 12px 6px 32px', height: 36, fontSize: 13 }}
                                 />
                             </div>
                         </div>
 
+                        {/* Status badge */}
                         {verification && (
-                            <div style={{ padding: '8px 16px', background: isCompleted ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)', borderRadius: '8px', border: `1px solid ${isCompleted ? 'var(--success)' : 'var(--warning)'}`, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                {isCompleted ? <CheckCircle size={18} className="text-success" /> : <AlertTriangle size={18} className="text-warning" />}
-                                <div>
-                                    <div style={{ fontSize: '13px', fontWeight: 600, color: isCompleted ? 'var(--success)' : 'var(--warning)' }}>
-                                        Status: {verification.status}
-                                    </div>
-                                    {isCompleted && (
-                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                            Inventory counts have been updated for this month.
-                                        </div>
-                                    )}
-                                </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 8, background: isCompleted ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)', border: `1px solid ${isCompleted ? 'var(--success)' : 'var(--warning)'}`, alignSelf: 'flex-end', height: 36, boxSizing: 'border-box' }}>
+                                {isCompleted ? <CheckCircle size={15} style={{ color: 'var(--success)', flexShrink: 0 }} /> : <AlertTriangle size={15} style={{ color: 'var(--warning)', flexShrink: 0 }} />}
+                                <span style={{ fontSize: 13, fontWeight: 600, color: isCompleted ? 'var(--success)' : 'var(--warning)', whiteSpace: 'nowrap' }}>
+                                    Status: {verification.status}
+                                </span>
                             </div>
                         )}
-                    </div>
-
-                    <div className="row gap-md items-center mb-16">
-                        <div className="search-group" style={{ flex: 1 }}>
-                            <Search size={18} className="search-icon" />
-                            <input
-                                type="text"
-                                className="input-field"
-                                placeholder="Search by name, SKU or category..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{ paddingLeft: '40px' }}
-                            />
-                        </div>
                     </div>
 
                     {loading ? (
