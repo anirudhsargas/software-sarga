@@ -20,7 +20,7 @@ export default defineConfig({
           {
             // Cache product hierarchy, categories, staff — data that rarely changes
             urlPattern: /\/api\/(product-hierarchy|products|categories|branches|staff|machines)/,
-            handler: 'StaleWhileRevalidate',
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'sarga-api-data',
               expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 4 }, // 4 hours
@@ -50,6 +50,12 @@ export default defineConfig({
     host: '0.0.0.0',
     proxy: {
       '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        rewrite: (path) => path,
+        secure: false,
+      },
+      '/uploads': {
         target: 'http://localhost:5000',
         changeOrigin: true,
         rewrite: (path) => path,

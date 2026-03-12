@@ -683,53 +683,53 @@
 }
 
 .badge--warning {
-    background: #fef3e0;
-    color: #e65100;
+    background: #fff4e6;
+    color: #b36b00;
 }
 
 .badge--info {
-    background: #e8f0fe;
-    color: #1a73e8;
+    background: #e7f5ff;
+    color: #1971c2;
 }
 
 .badge--success {
-    background: #e6f4ea;
-    color: #137333;
+    background: #e3ece6;
+    color: var(--success, #2f7d4a);
 }
 
 .badge--primary {
-    background: var(--accent-soft);
-    color: var(--accent-2);
+    background: #e8e6ff;
+    color: #4c45e5;
 }
 
 .badge--error {
-    background: #fde7e7;
-    color: #c62828;
+    background: #fff5f5;
+    color: var(--error, #b03a2e);
 }
 
 .dark .badge--warning {
-    background: rgba(230, 81, 0, 0.15);
-    color: #ffb74d;
+    background: rgba(179, 107, 0, 0.25);
+    color: #f0c27a;
 }
 
 .dark .badge--info {
-    background: rgba(26, 115, 232, 0.15);
-    color: #8ab4f8;
+    background: rgba(25, 113, 194, 0.25);
+    color: #8cc0f2;
 }
 
 .dark .badge--success {
-    background: rgba(19, 115, 51, 0.15);
-    color: #81c995;
+    background: rgba(47, 125, 74, 0.25);
+    color: #a9d7b6;
 }
 
 .dark .badge--primary {
-    background: rgba(var(--surface-rgb), 0.5);
-    color: var(--accent-2);
+    background: rgba(76, 69, 229, 0.25);
+    color: #a39fff;
 }
 
 .dark .badge--error {
-    background: rgba(198, 40, 40, 0.15);
-    color: #ef9a9a;
+    background: rgba(176, 58, 46, 0.25);
+    color: #f2a4c5;
 }
 
 /* ─── Due Collection Cards ────────────────────────────────────────── */

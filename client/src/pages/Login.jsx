@@ -83,7 +83,9 @@ const Login = () => {
                             </div>
                             <input
                                 ref={userIdRef}
-                                type="text"
+                                type="tel"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 placeholder="User ID / Mobile Number"
                                 className="input-field input-field--icon"
                                 value={userId}

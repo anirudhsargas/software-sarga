@@ -57,17 +57,10 @@
 }
 
 .receipt-brand__logo {
-    background: #0f172a;
-    color: white;
     width: 60px;
     height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 1.25rem;
+    object-fit: contain;
     border-radius: 8px;
-    letter-spacing: -0.025em;
 }
 
 .receipt-brand__info h3 {

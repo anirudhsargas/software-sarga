@@ -832,6 +832,10 @@
 }
 
 /* ── Dark Mode ── */
+.dark .acc-btn--primary {
+  color: #1a1c1e; /* Dark text on light accent background */
+}
+
 .dark .acc-header__icon {
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
 }

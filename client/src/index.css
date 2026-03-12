@@ -16,6 +16,7 @@
   --success: #2f7d4a;
   --error: #b03a2e;
   --warning: #b36b00;
+  --accent-light: #eff6ff;
   --radius: 14px;
   --shadow-sm: 0 8px 24px rgba(20, 20, 20, 0.08);
   --shadow-lg: 0 24px 70px rgba(20, 20, 20, 0.12);
@@ -34,6 +35,7 @@
   --accent: #e7e4dd;
   --accent-2: #c9c3b7;
   --accent-soft: #2a2f33;
+  --accent-light: rgba(231, 228, 221, 0.08);
   --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.45);
 }
@@ -109,19 +111,22 @@ button {
   width: 100%;
   max-width: 420px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid rgba(var(--text), 0.08);
+  border-radius: 20px;
   box-shadow: var(--shadow-lg);
-  padding: 32px;
+  padding: 40px;
+  backdrop-filter: blur(12px);
 }
 
 .brand {
   margin-bottom: 24px;
+  text-align: center;
 }
 
 .brand h1 {
   font-size: 28px;
   color: var(--accent);
+  margin: 0;
 }
 
 .brand p {
@@ -130,6 +135,12 @@ button {
   letter-spacing: 0.24em;
   text-transform: uppercase;
   font-weight: 600;
+  margin: 0;
+}
+
+.brand img {
+  display: block;
+  margin: 0 auto 12px;
 }
 
 .section-title {
@@ -164,24 +175,35 @@ button {
 
 .input-action {
   position: absolute;
-  right: 12px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
   background: none;
   border: none;
   color: var(--muted);
   cursor: pointer;
+  padding: 8px;
+  /* Extends tap target */
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.input-action:hover {
+  background: var(--surface);
+  color: var(--accent);
 }
 
 .input-field {
   width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(var(--text-rgb), 0.1);
+  border-radius: 14px;
   background: var(--surface-2);
   color: var(--text);
   font-size: 15px;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .input-field:focus {
@@ -306,12 +328,35 @@ button {
 }
 
 .btn-danger {
-  color: var(--error);
-  border-color: #f0c7c3;
+  background: var(--error);
+  color: #fff;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: #9a2d22;
+  transform: translateY(-1px);
 }
 
 .dark .btn-danger {
-  border-color: rgba(176, 58, 46, 0.5);
+  background: #c53030;
+  color: #fff;
+}
+
+.btn-error {
+  background: var(--error);
+  color: #fff;
+  border: none;
+}
+
+.btn-error:hover {
+  background: #9a2d22;
+  transform: translateY(-1px);
+}
+
+.dark .btn-error {
+  background: #c53030;
+  color: #fff;
 }
 
 /* Dashboard Layout */
@@ -419,6 +464,10 @@ button {
   font-weight: 700;
 }
 
+.dark .user-avatar {
+  color: #121314;
+}
+
 .avatar-img {
   width: 100%;
   height: 100%;
@@ -520,6 +569,10 @@ button {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.dark .role-chip {
+  color: #121314;
 }
 
 .content {
@@ -1576,6 +1629,7 @@ button {
   background: var(--surface);
   color: var(--text);
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .billing-qty-input::-webkit-outer-spin-button,
@@ -1708,9 +1762,29 @@ button {
   color: var(--success);
 }
 
+.badge--success {
+  background: #e3ece6;
+  color: var(--success);
+}
+
 .badge--warning {
   background: #fff4e6;
   color: #b36b00;
+}
+
+.badge--info {
+  background: #e7f5ff;
+  color: #1971c2;
+}
+
+.badge--primary {
+  background: #e8e6ff;
+  color: #4c45e5;
+}
+
+.badge--danger {
+  background: #fff5f5;
+  color: var(--error);
 }
 
 .badge--type-walk-in {
@@ -1733,14 +1807,58 @@ button {
   color: #d6336c;
 }
 
+/* Status Select elements */
+select.badge {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+select.badge:focus {
+  border-color: currentColor;
+  box-shadow: 0 0 0 3px rgba(var(--bg-rgb), 0.2);
+}
+
+select.badge option {
+  background-color: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  padding: 10px;
+}
+
 .dark .badge--ok {
   background: rgba(47, 125, 74, 0.2);
   color: #a9d7b6;
 }
 
+.dark .badge--success {
+  background: rgba(47, 125, 74, 0.25);
+  color: #a9d7b6;
+}
+
 .dark .badge--warning {
-  background: rgba(179, 107, 0, 0.2);
+  background: rgba(179, 107, 0, 0.25);
   color: #f0c27a;
+}
+
+.dark .badge--info {
+  background: rgba(25, 113, 194, 0.25);
+  color: #8cc0f2;
+}
+
+.dark .badge--primary {
+  background: rgba(76, 69, 229, 0.25);
+  color: #a39fff;
+}
+
+.dark .badge--danger {
+  background: rgba(176, 58, 46, 0.25);
+  color: #f2a4c5;
 }
 
 .dark .badge--type-walk-in {
@@ -1761,6 +1879,11 @@ button {
 .dark .badge--type-offset {
   background: rgba(214, 51, 108, 0.2);
   color: #f2a4c5;
+}
+
+.dark select.badge option {
+  background-color: #1e2124; /* Explicit dark background */
+  color: #ffffff;
 }
 
 .muted {
@@ -1881,6 +2004,10 @@ button {
   display: grid;
   place-items: center;
   font-weight: 700;
+}
+
+.dark .logo-placeholder {
+  color: #121314;
 }
 
 .login-logo {
@@ -2850,6 +2977,7 @@ button {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
@@ -3714,6 +3842,43 @@ button {
   font-size: 15px;
 }
 
+/* ── Badges ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge--success {
+  background: rgba(47, 125, 74, 0.1);
+  color: var(--success);
+}
+
+.badge--info {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.badge--neutral {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.badge--warning {
+  background: rgba(179, 107, 0, 0.1);
+  color: var(--warning);
+}
+
+.badge--danger {
+  background: rgba(176, 58, 46, 0.1);
+  color: var(--error);
+}
+
 /* ── btn-icon: square icon-only button modifier ── */
 .btn-icon {
   width: 36px;
@@ -3807,6 +3972,7 @@ button {
    ═════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
+
   /* ── Prevent page shift by constraining body ── */
   html,
   body {

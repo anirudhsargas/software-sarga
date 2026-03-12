@@ -268,20 +268,21 @@ module.exports = (upload, removeUploadFile) => {
         }
     });
 
-    // Reset Staff Password (to their mobile/user_id)
+    // Reset Staff Password (to their mobile/user_id@Sarga)
     router.put('/:id/reset-password', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         const { id } = req.params;
 
         try {
-            const [users] = await pool.query("SELECT user_id FROM sarga_staff WHERE id = ?", [id]);
+            const [users] = await pool.query("SELECT user_id, name FROM sarga_staff WHERE id = ?", [id]);
             if (!users[0]) return res.status(404).json({ message: 'Staff member not found' });
 
             const normalizedMobile = normalizeMobile(users[0].user_id);
-            const newHashedPassword = await bcrypt.hash(normalizedMobile, 10);
+            const passwordWithSuffix = `${normalizedMobile}@Sarga`;
+            const newHashedPassword = await bcrypt.hash(passwordWithSuffix, 10);
             await pool.query("UPDATE sarga_staff SET password = ?, is_first_login = 1 WHERE id = ?", [newHashedPassword, id]);
 
-            auditLog(req.user.id, 'STAFF_PASSWORD_RESET', `Reset password for staff member ${id}`);
-            res.json({ message: 'Password reset to mobile number successfully' });
+            auditLog(req.user.id, 'STAFF_PASSWORD_RESET', `Reset password for staff member ${users[0].name} (${id}) to ${normalizedMobile}@Sarga`);
+            res.json({ message: `Password reset to ${normalizedMobile}@Sarga successfully. Staff must change password on first login.` });
         } catch (err) {
             console.error("Reset password error:", err);
             res.status(500).json({ message: 'Database error' });

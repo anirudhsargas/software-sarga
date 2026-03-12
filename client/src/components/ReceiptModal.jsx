@@ -66,7 +66,7 @@ const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
                 <div className="receipt-content" id="printable-receipt">
                     {/* Header */}
                     <div className="receipt-brand">
-                        <div className="receipt-brand__logo">S</div>
+                        <img src="/logo.png" alt="Sarga" className="receipt-brand__logo" />
                         <div className="receipt-brand__info">
                             <h3>{branchInfo?.business_name || 'SARGA DIGITAL PRESS'}</h3>
                             <p>{branchInfo?.location || 'Digital Printing & Services'}</p>

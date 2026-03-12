@@ -42,6 +42,10 @@ const Accounts = React.lazy(() => import('./Accounts'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 const ProductionTracker = React.lazy(() => import('./ProductionTracker'));
 const PlateManagement = React.lazy(() => import('./PlateManagement'));
+const StockVerification = React.lazy(() => import('./StockVerification'));
+const OtherStaffDashboard = React.lazy(() => import('./OtherStaffDashboard'));
+const PrinterDashboard = React.lazy(() => import('./PrinterDashboard'));
+const DesignerDashboard = React.lazy(() => import('./DesignerDashboard'));
 const PageLoader = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: '8px', color: 'var(--text-muted, var(--muted))' }}>
         <Loader2 size={20} className="animate-spin" /> Loading...
@@ -84,12 +88,16 @@ const Dashboard = () => {
         { name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Admin'], group: 'manage' },
         { name: 'Branches', icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'manage' },
         { name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin'], group: 'operations' },
-        { name: 'Jobs & Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Designer', 'Printer'], group: 'business' },
+        { name: 'Jobs & Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Designer'], group: 'business' },
         { name: 'Plate Management', icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'operations' },
+        { name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'business' },
+        { name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'business' },
         { name: 'Attendance & Salary', icon: Receipt, path: '/dashboard/attendance-salary', roles: ['Designer', 'Printer', 'Front Office'], group: 'finance' },
+        { name: 'Dashboard', icon: Grid, path: '/dashboard', roles: ['Other Staff'], group: 'main' },
+        { name: 'Attendance & Salary', icon: Receipt, path: '/dashboard/attendance-salary', roles: ['Other Staff'], group: 'finance' },
         { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Admin'], group: 'operations' },
         { name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin'], group: 'manage' },
-        { name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office', 'Designer', 'Printer'], group: 'operations' },
+        { name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'operations' },
         { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office'], group: 'business' },
         { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Admin'], group: 'operations' },
         // Accountant-specific menu items
@@ -101,12 +109,13 @@ const Dashboard = () => {
         { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Accountant'] },
         { name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Accountant'] },
         { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Accountant'] },
+        { name: 'Stock Verification', icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'operations' },
         { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Accountant'] },
         { name: 'Accounts & GST', icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
         // AI Features
         { name: 'Design Check', icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
-        { name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer', 'Printer'], group: 'operations' },
-        { name: 'Production Tracker', icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office', 'Designer', 'Printer'], group: 'operations' },
+        { name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'operations' },
+        { name: 'Production Tracker', icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'operations' },
     ];
 
     const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role));
@@ -317,6 +326,7 @@ const Dashboard = () => {
         if (user.role === 'Admin') return <Summary />;
         if (user.role === 'Front Office') return <FrontOffice />;
         if (user.role === 'Accountant') return <AccountantDashboard />;
+        if (user.role === 'Other Staff') return <OtherStaffDashboard />;
         return <Jobs />;
     };
 
@@ -476,6 +486,7 @@ const Dashboard = () => {
                             <Route path="jobs/:id" element={<JobDetail />} />
                             <Route path="requests" element={<IDChangeRequests />} />
                             <Route path="inventory" element={<Inventory />} />
+                            <Route path="stock-verification" element={<StockVerification />} />
                             <Route path="customer-payments" element={<CustomerPayments />} />
                             <Route path="payment-verification" element={<PaymentVerification />} />
                             <Route path="expenses" element={<ExpenseManager />} />
@@ -491,6 +502,9 @@ const Dashboard = () => {
                             <Route path="plates" element={<PlateManagement />} />
                             <Route path="order-predictions" element={<OrderPredictions />} />
                             <Route path="production-tracker" element={<ProductionTracker />} />
+                            <Route path="other-staff-dashboard" element={<OtherStaffDashboard />} />
+                            <Route path="printer-dashboard" element={<PrinterDashboard />} />
+              <Route path="designer-dashboard" element={<DesignerDashboard />} />
                             <Route path="*" element={<NotFound />} />
                         </Routes>
                     </Suspense>
@@ -547,8 +561,8 @@ const Dashboard = () => {
                             <button type="submit" className="btn btn-primary btn--full" disabled={profileSaving}>
                                 {profileSaving ? 'Saving...' : 'Save Changes'}
                             </button>
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 className="btn btn-ghost btn--full text-error"
                                 onClick={() => {
                                     setShowProfileModal(false);

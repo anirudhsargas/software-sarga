@@ -196,6 +196,7 @@ app.use('/api', require('./routes/frontOffice'));
 app.use('/api', require('./routes/expenses'));
 app.use('/api', require('./routes/finance'));
 app.use('/api', require('./routes/expenses-extended'));
+app.use('/api/stock-verification', require('./routes/stockVerification'));
 
 // Three Books System Routes
 app.use('/api/machines', require('./routes/machines'));

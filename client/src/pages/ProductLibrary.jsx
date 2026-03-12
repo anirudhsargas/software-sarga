@@ -105,7 +105,7 @@ const ProductLibrary = () => {
         isPhysicalProduct: false // Checklist: show in inventory
     });
 
-    const fileBaseUrl = API_URL.replace(/\/api$/, '');
+    const fileBaseUrl = API_URL.replace(/\/api\/?$/, '');
 
     useEffect(() => {
         fetchHierarchy();
@@ -128,6 +128,7 @@ const ProductLibrary = () => {
             setLoading(false);
         } catch (err) {
             console.error("Fetch hierarchy error:", err);
+            toast.error(err.response?.data?.message || err.message || 'Failed to load product library');
             setLoading(false);
         }
     };

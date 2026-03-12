@@ -1,9 +1,22 @@
 import axios from 'axios';
 
 // Centralized API URL for mobile/network access
-export const API_URL =
-    import.meta.env.VITE_API_BASE_URL ||
-    `${window.location.protocol}//${window.location.hostname}:5000/api/`;
+const getApiUrl = () => {
+    const envUrl = import.meta.env.VITE_API_BASE_URL;
+    if (envUrl) return envUrl;
+
+    // Fallback for local development or missing env
+    const fallback = `${window.location.protocol}//${window.location.hostname}:5000/api/`;
+    
+    // In production, warn if VITE_API_BASE_URL is missing
+    if (import.meta.env.PROD) {
+        console.warn('⚠️ VITE_API_BASE_URL is not defined in production environment. Falling back to:', fallback);
+    }
+    
+    return fallback;
+};
+
+export const API_URL = getApiUrl();
 
 const api = axios.create({
     baseURL: API_URL,

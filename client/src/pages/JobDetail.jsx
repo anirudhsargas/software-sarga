@@ -30,20 +30,23 @@ const paymentColors = {
     Unpaid: 'var(--error)',
 };
 
-const Badge = ({ label, color }) => (
-    <span style={{
-        display: 'inline-block',
-        padding: '4px 12px',
-        borderRadius: '999px',
-        fontSize: '11px',
-        fontWeight: 700,
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em',
-        background: color + '15',
-        color: color,
-        border: `1px solid ${color}33`,
-    }}>{label}</span>
-);
+const Badge = ({ label, color }) => {
+    const isVar = color?.startsWith('var(');
+    return (
+        <span style={{
+            display: 'inline-block',
+            padding: '4px 12px',
+            borderRadius: '999px',
+            fontSize: '11px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            background: isVar ? `color-mix(in srgb, ${color}, transparent 85%)` : (color + '15'),
+            color: color,
+            border: `1px solid ${isVar ? `color-mix(in srgb, ${color}, transparent 80%)` : (color + '33')}`,
+        }}>{label}</span>
+    );
+};
 
 const InfoRow = ({ icon: Icon, label, value, isPhone }) => (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 0', borderBottom: '1px solid var(--border, #e5e7eb)' }}>
@@ -636,7 +639,7 @@ const JobDetail = () => {
                             )}
                             {job.status === 'Approval Pending' && !['Completed', 'Delivered'].includes(job.status) && (
                                 <>
-                                    <span style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600, fontSize: '13px', background: '#dbeafe', color: '#1e40af', border: '1px solid #93c5fd' }}>
+                                    <span className="badge badge--info" style={{ padding: '8px 16px', borderRadius: 8 }}>
                                         ✓ Sent for Customer Verification
                                     </span>
                                     <button className="btn btn-success" onClick={async () => {
@@ -656,7 +659,7 @@ const JobDetail = () => {
                                 </>
                             )}
                             {(job.status === 'Completed' || job.status === 'Delivered') && (
-                                <span style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600, fontSize: '13px', background: '#dcfce7', color: '#166534', border: '1px solid #86efac' }}>
+                                <span className="badge badge--success" style={{ padding: '8px 16px', borderRadius: 8 }}>
                                     ✓ Completed
                                 </span>
                             )}
@@ -665,7 +668,14 @@ const JobDetail = () => {
 
                     {['Admin', 'Front Office', 'front office'].includes(userRole) ? (
                         <select
-                            className={`badge ${job.status === 'Completed' ? 'badge--success' : 'badge--warning'}`}
+                            className={`badge ${
+                                job.status === 'Pending' ? 'badge--warning' :
+                                job.status === 'Processing' ? 'badge--info' :
+                                job.status === 'Approval Pending' ? 'badge--warning' :
+                                job.status === 'Completed' ? 'badge--success' :
+                                job.status === 'Delivered' ? 'badge--primary' :
+                                job.status === 'Cancelled' ? 'badge--danger' : ''
+                            }`}
                             style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', fontSize: '13px', fontWeight: 600, outline: 'none' }}
                             value={job.status}
                             onChange={(e) => handleUpdateStatus(e.target.value)}
@@ -773,8 +783,8 @@ const JobDetail = () => {
                                     return (
                                         <div key={i} style={{
                                             display: 'flex', gap: 16, padding: 16,
-                                            background: isProcessing ? 'var(--accent-light, #eff6ff)' : 'var(--bg, #f8f9fa)',
-                                            borderRadius: 12, border: isProcessing ? '2px solid var(--accent, var(--accent))' : '1px solid var(--border)',
+                                            background: 'var(--surface-2)',
+                                            borderRadius: 12, border: isProcessing ? '2px solid var(--accent)' : '1px solid var(--border)',
                                             position: 'relative',
                                             overflow: 'hidden'
                                         }}>
@@ -800,12 +810,7 @@ const JobDetail = () => {
                                                         <div style={{ fontSize: '15px', fontWeight: 700 }}>{a.staff_name || `All ${a.role || a.staff_role}s`}</div>
                                                         <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{a.staff_name ? a.staff_role : 'Role-based Assignment'}</div>
                                                     </div>
-                                                    <div style={{
-                                                        fontSize: '10px', padding: '3px 8px', borderRadius: 6,
-                                                        background: isCompleted ? '#dcfce7' : isProcessing ? '#dbeafe' : '#f3f4f6',
-                                                        color: isCompleted ? '#166534' : isProcessing ? '#1e40af' : '#4b5563',
-                                                        fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4
-                                                    }}>
+                                                    <div className={`badge ${isCompleted ? 'badge--success' : isProcessing ? 'badge--info' : 'badge--neutral'}`}>
                                                         {isCompleted && <CheckCircle2 size={10} />}
                                                         {isProcessing && <div className="pulse-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />}
                                                         {a.status || 'Assigned'}
@@ -1269,7 +1274,7 @@ const JobDetail = () => {
                                 onChange={(e) => setCancelReason(e.target.value)}
                                 autoFocus
                                 rows={3}
-                                style={{ color: '#eee', background: '#333', border: '2px solid #555', borderRadius: '8px', padding: '12px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                                style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
                             />
                         </div>
                         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
@@ -1301,7 +1306,7 @@ const JobDetail = () => {
                         <div className="form-group" style={{ marginBottom: 14 }}>
                             <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Production Stage *</label>
                             <select value={paperForm.stage} onChange={e => setPaperForm(p => ({ ...p, stage: e.target.value }))}
-                                style={{ color: '#eee', background: '#333', border: '2px solid #555', borderRadius: 8, padding: '10px', width: '100%', outline: 'none' }}>
+                                style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none' }}>
                                 <option value="">Select stage...</option>
                                 <option value="Printing">Printing</option>
                                 <option value="Cutting">Cutting</option>
@@ -1317,7 +1322,7 @@ const JobDetail = () => {
                         <div className="form-group" style={{ marginBottom: 14 }}>
                             <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Paper Size</label>
                             <select value={paperForm.paper_size} onChange={e => setPaperForm(p => ({ ...p, paper_size: e.target.value }))}
-                                style={{ color: '#eee', background: '#333', border: '2px solid #555', borderRadius: 8, padding: '10px', width: '100%', outline: 'none' }}>
+                                style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none' }}>
                                 <option value="">Select size...</option>
                                 <option value="A4">A4 (210×297mm)</option>
                                 <option value="A3">A3 (297×420mm)</option>
@@ -1338,14 +1343,14 @@ const JobDetail = () => {
                                 <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Sheets Used *</label>
                                 <input type="number" min="0" placeholder="0" value={paperForm.sheets_used}
                                     onChange={e => setPaperForm(p => ({ ...p, sheets_used: e.target.value }))}
-                                    style={{ color: '#eee', background: '#333', border: '2px solid #555', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', fontSize: '16px', fontWeight: 600 }}
+                                    style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', fontSize: '16px', fontWeight: 600 }}
                                 />
                             </div>
                             <div className="form-group">
                                 <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Sheets Wasted</label>
                                 <input type="number" min="0" placeholder="0" value={paperForm.sheets_wasted}
                                     onChange={e => setPaperForm(p => ({ ...p, sheets_wasted: e.target.value }))}
-                                    style={{ color: '#eee', background: '#333', border: '2px solid #555', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', fontSize: '16px', fontWeight: 600 }}
+                                    style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', fontSize: '16px', fontWeight: 600 }}
                                 />
                             </div>
                         </div>
@@ -1354,7 +1359,7 @@ const JobDetail = () => {
                             <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Notes (optional)</label>
                             <textarea placeholder="e.g., Misprinted 5 sheets, paper jam..." value={paperForm.notes}
                                 onChange={e => setPaperForm(p => ({ ...p, notes: e.target.value }))}
-                                rows={2} style={{ color: '#eee', background: '#333', border: '2px solid #555', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                                rows={2} style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
                             />
                         </div>
 
@@ -1394,7 +1399,7 @@ const JobDetail = () => {
                             <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Designer Notes (optional)</label>
                             <textarea placeholder="e.g., Updated font as per feedback..." value={proofNotes}
                                 onChange={e => setProofNotes(e.target.value)}
-                                rows={2} style={{ color: '#eee', background: '#333', border: '2px solid #555', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                                rows={2} style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
                             />
                         </div>
 
@@ -1409,7 +1414,7 @@ const JobDetail = () => {
             {/* Proof Review Modal */}
             {reviewModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                    <div style={{ background: '#222', borderRadius: 16, width: '100%', maxWidth: 480, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+                    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, width: '100%', maxWidth: 480, padding: 32, boxShadow: 'var(--shadow-lg)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                             <div style={{ width: 36, height: 36, borderRadius: 10, background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <Eye size={20} color="var(--accent-2)" />
@@ -1422,9 +1427,9 @@ const JobDetail = () => {
                             const base = (api.defaults.baseURL || '').replace(/\/api\/?$/, '');
                             const pUrl = `${base}${reviewModal.file_url}`;
                             return reviewModal.file_type === 'image' ? (
-                                <img src={pUrl} alt={`Proof v${reviewModal.version}`} style={{ width: '100%', maxHeight: 250, objectFit: 'contain', borderRadius: 8, marginBottom: 16, background: '#111', border: '1px solid #444' }} />
+                                <img src={pUrl} alt={`Proof v${reviewModal.version}`} style={{ width: '100%', maxHeight: 250, objectFit: 'contain', borderRadius: 8, marginBottom: 16, background: 'var(--bg-2)', border: '1px solid var(--border)' }} />
                             ) : (
-                                <a href={pUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: 20, textAlign: 'center', background: '#111', borderRadius: 8, marginBottom: 16, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600, border: '1px solid #444' }}>
+                                <a href={pUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: 20, textAlign: 'center', background: 'var(--bg-2)', borderRadius: 8, marginBottom: 16, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600, border: '1px solid var(--border)' }}>
                                     <FileText size={28} style={{ marginBottom: 6, display: 'block', margin: '0 auto 6px' }} />
                                     Open {reviewModal.original_name}
                                 </a>
@@ -1432,7 +1437,7 @@ const JobDetail = () => {
                         })()}
 
                         {reviewModal.designer_notes && (
-                            <div style={{ padding: '8px 12px', background: '#1e293b', borderRadius: 8, marginBottom: 12, fontSize: '13px', fontStyle: 'italic' }}>
+                            <div style={{ padding: '8px 12px', background: 'var(--accent-light)', border: '1px solid var(--accent-soft)', borderRadius: 8, marginBottom: 12, fontSize: '13px', fontStyle: 'italic' }}>
                                 <strong>Designer notes:</strong> {reviewModal.designer_notes}
                             </div>
                         )}
@@ -1441,22 +1446,25 @@ const JobDetail = () => {
                             <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Customer Feedback (optional for approval, recommended for rejection)</label>
                             <textarea placeholder="e.g., Change the logo size, wrong color..." value={reviewFeedback}
                                 onChange={e => setReviewFeedback(e.target.value)}
-                                rows={3} style={{ color: '#eee', background: '#333', border: '2px solid #555', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                                rows={3} style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
                             />
                         </div>
 
                         <div style={{ display: 'flex', gap: 10 }}>
                             <button className="btn btn-ghost" onClick={() => { setReviewModal(null); setReviewFeedback(''); }} style={{ flex: 1 }}>Cancel</button>
                             <button onClick={() => handleReviewProof('Revision Requested')} disabled={reviewing}
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 8, border: '1px solid #fde68a', background: '#fefce8', color: '#92400e', cursor: 'pointer', fontWeight: 600, fontSize: '13px', opacity: reviewing ? 0.5 : 1 }}>
+                                className="badge badge--warning"
+                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 8, cursor: 'pointer', opacity: reviewing ? 0.5 : 1 }}>
                                 <RotateCcw size={14} /> Revision
                             </button>
                             <button onClick={() => handleReviewProof('Rejected')} disabled={reviewing}
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', color: 'var(--error)', cursor: 'pointer', fontWeight: 600, fontSize: '13px', opacity: reviewing ? 0.5 : 1 }}>
+                                className="badge badge--danger"
+                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 8, cursor: 'pointer', opacity: reviewing ? 0.5 : 1 }}>
                                 <ThumbsDown size={14} /> Reject
                             </button>
                             <button onClick={() => handleReviewProof('Approved')} disabled={reviewing}
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 8, border: '1px solid #bbf7d0', background: '#f0fdf4', color: 'var(--success)', cursor: 'pointer', fontWeight: 600, fontSize: '13px', opacity: reviewing ? 0.5 : 1 }}>
+                                className="badge badge--success"
+                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 8, cursor: 'pointer', opacity: reviewing ? 0.5 : 1 }}>
                                 <ThumbsUp size={14} /> Approve
                             </button>
                         </div>
@@ -1467,7 +1475,7 @@ const JobDetail = () => {
             {/* Refund Modal */}
             {refundModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                    <div style={{ background: '#222', borderRadius: 16, width: '100%', maxWidth: 440, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+                    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, width: '100%', maxWidth: 440, padding: 32, boxShadow: 'var(--shadow-lg)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                             <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fefce8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <RotateCcw size={20} color="var(--warning)" />
@@ -1491,7 +1499,7 @@ const JobDetail = () => {
                                 onChange={(e) => setRefundAmount(e.target.value)}
                                 autoFocus
                                 max={Number(job.advance_paid)}
-                                style={{ fontSize: '20px', color: '#eee', background: '#333', border: '2px solid #555', borderRadius: '8px', padding: '12px', width: '100%', outline: 'none', fontWeight: 600 }}
+                                style={{ fontSize: '20px', color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', width: '100%', outline: 'none', fontWeight: 600 }}
                             />
                         </div>
                         <div className="form-group" style={{ marginBottom: 16 }}>
@@ -1500,7 +1508,7 @@ const JobDetail = () => {
                                 className="form-input"
                                 value={refundMethod}
                                 onChange={(e) => setRefundMethod(e.target.value)}
-                                style={{ color: '#eee', background: '#333', border: '2px solid #555', borderRadius: '8px', padding: '10px', width: '100%', outline: 'none' }}
+                                style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px', width: '100%', outline: 'none' }}
                             >
                                 <option value="Cash">Cash</option>
                                 <option value="UPI">UPI</option>
@@ -1516,7 +1524,7 @@ const JobDetail = () => {
                                 value={refundNote}
                                 onChange={(e) => setRefundNote(e.target.value)}
                                 rows={2}
-                                style={{ color: '#eee', background: '#333', border: '2px solid #555', borderRadius: '8px', padding: '12px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                                style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
                             />
                         </div>
                         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>

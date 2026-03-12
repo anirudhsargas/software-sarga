@@ -24,6 +24,7 @@ router.get('/:id/work-history', authenticateToken, async (req, res) => {
                 j.payment_status,
                 j.delivery_date,
                 j.created_at,
+                j.branch_id,
                 c.name as customer_name,
                 c.mobile as customer_mobile,
                 jsa.\`role\` as assignment_role,
