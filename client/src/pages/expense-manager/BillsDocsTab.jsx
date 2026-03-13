@@ -65,12 +65,12 @@ const BillsDocsTab = ({ onError }) => {
     <div className="em-section">
       <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
         <div className="em-section-title"><FileText size={18} /> Bills & Documents</div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button className="btn btn-secondary btn-sm" onClick={() => setShowSmartUpload(true)}>
             <Sparkles size={15} /> Smart Upload
           </button>
           <button className="btn btn-primary btn-sm" onClick={() => { setForm(defaultForm); setShowUpload(true); }}>
-            <Upload size={15} /> Upload Document
+            <Upload size={15} /> Upload
           </button>
         </div>
       </div>

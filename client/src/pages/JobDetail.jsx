@@ -9,7 +9,8 @@ import {
     Upload, Eye, ThumbsUp, ThumbsDown, MessageSquare, Shield,
     FileDown
 } from 'lucide-react';
-import api from '../services/api';
+import api, { imgUrl } from '../services/api';
+import SecureImage from '../components/SecureImage';
 import auth from '../services/auth';
 import toast from 'react-hot-toast';
 import { downloadInvoicePDF } from '../utils/invoicePdf';
@@ -996,8 +997,7 @@ const JobDetail = () => {
                         {proofs.length > 0 ? (
                             <div className="stack-md">
                                 {proofs.map(p => {
-                                    const base = (api.defaults.baseURL || '').replace(/\/api\/?$/, '');
-                                    const proofUrl = `${base}${p.file_url}`;
+                                    const proofUrl = imgUrl(p.file_url);
                                     const isImg = p.file_type === 'image';
                                     const statusBg = p.status === 'Approved' ? '#dcfce7' : p.status === 'Rejected' ? '#fee2e2' : p.status === 'Revision Requested' ? '#fef3c7' : '#dbeafe';
                                     const statusColor = p.status === 'Approved' ? '#166534' : p.status === 'Rejected' ? '#991b1b' : p.status === 'Revision Requested' ? '#92400e' : '#1e40af';
@@ -1009,7 +1009,7 @@ const JobDetail = () => {
                                                 <a href={proofUrl} target="_blank" rel="noopener noreferrer"
                                                     style={{ display: 'block', width: 100, height: 80, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--bg, #f3f4f6)', flexShrink: 0, textDecoration: 'none' }}>
                                                     {isImg ? (
-                                                        <img src={proofUrl} alt={`Proof v${p.version}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                                                        <SecureImage src={p.file_url} alt={`Proof v${p.version}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                                                     ) : (
                                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', gap: 2 }}>
                                                             <FileText size={24} style={{ opacity: 0.5 }} />
@@ -1169,14 +1169,13 @@ const JobDetail = () => {
                         {jobDesigns.length > 0 ? (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
                                 {jobDesigns.slice(0, 8).map(d => {
-                                    const base = (api.defaults.baseURL || '').replace(/\/api\/?$/, '');
-                                    const url = `${base}${d.file_url}`;
+                                    const url = imgUrl(d.file_url);
                                     const isImg = d.file_type === 'image';
                                     return (
                                         <div key={d.id} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', height: 80, background: 'var(--bg, #f3f4f6)' }}>
                                             <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: '100%', height: '100%', textDecoration: 'none' }}>
                                                 {isImg ? (
-                                                    <img src={url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                                                    <SecureImage src={d.file_url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                                                 ) : (
                                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', gap: 2 }}>
                                                         <FileText size={20} style={{ opacity: 0.5 }} />
@@ -1424,10 +1423,9 @@ const JobDetail = () => {
 
                         {/* Preview */}
                         {(() => {
-                            const base = (api.defaults.baseURL || '').replace(/\/api\/?$/, '');
-                            const pUrl = `${base}${reviewModal.file_url}`;
+                            const pUrl = imgUrl(reviewModal.file_url);
                             return reviewModal.file_type === 'image' ? (
-                                <img src={pUrl} alt={`Proof v${reviewModal.version}`} style={{ width: '100%', maxHeight: 250, objectFit: 'contain', borderRadius: 8, marginBottom: 16, background: 'var(--bg-2)', border: '1px solid var(--border)' }} />
+                                <SecureImage src={reviewModal.file_url} alt={`Proof v${reviewModal.version}`} style={{ width: '100%', maxHeight: 250, objectFit: 'contain', borderRadius: 8, marginBottom: 16, background: 'var(--bg-2)', border: '1px solid var(--border)' }} />
                             ) : (
                                 <a href={pUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: 20, textAlign: 'center', background: 'var(--bg-2)', borderRadius: 8, marginBottom: 16, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600, border: '1px solid var(--border)' }}>
                                     <FileText size={28} style={{ marginBottom: 6, display: 'block', margin: '0 auto 6px' }} />

@@ -980,12 +980,11 @@ const CustomerPayments = () => {
               </div>
               <div>
                 <label className="label">Payment Date</label>
-                <input
-                  type="date"
-                  className="input-field"
-                  value={formData.payment_date}
-                  onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
-                />
+                <div className="cp-display-field" style={{ fontSize: 14 }}>
+                  <Calendar size={14} style={{ flexShrink: 0 }} />
+                  <span>{formData.payment_date}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)' }}>Today</span>
+                </div>
               </div>
             </div>
 

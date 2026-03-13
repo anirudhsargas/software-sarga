@@ -18,7 +18,7 @@ const getApiUrl = () => {
 
 export const API_URL = getApiUrl();
 
-const FILE_BASE = API_URL.replace(/\/api\/?$/, '');
+export const FILE_BASE = API_URL.replace(/\/api\/?$/, '');
 
 /** Build a full image URL with auth token + ngrok bypass when needed */
 export const imgUrl = (path) => {

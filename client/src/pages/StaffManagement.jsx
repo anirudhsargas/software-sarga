@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserPlus, Search, Shield, Phone, User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar } from 'lucide-react';
 import HolidayCalendar from '../components/HolidayCalendar';
+import SecureImage from '../components/SecureImage';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
 import api, { imgUrl } from '../services/api';
@@ -359,8 +360,8 @@ const StaffManagement = () => {
                                             <div className="row gap-sm">
                                                 <div className="user-avatar avatar-sm">
                                                     {s.image_url ? (
-                                                        <img
-                                                            src={imgUrl(s.image_url)}
+                                                        <SecureImage
+                                                            src={s.image_url}
                                                             alt={s.name}
                                                             className="avatar-img"
                                                         />

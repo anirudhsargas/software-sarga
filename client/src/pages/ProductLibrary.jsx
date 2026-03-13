@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api, { imgUrl } from '../services/api';
+import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
 
 import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff } from 'lucide-react';
@@ -750,7 +751,7 @@ const ProductLibrary = () => {
                                     )}
                                     <div className="product-card__image-wrap" onClick={() => toggleCat(cat.id)}>
                                         {cat.image_url ? (
-                                            <img src={imgUrl(cat.image_url)} alt={cat.name} className="product-card__img" />
+                                            <SecureImage src={cat.image_url} alt={cat.name} className="product-card__img" />
                                         ) : (
                                             <div className="product-card__placeholder">
                                                 <Grid size={48} style={{ color: 'var(--accent-2)' }} />
@@ -790,7 +791,7 @@ const ProductLibrary = () => {
                                     )}
                                     <div className="product-card__image-wrap" onClick={() => setViewPath([viewPath[0], sub.id])}>
                                         {sub.image_url ? (
-                                            <img src={imgUrl(sub.image_url)} alt={sub.name} className="product-card__img" />
+                                            <SecureImage src={sub.image_url} alt={sub.name} className="product-card__img" />
                                         ) : (
                                             <div className="product-card__placeholder">
                                                 <Layers size={48} style={{ color: 'var(--accent-1)' }} />
@@ -847,7 +848,7 @@ const ProductLibrary = () => {
                                             <GripVertical size={16} />
                                         </div>
                                         {prod.image_url ? (
-                                            <img src={imgUrl(prod.image_url)} alt={prod.name} className="product-card__img" />
+                                            <SecureImage src={prod.image_url} alt={prod.name} className="product-card__img" />
                                         ) : (
                                             <div className="product-card__placeholder">
                                                 <Package size={48} />

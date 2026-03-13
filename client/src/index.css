@@ -1365,6 +1365,50 @@ select.input-field {
   grid-template-columns: 1fr 1fr;
 }
 
+/* Customer Type inline pill toggle */
+.billing-type-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.billing-type-btn {
+  flex: 1;
+  padding: 7px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.billing-type-btn:last-child {
+  border-right: none;
+}
+
+.billing-type-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.billing-type-btn--active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.billing-type-btn--active:hover {
+  background: var(--accent-2);
+  color: #fff;
+}
+
 /* Customer found card */
 .billing-customer-found {
   display: flex;

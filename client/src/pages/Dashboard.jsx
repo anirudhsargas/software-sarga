@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
+import SecureImage from '../components/SecureImage';
 import ImageCropModal from '../components/ImageCropModal';
 import ScannerModal from '../components/ScannerModal';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -244,7 +245,7 @@ const Dashboard = () => {
         if (!showProfileModal) return;
         setProfileName(user?.name || '');
         setProfileImage(null);
-        setProfilePreview(user?.image_url ? imgUrl(user.image_url) : '');
+        setProfilePreview('');
     }, [showProfileModal, user]);
 
     useEffect(() => {
@@ -435,7 +436,7 @@ const Dashboard = () => {
                     <div className="user-profile" onClick={() => setShowProfileModal(true)} role="button" tabIndex={0}>
                         <div className="user-avatar">
                             {user?.image_url ? (
-                                <img src={imgUrl(user.image_url)} alt={user.name} className="avatar-img" />
+                                <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
                             ) : (
                                 user?.name ? user.name[0] : 'U'
                             )}
@@ -461,7 +462,7 @@ const Dashboard = () => {
                     <div className="logo-text">SARGA</div>
                     <div className="user-avatar avatar-sm" onClick={() => setShowProfileModal(true)}>
                         {user?.image_url ? (
-                            <img src={imgUrl(user.image_url)} alt={user.name} className="avatar-img" />
+                            <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
                         ) : (
                             user?.name ? user.name[0] : 'U'
                         )}
@@ -518,8 +519,10 @@ const Dashboard = () => {
                         <form onSubmit={handleProfileSave} className="stack-md">
                             <div className="row gap-md items-center">
                                 <div className="user-avatar" style={{ width: '72px', height: '72px', borderRadius: '18px' }}>
-                                    {profilePreview ? (
+                                    {profileImage ? (
                                         <img src={profilePreview} alt="Profile" className="avatar-img" />
+                                    ) : user?.image_url ? (
+                                        <SecureImage src={user.image_url} alt="Profile" className="avatar-img" />
                                     ) : (
                                         profileName ? profileName[0] : 'U'
                                     )}
@@ -536,7 +539,7 @@ const Dashboard = () => {
                                             e.target.value = '';
                                         }}
                                     />
-                                    {profilePreview && (
+                                    {(user?.image_url || profileImage) && (
                                         <button
                                             type="button"
                                             className="btn btn-ghost btn-sm text-error mt-8"
@@ -619,8 +622,8 @@ const Dashboard = () => {
                             )}
                             <div className="row gap-md items-center">
                                 {inventoryScanResult.image_url && (
-                                    <img
-                                        src={imgUrl(inventoryScanResult.image_url)}
+                                    <SecureImage
+                                        src={inventoryScanResult.image_url}
                                         alt={inventoryScanResult.name}
                                         style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)' }}
                                     />

@@ -398,10 +398,8 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
           <div className="em-empty-state__icon"><Store size={48} strokeWidth={1.5} /></div>
           <h3 className="em-empty-state__title">No Vendors Yet</h3>
           <p className="em-empty-state__desc">Add vendors to track purchases and payments.</p>
-          {isAdmin ? (
+          {isAdmin && (
             <button className="btn btn-primary btn-sm" onClick={openAddForm}><Plus size={15} /> Add First Vendor</button>
-          ) : (
-            <button className="btn btn-primary btn-sm" onClick={openRequestForm}><Plus size={15} /> Request Vendor</button>
           )}
         </div>
       ) : filteredVendors.length === 0 ? (

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api, { imgUrl } from '../services/api';
+import SecureImage from '../components/SecureImage';
 import auth from '../services/auth';
 import { serverToday } from '../services/serverTime';
 import { Camera, Download, Printer, Scissors, WifiOff, Plus, Minus } from 'lucide-react';
@@ -1272,17 +1273,18 @@ const Billing = () => {
                     {existingCustomer.address && <span>📍 {existingCustomer.address}</span>}
                   </div>
                   <div className="row gap-sm mt-8 wrap">
-                    <div>
+                    <div style={{ width: '100%' }}>
                       <label className="label">Customer Type</label>
-                      <select
-                        className="input-field"
-                        value={form.type}
-                        onChange={(e) => handleChange('type', e.target.value)}
-                      >
+                      <div className="billing-type-toggle">
                         {customerTypes.map((type) => (
-                          <option key={type} value={type}>{type}</option>
+                          <button
+                            key={type}
+                            type="button"
+                            className={`billing-type-btn${form.type === type ? ' billing-type-btn--active' : ''}`}
+                            onClick={() => handleChange('type', type)}
+                          >{type}</button>
                         ))}
-                      </select>
+                      </div>
                     </div>
                     {form.type !== 'Walk-in' && (
                       <div>
@@ -1306,19 +1308,20 @@ const Billing = () => {
               <div className="stack-md">
                 {/* Row 1: Type + Mobile */}
                 <div className="billing-form-grid billing-form-grid--2">
-                  <div>
+                  <div style={{ gridColumn: '1 / -1' }}>
                     <label className="label">Customer Type</label>
-                    <select
-                      className="input-field"
-                      value={form.type}
-                      onChange={(e) => handleChange('type', e.target.value)}
-                    >
+                    <div className="billing-type-toggle">
                       {customerTypes.map((type) => (
-                        <option key={type} value={type}>{type}</option>
+                        <button
+                          key={type}
+                          type="button"
+                          className={`billing-type-btn${form.type === type ? ' billing-type-btn--active' : ''}`}
+                          onClick={() => handleChange('type', type)}
+                        >{type}</button>
                       ))}
-                    </select>
+                    </div>
                   </div>
-                  <div>
+                  <div style={{ gridColumn: '1 / -1' }}>
                     <label className="label">Mobile Number {isWalkIn ? '(optional)' : ''}</label>
                     <input
                       className={`input-field ${fieldErrors.mobile ? 'input-field--error' : ''}`}
@@ -1449,7 +1452,7 @@ const Billing = () => {
                   <div className="modal" style={{ maxWidth: 420, padding: 20 }} onClick={(e) => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                       {scannedPreview.item.image_url ? (
-                        <img src={imgUrl(scannedPreview.item.image_url)} alt={scannedPreview.item.name}
+                        <SecureImage src={scannedPreview.item.image_url} alt={scannedPreview.item.name}
                           style={{ width: 80, height: 80, flexShrink: 0, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
                       ) : (
                         <div style={{ width: 80, height: 80, flexShrink: 0, borderRadius: 8, background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 12 }}>No Image</div>
