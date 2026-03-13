@@ -156,7 +156,7 @@ const StockVerification = () => {
                 <div className="card p-16">
                     <h2 className="section-title mb-16">Verification History</h2>
                     {history.length > 0 ? (
-                        <div className="table-responsive">
+                        <div className="table-scroll">
                             <table className="table">
                                 <thead>
                                     <tr>
@@ -237,7 +237,7 @@ const StockVerification = () => {
                     {loading ? (
                         <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading inventory data...</div>
                     ) : (
-                        <div className="table-responsive" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                        <div className="table-scroll" style={{ maxHeight: '600px', overflowY: 'auto' }}>
                             <table className="table" style={{ borderCollapse: 'collapse', width: '100%' }}>
                                 <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface)', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                                     <tr>

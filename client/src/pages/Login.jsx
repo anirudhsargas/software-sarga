@@ -44,9 +44,9 @@ const Login = () => {
         try {
             const data = await login(cleanedUserId, password);
             if (data.user.is_first_login) {
-                navigate('/change-password');
+                navigate('/change-password', { replace: true });
             } else {
-                navigate('/dashboard');
+                navigate('/dashboard', { replace: true });
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Login failed. Please check your credentials.');

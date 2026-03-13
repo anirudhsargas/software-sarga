@@ -314,9 +314,9 @@
 
 /* ── Tables ── */
 .acc-table-wrap {
-  overflow-x: hidden;
-  overflow-y: visible;
+  overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  overflow-y: visible;
   width: 100%;
 }
 

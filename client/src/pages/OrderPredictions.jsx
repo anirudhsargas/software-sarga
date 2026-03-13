@@ -94,22 +94,18 @@ const OrderPredictions = () => {
                 rowGap: 10
             }}>
                 {/* Branch filter */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 160 }}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <Building2 size={13} style={{ marginBottom: -2 }} /> Branch
-                    </label>
-                    <select className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ minWidth: 120, height: 36, padding: '6px 28px 6px 12px', fontSize: 13, color: 'var(--text)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 4px 0 10px', height: 36 }}>
+                    <Building2 size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                    <select className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ border: 'none', background: 'transparent', boxShadow: 'none', height: 34, padding: '0 28px 0 4px', fontSize: 13, color: 'var(--text)', minWidth: 110 }}>
                         <option value="">All Branches</option>
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                 </div>
 
                 {/* Lookahead filter */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 140 }}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <Filter size={13} style={{ marginBottom: -2 }} /> Lookahead
-                    </label>
-                    <select className="input-field" value={lookahead} onChange={e => setLookahead(Number(e.target.value))} style={{ minWidth: 100, height: 36, padding: '6px 28px 6px 12px', fontSize: 13, color: 'var(--text)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 4px 0 10px', height: 36 }}>
+                    <Filter size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                    <select className="input-field" value={lookahead} onChange={e => setLookahead(Number(e.target.value))} style={{ border: 'none', background: 'transparent', boxShadow: 'none', height: 34, padding: '0 28px 0 4px', fontSize: 13, color: 'var(--text)', minWidth: 110 }}>
                         <option value={30}>Next 30 days</option>
                         <option value={45}>Next 45 days</option>
                         <option value={60}>Next 60 days</option>
@@ -118,11 +114,9 @@ const OrderPredictions = () => {
                 </div>
 
                 {/* Confidence filter */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 140 }}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <Sparkles size={13} style={{ marginBottom: -2 }} /> Confidence
-                    </label>
-                    <select className="input-field" value={confFilter} onChange={e => setConfFilter(e.target.value)} style={{ minWidth: 100, height: 36, padding: '6px 28px 6px 12px', fontSize: 13, color: 'var(--text)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 4px 0 10px', height: 36 }}>
+                    <Sparkles size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                    <select className="input-field" value={confFilter} onChange={e => setConfFilter(e.target.value)} style={{ border: 'none', background: 'transparent', boxShadow: 'none', height: 34, padding: '0 28px 0 4px', fontSize: 13, color: 'var(--text)', minWidth: 100 }}>
                         <option value="all">All levels</option>
                         <option value="High">High only</option>
                         <option value="Medium">Medium+</option>

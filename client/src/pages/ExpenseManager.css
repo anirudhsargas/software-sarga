@@ -259,6 +259,8 @@ select.em-input {
     background: var(--surface);
     border: 1px solid var(--border);
     transition: box-shadow .15s;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .em-kpi:hover {
@@ -274,6 +276,8 @@ select.em-input {
     display: flex;
     flex-direction: column;
     gap: 3px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .em-kpi__value {
@@ -281,6 +285,9 @@ select.em-input {
     font-size: 20px;
     font-weight: 700;
     line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .em-kpi__label {
@@ -927,14 +934,15 @@ select.em-input {
 
 /* ─── Full Table ──────────────────────────────────────── */
 .em-table-wrap {
-    overflow-x: hidden;
-    overflow-y: visible;
+    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    overflow-y: visible;
     width: 100%;
 }
 
 .em-table {
     width: 100%;
+    min-width: 580px;
     border-collapse: collapse;
     font-size: 13.5px;
 }
@@ -1169,7 +1177,7 @@ select.em-input {
     }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
     .em-page {
         padding: 0 6px 20px;
     }
@@ -2913,7 +2921,7 @@ select.em-input {
     }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
     .em-page {
         padding: 0 6px 80px;
     }
@@ -2936,11 +2944,11 @@ select.em-input {
 
     .em-kpi-grid--4,
     .em-kpi-grid--3 {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
     }
 
     .em-kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
     }
 
     .em-two-col {

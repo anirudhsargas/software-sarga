@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import api, { API_URL } from '../services/api';
+import useAuth from '../hooks/useAuth';
 
-import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff } from 'lucide-react';
 import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
 import {
@@ -24,7 +25,7 @@ import { CSS } from '@dnd-kit/utilities';
 import toast from 'react-hot-toast';
 import ImageCropModal from '../components/ImageCropModal';
 
-const SortableItem = ({ id, children, className, ...props }) => {
+const SortableItem = ({ id, children, className, disabled, ...props }) => {
     const {
         attributes,
         listeners,
@@ -49,7 +50,7 @@ const SortableItem = ({ id, children, className, ...props }) => {
             className={className}
             {...props}
         >
-            <div {...attributes} {...listeners} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}></div>
+            {!disabled && <div {...attributes} {...listeners} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}></div>}
             <div style={{ position: 'relative', zIndex: 1 }}>
                 {children}
             </div>
@@ -58,6 +59,8 @@ const SortableItem = ({ id, children, className, ...props }) => {
 };
 
 const ProductLibrary = () => {
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'Admin';
     const { confirm } = useConfirm();
     const [hierarchy, setHierarchy] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -88,6 +91,12 @@ const ProductLibrary = () => {
     const [productImagePreview, setProductImagePreview] = useState('');
     const [cropState, setCropState] = useState(null);
     const [savingOrder, setSavingOrder] = useState(false);
+    const [catImage, setCatImage] = useState(null);
+    const [catImagePreview, setCatImagePreview] = useState('');
+    const [catImageUrl, setCatImageUrl] = useState('');
+    const [subImage, setSubImage] = useState(null);
+    const [subImagePreview, setSubImagePreview] = useState('');
+    const [subImageUrl, setSubImageUrl] = useState('');
 
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
@@ -201,12 +210,19 @@ const ProductLibrary = () => {
     const handleSaveCategory = async (e) => {
         e.preventDefault();
         try {
+            const formData = new FormData();
+            formData.append('name', newCatName);
+            if (catImage) formData.append('image', catImage);
+            else formData.append('image_url', catImageUrl);
             if (isEditing) {
-                await api.put(`/product-categories/${editId}`, { name: newCatName });
+                await api.put(`/product-categories/${editId}`, formData);
             } else {
-                await api.post('/product-categories', { name: newCatName });
+                await api.post('/product-categories', formData);
             }
             setNewCatName('');
+            setCatImage(null);
+            setCatImagePreview('');
+            setCatImageUrl('');
             setIsEditing(false);
             setEditId(null);
             setShowCatModal(false);
@@ -219,12 +235,20 @@ const ProductLibrary = () => {
     const handleSaveSubcategory = async (e) => {
         e.preventDefault();
         try {
+            const formData = new FormData();
+            formData.append('category_id', selectedCatId);
+            formData.append('name', newSubName);
+            if (subImage) formData.append('image', subImage);
+            else formData.append('image_url', subImageUrl);
             if (isEditing) {
-                await api.put(`/product-subcategories/${editId}`, { category_id: selectedCatId, name: newSubName });
+                await api.put(`/product-subcategories/${editId}`, formData);
             } else {
-                await api.post('/product-subcategories', { category_id: selectedCatId, name: newSubName });
+                await api.post('/product-subcategories', formData);
             }
             setNewSubName('');
+            setSubImage(null);
+            setSubImagePreview('');
+            setSubImageUrl('');
             setIsEditing(false);
             setEditId(null);
             setShowSubModal(false);
@@ -236,6 +260,7 @@ const ProductLibrary = () => {
 
     const handleSaveProduct = async (e) => {
         e.preventDefault();
+        if (!isAdmin) return;
         if (!selectedSubId) {
             toast.success('Please select a sub-category for this product.');
             return;
@@ -364,6 +389,9 @@ const ProductLibrary = () => {
         setIsEditing(true);
         setEditId(cat.id);
         setNewCatName(cat.name);
+        setCatImage(null);
+        setCatImageUrl(cat.image_url || '');
+        setCatImagePreview(cat.image_url ? `${fileBaseUrl}${cat.image_url}` : '');
         setShowCatModal(true);
     };
 
@@ -372,6 +400,9 @@ const ProductLibrary = () => {
         setEditId(sub.id);
         setSelectedCatId(sub.category_id);
         setNewSubName(sub.name);
+        setSubImage(null);
+        setSubImageUrl(sub.image_url || '');
+        setSubImagePreview(sub.image_url ? `${fileBaseUrl}${sub.image_url}` : '');
         setShowSubModal(true);
     };
 
@@ -402,6 +433,39 @@ const ProductLibrary = () => {
             setShowProdModal(true);
         } catch (err) {
             toast.error('Error fetching product details');
+        }
+    };
+
+    const handleToggleProduct = async (prod) => {
+        const isActive = prod.is_active === 1 || prod.is_active === true;
+        try {
+            await api.patch(`/products/${prod.id}/toggle-active`);
+            toast.success(isActive ? `"${prod.name}" disabled` : `"${prod.name}" enabled`);
+            fetchHierarchy();
+        } catch (err) {
+            toast.error('Error updating product status');
+        }
+    };
+
+    const handleToggleCategory = async (cat) => {
+        const isActive = cat.is_active === 1 || cat.is_active === true;
+        try {
+            await api.patch(`/product-categories/${cat.id}/toggle-active`);
+            toast.success(isActive ? `"${cat.name}" disabled` : `"${cat.name}" enabled`);
+            fetchHierarchy();
+        } catch (err) {
+            toast.error('Error updating category status');
+        }
+    };
+
+    const handleToggleSubcategory = async (sub) => {
+        const isActive = sub.is_active === 1 || sub.is_active === true;
+        try {
+            await api.patch(`/product-subcategories/${sub.id}/toggle-active`);
+            toast.success(isActive ? `"${sub.name}" disabled` : `"${sub.name}" enabled`);
+            fetchHierarchy();
+        } catch (err) {
+            toast.error('Error updating subcategory status');
         }
     };
 
@@ -589,6 +653,7 @@ const ProductLibrary = () => {
                         <h1 className="page-title">Product & Rate Library</h1>
                         <p className="muted">Manage your printing categories, products, and pricing slabs.</p>
                     </div>
+                    {isAdmin && (
                     <div className="row gap-md">
                         <button className="btn btn-ghost" onClick={handleResetUsage}>
                             <RotateCcw size={16} /> Reset Usage Order
@@ -614,6 +679,7 @@ const ProductLibrary = () => {
                             </button>
                         )}
                     </div>
+                    )}
                 </div>
 
                 {/* Breadcrumbs */}
@@ -664,21 +730,34 @@ const ProductLibrary = () => {
                             )}
 
                             {viewInfo.type === 'root' && viewInfo.items.map((cat, idx) => (
-                                <SortableItem key={cat.id} id={cat.id} className="product-card pointer">
+                                <SortableItem key={cat.id} id={cat.id} disabled={!isAdmin} className={`product-card pointer${cat.is_active === 0 || cat.is_active === false ? ' product-card--disabled' : ''}`}>
+                                    {isAdmin && (
                                     <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditCategory(cat); }} title="Edit Category">
                                             <Edit2 size={14} />
+                                        </button>
+                                        <button
+                                            className={`product-card__btn${cat.is_active === 0 || cat.is_active === false ? ' product-card__btn--enable' : ''}`}
+                                            onClick={(e) => { e.stopPropagation(); handleToggleCategory(cat); }}
+                                            title={cat.is_active === 0 || cat.is_active === false ? 'Enable Category' : 'Disable Category'}
+                                        >
+                                            {cat.is_active === 0 || cat.is_active === false ? <Eye size={14} /> : <EyeOff size={14} />}
                                         </button>
                                         <button className="product-card__btn product-card__btn--delete" onClick={(e) => { e.stopPropagation(); handleDelete('category', cat.id, cat.name); }} title="Delete Category">
                                             <Trash2 size={14} />
                                         </button>
                                     </div>
+                                    )}
                                     <div className="product-card__image-wrap" onClick={() => toggleCat(cat.id)}>
-                                        <div className="product-card__placeholder">
-                                            <Grid size={48} style={{ color: 'var(--accent-2)' }} />
-                                            <div className="drag-indicator">
-                                                <GripVertical size={16} />
+                                        {cat.image_url ? (
+                                            <img src={`${fileBaseUrl}${cat.image_url}`} alt={cat.name} className="product-card__img" />
+                                        ) : (
+                                            <div className="product-card__placeholder">
+                                                <Grid size={48} style={{ color: 'var(--accent-2)' }} />
                                             </div>
+                                        )}
+                                        <div className="drag-indicator">
+                                            <GripVertical size={16} />
                                         </div>
                                     </div>
                                     <div className="product-card__content" onClick={() => toggleCat(cat.id)}>
@@ -691,21 +770,34 @@ const ProductLibrary = () => {
                             ))}
 
                             {viewInfo.type === 'category' && viewInfo.items.map((sub, idx) => (
-                                <SortableItem key={sub.id} id={sub.id} className="product-card pointer">
+                                <SortableItem key={sub.id} id={sub.id} disabled={!isAdmin} className={`product-card pointer${sub.is_active === 0 || sub.is_active === false ? ' product-card--disabled' : ''}`}>
+                                    {isAdmin && (
                                     <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditSubcategory(sub); }} title="Edit Sub-category">
                                             <Edit2 size={14} />
+                                        </button>
+                                        <button
+                                            className={`product-card__btn${sub.is_active === 0 || sub.is_active === false ? ' product-card__btn--enable' : ''}`}
+                                            onClick={(e) => { e.stopPropagation(); handleToggleSubcategory(sub); }}
+                                            title={sub.is_active === 0 || sub.is_active === false ? 'Enable Sub-category' : 'Disable Sub-category'}
+                                        >
+                                            {sub.is_active === 0 || sub.is_active === false ? <Eye size={14} /> : <EyeOff size={14} />}
                                         </button>
                                         <button className="product-card__btn product-card__btn--delete" onClick={(e) => { e.stopPropagation(); handleDelete('subcategory', sub.id, sub.name); }} title="Delete Sub-category">
                                             <Trash2 size={14} />
                                         </button>
                                     </div>
+                                    )}
                                     <div className="product-card__image-wrap" onClick={() => setViewPath([viewPath[0], sub.id])}>
-                                        <div className="product-card__placeholder">
-                                            <Layers size={48} style={{ color: 'var(--accent-1)' }} />
-                                            <div className="drag-indicator">
-                                                <GripVertical size={16} />
+                                        {sub.image_url ? (
+                                            <img src={`${fileBaseUrl}${sub.image_url}`} alt={sub.name} className="product-card__img" />
+                                        ) : (
+                                            <div className="product-card__placeholder">
+                                                <Layers size={48} style={{ color: 'var(--accent-1)' }} />
                                             </div>
+                                        )}
+                                        <div className="drag-indicator">
+                                            <GripVertical size={16} />
                                         </div>
                                     </div>
                                     <div className="product-card__content" onClick={() => setViewPath([viewPath[0], sub.id])}>
@@ -721,14 +813,16 @@ const ProductLibrary = () => {
                                 <SortableItem
                                     key={prod.id}
                                     id={prod.id}
-                                    className="product-card"
+                                    className={`product-card${prod.is_active === 0 || prod.is_active === false ? ' product-card--disabled' : ''}`}
+                                    disabled={!isAdmin}
                                     {...(isTouchDevice()
                                         ? { onClick: () => startEditProduct(prod.id) }
                                         : { onDoubleClick: () => startEditProduct(prod.id) }
                                     )}
-                                    title={isTouchDevice() ? "Click to edit" : "Double click to edit"}
+                                    title={isTouchDevice() ? (isAdmin ? 'Click to edit' : 'Click to view rates') : (isAdmin ? 'Double click to edit' : 'Double click to view rates')}
                                     style={{ cursor: 'pointer' }}
                                 >
+                                    {isAdmin && (
                                     <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditProduct(prod.id); }} title="Edit Product">
                                             <Edit2 size={14} />
@@ -736,10 +830,18 @@ const ProductLibrary = () => {
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); handleDuplicateProduct(prod.id); }} title="Duplicate Product">
                                             <Copy size={14} />
                                         </button>
+                                        <button
+                                            className={`product-card__btn${prod.is_active === 0 || prod.is_active === false ? ' product-card__btn--enable' : ''}`}
+                                            onClick={(e) => { e.stopPropagation(); handleToggleProduct(prod); }}
+                                            title={prod.is_active === 0 || prod.is_active === false ? 'Enable Product' : 'Disable Product'}
+                                        >
+                                            {prod.is_active === 0 || prod.is_active === false ? <Eye size={14} /> : <EyeOff size={14} />}
+                                        </button>
                                         <button className="product-card__btn product-card__btn--delete" onClick={(e) => { e.stopPropagation(); handleDelete('product', prod.id, prod.name); }} title="Delete Product">
                                             <Trash2 size={14} />
                                         </button>
                                     </div>
+                                    )}
                                     <div className="product-card__image-wrap">
                                         <div className="drag-indicator top-left">
                                             <GripVertical size={16} />
@@ -769,19 +871,41 @@ const ProductLibrary = () => {
             {/* Modals for Cat/Sub/Prod */}
             {showCatModal && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: '400px' }}>
+                    <div className="modal" style={{ maxWidth: '420px' }}>
                         <h2 className="section-title mb-16">{isEditing ? 'Edit Category' : 'New Category'}</h2>
                         <form onSubmit={handleSaveCategory} className="stack-md">
-                            <input
-                                className="input-field"
-                                placeholder="Category Name (e.g. Paper Printing)"
-                                value={newCatName}
-                                onChange={e => setNewCatName(e.target.value)}
-                                autoFocus
-                                required
-                            />
+                            <div>
+                                <label className="label">Category Name</label>
+                                <input
+                                    className="input-field"
+                                    placeholder="e.g. Paper Printing"
+                                    value={newCatName}
+                                    onChange={e => setNewCatName(e.target.value)}
+                                    autoFocus
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="label">Image (Optional)</label>
+                                {catImagePreview && (
+                                    <div className="row gap-sm items-center mb-8">
+                                        <img src={catImagePreview} alt="Preview" className="thumb-img" />
+                                        <button type="button" className="btn btn-ghost btn-sm text-error" onClick={() => { setCatImage(null); setCatImagePreview(''); setCatImageUrl(''); }}>Remove</button>
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/webp"
+                                    className="input-field"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0] || null;
+                                        if (file) { setCatImage(file); setCatImagePreview(URL.createObjectURL(file)); }
+                                        e.target.value = '';
+                                    }}
+                                />
+                            </div>
                             <div className="row gap-md">
-                                <button type="button" className="btn btn-ghost flex-1" onClick={() => setShowCatModal(false)}>Cancel</button>
+                                <button type="button" className="btn btn-ghost flex-1" onClick={() => { setShowCatModal(false); setCatImage(null); setCatImagePreview(''); }}>Cancel</button>
                                 <button type="submit" className="btn btn-primary flex-1">{isEditing ? 'Update' : 'Add'}</button>
                             </div>
                         </form>
@@ -791,19 +915,41 @@ const ProductLibrary = () => {
 
             {showSubModal && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: '400px' }}>
+                    <div className="modal" style={{ maxWidth: '420px' }}>
                         <h2 className="section-title mb-16">{isEditing ? 'Edit Sub-category' : 'New Sub-category'}</h2>
                         <form onSubmit={handleSaveSubcategory} className="stack-md">
-                            <input
-                                className="input-field"
-                                placeholder="Name (e.g. Business Cards)"
-                                value={newSubName}
-                                onChange={e => setNewSubName(e.target.value)}
-                                autoFocus
-                                required
-                            />
+                            <div>
+                                <label className="label">Sub-category Name</label>
+                                <input
+                                    className="input-field"
+                                    placeholder="e.g. Business Cards"
+                                    value={newSubName}
+                                    onChange={e => setNewSubName(e.target.value)}
+                                    autoFocus
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="label">Image (Optional)</label>
+                                {subImagePreview && (
+                                    <div className="row gap-sm items-center mb-8">
+                                        <img src={subImagePreview} alt="Preview" className="thumb-img" />
+                                        <button type="button" className="btn btn-ghost btn-sm text-error" onClick={() => { setSubImage(null); setSubImagePreview(''); setSubImageUrl(''); }}>Remove</button>
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/webp"
+                                    className="input-field"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0] || null;
+                                        if (file) { setSubImage(file); setSubImagePreview(URL.createObjectURL(file)); }
+                                        e.target.value = '';
+                                    }}
+                                />
+                            </div>
                             <div className="row gap-md">
-                                <button type="button" className="btn btn-ghost flex-1" onClick={() => setShowSubModal(false)}>Cancel</button>
+                                <button type="button" className="btn btn-ghost flex-1" onClick={() => { setShowSubModal(false); setSubImage(null); setSubImagePreview(''); }}>Cancel</button>
                                 <button type="submit" className="btn btn-primary flex-1">{isEditing ? 'Update' : 'Add'}</button>
                             </div>
                         </form>
@@ -815,10 +961,11 @@ const ProductLibrary = () => {
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '600px' }}>
                         <button className="modal-close" onClick={() => { setShowProdModal(false); setIsEditing(false); }}><X size={20} /></button>
-                        <h2 className="section-title mb-4">{isEditing ? 'Edit Product' : 'Add New Product'}</h2>
+                        <h2 className="section-title mb-4">{isEditing ? (isAdmin ? 'Edit Product' : 'View Product Rates') : 'Add New Product'}</h2>
                         <p className="muted mb-16 text-sm">Define pricing rules and default extras.</p>
 
                         <form onSubmit={handleSaveProduct} className="stack-md">
+                            <fieldset disabled={!isAdmin} style={{border:'none',padding:0,margin:0}}>
                             <div>
                                 <label className="label">Sub-category</label>
                                 <select
@@ -943,7 +1090,7 @@ const ProductLibrary = () => {
                             </div>
 
                             <div className="stack-sm">
-                                <div className="row space-between items-center">
+                                <div className="row space-between items-center gap-md">
                                     <label className="label mb-0">Pricing Rules</label>
                                     {newProduct.calculation_type !== 'Normal' && (
                                         <button type="button" className="btn btn-ghost btn-sm" onClick={addSlab}>
@@ -1009,8 +1156,8 @@ const ProductLibrary = () => {
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="stack-xs bg-light p-8 rounded border overflow-x-auto">
-                                        <div className="row gap-md px-8 text-xs muted font-bold uppercase min-w-[500px]">
+                                    <div className="stack-sm bg-light p-16 rounded border overflow-x-auto">
+                                        <div className="row gap-md px-4 pb-8 text-xs muted font-bold uppercase min-w-[500px]" style={{ borderBottom: '1px solid var(--border)' }}>
                                             <div className="flex-1">Min Qty</div>
                                             {newProduct.calculation_type === 'Range' && <div className="flex-1">Max Qty</div>}
                                             {newProduct.calculation_type === 'Slab' && <div className="flex-1">Base Value (Total ₹)</div>}
@@ -1018,12 +1165,12 @@ const ProductLibrary = () => {
                                             {newProduct.calculation_type === 'Range' && <div className="flex-1">Retail Rate (₹)</div>}
                                             {newProduct.calculation_type === 'Range' && <div className="flex-1">Offset Rate (₹)</div>}
                                             {newProduct.calculation_type === 'Range' && newProduct.has_double_side_rate && <div className="flex-1">Double Side Rate (₹)</div>}
-                                            <div style={{ width: '32px' }}></div>
+                                            <div style={{ width: '36px' }}></div>
                                         </div>
                                         {newProduct.slabs.map((slab, idx) => (
-                                            <div key={idx} className="row gap-md min-w-[500px]">
+                                            <div key={idx} className="row gap-sm items-center min-w-[500px]">
                                                 <input
-                                                    type="number" className="input-field text-sm p-8"
+                                                    type="number" className="input-field text-sm"
                                                     placeholder="Min Qty"
                                                     value={slab.min_qty}
                                                     data-slab-row={idx}
@@ -1043,7 +1190,7 @@ const ProductLibrary = () => {
                                                 />
                                                 {newProduct.calculation_type === 'Range' && (
                                                     <input
-                                                        type="number" className="input-field text-sm p-8"
+                                                        type="number" className="input-field text-sm"
                                                         placeholder="Max Qty"
                                                         value={slab.max_qty}
                                                         data-slab-row={idx}
@@ -1074,7 +1221,7 @@ const ProductLibrary = () => {
                                                 )}
                                                 {newProduct.calculation_type === 'Slab' && (
                                                     <input
-                                                        type="number" className="input-field text-sm p-8"
+                                                        type="number" className="input-field text-sm"
                                                         placeholder="Base Value"
                                                         step="any"
                                                         value={slab.base_value !== undefined ? slab.base_value : ''}
@@ -1099,7 +1246,7 @@ const ProductLibrary = () => {
                                                 )}
                                                 {newProduct.calculation_type === 'Slab' && newProduct.has_double_side_rate && (
                                                     <input
-                                                        type="number" className="input-field text-sm p-8"
+                                                        type="number" className="input-field text-sm"
                                                         placeholder="Double Side Rate"
                                                         step="any"
                                                         value={slab.double_side_unit_rate !== undefined ? slab.double_side_unit_rate : ''}
@@ -1125,7 +1272,7 @@ const ProductLibrary = () => {
                                                 {newProduct.calculation_type === 'Range' && (
                                                     <>
                                                         <input
-                                                            type="number" className="input-field text-sm p-8"
+                                                            type="number" className="input-field text-sm"
                                                             placeholder="Retail Rate"
                                                             step="any"
                                                             value={slab.unit_rate !== undefined ? slab.unit_rate : ''}
@@ -1145,7 +1292,7 @@ const ProductLibrary = () => {
                                                             onWheel={e => e.preventDefault()}
                                                         />
                                                         <input
-                                                            type="number" className="input-field text-sm p-8"
+                                                            type="number" className="input-field text-sm"
                                                             placeholder="Offset Rate"
                                                             step="any"
                                                             value={slab.offset_unit_rate !== undefined ? slab.offset_unit_rate : ''}
@@ -1169,7 +1316,7 @@ const ProductLibrary = () => {
                                                         />
                                                         {newProduct.has_double_side_rate && (
                                                             <input
-                                                                type="number" className="input-field text-sm p-8"
+                                                                type="number" className="input-field text-sm"
                                                                 placeholder="Double Side Rate"
                                                                 step="any"
                                                                 value={slab.double_side_unit_rate !== undefined ? slab.double_side_unit_rate : ''}
@@ -1191,12 +1338,12 @@ const ProductLibrary = () => {
                                                         )}
                                                     </>
                                                 )}
-                                                <button type="button" className="btn btn-ghost btn-sm text-error" onClick={() => removeSlab(idx)}>
+                                                <button type="button" className="btn btn-ghost btn-sm text-error" style={{ flexShrink: 0 }} onClick={() => removeSlab(idx)}>
                                                     <Trash2 size={14} />
                                                 </button>
                                             </div>
                                         ))}
-                                        <div className="row px-8 pt-8">
+                                        <div className="pt-8" style={{ borderTop: '1px solid var(--border)' }}>
                                             <button type="button" className="btn btn-ghost btn-sm" onClick={addSlab}>
                                                 <Plus size={14} /> Add Slab
                                             </button>
@@ -1206,17 +1353,17 @@ const ProductLibrary = () => {
                             </div>
 
                             <div className="stack-sm">
-                                <div className="row space-between items-center">
+                                <div className="row space-between items-center gap-md">
                                     <label className="label mb-0">Default Extra Charges</label>
                                     <button type="button" className="btn btn-ghost btn-sm" onClick={addExtra}><Plus size={14} /> Add Extra</button>
                                 </div>
-                                <div className="stack-xs bg-light p-8 rounded border">
-                                    {newProduct.extras.length === 0 && <p className="muted text-xs p-8">No template extras defined.</p>}
+                                <div className="stack-sm bg-light p-16 rounded border">
+                                    {newProduct.extras.length === 0 && <p className="muted text-xs">No template extras defined.</p>}
                                     {newProduct.extras.map((ex, idx) => (
-                                        <div key={idx} className="row gap-md">
+                                        <div key={idx} className="row gap-sm items-center">
                                             <input
                                                 placeholder="Purpose (e.g. Lamination)"
-                                                className="input-field text-sm p-8 flex-2"
+                                                className="input-field text-sm flex-2"
                                                 value={ex.purpose}
                                                 onChange={e => {
                                                     const extras = [...newProduct.extras];
@@ -1227,7 +1374,7 @@ const ProductLibrary = () => {
                                             <input
                                                 type="number"
                                                 placeholder="Amount"
-                                                className="input-field text-sm p-8 flex-1"
+                                                className="input-field text-sm flex-1"
                                                 value={ex.amount}
                                                 onChange={e => {
                                                     const extras = [...newProduct.extras];
@@ -1236,13 +1383,14 @@ const ProductLibrary = () => {
                                                 }}
                                                 onWheel={e => e.preventDefault()}
                                             />
-                                            <button type="button" className="btn btn-ghost btn-sm text-error" onClick={() => removeExtra(idx)}><Trash2 size={14} /></button>
+                                            <button type="button" className="btn btn-ghost btn-sm text-error" style={{ flexShrink: 0 }} onClick={() => removeExtra(idx)}><Trash2 size={14} /></button>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            <button type="submit" className="btn btn-primary btn--full mt-8">{isEditing ? 'Update Product Details' : 'Save Product to Library'}</button>
+                            </fieldset>
+                            {isAdmin && <button type="submit" className="btn btn-primary btn--full mt-8">{isEditing ? 'Update Product Details' : 'Save Product to Library'}</button>}
                         </form>
                     </div>
                 </div>

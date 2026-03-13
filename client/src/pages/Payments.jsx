@@ -1082,7 +1082,7 @@ const Payments = () => {
                             </div>
 
                             {billData.items.length > 0 && (
-                                <div className="border-all rounded overflow-hidden">
+                                <div className="border-all rounded table-scroll">
                                     <table className="table">
                                         <thead>
                                             <tr>
@@ -1195,7 +1195,7 @@ const Payments = () => {
                                 )}
                             </div>
 
-                            <div className="border-all rounded overflow-hidden">
+                            <div className="border-all rounded table-scroll">
                                 <table className="table">
                                     <thead>
                                         <tr>

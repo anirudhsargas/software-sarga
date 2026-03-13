@@ -58,7 +58,7 @@ const ChangePassword = () => {
             localStorage.setItem('user', JSON.stringify(user));
 
             setSuccess(true);
-            setTimeout(() => navigate('/dashboard'), 2000);
+            setTimeout(() => navigate('/dashboard', { replace: true }), 2000);
         } catch (err) {
             setError(err.response?.data?.message || 'Password change failed');
         } finally {

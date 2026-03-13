@@ -791,7 +791,7 @@
     }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
     .acc-kpi-grid--4,
     .acc-kpi-grid--3,
     .acc-kpi-grid--2 {

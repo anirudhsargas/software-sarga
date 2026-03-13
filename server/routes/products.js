@@ -19,8 +19,9 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Add Category
-    router.post('/product-categories', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.post('/product-categories', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
         const { name } = req.body;
+        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
         if (!name || !String(name).trim()) {
             return res.status(400).json({ message: 'Category name is required' });
         }
@@ -28,8 +29,8 @@ module.exports = (upload, removeUploadFile) => {
             const [rows] = await pool.query("SELECT COALESCE(MAX(position), 0) + 1 AS nextPos FROM sarga_product_categories");
             const nextPos = rows[0]?.nextPos || 1;
             await pool.query(
-                "INSERT INTO sarga_product_categories (name, position) VALUES (?, ?)",
-                [String(name).trim(), nextPos]
+                "INSERT INTO sarga_product_categories (name, position, image_url) VALUES (?, ?, ?)",
+                [String(name).trim(), nextPos, imageUrl]
             );
             invalidateHierarchyCache();
             auditLog(req.user.id, 'CATEGORY_ADD', `Added product category: ${name}`, { entity_type: 'product_category' });
@@ -44,12 +45,24 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Update Category
-    router.put('/product-categories/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
-        const { name } = req.body;
+    router.put('/product-categories/:id', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
+        const { name, image_url: existingImageUrl } = req.body;
         const { id } = req.params;
         if (!name || !String(name).trim()) return res.status(400).json({ message: 'Name is required' });
         try {
-            await pool.query("UPDATE sarga_product_categories SET name = ? WHERE id = ?", [String(name).trim(), id]);
+            let imageUrl;
+            if (req.file) {
+                imageUrl = `/uploads/${req.file.filename}`;
+                const [old] = await pool.query("SELECT image_url FROM sarga_product_categories WHERE id = ?", [id]);
+                if (old[0]?.image_url) await removeUploadFile(old[0].image_url).catch(() => {});
+            } else {
+                imageUrl = existingImageUrl !== undefined ? (existingImageUrl || null) : undefined;
+            }
+            if (imageUrl !== undefined) {
+                await pool.query("UPDATE sarga_product_categories SET name = ?, image_url = ? WHERE id = ?", [String(name).trim(), imageUrl, id]);
+            } else {
+                await pool.query("UPDATE sarga_product_categories SET name = ? WHERE id = ?", [String(name).trim(), id]);
+            }
             invalidateHierarchyCache();
             auditLog(req.user.id, 'CATEGORY_UPDATE', `Updated category #${id}: ${name}`, { entity_type: 'product_category', entity_id: id });
             res.json({ message: 'Category updated' });
@@ -63,10 +76,27 @@ module.exports = (upload, removeUploadFile) => {
     // Delete Category
     router.delete('/product-categories/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
         try {
+            const [rows] = await pool.query("SELECT image_url FROM sarga_product_categories WHERE id = ?", [req.params.id]);
+            if (rows[0]?.image_url) await removeUploadFile(rows[0].image_url).catch(() => {});
             await pool.query("DELETE FROM sarga_product_categories WHERE id = ?", [req.params.id]);
             invalidateHierarchyCache();
             auditLog(req.user.id, 'CATEGORY_DELETE', `Deleted product category #${req.params.id}`, { entity_type: 'product_category', entity_id: req.params.id });
             res.json({ message: 'Category deleted' });
+        } catch (err) {
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // Toggle Category Active/Inactive
+    router.patch('/product-categories/:id/toggle-active', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        try {
+            const [rows] = await pool.query("SELECT is_active FROM sarga_product_categories WHERE id = ?", [req.params.id]);
+            if (!rows[0]) return res.status(404).json({ message: 'Category not found' });
+            const newState = rows[0].is_active ? 0 : 1;
+            await pool.query("UPDATE sarga_product_categories SET is_active = ? WHERE id = ?", [newState, req.params.id]);
+            invalidateHierarchyCache();
+            auditLog(req.user.id, newState ? 'CATEGORY_ENABLE' : 'CATEGORY_DISABLE', `${newState ? 'Enabled' : 'Disabled'} category #${req.params.id}`, { entity_type: 'product_category', entity_id: req.params.id });
+            res.json({ message: newState ? 'Category enabled' : 'Category disabled', is_active: newState });
         } catch (err) {
             res.status(500).json({ message: 'Database error' });
         }
@@ -83,8 +113,9 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Add Subcategory
-    router.post('/product-subcategories', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.post('/product-subcategories', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
         const { category_id, name } = req.body;
+        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
         if (!category_id) {
             return res.status(400).json({ message: 'Category is required' });
         }
@@ -98,8 +129,8 @@ module.exports = (upload, removeUploadFile) => {
             );
             const nextPos = rows[0]?.nextPos || 1;
             await pool.query(
-                "INSERT INTO sarga_product_subcategories (category_id, name, position) VALUES (?, ?, ?)",
-                [category_id, String(name).trim(), nextPos]
+                "INSERT INTO sarga_product_subcategories (category_id, name, position, image_url) VALUES (?, ?, ?, ?)",
+                [category_id, String(name).trim(), nextPos, imageUrl]
             );
             invalidateHierarchyCache();
             auditLog(req.user.id, 'SUBCATEGORY_ADD', `Added subcategory: ${name}`, { entity_type: 'product_subcategory' });
@@ -114,12 +145,24 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Update Subcategory
-    router.put('/product-subcategories/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
-        const { name, category_id } = req.body;
+    router.put('/product-subcategories/:id', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
+        const { name, category_id, image_url: existingImageUrl } = req.body;
         const { id } = req.params;
         if (!name || !String(name).trim()) return res.status(400).json({ message: 'Name is required' });
         try {
-            await pool.query("UPDATE sarga_product_subcategories SET name = ?, category_id = ? WHERE id = ?", [String(name).trim(), category_id, id]);
+            let imageUrl;
+            if (req.file) {
+                imageUrl = `/uploads/${req.file.filename}`;
+                const [old] = await pool.query("SELECT image_url FROM sarga_product_subcategories WHERE id = ?", [id]);
+                if (old[0]?.image_url) await removeUploadFile(old[0].image_url).catch(() => {});
+            } else {
+                imageUrl = existingImageUrl !== undefined ? (existingImageUrl || null) : undefined;
+            }
+            if (imageUrl !== undefined) {
+                await pool.query("UPDATE sarga_product_subcategories SET name = ?, category_id = ?, image_url = ? WHERE id = ?", [String(name).trim(), category_id, imageUrl, id]);
+            } else {
+                await pool.query("UPDATE sarga_product_subcategories SET name = ?, category_id = ? WHERE id = ?", [String(name).trim(), category_id, id]);
+            }
             invalidateHierarchyCache();
             auditLog(req.user.id, 'SUBCATEGORY_UPDATE', `Updated subcategory #${id}: ${name}`, { entity_type: 'product_subcategory', entity_id: id });
             res.json({ message: 'Subcategory updated' });
@@ -133,10 +176,27 @@ module.exports = (upload, removeUploadFile) => {
     // Delete Subcategory
     router.delete('/product-subcategories/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
         try {
+            const [rows] = await pool.query("SELECT image_url FROM sarga_product_subcategories WHERE id = ?", [req.params.id]);
+            if (rows[0]?.image_url) await removeUploadFile(rows[0].image_url).catch(() => {});
             await pool.query("DELETE FROM sarga_product_subcategories WHERE id = ?", [req.params.id]);
             invalidateHierarchyCache();
             auditLog(req.user.id, 'SUBCATEGORY_DELETE', `Deleted subcategory #${req.params.id}`, { entity_type: 'product_subcategory', entity_id: req.params.id });
             res.json({ message: 'Subcategory deleted' });
+        } catch (err) {
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // Toggle Subcategory Active/Inactive
+    router.patch('/product-subcategories/:id/toggle-active', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        try {
+            const [rows] = await pool.query("SELECT is_active FROM sarga_product_subcategories WHERE id = ?", [req.params.id]);
+            if (!rows[0]) return res.status(404).json({ message: 'Subcategory not found' });
+            const newState = rows[0].is_active ? 0 : 1;
+            await pool.query("UPDATE sarga_product_subcategories SET is_active = ? WHERE id = ?", [newState, req.params.id]);
+            invalidateHierarchyCache();
+            auditLog(req.user.id, newState ? 'SUBCATEGORY_ENABLE' : 'SUBCATEGORY_DISABLE', `${newState ? 'Enabled' : 'Disabled'} subcategory #${req.params.id}`, { entity_type: 'product_subcategory', entity_id: req.params.id });
+            res.json({ message: newState ? 'Subcategory enabled' : 'Subcategory disabled', is_active: newState });
         } catch (err) {
             res.status(500).json({ message: 'Database error' });
         }
@@ -280,6 +340,21 @@ module.exports = (upload, removeUploadFile) => {
             invalidateHierarchyCache();
             auditLog(req.user.id, 'PRODUCT_DELETE', `Deleted product #${req.params.id}`, { entity_type: 'product', entity_id: req.params.id });
             res.json({ message: 'Product deleted successfully' });
+        } catch (err) {
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // Toggle Product Active/Inactive
+    router.patch('/products/:id/toggle-active', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        try {
+            const [rows] = await pool.query("SELECT is_active FROM sarga_products WHERE id = ?", [req.params.id]);
+            if (!rows[0]) return res.status(404).json({ message: 'Product not found' });
+            const newState = rows[0].is_active ? 0 : 1;
+            await pool.query("UPDATE sarga_products SET is_active = ? WHERE id = ?", [newState, req.params.id]);
+            invalidateHierarchyCache();
+            auditLog(req.user.id, newState ? 'PRODUCT_ENABLE' : 'PRODUCT_DISABLE', `${newState ? 'Enabled' : 'Disabled'} product #${req.params.id}`, { entity_type: 'product', entity_id: req.params.id });
+            res.json({ message: newState ? 'Product enabled' : 'Product disabled', is_active: newState });
         } catch (err) {
             res.status(500).json({ message: 'Database error' });
         }

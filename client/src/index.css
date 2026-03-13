@@ -2441,7 +2441,6 @@ select.badge option {
 
   .content-container {
     padding: 16px;
-    overflow-x: hidden;
   }
 
   .page-header {
@@ -2455,11 +2454,11 @@ select.badge option {
     flex-wrap: wrap;
   }
 
-  /* ── Tables - NO horizontal scrolling ── */
+  /* ── Tables - let .table-scroll wrapper handle horizontal scroll ── */
   .card>.table,
   .panel>.table {
     width: 100%;
-    overflow-x: hidden;
+    overflow-x: visible;
     overflow-y: visible;
     display: table;
   }
@@ -2468,9 +2467,7 @@ select.badge option {
   .table td {
     padding: 10px 12px;
     font-size: 0.82rem;
-    white-space: normal;
-    word-break: break-word;
-    overflow-wrap: break-word;
+    white-space: nowrap;
   }
 
   .table th:last-child,
@@ -2903,6 +2900,23 @@ select.badge option {
 .product-card__btn--delete:hover {
   color: var(--error);
   border-color: var(--error);
+}
+
+.product-card__btn--enable:hover {
+  color: var(--success, #22c55e);
+  border-color: var(--success, #22c55e);
+}
+
+.product-card--disabled {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+
+.product-card--disabled .product-card__name::after {
+  content: ' (Disabled)';
+  font-size: 10px;
+  color: var(--error);
+  font-weight: 400;
 }
 
 .product-card__move-controls {
@@ -4063,128 +4077,35 @@ select.badge option {
 }
 
 /* ═════════════════════════════════════════════════════════════
-   COMPREHENSIVE MOBILE NO-HORIZONTAL-SCROLLING FIX
-   Constrains widths to prevent page shift on mobile (≤768px)
+   MOBILE RESPONSIVE FIX (≤768px)
    ═════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
 
-  /* ── Prevent page shift by constraining body ── */
+  /* ── Prevent page-level horizontal scroll ── */
   html,
   body {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-    margin: 0;
-    padding: 0;
-  }
-
-  /* ── Constrain main layout containers ── */
-  .app-shell,
-  .dashboard-layout,
-  .main,
-  .main-content {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-    margin: 0;
-    padding: 0;
-  }
-
-  /* ── Content areas ── */
-  .content,
-  .content-container {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
-    margin: 0;
-    padding: 16px;
-  }
-
-  /* ── Modal & backdrop ── */
-  .modal,
-  .modal-backdrop {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  /* ── Panels, cards, forms ── */
-  .panel,
-  .card,
-  .form-group,
-  [class*="panel-"] {
-    width: 100%;
-    max-width: 100%;
     overflow-x: hidden;
   }
 
-  /* ── Row/flex containers: wrap instead of scroll ── */
-  .row,
-  .flex,
-  [class*="row-"],
-  [class*="flex-"] {
-    flex-wrap: wrap !important;
+  /* ── Tables: scrollable horizontally on mobile ── */
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     width: 100%;
-    max-width: 100%;
   }
 
-  /* ── Tables: responsive text wrapping ── */
-  .table,
-  [role="table"],
-  .table-scroll,
-  [class*="table-"] {
-    width: 100%;
-    min-width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-    overflow-y: visible;
+  .table-scroll .table,
+  .table-scroll table {
+    min-width: 540px;
   }
 
   .table th,
-  .table td,
-  [role="rowheader"],
-  [role="cell"] {
-    white-space: normal !important;
-    word-break: break-word !important;
-    overflow-wrap: break-word !important;
-    padding: 10px 8px !important;
+  .table td {
+    white-space: nowrap;
+    padding: 10px 10px;
   }
 
-  /* ── Form elements responsive ── */
-  input,
-  textarea,
-  select,
-  [class*="input-"],
-  [class*="field-"] {
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-
-  /* ── Images responsive ── */
-  img {
-    width: 100%;
-    max-width: 100%;
-    height: auto;
-    display: block;
-  }
-
-  /* ── Prevent negative margins from causing overflow ── */
-  [style*="margin"],
-  [class*="margin-"] {
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-  }
-
-  /* ── Any scrollable containers ── */
-  [style*="overflow-x: auto"],
-  [class*="scroll"] {
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-  }
 }
 
 .search-box input {

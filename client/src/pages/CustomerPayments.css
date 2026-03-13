@@ -25,6 +25,8 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  flex: 1;
+  min-width: 0;
 }
 
 .cp-title {
@@ -657,11 +659,16 @@
 
 /* ── TABLE TWEAKS ── */
 .cp-table-wrap {
-  overflow-x: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   overflow-y: visible;
   margin: 0;
   padding: 0;
   width: 100%;
+}
+
+.cp-table-wrap .table {
+  min-width: 640px;
 }
 
 .cp-table-customer {
@@ -785,8 +792,10 @@
   }
 
   .cp-header {
-    flex-direction: column;
-    gap: 12px;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
   }
 
   .cp-amount-hero-value {

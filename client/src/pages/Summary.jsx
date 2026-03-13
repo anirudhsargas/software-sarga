@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, Building2, Activity, Printer, AlertTriangle, Clock, Wallet, Users, Package, TrendingUp, BarChart3, Target, ClipboardList, IndianRupee, ShoppingCart, UserCheck, ArrowUpRight, ArrowDownRight, Brain, Sparkles, ShieldAlert, LineChart } from 'lucide-react';
 
 import api from '../services/api';
@@ -9,6 +10,7 @@ const SalesPrediction = React.lazy(() => import('./SalesPrediction'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 
 const Summary = () => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('overview');
     const [statsToday, setStatsToday] = useState(null);
     const [statsOverall, setStatsOverall] = useState(null);
@@ -264,7 +266,7 @@ const Summary = () => {
                                 <div className="font-bold text-error">AI Monitoring Alert</div>
                                 <div className="text-sm">There are <strong>{statsToday.monitoring_stats.active_alerts} active fraud alerts</strong> that require your immediate attention.</div>
                             </div>
-                            <button className="btn btn-error btn-sm" onClick={() => window.location.href = '/dashboard/ai-monitoring'}>Review Now</button>
+                            <button className="btn btn-error btn-sm" onClick={() => navigate('/dashboard/ai-monitoring')}>Review Now</button>
                         </div>
                     )}
 

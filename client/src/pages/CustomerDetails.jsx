@@ -219,7 +219,7 @@ const CustomerDetails = () => {
       {/* ── HEADER ── */}
       <div className="cd-header">
         <div className="cd-header-left">
-          <button className="btn btn-ghost" onClick={() => navigate('/dashboard/customers')}>
+          <button className="btn btn-ghost" onClick={() => navigate(-1)}>
             <ArrowLeft size={16} /> Back
           </button>
           <h1 className="cd-title">Customer Dashboard</h1>

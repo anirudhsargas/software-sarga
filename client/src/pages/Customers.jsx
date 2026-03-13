@@ -346,23 +346,23 @@ const Customers = () => {
                 </div>
             </header>
 
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--surface)', padding: '12px 16px', borderRadius: 12, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 200, position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <Search size={16} style={{ position: 'absolute', left: 12, color: 'var(--muted)', pointerEvents: 'none' }} />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--surface)', padding: '10px 12px', borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Search size={15} style={{ position: 'absolute', left: 10, color: 'var(--muted)', pointerEvents: 'none' }} />
                     <input
                         type="text"
                         placeholder="Search by name or mobile..."
                         className="input-field"
-                        style={{ paddingLeft: 36, width: '100%' }}
+                        style={{ paddingLeft: 32, width: '100%', height: 36, fontSize: 14 }}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Filter size={16} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 4px 0 8px', height: 36, flexShrink: 0 }}>
+                    <Filter size={13} style={{ color: 'var(--muted)' }} />
                     <select
                         className="input-field"
-                        style={{ width: 160 }}
+                        style={{ border: 'none', background: 'transparent', boxShadow: 'none', height: 34, padding: '0 24px 0 2px', fontSize: 13, color: 'var(--text)', minWidth: 90 }}
                         value={typeFilter}
                         onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
                     >
@@ -373,103 +373,89 @@ const Customers = () => {
             </div>
 
             <div className="card p-0 overflow-hidden shadow-sm">
-                <div className="table-scroll">
-                    <table className="table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Contact</th>
-                                <th>Type</th>
-                                <th>Address</th>
-                                <th className="text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading && customers.length === 0 ? (
-                                <tr><td colSpan="5" className="text-center p-40 muted">Loading customers...</td></tr>
-                            ) : customers.length === 0 ? (
-                                <tr><td colSpan="5" className="text-center p-40 muted">No customers found.</td></tr>
-                            ) : customers.map(c => (
-                                <tr
-                                    key={c.id}
-                                    {...(isTouchDevice()
-                                        ? { onClick: () => navigate(`/dashboard/customers/${c.id}`) }
-                                        : { onDoubleClick: () => navigate(`/dashboard/customers/${c.id}`) }
-                                    )}
-                                    title={isTouchDevice() ? "Click to view details" : "Double click to view details"}
-                                    style={{ cursor: 'pointer' }}
+                {loading && customers.length === 0 ? (
+                    <div className="text-center p-40 muted">Loading customers...</div>
+                ) : customers.length === 0 ? (
+                    <div className="text-center p-40 muted">No customers found.</div>
+                ) : customers.map((c, idx) => (
+                    <div
+                        key={c.id}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 12,
+                            padding: '12px 14px',
+                            borderBottom: idx < customers.length - 1 ? '1px solid var(--border)' : 'none',
+                            cursor: 'pointer', transition: 'background 0.15s'
+                        }}
+                        {...(isTouchDevice()
+                            ? { onClick: () => navigate(`/dashboard/customers/${c.id}`) }
+                            : { onDoubleClick: () => navigate(`/dashboard/customers/${c.id}`) }
+                        )}
+                    >
+                        {/* Avatar */}
+                        <div style={{
+                            width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                            background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 700, fontSize: 16, color: 'var(--accent)', textTransform: 'uppercase'
+                        }}>
+                            {c.name?.charAt(0) || '?'}
+                        </div>
+
+                        {/* Info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{c.name}</span>
+                                <span className={`badge badge--${c.type.toLowerCase().replace(' ', '')}`} style={{ fontSize: 11 }}>{c.type}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2, color: 'var(--muted)', fontSize: 13 }}>
+                                <Phone size={12} style={{ flexShrink: 0 }} />
+                                <span style={{ fontFamily: 'monospace' }}>+91 {c.mobile}</span>
+                            </div>
+                            {c.email && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1, color: 'var(--muted)', fontSize: 12, overflow: 'hidden' }}>
+                                    <Mail size={11} style={{ flexShrink: 0 }} />
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.email}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Actions */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                            <button
+                                className="btn btn-ghost"
+                                style={{ fontSize: 12, padding: '5px 10px', height: 30, background: 'var(--accent-soft)', color: 'var(--accent)', gap: 4 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate('/dashboard/billing', {
+                                        state: {
+                                            customer: { id: c.id, name: c.name, mobile: c.mobile, type: c.type, email: c.email || '', address: c.address || '', gst: c.gst || '' }
+                                        }
+                                    });
+                                }}
+                                title="Quick Add Job"
+                            >
+                                <Plus size={13} /> Job
+                            </button>
+                            <div style={{ display: 'flex', gap: 5 }}>
+                                <button
+                                    className="btn btn-ghost"
+                                    style={{ padding: '5px 10px', height: 30, flex: 1 }}
+                                    onClick={(e) => { e.stopPropagation(); setSelectedCustomer(c); setShowEditModal(true); }}
+                                    title={isAdmin ? 'Edit Customer' : 'Request Edit'}
                                 >
-                                    <td>
-                                        <div className="font-bold">{c.name}</div>
-                                        <div className="text-xs muted row items-center gap-xs">
-                                            <Mail size={10} /> {c.email || 'No email'}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className="row items-center gap-xs font-mono text-sm">
-                                            <Phone size={14} className="muted" /> +91 {c.mobile}
-                                        </div>
-                                    </td>
-                                    <td><span className={`badge badge--${c.type.toLowerCase().replace(' ', '')}`}>{c.type}</span></td>
-                                    <td className="text-xs muted" style={{ maxWidth: '200px' }}>
-                                        <div className="row items-start gap-xs">
-                                            <MapPin size={12} className="mt-2 shrink-0" />
-                                            <span className="truncate-2">{c.address || 'No address'}</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className="row gap-sm justify-end">
-                                            <button
-                                                className="btn btn-ghost"
-                                                style={{ color: 'var(--accent-2)', background: 'var(--accent-soft)' }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigate('/dashboard/billing', {
-                                                        state: {
-                                                            customer: {
-                                                                id: c.id,
-                                                                name: c.name,
-                                                                mobile: c.mobile,
-                                                                type: c.type,
-                                                                email: c.email || '',
-                                                                address: c.address || '',
-                                                                gst: c.gst || ''
-                                                            }
-                                                        }
-                                                    });
-                                                }}
-                                                title="Quick Add Job"
-                                            >
-                                                <Plus size={16} className="mr-4" /> Job
-                                            </button>
-                                            <button
-                                                className="btn btn-ghost"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedCustomer(c);
-                                                    setShowEditModal(true);
-                                                }}
-                                                title={isAdmin ? 'Edit Customer' : 'Request Edit'}
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button
-                                                className="btn btn-ghost text-error"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteCustomer(c.id);
-                                                }}
-                                                title={isAdmin ? 'Delete Customer' : 'Request Delete'}
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                    <Edit2 size={14} />
+                                </button>
+                                <button
+                                    className="btn btn-ghost text-error"
+                                    style={{ padding: '5px 10px', height: 30, flex: 1 }}
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteCustomer(c.id); }}
+                                    title={isAdmin ? 'Delete Customer' : 'Request Delete'}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
             <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 

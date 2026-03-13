@@ -208,9 +208,12 @@ const initDb = async () => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
         position INT NOT NULL DEFAULT 0,
+        image_url VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    try { await connection.query("ALTER TABLE sarga_product_categories ADD COLUMN image_url VARCHAR(255)"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query("ALTER TABLE sarga_product_categories ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
 
     // Product Hierarchy: Sub-categories
     await connection.query(`
@@ -219,10 +222,13 @@ const initDb = async () => {
         category_id INT NOT NULL,
         name VARCHAR(100) NOT NULL,
         position INT NOT NULL DEFAULT 0,
+        image_url VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (category_id) REFERENCES sarga_product_categories(id) ON DELETE CASCADE
       )
     `);
+    try { await connection.query("ALTER TABLE sarga_product_subcategories ADD COLUMN image_url VARCHAR(255)"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query("ALTER TABLE sarga_product_subcategories ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
 
     // Products
     await connection.query(`
@@ -253,6 +259,14 @@ const initDb = async () => {
       );
     } catch (err) {
       // Column already exists, ignore
+      if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
+    // Ensure is_active column exists (for existing tables)
+    try {
+      await connection.query(
+        'ALTER TABLE sarga_products ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1'
+      );
+    } catch (err) {
       if (err.code !== 'ER_DUP_FIELDNAME') throw err;
     }
 
