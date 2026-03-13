@@ -31,18 +31,41 @@ const PAPER_SIZES = {
 // ─── Layout Calculation ────────────────────────────────────────
 
 /**
- * Calculate how many items fit in a single orientation.
+ * Calculate how many items fit in a zone.
+ * Gutter is applied only between neighboring items (not on outer edges).
  */
-function fitInOrientation(sheetW, sheetH, itemW, itemH, margin) {
-    const usableW = sheetW - (margin * 2);
-    const usableH = sheetH - (margin * 2);
+function fitInZone(zoneW, zoneH, itemW, itemH, gutter = 0) {
+    if (itemW <= 0 || itemH <= 0 || zoneW <= 0 || zoneH <= 0) {
+        return { cols: 0, rows: 0, count: 0 };
+    }
 
-    if (itemW <= 0 || itemH <= 0 || usableW <= 0 || usableH <= 0) return { cols: 0, rows: 0, count: 0 };
-
-    const cols = Math.floor(usableW / itemW);
-    const rows = Math.floor(usableH / itemH);
-
+    const cols = Math.floor((zoneW + gutter) / (itemW + gutter));
+    const rows = Math.floor((zoneH + gutter) / (itemH + gutter));
     return { cols, rows, count: cols * rows };
+}
+
+/**
+ * Build grid placements for a rectangular zone.
+ */
+function buildGridPlacements({ startX, startY, cols, rows, itemW, itemH, gutter, rotated }) {
+    const placements = [];
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            placements.push({
+                x: startX + (col * (itemW + gutter)),
+                y: startY + (row * (itemH + gutter)),
+                width: itemW,
+                height: itemH,
+                rotated
+            });
+        }
+    }
+    return placements;
+}
+
+function usedExtent(count, size, gutter) {
+    if (count <= 0) return 0;
+    return (count * size) + ((count - 1) * gutter);
 }
 
 /**
@@ -55,45 +78,193 @@ function calculateLayout(sheetSize, designSize, bleed = 0, margin = 5, gutter = 
     const designW = designSize.width + (bleed * 2);
     const designH = designSize.height + (bleed * 2);
 
-    // Item size including gutter
-    const itemW = designW + gutter;
-    const itemH = designH + gutter;
+    const usableW = sheetSize.width - (margin * 2);
+    const usableH = sheetSize.height - (margin * 2);
 
-    // Try design in normal orientation
-    const normal = fitInOrientation(sheetSize.width, sheetSize.height, itemW, itemH, margin);
-
-    // Try design rotated 90°
-    const rotated = fitInOrientation(sheetSize.width, sheetSize.height, itemH, itemW, margin);
-
-    // Choose the best option
-    let best;
-    let isRotated = false;
-
-    if (rotated.count > normal.count) {
-        best = rotated;
-        isRotated = true;
-    } else {
-        best = normal;
+    if (usableW <= 0 || usableH <= 0 || designW <= 0 || designH <= 0) {
+        return {
+            sheet: { ...sheetSize },
+            design: { ...designSize },
+            bleed,
+            margin,
+            gutter,
+            effective_design: { width: designW, height: designH },
+            cards_per_sheet: 0,
+            rows: 0,
+            cols: 0,
+            is_rotated: false,
+            mixed_layout: false,
+            layout_mode: 'single',
+            waste_percent: 100,
+            placements: [],
+            usable_area: { width: Math.max(0, usableW), height: Math.max(0, usableH) }
+        };
     }
 
-    // Calculate placements
-    const placements = [];
-    const actualItemW = isRotated ? itemH : itemW;
-    const actualItemH = isRotated ? itemW : itemH;
-    const actualDesignW = isRotated ? designH : designW;
-    const actualDesignH = isRotated ? designW : designH;
+    const normal = { w: designW, h: designH, rotated: false, name: 'normal' };
+    const rot = { w: designH, h: designW, rotated: true, name: 'rotated' };
 
-    for (let row = 0; row < best.rows; row++) {
-        for (let col = 0; col < best.cols; col++) {
-            placements.push({
-                x: margin + (col * actualItemW),
-                y: margin + (row * actualItemH),
-                width: actualDesignW,
-                height: actualDesignH,
-                rotated: isRotated
-            });
+    const candidates = [];
+
+    // Candidate 1: all normal
+    {
+        const fit = fitInZone(usableW, usableH, normal.w, normal.h, gutter);
+        candidates.push({
+            count: fit.count,
+            placements: buildGridPlacements({
+                startX: margin,
+                startY: margin,
+                cols: fit.cols,
+                rows: fit.rows,
+                itemW: normal.w,
+                itemH: normal.h,
+                gutter,
+                rotated: false
+            }),
+            rows: fit.rows,
+            cols: fit.cols,
+            isRotated: false,
+            mixed: false,
+            mode: 'single'
+        });
+    }
+
+    // Candidate 2: all rotated
+    {
+        const fit = fitInZone(usableW, usableH, rot.w, rot.h, gutter);
+        candidates.push({
+            count: fit.count,
+            placements: buildGridPlacements({
+                startX: margin,
+                startY: margin,
+                cols: fit.cols,
+                rows: fit.rows,
+                itemW: rot.w,
+                itemH: rot.h,
+                gutter,
+                rotated: true
+            }),
+            rows: fit.rows,
+            cols: fit.cols,
+            isRotated: true,
+            mixed: false,
+            mode: 'single'
+        });
+    }
+
+    // Candidate 3+: mixed two-zone splits (horizontal + vertical)
+    const orientations = [normal, rot];
+    for (const first of orientations) {
+        for (const second of orientations) {
+            // Horizontal split: top zone in `first`, bottom in `second`
+            const firstFitH = fitInZone(usableW, usableH, first.w, first.h, gutter);
+            for (let rowsFirst = 1; rowsFirst <= firstFitH.rows; rowsFirst++) {
+                const usedTop = usedExtent(rowsFirst, first.h, gutter);
+                const remainingH = usableH - usedTop - gutter;
+                if (remainingH <= 0) continue;
+
+                const colsFirst = fitInZone(usableW, usedTop, first.w, first.h, gutter).cols;
+                if (colsFirst <= 0) continue;
+
+                const secondFit = fitInZone(usableW, remainingH, second.w, second.h, gutter);
+
+                const topPlacements = buildGridPlacements({
+                    startX: margin,
+                    startY: margin,
+                    cols: colsFirst,
+                    rows: rowsFirst,
+                    itemW: first.w,
+                    itemH: first.h,
+                    gutter,
+                    rotated: first.rotated
+                });
+
+                const bottomPlacements = buildGridPlacements({
+                    startX: margin,
+                    startY: margin + usedTop + gutter,
+                    cols: secondFit.cols,
+                    rows: secondFit.rows,
+                    itemW: second.w,
+                    itemH: second.h,
+                    gutter,
+                    rotated: second.rotated
+                });
+
+                candidates.push({
+                    count: topPlacements.length + bottomPlacements.length,
+                    placements: [...topPlacements, ...bottomPlacements],
+                    rows: rowsFirst + secondFit.rows,
+                    cols: Math.max(colsFirst, secondFit.cols),
+                    isRotated: false,
+                    mixed: first.name !== second.name,
+                    mode: 'mixed-horizontal'
+                });
+            }
+
+            // Vertical split: left zone in `first`, right in `second`
+            const firstFitV = fitInZone(usableW, usableH, first.w, first.h, gutter);
+            for (let colsFirst = 1; colsFirst <= firstFitV.cols; colsFirst++) {
+                const usedLeft = usedExtent(colsFirst, first.w, gutter);
+                const remainingW = usableW - usedLeft - gutter;
+                if (remainingW <= 0) continue;
+
+                const rowsFirst = fitInZone(usedLeft, usableH, first.w, first.h, gutter).rows;
+                if (rowsFirst <= 0) continue;
+
+                const secondFit = fitInZone(remainingW, usableH, second.w, second.h, gutter);
+
+                const leftPlacements = buildGridPlacements({
+                    startX: margin,
+                    startY: margin,
+                    cols: colsFirst,
+                    rows: rowsFirst,
+                    itemW: first.w,
+                    itemH: first.h,
+                    gutter,
+                    rotated: first.rotated
+                });
+
+                const rightPlacements = buildGridPlacements({
+                    startX: margin + usedLeft + gutter,
+                    startY: margin,
+                    cols: secondFit.cols,
+                    rows: secondFit.rows,
+                    itemW: second.w,
+                    itemH: second.h,
+                    gutter,
+                    rotated: second.rotated
+                });
+
+                candidates.push({
+                    count: leftPlacements.length + rightPlacements.length,
+                    placements: [...leftPlacements, ...rightPlacements],
+                    rows: Math.max(rowsFirst, secondFit.rows),
+                    cols: colsFirst + secondFit.cols,
+                    isRotated: false,
+                    mixed: first.name !== second.name,
+                    mode: 'mixed-vertical'
+                });
+            }
         }
     }
+
+    // Pick best candidate by count, then by used area, then by lower waste.
+    let best = candidates[0] || { count: 0, placements: [], rows: 0, cols: 0, isRotated: false, mixed: false, mode: 'single' };
+    for (const c of candidates) {
+        if (!best || c.count > best.count) {
+            best = c;
+            continue;
+        }
+        if (c.count === best.count) {
+            const usedA = c.count * designW * designH;
+            const usedB = best.count * designW * designH;
+            if (usedA > usedB) {
+                best = c;
+            }
+        }
+    }
+
+    const placements = best.placements;
 
     // Calculate waste
     const sheetArea = sheetSize.width * sheetSize.height;
@@ -110,7 +281,9 @@ function calculateLayout(sheetSize, designSize, bleed = 0, margin = 5, gutter = 
         cards_per_sheet: best.count,
         rows: best.rows,
         cols: best.cols,
-        is_rotated: isRotated,
+        is_rotated: best.isRotated,
+        mixed_layout: !!best.mixed,
+        layout_mode: best.mode,
         waste_percent: parseFloat(wastePercent),
         placements,
         usable_area: {

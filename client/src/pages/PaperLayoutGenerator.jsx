@@ -228,7 +228,12 @@ const PaperLayoutGenerator = () => {
                             {[
                                 { label: 'Copies/Sheet', value: layout.cards_per_sheet || 0 },
                                 { label: 'Waste', value: `${(layout.waste_percent || 0).toFixed(1)}%` },
-                                { label: 'Orientation', value: layout.is_rotated ? 'Landscape' : 'Portrait' },
+                                {
+                                    label: 'Orientation',
+                                    value: layout.mixed_layout
+                                        ? 'Mixed'
+                                        : (layout.is_rotated ? 'Landscape' : 'Portrait')
+                                },
                                 { label: 'Paper', value: `${paperW}×${paperH}mm` },
                             ].map((s, i) => (
                                 <div key={i} className="summary-tile" style={{ minHeight: 'auto', padding: 14 }}>

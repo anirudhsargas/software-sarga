@@ -1422,7 +1422,7 @@ select.em-input {
 .em-trend-bar {
     width: 100%;
     max-width: 60px;
-    background: linear-gradient(180deg, var(--primary), var(--primary-dark, #2563eb));
+    background: var(--accent);
     border-radius: 6px 6px 0 0;
     transition: all 0.3s ease;
     position: relative;
@@ -2044,7 +2044,7 @@ select.em-input {
     align-items: center;
     justify-content: center;
     background: var(--accent);
-    color: #fff;
+    color: #000;
     border-radius: 50%;
     font-size: 12px;
     font-weight: 700;
@@ -2229,8 +2229,8 @@ select.em-input {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: #fff;
+    background: var(--accent);
+    color: #000;
     font-size: 20px;
     font-weight: 700;
     flex-shrink: 0;
@@ -2260,16 +2260,16 @@ select.em-input {
 .em-vendor-profile__tag {
     display: inline-block;
     padding: 3px 10px;
-    background: rgba(99, 102, 241, .1);
-    color: #6366f1;
+    background: rgba(var(--primary-rgb, 31, 42, 51), .1);
+    color: var(--accent);
     border-radius: 6px;
     font-size: 11px;
     font-weight: 700;
 }
 
 .dark .em-vendor-profile__tag {
-    background: rgba(129, 140, 248, .15);
-    color: #a5b4fc;
+    background: rgba(var(--primary-rgb, 231, 228, 221), .15);
+    color: var(--accent);
 }
 
 .em-vendor-profile__actions {
@@ -2304,8 +2304,8 @@ select.em-input {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: #fff;
+    background: var(--accent);
+    color: #000;
     font-size: 14px;
     font-weight: 700;
     flex-shrink: 0;
@@ -2416,7 +2416,7 @@ select.em-input {
 .em-utility-card__btn-bill {
     flex: 1;
     background: var(--warning) !important;
-    color: #fff !important;
+    color: #000 !important;
     border: none !important;
     font-size: 12px;
     justify-content: center;
@@ -2567,7 +2567,7 @@ select.em-input {
 .em-progress-bar__fill {
     height: 100%;
     border-radius: 4px;
-    background: linear-gradient(90deg, #3b82f6, #2563eb);
+    background: var(--accent);
     transition: width .5s ease;
 }
 
@@ -2610,8 +2610,8 @@ select.em-input {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-    color: #fff;
+    background: var(--accent);
+    color: #000;
     font-size: 16px;
     font-weight: 700;
     flex-shrink: 0;
@@ -2716,7 +2716,7 @@ select.em-input {
 }
 
 .em-report-type-card--active {
-    color: #fff;
+    color: #000;
     background: var(--accent);
     border-color: var(--accent);
 }

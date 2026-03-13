@@ -6,7 +6,16 @@ const ConfirmContext = createContext();
 export const useConfirm = () => {
     const context = useContext(ConfirmContext);
     if (!context) {
-        throw new Error('useConfirm must be used within a ConfirmProvider');
+        return {
+            confirm: async (options = {}) => {
+                const title = options?.title ? `${options.title}\n\n` : '';
+                const message = options?.message || 'Are you sure you want to proceed?';
+                if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+                    return window.confirm(`${title}${message}`);
+                }
+                return false;
+            }
+        };
     }
     return context;
 };

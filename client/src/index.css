@@ -393,7 +393,7 @@ select.input-field {
 
 .btn-primary {
   background: var(--accent);
-  color: #f7f6f3;
+  color: #000;
   box-shadow: var(--shadow-sm);
 }
 
@@ -558,7 +558,7 @@ select.input-field {
   height: 40px;
   border-radius: 12px;
   background: var(--accent);
-  color: #f7f6f3;
+  color: #000;
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -664,7 +664,7 @@ select.input-field {
   padding: 6px 12px;
   border-radius: 999px;
   background: var(--accent);
-  color: #f7f6f3;
+  color: #000;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -934,7 +934,7 @@ select.input-field {
 
 .front-office-tab--active {
   background: var(--accent);
-  color: #f7f6f3;
+  color: #000;
   border-color: transparent;
 }
 
@@ -1296,7 +1296,7 @@ select.input-field {
 .billing-step--active .billing-step__num {
   background: var(--primary);
   border-color: var(--primary);
-  color: #fff;
+  color: #000;
 }
 
 .billing-step--done .billing-step__num {
@@ -1352,7 +1352,7 @@ select.input-field {
   padding: 3px 10px;
   border-radius: 99px;
   background: var(--primary);
-  color: #fff;
+  color: #000;
 }
 
 .billing-badge--success {
@@ -1473,7 +1473,7 @@ select.input-field {
   justify-content: center;
   font-size: 12px;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--text);
   flex-shrink: 0;
 }
 
@@ -1604,7 +1604,7 @@ select.input-field {
 
 .billing-discount-btn--active {
   background: var(--primary);
-  color: #fff;
+  color: #000;
 }
 
 .billing-discount-status {
@@ -1651,13 +1651,13 @@ select.input-field {
 
 .billing-method-pill--active {
   background: var(--primary);
-  color: #fff;
+  color: #000;
   border-color: var(--primary);
 }
 
 .billing-method-pill--active:hover {
   background: var(--primary);
-  color: #fff;
+  color: #000;
 }
 
 /* Create bill bar */
@@ -1763,7 +1763,7 @@ select.input-field {
 
 .billing-qty-btn:hover {
   background: var(--primary);
-  color: #fff;
+  color: #000;
 }
 
 .billing-qty-input {
@@ -2149,7 +2149,7 @@ select.badge option {
   height: 32px;
   border-radius: 10px;
   background: var(--accent);
-  color: #f7f6f3;
+  color: #000;
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -4248,7 +4248,7 @@ select.badge option {
 
 .jobs-cat-btn--active {
   background: var(--accent);
-  color: #f7f6f3;
+  color: #000;
   border-color: var(--accent);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }

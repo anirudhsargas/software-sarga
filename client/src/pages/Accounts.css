@@ -24,8 +24,8 @@
   border-radius: 14px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, var(--accent, #4f46e5), #7c3aed);
-  color: #fff;
+  background: var(--accent);
+  color: #000;
   flex-shrink: 0;
 }
 
@@ -446,7 +446,7 @@
 
 .acc-btn--primary {
   background: var(--accent);
-  color: #f7f6f3;
+  color: #000;
 }
 
 .acc-btn--primary:hover { background: var(--accent-2); }
@@ -837,7 +837,7 @@
 }
 
 .dark .acc-header__icon {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: var(--accent);
 }
 
 .dark .acc-kpi--green .acc-kpi__icon { background: #166534; color: #4ade80; }

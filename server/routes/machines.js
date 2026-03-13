@@ -47,7 +47,7 @@ router.get('/book-assignments', auth.authenticate, async (req, res) => {
 });
 
 // POST /machines/book-assignments — set staff for a book type (replaces existing)
-router.post('/book-assignments', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
+router.post('/book-assignments', auth.authenticate, auth.requireRole(['Admin', 'Accountant']), async (req, res) => {
     try {
         const { book_type, staff_ids, branch_id } = req.body;
         const branchId = parseInt(branch_id || req.user.branch_id, 10);
@@ -95,7 +95,7 @@ router.get('/my-books', auth.authenticate, async (req, res) => {
 });
 
 // ==================== ASSIGN STAFF TO MACHINE (ADMIN ONLY) ====================
-router.post('/:id/assign-staff', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
+router.post('/:id/assign-staff', auth.authenticate, auth.requireRole(['Admin', 'Accountant']), async (req, res) => {
     try {
         const { id } = req.params;
         const { staff_ids } = req.body; // Array of staff IDs to assign
@@ -118,7 +118,7 @@ router.post('/:id/assign-staff', auth.authenticate, auth.requireRole(['Admin']),
 });
 
 // ==================== REMOVE STAFF FROM MACHINE (ADMIN ONLY) ====================
-router.delete('/:id/unassign-staff/:staff_id', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
+router.delete('/:id/unassign-staff/:staff_id', auth.authenticate, auth.requireRole(['Admin', 'Accountant']), async (req, res) => {
     try {
         const { id, staff_id } = req.params;
         await pool.query('DELETE FROM sarga_machine_staff_assignments WHERE machine_id = ? AND staff_id = ?', [id, staff_id]);
@@ -131,7 +131,7 @@ router.delete('/:id/unassign-staff/:staff_id', auth.authenticate, auth.requireRo
 });
 
 // ==================== GET STAFF ASSIGNMENTS FOR MACHINE (ADMIN ONLY) ====================
-router.get('/:id/staff-assignments', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
+router.get('/:id/staff-assignments', auth.authenticate, auth.requireRole(['Admin', 'Accountant']), async (req, res) => {
     try {
         const { id } = req.params;
         const [assignments] = await pool.query(

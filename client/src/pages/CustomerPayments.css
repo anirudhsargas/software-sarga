@@ -417,7 +417,7 @@
 
 .cp-discount-btn--active {
   background: var(--accent);
-  color: #fff;
+  color: #000;
 }
 
 .cp-discount-status {

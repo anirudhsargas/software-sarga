@@ -126,11 +126,11 @@
 }
 .cd-badge--type {
   background: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  color: #000;
 }
 .cd-badge--star {
   background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  color: #000;
 }
 .cd-profile-details {
   display: flex;
@@ -256,7 +256,7 @@
 }
 .cd-tab--active {
   background: var(--accent);
-  color: #f7f6f3;
+  color: #000;
   border-color: transparent;
 }
 .dark .cd-tab--active {
@@ -322,7 +322,7 @@
 }
 .cd-filter-btn--active {
   background: var(--accent);
-  color: #f7f6f3;
+  color: #000;
   border-color: transparent;
 }
 .dark .cd-filter-btn--active {
