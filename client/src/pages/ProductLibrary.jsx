@@ -649,34 +649,34 @@ const ProductLibrary = () => {
     return (
         <div className="stack-lg">
             <header className="stack-sm">
-                <div className="row space-between items-center">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                     <div>
-                        <h1 className="page-title">Product & Rate Library</h1>
-                        <p className="muted">Manage your printing categories, products, and pricing slabs.</p>
+                        <h1 className="page-title" style={{ margin: 0 }}>Product & Rate Library</h1>
+                        <p className="muted" style={{ margin: '2px 0 0' }}>Manage your printing categories, products, and pricing slabs.</p>
                     </div>
                     {isAdmin && (
-                    <div className="row gap-md">
-                        <button className="btn btn-ghost" onClick={handleResetUsage}>
-                            <RotateCcw size={16} /> Reset Usage Order
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={handleResetUsage}>
+                            <RotateCcw size={15} /> Reset Usage Order
                         </button>
                         {viewInfo.type === 'root' && (
-                            <button className="btn btn-primary" onClick={() => { setIsEditing(false); setNewCatName(''); setShowCatModal(true); }}>
-                                <Plus size={18} /> New Category
+                            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setIsEditing(false); setNewCatName(''); setShowCatModal(true); }}>
+                                <Plus size={16} /> New Category
                             </button>
                         )}
                         {viewInfo.type === 'category' && (
                             <>
-                                <button className="btn btn-ghost" onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); resetProductForm(); setSelectedSubId(viewInfo.items[0]?.id || null); setShowProdModal(true); }}>
-                                    <Plus size={18} /> New Product
+                                <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); resetProductForm(); setSelectedSubId(viewInfo.items[0]?.id || null); setShowProdModal(true); }}>
+                                    <Plus size={16} /> New Product
                                 </button>
-                                <button className="btn btn-primary" onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); setNewSubName(''); setShowSubModal(true); }}>
-                                    <Plus size={18} /> New Sub-category
+                                <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); setNewSubName(''); setShowSubModal(true); }}>
+                                    <Plus size={16} /> New Sub-category
                                 </button>
                             </>
                         )}
                         {viewInfo.type === 'subcategory' && (
-                            <button className="btn btn-primary" onClick={() => { setSelectedCatId(viewInfo.grandParent?.id || null); setSelectedSubId(viewInfo.parent.id); setIsEditing(false); resetProductForm(); setShowProdModal(true); }}>
-                                <Plus size={18} /> New Product
+                            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.grandParent?.id || null); setSelectedSubId(viewInfo.parent.id); setIsEditing(false); resetProductForm(); setShowProdModal(true); }}>
+                                <Plus size={16} /> New Product
                             </button>
                         )}
                     </div>

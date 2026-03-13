@@ -83,11 +83,13 @@ const ProductionTracker = () => {
 
             {/* Filters */}
             <div className="row gap-sm items-center flex-wrap mb-16">
-                <Building2 size={16} className="muted" />
-                <select className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ minWidth: 140 }}>
-                    <option value="">All Branches</option>
-                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px' }}>
+                    <Building2 size={15} className="muted" style={{ flexShrink: 0 }} />
+                    <select className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', minWidth: 130 }}>
+                        <option value="">All Branches</option>
+                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                </div>
                 <div className="row gap-xs items-center" style={{ marginLeft: 'auto' }}>
                     <Search size={16} className="muted" />
                     <input type="text" className="input-field" placeholder="Search job / customer..."

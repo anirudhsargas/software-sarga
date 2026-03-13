@@ -48,6 +48,7 @@ const MachineManagement = () => {
     const [bookAssignments, setBookAssignments] = useState({ Offset: [], Laser: [], Other: [] });
     const [showBookAssignModal, setShowBookAssignModal] = useState(false);
     const [bookAssignType, setBookAssignType] = useState(null);   // 'Offset' | 'Laser' | 'Other'
+    const [bookAssignBranchId, setBookAssignBranchId] = useState('');
     const [bookAssignStaffIds, setBookAssignStaffIds] = useState([]);
     const [savingBookAssign, setSavingBookAssign] = useState(false);
 
@@ -99,15 +100,34 @@ const MachineManagement = () => {
     };
 
     const openBookAssignModal = (bookType) => {
+        const defaultBranch = branches.length > 0 ? String(branches[0].id) : '';
+        const bid = defaultBranch;
         setBookAssignType(bookType);
-        setBookAssignStaffIds((bookAssignments[bookType] || []).map(s => s.staff_id));
+        setBookAssignBranchId(bid);
+        const current = (bookAssignments[bookType] || [])
+            .filter(s => String(s.branch_id) === String(bid))
+            .map(s => s.staff_id);
+        setBookAssignStaffIds(current);
         setShowBookAssignModal(true);
     };
 
+    const handleModalBranchChange = (branchId) => {
+        setBookAssignBranchId(branchId);
+        const current = (bookAssignments[bookAssignType] || [])
+            .filter(s => String(s.branch_id) === String(branchId))
+            .map(s => s.staff_id);
+        setBookAssignStaffIds(current);
+    };
+
     const handleSaveBookAssignment = async () => {
+        if (!bookAssignBranchId) { toast.error('Select a branch first'); return; }
         setSavingBookAssign(true);
         try {
-            await api.post('/machines/book-assignments', { book_type: bookAssignType, staff_ids: bookAssignStaffIds });
+            await api.post('/machines/book-assignments', {
+                book_type: bookAssignType,
+                staff_ids: bookAssignStaffIds,
+                branch_id: bookAssignBranchId
+            });
             setShowBookAssignModal(false);
             fetchBookAssignments();
             toast.success(`${bookAssignType} staff assigned`);
@@ -1132,84 +1152,118 @@ const MachineManagement = () => {
                         Assign staff responsible for entering cash opening for each book. Only assigned staff will see that book's opening prompt.
                     </p>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
-                        {BOOK_TYPES.map(bt => (
-                            <div key={bt.key} className="panel" style={{ padding: 14, border: `2px solid ${bt.color}22` }}>
-                                <div className="row items-center" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <div style={{ width: 10, height: 10, borderRadius: 3, background: bt.color }} />
-                                        <span style={{ fontWeight: 700, fontSize: 14 }}>{bt.label}</span>
+                        {BOOK_TYPES.map(bt => {
+                            // Group by branch
+                            const byBranch = {};
+                            (bookAssignments[bt.key] || []).forEach(s => {
+                                const bName = s.branch_name || 'Unknown';
+                                if (!byBranch[bName]) byBranch[bName] = [];
+                                byBranch[bName].push(s);
+                            });
+                            const branchEntries = Object.entries(byBranch);
+                            return (
+                                <div key={bt.key} className="panel" style={{ padding: 14, border: `2px solid ${bt.color}22` }}>
+                                    <div className="row items-center" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <div style={{ width: 10, height: 10, borderRadius: 3, background: bt.color }} />
+                                            <span style={{ fontWeight: 700, fontSize: 14 }}>{bt.label}</span>
+                                        </div>
+                                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}
+                                            onClick={() => openBookAssignModal(bt.key)}>
+                                            <UserPlus size={13} /> Assign
+                                        </button>
                                     </div>
-                                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}
-                                        onClick={() => openBookAssignModal(bt.key)}>
-                                        <UserPlus size={13} /> Assign
-                                    </button>
+                                    {branchEntries.length === 0 ? (
+                                        <p className="text-sm muted" style={{ margin: 0 }}>No staff assigned</p>
+                                    ) : (
+                                        <div className="stack-xs">
+                                            {branchEntries.map(([bName, staffArr]) => (
+                                                <div key={bName}>
+                                                    <div className="text-xs muted" style={{ fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{bName}</div>
+                                                    {staffArr.map(s => (
+                                                        <div key={s.staff_id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                                            <div style={{ width: 22, height: 22, borderRadius: '50%', background: bt.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                                                                {s.staff_name?.charAt(0)?.toUpperCase()}
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-sm font-medium">{s.staff_name}</div>
+                                                                <div className="text-xs muted">{s.staff_role}</div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                                {(bookAssignments[bt.key] || []).length === 0 ? (
-                                    <p className="text-sm muted" style={{ margin: 0 }}>No staff assigned</p>
-                                ) : (
-                                    <div className="stack-xs">
-                                        {(bookAssignments[bt.key] || []).map(s => (
-                                            <div key={s.staff_id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <div style={{ width: 22, height: 22, borderRadius: '50%', background: bt.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                                                    {s.staff_name?.charAt(0)?.toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-medium">{s.staff_name}</div>
-                                                    <div className="text-xs muted">{s.staff_role}</div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}
 
             {/* Book Assignment Modal */}
-            {showBookAssignModal && (
-                <div className="modal-overlay" onClick={() => setShowBookAssignModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
-                        <div className="modal-header">
-                            <h2>Assign Staff — {bookAssignType} Book</h2>
-                            <button className="btn btn-ghost" onClick={() => setShowBookAssignModal(false)}>×</button>
-                        </div>
-                        <div className="modal-body" style={{ maxHeight: 400, overflowY: 'auto' }}>
-                            <p className="text-sm muted" style={{ marginBottom: 12 }}>
-                                Selected staff will be prompted to enter cash opening for the {bookAssignType} book each morning.
-                            </p>
-                            <div className="stack-sm">
-                                {staffList.map(s => (
-                                    <label key={s.id} className="row items-center gap-sm" style={{
-                                        padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
-                                        border: '1px solid var(--clr-border)',
-                                        background: bookAssignStaffIds.includes(s.id) ? 'var(--clr-primary-light, #eef2ff)' : 'transparent'
-                                    }}>
-                                        <input type="checkbox"
-                                            checked={bookAssignStaffIds.includes(s.id)}
-                                            onChange={() => toggleBookStaff(s.id)} />
-                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
-                                            {s.name?.charAt(0)?.toUpperCase()}
-                                        </div>
-                                        <div style={{ flex: 1 }}>
-                                            <div className="font-medium text-sm">{s.name}</div>
-                                            <div className="text-xs muted">{s.role} &middot; {s.branch_name || ''}</div>
-                                        </div>
-                                    </label>
-                                ))}
-                                {staffList.length === 0 && <p className="text-sm muted">No staff available</p>}
+            {showBookAssignModal && (() => {
+                const foStaff = staffList.filter(s =>
+                    s.role === 'Front Office' &&
+                    (!bookAssignBranchId || String(s.branch_id) === String(bookAssignBranchId))
+                );
+                return (
+                    <div className="modal-overlay" onClick={() => setShowBookAssignModal(false)}>
+                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                            <div className="modal-header">
+                                <h2>Assign Staff — {bookAssignType} Book</h2>
+                                <button className="btn btn-ghost" onClick={() => setShowBookAssignModal(false)}>×</button>
+                            </div>
+                            <div className="modal-body" style={{ maxHeight: 440, overflowY: 'auto' }}>
+                                <p className="text-sm muted" style={{ marginBottom: 12 }}>
+                                    Only Front Office staff can enter cash opening. Select a branch and assign staff.
+                                </p>
+                                {/* Branch selector */}
+                                <div style={{ marginBottom: 14 }}>
+                                    <label className="label" style={{ fontSize: 12 }}>Branch</label>
+                                    <select
+                                        className="input-field"
+                                        value={bookAssignBranchId}
+                                        onChange={e => handleModalBranchChange(e.target.value)}
+                                    >
+                                        <option value="">Select branch…</option>
+                                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="stack-sm">
+                                    {foStaff.length === 0 ? (
+                                        <p className="text-sm muted">{bookAssignBranchId ? 'No Front Office staff in this branch.' : 'Select a branch to see staff.'}</p>
+                                    ) : foStaff.map(s => (
+                                        <label key={s.id} className="row items-center gap-sm" style={{
+                                            padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+                                            border: '1px solid var(--clr-border)',
+                                            background: bookAssignStaffIds.includes(s.id) ? 'var(--clr-primary-light, #eef2ff)' : 'transparent'
+                                        }}>
+                                            <input type="checkbox"
+                                                checked={bookAssignStaffIds.includes(s.id)}
+                                                onChange={() => toggleBookStaff(s.id)} />
+                                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+                                                {s.name?.charAt(0)?.toUpperCase()}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <div className="font-medium text-sm">{s.name}</div>
+                                                <div className="text-xs muted">Front Office &middot; {s.branch_name || ''}</div>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button className="btn btn-ghost" onClick={() => setShowBookAssignModal(false)}>Cancel</button>
+                                <button className="btn btn-primary" onClick={handleSaveBookAssignment} disabled={savingBookAssign || !bookAssignBranchId}>
+                                    {savingBookAssign ? 'Saving...' : `Assign (${bookAssignStaffIds.length})`}
+                                </button>
                             </div>
                         </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-ghost" onClick={() => setShowBookAssignModal(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleSaveBookAssignment} disabled={savingBookAssign}>
-                                {savingBookAssign ? 'Saving...' : `Assign (${bookAssignStaffIds.length})`}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 };

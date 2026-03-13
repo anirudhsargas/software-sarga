@@ -46,11 +46,13 @@ const Accounts = () => {
                     </div>
                 </div>
                 <div className="acc-header__right">
-                    <Building2 size={16} className="muted" />
-                    <select className="acc-select" value={branchId} onChange={e => setBranchId(e.target.value)}>
-                        <option value="">All Branches</option>
-                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px' }}>
+                        <Building2 size={15} className="muted" style={{ flexShrink: 0 }} />
+                        <select className="acc-select" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', minWidth: 130 }}>
+                            <option value="">All Branches</option>
+                            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -114,10 +116,12 @@ const GSTSummaryTab = ({ branchId }) => {
     return (
         <div className="acc-stack">
             <div className="acc-date-bar">
-                <Calendar size={16} className="muted" />
-                <input type="date" className="acc-input" value={startDate} onChange={e => setStartDate(e.target.value)} />
-                <span className="muted">to</span>
-                <input type="date" className="acc-input" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Calendar size={15} className="muted" style={{ flexShrink: 0 }} />
+                    <input type="date" className="acc-input" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                    <span className="muted">to</span>
+                    <input type="date" className="acc-input" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                </div>
                 <button className="acc-btn acc-btn--ghost" onClick={fetchData} title="Refresh">
                     <RefreshCw size={15} />
                 </button>
@@ -313,10 +317,12 @@ const SalesRegisterTab = ({ branchId }) => {
     return (
         <div className="acc-stack">
             <div className="acc-date-bar">
-                <Calendar size={16} className="muted" />
-                <input type="date" className="acc-input" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1); }} />
-                <span className="muted">to</span>
-                <input type="date" className="acc-input" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(1); }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Calendar size={15} className="muted" style={{ flexShrink: 0 }} />
+                    <input type="date" className="acc-input" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1); }} />
+                    <span className="muted">to</span>
+                    <input type="date" className="acc-input" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(1); }} />
+                </div>
                 <div className="acc-date-bar__search">
                     <Search size={16} className="muted" />
                     <input type="text" className="acc-input" placeholder="Search customer / invoice..." value={search}
@@ -438,10 +444,12 @@ const PurchaseRegisterTab = ({ branchId }) => {
     return (
         <div className="acc-stack">
             <div className="acc-date-bar">
-                <Calendar size={16} className="muted" />
-                <input type="date" className="acc-input" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1); }} />
-                <span className="muted">to</span>
-                <input type="date" className="acc-input" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(1); }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Calendar size={15} className="muted" style={{ flexShrink: 0 }} />
+                    <input type="date" className="acc-input" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1); }} />
+                    <span className="muted">to</span>
+                    <input type="date" className="acc-input" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(1); }} />
+                </div>
                 <div className="acc-date-bar__search">
                     <Search size={16} className="muted" />
                     <input type="text" className="acc-input" placeholder="Search vendor / bill..." value={search}
@@ -585,13 +593,15 @@ const GSTReportTab = ({ branchId }) => {
     return (
         <div className="acc-stack">
             <div className="acc-date-bar">
-                <Calendar size={16} className="muted" />
-                <select className="acc-input" value={month} onChange={e => setMonth(e.target.value)}>
-                    {monthNames.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                </select>
-                <select className="acc-input" value={year} onChange={e => setYear(e.target.value)}>
-                    {years.map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Calendar size={15} className="muted" style={{ flexShrink: 0 }} />
+                    <select className="acc-input" value={month} onChange={e => setMonth(e.target.value)}>
+                        {monthNames.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                    </select>
+                    <select className="acc-input" value={year} onChange={e => setYear(e.target.value)}>
+                        {years.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                </div>
             </div>
 
             {/* GSTR-3B Summary */}

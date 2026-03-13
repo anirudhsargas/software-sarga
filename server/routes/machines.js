@@ -6,23 +6,38 @@ const { auditLog } = require('../helpers');
 
 // ==================== BOOK STAFF ASSIGNMENTS (Offset/Laser/Other) ====================
 
-// GET /machines/book-assignments — get all book-staff assignments for the branch
+// GET /machines/book-assignments — get all book-staff assignments
 router.get('/book-assignments', auth.authenticate, async (req, res) => {
     try {
-        const branchId = ['Admin', 'Accountant'].includes(req.user.role)
-            ? (req.query.branch_id || req.user.branch_id)
-            : req.user.branch_id;
-        const [rows] = await pool.query(
-            `SELECT bsa.book_type, bsa.staff_id, s.name as staff_name, s.role as staff_role
-             FROM sarga_book_staff_assignments bsa
-             JOIN sarga_staff s ON bsa.staff_id = s.id
-             WHERE bsa.branch_id = ?
-             ORDER BY bsa.book_type, s.name`,
-            [branchId]
-        );
+        const isAdminRole = ['Admin', 'Accountant'].includes(req.user.role);
+        const requestedBranch = req.query.branch_id || null;
+        const effectiveBranch = isAdminRole ? requestedBranch : req.user.branch_id;
+
+        let query, params;
+        if (isAdminRole && !effectiveBranch) {
+            // Admin with no filter — return all branches
+            query = `SELECT bsa.book_type, bsa.branch_id, b.name as branch_name, bsa.staff_id, s.name as staff_name, s.role as staff_role
+                     FROM sarga_book_staff_assignments bsa
+                     JOIN sarga_staff s ON bsa.staff_id = s.id
+                     JOIN sarga_branches b ON bsa.branch_id = b.id
+                     ORDER BY bsa.book_type, b.name, s.name`;
+            params = [];
+        } else {
+            query = `SELECT bsa.book_type, bsa.branch_id, b.name as branch_name, bsa.staff_id, s.name as staff_name, s.role as staff_role
+                     FROM sarga_book_staff_assignments bsa
+                     JOIN sarga_staff s ON bsa.staff_id = s.id
+                     JOIN sarga_branches b ON bsa.branch_id = b.id
+                     WHERE bsa.branch_id = ?
+                     ORDER BY bsa.book_type, s.name`;
+            params = [effectiveBranch];
+        }
+        const [rows] = await pool.query(query, params);
         const result = { Offset: [], Laser: [], Other: [] };
         rows.forEach(r => {
-            if (result[r.book_type]) result[r.book_type].push({ staff_id: r.staff_id, staff_name: r.staff_name, staff_role: r.staff_role });
+            if (result[r.book_type]) result[r.book_type].push({
+                staff_id: r.staff_id, staff_name: r.staff_name, staff_role: r.staff_role,
+                branch_id: r.branch_id, branch_name: r.branch_name
+            });
         });
         res.json(result);
     } catch (err) {

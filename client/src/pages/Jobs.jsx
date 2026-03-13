@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import usePolling from '../hooks/usePolling';
-import { Clock, Search, FileText, User, Loader2, Plus, X, Edit2, Trash2, Filter, IndianRupee, Calendar, CheckCircle2, Building2, RotateCcw, ArrowUpDown, Zap, ChevronDown } from 'lucide-react';
+import { Clock, Search, FileText, User, Loader2, Plus, X, Edit2, Trash2, IndianRupee, Calendar, CheckCircle2, Building2, RotateCcw, ArrowUpDown, Zap, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
 import api from '../services/api';
@@ -287,20 +287,25 @@ const Jobs = () => {
                             </select>
                             <ChevronDown size={14} className="muted" style={{ flexShrink: 0, pointerEvents: 'none' }} />
                         </div>
-                        <div className="select-box glass-card" style={{ padding: '0 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Filter size={16} className="muted" style={{ flexShrink: 0 }} />
-                            <select
-                                value={categoryFilter}
-                                onChange={(e) => setCategoryFilter(e.target.value)}
-                                style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', cursor: 'pointer', minWidth: 0 }}
+                        {[{ label: 'All', value: '' }, { label: 'Offset', value: 'OFFSET' }, { label: 'Laser', value: 'LASER' }, { label: 'Others', value: 'OTHER' }].map(opt => (
+                            <button
+                                key={opt.value}
+                                onClick={() => setCategoryFilter(opt.value)}
+                                style={{
+                                    padding: '7px 13px',
+                                    borderRadius: 8,
+                                    fontSize: 13,
+                                    fontWeight: 500,
+                                    border: categoryFilter === opt.value ? '1px solid var(--accent)' : '1px solid var(--border)',
+                                    background: categoryFilter === opt.value ? 'var(--accent-soft)' : 'var(--surface)',
+                                    color: categoryFilter === opt.value ? 'var(--accent)' : 'var(--text)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.18s',
+                                }}
                             >
-                                <option value="">All Types</option>
-                                <option value="OFFSET">Offset</option>
-                                <option value="LASER">Laser</option>
-                                <option value="OTHER">Others</option>
-                            </select>
-                            <ChevronDown size={14} className="muted" style={{ flexShrink: 0, pointerEvents: 'none' }} />
-                        </div>
+                                {opt.label}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>

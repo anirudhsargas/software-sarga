@@ -99,15 +99,18 @@ const Summary = () => {
                     <p className="section-subtitle">{selectedBranchName} — {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 </div>
                 <div className="row gap-md items-center summary-filters">
-                    <Building2 size={18} className="muted" />
-                    <select
-                        className="input-field"
-                        value={filters.branch_id}
-                        onChange={(e) => setFilters({ ...filters, branch_id: e.target.value })}
-                    >
-                        <option value="">All Branches</option>
-                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px' }}>
+                        <Building2 size={16} className="muted" style={{ flexShrink: 0 }} />
+                        <select
+                            className="input-field"
+                            value={filters.branch_id}
+                            onChange={(e) => setFilters({ ...filters, branch_id: e.target.value })}
+                            style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', minWidth: 130 }}
+                        >
+                            <option value="">All Branches</option>
+                            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                    </div>
                 </div>
             </div>
 
