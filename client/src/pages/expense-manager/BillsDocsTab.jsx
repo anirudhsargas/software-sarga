@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, Upload, Search, Eye, Trash2, Loader2, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../../services/api';
-import { fmtDate, today, fmt, baseFileUrl, DOCUMENT_TYPES } from './constants';
+import { fmtDate, today, fmt, DOCUMENT_TYPES } from './constants';
+import { imgUrl } from '../../services/api';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import SmartBillUpload from './SmartBillUpload';
 
@@ -98,7 +99,7 @@ const BillsDocsTab = ({ onError }) => {
               {pagedDocs.map(d => (
                 <tr key={d.id}>
                   <td>{fmtDate(d.bill_date)}</td><td><span className="em-type-badge em-type-badge--other">{d.document_type}</span></td><td>{d.vendor_name || '—'}</td><td>{d.bill_number || '—'}</td><td className="em-amount-cell">{d.amount ? `₹${fmt(d.amount)}` : '—'}</td>
-                  <td>{d.file_path ? <a href={`${baseFileUrl}${d.file_path}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm"><Eye size={14} /> View</a> : '—'}</td>
+                  <td>{d.file_path ? <a href={imgUrl(d.file_path)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm"><Eye size={14} /> View</a> : '—'}</td>
                   <td><button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleDelete(d.id)}><Trash2 size={14} /></button></td>
                 </tr>
               ))}

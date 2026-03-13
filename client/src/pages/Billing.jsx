@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import api, { imgUrl } from '../services/api';
 import auth from '../services/auth';
 import { serverToday } from '../services/serverTime';
 import { Camera, Download, Printer, Scissors, WifiOff, Plus, Minus } from 'lucide-react';
@@ -1437,7 +1437,7 @@ const Billing = () => {
                   <div className="modal" style={{ maxWidth: 420, padding: 24 }} onClick={(e) => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                       {scannedPreview.item.image_url ? (
-                        <img src={scannedPreview.item.image_url} alt={scannedPreview.item.name}
+                        <img src={imgUrl(scannedPreview.item.image_url)} alt={scannedPreview.item.name}
                           style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
                       ) : (
                         <div style={{ width: 100, height: 100, borderRadius: 8, background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 12 }}>No Image</div>

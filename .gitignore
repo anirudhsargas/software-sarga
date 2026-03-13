@@ -11,3 +11,5 @@ build/
 uploads/
 server/node_modules/
 client/node_modules/
+.vercel
+.env*.local

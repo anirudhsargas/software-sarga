@@ -6,7 +6,7 @@ import {
     Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
-import api, { API_URL } from '../services/api';
+import api, { imgUrl } from '../services/api';
 import ImageCropModal from '../components/ImageCropModal';
 import ScannerModal from '../components/ScannerModal';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -68,8 +68,6 @@ const Dashboard = () => {
     const [showInventoryScan, setShowInventoryScan] = useState(false);
     const [inventoryScanResult, setInventoryScanResult] = useState(null);
     const [inventoryScanLoading, setInventoryScanLoading] = useState(false);
-
-    const fileBaseUrl = useMemo(() => API_URL.replace(/\/api\/?$/, ''), []);
 
     const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
     const closeSidebar = () => setSidebarOpen(false);
@@ -246,8 +244,8 @@ const Dashboard = () => {
         if (!showProfileModal) return;
         setProfileName(user?.name || '');
         setProfileImage(null);
-        setProfilePreview(user?.image_url ? `${fileBaseUrl}${user.image_url}` : '');
-    }, [showProfileModal, user, fileBaseUrl]);
+        setProfilePreview(user?.image_url ? imgUrl(user.image_url) : '');
+    }, [showProfileModal, user]);
 
     useEffect(() => {
         if (!profileImage) return;
@@ -437,7 +435,7 @@ const Dashboard = () => {
                     <div className="user-profile" onClick={() => setShowProfileModal(true)} role="button" tabIndex={0}>
                         <div className="user-avatar">
                             {user?.image_url ? (
-                                <img src={`${fileBaseUrl}${user.image_url}`} alt={user.name} className="avatar-img" />
+                                <img src={imgUrl(user.image_url)} alt={user.name} className="avatar-img" />
                             ) : (
                                 user?.name ? user.name[0] : 'U'
                             )}
@@ -463,7 +461,7 @@ const Dashboard = () => {
                     <div className="logo-text">SARGA</div>
                     <div className="user-avatar avatar-sm" onClick={() => setShowProfileModal(true)}>
                         {user?.image_url ? (
-                            <img src={`${fileBaseUrl}${user.image_url}`} alt={user.name} className="avatar-img" />
+                            <img src={imgUrl(user.image_url)} alt={user.name} className="avatar-img" />
                         ) : (
                             user?.name ? user.name[0] : 'U'
                         )}
@@ -622,7 +620,7 @@ const Dashboard = () => {
                             <div className="row gap-md items-center">
                                 {inventoryScanResult.image_url && (
                                     <img
-                                        src={`${fileBaseUrl}${inventoryScanResult.image_url}`}
+                                        src={imgUrl(inventoryScanResult.image_url)}
                                         alt={inventoryScanResult.name}
                                         style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)' }}
                                     />

@@ -18,6 +18,15 @@ const getApiUrl = () => {
 
 export const API_URL = getApiUrl();
 
+const FILE_BASE = API_URL.replace(/\/api\/?$/, '');
+
+/** Build a full image URL with ngrok bypass when needed */
+export const imgUrl = (path) => {
+    if (!path) return '';
+    const url = `${FILE_BASE}${path}`;
+    return FILE_BASE.includes('ngrok') ? `${url}?ngrok-skip-browser-warning=true` : url;
+};
+
 const api = axios.create({
     baseURL: API_URL,
     timeout: 30000

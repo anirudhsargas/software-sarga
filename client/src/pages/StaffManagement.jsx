@@ -3,7 +3,7 @@ import { UserPlus, Search, Shield, Phone, User, Loader2, Plus, X, Edit2, Trash2,
 import HolidayCalendar from '../components/HolidayCalendar';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
-import api, { API_URL } from '../services/api';
+import api, { imgUrl } from '../services/api';
 import { serverNow } from '../services/serverTime';
 import ImageCropModal from '../components/ImageCropModal';
 import { isTouchDevice } from '../services/utils';
@@ -36,7 +36,7 @@ const StaffManagement = () => {
     const [total, setTotal] = useState(0);
     const [selectedBranchFilter, setSelectedBranchFilter] = useState('');
 
-    const fileBaseUrl = API_URL.replace(/\/api\/?$/, '');
+
 
     const roles = ['Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'];
 
@@ -70,11 +70,11 @@ const StaffManagement = () => {
             return () => URL.revokeObjectURL(url);
         }
         if (selectedStaff?.image_url) {
-            setEditStaffPreview(`${fileBaseUrl}${selectedStaff.image_url}`);
+            setEditStaffPreview(imgUrl(selectedStaff.image_url));
         } else {
             setEditStaffPreview('');
         }
-    }, [editStaffImage, selectedStaff, fileBaseUrl]);
+    }, [editStaffImage, selectedStaff]);
 
     const fetchBranches = async () => {
         try {
@@ -360,7 +360,7 @@ const StaffManagement = () => {
                                                 <div className="user-avatar avatar-sm">
                                                     {s.image_url ? (
                                                         <img
-                                                            src={`${fileBaseUrl}${s.image_url}`}
+                                                            src={imgUrl(s.image_url)}
                                                             alt={s.name}
                                                             className="avatar-img"
                                                         />

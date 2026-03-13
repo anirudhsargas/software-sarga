@@ -231,7 +231,11 @@ const EmployeeDetail = () => {
                 <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-accent mb-6">
                     <ArrowLeft size={20} /> Back
                 </button>
-                <div className="text-center text-red-500">Employee not found</div>
+                {error ? (
+                    <div className="text-center text-red-500">{error}</div>
+                ) : (
+                    <div className="text-center text-red-500">Employee not found</div>
+                )}
             </div>
         );
     }

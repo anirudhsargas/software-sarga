@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api, { API_URL } from '../services/api';
+import api, { imgUrl } from '../services/api';
 import useAuth from '../hooks/useAuth';
 
 import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff } from 'lucide-react';
@@ -114,7 +114,7 @@ const ProductLibrary = () => {
         isPhysicalProduct: false // Checklist: show in inventory
     });
 
-    const fileBaseUrl = API_URL.replace(/\/api\/?$/, '');
+
 
     useEffect(() => {
         fetchHierarchy();
@@ -391,7 +391,7 @@ const ProductLibrary = () => {
         setNewCatName(cat.name);
         setCatImage(null);
         setCatImageUrl(cat.image_url || '');
-        setCatImagePreview(cat.image_url ? `${fileBaseUrl}${cat.image_url}` : '');
+        setCatImagePreview(cat.image_url ? imgUrl(cat.image_url) : '');
         setShowCatModal(true);
     };
 
@@ -402,7 +402,7 @@ const ProductLibrary = () => {
         setNewSubName(sub.name);
         setSubImage(null);
         setSubImageUrl(sub.image_url || '');
-        setSubImagePreview(sub.image_url ? `${fileBaseUrl}${sub.image_url}` : '');
+        setSubImagePreview(sub.image_url ? imgUrl(sub.image_url) : '');
         setShowSubModal(true);
     };
 
@@ -429,7 +429,7 @@ const ProductLibrary = () => {
                 image_url: prod.image_url,
                 isPhysicalProduct: prod.is_physical_product === 1 || prod.is_physical_product === true
             });
-            setProductImagePreview(prod.image_url ? `${fileBaseUrl}${prod.image_url}` : '');
+            setProductImagePreview(prod.image_url ? imgUrl(prod.image_url) : '');
             setShowProdModal(true);
         } catch (err) {
             toast.error('Error fetching product details');
@@ -750,7 +750,7 @@ const ProductLibrary = () => {
                                     )}
                                     <div className="product-card__image-wrap" onClick={() => toggleCat(cat.id)}>
                                         {cat.image_url ? (
-                                            <img src={`${fileBaseUrl}${cat.image_url}`} alt={cat.name} className="product-card__img" />
+                                            <img src={imgUrl(cat.image_url)} alt={cat.name} className="product-card__img" />
                                         ) : (
                                             <div className="product-card__placeholder">
                                                 <Grid size={48} style={{ color: 'var(--accent-2)' }} />
@@ -790,7 +790,7 @@ const ProductLibrary = () => {
                                     )}
                                     <div className="product-card__image-wrap" onClick={() => setViewPath([viewPath[0], sub.id])}>
                                         {sub.image_url ? (
-                                            <img src={`${fileBaseUrl}${sub.image_url}`} alt={sub.name} className="product-card__img" />
+                                            <img src={imgUrl(sub.image_url)} alt={sub.name} className="product-card__img" />
                                         ) : (
                                             <div className="product-card__placeholder">
                                                 <Layers size={48} style={{ color: 'var(--accent-1)' }} />
@@ -847,7 +847,7 @@ const ProductLibrary = () => {
                                             <GripVertical size={16} />
                                         </div>
                                         {prod.image_url ? (
-                                            <img src={`${fileBaseUrl}${prod.image_url}`} alt={prod.name} className="product-card__img" />
+                                            <img src={imgUrl(prod.image_url)} alt={prod.name} className="product-card__img" />
                                         ) : (
                                             <div className="product-card__placeholder">
                                                 <Package size={48} />
