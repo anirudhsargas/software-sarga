@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Calendar, CreditCard, Receipt, Loader2, Plus, Wallet,
+  Calendar, CreditCard, Receipt, Loader2, Plus, Wallet,
   User, Phone, Hash, FileText, IndianRupee, CheckCircle2, Clock,
   AlertTriangle, Banknote, Smartphone, Building2, ChevronDown, ChevronUp,
   Search, X, Layers, CheckCircle, Printer, ShieldCheck, ShieldX, ShieldAlert
@@ -637,9 +637,6 @@ const CustomerPayments = () => {
       {/* ── HEADER ── */}
       <div className="cp-header">
         <div className="cp-header-left">
-          <button className="btn btn-ghost" onClick={() => navigate(-1)}>
-            <ArrowLeft size={16} /> Back
-          </button>
           <div>
             <h1 className="cp-title">Customer Payments</h1>
             <p className="cp-subtitle">Collect advance or full payment for customer orders</p>

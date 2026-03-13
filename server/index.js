@@ -99,16 +99,12 @@ app.use(cors({
         if (/^https?:\/\/(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
             return callback(null, true);
         }
-        // Allow Vercel deployments (*.vercel.app)
-        if (/^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) {
+        // Allow only the specific Vercel deployment
+        if (/^https:\/\/software-sarga(-[a-z0-9]+)?\.vercel\.app$/.test(origin)) {
             return callback(null, true);
         }
-        // Allow Cloudflare tunnels (*.trycloudflare.com)
-        if (/^https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com$/.test(origin)) {
-            return callback(null, true);
-        }
-        // Allow ngrok tunnels (*.ngrok-free.app, *.ngrok-free.dev, *.ngrok.io)
-        if (/^https:\/\/[a-zA-Z0-9-]+\.ngrok(-free)?\.(app|dev)$/.test(origin) || /^https:\/\/[a-zA-Z0-9-]+\.ngrok\.io$/.test(origin)) {
+        // Allow ngrok tunnels (for development/testing)
+        if (/^https:\/\/[a-zA-Z0-9-]+\.ngrok(-free)?\.(app|dev)$/.test(origin)) {
             return callback(null, true);
         }
         callback(new Error(`CORS: origin '${origin}' not allowed`));
@@ -123,15 +119,45 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Request logger
 // Moved to top for better visibility
 
-// General API rate limit — 300 requests per 5 minutes per IP
+// General API rate limit — 200 requests per 5 minutes per IP
 const generalLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
-    max: 300,
+    max: 200,
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: 'Too many requests. Please slow down.' }
 });
 app.use('/api', generalLimiter);
+
+// Strict rate limit for write operations — 60 per 5 minutes per IP
+const writeLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: 'Too many write requests. Please slow down.' }
+});
+app.use('/api', (req, res, next) => {
+    if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+        return writeLimiter(req, res, next);
+    }
+    next();
+});
+
+// Upload rate limit — 20 uploads per 5 minutes per IP
+const uploadLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: 'Too many file uploads. Please slow down.' }
+});
+app.use('/api', (req, res, next) => {
+    if (req.method === 'POST' && (req.path.includes('/upload') || req.path.includes('/image'))) {
+        return uploadLimiter(req, res, next);
+    }
+    next();
+});
 
 // --------------- File Uploads ---------------
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -157,7 +183,19 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
-app.use('/uploads', express.static(uploadsDir));
+// Serve uploads — require valid JWT token via query param or Authorization header
+const jwt = require('jsonwebtoken');
+app.use('/uploads', (req, res, next) => {
+    // Allow token via query string (?token=xxx) or Authorization header
+    const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+    if (!token) return res.status(401).json({ message: 'Access denied.' });
+    try {
+        jwt.verify(token, JWT_SECRET);
+        next();
+    } catch {
+        return res.status(403).json({ message: 'Invalid or expired token.' });
+    }
+}, express.static(uploadsDir));
 
 const removeUploadFile = async (imageUrl) => {
     if (!imageUrl || !imageUrl.startsWith('/uploads/')) return;

@@ -1445,43 +1445,43 @@ const Billing = () => {
 
               {/* Scanned Item Preview Popup */}
               {scannedPreview && (
-                <div className="modal-overlay" onClick={() => setScannedPreview(null)}>
-                  <div className="modal" style={{ maxWidth: 420, padding: 24 }} onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                <div className="modal-backdrop" onClick={() => setScannedPreview(null)}>
+                  <div className="modal" style={{ maxWidth: 420, padding: 20 }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                       {scannedPreview.item.image_url ? (
                         <img src={imgUrl(scannedPreview.item.image_url)} alt={scannedPreview.item.name}
-                          style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                          style={{ width: 80, height: 80, flexShrink: 0, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
                       ) : (
-                        <div style={{ width: 100, height: 100, borderRadius: 8, background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 12 }}>No Image</div>
+                        <div style={{ width: 80, height: 80, flexShrink: 0, borderRadius: 8, background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 12 }}>No Image</div>
                       )}
-                      <div style={{ flex: 1 }}>
-                        <h3 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>{scannedPreview.item.name}</h3>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, overflowWrap: 'break-word' }}>{scannedPreview.item.name}</h3>
                         {scannedPreview.item.sku && <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>SKU: {scannedPreview.item.sku}</div>}
                         <div style={{ fontSize: 13, color: 'var(--muted)' }}>{scannedPreview.category}</div>
                       </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, margin: '16px 0', textAlign: 'center' }}>
-                      <div className="sev-success" style={{ borderRadius: 8, padding: '10px 8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, margin: '14px 0', textAlign: 'center' }}>
+                      <div className="sev-success" style={{ borderRadius: 8, padding: '8px 4px' }}>
                         <div style={{ fontSize: 11, color: 'var(--muted)' }}>MRP</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--success)' }}>₹{scannedPreview.mrp % 1 === 0 ? scannedPreview.mrp : Number(scannedPreview.mrp).toFixed(2)}</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)' }}>₹{scannedPreview.mrp % 1 === 0 ? scannedPreview.mrp : Number(scannedPreview.mrp).toFixed(2)}</div>
                       </div>
-                      <div className="sev-info" style={{ borderRadius: 8, padding: '10px 8px' }}>
+                      <div className="sev-info" style={{ borderRadius: 8, padding: '8px 4px' }}>
                         <div style={{ fontSize: 11, color: 'var(--muted)' }}>Sell Price</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-2)' }}>₹{scannedPreview.unitPrice % 1 === 0 ? scannedPreview.unitPrice : scannedPreview.unitPrice.toFixed(2)}</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-2)' }}>₹{scannedPreview.unitPrice % 1 === 0 ? scannedPreview.unitPrice : scannedPreview.unitPrice.toFixed(2)}</div>
                       </div>
-                      <div className={Number(scannedPreview.item.quantity) > 0 ? 'sev-success' : 'sev-error'} style={{ borderRadius: 8, padding: '10px 8px' }}>
+                      <div className={Number(scannedPreview.item.quantity) > 0 ? 'sev-success' : 'sev-error'} style={{ borderRadius: 8, padding: '8px 4px' }}>
                         <div style={{ fontSize: 11, color: 'var(--muted)' }}>In Stock</div>
-                        <div style={{ fontSize: 18, fontWeight: 700 }}>{scannedPreview.item.quantity ?? '?'}</div>
+                        <div style={{ fontSize: 16, fontWeight: 700 }}>{scannedPreview.item.quantity ?? '?'}</div>
                       </div>
                     </div>
                     {Number(scannedPreview.item.quantity) === 0 && (
                       <div className="sev-error" style={{ borderRadius: 6, padding: '8px 12px', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>Out of stock</div>
                     )}
                     <div style={{ display: 'flex', gap: 10 }}>
-                      <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => addScannedItemToOrder(scannedPreview)}>
+                      <button className="btn btn-primary" style={{ flex: 1, whiteSpace: 'nowrap' }} onClick={() => addScannedItemToOrder(scannedPreview)}>
                         <Plus size={16} /> Add to Bill
                       </button>
-                      <button className="btn btn-ghost" onClick={() => setScannedPreview(null)}>Cancel</button>
+                      <button className="btn btn-ghost" style={{ whiteSpace: 'nowrap' }} onClick={() => setScannedPreview(null)}>Cancel</button>
                     </div>
                   </div>
                 </div>

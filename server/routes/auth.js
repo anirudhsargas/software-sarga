@@ -23,7 +23,7 @@ module.exports = (upload) => {
         const { user_id, password } = req.body;
         const normalizedUserId = normalizeMobile(user_id);
         
-        console.log(`[LOGIN] Attempt: user_id=${user_id}, normalized=${normalizedUserId}, password_length=${password?.length || 0}`);
+        console.log(`[LOGIN] Attempt: user_id=${user_id}, normalized=${normalizedUserId}`);
 
         if (normalizedUserId.length !== 10) {
             console.log(`[LOGIN] ❌ Invalid format: ${normalizedUserId}`);

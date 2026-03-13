@@ -143,7 +143,7 @@ router.get('/office-expenses', authenticateToken, async (req, res) => {
 });
 
 // Add office expense
-router.post('/office-expenses', authenticateToken, async (req, res) => {
+router.post('/office-expenses', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, id: created_by } = req.user;
     const { expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number } = req.body;
@@ -181,7 +181,7 @@ router.post('/office-expenses', authenticateToken, async (req, res) => {
 });
 
 // Update office expense
-router.put('/office-expenses/:id', authenticateToken, async (req, res) => {
+router.put('/office-expenses/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { id } = req.params;
     const { expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number } = req.body;
@@ -346,7 +346,7 @@ router.get('/transport-expenses', authenticateToken, async (req, res) => {
 });
 
 // Add transport expense
-router.post('/transport-expenses', authenticateToken, async (req, res) => {
+router.post('/transport-expenses', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, id: created_by } = req.user;
     const {
@@ -390,7 +390,7 @@ router.post('/transport-expenses', authenticateToken, async (req, res) => {
 });
 
 // Update transport expense
-router.put('/transport-expenses/:id', authenticateToken, async (req, res) => {
+router.put('/transport-expenses/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -564,7 +564,7 @@ router.get('/misc-expenses', authenticateToken, async (req, res) => {
 });
 
 // Add miscellaneous expense
-router.post('/misc-expenses', authenticateToken, async (req, res) => {
+router.post('/misc-expenses', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, id: created_by } = req.user;
     const {
@@ -607,7 +607,7 @@ router.post('/misc-expenses', authenticateToken, async (req, res) => {
 });
 
 // Update miscellaneous expense
-router.put('/misc-expenses/:id', authenticateToken, async (req, res) => {
+router.put('/misc-expenses/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -772,7 +772,7 @@ router.get('/petty-cash-ledger', authenticateToken, async (req, res) => {
 });
 
 // Add petty cash transaction
-router.post('/petty-cash', authenticateToken, async (req, res) => {
+router.post('/petty-cash', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, id: created_by, role } = req.user;
     const {
@@ -1026,7 +1026,7 @@ router.get('/bills-documents', authenticateToken, async (req, res) => {
 });
 
 // Upload bill/document (file + metadata)
-router.post('/bills-documents/upload', authenticateToken, uploadDocs.single('file'), async (req, res) => {
+router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), uploadDocs.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'File is required' });
@@ -1071,7 +1071,7 @@ router.post('/bills-documents/upload', authenticateToken, uploadDocs.single('fil
 });
 
 // Add bill/document metadata
-router.post('/bills-documents', authenticateToken, async (req, res) => {
+router.post('/bills-documents', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, id: uploaded_by } = req.user;
     const {
@@ -1097,7 +1097,7 @@ router.post('/bills-documents', authenticateToken, async (req, res) => {
 });
 
 // Update bill/document metadata
-router.put('/bills-documents/:id', authenticateToken, async (req, res) => {
+router.put('/bills-documents/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -1150,7 +1150,7 @@ router.delete('/bills-documents/:id', authenticateToken, async (req, res) => {
 });
 
 // Extract bill details from uploaded document (OCR + AI)
-router.post('/bills-documents/extract-details', authenticateToken, (req, res, next) => {
+router.post('/bills-documents/extract-details', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), (req, res, next) => {
   uploadDocs.single('file')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       console.error('[Multer Error]', err.code, err.message);
@@ -1235,7 +1235,7 @@ router.get('/bills-documents/suggest-products', authenticateToken, async (req, r
 });
 
 // Link bill document to inventory product
-router.post('/bills-documents/:id/link-product', authenticateToken, async (req, res) => {
+router.post('/bills-documents/:id/link-product', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { id } = req.params;
     const { product_id, quantity, unit_price, add_to_inventory } = req.body;

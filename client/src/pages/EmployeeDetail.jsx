@@ -335,7 +335,7 @@ const EmployeeDetail = () => {
                         <div>
                             <div className="employee-detail__section-header">
                                 <h2 className="employee-detail__section-title">Attendance & Salary</h2>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <div className="employee-detail__header-actions">
                                     <input
                                         type="month"
                                         value={currentMonth}
@@ -343,30 +343,26 @@ const EmployeeDetail = () => {
                                         className="employee-detail__month-selector"
                                     />
                                     {['Admin', 'Accountant', 'Front Office', 'front office'].includes(auth.getUser()?.role) && (
-                                        (attendanceMarkedToday ?
+                                        attendanceMarkedToday ?
                                             <button
                                                 onClick={() => setShowAttendanceModal(true)}
-                                                className="employee-detail__cta"
-                                                style={{ padding: '6px 16px', background: auth.getUser()?.role === 'Admin' ? 'var(--warning)' : 'var(--accent-2)', color: '#fff', border: 'none', borderRadius: 4, fontWeight: 600, cursor: 'pointer' }}
+                                                className="employee-detail__cta employee-detail__cta--warning"
                                             >
                                                 {auth.getUser()?.role === 'Admin' ? 'Update Attendance' : 'Request Change'}
                                             </button>
                                             : <button
                                                 onClick={() => setShowAttendanceModal(true)}
-                                                className="employee-detail__cta"
-                                                style={{ padding: '6px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 4, fontWeight: 600, cursor: 'pointer' }}
+                                                className="employee-detail__cta employee-detail__cta--mark"
                                             >
-                                                Mark Attendance
+                                                ✓ Mark Attendance
                                             </button>
-                                        )
                                     )}
                                     {['Admin', 'Accountant', 'Front Office', 'front office'].includes(auth.getUser()?.role) && (
                                         <button
                                             onClick={() => setShowPaySalaryModal(true)}
-                                            className="employee-detail__cta"
-                                            style={{ padding: '6px 16px', background: 'var(--success)', color: '#fff' }}
+                                            className="employee-detail__cta employee-detail__cta--pay"
                                         >
-                                            <IndianRupee size={16} /> Pay Salary
+                                            <IndianRupee size={15} /> Pay Salary
                                         </button>
                                     )}
                                 </div>

@@ -189,27 +189,67 @@
 .employee-detail__section-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.employee-detail__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .employee-detail__cta {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: var(--accent);
-  color: var(--surface);
+  gap: 6px;
   border: none;
-  padding: 10px 16px;
+  padding: 9px 16px;
   border-radius: 10px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .employee-detail__cta:hover {
   transform: translateY(-1px);
-  opacity: 0.95;
+  box-shadow: var(--shadow-md, 0 4px 12px #0002);
+}
+
+/* Mark Attendance — yellow/amber with black text */
+.employee-detail__cta--mark {
+  background: #f5c518;
+  color: #111;
+}
+
+.employee-detail__cta--mark:hover {
+  background: #e6b800;
+}
+
+/* Update/Request Change — orange with black text */
+.employee-detail__cta--warning {
+  background: var(--warning, #f59e0b);
+  color: #111;
+}
+
+.employee-detail__cta--warning:hover {
+  filter: brightness(0.93);
+}
+
+/* Pay Salary — green with white text */
+.employee-detail__cta--pay {
+  background: var(--success, #22c55e);
+  color: #fff;
+}
+
+.employee-detail__cta--pay:hover {
+  filter: brightness(0.93);
 }
 
 .employee-detail__empty {

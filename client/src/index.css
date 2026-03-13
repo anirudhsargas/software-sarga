@@ -2326,7 +2326,8 @@ select.badge option {
   margin: 0 auto 16px;
 }
 
-.modal-backdrop {
+.modal-backdrop,
+.modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(12, 12, 12, 0.45);
@@ -2995,7 +2996,8 @@ select.badge option {
 }
 
 /* Modal Styles */
-.modal-backdrop {
+.modal-backdrop,
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;

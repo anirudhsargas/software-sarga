@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getUserBranchId, auditLog } = require('../helpers');
 
 // ==================== EMI MASTER ROUTES ====================
@@ -316,7 +316,7 @@ router.delete('/emi-master/:id', authenticateToken, async (req, res) => {
 // ==================== EMI PAYMENT ROUTES ====================
 
 // Record EMI payment
-router.post('/emi-payments', authenticateToken, async (req, res) => {
+router.post('/emi-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const {
       emi_id,
@@ -697,7 +697,7 @@ router.delete('/kuri-master/:id', authenticateToken, async (req, res) => {
 // ==================== KURI PAYMENT ROUTES ====================
 
 // Record Kuri payment (supports daily small payments)
-router.post('/kuri-payments', authenticateToken, async (req, res) => {
+router.post('/kuri-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const {
       kuri_id,

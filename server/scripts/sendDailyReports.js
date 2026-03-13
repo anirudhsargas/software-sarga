@@ -15,8 +15,20 @@ const PDFDocument = require('pdfkit');
 const { pool } = require('../database');
 
 const EMAIL_FROM = process.env.EMAIL_FROM || 'sargadailyreport@gmail.com';
-const EMAIL_TO = process.env.EMAIL_TO || 'sargadailyreport@gmail.com';
+const EMAIL_TO = process.env.EMAIL_TO || 'sargadailyreport@gmail.com';   // admin/fallback
 const EMAIL_PASS = process.env.EMAIL_PASS || '';
+
+/**
+ * Get the per-branch email from env vars.
+ * Env key format: BRANCH_EMAIL_<NAME_UPPERCASE_SPACES_AS_UNDERSCORE>
+ * e.g. PERAMBRA → BRANCH_EMAIL_PERAMBRA
+ *      MEPPAYUR → BRANCH_EMAIL_MEPPAYUR
+ * Falls back to EMAIL_TO if not configured.
+ */
+function getBranchEmail(branchName) {
+    const key = 'BRANCH_EMAIL_' + branchName.trim().toUpperCase().replace(/\s+/g, '_');
+    return process.env[key] || EMAIL_TO;
+}
 
 /* ═══════════════════════════════════════════════
    HELPERS
@@ -460,10 +472,14 @@ async function sendDailyReports() {
 
                 const pdfBuffer = await generatePDF(branch.name, date, offset, laser, other);
 
+                // Build recipient list: branch-specific email + admin (deduplicated)
+                const branchEmail = getBranchEmail(branch.name);
+                const recipients = [...new Set([branchEmail, EMAIL_TO])].join(', ');
+
                 const subject = `${branch.name} — Daily Report ${fmtDate(date)}`;
                 await transporter.sendMail({
                     from: EMAIL_FROM,
-                    to: EMAIL_TO,
+                    to: recipients,
                     subject,
                     text: `Daily Cash Book Report\nBranch: ${branch.name}\nDate: ${fmtDate(date)}\n\nThis is an automated report. Please see the attached PDF.`,
                     attachments: [{
@@ -473,7 +489,7 @@ async function sendDailyReports() {
                     }]
                 });
 
-                console.log(`[DailyReportMailer] ✓ Report sent for ${branch.name}`);
+                console.log(`[DailyReportMailer] ✓ Report sent for ${branch.name} → ${recipients}`);
             } catch (branchErr) {
                 console.error(`[DailyReportMailer] Error for branch ${branch.name}:`, branchErr.message);
             }
