@@ -445,11 +445,11 @@
 }
 
 .acc-btn--primary {
-  background: var(--accent, #4f46e5);
-  color: #fff;
+  background: var(--accent);
+  color: #f7f6f3;
 }
 
-.acc-btn--primary:hover { background: #4338ca; }
+.acc-btn--primary:hover { background: var(--accent-2); }
 .acc-btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .acc-btn--ghost {

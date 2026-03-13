@@ -35,7 +35,10 @@ const PaperLayoutGenerator = () => {
         const canvas = canvasRef.current;
         if (!canvas || !layoutData) return;
         const ctx = canvas.getContext('2d');
-        const { paper_width, paper_height, placements } = layoutData;
+        const { sheet, placements } = layoutData;
+        if (!sheet) return;
+        const paper_width = sheet.width;
+        const paper_height = sheet.height;
         const scale = Math.min(canvas.width / paper_width, canvas.height / paper_height) * 0.9;
         const offX = (canvas.width - paper_width * scale) / 2;
         const offY = (canvas.height - paper_height * scale) / 2;
@@ -111,10 +114,10 @@ const PaperLayoutGenerator = () => {
     const calculate = async () => {
         setLoading(true);
         try {
-            const res = await api.post('/paper-layout/calculate', {
-                paper_width: paperW, paper_height: paperH,
-                design_width: designW, design_height: designH,
-                bleed, margin, gutter
+            const res = await api.post('ai/paper-layout/calculate', {
+                sheet_size: { width: paperW, height: paperH },
+                design_size: { width: designW, height: designH },
+                bleed, margin, gutter, quantity: 1
             });
             setLayout(res.data);
             setComparison(null);
@@ -124,10 +127,11 @@ const PaperLayoutGenerator = () => {
 
     const compare = async () => {
         try {
-            const res = await api.post('/paper-layout/compare', {
-                design_width: designW, design_height: designH, bleed, margin, gutter
+            const res = await api.post('ai/paper-layout/compare', {
+                design_size: { width: designW, height: designH },
+                bleed, margin, gutter, quantity: 1
             });
-            setComparison(res.data.results || []);
+            setComparison(res.data.comparisons || []);
         } catch { toast.error('Comparison failed'); }
     };
 
@@ -222,9 +226,9 @@ const PaperLayoutGenerator = () => {
                     {layout && (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
                             {[
-                                { label: 'Copies', value: layout.total_copies || 0 },
-                                { label: 'Waste', value: `${(layout.waste_percentage || 0).toFixed(1)}%` },
-                                { label: 'Orientation', value: layout.orientation || 'N/A' },
+                                { label: 'Copies/Sheet', value: layout.cards_per_sheet || 0 },
+                                { label: 'Waste', value: `${(layout.waste_percent || 0).toFixed(1)}%` },
+                                { label: 'Orientation', value: layout.is_rotated ? 'Landscape' : 'Portrait' },
                                 { label: 'Paper', value: `${paperW}×${paperH}mm` },
                             ].map((s, i) => (
                                 <div key={i} className="summary-tile" style={{ minHeight: 'auto', padding: 14 }}>
@@ -261,19 +265,19 @@ const PaperLayoutGenerator = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {comparison.sort((a, b) => b.total_copies - a.total_copies).map((c, i) => (
+                                        {comparison.sort((a, b) => b.cards_per_sheet - a.cards_per_sheet).map((c, i) => (
                                             <tr key={i} style={{ cursor: 'pointer' }}
-                                                onClick={() => { setPaperSize('Custom'); setPaperW(c.paper_width); setPaperH(c.paper_height); setLayout(c); }}>
+                                                onClick={() => { setPaperSize('Custom'); setPaperW(c.sheet?.width || paperW); setPaperH(c.sheet?.height || paperH); setLayout(c); }}>
                                                 <td style={{ fontWeight: 600 }}>{c.paper_name}</td>
-                                                <td>{c.total_copies}</td>
-                                                <td>{(c.waste_percentage || 0).toFixed(1)}%</td>
+                                                <td>{c.cards_per_sheet}</td>
+                                                <td>{(c.waste_percent || 0).toFixed(1)}%</td>
                                                 <td>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                                         <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--surface-2)', overflow: 'hidden' }}>
-                                                            <div style={{ height: '100%', borderRadius: 3, background: (100 - (c.waste_percentage || 0)) >= 70 ? 'var(--success)' : 'var(--warning)', width: `${100 - (c.waste_percentage || 0)}%` }} />
+                                                            <div style={{ height: '100%', borderRadius: 3, background: (100 - (c.waste_percent || 0)) >= 70 ? 'var(--success)' : 'var(--warning)', width: `${100 - (c.waste_percent || 0)}%` }} />
                                                         </div>
                                                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-2)' }}>
-                                                            {(100 - (c.waste_percentage || 0)).toFixed(0)}%
+                                                            {(100 - (c.waste_percent || 0)).toFixed(0)}%
                                                         </span>
                                                     </div>
                                                 </td>

@@ -50,7 +50,10 @@ router.get('/book-assignments', auth.authenticate, async (req, res) => {
 router.post('/book-assignments', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
     try {
         const { book_type, staff_ids, branch_id } = req.body;
-        const branchId = branch_id || req.user.branch_id;
+        const branchId = parseInt(branch_id || req.user.branch_id, 10);
+        if (!branchId) {
+            return res.status(400).json({ error: 'branch_id is required' });
+        }
         if (!['Offset', 'Laser', 'Other'].includes(book_type)) {
             return res.status(400).json({ error: 'book_type must be Offset, Laser, or Other' });
         }

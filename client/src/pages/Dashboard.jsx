@@ -376,13 +376,14 @@ const Dashboard = () => {
                                             <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} />
                                         </button>
                                     )}
-                                    {!isCollapsed && group.items.map(item => (
+                                    {(!isCollapsed || sidebarCollapsed) && group.items.map(item => (
                                         <NavLink
                                             key={item.name}
                                             to={item.path}
                                             end={item.path === '/dashboard'}
                                             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                                             onClick={closeSidebar}
+                                            title={item.name}
                                         >
                                             <div className="nav-item-inner">
                                                 <item.icon size={20} />
@@ -404,6 +405,7 @@ const Dashboard = () => {
                                 end={item.path === '/dashboard'}
                                 className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                                 onClick={closeSidebar}
+                                title={item.name}
                             >
                                 <div className="nav-item-inner">
                                     <item.icon size={20} />

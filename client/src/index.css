@@ -17,6 +17,8 @@
   --error: #b03a2e;
   --warning: #b36b00;
   --accent-light: #eff6ff;
+  --primary: var(--accent);
+  --primary-rgb: 31, 42, 51;
   --radius: 14px;
   --shadow-sm: 0 8px 24px rgba(20, 20, 20, 0.08);
   --shadow-lg: 0 24px 70px rgba(20, 20, 20, 0.12);
@@ -36,6 +38,8 @@
   --accent-2: #c9c3b7;
   --accent-soft: #2a2f33;
   --accent-light: rgba(231, 228, 221, 0.08);
+  --primary: var(--accent);
+  --primary-rgb: 231, 228, 221;
   --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.45);
 }
@@ -1212,6 +1216,11 @@ select.input-field {
 
 .billing-header {
   margin-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .billing-title {
@@ -1401,12 +1410,12 @@ select.input-field {
 
 .billing-type-btn--active {
   background: var(--accent);
-  color: #fff;
+  color: #000;
 }
 
 .billing-type-btn--active:hover {
   background: var(--accent-2);
-  color: #fff;
+  color: #000;
 }
 
 /* Customer found card */
@@ -2260,6 +2269,40 @@ select.badge option {
 
 .sidebar--collapsed .nav-item {
   justify-content: center;
+  padding: 10px;
+  position: relative;
+}
+
+.sidebar--collapsed .nav-item-inner {
+  gap: 0;
+  width: auto;
+  justify-content: center;
+}
+
+/* Tooltip on hover in collapsed mode */
+.sidebar--collapsed .nav-item::after {
+  content: attr(title);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--surface-2, #1e293b);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 200;
+}
+
+.sidebar--collapsed .nav-item:hover::after {
+  opacity: 1;
 }
 
 .sidebar--collapsed .sidebar-footer {
@@ -3484,7 +3527,7 @@ select.badge option {
 }
 
 .dr-summary-closing {
-  grid-column: -1;
+  grid-column: 1 / -1;
   padding: 16px;
   background: var(--surface);
   border-radius: 12px;

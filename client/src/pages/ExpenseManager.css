@@ -45,6 +45,7 @@
     gap: 8px;
     align-items: center;
     flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
 /* ─── Side Panel ─────────────────────────────────────── */
@@ -2822,7 +2823,7 @@ select.em-input {
     height: 56px;
     border-radius: 50%;
     background: var(--accent);
-    color: #fff;
+    color: #000;
     border: none;
     box-shadow: 0 4px 20px rgba(0, 0, 0, .25);
     display: flex;
@@ -2868,7 +2869,7 @@ select.em-input {
 
 .em-fab__item:hover {
     background: var(--accent);
-    color: #fff;
+    color: #000;
 }
 
 @keyframes em-fab-in {
@@ -2940,6 +2941,7 @@ select.em-input {
     .em-header__actions {
         width: 100%;
         justify-content: flex-end;
+        flex-wrap: wrap;
     }
 
     .em-title {

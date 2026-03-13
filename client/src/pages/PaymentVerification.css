@@ -415,19 +415,20 @@
 }
 
 .pv-btn--verify {
-  background: #10b981;
-  color: #fff;
+  background: var(--accent, #1f2a33);
+  color: #f7f6f3;
 }
 .pv-btn--verify:hover:not(:disabled) {
-  background: #059669;
+  background: var(--accent-2, #2f3b46);
 }
 
 .pv-btn--missing {
-  background: #8b5cf6;
-  color: #fff;
+  background: var(--surface, #fff);
+  border: 1.5px solid var(--border);
+  color: var(--text);
 }
 .pv-btn--missing:hover:not(:disabled) {
-  background: #7c3aed;
+  background: var(--surface-2);
 }
 
 .pv-btn--reject {

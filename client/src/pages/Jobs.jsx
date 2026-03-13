@@ -287,25 +287,6 @@ const Jobs = () => {
                             </select>
                             <ChevronDown size={14} className="muted" style={{ flexShrink: 0, pointerEvents: 'none' }} />
                         </div>
-                        {[{ label: 'All', value: '' }, { label: 'Offset', value: 'OFFSET' }, { label: 'Laser', value: 'LASER' }, { label: 'Others', value: 'OTHER' }].map(opt => (
-                            <button
-                                key={opt.value}
-                                onClick={() => setCategoryFilter(opt.value)}
-                                style={{
-                                    padding: '7px 13px',
-                                    borderRadius: 8,
-                                    fontSize: 13,
-                                    fontWeight: 500,
-                                    border: categoryFilter === opt.value ? '1px solid var(--accent)' : '1px solid var(--border)',
-                                    background: categoryFilter === opt.value ? 'var(--accent-soft)' : 'var(--surface)',
-                                    color: categoryFilter === opt.value ? 'var(--accent)' : 'var(--text)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.18s',
-                                }}
-                            >
-                                {opt.label}
-                            </button>
-                        ))}
                     </div>
                 </div>
             </div>

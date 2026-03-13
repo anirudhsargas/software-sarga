@@ -526,24 +526,24 @@
 }
 
 .btn.btn-primary {
-  background: #4f46e5;
-  color: white;
+  background: var(--accent, #1f2a33);
+  color: #f7f6f3;
 }
 
 .btn.btn-primary:hover:not(:disabled) {
-  background: #4338ca;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  background: var(--accent-2, #2f3b46);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .btn.btn-outline {
-  background: white;
-  color: #333;
-  border: 1px solid #ddd;
+  background: var(--surface, white);
+  color: var(--text, #333);
+  border: 1px solid var(--border, #ddd);
 }
 
 .btn.btn-outline:hover:not(:disabled) {
-  border-color: #4f46e5;
-  background: #f5f3ff;
+  border-color: var(--accent, #1f2a33);
+  background: var(--surface-2, #f1f0e8);
 }
 
 .btn.btn-secondary {

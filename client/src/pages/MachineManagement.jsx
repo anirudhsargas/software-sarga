@@ -1247,8 +1247,8 @@ const MachineManagement = () => {
                                                 {s.name?.charAt(0)?.toUpperCase()}
                                             </div>
                                             <div style={{ flex: 1 }}>
-                                                <div className="font-medium text-sm">{s.name}</div>
-                                                <div className="text-xs muted">Front Office &middot; {s.branch_name || ''}</div>
+                                                <div style={{ fontWeight: 600, fontSize: 14, color: '#000' }}>{s.name}</div>
+                                                <div style={{ fontSize: 12, color: '#555' }}>Front Office &middot; {s.branch_name || ''}</div>
                                             </div>
                                         </label>
                                     ))}

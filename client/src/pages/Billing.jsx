@@ -14,7 +14,7 @@ import toast from 'react-hot-toast';
 import { GST_RATE } from '../constants';
 import offlineDb from '../services/offlineDb';
 import { useOnlineStatus } from '../hooks/useOffline';
-import { getCachedHierarchy, getCachedMachines, getCachedBranches, prefetchBillingData } from '../services/offlineSync';
+import { getCachedHierarchy, getCachedMachines, getCachedBranches, prefetchBillingData, forcePrefetchBillingData } from '../services/offlineSync';
 
 const customerTypes = ['Walk-in', 'Retail', 'Association', 'Offset'];
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
@@ -26,6 +26,8 @@ const Billing = () => {
   const isFrontOffice = auth.getUser()?.role === 'Front Office';
   const { confirm } = useConfirm();
   const isOnline = useOnlineStatus();
+  const [offlineSyncing, setOfflineSyncing] = useState(false);
+  const [offlineLastSync, setOfflineLastSync] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -1265,6 +1267,35 @@ const Billing = () => {
                 : 'Offline — bills will sync when internet returns.'}
             </p>
           </div>
+          {isOnline && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+                disabled={offlineSyncing}
+                onClick={async () => {
+                  setOfflineSyncing(true);
+                  try {
+                    await forcePrefetchBillingData();
+                    setOfflineLastSync(new Date());
+                    toast.success('Product & rate data downloaded for offline use');
+                  } catch {
+                    toast.error('Download failed. Check your connection.');
+                  } finally {
+                    setOfflineSyncing(false);
+                  }
+                }}
+              >
+                <Download size={14} style={{ animation: offlineSyncing ? 'spin 1s linear infinite' : 'none' }} />
+                {offlineSyncing ? 'Downloading...' : 'Download for Offline'}
+              </button>
+              {offlineLastSync && (
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  Last synced: {offlineLastSync.toLocaleTimeString()}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {loading && <div className="muted">Loading products...</div>}

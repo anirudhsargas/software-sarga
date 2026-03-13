@@ -73,6 +73,24 @@ export async function prefetchBillingData() {
 /**
  * Get cached billing data — falls back to IndexedDB when the network is unavailable.
  */
+/**
+ * Force-refresh all billing data caches regardless of age.
+ * Used by the manual "Download for offline" button.
+ */
+export async function forcePrefetchBillingData() {
+    const tasks = [
+        { key: CACHE_KEYS.HIERARCHY, url: 'product-hierarchy' },
+        { key: CACHE_KEYS.BRANCHES, url: 'branches' },
+        { key: CACHE_KEYS.MACHINES, url: 'machines' },
+    ];
+    await Promise.all(
+        tasks.map(async ({ key, url }) => {
+            const res = await api.get(url);
+            await offlineDb.cacheData(key, res.data);
+        })
+    );
+}
+
 export async function getCachedHierarchy() {
     return offlineDb.getCachedData(CACHE_KEYS.HIERARCHY);
 }
