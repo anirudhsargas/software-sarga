@@ -963,7 +963,7 @@ const ProductLibrary = () => {
                     <div className="modal" style={{ maxWidth: '600px' }}>
                         <button className="modal-close" onClick={() => { setShowProdModal(false); setIsEditing(false); }}><X size={20} /></button>
                         <h2 className="section-title mb-4">{isEditing ? (isAdmin ? 'Edit Product' : 'View Product Rates') : 'Add New Product'}</h2>
-                        <p className="muted mb-16 text-sm">Define pricing rules and default extras.</p>
+                        {isAdmin && <p className="muted mb-16 text-sm">Define pricing rules and default extras.</p>}
 
                         <form onSubmit={handleSaveProduct} className="stack-md">
                             <fieldset disabled={!isAdmin} style={{border:'none',padding:0,margin:0}}>
@@ -984,6 +984,7 @@ const ProductLibrary = () => {
                                     ))}
                                 </select>
                             </div>
+                            {isAdmin && (
                             <div>
                                 <label className="label">Product Image (Optional)</label>
                                 <input
@@ -1012,6 +1013,7 @@ const ProductLibrary = () => {
                                     </div>
                                 )}
                             </div>
+                            )}
                             <div>
                                 <label className="label">Product Name</label>
                                 <input
@@ -1021,6 +1023,7 @@ const ProductLibrary = () => {
                                     required
                                 />
                             </div>
+                            {isAdmin && (
                             <div>
                                 <label className="label row items-center gap-xs">
                                     <input
@@ -1031,6 +1034,8 @@ const ProductLibrary = () => {
                                     This is a physical product (show in inventory)
                                 </label>
                             </div>
+                            )}
+                            {isAdmin && (
                             <div>
                                 <label className="label">Product Code (for QR)</label>
                                 <input
@@ -1040,7 +1045,9 @@ const ProductLibrary = () => {
                                     placeholder="e.g. ABC-FLEX-12X18"
                                 />
                             </div>
+                            )}
 
+                            {isAdmin && (
                             <div className="row gap-md">
                                 <div className="flex-1">
                                     <label className="label">Calculation Method</label>
@@ -1089,11 +1096,12 @@ const ProductLibrary = () => {
 
                                 </div>
                             </div>
+                            )}
 
                             <div className="stack-sm">
                                 <div className="row space-between items-center gap-md">
                                     <label className="label mb-0">Pricing Rules</label>
-                                    {newProduct.calculation_type !== 'Normal' && (
+                                    {isAdmin && newProduct.calculation_type !== 'Normal' && (
                                         <button type="button" className="btn btn-ghost btn-sm" onClick={addSlab}>
                                             <Plus size={14} /> Add Slab
                                         </button>
@@ -1339,16 +1347,20 @@ const ProductLibrary = () => {
                                                         )}
                                                     </>
                                                 )}
+                                                {isAdmin && (
                                                 <button type="button" className="btn btn-ghost btn-sm text-error" style={{ flexShrink: 0 }} onClick={() => removeSlab(idx)}>
                                                     <Trash2 size={14} />
                                                 </button>
+                                                )}
                                             </div>
                                         ))}
+                                        {isAdmin && (
                                         <div className="pt-8" style={{ borderTop: '1px solid var(--border)' }}>
                                             <button type="button" className="btn btn-ghost btn-sm" onClick={addSlab}>
                                                 <Plus size={14} /> Add Slab
                                             </button>
                                         </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1356,7 +1368,7 @@ const ProductLibrary = () => {
                             <div className="stack-sm">
                                 <div className="row space-between items-center gap-md">
                                     <label className="label mb-0">Default Extra Charges</label>
-                                    <button type="button" className="btn btn-ghost btn-sm" onClick={addExtra}><Plus size={14} /> Add Extra</button>
+                                    {isAdmin && <button type="button" className="btn btn-ghost btn-sm" onClick={addExtra}><Plus size={14} /> Add Extra</button>}
                                 </div>
                                 <div className="stack-sm bg-light p-16 rounded border">
                                     {newProduct.extras.length === 0 && <p className="muted text-xs">No template extras defined.</p>}
@@ -1384,7 +1396,7 @@ const ProductLibrary = () => {
                                                 }}
                                                 onWheel={e => e.preventDefault()}
                                             />
-                                            <button type="button" className="btn btn-ghost btn-sm text-error" style={{ flexShrink: 0 }} onClick={() => removeExtra(idx)}><Trash2 size={14} /></button>
+                                            {isAdmin && <button type="button" className="btn btn-ghost btn-sm text-error" style={{ flexShrink: 0 }} onClick={() => removeExtra(idx)}><Trash2 size={14} /></button>}
                                         </div>
                                     ))}
                                 </div>

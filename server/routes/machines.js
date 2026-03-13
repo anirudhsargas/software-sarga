@@ -4,6 +4,78 @@ const { pool } = require('../database');
 const auth = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 
+// ==================== BOOK STAFF ASSIGNMENTS (Offset/Laser/Other) ====================
+
+// GET /machines/book-assignments — get all book-staff assignments for the branch
+router.get('/book-assignments', auth.authenticate, async (req, res) => {
+    try {
+        const branchId = ['Admin', 'Accountant'].includes(req.user.role)
+            ? (req.query.branch_id || req.user.branch_id)
+            : req.user.branch_id;
+        const [rows] = await pool.query(
+            `SELECT bsa.book_type, bsa.staff_id, s.name as staff_name, s.role as staff_role
+             FROM sarga_book_staff_assignments bsa
+             JOIN sarga_staff s ON bsa.staff_id = s.id
+             WHERE bsa.branch_id = ?
+             ORDER BY bsa.book_type, s.name`,
+            [branchId]
+        );
+        const result = { Offset: [], Laser: [], Other: [] };
+        rows.forEach(r => {
+            if (result[r.book_type]) result[r.book_type].push({ staff_id: r.staff_id, staff_name: r.staff_name, staff_role: r.staff_role });
+        });
+        res.json(result);
+    } catch (err) {
+        console.error('Error fetching book assignments:', err);
+        res.status(500).json({ error: 'Failed to fetch book assignments' });
+    }
+});
+
+// POST /machines/book-assignments — set staff for a book type (replaces existing)
+router.post('/book-assignments', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
+    try {
+        const { book_type, staff_ids, branch_id } = req.body;
+        const branchId = branch_id || req.user.branch_id;
+        if (!['Offset', 'Laser', 'Other'].includes(book_type)) {
+            return res.status(400).json({ error: 'book_type must be Offset, Laser, or Other' });
+        }
+        if (!Array.isArray(staff_ids)) {
+            return res.status(400).json({ error: 'staff_ids must be an array' });
+        }
+        // Replace all assignments for this book type + branch
+        await pool.query(
+            'DELETE FROM sarga_book_staff_assignments WHERE book_type = ? AND branch_id = ?',
+            [book_type, branchId]
+        );
+        if (staff_ids.length > 0) {
+            const values = staff_ids.map(sid => [book_type, sid, branchId, req.user.id]);
+            await pool.query(
+                'INSERT INTO sarga_book_staff_assignments (book_type, staff_id, branch_id, assigned_by) VALUES ?',
+                [values]
+            );
+        }
+        auditLog(req.user.id, 'BOOK_ASSIGNMENT_SET', `Set ${book_type} book staff: [${staff_ids.join(',')}]`, { entity_type: 'book_assignment' });
+        res.json({ success: true, book_type, staff_ids });
+    } catch (err) {
+        console.error('Error setting book assignments:', err);
+        res.status(500).json({ error: 'Failed to set book assignments' });
+    }
+});
+
+// GET /machines/my-books — get book types assigned to the current user
+router.get('/my-books', auth.authenticate, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT book_type FROM sarga_book_staff_assignments WHERE staff_id = ? AND branch_id = ?',
+            [req.user.id, req.user.branch_id]
+        );
+        res.json(rows.map(r => r.book_type));
+    } catch (err) {
+        console.error('Error fetching my books:', err);
+        res.status(500).json({ error: 'Failed to fetch assigned books' });
+    }
+});
+
 // ==================== ASSIGN STAFF TO MACHINE (ADMIN ONLY) ====================
 router.post('/:id/assign-staff', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
     try {

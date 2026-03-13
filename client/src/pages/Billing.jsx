@@ -23,6 +23,7 @@ const Billing = () => {
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
     const isAdmin = auth.getUser()?.role === 'Admin';
+  const isFrontOffice = auth.getUser()?.role === 'Front Office';
   const { confirm } = useConfirm();
   const isOnline = useOnlineStatus();
   const location = useLocation();
@@ -42,6 +43,8 @@ const Billing = () => {
   const [extraInputs, setExtraInputs] = useState([]);
   const [qrInput, setQrInput] = useState('');
   const [orderLines, setOrderLines] = useState([]);
+  const [showQuickEntry, setShowQuickEntry] = useState(false);
+  const [quickEntry, setQuickEntry] = useState({ name: '', amount: '' });
   const [showPostBillOptions, setShowPostBillOptions] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignJobs, setAssignJobs] = useState([]);
@@ -81,6 +84,7 @@ const Billing = () => {
   const [lastBillData, setLastBillData] = useState(null);
   const [branchUpiId, setBranchUpiId] = useState('');
   const [scannedPreview, setScannedPreview] = useState(null); // { item, unitPrice, mrp } for inventory preview
+  const [scannedQty, setScannedQty] = useState(1);
 
   // Discount states
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -914,9 +918,9 @@ const Billing = () => {
       inventory_item_id: item.id,
       product_name: item.name,
       calculation_type: 'flat',
-      quantity: 1,
+      quantity: scannedQty,
       unit_price: unitPrice,
-      total_amount: unitPrice,
+      total_amount: unitPrice * scannedQty,
       applied_extras: [],
       customPaperRate: 0,
       is_double_side: false,
@@ -927,8 +931,9 @@ const Billing = () => {
       is_inventory_item: true
     };
     setOrderLines((prev) => [...prev, line]);
-    toast.success(`Added: ${item.name} — ₹${unitPrice % 1 === 0 ? unitPrice : unitPrice.toFixed(2)}`);
+    toast.success(`Added: ${item.name} ×${scannedQty} — ₹${(unitPrice * scannedQty) % 1 === 0 ? unitPrice * scannedQty : (unitPrice * scannedQty).toFixed(2)}`);
     setScannedPreview(null);
+    setScannedQty(1);
     setQrInput('');
   };
 
@@ -982,6 +987,34 @@ const Billing = () => {
 
   const removeOrderLine = (id) => {
     setOrderLines((prev) => prev.filter((line) => line.id !== id));
+  };
+
+  const handleQuickAdd = () => {
+    const name = quickEntry.name.trim();
+    const amount = parseFloat(quickEntry.amount);
+    if (!name) { toast.error('Enter a product/service name'); return; }
+    if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return; }
+    const line = {
+      id: `quick-${Date.now()}`,
+      product_id: null,
+      inventory_item_id: null,
+      product_name: name,
+      calculation_type: 'flat',
+      quantity: 1,
+      unit_price: amount,
+      total_amount: amount,
+      applied_extras: [],
+      customPaperRate: 0,
+      is_double_side: false,
+      description: name,
+      category: 'Quick Add',
+      subcategory: '',
+      machine_id: null,
+      is_inventory_item: false
+    };
+    setOrderLines((prev) => [...prev, line]);
+    setQuickEntry({ name: '', amount: '' });
+    toast.success(`Added: ${name} — ₹${amount.toFixed(2)}`);
   };
 
   const totals = useMemo(() => {
@@ -1448,7 +1481,7 @@ const Billing = () => {
 
               {/* Scanned Item Preview Popup */}
               {scannedPreview && (
-                <div className="modal-backdrop" onClick={() => setScannedPreview(null)}>
+                <div className="modal-backdrop" onClick={() => { setScannedPreview(null); setScannedQty(1); }}>
                   <div className="modal" style={{ maxWidth: 420, padding: 20 }} onClick={(e) => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                       {scannedPreview.item.image_url ? (
@@ -1480,11 +1513,38 @@ const Billing = () => {
                     {Number(scannedPreview.item.quantity) === 0 && (
                       <div className="sev-error" style={{ borderRadius: 6, padding: '8px 12px', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>Out of stock</div>
                     )}
+                    {Number(scannedPreview.item.quantity) > 0 && (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, margin: '4px 0 8px' }}>
+                          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setScannedQty(q => Math.max(1, q - 1))}>
+                            <Minus size={16} />
+                          </button>
+                          <input
+                            type="number"
+                            min={1}
+                            max={scannedPreview.item.quantity}
+                            value={scannedQty}
+                            onChange={e => {
+                              const v = Math.max(1, Math.min(Number(e.target.value) || 1, scannedPreview.item.quantity));
+                              setScannedQty(v);
+                            }}
+                            style={{ width: 64, textAlign: 'center', fontWeight: 700, fontSize: 18 }}
+                            className="input-field"
+                          />
+                          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setScannedQty(q => Math.min(q + 1, scannedPreview.item.quantity))}>
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                        <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)', marginBottom: 10 }}>
+                          Total: <strong style={{ color: 'var(--accent)' }}>₹{(scannedPreview.unitPrice * scannedQty) % 1 === 0 ? scannedPreview.unitPrice * scannedQty : (scannedPreview.unitPrice * scannedQty).toFixed(2)}</strong>
+                        </div>
+                      </>
+                    )}
                     <div style={{ display: 'flex', gap: 10 }}>
                       <button className="btn btn-primary" style={{ flex: 1, whiteSpace: 'nowrap' }} onClick={() => addScannedItemToOrder(scannedPreview)}>
                         <Plus size={16} /> Add to Bill
                       </button>
-                      <button className="btn btn-ghost" style={{ whiteSpace: 'nowrap' }} onClick={() => setScannedPreview(null)}>Cancel</button>
+                      <button className="btn btn-ghost" style={{ whiteSpace: 'nowrap' }} onClick={() => { setScannedPreview(null); setScannedQty(1); }}>Cancel</button>
                     </div>
                   </div>
                 </div>
@@ -1499,6 +1559,50 @@ const Billing = () => {
                   toast.success(`${data.breakdown}`);
                 }}
               />
+
+              {/* Quick Add — Front Office only */}
+              {isFrontOffice && (
+                <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12, marginBottom: 4 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: 12, color: showQuickEntry ? 'var(--accent)' : 'var(--muted)', marginBottom: showQuickEntry ? 10 : 0 }}
+                    onClick={() => setShowQuickEntry(v => !v)}
+                  >
+                    <Plus size={13} /> {showQuickEntry ? 'Hide Quick Add' : 'Quick Add (name + amount)'}
+                  </button>
+                  {showQuickEntry && (
+                    <div className="row gap-sm items-end" style={{ flexWrap: 'wrap' }}>
+                      <div style={{ flex: 2, minWidth: 160 }}>
+                        <label className="label" style={{ fontSize: 12 }}>Product / Service Name</label>
+                        <input
+                          type="text"
+                          className="input-field"
+                          placeholder="e.g. Mug printing"
+                          value={quickEntry.name}
+                          onChange={e => setQuickEntry(prev => ({ ...prev, name: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 100 }}>
+                        <label className="label" style={{ fontSize: 12 }}>Amount (₹)</label>
+                        <input
+                          type="number"
+                          className="input-field"
+                          placeholder="0.00"
+                          min={0}
+                          value={quickEntry.amount}
+                          onChange={e => setQuickEntry(prev => ({ ...prev, amount: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }}
+                        />
+                      </div>
+                      <button type="button" className="btn btn-primary btn-sm" onClick={handleQuickAdd} style={{ whiteSpace: 'nowrap', marginBottom: 1 }}>
+                        <Plus size={14} /> Add
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="row gap-md billing-row">
                 <div className="flex-1">

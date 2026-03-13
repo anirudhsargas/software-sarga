@@ -1331,6 +1331,22 @@ const initDb = async () => {
       )
     `);
 
+    // Cash Book Staff Assignments (which staff handles Offset/Laser/Other cash opening)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_book_staff_assignments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        book_type ENUM('Offset', 'Laser', 'Other') NOT NULL,
+        staff_id INT NOT NULL,
+        branch_id INT NOT NULL,
+        assigned_by INT,
+        assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE,
+        FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE,
+        FOREIGN KEY (assigned_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
+        UNIQUE KEY unique_book_staff_branch (book_type, staff_id, branch_id)
+      )
+    `);
+
     // Enhance Jobs table for Workbook
     try {
       await connection.query(`

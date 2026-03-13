@@ -85,6 +85,7 @@ const FrontOffice = () => {
     const [savingPrompt, setSavingPrompt] = useState(false);
     const [promptDone, setPromptDone] = useState(false);
     const [prevClosing, setPrevClosing] = useState({ Offset: 0, Laser: 0, Other: 0 });
+    const [myBooks, setMyBooks] = useState(null); // null = loading, [] = not assigned to any
 
     const [expandedCustomers, setExpandedCustomers] = useState(new Set());
     const [editingWorkName, setEditingWorkName] = useState(null); // job id being edited
@@ -117,32 +118,47 @@ const FrontOffice = () => {
         const today = serverToday();
         (async () => {
             try {
+                // Fetch which cash books this staff is assigned to
+                let assignedBooks = [];
+                try {
+                    const booksRes = await api.get('/machines/my-books');
+                    assignedBooks = booksRes.data || [];
+                } catch { assignedBooks = []; }
+                setMyBooks(assignedBooks);
+
                 const res = await api.get('/daily-report/opening-balance', { params: { date: today } });
                 const balances = res.data.balances || res.data;
                 const locked = res.data.locked || {};
-                const anyEntered = Object.values(balances).some(v => Number(v) > 0);
-                const anyLocked = Object.values(locked).some(v => v);
-                if (!anyEntered && !anyLocked) {
+                // Only check books this user is assigned to
+                const relevantBooks = assignedBooks.length > 0 ? assignedBooks : [];
+                const anyEntered = relevantBooks.some(b => Number(balances[b]) > 0);
+                const anyLocked = relevantBooks.some(b => locked[b]);
+                // Also fetch assigned machines (always check for machine count)
+                let myMachines = [];
+                try {
+                    const machRes = await api.get('/machines');
+                    myMachines = (machRes.data || []).filter(m => m.machine_type === 'Digital');
+                } catch { }
+                if ((!anyEntered && !anyLocked) || myMachines.length > 0) {
                     let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
                     try {
                         const prevRes = await api.get('/daily-report/previous-closing', { params: { date: today } });
                         prevData = prevRes.data;
                     } catch { }
                     setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
-                    try {
-                        const machRes = await api.get('/machines');
-                        const digitalMachines = (machRes.data || []).filter(m => m.machine_type === 'Digital');
-                        setPromptMachines(digitalMachines.map(m => ({
-                            id: m.id, machine_name: m.machine_name, location: m.location,
-                            opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''
-                        })));
-                    } catch { }
-                    setPromptBalances({
-                        Offset: prevData.Offset > 0 ? String(prevData.Offset) : '',
-                        Laser:  prevData.Laser  > 0 ? String(prevData.Laser)  : '',
-                        Other:  prevData.Other  > 0 ? String(prevData.Other)  : '',
+                    setPromptMachines(myMachines.map(m => ({
+                        id: m.id, machine_name: m.machine_name, location: m.location,
+                        opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''
+                    })));
+                    const newBalances = {};
+                    relevantBooks.forEach(b => {
+                        newBalances[b] = prevData[b] > 0 ? String(prevData[b]) : '';
                     });
-                    setShowOpeningPrompt(true);
+                    setPromptBalances(newBalances);
+                    // Only show prompt if there are books to enter OR machines to count
+                    if (relevantBooks.length > 0 || myMachines.length > 0) {
+                        setShowOpeningPrompt(true);
+                    }
                 }
             } catch (err) { console.error('Opening balance check error:', err); }
         })();
@@ -152,7 +168,8 @@ const FrontOffice = () => {
         setSavingPrompt(true);
         const today = serverToday();
         try {
-            const balancePromises = ['Offset', 'Laser', 'Other'].map(bookType =>
+            const books = Object.keys(promptBalances);
+            const balancePromises = books.map(bookType =>
                 api.put('/daily-report/opening-balance', {
                     date: today, book_type: bookType, cash_opening: parseFloat(promptBalances[bookType]) || 0
                 })
@@ -1228,33 +1245,35 @@ const FrontOffice = () => {
                         </div>
 
                         <div className="stack-md" style={{ marginTop: 20 }}>
-                            <div className="panel panel--tight" style={{ background: 'var(--surface-2)' }}>
-                                <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
-                                    <Wallet size={14} /> CASH OPENING BALANCES
-                                </h4>
-                                <div className="stack-sm">
-                                    {OPENING_TABS.map(tab => (
-                                        <div key={tab.key} className="row gap-md items-center">
-                                            <div style={{ width: 80, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                                                <div style={{ width: 8, height: 8, borderRadius: 3, background: tab.color }} />
-                                                {tab.label}
+                            {Object.keys(promptBalances).length > 0 && (
+                                <div className="panel panel--tight" style={{ background: 'var(--surface-2)' }}>
+                                    <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
+                                        <Wallet size={14} /> CASH OPENING BALANCES
+                                    </h4>
+                                    <div className="stack-sm">
+                                        {OPENING_TABS.filter(tab => Object.prototype.hasOwnProperty.call(promptBalances, tab.key)).map(tab => (
+                                            <div key={tab.key} className="row gap-md items-center">
+                                                <div style={{ width: 80, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                                                    <div style={{ width: 8, height: 8, borderRadius: 3, background: tab.color }} />
+                                                    {tab.label}
+                                                </div>
+                                                <div style={{ flex: 1, position: 'relative' }}>
+                                                    <input type="number" className="input-field"
+                                                        value={promptBalances[tab.key]}
+                                                        onChange={(e) => setPromptBalances(prev => ({ ...prev, [tab.key]: e.target.value }))}
+                                                        placeholder="₹ 0.00" step="0.01" style={{ width: '100%' }}
+                                                    />
+                                                    {prevClosing[tab.key] > 0 && (
+                                                        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--muted)', pointerEvents: 'none' }}>
+                                                            prev: ₹{Number(prevClosing[tab.key]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div style={{ flex: 1, position: 'relative' }}>
-                                                <input type="number" className="input-field"
-                                                    value={promptBalances[tab.key]}
-                                                    onChange={(e) => setPromptBalances(prev => ({ ...prev, [tab.key]: e.target.value }))}
-                                                    placeholder="₹ 0.00" step="0.01" style={{ width: '100%' }}
-                                                />
-                                                {prevClosing[tab.key] > 0 && (
-                                                    <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--muted)', pointerEvents: 'none' }}>
-                                                        prev: ₹{Number(prevClosing[tab.key]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {promptMachines.length > 0 && (
                                 <div className="panel panel--tight" style={{ background: 'var(--surface-2)' }}>

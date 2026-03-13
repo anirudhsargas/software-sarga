@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Plus, Edit2, Trash2, Power, PowerOff, Loader2, Building2, Settings,
     Users, UserPlus, X, Eye, Hash, Gauge, IndianRupee, ClipboardList,
-    Calendar, TrendingUp, Package, ChevronLeft, RefreshCw, Printer, AlertTriangle, CheckCircle, XCircle
+    Calendar, TrendingUp, Package, ChevronLeft, RefreshCw, Printer, AlertTriangle, CheckCircle, XCircle,
+    BookOpen
 } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
@@ -43,7 +44,19 @@ const MachineManagement = () => {
     const [countRequests, setCountRequests] = useState([]);
     const [countRequestWorking, setCountRequestWorking] = useState(false);
 
+    // Book assignments (Offset / Laser / Other)
+    const [bookAssignments, setBookAssignments] = useState({ Offset: [], Laser: [], Other: [] });
+    const [showBookAssignModal, setShowBookAssignModal] = useState(false);
+    const [bookAssignType, setBookAssignType] = useState(null);   // 'Offset' | 'Laser' | 'Other'
+    const [bookAssignStaffIds, setBookAssignStaffIds] = useState([]);
+    const [savingBookAssign, setSavingBookAssign] = useState(false);
+
     const machineTypes = ['Offset', 'Digital', 'Binding', 'Lamination', 'Cutting', 'Other'];
+    const BOOK_TYPES = [
+        { key: 'Offset', color: '#2563eb', label: 'Offset' },
+        { key: 'Laser',  color: '#7c3aed', label: 'Laser'  },
+        { key: 'Other',  color: '#059669', label: 'Other'  },
+    ];
 
     // ─── Data Fetch ──────────────────────────────────────────────
     useEffect(() => {
@@ -51,6 +64,7 @@ const MachineManagement = () => {
         if (isAdmin) {
             fetchBranches();
             fetchStaff();
+            fetchBookAssignments();
         }
     }, []);
 
@@ -75,6 +89,36 @@ const MachineManagement = () => {
             setMachines(res.data);
         } catch (e) { console.error('Error fetching machines:', e); }
         finally { setLoading(false); }
+    };
+
+    const fetchBookAssignments = async () => {
+        try {
+            const res = await api.get('/machines/book-assignments');
+            setBookAssignments(res.data || { Offset: [], Laser: [], Other: [] });
+        } catch (e) { console.error('Error fetching book assignments:', e); }
+    };
+
+    const openBookAssignModal = (bookType) => {
+        setBookAssignType(bookType);
+        setBookAssignStaffIds((bookAssignments[bookType] || []).map(s => s.staff_id));
+        setShowBookAssignModal(true);
+    };
+
+    const handleSaveBookAssignment = async () => {
+        setSavingBookAssign(true);
+        try {
+            await api.post('/machines/book-assignments', { book_type: bookAssignType, staff_ids: bookAssignStaffIds });
+            setShowBookAssignModal(false);
+            fetchBookAssignments();
+            toast.success(`${bookAssignType} staff assigned`);
+        } catch (e) { toast.error(e.response?.data?.error || 'Failed to save'); }
+        finally { setSavingBookAssign(false); }
+    };
+
+    const toggleBookStaff = (staffId) => {
+        setBookAssignStaffIds(prev =>
+            prev.includes(staffId) ? prev.filter(id => id !== staffId) : [...prev, staffId]
+        );
     };
 
     const fetchMachineDetails = useCallback(async (id) => {
@@ -1077,6 +1121,95 @@ const MachineManagement = () => {
 
             {/* Staff Assignment Modal */}
             {showAssignModal && renderAssignModal()}
+
+            {/* Cash Book Assignments (Admin only) */}
+            {isAdmin && (
+                <div className="panel" style={{ padding: 20 }}>
+                    <h3 className="panel-title" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <BookOpen size={16} /> Cash Book Assignments
+                    </h3>
+                    <p className="text-sm muted" style={{ marginBottom: 14 }}>
+                        Assign staff responsible for entering cash opening for each book. Only assigned staff will see that book's opening prompt.
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+                        {BOOK_TYPES.map(bt => (
+                            <div key={bt.key} className="panel" style={{ padding: 14, border: `2px solid ${bt.color}22` }}>
+                                <div className="row items-center" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <div style={{ width: 10, height: 10, borderRadius: 3, background: bt.color }} />
+                                        <span style={{ fontWeight: 700, fontSize: 14 }}>{bt.label}</span>
+                                    </div>
+                                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}
+                                        onClick={() => openBookAssignModal(bt.key)}>
+                                        <UserPlus size={13} /> Assign
+                                    </button>
+                                </div>
+                                {(bookAssignments[bt.key] || []).length === 0 ? (
+                                    <p className="text-sm muted" style={{ margin: 0 }}>No staff assigned</p>
+                                ) : (
+                                    <div className="stack-xs">
+                                        {(bookAssignments[bt.key] || []).map(s => (
+                                            <div key={s.staff_id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <div style={{ width: 22, height: 22, borderRadius: '50%', background: bt.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                                                    {s.staff_name?.charAt(0)?.toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-medium">{s.staff_name}</div>
+                                                    <div className="text-xs muted">{s.staff_role}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Book Assignment Modal */}
+            {showBookAssignModal && (
+                <div className="modal-overlay" onClick={() => setShowBookAssignModal(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+                        <div className="modal-header">
+                            <h2>Assign Staff — {bookAssignType} Book</h2>
+                            <button className="btn btn-ghost" onClick={() => setShowBookAssignModal(false)}>×</button>
+                        </div>
+                        <div className="modal-body" style={{ maxHeight: 400, overflowY: 'auto' }}>
+                            <p className="text-sm muted" style={{ marginBottom: 12 }}>
+                                Selected staff will be prompted to enter cash opening for the {bookAssignType} book each morning.
+                            </p>
+                            <div className="stack-sm">
+                                {staffList.map(s => (
+                                    <label key={s.id} className="row items-center gap-sm" style={{
+                                        padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+                                        border: '1px solid var(--clr-border)',
+                                        background: bookAssignStaffIds.includes(s.id) ? 'var(--clr-primary-light, #eef2ff)' : 'transparent'
+                                    }}>
+                                        <input type="checkbox"
+                                            checked={bookAssignStaffIds.includes(s.id)}
+                                            onChange={() => toggleBookStaff(s.id)} />
+                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+                                            {s.name?.charAt(0)?.toUpperCase()}
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div className="font-medium text-sm">{s.name}</div>
+                                            <div className="text-xs muted">{s.role} &middot; {s.branch_name || ''}</div>
+                                        </div>
+                                    </label>
+                                ))}
+                                {staffList.length === 0 && <p className="text-sm muted">No staff available</p>}
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setShowBookAssignModal(false)}>Cancel</button>
+                            <button className="btn btn-primary" onClick={handleSaveBookAssignment} disabled={savingBookAssign}>
+                                {savingBookAssign ? 'Saving...' : `Assign (${bookAssignStaffIds.length})`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
