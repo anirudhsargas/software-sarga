@@ -332,7 +332,7 @@ const Billing = () => {
     mobileSearchRef.current = setTimeout(async () => {
       try {
         setCustomerSearching(true);
-        const response = await api.get('/customers', { params: { search: form.mobile } });
+        const response = await api.get('/customers', { params: { search: form.mobile, cross_branch: '1' } });
         const results = Array.isArray(response.data) ? response.data : (response.data?.data || []);
         const match = results.find((c) => String(c.mobile) === form.mobile);
         if (!match) {
@@ -492,10 +492,24 @@ const Billing = () => {
       address: trimmedAddress || null
     };
 
-    const response = await api.post('/customers', payload);
-    const newCustomer = { id: response.data?.id, ...payload };
-    setExistingCustomer(newCustomer);
-    return newCustomer;
+    try {
+      const response = await api.post('/customers', payload);
+      const newCustomer = { id: response.data?.id, ...payload };
+      setExistingCustomer(newCustomer);
+      return newCustomer;
+    } catch (err) {
+      // If duplicate mobile, look up the existing customer instead
+      if (err.response?.status === 409 || err.response?.data?.message?.toLowerCase().includes('already exists')) {
+        const searchRes = await api.get('/customers', { params: { search: trimmedMobile, cross_branch: '1' } });
+        const results = Array.isArray(searchRes.data) ? searchRes.data : (searchRes.data?.data || []);
+        const found = results.find(c => String(c.mobile) === trimmedMobile);
+        if (found) {
+          setExistingCustomer(found);
+          return found;
+        }
+      }
+      throw err;
+    }
   };
 
   const handleAddOrder = async () => {
@@ -1221,8 +1235,6 @@ const Billing = () => {
 
         {loading && <div className="muted">Loading products...</div>}
         {customerSearching && <div className="muted" style={{ fontSize: '13px', padding: '4px 0' }}>Searching customer...</div>}
-        {!loading && error && <div className="alert alert--error mb-16">{error}</div>}
-
         {/* Step Indicators */}
         <div className="billing-steps">
           <div className={`billing-step ${orderLines.length === 0 ? 'billing-step--active' : 'billing-step--done'}`}>
@@ -1970,6 +1982,9 @@ const Billing = () => {
                     />
                   </div>
                 )}
+
+                {/* Error Display */}
+                {error && <div className="alert alert--error mb-12">{error}</div>}
 
                 {/* Create Bill Button */}
                 <div className="billing-create-bar">

@@ -51,8 +51,8 @@ router.get('/:id/salary-info', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
-        // M-14: Prevent cross-user salary data access
-        if (String(req.user.id) !== String(id) && !['Admin', 'Accountant'].includes(req.user.role)) {
+        // M-14: Prevent cross-user salary data access (Admin, Accountant, Front Office can view any)
+        if (String(req.user.id) !== String(id) && !['Admin', 'Accountant', 'Front Office'].includes(req.user.role)) {
             return res.status(403).json({ message: 'Access denied. You can only view your own salary info.' });
         }
 
@@ -406,7 +406,7 @@ router.get('/:id/salary-calculation/:year_month', authenticateToken, async (req,
     const { id, year_month } = req.params;
 
     // M-14: Prevent cross-user salary data access
-    if (String(req.user.id) !== String(id) && !['Admin', 'Accountant'].includes(req.user.role)) {
+    if (String(req.user.id) !== String(id) && !['Admin', 'Accountant', 'Front Office'].includes(req.user.role)) {
         return res.status(403).json({ message: 'Access denied. You can only view your own salary info.' });
     }
 
