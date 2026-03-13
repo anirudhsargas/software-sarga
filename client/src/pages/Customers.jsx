@@ -56,9 +56,9 @@ const Customers = () => {
             if (typeFilter) params.append('type', typeFilter);
             const response = await api.get(`/customers?${params}`);
             const res = response.data;
-            setCustomers(res.data);
-            setTotal(res.total);
-            setTotalPages(res.totalPages);
+            setCustomers(res.data || []);
+            setTotal(res.total || 0);
+            setTotalPages(res.totalPages || 1);
         } catch (err) {
             setError('Failed to fetch customers');
         } finally {
@@ -195,8 +195,8 @@ const Customers = () => {
     const fetchBranches = async () => {
         try {
             const response = await api.get('/branches');
-            setBranches(response.data);
-            if (response.data.length > 0) {
+            setBranches(response.data || []);
+            if ((response.data || []).length > 0) {
                 setJobData(prev => ({ ...prev, branch_id: response.data[0].id }));
             }
         } catch (err) {

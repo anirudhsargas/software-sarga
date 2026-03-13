@@ -99,6 +99,18 @@ app.use(cors({
         if (/^https?:\/\/(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
             return callback(null, true);
         }
+        // Allow Vercel deployments (*.vercel.app)
+        if (/^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) {
+            return callback(null, true);
+        }
+        // Allow Cloudflare tunnels (*.trycloudflare.com)
+        if (/^https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com$/.test(origin)) {
+            return callback(null, true);
+        }
+        // Allow ngrok tunnels (*.ngrok-free.app, *.ngrok-free.dev, *.ngrok.io)
+        if (/^https:\/\/[a-zA-Z0-9-]+\.ngrok(-free)?\.(app|dev)$/.test(origin) || /^https:\/\/[a-zA-Z0-9-]+\.ngrok\.io$/.test(origin)) {
+            return callback(null, true);
+        }
         callback(new Error(`CORS: origin '${origin}' not allowed`));
     },
     credentials: true
