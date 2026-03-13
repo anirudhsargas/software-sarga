@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
+const { invalidateHierarchyCache } = require('./jobs');
 const { validate, addInventorySchema } = require('../middleware/validate');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const PDFDocument = require('pdfkit');
@@ -159,9 +160,104 @@ router.post('/inventory/extract-bill', authenticateToken, authorizeRoles('Admin'
     }
 });
 
+// Auto-create a product in the Product Library when an inventory item is added
+async function autoCreateProductFromInventory(inventoryId, name, inventoryCategory, sku, sellPrice) {
+    // Check if already linked
+    const [existing] = await pool.query('SELECT id FROM sarga_products WHERE inventory_item_id = ?', [inventoryId]);
+    if (existing.length > 0) return;
+
+    const normalizeName = (v) => String(v || '').trim().toLowerCase();
+    const normalizedInvCat = normalizeName(inventoryCategory);
+
+    // Try to find matching subcategory by name (exact, contains, or parent category contains)
+    const [allSubcats] = await pool.query(
+        `SELECT s.id as sub_id, s.name as sub_name, c.id as cat_id, c.name as cat_name
+         FROM sarga_product_subcategories s
+         JOIN sarga_product_categories c ON s.category_id = c.id
+         ORDER BY s.name`
+    );
+
+    let matchedSubcategoryId = null;
+
+    // 1. Exact match on subcategory name
+    for (const row of allSubcats) {
+        if (normalizeName(row.sub_name) === normalizedInvCat) {
+            matchedSubcategoryId = row.sub_id;
+            break;
+        }
+    }
+
+    // 2. Fuzzy: inventory category contains subcategory name or vice versa
+    if (!matchedSubcategoryId) {
+        for (const row of allSubcats) {
+            const normalizedSub = normalizeName(row.sub_name);
+            if (normalizedInvCat.includes(normalizedSub) || normalizedSub.includes(normalizedInvCat)) {
+                matchedSubcategoryId = row.sub_id;
+                break;
+            }
+        }
+    }
+
+    // 3. Fuzzy: inventory category matches parent category name
+    if (!matchedSubcategoryId) {
+        for (const row of allSubcats) {
+            const normalizedCat = normalizeName(row.cat_name);
+            if (normalizedInvCat.includes(normalizedCat) || normalizedCat.includes(normalizedInvCat)) {
+                matchedSubcategoryId = row.sub_id;
+                break;
+            }
+        }
+    }
+
+    if (!matchedSubcategoryId) {
+        console.log(`[AutoProduct] No matching subcategory found for inventory category "${inventoryCategory}". Skipping auto-create.`);
+        return;
+    }
+
+    // Get next position
+    const [[posRow]] = await pool.query(
+        'SELECT COALESCE(MAX(position), 0) + 1 AS nextPos FROM sarga_products WHERE subcategory_id = ?',
+        [matchedSubcategoryId]
+    );
+
+    const unitRate = Number(sellPrice) || 0;
+
+    // Create product entry
+    const [insertResult] = await pool.query(
+        `INSERT INTO sarga_products (subcategory_id, name, product_code, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product)
+         VALUES (?, ?, ?, 'Normal', ?, 0, 0, 0, ?, ?, 1)`,
+        [matchedSubcategoryId, String(name).trim(), sku || null, `Auto-created from inventory`, posRow.nextPos, inventoryId]
+    );
+
+    // Add a default slab with sell_price as unit_rate
+    if (unitRate > 0) {
+        await pool.query(
+            'INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate) VALUES (?, 1, NULL, ?, ?)',
+            [insertResult.insertId, unitRate, unitRate]
+        );
+    }
+
+    invalidateHierarchyCache();
+    console.log(`[AutoProduct] Created product #${insertResult.insertId} linked to inventory #${inventoryId} in subcategory #${matchedSubcategoryId}`);
+}
+
 // Add Inventory Item
-// Auto-generate SKU from category prefix + item ID
-function generateAutoSku(category, itemId) {
+// Auto-generate SKU: Company first 3 letters + Product name + Size
+function generateAutoSku(category, itemId, sourceCode, modelName, sizeCode, itemName) {
+    // If source_code/model_name/size_code are provided, build SKU from them
+    const company = String(sourceCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const product = String(modelName || itemName || '').trim().toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, '');
+    const size = String(sizeCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    if (company || product) {
+        const companyPart = company.substring(0, 3) || (category || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
+        const parts = [companyPart];
+        if (product) parts.push(product);
+        if (size) parts.push(size);
+        return parts.join('-');
+    }
+
+    // Fallback: category prefix + item ID
     const prefix = (category || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '');
     return `${prefix || 'INV'}-${String(itemId).padStart(4, '0')}`;
 }
@@ -224,6 +320,15 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
                 );
             }
 
+            // Auto-create product in Product Library if not already linked
+            if (!product_id) {
+                try {
+                    await autoCreateProductFromInventory(inventoryId, name, category, sku, sell_price);
+                } catch (autoErr) {
+                    console.error('Auto-create product on merge failed (non-blocking):', autoErr.message);
+                }
+            }
+
             auditLog(req.user.id, 'INVENTORY_UPDATE_MERGE', `Merged ${quantity} unit(s) into item ${name} (ID: ${inventoryId})`);
             return res.json({ id: inventoryId, message: 'Item quantity updated and merged' });
         }
@@ -259,7 +364,7 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
         // Auto-generate SKU if none was provided
         let finalSku = sku || null;
         if (!finalSku) {
-            finalSku = generateAutoSku(category, inventoryId);
+            finalSku = generateAutoSku(category, inventoryId, source_code, model_name, size_code, name);
             await pool.query("UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL", [finalSku, inventoryId]);
         }
 
@@ -269,6 +374,15 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
                 "UPDATE sarga_products SET inventory_item_id = ?, is_physical_product = 1 WHERE id = ?",
                 [inventoryId, product_id]
             );
+        }
+
+        // Auto-create product in Product Library if not already linked
+        if (!product_id) {
+            try {
+                await autoCreateProductFromInventory(inventoryId, name, category, finalSku, sell_price);
+            } catch (autoErr) {
+                console.error('Auto-create product from inventory failed (non-blocking):', autoErr.message);
+            }
         }
 
         auditLog(req.user.id, 'INVENTORY_ADD', `Added new item ${name} (${finalSku || 'no-sku'})`);

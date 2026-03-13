@@ -13,7 +13,8 @@ let hierarchyCache = { data: null, timestamp: 0 };
 const getHierarchyData = async () => {
     const now = Date.now();
     if (hierarchyCache.data && (now - hierarchyCache.timestamp) < HIERARCHY_CACHE_TTL) {
-        return hierarchyCache.data;
+        const [inventory] = await pool.query("SELECT i.*, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id");
+        return { ...hierarchyCache.data, inventory };
     }
     const [categories, subcategories, products, inventory] = await Promise.all([
         pool.query("SELECT * FROM sarga_product_categories").then(r => r[0]),
@@ -21,8 +22,8 @@ const getHierarchyData = async () => {
         pool.query("SELECT * FROM sarga_products").then(r => r[0]),
         pool.query("SELECT i.*, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id").then(r => r[0])
     ]);
-    hierarchyCache = { data: { categories, subcategories, products, inventory }, timestamp: now };
-    return hierarchyCache.data;
+    hierarchyCache = { data: { categories, subcategories, products }, timestamp: now };
+    return { categories, subcategories, products, inventory };
 };
 
 // Invalidate hierarchy cache (call after product/category CRUD)
@@ -674,7 +675,8 @@ router.get('/product-hierarchy', authenticateToken, async (req, res) => {
                 }))
         }));
 
-        // Add Unlinked Inventory as a special category
+        // Add unlinked inventory items into matching categories where possible,
+        // and keep a fallback virtual category for truly unmatched names.
         const unlinkedItems = inventory.filter(i => !i.linked_product_id);
         if (unlinkedItems.length > 0) {
             const inventoryGroups = {};
@@ -693,18 +695,56 @@ router.get('/product-hierarchy', authenticateToken, async (req, res) => {
                 });
             });
 
-            const inventorySubcats = Object.entries(inventoryGroups).map(([name, items], idx) => ({
-                id: `inv-sub-${idx}`,
-                name: name,
-                products: items
-            }));
+            const normalizeName = (value) => String(value || '').trim().toLowerCase();
+            const fallbackSubcats = [];
 
-            hierarchy.push({
-                id: 'inv-root',
-                name: 'Raw Inventory',
-                position: 999,
-                subcategories: inventorySubcats
+            Object.entries(inventoryGroups).forEach(([inventoryCategoryName, items], idx) => {
+                const normalizedInventoryCategory = normalizeName(inventoryCategoryName);
+                const matchedCategory = hierarchy.find((cat) => {
+                    const normalizedCategory = normalizeName(cat.name);
+                    if (normalizedCategory === normalizedInventoryCategory) return true;
+                    return normalizedInventoryCategory.includes(normalizedCategory) || normalizedCategory.includes(normalizedInventoryCategory);
+                });
+
+                if (matchedCategory) {
+                    const inventorySubcategoryName = 'Inventory Items';
+                    const existingInventorySubcategory = (matchedCategory.subcategories || []).find(
+                        (sub) => normalizeName(sub.name) === normalizeName(inventorySubcategoryName)
+                    );
+
+                    if (existingInventorySubcategory) {
+                        existingInventorySubcategory.products = [
+                            ...(existingInventorySubcategory.products || []),
+                            ...items
+                        ];
+                    } else {
+                        matchedCategory.subcategories = [
+                            ...(matchedCategory.subcategories || []),
+                            {
+                                id: `inv-sub-${matchedCategory.id}`,
+                                name: inventorySubcategoryName,
+                                products: items
+                            }
+                        ];
+                    }
+                    return;
+                }
+
+                fallbackSubcats.push({
+                    id: `inv-sub-${idx}`,
+                    name: inventoryCategoryName,
+                    products: items
+                });
             });
+
+            if (fallbackSubcats.length > 0) {
+                hierarchy.push({
+                    id: 'inv-root',
+                    name: 'Raw Inventory',
+                    position: 999,
+                    subcategories: fallbackSubcats
+                });
+            }
         }
 
         res.json(hierarchy);

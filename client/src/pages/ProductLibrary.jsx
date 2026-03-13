@@ -105,6 +105,8 @@ const ProductLibrary = () => {
     const [newProduct, setNewProduct] = useState({
         name: '',
         product_code: '',
+        company_name: '',
+        size: '',
         calculation_type: 'Normal',
         description: '',
         has_paper_rate: false,
@@ -189,10 +191,19 @@ const ProductLibrary = () => {
         ? hierarchy.find(c => c.id === selectedCatId)?.subcategories || []
         : [];
 
+    const buildAutoSku = (company, productName, size) => {
+        const c = (company || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 3);
+        const p = (productName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const s = (size || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        return [c, p, s].filter(Boolean).join('-');
+    };
+
     const resetProductForm = () => {
         setNewProduct({
             name: '',
             product_code: '',
+            company_name: '',
+            size: '',
             calculation_type: 'Normal',
             description: '',
             has_paper_rate: false,
@@ -271,6 +282,8 @@ const ProductLibrary = () => {
             formData.append('subcategory_id', selectedSubId);
             formData.append('name', newProduct.name);
             formData.append('product_code', newProduct.product_code || '');
+            formData.append('company_name', newProduct.company_name || '');
+            formData.append('size', newProduct.size || '');
             formData.append('calculation_type', newProduct.calculation_type);
             formData.append('description', newProduct.description || '');
             formData.append('has_paper_rate', newProduct.has_paper_rate);
@@ -419,6 +432,8 @@ const ProductLibrary = () => {
             setNewProduct({
                 name: prod.name,
                 product_code: prod.product_code || '',
+                company_name: prod.company_name || '',
+                size: prod.size || '',
                 calculation_type: prod.calculation_type,
                 description: prod.description || '',
                 has_paper_rate: !!prod.has_paper_rate,
@@ -1019,7 +1034,11 @@ const ProductLibrary = () => {
                                 <input
                                     className="input-field"
                                     value={newProduct.name}
-                                    onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        const autoCode = buildAutoSku(newProduct.company_name, val, newProduct.size);
+                                        setNewProduct({ ...newProduct, name: val, product_code: autoCode });
+                                    }}
                                     required
                                 />
                             </div>
@@ -1036,13 +1055,46 @@ const ProductLibrary = () => {
                             </div>
                             )}
                             {isAdmin && (
+                            <div className="row gap-md">
+                                <div className="flex-1">
+                                    <label className="label">Company Name</label>
+                                    <input
+                                        className="input-field"
+                                        value={newProduct.company_name}
+                                        onChange={e => {
+                                            const val = e.target.value.toUpperCase();
+                                            const autoCode = buildAutoSku(val, newProduct.name, newProduct.size);
+                                            setNewProduct({ ...newProduct, company_name: val, product_code: autoCode });
+                                        }}
+                                        placeholder="e.g. PAMCO"
+                                        maxLength={50}
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="label">Size</label>
+                                    <input
+                                        className="input-field"
+                                        value={newProduct.size}
+                                        onChange={e => {
+                                            const val = e.target.value.toUpperCase();
+                                            const autoCode = buildAutoSku(newProduct.company_name, newProduct.name, val);
+                                            setNewProduct({ ...newProduct, size: val, product_code: autoCode });
+                                        }}
+                                        placeholder="e.g. A, L, 12X18"
+                                        maxLength={20}
+                                    />
+                                </div>
+                            </div>
+                            )}
+                            {isAdmin && (
                             <div>
-                                <label className="label">Product Code (for QR)</label>
+                                <label className="label">Product Code / SKU (auto-generated)</label>
                                 <input
                                     className="input-field"
                                     value={newProduct.product_code}
                                     onChange={e => setNewProduct({ ...newProduct, product_code: e.target.value.trim() })}
-                                    placeholder="e.g. ABC-FLEX-12X18"
+                                    placeholder="Auto: Company-Name-Size"
+                                    style={{ background: 'var(--surface-2)', fontFamily: 'monospace' }}
                                 />
                             </div>
                             )}

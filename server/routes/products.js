@@ -6,6 +6,77 @@ const { invalidateHierarchyCache } = require('./jobs');
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
 
+    // Auto-create an inventory entry when a product is added to the Product Library
+    async function autoCreateInventoryFromProduct(productId, productName, productCode, subcategoryId, slabs, companyName, size) {
+        // Check if already linked
+        const [existing] = await pool.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? AND inventory_item_id IS NOT NULL', [productId]);
+        if (existing.length > 0) return;
+
+        // Get category name from subcategory → category chain
+        const [subRows] = await pool.query(
+            `SELECT s.name AS sub_name, c.name AS cat_name
+             FROM sarga_product_subcategories s
+             JOIN sarga_product_categories c ON s.category_id = c.id
+             WHERE s.id = ?`,
+            [subcategoryId]
+        );
+        // Use subcategory name as inventory category (e.g., WOODEN MEMENTO)
+        const inventoryCategory = subRows.length > 0 ? subRows[0].sub_name : null;
+
+        // Extract sell_price from first slab unit_rate
+        let sellPrice = 0;
+        if (slabs && slabs.length > 0) {
+            sellPrice = Number(slabs[0].unit_rate) || Number(slabs[0].base_value) || 0;
+        }
+
+        // Use product_code as SKU, or auto-generate from company+name+size
+        let sku = productCode || null;
+        if (!sku) {
+            const c = String(companyName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 3);
+            const p = String(productName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const s = String(size || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const parts = [c, p, s].filter(Boolean);
+            if (parts.length > 0) sku = parts.join('-');
+        }
+
+        // Source code = company first 3 letters
+        const sourceCode = String(companyName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 3) || null;
+        const sizeCode = String(size || '').trim().toUpperCase() || null;
+
+        // Check if inventory item with same name+category already exists
+        const [existingInv] = await pool.query(
+            'SELECT id FROM sarga_inventory WHERE name = ? AND (category = ? OR (category IS NULL AND ? IS NULL))',
+            [productName, inventoryCategory, inventoryCategory]
+        );
+
+        let inventoryId;
+        if (existingInv.length > 0) {
+            inventoryId = existingInv[0].id;
+        } else {
+            const [invResult] = await pool.query(
+                `INSERT INTO sarga_inventory (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, item_type, source_code, model_name, size_code)
+                 VALUES (?, ?, ?, 'pcs', 0, 0, 0, ?, 'Retail', ?, ?, ?)`,
+                [productName, sku, inventoryCategory, sellPrice, sourceCode, productName, sizeCode]
+            );
+            inventoryId = invResult.insertId;
+
+            // Auto-generate SKU if still none
+            if (!sku) {
+                const catPart = (inventoryCategory || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
+                const autoSku = `${catPart}-${String(inventoryId).padStart(4, '0')}`;
+                await pool.query('UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL', [autoSku, inventoryId]);
+            }
+        }
+
+        // Link product to inventory item
+        await pool.query(
+            'UPDATE sarga_products SET inventory_item_id = ?, is_physical_product = 1 WHERE id = ?',
+            [inventoryId, productId]
+        );
+
+        console.log(`[AutoInventory] Created/linked inventory #${inventoryId} for product #${productId} (${productName})`);
+    }
+
     // --- PRODUCT HIERARCHY & PRICING ROUTES ---
 
     // List Categories
@@ -214,7 +285,7 @@ module.exports = (upload, removeUploadFile) => {
 
     // Add Product with Slabs and Extras
     router.post('/products', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
-        const { subcategory_id, name, product_code, calculation_type, description, inventory_item_id, isPhysicalProduct } = req.body;
+        const { subcategory_id, name, product_code, calculation_type, description, inventory_item_id, isPhysicalProduct, company_name, size } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
@@ -270,6 +341,16 @@ module.exports = (upload, removeUploadFile) => {
 
             await connection.commit();
             invalidateHierarchyCache();
+
+            // Auto-create inventory entry if not already linked to one
+            if (!inventory_item_id) {
+                try {
+                    await autoCreateInventoryFromProduct(productId, String(name).trim(), product_code, subcategory_id, slabs, company_name, size);
+                } catch (autoErr) {
+                    console.error('Auto-create inventory from product failed (non-blocking):', autoErr.message);
+                }
+            }
+
             auditLog(req.user.id, 'PRODUCT_ADD', `Added product: ${name} (${calculation_type})`, { entity_type: 'product', entity_id: productId });
             res.status(201).json({ id: productId, message: 'Product added with slabs and extras' });
         } catch (err) {

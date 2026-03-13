@@ -193,10 +193,22 @@ router.post('/vendor-bills', authenticateToken, authorizeRoles('Admin', 'Account
             );
 
             // Auto-generate SKU for items that don't have one yet
-            const [[invItem]] = await connection.query("SELECT sku, category FROM sarga_inventory WHERE id = ?", [item.inventory_item_id]);
+            const [[invItem]] = await connection.query("SELECT sku, category, source_code, model_name, size_code, name FROM sarga_inventory WHERE id = ?", [item.inventory_item_id]);
             if (invItem && !invItem.sku) {
-                const prefix = (invItem.category || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
-                const autoSku = `${prefix}-${String(item.inventory_item_id).padStart(4, '0')}`;
+                const company = String(invItem.source_code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+                const product = String(invItem.model_name || invItem.name || '').trim().toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, '');
+                const size = String(invItem.size_code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+                let autoSku;
+                if (company || product) {
+                    const companyPart = company.substring(0, 3) || (invItem.category || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
+                    const parts = [companyPart];
+                    if (product) parts.push(product);
+                    if (size) parts.push(size);
+                    autoSku = parts.join('-');
+                } else {
+                    const prefix = (invItem.category || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
+                    autoSku = `${prefix}-${String(item.inventory_item_id).padStart(4, '0')}`;
+                }
                 await connection.query("UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL", [autoSku, item.inventory_item_id]);
             }
         }
