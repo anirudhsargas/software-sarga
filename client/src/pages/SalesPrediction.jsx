@@ -85,8 +85,18 @@ const MiniBarChart = ({ data, height = 80, color = 'var(--accent)' }) => {
 const SeasonalHeatmap = ({ data }) => {
     if (!data || data.length === 0) return null;
     const maxIdx = Math.max(...data.map(d => d.index), 1);
+
+    const formatCellValue = (v) => {
+        const n = Number(v);
+        if (!Number.isFinite(n)) return String(v ?? '');
+        if (Math.abs(n) >= 1000) return n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (Math.abs(n) >= 100) return n.toFixed(0);
+        if (Math.abs(n) >= 10) return n.toFixed(1);
+        return n.toFixed(2);
+    };
+
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '4px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(78px, 1fr))', gap: '6px' }}>
             {data.map((d, i) => {
                 const intensity = d.index / maxIdx;
                 const bg = d.label === 'Peak'
@@ -96,12 +106,21 @@ const SeasonalHeatmap = ({ data }) => {
                         : `rgba(108, 112, 119, ${0.05 + intensity * 0.25})`;
                 return (
                     <div key={i} style={{
-                        textAlign: 'center', padding: '8px 4px', borderRadius: '8px',
-                        background: bg, border: '1px solid var(--border)'
+                        textAlign: 'center', padding: '8px 6px', borderRadius: '8px',
+                        background: bg, border: '1px solid var(--border)', overflow: 'hidden'
                     }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>{d.month}</div>
-                        <div style={{ fontSize: '16px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", marginTop: '2px' }}>
-                            {d.avg_orders}
+                        <div style={{
+                            fontSize: '11px', fontWeight: 600, color: 'var(--text)',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                        }}>
+                            {String(d.month || '').slice(0, 3)}
+                        </div>
+                        <div style={{
+                            fontSize: 'clamp(13px, 2.1vw, 16px)', fontWeight: 700,
+                            fontFamily: "'Space Grotesk', sans-serif", marginTop: '2px',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                        }}>
+                            {formatCellValue(d.avg_orders)}
                         </div>
                         <div style={{ fontSize: '10px', fontWeight: 600, marginTop: '2px',
                             color: d.label === 'Peak' ? 'var(--error)' : d.label === 'Slow' ? 'var(--accent-2)' : 'var(--warning)'

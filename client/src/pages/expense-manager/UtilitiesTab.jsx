@@ -176,6 +176,12 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
     return dashboard?.utility_summary?.find(u => (u.name || u.payee_name)?.toLowerCase() === name.toLowerCase());
   };
 
+  const handleUtilityCardClick = (e, utilityKey) => {
+    // Ignore card-open when user clicks inside action area/buttons.
+    if (e?.target?.closest?.('.em-utility-card__actions')) return;
+    openUtilityDetail(utilityKey);
+  };
+
   /* ══════════ Utility Detail Sub-Dashboard ══════════ */
   if (selectedUtility) {
     const rows = statement?.rows || [];
@@ -320,7 +326,12 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
           const isPaid = summary && Number(summary.total) > 0;
           const isCustom = customTypes.includes(u.key);
           return (
-            <div key={u.key} className={`em-utility-card ${isPaid ? 'em-utility-card--paid' : 'em-utility-card--pending'}`} onClick={() => openUtilityDetail(u.key)} style={{ cursor: 'pointer' }}>
+            <div
+              key={u.key}
+              className={`em-utility-card ${isPaid ? 'em-utility-card--paid' : 'em-utility-card--pending'}`}
+              onClick={(e) => handleUtilityCardClick(e, u.key)}
+              style={{ cursor: 'pointer' }}
+            >
               <div className="em-utility-card__header">
                 <div className="em-utility-card__icon" style={{ background: `${u.color}15`, color: u.color }}>
                   <Icon size={22} />
@@ -335,14 +346,14 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                 )}
               </div>
               <div className="em-utility-card__actions" onClick={e => e.stopPropagation()}>
-                <button className="btn btn-sm em-utility-card__btn-bill" onClick={(e) => { e.stopPropagation(); openBillForm(u.key); }}>
+                <button type="button" className="btn btn-sm em-utility-card__btn-bill" onClick={(e) => { e.stopPropagation(); openBillForm(u.key); }}>
                   <ShoppingCart size={13} /> Bill
                 </button>
-                <button className="btn btn-primary btn-sm em-utility-card__btn-pay" onClick={(e) => { e.stopPropagation(); onPayment({ type: 'Utility', payee_name: u.key }); }}>
+                <button type="button" className="btn btn-primary btn-sm em-utility-card__btn-pay" onClick={(e) => { e.stopPropagation(); onPayment({ type: 'Utility', payee_name: u.key }); }}>
                   <IndianRupee size={13} /> Pay
                 </button>
                 {isAdmin && isCustom && (
-                  <button className="btn btn-ghost btn-icon btn-sm" title="Remove type" onClick={(e) => { e.stopPropagation(); handleRemoveType(u.key); }}>
+                  <button type="button" className="btn btn-ghost btn-icon btn-sm" title="Remove type" onClick={(e) => { e.stopPropagation(); handleRemoveType(u.key); }}>
                     <Trash2 size={14} />
                   </button>
                 )}

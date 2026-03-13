@@ -3,6 +3,69 @@ const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const { getUserBranchId } = require('../helpers');
 
+// ─── FRONT OFFICE ATTENDANCE REMINDER (9:00 AM to 10:00 AM) ───────────────
+router.get('/front-office/attendance-reminder', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        const branchId = !['Admin', 'Accountant'].includes(userRole)
+            ? await getUserBranchId(req.user.id)
+            : req.query.branch_id || null;
+
+        // This reminder is intended for Front Office users.
+        if (!branchId || !['Front Office', 'front office'].includes(userRole)) {
+            return res.json({
+                should_remind: false,
+                in_window: false,
+                missing_count: 0,
+                marked_count: 0,
+                total_staff: 0,
+                attendance_date: new Date().toISOString().split('T')[0],
+                reminder_until: '10:00'
+            });
+        }
+
+        const now = new Date();
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        const minutesNow = (hour * 60) + minute;
+        const windowStart = 9 * 60;   // 09:00
+        const windowEnd = 10 * 60;    // 10:00
+        const inWindow = minutesNow >= windowStart && minutesNow < windowEnd;
+
+        const today = now.toISOString().split('T')[0];
+
+        // Count active branch staff who should have attendance marked.
+        const [rows] = await pool.query(
+            `SELECT s.id, s.name, s.role, sa.status
+             FROM sarga_staff s
+             LEFT JOIN sarga_staff_attendance sa
+               ON sa.staff_id = s.id AND sa.attendance_date = ?
+             WHERE s.branch_id = ?
+               AND s.is_active = 1
+               AND s.role NOT IN ('Admin')
+             ORDER BY s.name ASC`,
+            [today, branchId]
+        );
+
+        const missing = rows.filter(r => !r.status);
+        const marked = rows.filter(r => !!r.status);
+
+        res.json({
+            should_remind: inWindow && missing.length > 0,
+            in_window: inWindow,
+            missing_count: missing.length,
+            marked_count: marked.length,
+            total_staff: rows.length,
+            missing_staff: missing.map(m => ({ id: m.id, name: m.name, role: m.role })),
+            attendance_date: today,
+            reminder_until: '10:00'
+        });
+    } catch (err) {
+        console.error('Attendance reminder error:', err);
+        res.status(500).json({ message: 'Failed to load attendance reminder' });
+    }
+});
+
 // ─── FRONT OFFICE DASHBOARD ─────────────────────────────────────────
 router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
     try {

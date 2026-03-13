@@ -413,7 +413,7 @@ const EmployeeDetail = () => {
                                                     {attendanceSubmitError && <div style={{ color: 'var(--error)', margin: '8px 0', fontSize: 13 }}>{attendanceSubmitError}</div>}
                                                     <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
                                                         <button type="button" className="employee-detail__btn is-ghost" onClick={() => setShowAttendanceModal(false)} style={{ minWidth: 80 }}>Cancel</button>
-                                                        <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: '#fff', minWidth: 80 }}>Save</button>
+                                                        <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: '#000', minWidth: 80 }}>Save</button>
                                                     </div>
                                                 </form>
                                             ) : (
@@ -528,7 +528,7 @@ const EmployeeDetail = () => {
                                                 {attendanceSubmitError && <div style={{ color: 'var(--error)', margin: '8px 0', fontSize: 13 }}>{attendanceSubmitError}</div>}
                                                 <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
                                                     <button type="button" className="employee-detail__btn is-ghost" onClick={() => setShowAttendanceModal(false)} style={{ minWidth: 80 }}>Cancel</button>
-                                                    <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: '#fff', minWidth: 80 }}>Save</button>
+                                                    <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: '#000', minWidth: 80 }}>Save</button>
                                                 </div>
                                             </form>
                                         )}

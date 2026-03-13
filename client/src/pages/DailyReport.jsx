@@ -940,21 +940,21 @@ const DailyReport = () => {
                                     </h4>
                                     <div className="stack-sm">
                                         {TABS.filter(tab => Object.prototype.hasOwnProperty.call(promptBalances, tab.key)).map(tab => (
-                                            <div key={tab.key} className="row gap-md items-center">
+                                            <div key={tab.key} className="row gap-md items-center" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
                                                 <div style={{ width: 80, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
                                                     <div style={{ width: 8, height: 8, borderRadius: 3, background: tab.color }} />
                                                     {tab.label}
                                                 </div>
-                                                <div style={{ flex: 1, position: 'relative' }}>
+                                                <div style={{ flex: 1, minWidth: 180 }}>
                                                     <input type="number" className="input-field"
                                                         value={promptBalances[tab.key]}
                                                         onChange={(e) => setPromptBalances(prev => ({ ...prev, [tab.key]: e.target.value }))}
                                                         placeholder="₹ 0.00" step="0.01" style={{ width: '100%' }}
                                                     />
                                                     {prevClosing[tab.key] > 0 && (
-                                                        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--muted)', pointerEvents: 'none' }}>
+                                                        <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)', textAlign: 'right' }}>
                                                             prev: ₹{Number(prevClosing[tab.key]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        </span>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -982,7 +982,8 @@ const DailyReport = () => {
                                                         updated[idx].opening_count = e.target.value;
                                                         setPromptMachines(updated);
                                                     }}
-                                                    placeholder="Counter reading" style={{ width: 140 }}
+                                                    placeholder="Counter reading"
+                                                    style={{ width: 160, minWidth: 160, borderColor: 'var(--border)', lineHeight: 1.4 }}
                                                 />
                                             </div>
                                         ))}

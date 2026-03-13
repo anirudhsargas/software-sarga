@@ -22,6 +22,7 @@ const OPENING_TABS = [
 
 const FrontOffice = () => {
     const navigate = useNavigate();
+    const user = auth.getUser();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
@@ -92,6 +93,7 @@ const FrontOffice = () => {
     const [workNameInput, setWorkNameInput] = useState('');
     const [savingWorkName, setSavingWorkName] = useState(false);
     const [categoryFilter, setCategoryFilter] = useState('');
+    const [attendanceReminder, setAttendanceReminder] = useState(null);
 
     // ─── Data Fetch ──────────────────────────────────────────────
     const fetchDashboard = useCallback(async (silent = false) => {
@@ -110,6 +112,23 @@ const FrontOffice = () => {
     }, []);
 
     usePolling(() => fetchDashboard(true), 60000);
+
+    const fetchAttendanceReminder = useCallback(async () => {
+        if (!['Front Office', 'front office'].includes(user?.role)) return;
+        try {
+            const res = await api.get('/front-office/attendance-reminder');
+            setAttendanceReminder(res.data || null);
+        } catch (_) {
+            setAttendanceReminder(null);
+        }
+    }, [user?.role]);
+
+    useEffect(() => {
+        if (!['Front Office', 'front office'].includes(user?.role)) return;
+        fetchAttendanceReminder();
+        const id = setInterval(fetchAttendanceReminder, 60 * 1000);
+        return () => clearInterval(id);
+    }, [fetchAttendanceReminder, user?.role]);
 
     // ─── Opening Balance Check (Front Office only) ────────────────
     useEffect(() => {
@@ -501,6 +520,27 @@ const FrontOffice = () => {
                 <div className="fo-header__actions">
                 </div>
             </div>
+
+            {attendanceReminder?.should_remind && (
+                <div className="panel panel--tight" style={{ marginBottom: 14, borderColor: 'var(--warning)', background: 'var(--surface-2)' }}>
+                    <div className="row items-center gap-sm" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <AlertTriangle size={16} style={{ color: 'var(--warning)' }} />
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
+                                    Attendance pending for {attendanceReminder.missing_count} staff
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                                    Shop timing is 9 to 6. Please add attendance before {attendanceReminder.reminder_until} AM.
+                                </div>
+                            </div>
+                        </div>
+                        <button className="btn btn-primary btn-sm" onClick={() => navigate('/dashboard/daily-report')}>
+                            Add Attendance
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* ──── Search Bar ──── */}
             <div className="fo-search-bar" ref={searchRef}>
@@ -1252,21 +1292,21 @@ const FrontOffice = () => {
                                     </h4>
                                     <div className="stack-sm">
                                         {OPENING_TABS.filter(tab => Object.prototype.hasOwnProperty.call(promptBalances, tab.key)).map(tab => (
-                                            <div key={tab.key} className="row gap-md items-center">
+                                            <div key={tab.key} className="row gap-md items-center" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
                                                 <div style={{ width: 80, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
                                                     <div style={{ width: 8, height: 8, borderRadius: 3, background: tab.color }} />
                                                     {tab.label}
                                                 </div>
-                                                <div style={{ flex: 1, position: 'relative' }}>
+                                                <div style={{ flex: 1, minWidth: 180 }}>
                                                     <input type="number" className="input-field"
                                                         value={promptBalances[tab.key]}
                                                         onChange={(e) => setPromptBalances(prev => ({ ...prev, [tab.key]: e.target.value }))}
                                                         placeholder="₹ 0.00" step="0.01" style={{ width: '100%' }}
                                                     />
                                                     {prevClosing[tab.key] > 0 && (
-                                                        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--muted)', pointerEvents: 'none' }}>
+                                                        <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)', textAlign: 'right' }}>
                                                             prev: ₹{Number(prevClosing[tab.key]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        </span>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -1294,7 +1334,8 @@ const FrontOffice = () => {
                                                         updated[idx] = { ...updated[idx], opening_count: e.target.value };
                                                         setPromptMachines(updated);
                                                     }}
-                                                    placeholder="Counter reading" style={{ width: 140 }}
+                                                    placeholder="Counter reading"
+                                                    style={{ width: 160, minWidth: 160, borderColor: 'var(--border)', lineHeight: 1.4 }}
                                                 />
                                             </div>
                                         ))}

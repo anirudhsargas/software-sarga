@@ -803,24 +803,40 @@ const Billing = () => {
 
   const handleProductSelect = async (prod) => {
     if (!prod) return;
-    setProductError('');
-    try {
-      const res = await api.get(`/products/${prod.id}`);
-      const fullProd = res.data;
-      setSelectedProduct(fullProd);
+
+    const applyProductSelection = (productData) => {
+      const safeProduct = productData || prod;
+      const extras = safeProduct.extras || [];
+      const paperRate = safeProduct.has_paper_rate ? Number(safeProduct.paper_rate) || 0 : 0;
+
+      setSelectedProduct(safeProduct);
       setJobData((prev) => ({
         ...prev,
-        job_name: fullProd.name,
-        applied_extras: fullProd.extras || [],
-        customPaperRate: fullProd.has_paper_rate ? Number(fullProd.paper_rate) || 0 : 0,
+        job_name: safeProduct.name,
+        applied_extras: extras,
+        customPaperRate: paperRate,
         is_double_side: false,
         machine_id: ''
       }));
-      const extras = fullProd.extras || [];
       setExtraInputs(extras.map((e) => ({ purpose: e.purpose, amount: e.amount })));
-      calculateDynamicPrice(fullProd, jobData.quantity, extras, fullProd.has_paper_rate ? fullProd.paper_rate : 0);
+      calculateDynamicPrice(safeProduct, jobData.quantity, extras, paperRate);
+    };
+
+    setProductError('');
+
+    // In offline mode, avoid detail API and use cached hierarchy product data.
+    if (!isOnline) {
+      applyProductSelection(prod);
+      return;
+    }
+
+    try {
+      const res = await api.get(`/products/${prod.id}`);
+      applyProductSelection(res.data);
     } catch (err) {
-      setProductError('Failed to fetch product details');
+      // Graceful fallback when details endpoint fails but product exists in cache/list.
+      applyProductSelection(prod);
+      setProductError('Using cached product details (offline/unstable network)');
     }
   };
 
