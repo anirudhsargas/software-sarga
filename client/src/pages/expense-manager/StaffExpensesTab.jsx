@@ -9,6 +9,9 @@ import { fmt, fmtDate, today, thisMonth } from './constants';
 
 const DEFAULT_PAY_FORM = { amount: '', payment_date: today(), payment_method: 'Cash', reference_number: '', notes: '', bonus: '0', deduction: '0' };
 const DEFAULT_BULK_FORM = { payment_method: 'Cash', payment_date: today(), reference_number: '', notes: '', bonus: '0', deduction: '0' };
+const createIdempotencyKey = () => (typeof crypto !== 'undefined' && crypto.randomUUID
+  ? `salary-${crypto.randomUUID()}`
+  : `salary-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 const StaffExpensesTab = ({ onPayment, onError }) => {
   const [staffList, setStaffList] = useState([]);
@@ -120,6 +123,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
     if (!selectedStaff) return;
     setPaySubmitting(true);
     try {
+      const idempotencyKey = createIdempotencyKey();
       await api.post(`/staff/${selectedStaff.id}/pay-salary`, {
         payment_month: `${month}-01`,
         base_salary: Number(payForm.amount || 0),
@@ -129,7 +133,10 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
         reference_number: payForm.reference_number,
         notes: payForm.notes,
         bonus: Number(payForm.bonus || 0),
-        deduction: Number(payForm.deduction || 0)
+        deduction: Number(payForm.deduction || 0),
+        idempotency_key: idempotencyKey
+      }, {
+        headers: { 'Idempotency-Key': idempotencyKey }
       });
       closePayModal(true);
       setPayForm(DEFAULT_PAY_FORM);

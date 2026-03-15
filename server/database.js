@@ -409,6 +409,7 @@ const initDb = async () => {
         type ENUM('Vendor', 'Utility', 'Salary', 'Rent', 'Other') NOT NULL,
         payee_name VARCHAR(150) NOT NULL,
         amount DECIMAL(12, 2) NOT NULL,
+        idempotency_key VARCHAR(100),
         payment_method VARCHAR(100) DEFAULT 'Cash',
         reference_number VARCHAR(100),
         description TEXT,
@@ -429,6 +430,8 @@ const initDb = async () => {
         FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE SET NULL
       )
     `);
+    try { await connection.query('ALTER TABLE sarga_payments ADD COLUMN idempotency_key VARCHAR(100)'); } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+    await safeIndex('uniq_payments_idempotency_key', 'CREATE UNIQUE INDEX uniq_payments_idempotency_key ON sarga_payments (idempotency_key)');
 
     // Payment Methods Table (for custom payment methods)
     await connection.query(`
@@ -627,6 +630,7 @@ const initDb = async () => {
         payment_date DATETIME NOT NULL,
         payment_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
         payment_method VARCHAR(100),
+        idempotency_key VARCHAR(100),
         reference_number VARCHAR(100),
         notes TEXT,
         created_by INT,
@@ -635,6 +639,8 @@ const initDb = async () => {
         FOREIGN KEY (created_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
       )
     `);
+    try { await connection.query('ALTER TABLE sarga_staff_salary_payments ADD COLUMN idempotency_key VARCHAR(100)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    await safeIndex('uniq_staff_salary_payment_idem', 'CREATE UNIQUE INDEX uniq_staff_salary_payment_idem ON sarga_staff_salary_payments (staff_id, idempotency_key)');
 
     // Staff Attendance Table (for daily wage staff and tracking work days)
     await connection.query(`
@@ -791,6 +797,8 @@ const initDb = async () => {
         await connection.query(`ALTER TABLE sarga_customer_payments ADD COLUMN ${col.name} ${col.type}`);
       } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
     }
+    try { await connection.query('ALTER TABLE sarga_customer_payments ADD COLUMN idempotency_key VARCHAR(100)'); } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+    await safeIndex('uniq_customer_payments_idempotency_key', 'CREATE UNIQUE INDEX uniq_customer_payments_idempotency_key ON sarga_customer_payments (idempotency_key)');
 
     // Ensure verification_status ENUM includes 'Not in Statement'
     try {
@@ -803,6 +811,7 @@ const initDb = async () => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         job_id INT NOT NULL,
         customer_id INT,
+        idempotency_key VARCHAR(100),
         refund_amount DECIMAL(12,2) NOT NULL,
         refund_method ENUM('Cash','UPI','Cheque','Account Transfer') DEFAULT 'Cash',
         reason TEXT,
@@ -812,6 +821,8 @@ const initDb = async () => {
         FOREIGN KEY (job_id) REFERENCES sarga_jobs(id) ON DELETE CASCADE
       )
     `);
+    try { await connection.query('ALTER TABLE sarga_refunds ADD COLUMN idempotency_key VARCHAR(100)'); } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+    await safeIndex('uniq_refunds_idempotency_key', 'CREATE UNIQUE INDEX uniq_refunds_idempotency_key ON sarga_refunds (idempotency_key)');
 
     // Job Staff Assignment Table
     await connection.query(`

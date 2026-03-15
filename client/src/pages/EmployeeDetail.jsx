@@ -6,6 +6,10 @@ import api from '../services/api';
 import { serverToday, serverThisMonth } from '../services/serverTime';
 import './EmployeeDetail.css';
 
+const createIdempotencyKey = () => (typeof crypto !== 'undefined' && crypto.randomUUID
+    ? `salary-${crypto.randomUUID()}`
+    : `salary-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
 const EmployeeDetail = () => {
     const { staffId } = useParams();
     const navigate = useNavigate();
@@ -193,7 +197,13 @@ const EmployeeDetail = () => {
                         payment_month: currentMonth + '-01',
                         ...salaryForm
                     };
-                    await api.post(`/staff/${staffId}/pay-salary`, payload);
+                    const idempotencyKey = createIdempotencyKey();
+                    await api.post(`/staff/${staffId}/pay-salary`, {
+                        ...payload,
+                        idempotency_key: idempotencyKey
+                    }, {
+                        headers: { 'Idempotency-Key': idempotencyKey }
+                    });
                     setShowPaySalaryModal(false);
                     fetchEmployeeData();
                     // Show success alert

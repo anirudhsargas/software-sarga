@@ -4,6 +4,16 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { validate, attendanceSchema } = require('../middleware/validate');
 const PDFDocument = require('pdfkit');
+const rateLimit = require('express-rate-limit');
+
+const salaryPaymentLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 8,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => (req.user?.id ? `user:${req.user.id}` : rateLimit.ipKeyGenerator(req.ip)),
+    message: { message: 'Too many salary payment attempts. Please wait a few minutes before trying again.' }
+});
 
 async function calculateSalaryForMonth(staffId, staff, yearMonth) {
     const [attendance] = await pool.query(`
@@ -160,7 +170,7 @@ router.get('/:id/salary-info', authenticateToken, async (req, res) => {
 });
 
 // Pay salary
-router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), salaryPaymentLimiter, async (req, res) => {
     try {
         const { id } = req.params;
         const {
@@ -175,10 +185,34 @@ router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accou
             amount,
             payment_date
         } = req.body;
+        const idempotencyKey = String(req.headers['idempotency-key'] || req.body.idempotency_key || '').trim();
+
+        if (!idempotencyKey) {
+            return res.status(400).json({ message: 'Idempotency-Key is required for salary payment submission.' });
+        }
+        if (idempotencyKey.length > 100) {
+            return res.status(400).json({ message: 'Idempotency-Key must be 100 characters or fewer.' });
+        }
 
         const bonusNum = Number(bonus || 0);
         const deductionNum = Number(deduction || 0);
         const paidAmount = Number(payment_amount ?? amount ?? 0);
+
+        if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+            return res.status(400).json({ message: 'Payment amount must be greater than 0.' });
+        }
+
+        const [existingByKey] = await pool.query(
+            'SELECT id FROM sarga_staff_salary_payments WHERE staff_id = ? AND idempotency_key = ? LIMIT 1',
+            [id, idempotencyKey]
+        );
+        if (existingByKey.length > 0) {
+            return res.status(200).json({
+                message: 'Duplicate salary payment request ignored (idempotent replay).',
+                duplicate: true,
+                paymentTransactionId: existingByKey[0].id
+            });
+        }
 
         // Backward-compatible base salary handling if client sends only amount.
         let resolvedBaseSalary = Number(base_salary || 0);
@@ -233,11 +267,11 @@ router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accou
 
         if (paidAmount > 0) {
             // Record in staff specific table
-            await pool.query(`
+            const [paymentInsert] = await pool.query(`
                 INSERT INTO sarga_staff_salary_payments
-                (staff_id, payment_date, payment_amount, payment_method, reference_number, notes, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            `, [id, effectiveDate, paidAmount, payment_method, reference_number, notes, req.user.id]);
+                (staff_id, payment_date, payment_amount, payment_method, idempotency_key, reference_number, notes, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `, [id, effectiveDate, paidAmount, payment_method, idempotencyKey, reference_number, notes, req.user.id]);
 
             // record in global payments table for Daily Report
             await pool.query(`
@@ -256,11 +290,25 @@ router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accou
                 effectiveDate,
                 id
             ]);
+
+            auditLog(req.user.id, 'SALARY_PAYMENT', `Paid salary to staff ${id} for ${payment_month}`);
+
+            return res.json({
+                message: 'Salary payment recorded successfully',
+                salaryId: result[0].insertId || existing[0].id,
+                paymentTransactionId: paymentInsert.insertId
+            });
         }
 
         auditLog(req.user.id, 'SALARY_PAYMENT', `Paid salary to staff ${id} for ${payment_month}`);
         res.json({ message: 'Salary payment recorded successfully', salaryId: result[0].insertId || existing[0].id });
     } catch (err) {
+        if (err?.code === 'ER_DUP_ENTRY') {
+            return res.status(200).json({
+                message: 'Duplicate salary payment request ignored (idempotent replay).',
+                duplicate: true
+            });
+        }
         console.error('Salary payment error:', err);
         res.status(500).json({ message: 'Failed to record salary payment' });
     }

@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -10,6 +10,7 @@ const rateLimit = require('express-rate-limit');
 const { initDb, pool } = require('./database');
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
 if (!JWT_SECRET) {
     console.error('FATAL: JWT_SECRET environment variable is not defined. Refusing to start.');
     process.exit(1);
@@ -19,8 +20,28 @@ if (JWT_SECRET === 'printing_shop_secret_key_2025' || JWT_SECRET.length < 32) {
     process.exit(1);
 }
 
+const jwtSecrets = [JWT_SECRET];
+if (JWT_SECRET_PREVIOUS && JWT_SECRET_PREVIOUS !== JWT_SECRET) {
+    jwtSecrets.push(JWT_SECRET_PREVIOUS);
+}
+
+const verifyWithAnySecret = (token) => {
+    let lastError;
+    for (const secret of jwtSecrets) {
+        try {
+            return jwt.verify(token, secret);
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError || new Error('Invalid token');
+};
+
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Trust first proxy hop (ngrok/reverse proxy) so rate-limit can safely use client IP.
+app.set('trust proxy', 1);
 
 // Request logger (at the very top)
 app.use((req, res, next) => {
@@ -198,7 +219,7 @@ app.use('/uploads', (req, res, next) => {
     const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
     if (!token) return res.status(401).json({ message: 'Access denied.' });
     try {
-        jwt.verify(token, JWT_SECRET);
+        verifyWithAnySecret(token);
         next();
     } catch {
         return res.status(403).json({ message: 'Invalid or expired token.' });

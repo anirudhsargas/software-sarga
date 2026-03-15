@@ -86,7 +86,10 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await api.post('/bills-documents/extract-details', formData);
+      const response = await api.post('/bills-documents/extract-details', formData, {
+        timeout: 120000,
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       setExtractedData(response.data);
       setEditableItems(buildEditableItems(response.data.extracted_data?.items || []));
       setStep('suggestions');
@@ -112,7 +115,10 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
       }
     } catch (err) {
       console.error('[SmartBillUpload] Extraction failed:', err);
-      const errorMsg = err.response?.data?.error || err.response?.data?.details || err.message || 'Failed to extract bill details';
+      const isTimeout = String(err?.code || '').toUpperCase() === 'ECONNABORTED';
+      const errorMsg = isTimeout
+        ? 'Extraction is taking too long. Please try a smaller/clearer file or retry in a moment.'
+        : (err.response?.data?.error || err.response?.data?.details || err.message || 'Failed to extract bill details');
       setError(errorMsg);
       onError?.(err);
     } finally {
@@ -252,6 +258,13 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
                 'Extract Details'
               )}
             </button>
+
+            {error && (
+              <div className="error-message" role="alert" aria-live="polite">
+                <AlertCircle size={18} />
+                {error}
+              </div>
+            )}
           </div>
         )}
 

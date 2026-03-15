@@ -58,6 +58,14 @@ router.get('/payments', authenticateToken, async (req, res) => {
 // Add Payment
 router.post('/payments', authenticateToken, validate(addPaymentSchema), async (req, res) => {
     const { branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date, vendor_id, period_start, period_end, bill_total_amount, is_partial_payment } = req.body;
+    const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
+
+    if (!idempotencyKey) {
+        return res.status(400).json({ message: 'Idempotency-Key header is required for payment submission.' });
+    }
+    if (idempotencyKey.length > 100) {
+        return res.status(400).json({ message: 'Idempotency-Key must be 100 characters or fewer.' });
+    }
 
     // Validate "Both" payment method
     if (payment_method === 'Both') {
@@ -71,6 +79,15 @@ router.post('/payments', authenticateToken, validate(addPaymentSchema), async (r
     }
 
     try {
+        const [existingByKey] = await pool.query('SELECT id FROM sarga_payments WHERE idempotency_key = ? LIMIT 1', [idempotencyKey]);
+        if (existingByKey.length > 0) {
+            return res.status(200).json({
+                message: 'Duplicate payment request ignored (idempotent replay).',
+                duplicate: true,
+                id: existingByKey[0].id
+            });
+        }
+
         let finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? branch_id : await getUserBranchId(req.user.id);
         if (!finalBranchId) finalBranchId = await getUserBranchId(req.user.id);
 
@@ -91,13 +108,14 @@ router.post('/payments', authenticateToken, validate(addPaymentSchema), async (r
 
         const [result] = await pool.query(
             `INSERT INTO sarga_payments 
-            (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date, vendor_id, period_start, period_end, staff_id, bill_total_amount, is_partial_payment, payment_status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            (branch_id, type, payee_name, amount, idempotency_key, payment_method, cash_amount, upi_amount, reference_number, description, payment_date, vendor_id, period_start, period_end, staff_id, bill_total_amount, is_partial_payment, payment_status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             , [
                 finalBranchId,
                 type,
                 payee_name,
                 amount,
+                idempotencyKey,
                 payment_method,
                 Number(cash_amount) || 0,
                 Number(upi_amount) || 0,
@@ -143,6 +161,14 @@ router.post('/payments', authenticateToken, validate(addPaymentSchema), async (r
         auditLog(req.user.id, 'PAYMENT_ADD', `Added ${type} payment of ${amount} to ${payee_name}`);
         res.status(201).json({ id: result.insertId, message: 'Payment recorded successfully' });
     } catch (err) {
+        if (err?.code === 'ER_DUP_ENTRY') {
+            const [existingByKey] = await pool.query('SELECT id FROM sarga_payments WHERE idempotency_key = ? LIMIT 1', [idempotencyKey]);
+            return res.status(200).json({
+                message: 'Duplicate payment request ignored (idempotent replay).',
+                duplicate: true,
+                id: existingByKey[0]?.id
+            });
+        }
         console.error('Payment creation error:', err);
         res.status(500).json({ message: 'Database error' });
     }

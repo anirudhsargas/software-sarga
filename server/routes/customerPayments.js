@@ -102,6 +102,14 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
         job_ids,
         auto_deliver
     } = req.body;
+    const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
+
+    if (!idempotencyKey) {
+        return res.status(400).json({ message: 'Idempotency-Key header is required for customer payment submission.' });
+    }
+    if (idempotencyKey.length > 100) {
+        return res.status(400).json({ message: 'Idempotency-Key must be 100 characters or fewer.' });
+    }
 
     const total = Number(total_amount) || 0;
     const advance = Number(advance_paid) || 0;
@@ -144,6 +152,16 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
     await connection.beginTransaction();
 
     try {
+        const [existingByKey] = await connection.query('SELECT id FROM sarga_customer_payments WHERE idempotency_key = ? LIMIT 1', [idempotencyKey]);
+        if (existingByKey.length > 0) {
+            await connection.rollback();
+            return res.status(200).json({
+                message: 'Duplicate customer payment request ignored (idempotent replay).',
+                duplicate: true,
+                id: existingByKey[0].id
+            });
+        }
+
         const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
         let resolvedCustomerId = customer_id || null;
 
@@ -162,8 +180,8 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
         try {
             const [result] = await connection.query(
                 `INSERT INTO sarga_customer_payments
-                (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, discount_percent, discount_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, order_lines)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, discount_percent, discount_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, order_lines, idempotency_key)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     resolvedCustomerId,
                     String(customer_name).trim(),
@@ -184,7 +202,8 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                     reference_number || null,
                     description || null,
                     payment_date,
-                    JSON.stringify(order_lines || [])
+                    JSON.stringify(order_lines || []),
+                    idempotencyKey
                 ]
             );
             paymentId = result.insertId;
@@ -192,8 +211,8 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
             if (err.code === 'ER_BAD_FIELD_ERROR' || err.code === 'ER_NO_SUCH_TABLE') {
                 const [result] = await connection.query(
                     `INSERT INTO sarga_customer_payments
-                    (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, order_lines)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, order_lines, idempotency_key)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         resolvedCustomerId,
                         String(customer_name).trim(),
@@ -212,7 +231,8 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                         reference_number || null,
                         description || null,
                         payment_date,
-                        JSON.stringify(order_lines || [])
+                        JSON.stringify(order_lines || []),
+                        idempotencyKey
                     ]
                 );
                 paymentId = result.insertId;
@@ -453,6 +473,14 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
         res.status(201).json({ id: paymentId, invoice_number: invoiceNumber, balance_amount: balance, message: 'Customer payment recorded' });
     } catch (err) {
         await connection.rollback();
+        if (err?.code === 'ER_DUP_ENTRY') {
+            const [existingByKey] = await pool.query('SELECT id FROM sarga_customer_payments WHERE idempotency_key = ? LIMIT 1', [idempotencyKey]);
+            return res.status(200).json({
+                message: 'Duplicate customer payment request ignored (idempotent replay).',
+                duplicate: true,
+                id: existingByKey[0]?.id
+            });
+        }
         throw err;
     } finally {
         connection.release();
@@ -463,6 +491,14 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
 // --- REFUND ---
 router.post('/customer-payments/refund', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), asyncHandler(async (req, res) => {
     const { job_id, customer_id, refund_amount, refund_method, reason } = req.body;
+    const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
+
+    if (!idempotencyKey) {
+        return res.status(400).json({ message: 'Idempotency-Key header is required for refund submission.' });
+    }
+    if (idempotencyKey.length > 100) {
+        return res.status(400).json({ message: 'Idempotency-Key must be 100 characters or fewer.' });
+    }
 
     if (!job_id) return res.status(400).json({ message: 'job_id is required' });
     const amount = Number(refund_amount);
@@ -472,6 +508,16 @@ router.post('/customer-payments/refund', authenticateToken, authorizeRoles('Admi
     await connection.beginTransaction();
 
     try {
+        const [existingRefund] = await connection.query('SELECT id FROM sarga_refunds WHERE idempotency_key = ? LIMIT 1', [idempotencyKey]);
+        if (existingRefund.length > 0) {
+            await connection.rollback();
+            return res.status(200).json({
+                message: 'Duplicate refund request ignored (idempotent replay).',
+                duplicate: true,
+                refund_id: existingRefund[0].id
+            });
+        }
+
         // Fetch the job
         const [jobs] = await connection.query(
             'SELECT id, job_number, customer_id, customer_name, branch_id, total_amount, advance_paid FROM sarga_jobs WHERE id = ?',
@@ -512,9 +558,9 @@ router.post('/customer-payments/refund', authenticateToken, authorizeRoles('Admi
 
         // Insert refund record
         const [refundResult] = await connection.query(
-            `INSERT INTO sarga_refunds (job_id, customer_id, refund_amount, refund_method, reason, processed_by, branch_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [job_id, customer_id || job.customer_id, amount, refund_method || 'Cash', reason || 'Refund', req.user.id, branchId]
+            `INSERT INTO sarga_refunds (job_id, customer_id, idempotency_key, refund_amount, refund_method, reason, processed_by, branch_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [job_id, customer_id || job.customer_id, idempotencyKey, amount, refund_method || 'Cash', reason || 'Refund', req.user.id, branchId]
         );
 
         // Update job: reduce advance_paid, increase balance_amount, update payment_status
@@ -578,6 +624,14 @@ router.post('/customer-payments/refund', authenticateToken, authorizeRoles('Admi
         res.json({ id: refundResult.insertId, message: `Refund of ₹${amount} processed successfully`, new_advance: newAdvance, new_balance: newBalance });
     } catch (err) {
         await connection.rollback();
+        if (err?.code === 'ER_DUP_ENTRY') {
+            const [existingRefund] = await pool.query('SELECT id FROM sarga_refunds WHERE idempotency_key = ? LIMIT 1', [idempotencyKey]);
+            return res.status(200).json({
+                message: 'Duplicate refund request ignored (idempotent replay).',
+                duplicate: true,
+                refund_id: existingRefund[0]?.id
+            });
+        }
         throw err;
     } finally {
         connection.release();

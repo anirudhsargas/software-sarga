@@ -17,6 +17,18 @@
 
 **Overall Assessment:** The application has **solid architectural foundations** — parameterized SQL queries, audit logging, rate limiting on auth, branch isolation, proper error boundaries, PWA/offline support, and comprehensive form validation on the billing page. However, there are **critical data integrity gaps** in payment validation, job deletion, and several medium-severity security concerns that should be addressed before production scaling.
 
+### Status Refresh (March 15, 2026)
+
+This report was originally created on March 9, 2026. The codebase has since received a major remediation batch. Current snapshot:
+
+- Resolved: 13 issues
+- Partial: 6 issues
+- Open: 41 issues
+
+Notes:
+- Critical payment integrity checks were re-run on March 15, 2026 and passed: no negative balances, and no cash/UPI mismatch beyond tolerance in `sarga_customer_payments`.
+- JWT secret hardening is now enforced at startup, and token verification now supports `JWT_SECRET_PREVIOUS` to avoid forced logout during secret rotation windows.
+
 ---
 
 ## 1. FUNCTIONAL TESTING
@@ -421,83 +433,82 @@ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 
 **Verdict: No SQL injection vulnerabilities detected.** All queries use prepared statements.
 
-### 7.4 XSS Prevention
+## Summary: All Issues by Severity (Current Status)
 
-| Check | Status | Details |
-|-------|--------|---------|
-| `dangerouslySetInnerHTML` | ✅ | Not used |
-| `eval()` / `Function()` | ✅ | Not used |
-| `innerHTML` | ✅ | Not used |
-| React auto-escaping | ✅ | All JSX expressions safely escaped |
-| CSP headers | ❌ | **[M-15]** Disabled in Helmet config |
+### 🔴 Critical (8)
 
-#### **[M-15] Content Security Policy Disabled** 🟠 Major
-- `contentSecurityPolicy: false` in Helmet config.
-- While React auto-escapes, CSP adds defense-in-depth against injected scripts.
-- **Fix:** Enable a basic CSP that allows your app's origins.
+| ID | Issue | Area | Status |
+|----|-------|------|--------|
+| C-01 | Job deletion without payment check | Backend | Resolved |
+| C-02 | Staff deletion without referential check | Backend | Resolved |
+| C-03 | Advance payment can exceed total | Backend | Resolved |
+| C-04 | Refunds don't create reverse ledger entry | Backend | Resolved |
+| C-05 | `applied_extras` accepts any value (z.any()) | Validation | Resolved |
+| C-06 | No logical status transition validation | Backend | Resolved |
+| C-07 | Cash + UPI sum not validated | Backend | Resolved |
+| C-08 | Weak JWT secret | Security | Resolved |
 
-### 7.5 Other Security
+### 🟠 Major (22)
 
-| Check | Status | Issues |
-|-------|--------|--------|
-| HTTPS enforcement | ❌ | **[M-16]** HTTP fallback in api.js |
-| CSRF protection | ❌ | **[Mi-04]** No CSRF tokens |
-| File upload validation | ✅ | Multer whitelist (JPG/PNG/WEBP), 5MB limit |
-| Static file access control | ⚠️ | `/uploads` served without auth |
-| Rate limiting (general) | ✅ | 300 req / 5 min on `/api` |
-| Error message leakage | ❌ | **[M-17]** |
+| ID | Issue | Area | Status |
+|----|-------|------|--------|
+| M-01 | No min password length on login | Validation | Open |
+| M-02 | No password complexity requirements | Validation | Open |
+| M-03 | Date fields not format-validated | Validation | Open |
+| M-04 | Vendor phone/GSTIN not validated | Validation | Open |
+| M-05 | Attendance date can be in future | Validation | Open |
+| M-06 | Inconsistent frontend validation | Frontend | Open |
+| M-07 | No accessibility labels (aria-label) | Frontend | Partial |
+| M-08 | Zero quantity jobs allowed (backend) | Validation | Open |
+| M-09 | Negative amounts not blocked server-side | Validation | Partial |
+| M-10 | Critical missing database indexes (12) | Database | Partial |
+| M-11 | No CHECK constraints on financial columns | Database | Open |
+| M-12 | Password change doesn't require old password | Security | Open |
+| M-13 | Inventory SKU lookup missing auth | Security | Resolved |
+| M-14 | Salary info cross-access possible | Security | Resolved |
+| M-15 | Content Security Policy disabled | Security | Resolved |
+| M-16 | HTTP fallback URL in api.js | Security | Partial |
+| M-17 | Error stack traces leaked to client | Security | Open |
+| M-18 | 40+ SELECT * queries | Performance | Open |
+| M-19 | Missing pagination max on `?all=true` | Performance | Open |
+| M-20 | Silent catch blocks in frontend | Error Handling | Open |
+| M-21 | useAuth() conditional hook violation | Code Quality | Open |
+| M-22 | No request timeout configured | Frontend | Resolved |
 
-#### **[M-16] HTTP Fallback URL** 🟠 Major
-- `api.js` falls back to `http://` if `VITE_API_BASE_URL` is not set. Should always enforce HTTPS in production.
+### 🟡 Minor (30)
 
-#### **[M-17] Error Stack Traces Leaked to Client** 🟠 Major
-- Multiple routes return `error: err.message` in 500 responses, exposing table names, column names, and SQL syntax.
-- **Fix:** Replace all `{ message: 'Database error', error: err.message }` with `{ message: 'An internal error occurred.' }`. Log `err.message` server-side only.
-
-#### **[Mi-04] No CSRF Protection** 🟡 Minor
-- POST/PUT/DELETE endpoints don't validate CSRF tokens. Mitigated by JWT Bearer token requirement and SameSite cookies, but still a defense-in-depth gap.
-
----
-
-## 8. PERFORMANCE TESTING
-
-### 8.1 Query Performance
-
-| Issue | Severity | Impact | Count |
-|-------|----------|--------|-------|
-| `SELECT *` queries | 🟠 Major | Loads unnecessary columns | 40+ instances |
-| Missing indexes | 🟠 Major | Full table scans | 12 missing (see §6.2) |
-| N+1 query patterns | 🟡 Minor | Multiple DB round-trips | ~3 instances |
-| No query LIMIT on dashboards | 🟡 Minor | Large result sets | ~5 instances |
-
-#### **[M-18] Excessive `SELECT *` Usage** 🟠 Major
-- 40+ queries use `SELECT *` instead of specifying needed columns.
-- Impact: Transfers unnecessary data (images, JSON blobs), slower on large tables.
-- **Fix:** Replace with specific column lists, especially on list endpoints.
-
-#### **[M-19] Missing Pagination Maximum** 🟠 Major
-- `parsePagination()` enforces max 100. This is good. However, some endpoints (e.g., `?all=true` on staff) bypass pagination entirely.
-- **Fix:** Always enforce a hard limit, even with `all=true`.
-
-### 8.2 Frontend Performance
-
-| Issue | Severity | Details |
-|-------|----------|---------|
-| Large bundle | 🟡 | `index.js` 862KB (gzip 273KB) — chunk splitting recommended |
-| Lazy loading | ✅ | All pages properly lazy-loaded |
-| Polling interval | ✅ | 30s with visibility-pause (efficient) |
-| Image optimization | ⚠️ | No image compression on upload |
-| List virtualization | ❌ | **[Mi-05]** Large lists not virtualized |
-
-#### **[Mi-05] No Virtual Scrolling for Large Lists** 🟡 Minor
-- Customer/job lists with 1000+ items render all DOM nodes (pagination helps, but search results can be large).
-
-### 8.3 API Response Optimization
-
-| Endpoint | Avg Data Size | Issues |
-|----------|--------------|--------|
-| `GET /jobs` | Variable | SELECT * returns too many columns |
-| `GET /customers` | Small | OK with pagination |
+| ID | Issue | Area | Status |
+|----|-------|------|--------|
+| Mi-01 | Inventory schema too loose | Validation | Open |
+| Mi-02 | Missing focus management in modals | Accessibility | Open |
+| Mi-03 | 40+ tables missing `updated_at` | Database | Open |
+| Mi-04 | No CSRF protection | Security | Open |
+| Mi-05 | No virtual scrolling for large lists | Performance | Open |
+| Mi-06 | No server-side error aggregation | Error Handling | Open |
+| Mi-07 | Duplicated branch check pattern (15+) | Code Quality | Partial |
+| Mi-08 | Magic strings scattered | Code Quality | Open |
+| Mi-09 | Inconsistent timestamp column naming | Database | Open |
+| Mi-10 | Missing UNIQUE constraints (vendor name+branch, etc.) | Database | Open |
+| Mi-11 | Denormalized data in customer_payments (name, mobile) | Database | Open |
+| Mi-12 | product_code not indexed or unique | Database | Open |
+| Mi-13 | attendance_requests.requested_by is VARCHAR not INT FK | Database | Open |
+| Mi-14 | No token revocation mechanism | Security | Open |
+| Mi-15 | Debug logging in auth middleware (production) | Security | Open |
+| Mi-16 | `/uploads` served without access control | Security | Resolved |
+| Mi-17 | `order_link` URL protocol validation insufficient | Security | Open |
+| Mi-18 | No exponential backoff on offline sync | Frontend | Open |
+| Mi-19 | No "unsaved changes" indicator | UX | Partial |
+| Mi-20 | No client-side rate limiting | Frontend | Open |
+| Mi-21 | Hard-coded timeout intervals | Code Quality | Open |
+| Mi-22 | Duplicate audit log entries possible | Code Quality | Open |
+| Mi-23 | No caching for getUserBranchId() | Performance | Open |
+| Mi-24 | No caching for getUsageMap() | Performance | Open |
+| Mi-25 | Large main bundle (862KB) | Performance | Open |
+| Mi-26 | No image compression on upload | Performance | Open |
+| Mi-27 | Product slabs can overlap (no min<max check) | Database | Open |
+| Mi-28 | credit_customers.current_balance directly editable | Database | Open |
+| Mi-29 | Inconsistent VARCHAR sizes across tables | Database | Open |
+| Mi-30 | balance_after not validated against ledger cumulative | Database | Open |
 | `GET /production-tracker` | Medium | Good — groups by stage |
 | `GET /front-office/dashboard` | Large | Loads all active jobs |
 
@@ -820,24 +831,24 @@ WHERE a.min_qty < COALESCE(b.max_qty, 999999999) AND b.min_qty < COALESCE(a.max_
 ## Recommended Fix Priority
 
 ### Sprint 1 (Immediate — 1-2 days)
-1. **C-08** Rotate JWT secret to cryptographically random value
-2. **C-03** Add advance ≤ total validation in customerPayments
-3. **C-07** Add cash + UPI = advance validation
-4. **C-01** Add payment check before job deletion
-5. **M-17** Remove `error: err.message` from all 500 responses
+1. ✅ **C-08** Rotate JWT secret to cryptographically random value
+2. ✅ **C-03** Add advance ≤ total validation in customerPayments
+3. ✅ **C-07** Add cash + UPI = advance validation
+4. ✅ **C-01** Add payment check before job deletion
+5. 🔁 **M-17** Remove `error: err.message` from all 500 responses
 
 ### Sprint 2 (This week)
-6. **C-06** Implement status transition matrix
-7. **C-02** Add referential checks before staff deletion
-8. **C-05** Replace `z.any()` with proper schema for applied_extras
+6. ✅ **C-06** Implement status transition matrix
+7. ✅ **C-02** Add referential checks before staff deletion
+8. ✅ **C-05** Replace `z.any()` with proper schema for applied_extras
 9. **M-12** Require old password for password change
-10. **M-10** Add all 12 missing database indexes
+10. 🔁 **M-10** Add all 12 missing database indexes
 
 ### Sprint 3 (Next sprint)
-11. **C-04** Create reverse ledger entries for refunds
+11. ✅ **C-04** Create reverse ledger entries for refunds
 12. **M-09** Add CHECK constraints for negative amounts
-13. **M-07** Add aria-label to icon buttons
-14. **M-15** Enable Content Security Policy
+13. 🔁 **M-07** Add aria-label to icon buttons (remaining sweep)
+14. ✅ **M-15** Enable Content Security Policy
 15. **M-21** Fix useAuth conditional hook violation
 16. **M-18** Replace SELECT * with column lists (start with hot endpoints)
 

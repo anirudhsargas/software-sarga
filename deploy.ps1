@@ -10,14 +10,16 @@ Copy-Item -Path "dist\*" -Destination ".vercel\output\static\" -Recurse -Force
 Set-Content ".vercel\output\config.json" '{"version":3,"routes":[{"handle":"filesystem"},{"src":"/(.*)","dest":"/index.html"}]}'
 
 Write-Host "Patching rootDirectory..." -ForegroundColor Cyan
-$auth = Get-Content "$env:APPDATA\com.vercel.cli\Data\auth.json" | ConvertFrom-Json
-$token = $auth.token
+$token = $env:VERCEL_TOKEN
+if ([string]::IsNullOrWhiteSpace($token)) {
+	throw "VERCEL_TOKEN is not set. Set it in your environment before running deploy.ps1."
+}
 $headers = @{"Authorization"="Bearer $token"; "Content-Type"="application/json"}
 $base = "https://api.vercel.com/v9/projects/prj_OnusMBjOqlSdXs7LOcOlpeqc6Vzv?teamId=team_Up32BssEnS1BBEyRFLimVlW0"
 Invoke-RestMethod -Uri $base -Method Patch -Headers $headers -Body '{"rootDirectory":null}' | Out-Null
 
 Write-Host "Deploying to Vercel..." -ForegroundColor Cyan
-vercel deploy --prebuilt --prod --yes 2>&1
+vercel deploy --prebuilt --prod --yes --token $token 2>&1
 
 Write-Host "Restoring rootDirectory..." -ForegroundColor Cyan
 Invoke-RestMethod -Uri $base -Method Patch -Headers $headers -Body '{"rootDirectory":"client"}' | Out-Null

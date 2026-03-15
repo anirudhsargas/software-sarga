@@ -17,6 +17,10 @@ const { extractBillData } = require('../utils/ocrParser');
 const upload = multer({ dest: os.tmpdir() });
 
 const normalizeScannedCode = (value) => String(value || '').trim().replace(/\s+/g, '').toUpperCase();
+const normalizeSkuInput = (value) => {
+    const normalized = normalizeScannedCode(value);
+    return normalized || null;
+};
 
 async function findInventoryByScannedCode(rawCode) {
     const normalized = normalizeScannedCode(rawCode);
@@ -264,12 +268,13 @@ function generateAutoSku(category, itemId, sourceCode, modelName, sizeCode, item
 
 router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(addInventorySchema), async (req, res) => {
     const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link } = req.body;
+    const normalizedSku = normalizeSkuInput(sku);
 
     try {
         // 1. Check if an item with the same SKU already exists
         let existingItem = null;
-        if (sku) {
-            const [skuMatches] = await pool.query("SELECT id, quantity FROM sarga_inventory WHERE sku = ?", [sku]);
+        if (normalizedSku) {
+            const [skuMatches] = await pool.query("SELECT id, quantity FROM sarga_inventory WHERE REPLACE(UPPER(sku), ' ', '') = ?", [normalizedSku]);
             if (skuMatches.length > 0) existingItem = skuMatches[0];
         }
 
@@ -292,7 +297,7 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
                  WHERE id = ?`,
                 [
                     newQuantity,
-                    sku || null,
+                    normalizedSku,
                     category || null,
                     unit || 'pcs',
                     Number(reorder_level) || 0,
@@ -339,7 +344,7 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             , [
                 name,
-                sku || null,
+                normalizedSku,
                 category || null,
                 unit || 'pcs',
                 Number(quantity) || 0,
@@ -362,7 +367,7 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
         const inventoryId = result.insertId;
 
         // Auto-generate SKU if none was provided
-        let finalSku = sku || null;
+        let finalSku = normalizedSku;
         if (!finalSku) {
             finalSku = generateAutoSku(category, inventoryId, source_code, model_name, size_code, name);
             await pool.query("UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL", [finalSku, inventoryId]);
@@ -397,6 +402,7 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
 router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     const { id } = req.params;
     const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link } = req.body;
+    const normalizedSku = normalizeSkuInput(sku);
 
     try {
         await pool.query(
@@ -406,7 +412,7 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
              WHERE id = ?`
             , [
                 name,
-                sku || null,
+                normalizedSku,
                 category || null,
                 unit || 'pcs',
                 Number(quantity) || 0,

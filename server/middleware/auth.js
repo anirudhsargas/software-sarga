@@ -2,9 +2,27 @@ const jwt = require('jsonwebtoken');
 const { pool } = require('../database');
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
 if (!JWT_SECRET || JWT_SECRET === 'printing_shop_secret_key_2025' || JWT_SECRET.length < 32) {
     throw new Error('JWT_SECRET is missing or weak. Set a random 256-bit secret in environment.');
 }
+
+const jwtSecrets = [JWT_SECRET];
+if (JWT_SECRET_PREVIOUS && JWT_SECRET_PREVIOUS !== JWT_SECRET) {
+    jwtSecrets.push(JWT_SECRET_PREVIOUS);
+}
+
+const verifyWithAnySecret = (token) => {
+    let lastError;
+    for (const secret of jwtSecrets) {
+        try {
+            return jwt.verify(token, secret);
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError || new Error('Invalid token');
+};
 
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -12,11 +30,13 @@ const authenticateToken = (req, res, next) => {
 
     if (!token) return res.status(401).json({ message: 'Access denied. No token provided.' });
 
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) return res.status(403).json({ message: 'Invalid or expired token.' });
+    try {
+        const user = verifyWithAnySecret(token);
         req.user = user;
         next();
-    });
+    } catch (err) {
+        return res.status(403).json({ message: 'Invalid or expired token.' });
+    }
 };
 
 const authorizeRoles = (...allowedRoles) => {
@@ -37,7 +57,7 @@ const authenticate = async (req, res, next) => {
         }
 
         const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, JWT_SECRET);
+        const decoded = verifyWithAnySecret(token);
 
         // Fetch user from database
         const [users] = await pool.query(

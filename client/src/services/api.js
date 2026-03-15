@@ -37,6 +37,19 @@ const api = axios.create({
     timeout: 30000
 });
 
+const createIdempotencyKey = (prefix = 'req') => (typeof crypto !== 'undefined' && crypto.randomUUID
+    ? `${prefix}-${crypto.randomUUID()}`
+    : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+const requiresPaymentIdempotency = (url = '') => {
+    const path = String(url || '').replace(/^\/+/, '');
+    return [
+        /^payments$/i,
+        /^customer-payments$/i,
+        /^customer-payments\/refund$/i
+    ].some((rx) => rx.test(path));
+};
+
 // Automatically attach auth token to every request and fix absolute routes
 api.interceptors.request.use((config) => {
     // Ensure URL is relative to baseURL by stripping leading slash
@@ -50,6 +63,14 @@ api.interceptors.request.use((config) => {
     }
     // Skip ngrok browser interstitial for API requests
     config.headers['ngrok-skip-browser-warning'] = 'true';
+
+    // Enforce idempotency for high-risk payment creates to prevent duplicate writes on retries.
+    if (String(config.method || '').toLowerCase() === 'post' && requiresPaymentIdempotency(config.url)) {
+        if (!config.headers['Idempotency-Key']) {
+            const key = createIdempotencyKey('pay');
+            config.headers['Idempotency-Key'] = key;
+        }
+    }
     return config;
 });
 
