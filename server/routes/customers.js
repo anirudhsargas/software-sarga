@@ -1,9 +1,34 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getUserBranchId, auditLog, normalizeMobile } = require('../helpers');
+const { auditLog, normalizeMobile } = require('../helpers');
+const { branchFilter } = require('../middleware/branchFilter');
 const { validate, addCustomerSchema } = require('../middleware/validate');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+
+const CUSTOMER_COLUMNS = [
+    'id',
+    'mobile',
+    'name',
+    'type',
+    'email',
+    'gst',
+    'address',
+    'branch_id',
+    'created_at',
+    'updated_at'
+].join(', ');
+
+const CUSTOMER_PAYMENT_SUMMARY_COLUMNS = [
+    'id',
+    'customer_id',
+    'total_amount',
+    'advance_paid',
+    'balance_amount',
+    'payment_method',
+    'payment_date',
+    'created_at'
+].join(', ');
 
 // --- CUSTOMER ROUTES ---
 
@@ -19,10 +44,10 @@ router.get('/customers', authenticateToken, async (req, res) => {
 
         // cross_branch=1 allows all roles to search across branches (used by CustomerPayments page)
         const crossBranch = req.query.cross_branch === '1';
-        if (!crossBranch && !['Admin', 'Accountant'].includes(req.user.role)) {
-            const branchId = await getUserBranchId(req.user.id);
-            where += ' AND branch_id = ?';
-            params.push(branchId);
+        if (!crossBranch) {
+            const branchScope = await branchFilter(req, { column: 'branch_id', allowPrivilegedQuery: false });
+            where += branchScope.clause;
+            params.push(...branchScope.params);
         }
         if (typeFilter) {
             where += ' AND type = ?';
@@ -38,11 +63,11 @@ router.get('/customers', authenticateToken, async (req, res) => {
 
         if (usePagination) {
             const [[{ cnt }]] = await pool.query(`SELECT COUNT(*) as cnt ${baseFrom}`, params);
-            const [rows] = await pool.query(`SELECT * ${baseFrom} ORDER BY name ASC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+            const [rows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} ${baseFrom} ORDER BY name ASC LIMIT ? OFFSET ?`, [...params, limit, offset]);
             return res.json(paginatedResponse(rows, cnt, page, limit));
         }
 
-        const [rows] = await pool.query(`SELECT * ${baseFrom} ORDER BY name ASC`, params);
+        const [rows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} ${baseFrom} ORDER BY name ASC`, params);
         res.json(rows);
     } catch (err) {
         res.status(500).json({ message: 'Database error' });
@@ -55,11 +80,11 @@ router.get('/customers/:id', authenticateToken, async (req, res) => {
     try {
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
             // Allow looking up a customer by ID regardless of branch (needed for cross-branch payments)
-            const [rows] = await pool.query("SELECT * FROM sarga_customers WHERE id = ?", [id]);
+            const [rows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} FROM sarga_customers WHERE id = ?`, [id]);
             if (!rows[0]) return res.status(404).json({ message: 'Customer not found' });
             return res.json(rows[0]);
         }
-        const [rows] = await pool.query("SELECT * FROM sarga_customers WHERE id = ?", [id]);
+        const [rows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} FROM sarga_customers WHERE id = ?`, [id]);
         if (!rows[0]) return res.status(404).json({ message: 'Customer not found' });
         res.json(rows[0]);
     } catch (err) {
@@ -77,7 +102,7 @@ router.post('/customers', authenticateToken, validate(addCustomerSchema), async 
     }
 
     try {
-        const branchId = ['Admin', 'Accountant'].includes(req.user.role) ? null : await getUserBranchId(req.user.id);
+        const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
         const [result] = await pool.query(
             "INSERT INTO sarga_customers (mobile, name, type, email, gst, address, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [normalizedMobile, name, type, email, gst, address, branchId]
@@ -103,8 +128,9 @@ router.put('/customers/:id', authenticateToken, async (req, res) => {
 
     try {
         // Branch ownership check: non-admin/accountant users can only update customers in their own branch
-        if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            const branchId = await getUserBranchId(req.user.id);
+        const branchScope = await branchFilter(req, { allowPrivilegedQuery: false });
+        if (!branchScope.isPrivileged) {
+            const branchId = branchScope.branchId;
             const [check] = await pool.query("SELECT id FROM sarga_customers WHERE id = ? AND branch_id = ?", [id, branchId]);
             if (!check[0]) return res.status(403).json({ message: 'Access denied. Customer belongs to a different branch.' });
         }
@@ -148,7 +174,7 @@ router.get('/customers/:id/dashboard', authenticateToken, async (req, res) => {
     const { id } = req.params;
     try {
         // 1. Customer profile
-        const [custRows] = await pool.query("SELECT * FROM sarga_customers WHERE id = ?", [id]);
+        const [custRows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} FROM sarga_customers WHERE id = ?`, [id]);
         if (!custRows[0]) return res.status(404).json({ message: 'Customer not found' });
         const customer = custRows[0];
 
@@ -172,7 +198,7 @@ router.get('/customers/:id/dashboard', authenticateToken, async (req, res) => {
 
         // 4. All payments
         const [payments] = await pool.query(`
-            SELECT * FROM sarga_customer_payments
+            SELECT ${CUSTOMER_PAYMENT_SUMMARY_COLUMNS} FROM sarga_customer_payments
             WHERE customer_id = ?
             ORDER BY payment_date DESC, created_at DESC
         `, [id]);

@@ -7,7 +7,7 @@ module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
 
     // Auto-create an inventory entry when a product is added to the Product Library
-    async function autoCreateInventoryFromProduct(productId, productName, productCode, subcategoryId, slabs, companyName, size) {
+    async function autoCreateInventoryFromProduct(productId, productName, productCode, subcategoryId, slabs, companyName, companyCode, size) {
         // Check if already linked
         const [existing] = await pool.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? AND inventory_item_id IS NOT NULL', [productId]);
         if (existing.length > 0) return;
@@ -29,18 +29,18 @@ module.exports = (upload, removeUploadFile) => {
             sellPrice = Number(slabs[0].unit_rate) || Number(slabs[0].base_value) || 0;
         }
 
-        // Use product_code as SKU, or auto-generate from company+name+size
+        // Use product_code as SKU, or auto-generate from companyCode+name+size
         let sku = productCode || null;
         if (!sku) {
-            const c = String(companyName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 3);
+            const c = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             const p = String(productName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             const s = String(size || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             const parts = [c, p, s].filter(Boolean);
             if (parts.length > 0) sku = parts.join('-');
         }
 
-        // Source code = company first 3 letters
-        const sourceCode = String(companyName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 3) || null;
+        // Source code = company code (user-defined unique abbreviation)
+        const sourceCode = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || null;
         const sizeCode = String(size || '').trim().toUpperCase() || null;
 
         // Check if inventory item with same name+category already exists
@@ -87,6 +87,47 @@ module.exports = (upload, removeUploadFile) => {
         } catch (err) {
             res.status(500).json({ message: 'Database error' });
         }
+    });
+
+    // Generate a unique company code (3-5 letters) that doesn't collide with existing ones
+    router.get('/unique-company-code', authenticateToken, async (req, res) => {
+        const name = String(req.query.name || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (!name) return res.json({ code: '' });
+
+        // Get all existing source_codes from inventory
+        const [rows] = await pool.query('SELECT DISTINCT source_code FROM sarga_inventory WHERE source_code IS NOT NULL AND source_code != ""');
+        const usedCodes = new Set(rows.map(r => r.source_code.toUpperCase()));
+
+        // Strategy 1: first 3 letters
+        const base3 = name.substring(0, 3);
+        if (base3.length >= 2 && !usedCodes.has(base3)) return res.json({ code: base3 });
+
+        // Strategy 2: try combinations — 1st+2nd+Nth letter
+        for (let i = 3; i < name.length; i++) {
+            const candidate = name[0] + name[1] + name[i];
+            if (!usedCodes.has(candidate)) return res.json({ code: candidate });
+        }
+
+        // Strategy 3: try 1st+Nth+last
+        for (let i = 2; i < name.length - 1; i++) {
+            const candidate = name[0] + name[i] + name[name.length - 1];
+            if (!usedCodes.has(candidate)) return res.json({ code: candidate });
+        }
+
+        // Strategy 4: base 2 letters + digit
+        for (let d = 1; d <= 9; d++) {
+            const candidate = name.substring(0, 2) + d;
+            if (!usedCodes.has(candidate)) return res.json({ code: candidate });
+        }
+
+        // Strategy 5: first letter + 2 digits
+        for (let d = 10; d <= 99; d++) {
+            const candidate = name[0] + d;
+            if (!usedCodes.has(candidate)) return res.json({ code: candidate });
+        }
+
+        // Fallback
+        return res.json({ code: base3 });
     });
 
     // Add Category
@@ -285,7 +326,7 @@ module.exports = (upload, removeUploadFile) => {
 
     // Add Product with Slabs and Extras
     router.post('/products', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
-        const { subcategory_id, name, product_code, calculation_type, description, inventory_item_id, isPhysicalProduct, company_name, size } = req.body;
+        const { subcategory_id, name, product_code, calculation_type, description, inventory_item_id, isPhysicalProduct, company_name, company_code, size } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
@@ -345,7 +386,7 @@ module.exports = (upload, removeUploadFile) => {
             // Auto-create inventory entry if not already linked to one
             if (!inventory_item_id) {
                 try {
-                    await autoCreateInventoryFromProduct(productId, String(name).trim(), product_code, subcategory_id, slabs, company_name, size);
+                    await autoCreateInventoryFromProduct(productId, String(name).trim(), product_code, subcategory_id, slabs, company_name, company_code, size);
                 } catch (autoErr) {
                     console.error('Auto-create inventory from product failed (non-blocking):', autoErr.message);
                 }

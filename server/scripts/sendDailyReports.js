@@ -462,12 +462,11 @@ async function sendDailyReports() {
                     fetchOtherData(date, branch.id)
                 ]);
 
-                // Skip if no data at all
+                // Skip if no data at all → still send, but mark as "No Activity"
                 const hasData = offset.incomeEntries.length > 0 || offset.expenseEntries.length > 0 ||
                     laser.workEntries.length > 0 || other.entries.length > 0;
                 if (!hasData) {
-                    console.log(`[DailyReportMailer] No data for ${branch.name}, skipping.`);
-                    continue;
+                    console.log(`[DailyReportMailer] No data for ${branch.name}, sending "No Activity" report.`);
                 }
 
                 const pdfBuffer = await generatePDF(branch.name, date, offset, laser, other);
@@ -476,12 +475,16 @@ async function sendDailyReports() {
                 const branchEmail = getBranchEmail(branch.name);
                 const recipients = [...new Set([branchEmail, EMAIL_TO])].join(', ');
 
-                const subject = `${branch.name} — Daily Report ${fmtDate(date)}`;
+                const subject = hasData
+                    ? `${branch.name} — Daily Report ${fmtDate(date)}`
+                    : `${branch.name} — Daily Report ${fmtDate(date)} (No Activity)`;
                 await transporter.sendMail({
                     from: EMAIL_FROM,
                     to: recipients,
                     subject,
-                    text: `Daily Cash Book Report\nBranch: ${branch.name}\nDate: ${fmtDate(date)}\n\nThis is an automated report. Please see the attached PDF.`,
+                    text: hasData
+                        ? `Daily Cash Book Report\nBranch: ${branch.name}\nDate: ${fmtDate(date)}\n\nThis is an automated report. Please see the attached PDF.`
+                        : `Daily Cash Book Report\nBranch: ${branch.name}\nDate: ${fmtDate(date)}\n\nNo transactions were recorded today. PDF summary attached.`,
                     attachments: [{
                         filename: `${branch.name.replace(/[^a-zA-Z0-9]/g, '_')}-${date}.pdf`,
                         content: pdfBuffer,

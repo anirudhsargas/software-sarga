@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api, { imgUrl } from '../services/api';
 import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
@@ -106,6 +106,7 @@ const ProductLibrary = () => {
         name: '',
         product_code: '',
         company_name: '',
+        company_code: '',
         size: '',
         calculation_type: 'Normal',
         description: '',
@@ -191,18 +192,46 @@ const ProductLibrary = () => {
         ? hierarchy.find(c => c.id === selectedCatId)?.subcategories || []
         : [];
 
-    const buildAutoSku = (company, productName, size) => {
-        const c = (company || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 3);
+    const buildAutoSku = (companyCode, productName, size) => {
+        const c = (companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
         const p = (productName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
         const s = (size || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
         return [c, p, s].filter(Boolean).join('-');
     };
+
+    // Debounced unique company code fetcher
+    const codeTimerRef = useRef(null);
+    const fetchUniqueCode = useCallback((companyName, currentProduct) => {
+        if (codeTimerRef.current) clearTimeout(codeTimerRef.current);
+        const cleaned = (companyName || '').replace(/[^A-Z0-9]/gi, '');
+        if (cleaned.length < 2) return;
+        codeTimerRef.current = setTimeout(async () => {
+            try {
+                const res = await api.get('/unique-company-code', { params: { name: companyName } });
+                const uniqueCode = res.data.code || cleaned.substring(0, 3).toUpperCase();
+                setNewProduct(prev => ({
+                    ...prev,
+                    company_code: uniqueCode,
+                    product_code: buildAutoSku(uniqueCode, prev.name, prev.size)
+                }));
+            } catch (err) {
+                // Fallback: just use first 3 letters
+                const fallback = cleaned.substring(0, 3).toUpperCase();
+                setNewProduct(prev => ({
+                    ...prev,
+                    company_code: fallback,
+                    product_code: buildAutoSku(fallback, prev.name, prev.size)
+                }));
+            }
+        }, 400);
+    }, []);
 
     const resetProductForm = () => {
         setNewProduct({
             name: '',
             product_code: '',
             company_name: '',
+            company_code: '',
             size: '',
             calculation_type: 'Normal',
             description: '',
@@ -283,6 +312,7 @@ const ProductLibrary = () => {
             formData.append('name', newProduct.name);
             formData.append('product_code', newProduct.product_code || '');
             formData.append('company_name', newProduct.company_name || '');
+            formData.append('company_code', newProduct.company_code || '');
             formData.append('size', newProduct.size || '');
             formData.append('calculation_type', newProduct.calculation_type);
             formData.append('description', newProduct.description || '');
@@ -433,6 +463,7 @@ const ProductLibrary = () => {
                 name: prod.name,
                 product_code: prod.product_code || '',
                 company_name: prod.company_name || '',
+                company_code: prod.company_code || (prod.company_name || '').replace(/[^A-Z0-9]/gi, '').substring(0, 3).toUpperCase(),
                 size: prod.size || '',
                 calculation_type: prod.calculation_type,
                 description: prod.description || '',
@@ -1029,56 +1060,75 @@ const ProductLibrary = () => {
                                 )}
                             </div>
                             )}
+                            {/* Product Name */}
                             <div>
-                                <label className="label">Product Name</label>
+                                <label className="label">
+                                    Product Name <span style={{ color: 'var(--danger)' }}>*</span>
+                                </label>
                                 <input
                                     className="input-field"
                                     value={newProduct.name}
                                     onChange={e => {
                                         const val = e.target.value;
-                                        const autoCode = buildAutoSku(newProduct.company_name, val, newProduct.size);
+                                        const autoCode = buildAutoSku(newProduct.company_code, val, newProduct.size);
                                         setNewProduct({ ...newProduct, name: val, product_code: autoCode });
                                     }}
+                                    placeholder="Enter product name"
                                     required
                                 />
                             </div>
+
+                            {/* Company Name + Size side by side */}
                             {isAdmin && (
-                            <div>
-                                <label className="label row items-center gap-xs">
-                                    <input
-                                        type="checkbox"
-                                        checked={newProduct.isPhysicalProduct}
-                                        onChange={e => setNewProduct({ ...newProduct, isPhysicalProduct: e.target.checked })}
-                                    />
-                                    This is a physical product (show in inventory)
-                                </label>
-                            </div>
-                            )}
-                            {isAdmin && (
-                            <div className="row gap-md">
-                                <div className="flex-1">
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', alignItems: 'end' }}>
+                                <div>
                                     <label className="label">Company Name</label>
                                     <input
                                         className="input-field"
                                         value={newProduct.company_name}
                                         onChange={e => {
                                             const val = e.target.value.toUpperCase();
-                                            const autoCode = buildAutoSku(val, newProduct.name, newProduct.size);
-                                            setNewProduct({ ...newProduct, company_name: val, product_code: autoCode });
+                                            const quickCode = val.replace(/[^A-Z0-9]/g, '').substring(0, 3);
+                                            setNewProduct(prev => ({
+                                                ...prev,
+                                                company_name: val,
+                                                company_code: quickCode,
+                                                product_code: buildAutoSku(quickCode, prev.name, prev.size)
+                                            }));
+                                            // Async: fetch truly unique code from server
+                                            fetchUniqueCode(val, newProduct);
                                         }}
-                                        placeholder="e.g. PAMCO"
+                                        placeholder="e.g. PAMCO INDIA"
                                         maxLength={50}
                                     />
                                 </div>
-                                <div className="flex-1">
+                                <div>
+                                    <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        Code
+                                        <span style={{ fontSize: '9px', color: 'var(--text-muted, #94a3b8)' }}>(3 letters)</span>
+                                    </label>
+                                    <input
+                                        className="input-field"
+                                        value={newProduct.company_code}
+                                        onChange={e => {
+                                            const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 5);
+                                            const autoSku = buildAutoSku(val, newProduct.name, newProduct.size);
+                                            setNewProduct({ ...newProduct, company_code: val, product_code: autoSku });
+                                        }}
+                                        placeholder="PMI"
+                                        maxLength={5}
+                                        style={{ width: '72px', textAlign: 'center', fontWeight: 700, letterSpacing: '1px', fontFamily: 'monospace' }}
+                                    />
+                                </div>
+                                <div>
                                     <label className="label">Size</label>
                                     <input
                                         className="input-field"
                                         value={newProduct.size}
                                         onChange={e => {
                                             const val = e.target.value.toUpperCase();
-                                            const autoCode = buildAutoSku(newProduct.company_name, newProduct.name, val);
-                                            setNewProduct({ ...newProduct, size: val, product_code: autoCode });
+                                            const autoSku = buildAutoSku(newProduct.company_code, newProduct.name, val);
+                                            setNewProduct({ ...newProduct, size: val, product_code: autoSku });
                                         }}
                                         placeholder="e.g. A, L, 12X18"
                                         maxLength={20}
@@ -1086,17 +1136,69 @@ const ProductLibrary = () => {
                                 </div>
                             </div>
                             )}
+
+                            {/* SKU — auto-generated */}
                             {isAdmin && (
                             <div>
-                                <label className="label">Product Code / SKU (auto-generated)</label>
+                                <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    Product Code / SKU
+                                    <span style={{
+                                        fontSize: '10px',
+                                        background: 'var(--primary, #6366f1)',
+                                        color: '#fff',
+                                        padding: '2px 7px',
+                                        borderRadius: '20px',
+                                        fontWeight: 700,
+                                        letterSpacing: '0.6px',
+                                        textTransform: 'uppercase'
+                                    }}>AUTO</span>
+                                </label>
                                 <input
                                     className="input-field"
                                     value={newProduct.product_code}
-                                    onChange={e => setNewProduct({ ...newProduct, product_code: e.target.value.trim() })}
-                                    placeholder="Auto: Company-Name-Size"
-                                    style={{ background: 'var(--surface-2)', fontFamily: 'monospace' }}
+                                    onChange={e => setNewProduct({ ...newProduct, product_code: e.target.value.toUpperCase().trim() })}
+                                    placeholder="e.g. PMI-TROPHY-A4  (auto-fills above)"
+                                    style={{
+                                        background: 'var(--surface-2)',
+                                        fontFamily: 'monospace',
+                                        fontSize: '13px',
+                                        letterSpacing: '0.6px',
+                                        color: newProduct.product_code ? 'var(--accent, #22d3ee)' : undefined
+                                    }}
                                 />
+                                <p style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)', marginTop: '4px', marginBottom: 0 }}>
+                                    Auto-fills from Code · Name · Size. Edit the Code to make each company unique.
+                                </p>
                             </div>
+                            )}
+
+                            {/* Physical product toggle */}
+                            {isAdmin && (
+                            <label style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                padding: '11px 14px',
+                                background: newProduct.isPhysicalProduct ? 'rgba(99,102,241,0.08)' : 'var(--surface-2)',
+                                border: `1.5px solid ${newProduct.isPhysicalProduct ? 'var(--primary, #6366f1)' : 'var(--border, #334155)'}`,
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                transition: 'border-color 0.2s, background 0.2s',
+                                userSelect: 'none'
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    checked={newProduct.isPhysicalProduct}
+                                    onChange={e => setNewProduct({ ...newProduct, isPhysicalProduct: e.target.checked })}
+                                    style={{ width: '16px', height: '16px', accentColor: 'var(--primary, #6366f1)', cursor: 'pointer', flexShrink: 0 }}
+                                />
+                                <div>
+                                    <span style={{ fontSize: '13px', fontWeight: 600 }}>Physical Product</span>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted, #94a3b8)', marginLeft: '6px' }}>
+                                        — tracks stock in Inventory
+                                    </span>
+                                </div>
+                            </label>
                             )}
 
                             {isAdmin && (

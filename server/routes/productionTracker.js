@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { asyncHandler, getUserBranchId } = require('../helpers');
+const { asyncHandler } = require('../helpers');
+const { branchFilter } = require('../middleware/branchFilter');
 
 // Stage ordering for the production pipeline
 const PRODUCTION_STAGES = [
@@ -24,17 +25,9 @@ const PRODUCTION_STAGES = [
  */
 router.get('/', authenticateToken,
   asyncHandler(async (req, res) => {
-    const isPrivileged = ['Admin', 'Accountant'].includes(req.user.role);
-    const branchId = !isPrivileged
-      ? await getUserBranchId(req.user.id)
-      : req.query.branch_id || null;
-
-    let branchCond = '';
-    const params = [];
-    if (branchId) {
-      branchCond = ' AND j.branch_id = ?';
-      params.push(branchId);
-    }
+    const branchScope = await branchFilter(req, { column: 'j.branch_id' });
+    const branchCond = branchScope.clause;
+    const params = [...branchScope.params];
 
     let searchCond = '';
     if (req.query.search) {

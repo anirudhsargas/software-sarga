@@ -1,15 +1,13 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
-const { getUserBranchId } = require('../helpers');
+const { branchFilter } = require('../middleware/branchFilter');
 
 // ─── FRONT OFFICE ATTENDANCE REMINDER (9:00 AM to 10:00 AM) ───────────────
 router.get('/front-office/attendance-reminder', authenticateToken, async (req, res) => {
     try {
         const userRole = req.user.role;
-        const branchId = !['Admin', 'Accountant'].includes(userRole)
-            ? await getUserBranchId(req.user.id)
-            : req.query.branch_id || null;
+        const { branchId } = await branchFilter(req);
 
         // This reminder is intended for Front Office users.
         if (!branchId || !['Front Office', 'front office'].includes(userRole)) {
@@ -69,9 +67,7 @@ router.get('/front-office/attendance-reminder', authenticateToken, async (req, r
 // ─── FRONT OFFICE DASHBOARD ─────────────────────────────────────────
 router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
     try {
-        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-            ? await getUserBranchId(req.user.id)
-            : req.query.branch_id || null;
+        const { branchId } = await branchFilter(req);
 
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
@@ -231,9 +227,7 @@ router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
 // ─── PAGINATED ACTIVE JOBS ──────────────────────────────────────────
 router.get('/front-office/active-jobs', authenticateToken, async (req, res) => {
     try {
-        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-            ? await getUserBranchId(req.user.id)
-            : req.query.branch_id || null;
+        const { branchId } = await branchFilter(req);
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
 
@@ -264,9 +258,7 @@ router.get('/front-office/active-jobs', authenticateToken, async (req, res) => {
 // ─── PAGINATED DUE COLLECTION ───────────────────────────────────────
 router.get('/front-office/due-customers', authenticateToken, async (req, res) => {
     try {
-        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-            ? await getUserBranchId(req.user.id)
-            : req.query.branch_id || null;
+        const { branchId } = await branchFilter(req);
         const custBranchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
 
@@ -307,9 +299,7 @@ router.get('/front-office/due-customers', authenticateToken, async (req, res) =>
 // ─── PAGINATED OVERDUE JOBS ─────────────────────────────────────────
 router.get('/front-office/overdue-jobs', authenticateToken, async (req, res) => {
     try {
-        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-            ? await getUserBranchId(req.user.id)
-            : req.query.branch_id || null;
+        const { branchId } = await branchFilter(req);
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
         const today = new Date().toISOString().split('T')[0];
@@ -341,9 +331,7 @@ router.get('/front-office/overdue-jobs', authenticateToken, async (req, res) => 
 // ─── PAGINATED RECENT PAYMENTS ──────────────────────────────────────
 router.get('/front-office/recent-payments', authenticateToken, async (req, res) => {
     try {
-        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-            ? await getUserBranchId(req.user.id)
-            : req.query.branch_id || null;
+        const { branchId } = await branchFilter(req);
         const payBranchWhere = branchId ? ' AND p.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
 
@@ -376,9 +364,7 @@ router.get('/front-office/search', authenticateToken, async (req, res) => {
     if (!q || q.length < 2) return res.json([]);
 
     try {
-        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-            ? await getUserBranchId(req.user.id)
-            : null;
+        const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
         const branchWhere = branchId ? ' AND c.branch_id = ?' : '';
 
         const [customers] = await pool.query(
@@ -402,9 +388,7 @@ router.get('/front-office/search', authenticateToken, async (req, res) => {
 // ─── DELIVERED JOBS ────────────────────────────────────────────────
 router.get('/front-office/delivered', authenticateToken, async (req, res) => {
     try {
-        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-            ? await getUserBranchId(req.user.id)
-            : req.query.branch_id || null;
+        const { branchId } = await branchFilter(req);
 
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
@@ -448,9 +432,7 @@ router.get('/front-office/delivered', authenticateToken, async (req, res) => {
 // ─── COMPLETED WORK (with customer grouping) ────────────────────────
 router.get('/front-office/completed', authenticateToken, async (req, res) => {
     try {
-        const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-            ? await getUserBranchId(req.user.id)
-            : req.query.branch_id || null;
+        const { branchId } = await branchFilter(req);
 
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];

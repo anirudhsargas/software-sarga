@@ -98,7 +98,7 @@ router.post('/customers/:id/designs', authenticateToken, (req, res, next) => {
     uploadDesign.array('files', 10)(req, res, (err) => {
         if (err) {
             console.error('Multer error for customer designs:', err.message);
-            return res.status(400).json({ message: err.message || 'File upload validation failed' });
+            return res.status(400).json({ message: 'File upload validation failed' });
         }
         next();
     });
@@ -177,7 +177,7 @@ router.post('/customers/:id/designs', authenticateToken, (req, res, next) => {
         } else if (err.message && err.message.includes('customer_id') && err.message.includes('cannot be null')) {
             res.status(400).json({ message: 'Customer must be assigned to the job before uploading designs.' });
         } else {
-            res.status(500).json({ message: `Database error: ${err.message}` });
+            res.status(500).json({ message: 'Internal server error' });
         }
     }
 });
@@ -245,7 +245,7 @@ router.post('/jobs/:jobId/designs', authenticateToken, (req, res, next) => {
     uploadDesign.array('files', 10)(req, res, (err) => {
         if (err) {
             console.error('Multer error for job designs:', err.message);
-            return res.status(400).json({ message: err.message || 'File upload validation failed' });
+            return res.status(400).json({ message: 'File upload validation failed' });
         }
         next();
     });
@@ -315,7 +315,7 @@ router.post('/jobs/:jobId/designs', authenticateToken, (req, res, next) => {
         } else if (err.message.includes('customer_id') && err.message.includes('cannot be null')) {
             res.status(400).json({ message: 'Job must be linked to a customer before uploading designs.' });
         } else {
-            res.status(500).json({ message: `Upload failed: ${err.message}` });
+            res.status(500).json({ message: 'Internal server error' });
         }
     }
 });

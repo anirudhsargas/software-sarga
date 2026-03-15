@@ -556,7 +556,7 @@ const FrontOffice = () => {
                         autoComplete="off"
                     />
                     {search && (
-                        <button className="fo-search-clear" onClick={() => { setSearch(''); setSearchResults([]); setShowSearchResults(false); }}>
+                        <button className="fo-search-clear" aria-label="Clear search" onClick={() => { setSearch(''); setSearchResults([]); setShowSearchResults(false); }}>
                             <X size={16} />
                         </button>
                     )}
@@ -713,8 +713,8 @@ const FrontOffice = () => {
                                         {((activePage - 1) * PAGE_SIZE) + 1}–{Math.min(activePage * PAGE_SIZE, activeTotal)} of {activeTotal.toLocaleString()}
                                     </span>
                                 )}
-                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setActivePage(p => Math.max(1, p - 1))} disabled={activePage <= 1 || activeLoading} title="Previous page"><ChevronLeft size={16} /></button>
-                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setActivePage(p => Math.min(activeTotalPages, p + 1))} disabled={activePage >= activeTotalPages || activeLoading} title="Next page"><ChevronRight size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setActivePage(p => Math.max(1, p - 1))} disabled={activePage <= 1 || activeLoading} title="Previous page"><ChevronLeft size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setActivePage(p => Math.min(activeTotalPages, p + 1))} disabled={activePage >= activeTotalPages || activeLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchActiveJobs(activePage)} disabled={activeLoading}>
                                     {activeLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
                                 </button>
@@ -792,6 +792,7 @@ const FrontOffice = () => {
                                                         <td>
                                                             <button
                                                                 className="btn btn-ghost btn-icon btn-sm"
+                                                                aria-label="View job details"
                                                                 onClick={() => navigate(`/dashboard/jobs/${job.id}`)}
                                                                 title="View"
                                                             >
@@ -820,8 +821,8 @@ const FrontOffice = () => {
                                         {((duePage - 1) * PAGE_SIZE) + 1}–{Math.min(duePage * PAGE_SIZE, dueTotal)} of {dueTotal.toLocaleString()}
                                     </span>
                                 )}
-                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDuePage(p => Math.max(1, p - 1))} disabled={duePage <= 1 || dueLoading} title="Previous page"><ChevronLeft size={16} /></button>
-                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDuePage(p => Math.min(dueTotalPages, p + 1))} disabled={duePage >= dueTotalPages || dueLoading} title="Next page"><ChevronRight size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setDuePage(p => Math.max(1, p - 1))} disabled={duePage <= 1 || dueLoading} title="Previous page"><ChevronLeft size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setDuePage(p => Math.min(dueTotalPages, p + 1))} disabled={duePage >= dueTotalPages || dueLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchDueCustomers(duePage)} disabled={dueLoading}>
                                     {dueLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
                                 </button>
@@ -876,6 +877,7 @@ const FrontOffice = () => {
                                                     <a
                                                         href={`tel:${c.mobile}`}
                                                         className="btn btn-ghost btn-sm btn-icon"
+                                                        aria-label="Call customer"
                                                         title="Call"
                                                     >
                                                         <Phone size={14} />
@@ -901,8 +903,8 @@ const FrontOffice = () => {
                                         {((overduePage - 1) * PAGE_SIZE) + 1}–{Math.min(overduePage * PAGE_SIZE, overdueTotal)} of {overdueTotal.toLocaleString()}
                                     </span>
                                 )}
-                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setOverduePage(p => Math.max(1, p - 1))} disabled={overduePage <= 1 || overdueLoading} title="Previous page"><ChevronLeft size={16} /></button>
-                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setOverduePage(p => Math.min(overdueTotalPages, p + 1))} disabled={overduePage >= overdueTotalPages || overdueLoading} title="Next page"><ChevronRight size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setOverduePage(p => Math.max(1, p - 1))} disabled={overduePage <= 1 || overdueLoading} title="Previous page"><ChevronLeft size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setOverduePage(p => Math.min(overdueTotalPages, p + 1))} disabled={overduePage >= overdueTotalPages || overdueLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchOverdueJobs(overduePage)} disabled={overdueLoading}>
                                     {overdueLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
                                 </button>
@@ -953,7 +955,7 @@ const FrontOffice = () => {
                                                         <td>{balance > 0 ? <span className="fo-due-amount">{fmt(balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
                                                         <td>
                                                             {job.customer_mobile && (
-                                                                <a href={`tel:${job.customer_mobile}`} className="btn btn-ghost btn-icon btn-sm" title="Call">
+                                                                <a href={`tel:${job.customer_mobile}`} className="btn btn-ghost btn-icon btn-sm" aria-label="Call customer" title="Call">
                                                                     <Phone size={16} />
                                                                 </a>
                                                             )}
@@ -997,6 +999,7 @@ const FrontOffice = () => {
                                 )}
                                 <button
                                     className="btn btn-ghost btn-icon btn-sm"
+                                    aria-label="Previous page"
                                     onClick={() => setCompletedPage(p => Math.max(1, p - 1))}
                                     disabled={completedPage <= 1 || completedLoading}
                                     title="Previous page"
@@ -1005,6 +1008,7 @@ const FrontOffice = () => {
                                 </button>
                                 <button
                                     className="btn btn-ghost btn-icon btn-sm"
+                                    aria-label="Next page"
                                     onClick={() => setCompletedPage(p => Math.min(completedTotalPages, p + 1))}
                                     disabled={completedPage >= completedTotalPages || completedLoading}
                                     title="Next page"
@@ -1057,7 +1061,7 @@ const FrontOffice = () => {
                                                     <td>{job.balance > 0 ? <span className="fo-due-amount">{fmt(job.balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
                                                     <td>{fmtDate(job.updated_at || job.delivery_date)}</td>
                                                     <td>
-                                                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View">
+                                                        <button className="btn btn-ghost btn-icon btn-sm" aria-label="View job details" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View">
                                                             <Eye size={16} />
                                                         </button>
                                                     </td>
@@ -1113,14 +1117,14 @@ const FrontOffice = () => {
                                                                             <button className="btn btn-primary btn-sm" onClick={() => saveWorkName(job.id)} disabled={savingWorkName} style={{ padding: '6px 10px' }}>
                                                                                 <Check size={14} />
                                                                             </button>
-                                                                            <button className="btn btn-ghost btn-sm" onClick={() => setEditingWorkName(null)} style={{ padding: '6px 10px' }}>
+                                                                            <button className="btn btn-ghost btn-sm" aria-label="Cancel work name edit" onClick={() => setEditingWorkName(null)} style={{ padding: '6px 10px' }}>
                                                                                 <X size={14} />
                                                                             </button>
                                                                         </div>
                                                                     ) : (
                                                                         <div className="row gap-xs items-center">
                                                                             <span className="muted" style={{ fontSize: 12 }}>{job.description || 'No work name'}</span>
-                                                                            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => startEditWorkName(job)} title="Edit work name" style={{ padding: '4px' }}>
+                                                                            <button className="btn btn-ghost btn-icon btn-sm" aria-label="Edit work name" onClick={() => startEditWorkName(job)} title="Edit work name" style={{ padding: '4px' }}>
                                                                                 <Edit3 size={12} />
                                                                             </button>
                                                                         </div>
@@ -1129,7 +1133,7 @@ const FrontOffice = () => {
                                                                 <div className="row gap-sm items-center">
                                                                     <span className="muted" style={{ fontSize: 12, minWidth: 'fit-content' }}>{fmtDate(job.updated_at || job.delivery_date)}</span>
                                                                     <span style={{ fontWeight: 700, fontSize: '13px', minWidth: 'fit-content', color: 'var(--accent)' }}>{fmt(job.total_amount)}</span>
-                                                                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View" style={{ padding: '4px' }}>
+                                                                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="View job details" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View" style={{ padding: '4px' }}>
                                                                         <Eye size={14} />
                                                                     </button>
                                                                 </div>
@@ -1156,8 +1160,8 @@ const FrontOffice = () => {
                                         {((paymentsPage - 1) * PAGE_SIZE) + 1}–{Math.min(paymentsPage * PAGE_SIZE, paymentsTotal)} of {paymentsTotal.toLocaleString()}
                                     </span>
                                 )}
-                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage <= 1 || paymentsLoading} title="Previous page"><ChevronLeft size={16} /></button>
-                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))} disabled={paymentsPage >= paymentsTotalPages || paymentsLoading} title="Next page"><ChevronRight size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage <= 1 || paymentsLoading} title="Previous page"><ChevronLeft size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))} disabled={paymentsPage >= paymentsTotalPages || paymentsLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchRecentPayments(paymentsPage)} disabled={paymentsLoading}>
                                     {paymentsLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
                                 </button>
@@ -1196,8 +1200,8 @@ const FrontOffice = () => {
                                         {((deliveredPage - 1) * PAGE_SIZE) + 1}–{Math.min(deliveredPage * PAGE_SIZE, deliveredTotal)} of {deliveredTotal.toLocaleString()}
                                     </span>
                                 )}
-                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDeliveredPage(p => Math.max(1, p - 1))} disabled={deliveredPage <= 1 || deliveredLoading} title="Previous page"><ChevronLeft size={16} /></button>
-                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDeliveredPage(p => Math.min(deliveredTotalPages, p + 1))} disabled={deliveredPage >= deliveredTotalPages || deliveredLoading} title="Next page"><ChevronRight size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setDeliveredPage(p => Math.max(1, p - 1))} disabled={deliveredPage <= 1 || deliveredLoading} title="Previous page"><ChevronLeft size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setDeliveredPage(p => Math.min(deliveredTotalPages, p + 1))} disabled={deliveredPage >= deliveredTotalPages || deliveredLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchDeliveredJobs(deliveredPage)} disabled={deliveredLoading}>
                                     {deliveredLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
                                 </button>
@@ -1241,7 +1245,7 @@ const FrontOffice = () => {
                                                     <td>{job.balance > 0 ? <span className="fo-due-amount">{fmt(job.balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
                                                     <td>{fmtDate(job.delivery_date)}</td>
                                                     <td>
-                                                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View">
+                                                        <button className="btn btn-ghost btn-icon btn-sm" aria-label="View job details" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View">
                                                             <Eye size={16} />
                                                         </button>
                                                     </td>

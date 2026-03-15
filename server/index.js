@@ -14,6 +14,10 @@ if (!JWT_SECRET) {
     console.error('FATAL: JWT_SECRET environment variable is not defined. Refusing to start.');
     process.exit(1);
 }
+if (JWT_SECRET === 'printing_shop_secret_key_2025' || JWT_SECRET.length < 32) {
+    console.error('FATAL: JWT_SECRET is weak or default. Use a random 256-bit secret (at least 32 chars). Refusing to start.');
+    process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -74,6 +78,10 @@ app.use(helmet({
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "blob:"],
             connectSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+            frameAncestors: ["'none'"],
+            formAction: ["'self'"],
         }
     }
 }));

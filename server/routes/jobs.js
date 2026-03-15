@@ -1,10 +1,39 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getUserBranchId, auditLog, auditFieldChanges, getUsageMap, sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser } = require('../helpers');
+const { auditLog, auditFieldChanges, getUsageMap, sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser } = require('../helpers');
 const { analyzeDesign } = require('../helpers/designAnalyzer');
 const { validate, addJobSchema } = require('../middleware/validate');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+const { branchFilter } = require('../middleware/branchFilter');
+
+const JOB_LIST_COLUMNS = [
+    'id',
+    'customer_id',
+    'product_id',
+    'branch_id',
+    'job_number',
+    'job_name',
+    'description',
+    'quantity',
+    'unit_price',
+    'total_amount',
+    'advance_paid',
+    'balance_amount',
+    'category',
+    'subcategory',
+    'machine_id',
+    'status',
+    'payment_status',
+    'delivery_date',
+    'created_at',
+    'updated_at'
+].join(', ');
+
+const CATEGORY_COLUMNS = 'id, name, position, image_url, is_active, created_at';
+const SUBCATEGORY_COLUMNS = 'id, category_id, name, position, image_url, is_active, created_at';
+const PRODUCT_COLUMNS = 'id, subcategory_id, name, product_code, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product, is_active, created_at, updated_at';
+const PAYMENT_SUMMARY_COLUMNS = 'id, customer_id, customer_name, customer_mobile, total_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, created_at, verification_status';
 
 // --- IN-MEMORY CACHE for product hierarchy data ---
 const HIERARCHY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -17,9 +46,9 @@ const getHierarchyData = async () => {
         return { ...hierarchyCache.data, inventory };
     }
     const [categories, subcategories, products, inventory] = await Promise.all([
-        pool.query("SELECT * FROM sarga_product_categories").then(r => r[0]),
-        pool.query("SELECT * FROM sarga_product_subcategories").then(r => r[0]),
-        pool.query("SELECT * FROM sarga_products").then(r => r[0]),
+        pool.query(`SELECT ${CATEGORY_COLUMNS} FROM sarga_product_categories`).then(r => r[0]),
+        pool.query(`SELECT ${SUBCATEGORY_COLUMNS} FROM sarga_product_subcategories`).then(r => r[0]),
+        pool.query(`SELECT ${PRODUCT_COLUMNS} FROM sarga_products`).then(r => r[0]),
         pool.query("SELECT i.*, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id").then(r => r[0])
     ]);
     hierarchyCache = { data: { categories, subcategories, products }, timestamp: now };
@@ -253,6 +282,7 @@ router.get('/jobs', authenticateToken, async (req, res) => {
         const { search, status, branch_id: qBranch, category } = req.query;
         const { page, limit, offset } = parsePagination(req);
         const usePagination = !!req.query.page;
+        const { branchId } = await branchFilter(req);
 
         let where = '';
         const params = [];
@@ -268,22 +298,18 @@ router.get('/jobs', authenticateToken, async (req, res) => {
 
         if (!['Admin', 'Accountant', 'Front Office', 'front office'].includes(req.user.role)) {
             // Show jobs assigned to this staff directly OR by role, restricted to their branch
-            const userBranchId = await getUserBranchId(req.user.id);
             where += ' AND EXISTS (SELECT 1 FROM sarga_job_staff_assignments jsa WHERE jsa.job_id = j.id AND (jsa.staff_id = ? OR (jsa.staff_id IS NULL AND jsa.role = ?)))';
             params.push(req.user.id, req.user.role);
-            if (userBranchId) {
+            if (branchId) {
                 where += ' AND j.branch_id = ?';
-                params.push(userBranchId);
+                params.push(branchId);
             }
         } else if (!['Admin', 'Accountant'].includes(req.user.role)) {
             // Front Office: can see all jobs in their branch
-            try {
-                const userBranchId = await getUserBranchId(req.user.id);
-                if (userBranchId && !qBranch) {
-                    where += ' AND j.branch_id = ?';
-                    params.push(userBranchId);
-                }
-            } catch (e) { /* ignore if no branch assigned */ }
+            if (branchId && !qBranch) {
+                where += ' AND j.branch_id = ?';
+                params.push(branchId);
+            }
             if (qBranch) {
                 where += ' AND j.branch_id = ?';
                 params.push(qBranch);
@@ -342,6 +368,7 @@ router.get('/jobs', authenticateToken, async (req, res) => {
 router.get('/jobs/completed-by-date', authenticateToken, async (req, res) => {
     try {
         const { date, branch_id: qBranch } = req.query;
+        const { branchId } = await branchFilter(req);
 
         if (!date) {
             return res.status(400).json({ message: 'Date parameter is required' });
@@ -352,7 +379,6 @@ router.get('/jobs/completed-by-date', authenticateToken, async (req, res) => {
 
         // Filter by branch
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            const branchId = await getUserBranchId(req.user.id);
             where += ' AND j.branch_id = ?';
             params.push(branchId);
         } else if (qBranch) {
@@ -398,7 +424,7 @@ router.get('/customers/:id/jobs', authenticateToken, async (req, res) => {
         const { search } = req.query;
         console.log('Fetching jobs for customer:', customerId, 'search=', search);
 
-        let sql = "SELECT * FROM sarga_jobs WHERE customer_id = ?";
+        let sql = `SELECT ${JOB_LIST_COLUMNS} FROM sarga_jobs WHERE customer_id = ?`;
         const params = [customerId];
 
         if (search) {
@@ -450,7 +476,7 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
-        const branchId = ['Admin', 'Accountant'].includes(req.user.role) ? null : await getUserBranchId(req.user.id);
+        const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
         const created = [];
 
         const bulkBaseTime = Date.now();
@@ -768,12 +794,12 @@ router.get('/jobs/assignments/suggestions', authenticateToken, async (req, res) 
         }
 
         const params = [...productIds];
-        let branchFilter = '';
+        let branchClause = '';
         let roleFilter = '';
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            const branchId = await getUserBranchId(req.user.id);
+            const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
             if (branchId) {
-                branchFilter = ' AND j.branch_id = ?';
+                branchClause = ' AND j.branch_id = ?';
                 params.push(branchId);
             }
         }
@@ -788,7 +814,7 @@ router.get('/jobs/assignments/suggestions', authenticateToken, async (req, res) 
          FROM sarga_job_staff_assignments jsa
          INNER JOIN sarga_jobs j ON j.id = jsa.job_id
          INNER JOIN sarga_staff s ON s.id = jsa.staff_id
-         WHERE j.product_id IN (${productIds.map(() => '?').join(',')})${branchFilter}${roleFilter}
+         WHERE j.product_id IN (${productIds.map(() => '?').join(',')})${branchClause}${roleFilter}
          GROUP BY j.product_id, jsa.staff_id
          ORDER BY j.product_id, assigned_count DESC, last_assigned DESC`,
             params
@@ -851,7 +877,7 @@ router.post('/jobs/assignments/bulk', authenticateToken, async (req, res) => {
 
         let branchId = null;
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            branchId = await getUserBranchId(req.user.id);
+            ({ branchId } = await branchFilter(req, { allowPrivilegedQuery: false }));
         }
 
         for (const assignment of assignments) {
@@ -932,6 +958,11 @@ router.put('/jobs/assignments/:id/status', authenticateToken, async (req, res) =
 
         const job_id = assignments[0].job_id;
 
+        const [[jobRow]] = await pool.query('SELECT status FROM sarga_jobs WHERE id = ?', [job_id]);
+        if (!jobRow) {
+            return res.status(404).json({ message: 'Job not found' });
+        }
+
         await pool.query(
             'UPDATE sarga_job_staff_assignments SET status = ? WHERE id = ?',
             [status, id]
@@ -947,6 +978,10 @@ router.put('/jobs/assignments/:id/status', authenticateToken, async (req, res) =
             const allCompleted = allAssignments.every(a => a.status === 'Completed');
             
             if (allCompleted) {
+                if (['Delivered', 'Cancelled'].includes(jobRow.status)) {
+                    auditLog(req.user.id, 'JOB_STATUS_TRANSITION_DENIED', `Denied auto status transition for terminal job ${job_id}: ${jobRow.status} -> Completed`);
+                    return res.status(409).json({ message: `Cannot change terminal job status (${jobRow.status}) via assignment update.` });
+                }
                 // Mark job as Completed if all assignments are done
                 await pool.query(
                     'UPDATE sarga_jobs SET status = ? WHERE id = ?',
@@ -967,6 +1002,7 @@ router.put('/jobs/assignments/:id/status', authenticateToken, async (req, res) =
 router.get('/jobs/offset-pending', authenticateToken, async (req, res) => {
     try {
         const { branch_id: qBranch } = req.query;
+        const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
 
         // Fetch jobs where category is 'Offset' and status is pending/processing (i.e. not completed, delivered, cancelled)
         let where = " AND j.category = 'Offset' AND j.status NOT IN ('Completed', 'Delivered', 'Cancelled')";
@@ -974,7 +1010,6 @@ router.get('/jobs/offset-pending', authenticateToken, async (req, res) => {
 
         // Apply branch filtering
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            const branchId = await getUserBranchId(req.user.id);
             if (branchId) {
                 where += ' AND j.branch_id = ?';
                 params.push(branchId);
@@ -1043,7 +1078,7 @@ router.get('/jobs/:id', authenticateToken, async (req, res) => {
         try {
             if (job.payment_id) {
                 const [rows] = await pool.query(
-                    `SELECT * FROM sarga_customer_payments WHERE id = ?`,
+                    `SELECT ${PAYMENT_SUMMARY_COLUMNS} FROM sarga_customer_payments WHERE id = ?`,
                     [job.payment_id]
                 );
                 payments = rows;
@@ -1137,6 +1172,7 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
         if (updates.status !== undefined && updates.status !== currentJob.status) {
             const allowed = VALID_TRANSITIONS[currentJob.status] || [];
             if (!allowed.includes(updates.status)) {
+                auditLog(req.user.id, 'JOB_STATUS_TRANSITION_DENIED', `Denied status transition job ${id}: ${currentJob.status} -> ${updates.status}`);
                 return res.status(400).json({ message: `Cannot transition from '${currentJob.status}' to '${updates.status}'. Allowed: ${allowed.join(', ') || 'none'}` });
             }
         }
@@ -1222,18 +1258,32 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
 // Delete Job
 router.delete('/jobs/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     try {
-        // Check for linked payments before deletion (C-01)
-        const [payments] = await pool.query(
-            "SELECT COUNT(*) as cnt FROM sarga_customer_payments WHERE JSON_CONTAINS(job_ids, CAST(? AS JSON))",
-            [req.params.id]
-        ).catch(() => [[{ cnt: 0 }]]); // Fallback if job_ids column doesn't exist
-
-        if (payments[0].cnt > 0) {
-            return res.status(409).json({ message: `Cannot delete: ${payments[0].cnt} payment(s) linked to this job. Remove payments first.` });
+        const jobId = Number(req.params.id);
+        if (!Number.isFinite(jobId) || jobId <= 0) {
+            return res.status(400).json({ message: 'Invalid job id' });
         }
 
-        await pool.query("DELETE FROM sarga_jobs WHERE id = ?", [req.params.id]);
-        auditLog(req.user.id, 'JOB_DELETE', `Deleted job ${req.params.id}`);
+        // Check whether job has direct linked payment id
+        const [[job]] = await pool.query('SELECT payment_id FROM sarga_jobs WHERE id = ?', [jobId]);
+        if (!job) {
+            return res.status(404).json({ message: 'Job not found' });
+        }
+
+        const directPaymentLinks = job.payment_id ? 1 : 0;
+
+        // Check linked payments through JSON order_lines (legacy + current flow)
+        const [jsonPaymentLinksRows] = await pool.query(
+            "SELECT COUNT(*) as cnt FROM sarga_customer_payments WHERE JSON_CONTAINS(order_lines, JSON_OBJECT('job_id', CAST(? AS UNSIGNED)), '$')",
+            [jobId]
+        ).catch(() => [[{ cnt: 0 }]]);
+
+        const linkedPaymentCount = Number(jsonPaymentLinksRows[0]?.cnt || 0) + directPaymentLinks;
+        if (linkedPaymentCount > 0) {
+            return res.status(409).json({ message: `Cannot delete: ${linkedPaymentCount} payment link(s) exist for this job. Remove linked payments first.` });
+        }
+
+        await pool.query("DELETE FROM sarga_jobs WHERE id = ?", [jobId]);
+        auditLog(req.user.id, 'JOB_DELETE', `Deleted job ${jobId}`);
         res.json({ message: 'Job deleted successfully' });
     } catch (err) {
         console.error('Delete job error:', err);
@@ -1588,6 +1638,9 @@ router.put('/jobs/:id/proofs/:proofId/review', authenticateToken, async (req, re
         );
         if (!proof) return res.status(404).json({ message: 'Proof not found' });
 
+        const [[jobState]] = await pool.query('SELECT status FROM sarga_jobs WHERE id = ?', [req.params.id]);
+        if (!jobState) return res.status(404).json({ message: 'Job not found' });
+
         await pool.query(
             `UPDATE sarga_job_proofs 
              SET status = ?, customer_feedback = ?, reviewed_by = ?, reviewed_at = NOW()
@@ -1597,12 +1650,20 @@ router.put('/jobs/:id/proofs/:proofId/review', authenticateToken, async (req, re
 
         // Update job status based on proof decision
         if (status === 'Approved') {
+            if (['Delivered', 'Cancelled'].includes(jobState.status)) {
+                auditLog(req.user.id, 'JOB_STATUS_TRANSITION_DENIED', `Denied proof review transition for terminal job ${req.params.id}: ${jobState.status} -> Processing`);
+                return res.status(409).json({ message: `Cannot change terminal job status (${jobState.status}) from proof review.` });
+            }
             await pool.query('UPDATE sarga_jobs SET status = ? WHERE id = ?', ['Processing', req.params.id]);
             await pool.query(
                 'INSERT INTO sarga_job_status_history (job_id, status, staff_id) VALUES (?, ?, ?)',
                 [req.params.id, 'Processing', req.user.id]
             );
         } else if (status === 'Rejected' || status === 'Revision Requested') {
+            if (['Delivered', 'Cancelled'].includes(jobState.status)) {
+                auditLog(req.user.id, 'JOB_STATUS_TRANSITION_DENIED', `Denied proof review transition for terminal job ${req.params.id}: ${jobState.status} -> Designing`);
+                return res.status(409).json({ message: `Cannot change terminal job status (${jobState.status}) from proof review.` });
+            }
             await pool.query('UPDATE sarga_jobs SET status = ? WHERE id = ?', ['Designing', req.params.id]);
             await pool.query(
                 'INSERT INTO sarga_job_status_history (job_id, status, staff_id) VALUES (?, ?, ?)',

@@ -1145,7 +1145,7 @@ router.delete('/bills-documents/:id', authenticateToken, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Delete bill/document error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1154,10 +1154,10 @@ router.post('/bills-documents/extract-details', authenticateToken, authorizeRole
   uploadDocs.single('file')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       console.error('[Multer Error]', err.code, err.message);
-      return res.status(400).json({ error: `Upload error: ${err.message}` });
+      return res.status(400).json({ error: 'Upload error' });
     } else if (err) {
       console.error('[Upload Error]', err.message);
-      return res.status(400).json({ error: err.message });
+      return res.status(400).json({ error: 'Upload failed' });
     }
     next();
   });

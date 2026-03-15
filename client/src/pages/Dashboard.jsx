@@ -73,6 +73,19 @@ const Dashboard = () => {
     const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
     const closeSidebar = () => setSidebarOpen(false);
 
+    // On tablets/phones, keep sidebar expanded so labels are always visible.
+    useEffect(() => {
+        const syncSidebarForViewport = () => {
+            if (window.innerWidth <= 1023) {
+                setSidebarCollapsed(false);
+            }
+        };
+
+        syncSidebarForViewport();
+        window.addEventListener('resize', syncSidebarForViewport);
+        return () => window.removeEventListener('resize', syncSidebarForViewport);
+    }, []);
+
     const menuItems = [
         { name: 'Summary', icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
         { name: 'Front Office', icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
@@ -342,7 +355,7 @@ const Dashboard = () => {
     return (
         <div className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
             {/* Mobile Sidebar Overlay */}
-            {sidebarOpen && <div className="modal-backdrop" onClick={closeSidebar} style={{ zIndex: 90 }}></div>}
+            {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} aria-hidden="true"></div>}
 
             {/* Sidebar */}
             <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''} ${sidebarOpen ? 'sidebar--open' : ''}`}>
@@ -354,6 +367,7 @@ const Dashboard = () => {
                     <button
                         className="sidebar-toggle"
                         onClick={() => setSidebarCollapsed((prev) => !prev)}
+                        aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                         title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     >
                         {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
@@ -458,7 +472,7 @@ const Dashboard = () => {
             <main className="main-content">
                 {/* Mobile Topbar */}
                 <div className="topbar mobile-only">
-                    <button className="icon-button" onClick={toggleSidebar}>
+                    <button className="icon-button" aria-label="Open navigation menu" onClick={toggleSidebar}>
                         <Grid size={20} />
                     </button>
                     <div className="logo-text">SARGA</div>
@@ -516,7 +530,7 @@ const Dashboard = () => {
             {showProfileModal && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '520px' }}>
-                        <button className="modal-close" onClick={() => setShowProfileModal(false)} title="Close"><X size={20} /></button>
+                        <button className="modal-close" aria-label="Close profile modal" onClick={() => setShowProfileModal(false)} title="Close"><X size={20} /></button>
                         <h2 className="section-title mb-16">Edit Profile</h2>
                         <form onSubmit={handleProfileSave} className="stack-md">
                             <div className="row gap-md items-center">
@@ -612,7 +626,7 @@ const Dashboard = () => {
                     <div className="modal" style={{ maxWidth: '400px', width: '90%' }}>
                         <div className="row space-between items-center mb-16">
                             <h2 className="section-title">Product Details</h2>
-                            <button className="icon-button" onClick={() => setInventoryScanResult(null)}><X size={20} /></button>
+                            <button className="icon-button" aria-label="Close product details" onClick={() => setInventoryScanResult(null)}><X size={20} /></button>
                         </div>
                         <div className="stack-md">
                             {/* SKU — prominently at the top */}

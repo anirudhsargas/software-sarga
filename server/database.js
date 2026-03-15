@@ -1566,6 +1566,9 @@ const initDb = async () => {
     await safeIndex('idx_jobs_status', 'CREATE INDEX idx_jobs_status ON sarga_jobs (status)');
     await safeIndex('idx_jobs_branch', 'CREATE INDEX idx_jobs_branch ON sarga_jobs (branch_id)');
     await safeIndex('idx_jobs_customer', 'CREATE INDEX idx_jobs_customer ON sarga_jobs (customer_id)');
+    await safeIndex('idx_jobs_branch_status', 'CREATE INDEX idx_jobs_branch_status ON sarga_jobs (branch_id, status)');
+    await safeIndex('idx_jobs_customer_status', 'CREATE INDEX idx_jobs_customer_status ON sarga_jobs (customer_id, status)');
+    await safeIndex('idx_jobs_branch_customer_status', 'CREATE INDEX idx_jobs_branch_customer_status ON sarga_jobs (branch_id, customer_id, status)');
     await safeIndex('idx_jobs_created', 'CREATE INDEX idx_jobs_created ON sarga_jobs (created_at)');
     await safeIndex('idx_jobs_delivery', 'CREATE INDEX idx_jobs_delivery ON sarga_jobs (delivery_date)');
     await safeIndex('idx_jobs_payment_status', 'CREATE INDEX idx_jobs_payment_status ON sarga_jobs (payment_status)');
@@ -1578,6 +1581,9 @@ const initDb = async () => {
     await safeIndex('idx_cp_customer', 'CREATE INDEX idx_cp_customer ON sarga_customer_payments (customer_id)');
     await safeIndex('idx_cp_date', 'CREATE INDEX idx_cp_date ON sarga_customer_payments (payment_date)');
     await safeIndex('idx_cp_branch', 'CREATE INDEX idx_cp_branch ON sarga_customer_payments (branch_id)');
+    await safeIndex('idx_cp_branch_date', 'CREATE INDEX idx_cp_branch_date ON sarga_customer_payments (branch_id, payment_date)');
+    await safeIndex('idx_cp_customer_date', 'CREATE INDEX idx_cp_customer_date ON sarga_customer_payments (customer_id, payment_date)');
+    await safeIndex('idx_cp_branch_customer_date', 'CREATE INDEX idx_cp_branch_customer_date ON sarga_customer_payments (branch_id, customer_id, payment_date)');
 
     // Vendor payments — filtered by branch, date, type
     await safeIndex('idx_pay_branch', 'CREATE INDEX idx_pay_branch ON sarga_payments (branch_id)');
@@ -1586,6 +1592,8 @@ const initDb = async () => {
 
     // Staff — branch lookup
     await safeIndex('idx_staff_branch', 'CREATE INDEX idx_staff_branch ON sarga_staff (branch_id)');
+    await safeIndex('idx_customers_branch', 'CREATE INDEX idx_customers_branch ON sarga_customers (branch_id)');
+    await safeIndex('idx_vendors_branch', 'CREATE INDEX idx_vendors_branch ON sarga_vendors (branch_id)');
 
     // Attendance — date-based queries
     await safeIndex('idx_att_date', 'CREATE INDEX idx_att_date ON sarga_staff_attendance (attendance_date)');
@@ -1599,6 +1607,12 @@ const initDb = async () => {
     await safeIndex('idx_discreq_status', 'CREATE INDEX idx_discreq_status ON sarga_discount_requests (status)');
     await safeIndex('idx_attreq_status', 'CREATE INDEX idx_attreq_status ON sarga_attendance_requests (status)');
     await safeIndex('idx_vendreq_status', 'CREATE INDEX idx_vendreq_status ON sarga_vendor_requests (status)');
+    await safeIndex('idx_vendreq_branch', 'CREATE INDEX idx_vendreq_branch ON sarga_vendor_requests (branch_id)');
+    await safeIndex('idx_vendreq_branch_status', 'CREATE INDEX idx_vendreq_branch_status ON sarga_vendor_requests (branch_id, status)');
+
+    // Daily reporting and approval queues — branch/status lookups
+    await safeIndex('idx_drm_branch_status', 'CREATE INDEX idx_drm_branch_status ON sarga_daily_report_machine (branch_id, status)');
+    await safeIndex('idx_ocr_branch_status', 'CREATE INDEX idx_ocr_branch_status ON sarga_opening_change_requests (branch_id, status)');
 
     // Machine count requests — status lookup
     await safeIndex('idx_mcount_status', 'CREATE INDEX idx_mcount_status ON sarga_machine_count_requests (status)');

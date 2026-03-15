@@ -113,11 +113,13 @@ module.exports = (upload) => {
             const [users] = await pool.query("SELECT password, is_first_login FROM sarga_staff WHERE id = ?", [userId]);
             if (!users[0]) return res.status(404).json({ message: 'User not found' });
 
-            // Skip current password check only for first-login password reset
-            if (!users[0].is_first_login) {
-                const validCurrent = await bcrypt.compare(currentPassword, users[0].password);
-                if (!validCurrent) return res.status(401).json({ message: 'Current password is incorrect' });
+            if (!currentPassword || !String(currentPassword).trim()) {
+                return res.status(400).json({ message: 'Current password is required' });
             }
+
+            // Always require current password to prevent account takeover via stolen token.
+            const validCurrent = await bcrypt.compare(currentPassword, users[0].password);
+            if (!validCurrent) return res.status(401).json({ message: 'Current password is incorrect' });
 
             const hashedPassword = await bcrypt.hash(newPassword, 10);
             await pool.query("UPDATE sarga_staff SET password = ?, is_first_login = 0 WHERE id = ?", [hashedPassword, userId]);
@@ -125,7 +127,8 @@ module.exports = (upload) => {
             auditLog(userId, 'PASSWORD_CHANGE', 'User changed their password');
             res.json({ message: 'Password updated successfully' });
         } catch (err) {
-            res.status(500).json({ message: 'Error updating password' });
+            console.error('Change password error:', err);
+            res.status(500).json({ message: 'Internal server error' });
         }
     });
 

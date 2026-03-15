@@ -4,6 +4,45 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { validate, addVendorSchema } = require('../middleware/validate');
 
+const VENDOR_COLUMNS = [
+    'id',
+    'name',
+    'type',
+    'contact_person',
+    'phone',
+    'address',
+    'branch_id',
+    'order_link',
+    'gstin',
+    'created_at'
+].join(', ');
+
+const PAYMENT_STATEMENT_COLUMNS = [
+    'p.id',
+    'p.branch_id',
+    'p.type',
+    'p.payee_name',
+    'p.amount',
+    'p.payment_method',
+    'p.reference_number',
+    'p.description',
+    'p.payment_date',
+    'p.vendor_id',
+    'p.payment_status',
+    'p.created_at'
+].join(', ');
+
+const VENDOR_BILL_STATEMENT_COLUMNS = [
+    'b.id',
+    'b.vendor_id',
+    'b.branch_id',
+    'b.bill_number',
+    'b.bill_date',
+    'b.total_amount',
+    'b.description',
+    'b.created_at'
+].join(', ');
+
 // --- VENDOR ROUTES ---
 
 // List Vendors / Payees
@@ -11,7 +50,7 @@ router.get('/vendors', authenticateToken, async (req, res) => {
     const { type } = req.query;
     const { role, branch_id } = req.user;
     try {
-        let query = "SELECT * FROM sarga_vendors";
+        let query = `SELECT ${VENDOR_COLUMNS} FROM sarga_vendors`;
         const params = [];
         const conditions = [];
 
@@ -241,7 +280,7 @@ router.get('/vendors/:id/statement', authenticateToken, async (req, res) => {
     const { id } = req.params;
     try {
         const [payments] = await pool.query(`
-            SELECT p.*, b.name as branch_name, 'Payment' as entry_type
+            SELECT ${PAYMENT_STATEMENT_COLUMNS}, b.name as branch_name, 'Payment' as entry_type
             FROM sarga_payments p
             JOIN sarga_branches b ON p.branch_id = b.id
             WHERE p.vendor_id = ?
@@ -249,14 +288,14 @@ router.get('/vendors/:id/statement', authenticateToken, async (req, res) => {
         `, [id]);
 
         const [bills] = await pool.query(`
-            SELECT b.*, br.name as branch_name, 'Purchase' as entry_type
+            SELECT ${VENDOR_BILL_STATEMENT_COLUMNS}, br.name as branch_name, 'Purchase' as entry_type
             FROM sarga_vendor_bills b
             JOIN sarga_branches br ON b.branch_id = br.id
             WHERE b.vendor_id = ?
             ORDER BY b.bill_date DESC, b.created_at DESC
         `, [id]);
 
-        const [payee] = await pool.query("SELECT * FROM sarga_vendors WHERE id = ?", [id]);
+        const [payee] = await pool.query(`SELECT ${VENDOR_COLUMNS} FROM sarga_vendors WHERE id = ?`, [id]);
 
         // Compute outstanding balance
         const totalPurchases = bills.reduce((s, b) => s + Number(b.total_amount || 0), 0);

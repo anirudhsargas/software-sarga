@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import api from '../services/api';
 import auth from '../services/auth';
-import { Calendar, IndianRupee, CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, Sun } from 'lucide-react';
+import { Calendar, IndianRupee, CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, Sun, Download } from 'lucide-react';
 
 const statusConfig = {
   Present: { color: 'var(--success)', bg: 'var(--success)18', label: 'P' },
@@ -85,6 +85,23 @@ const AttendanceSalary = () => {
   const fmt = (val) => `₹${Number(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
   const halfDays = summary?.halfDay || attendance.filter(a => a.status === 'Half Day').length || 0;
 
+  const downloadSalarySlip = async () => {
+    try {
+      const response = await api.get(`/staff/${staffId}/salary-slip/${selectedMonth}`, { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `salary-slip-${selectedMonth}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError('Failed to download salary slip');
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
@@ -99,8 +116,15 @@ const AttendanceSalary = () => {
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Attendance & Salary</h1>
-        <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0' }}>View your attendance records and salary details</p>
+        <div className="row items-center" style={{ justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Attendance & Salary</h1>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0' }}>View your attendance records and salary details</p>
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={downloadSalarySlip}>
+            <Download size={14} /> Download Salary Slip
+          </button>
+        </div>
       </div>
 
       {error && <div className="alert alert--error mb-16">{error}</div>}

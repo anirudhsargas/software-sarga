@@ -2,9 +2,38 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getUserBranchId, hasPendingCustomerBalance, bumpUsageForUser, auditLog, auditFieldChanges, getNextInvoiceNumber, normalizeMobile, asyncHandler } = require('../helpers');
+const { branchFilter } = require('../middleware/branchFilter');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { validate } = require('../middleware/validate');
 const { customerPaymentSchema } = require('../schemas/paymentSchemas');
+
+const CUSTOMER_PAYMENT_LIST_COLUMNS = [
+    'id',
+    'customer_id',
+    'customer_name',
+    'customer_mobile',
+    'bill_amount',
+    'total_amount',
+    'net_amount',
+    'sgst_amount',
+    'cgst_amount',
+    'advance_paid',
+    'balance_amount',
+    'payment_method',
+    'cash_amount',
+    'upi_amount',
+    'branch_id',
+    'reference_number',
+    'description',
+    'discount_percent',
+    'discount_amount',
+    'payment_date',
+    'created_at',
+    'verification_status',
+    'verified_by',
+    'verified_at',
+    'verification_note'
+].join(', ');
 
 // --- CUSTOMER PAYMENT ROUTES ---
 
@@ -18,15 +47,9 @@ router.get('/customer-payments', authenticateToken, async (req, res) => {
         const params = [];
 
         // Branch filter for non-admin
-        if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            try {
-                const branchId = await getUserBranchId(req.user.id);
-                where += ' AND branch_id = ?';
-                params.push(branchId);
-            } catch (err) {
-                if (err.code !== 'ER_BAD_FIELD_ERROR') throw err;
-            }
-        }
+        const branchScope = await branchFilter(req, { column: 'branch_id', allowPrivilegedQuery: false });
+        where += branchScope.clause;
+        params.push(...branchScope.params);
         if (customer_id) {
             where += ' AND customer_id = ?';
             params.push(customer_id);
@@ -44,11 +67,11 @@ router.get('/customer-payments', authenticateToken, async (req, res) => {
 
         if (usePagination) {
             const [[{ cnt }]] = await pool.query(`SELECT COUNT(*) as cnt ${baseFrom}`, params);
-            const [rows] = await pool.query(`SELECT * ${baseFrom} ORDER BY payment_date DESC, created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+            const [rows] = await pool.query(`SELECT ${CUSTOMER_PAYMENT_LIST_COLUMNS} ${baseFrom} ORDER BY payment_date DESC, created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
             return res.json(paginatedResponse(rows, cnt, page, limit));
         }
 
-        const [rows] = await pool.query(`SELECT * ${baseFrom} ORDER BY payment_date DESC, created_at DESC`, params);
+        const [rows] = await pool.query(`SELECT ${CUSTOMER_PAYMENT_LIST_COLUMNS} ${baseFrom} ORDER BY payment_date DESC, created_at DESC`, params);
         res.json(rows);
     } catch (err) {
         console.error('List customer payments error:', err);
@@ -84,15 +107,36 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
     const advance = Number(advance_paid) || 0;
     const cash = Number(cash_amount) || 0;
     const upi = Number(upi_amount) || 0;
+    const method = String(payment_method || 'Cash');
     const balance = total - advance;
 
-    // C-03: Advance cannot exceed total
+    // C-03: advance cannot exceed total (and values cannot be negative)
+    if (total < 0 || advance < 0 || cash < 0 || upi < 0) {
+        return res.status(400).json({ message: 'Amounts cannot be negative.' });
+    }
     if (advance > total) {
         return res.status(400).json({ message: `Advance (₹${advance}) cannot exceed total amount (₹${total})` });
     }
 
-    // C-07: Cash + UPI must equal advance (with tolerance for floating point)
-    if (advance > 0 && Math.abs((cash + upi) - advance) > 0.01) {
+    // C-07: enforce method-consistent payment split and amount integrity
+    const splitDiff = Math.abs((cash + upi) - advance);
+    if (method === 'Cash') {
+        if (Math.abs(cash - advance) > 0.01 || upi > 0.01) {
+            return res.status(400).json({ message: `For Cash payments, cash amount must equal advance and UPI must be 0.` });
+        }
+    } else if (method === 'UPI') {
+        if (Math.abs(upi - advance) > 0.01 || cash > 0.01) {
+            return res.status(400).json({ message: `For UPI payments, UPI amount must equal advance and cash must be 0.` });
+        }
+    } else if (method === 'Both') {
+        if (cash <= 0 || upi <= 0 || splitDiff > 0.01) {
+            return res.status(400).json({ message: `For Both payments, cash + UPI must equal advance and both must be greater than 0.` });
+        }
+    } else if (['Cheque', 'Account Transfer'].includes(method)) {
+        if (cash > 0.01 || upi > 0.01) {
+            return res.status(400).json({ message: `For ${method} payments, cash and UPI amounts must be 0.` });
+        }
+    } else if (advance > 0 && splitDiff > 0.01) {
         return res.status(400).json({ message: `Cash (₹${cash}) + UPI (₹${upi}) must equal advance paid (₹${advance})` });
     }
 
@@ -100,7 +144,7 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
     await connection.beginTransaction();
 
     try {
-        const branchId = ['Admin', 'Accountant'].includes(req.user.role) ? null : await getUserBranchId(req.user.id);
+        const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
         let resolvedCustomerId = customer_id || null;
 
         if (!resolvedCustomerId && customer_mobile) {
@@ -429,7 +473,10 @@ router.post('/customer-payments/refund', authenticateToken, authorizeRoles('Admi
 
     try {
         // Fetch the job
-        const [jobs] = await connection.query('SELECT * FROM sarga_jobs WHERE id = ?', [job_id]);
+        const [jobs] = await connection.query(
+            'SELECT id, job_number, customer_id, customer_name, branch_id, total_amount, advance_paid FROM sarga_jobs WHERE id = ?',
+            [job_id]
+        );
         if (jobs.length === 0) {
             await connection.rollback();
             return res.status(404).json({ message: 'Job not found' });
@@ -460,7 +507,8 @@ router.post('/customer-payments/refund', authenticateToken, authorizeRoles('Admi
         `);
 
         // Get branch ID
-        const branchId = ['Admin', 'Accountant'].includes(req.user.role) ? job.branch_id : await getUserBranchId(req.user.id);
+        const branchScope = await branchFilter(req, { allowPrivilegedQuery: false });
+        const branchId = branchScope.isPrivileged ? job.branch_id : branchScope.branchId;
 
         // Insert refund record
         const [refundResult] = await connection.query(
@@ -915,10 +963,10 @@ router.get('/customer-payments/pending-verification', authenticateToken, authori
 
         if (usePagination) {
             const [[{ cnt }]] = await pool.query(`SELECT COUNT(*) as cnt ${baseFrom}`, params);
-            const [rows] = await pool.query(`SELECT * ${baseFrom} ORDER BY created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+            const [rows] = await pool.query(`SELECT ${CUSTOMER_PAYMENT_LIST_COLUMNS} ${baseFrom} ORDER BY created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
             return res.json(paginatedResponse(rows, cnt, page, limit));
         }
-        const [rows] = await pool.query(`SELECT * ${baseFrom} ORDER BY created_at DESC`, params);
+        const [rows] = await pool.query(`SELECT ${CUSTOMER_PAYMENT_LIST_COLUMNS} ${baseFrom} ORDER BY created_at DESC`, params);
         res.json(rows);
     } catch (err) {
         console.error('Pending verification list error:', err);

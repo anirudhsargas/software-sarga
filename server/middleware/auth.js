@@ -2,6 +2,9 @@ const jwt = require('jsonwebtoken');
 const { pool } = require('../database');
 
 const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET === 'printing_shop_secret_key_2025' || JWT_SECRET.length < 32) {
+    throw new Error('JWT_SECRET is missing or weak. Set a random 256-bit secret in environment.');
+}
 
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];

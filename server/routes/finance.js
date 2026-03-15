@@ -2,16 +2,15 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getUserBranchId, auditLog } = require('../helpers');
+const { auditLog } = require('../helpers');
+const { branchFilter } = require('../middleware/branchFilter');
 
 // ==================== EMI MASTER ROUTES ====================
 
 // Get all EMI commitments with filters
 router.get('/emi-master', authenticateToken, async (req, res) => {
   try {
-    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-      ? await getUserBranchId(req.user.id)
-      : req.query.branch_id;
+    const branchScope = await branchFilter(req, { column: 'em.branch_id' });
 
     let query = `
       SELECT 
@@ -24,12 +23,8 @@ router.get('/emi-master', authenticateToken, async (req, res) => {
       WHERE 1=1
     `;
 
-    const params = [];
-
-    if (branchId) {
-      query += ' AND em.branch_id = ?';
-      params.push(branchId);
-    }
+    const params = [...branchScope.params];
+    query += branchScope.clause;
 
     const { is_active, emi_type } = req.query;
 
@@ -56,9 +51,7 @@ router.get('/emi-master', authenticateToken, async (req, res) => {
 // Get EMI dashboard KPIs
 router.get('/emi-dashboard', authenticateToken, async (req, res) => {
   try {
-    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-      ? await getUserBranchId(req.user.id)
-      : req.query.branch_id;
+    const { branchId } = await branchFilter(req);
 
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
@@ -139,9 +132,7 @@ router.get('/emi-dashboard', authenticateToken, async (req, res) => {
 // Get single EMI with payment history
 router.get('/emi-master/:id', authenticateToken, async (req, res) => {
   try {
-    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-      ? await getUserBranchId(req.user.id)
-      : null;
+    const branchScope = await branchFilter(req, { allowPrivilegedQuery: false, column: 'em.branch_id' });
 
     const [emis] = await pool.query(`
       SELECT 
@@ -149,8 +140,8 @@ router.get('/emi-master/:id', authenticateToken, async (req, res) => {
         b.name as branch_name
       FROM sarga_emi_master em
       LEFT JOIN sarga_branches b ON em.branch_id = b.id
-      WHERE em.id = ? ${branchId ? 'AND em.branch_id = ?' : ''}
-    `, branchId ? [req.params.id, branchId] : [req.params.id]);
+      WHERE em.id = ?${branchScope.clause}
+    `, [req.params.id, ...branchScope.params]);
 
     if (emis.length === 0) {
       return res.status(404).json({ error: 'EMI not found' });
@@ -379,9 +370,7 @@ router.post('/emi-payments', authenticateToken, authorizeRoles('Admin', 'Account
 // Get all Kuri commitments with filters
 router.get('/kuri-master', authenticateToken, async (req, res) => {
   try {
-    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-      ? await getUserBranchId(req.user.id)
-      : req.query.branch_id;
+    const { branchId } = await branchFilter(req);
 
     let query = `
       SELECT 
@@ -426,9 +415,7 @@ router.get('/kuri-master', authenticateToken, async (req, res) => {
 // Get Kuri dashboard KPIs
 router.get('/kuri-dashboard', authenticateToken, async (req, res) => {
   try {
-    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-      ? await getUserBranchId(req.user.id)
-      : req.query.branch_id;
+    const { branchId } = await branchFilter(req);
 
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
@@ -504,9 +491,7 @@ router.get('/kuri-dashboard', authenticateToken, async (req, res) => {
 // Get single Kuri with payment history
 router.get('/kuri-master/:id', authenticateToken, async (req, res) => {
   try {
-    const branchId = !['Admin', 'Accountant'].includes(req.user.role)
-      ? await getUserBranchId(req.user.id)
-      : null;
+    const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
 
     const [kuris] = await pool.query(`
       SELECT 

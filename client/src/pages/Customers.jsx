@@ -17,6 +17,8 @@ const Customers = () => {
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [addFormDirty, setAddFormDirty] = useState(false);
+    const [editFormDirty, setEditFormDirty] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [newCustomer, setNewCustomer] = useState({
         mobile: '',
@@ -33,6 +35,36 @@ const Customers = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
 
+    const hasUnsavedChanges = (showAddModal && addFormDirty) || (showEditModal && editFormDirty);
+
+    const updateNewCustomer = (patch) => {
+        setNewCustomer(prev => ({ ...prev, ...patch }));
+        setAddFormDirty(true);
+    };
+
+    const updateSelectedCustomer = (patch) => {
+        setSelectedCustomer(prev => ({ ...prev, ...patch }));
+        setEditFormDirty(true);
+    };
+
+    const closeAddModal = (force = false) => {
+        if (!force && addFormDirty) {
+            const shouldClose = window.confirm('You have unsaved customer details. Discard them?');
+            if (!shouldClose) return;
+        }
+        setShowAddModal(false);
+        setAddFormDirty(false);
+    };
+
+    const closeEditModal = (force = false) => {
+        if (!force && editFormDirty) {
+            const shouldClose = window.confirm('You have unsaved customer changes. Discard them?');
+            if (!shouldClose) return;
+        }
+        setShowEditModal(false);
+        setEditFormDirty(false);
+    };
+
     const customerTypes = ['Walk-in', 'Retail', 'Association', 'Offset'];
 
     useEffect(() => {
@@ -47,6 +79,16 @@ const Customers = () => {
         }, 300);
         return () => clearTimeout(timer);
     }, [searchQuery]);
+
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (!hasUnsavedChanges) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasUnsavedChanges]);
 
     const fetchCustomers = async () => {
         try {
@@ -78,7 +120,7 @@ const Customers = () => {
         setLoading(true);
         try {
             await api.post('/customers', newCustomer);
-            setShowAddModal(false);
+            closeAddModal(true);
             setNewCustomer({ mobile: '', name: '', type: 'Walk-in', email: '', gst: '', address: '' });
             fetchCustomers();
         } catch (err) {
@@ -108,7 +150,7 @@ const Customers = () => {
                         address: selectedCustomer.address
                     }
                 });
-                setShowEditModal(false);
+                closeEditModal(true);
                 setSelectedCustomer(null);
             } catch (err) {
                 setError(err.response?.data?.message || 'Failed to submit edit request');
@@ -121,7 +163,7 @@ const Customers = () => {
         setLoading(true);
         try {
             await api.put(`/customers/${selectedCustomer.id}`, selectedCustomer);
-            setShowEditModal(false);
+            closeEditModal(true);
             setSelectedCustomer(null);
             fetchCustomers();
         } catch (err) {
@@ -340,7 +382,7 @@ const Customers = () => {
                     >
                         <Plus size={18} /> Walk-in Job
                     </button>
-                    <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+                    <button className="btn btn-primary" onClick={() => { setAddFormDirty(false); setShowAddModal(true); }}>
                         <Plus size={18} /> Add New Customer
                     </button>
                 </div>
@@ -439,7 +481,7 @@ const Customers = () => {
                                 <button
                                     className="btn btn-ghost"
                                     style={{ padding: '5px 10px', height: 30, flex: 1 }}
-                                    onClick={(e) => { e.stopPropagation(); setSelectedCustomer(c); setShowEditModal(true); }}
+                                    onClick={(e) => { e.stopPropagation(); setSelectedCustomer(c); setEditFormDirty(false); setShowEditModal(true); }}
                                     title={isAdmin ? 'Edit Customer' : 'Request Edit'}
                                 >
                                     <Edit2 size={14} />
@@ -463,8 +505,9 @@ const Customers = () => {
             {showAddModal && (
                 <div className="modal-backdrop">
                     <div className="modal">
-                        <button className="modal-close" onClick={() => setShowAddModal(false)}><X size={22} /></button>
+                        <button className="modal-close" aria-label="Close add customer modal" onClick={() => closeAddModal()}><X size={22} /></button>
                         <h2 className="section-title mb-16">Add New Customer</h2>
+                        {addFormDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
                         <form onSubmit={handleAddCustomer} className="stack-md">
                             <div>
                                 <label className="label">Full Name</label>
@@ -472,7 +515,7 @@ const Customers = () => {
                                     type="text"
                                     className="input-field"
                                     value={newCustomer.name}
-                                    onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                                    onChange={(e) => updateNewCustomer({ name: e.target.value })}
                                     required
                                     autoFocus
                                 />
@@ -487,7 +530,7 @@ const Customers = () => {
                                             className="input-field"
                                             placeholder="10-digit mobile"
                                             value={newCustomer.mobile}
-                                            onChange={(e) => setNewCustomer({ ...newCustomer, mobile: validateMobile(e.target.value) })}
+                                            onChange={(e) => updateNewCustomer({ mobile: validateMobile(e.target.value) })}
                                             required
                                         />
                                     </div>
@@ -497,7 +540,7 @@ const Customers = () => {
                                     <select
                                         className="input-field"
                                         value={newCustomer.type}
-                                        onChange={(e) => setNewCustomer({ ...newCustomer, type: e.target.value })}
+                                        onChange={(e) => updateNewCustomer({ type: e.target.value })}
                                     >
                                         {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
@@ -509,7 +552,7 @@ const Customers = () => {
                                     type="email"
                                     className="input-field"
                                     value={newCustomer.email}
-                                    onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+                                    onChange={(e) => updateNewCustomer({ email: e.target.value })}
                                 />
                             </div>
                             <div>
@@ -518,7 +561,7 @@ const Customers = () => {
                                     type="text"
                                     className="input-field"
                                     value={newCustomer.gst}
-                                    onChange={(e) => setNewCustomer({ ...newCustomer, gst: e.target.value.toUpperCase() })}
+                                    onChange={(e) => updateNewCustomer({ gst: e.target.value.toUpperCase() })}
                                     placeholder="GSTIN"
                                 />
                             </div>
@@ -528,7 +571,7 @@ const Customers = () => {
                                     className="input-field"
                                     style={{ minHeight: '80px', resize: 'vertical' }}
                                     value={newCustomer.address}
-                                    onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+                                    onChange={(e) => updateNewCustomer({ address: e.target.value })}
                                 />
                             </div>
 
@@ -545,8 +588,9 @@ const Customers = () => {
             {showEditModal && selectedCustomer && (
                 <div className="modal-backdrop">
                     <div className="modal">
-                        <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={22} /></button>
+                        <button className="modal-close" aria-label="Close edit customer modal" onClick={() => closeEditModal()}><X size={22} /></button>
                         <h2 className="section-title mb-16">Edit Customer</h2>
+                        {editFormDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
                         <form onSubmit={handleUpdateCustomer} className="stack-md">
                             <div>
                                 <label className="label">Full Name</label>
@@ -554,7 +598,7 @@ const Customers = () => {
                                     type="text"
                                     className="input-field"
                                     value={selectedCustomer.name}
-                                    onChange={(e) => setSelectedCustomer({ ...selectedCustomer, name: e.target.value })}
+                                    onChange={(e) => updateSelectedCustomer({ name: e.target.value })}
                                     required
                                 />
                             </div>
@@ -567,7 +611,7 @@ const Customers = () => {
                                             type="tel"
                                             className="input-field"
                                             value={selectedCustomer.mobile}
-                                            onChange={(e) => setSelectedCustomer({ ...selectedCustomer, mobile: validateMobile(e.target.value) })}
+                                            onChange={(e) => updateSelectedCustomer({ mobile: validateMobile(e.target.value) })}
                                             required
                                         />
                                     </div>
@@ -577,7 +621,7 @@ const Customers = () => {
                                     <select
                                         className="input-field"
                                         value={selectedCustomer.type}
-                                        onChange={(e) => setSelectedCustomer({ ...selectedCustomer, type: e.target.value })}
+                                        onChange={(e) => updateSelectedCustomer({ type: e.target.value })}
                                     >
                                         {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
@@ -589,7 +633,7 @@ const Customers = () => {
                                     type="email"
                                     className="input-field"
                                     value={selectedCustomer.email || ''}
-                                    onChange={(e) => setSelectedCustomer({ ...selectedCustomer, email: e.target.value })}
+                                    onChange={(e) => updateSelectedCustomer({ email: e.target.value })}
                                 />
                             </div>
                             <div>
@@ -598,7 +642,7 @@ const Customers = () => {
                                     type="text"
                                     className="input-field"
                                     value={selectedCustomer.gst || ''}
-                                    onChange={(e) => setSelectedCustomer({ ...selectedCustomer, gst: e.target.value.toUpperCase() })}
+                                    onChange={(e) => updateSelectedCustomer({ gst: e.target.value.toUpperCase() })}
                                     placeholder="GSTIN"
                                 />
                             </div>
@@ -608,7 +652,7 @@ const Customers = () => {
                                     className="input-field"
                                     style={{ minHeight: '80px', resize: 'vertical' }}
                                     value={selectedCustomer.address || ''}
-                                    onChange={(e) => setSelectedCustomer({ ...selectedCustomer, address: e.target.value })}
+                                    onChange={(e) => updateSelectedCustomer({ address: e.target.value })}
                                 />
                             </div>
 

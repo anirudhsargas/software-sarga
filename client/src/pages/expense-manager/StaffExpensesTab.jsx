@@ -2,10 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users, Plus, IndianRupee, Loader2, ArrowLeft,
   Calendar, CheckCircle, Clock, AlertTriangle,
-  X, User, CreditCard
+  X, User, CreditCard, Download
 } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, thisMonth } from './constants';
+
+const DEFAULT_PAY_FORM = { amount: '', payment_date: today(), payment_method: 'Cash', reference_number: '', notes: '', bonus: '0', deduction: '0' };
+const DEFAULT_BULK_FORM = { payment_method: 'Cash', payment_date: today(), reference_number: '', notes: '', bonus: '0', deduction: '0' };
 
 const StaffExpensesTab = ({ onPayment, onError }) => {
   const [staffList, setStaffList] = useState([]);
@@ -14,10 +17,48 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
   const [salaryInfo, setSalaryInfo] = useState(null);
   const [loadingInfo, setLoadingInfo] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
-  const [payForm, setPayForm] = useState({ amount: '', payment_date: today(), payment_method: 'Cash', reference_number: '', notes: '', bonus: '0', deduction: '0' });
+  const [payForm, setPayForm] = useState(DEFAULT_PAY_FORM);
   const [month, setMonth] = useState(thisMonth());
   const [payConfirming, setPayConfirming] = useState(false);
   const [paySubmitting, setPaySubmitting] = useState(false);
+  const [payDirty, setPayDirty] = useState(false);
+  const [selectedStaffIds, setSelectedStaffIds] = useState([]);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkForm, setBulkForm] = useState(DEFAULT_BULK_FORM);
+  const [bulkDirty, setBulkDirty] = useState(false);
+
+  const hasUnsavedChanges = (showPayModal && payDirty && !paySubmitting) || (showBulkModal && bulkDirty && !bulkSubmitting);
+
+  const closePayModal = (force = false) => {
+    if (!force && payDirty && !paySubmitting) {
+      const shouldClose = window.confirm('You have unsaved salary payment changes. Discard them?');
+      if (!shouldClose) return;
+    }
+    setShowPayModal(false);
+    setPayConfirming(false);
+    setPayDirty(false);
+  };
+
+  const closeBulkModal = (force = false) => {
+    if (!force && bulkDirty && !bulkSubmitting) {
+      const shouldClose = window.confirm('You have unsaved bulk payment changes. Discard them?');
+      if (!shouldClose) return;
+    }
+    setShowBulkModal(false);
+    setBulkDirty(false);
+  };
+
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (!hasUnsavedChanges) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
@@ -42,6 +83,38 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
 
   const handleSalaryReview = (e) => { e.preventDefault(); setPayConfirming(true); };
 
+  const toggleStaffSelection = (staffId) => {
+    setSelectedStaffIds(prev => prev.includes(staffId)
+      ? prev.filter(id => id !== staffId)
+      : [...prev, staffId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedStaffIds.length === staffList.length) {
+      setSelectedStaffIds([]);
+      return;
+    }
+    setSelectedStaffIds(staffList.map(s => s.id));
+  };
+
+  const downloadSalarySlip = async (staffId, ym) => {
+    try {
+      const response = await api.get(`/staff/${staffId}/salary-slip/${ym}`, { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `salary-slip-${staffId}-${ym}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to download salary slip');
+    }
+  };
+
   const submitSalaryPayment = async (e) => {
     e.preventDefault();
     if (!selectedStaff) return;
@@ -49,7 +122,8 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
     try {
       await api.post(`/staff/${selectedStaff.id}/pay-salary`, {
         payment_month: `${month}-01`,
-        amount: Number(payForm.amount),
+        base_salary: Number(payForm.amount || 0),
+        payment_amount: Number(payForm.amount || 0),
         payment_date: payForm.payment_date,
         payment_method: payForm.payment_method,
         reference_number: payForm.reference_number,
@@ -57,13 +131,50 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
         bonus: Number(payForm.bonus || 0),
         deduction: Number(payForm.deduction || 0)
       });
-      setShowPayModal(false); setPayConfirming(false);
-      setPayForm({ amount: '', payment_date: today(), payment_method: 'Cash', reference_number: '', notes: '', bonus: '0', deduction: '0' });
+      closePayModal(true);
+      setPayForm(DEFAULT_PAY_FORM);
       openStaffSalary(selectedStaff);
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Payment failed');
     }
     finally { setPaySubmitting(false); }
+  };
+
+  const submitBulkSalaryPayment = async (e) => {
+    e.preventDefault();
+    if (selectedStaffIds.length === 0) {
+      if (onError) onError('Select at least one staff for bulk payment');
+      return;
+    }
+    setBulkSubmitting(true);
+    try {
+      const { data } = await api.post('/staff/bulk-pay-salary', {
+        staff_ids: selectedStaffIds,
+        payment_month: `${month}-01`,
+        payment_method: bulkForm.payment_method,
+        payment_date: bulkForm.payment_date,
+        reference_number: bulkForm.reference_number,
+        notes: bulkForm.notes,
+        bonus: Number(bulkForm.bonus || 0),
+        deduction: Number(bulkForm.deduction || 0)
+      });
+
+      closeBulkModal(true);
+      setSelectedStaffIds([]);
+      fetchStaff();
+
+      if (onPayment) {
+        onPayment({
+          type: 'Salary',
+          amount: (data?.processed || []).reduce((sum, p) => sum + Number(p.amount || 0), 0),
+          notes: `Bulk salary processed: ${data?.processed_count || 0} success, ${data?.failed_count || 0} failed`
+        });
+      }
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Bulk salary payment failed');
+    } finally {
+      setBulkSubmitting(false);
+    }
   };
 
   /* ── Staff Salary Detail ── */
@@ -90,8 +201,12 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{staff.name}</h2>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{staff.role} · {staff.salary_type === 'daily' ? `₹${fmt(staff.daily_rate)}/day` : `₹${fmt(staff.base_salary)}/month`}</span>
               </div>
-              <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => {
+              <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => downloadSalarySlip(staff.id, month)}>
+                <Download size={14} /> Salary Slip
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={() => {
                 setPayForm(p => ({ ...p, amount: String(staff.base_salary || staff.daily_rate * 26 || '') }));
+                setPayDirty(false);
                 setShowPayModal(true);
               }}>
                 <IndianRupee size={14} /> Pay Salary
@@ -184,23 +299,24 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
 
         {/* Salary Payment Modal */}
         {showPayModal && (
-          <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) { setShowPayModal(false); setPayConfirming(false); } }}>
+          <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closePayModal(); }}>
             <div className="em-modal em-modal--sm" onClick={e => e.stopPropagation()}>
-              <div className="em-modal__header"><h2>Pay Salary — {selectedStaff.name}</h2><button className="btn btn-ghost btn-icon" onClick={() => { setShowPayModal(false); setPayConfirming(false); }}><X size={18} /></button></div>
+              <div className="em-modal__header"><h2>Pay Salary — {selectedStaff.name}</h2><button className="btn btn-ghost btn-icon" aria-label="Close salary payment modal" onClick={() => closePayModal()}><X size={18} /></button></div>
+              {payDirty && !payConfirming && <div className="alert alert--warning mb-12">Unsaved changes</div>}
               {!payConfirming ? (
                 <form onSubmit={handleSalaryReview}>
                   <div className="em-modal__body">
                     <div className="em-form-grid">
-                      <div className="em-form-group"><label>For Month</label><input className="em-input" type="month" value={month} onChange={e => setMonth(e.target.value)} required /></div>
-                      <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} required /></div>
-                      <div className="em-form-group"><label>Bonus (₹)</label><input className="em-input" type="number" min="0" value={payForm.bonus} onChange={e => setPayForm(p => ({ ...p, bonus: e.target.value }))} /></div>
-                      <div className="em-form-group"><label>Deduction (₹)</label><input className="em-input" type="number" min="0" value={payForm.deduction} onChange={e => setPayForm(p => ({ ...p, deduction: e.target.value }))} /></div>
-                      <div className="em-form-group"><label>Payment Method</label><select className="em-input" value={payForm.payment_method} onChange={e => setPayForm(p => ({ ...p, payment_method: e.target.value }))}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
-                      <div className="em-form-group"><label>Reference #</label><input className="em-input" value={payForm.reference_number} onChange={e => setPayForm(p => ({ ...p, reference_number: e.target.value }))} /></div>
-                      <div className="em-form-group em-form-group--full"><label>Notes</label><input className="em-input" value={payForm.notes} onChange={e => setPayForm(p => ({ ...p, notes: e.target.value }))} /></div>
+                      <div className="em-form-group"><label>For Month</label><input className="em-input" type="month" value={month} onChange={e => { setMonth(e.target.value); setPayDirty(true); }} required /></div>
+                      <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={payForm.amount} onChange={e => { setPayForm(p => ({ ...p, amount: e.target.value })); setPayDirty(true); }} required /></div>
+                      <div className="em-form-group"><label>Bonus (₹)</label><input className="em-input" type="number" min="0" value={payForm.bonus} onChange={e => { setPayForm(p => ({ ...p, bonus: e.target.value })); setPayDirty(true); }} /></div>
+                      <div className="em-form-group"><label>Deduction (₹)</label><input className="em-input" type="number" min="0" value={payForm.deduction} onChange={e => { setPayForm(p => ({ ...p, deduction: e.target.value })); setPayDirty(true); }} /></div>
+                      <div className="em-form-group"><label>Payment Method</label><select className="em-input" value={payForm.payment_method} onChange={e => { setPayForm(p => ({ ...p, payment_method: e.target.value })); setPayDirty(true); }}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
+                      <div className="em-form-group"><label>Reference #</label><input className="em-input" value={payForm.reference_number} onChange={e => { setPayForm(p => ({ ...p, reference_number: e.target.value })); setPayDirty(true); }} /></div>
+                      <div className="em-form-group em-form-group--full"><label>Notes</label><input className="em-input" value={payForm.notes} onChange={e => { setPayForm(p => ({ ...p, notes: e.target.value })); setPayDirty(true); }} /></div>
                     </div>
                   </div>
-                  <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setShowPayModal(false)}>Cancel</button><button type="submit" className="btn btn-primary" disabled={!payForm.amount || Number(payForm.amount) <= 0}>Review & Confirm</button></div>
+                  <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => closePayModal()}>Cancel</button><button type="submit" className="btn btn-primary" disabled={!payForm.amount || Number(payForm.amount) <= 0}>Review & Confirm</button></div>
                 </form>
               ) : (
                 <form onSubmit={submitSalaryPayment}>
@@ -233,6 +349,26 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
     <div className="em-section">
       <div className="em-section-title"><Users size={18} /> Staff Expenses & Salary</div>
 
+      {staffList.length > 0 && (
+        <div className="row gap-sm items-center mb-12" style={{ justifyContent: 'space-between' }}>
+          <label className="row gap-sm items-center" style={{ fontSize: 13, color: 'var(--muted)' }}>
+            <input
+              type="checkbox"
+              checked={selectedStaffIds.length > 0 && selectedStaffIds.length === staffList.length}
+              onChange={toggleSelectAll}
+            />
+            Select all ({selectedStaffIds.length}/{staffList.length})
+          </label>
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={selectedStaffIds.length === 0}
+            onClick={() => setShowBulkModal(true)}
+          >
+            <IndianRupee size={14} /> Bulk Pay Selected
+          </button>
+        </div>
+      )}
+
       {loading ? <div className="em-loading"><Loader2 className="spin" size={20} /> Loading staff...</div> : staffList.length === 0 ? (
         <div className="em-empty-state">
           <div className="em-empty-state__icon"><Users size={48} strokeWidth={1.5} /></div>
@@ -248,6 +384,14 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
         <div className="em-staff-grid">
           {staffList.map(s => (
             <div key={s.id} className="em-staff-card" onClick={() => openStaffSalary(s)}>
+              <div style={{ alignSelf: 'flex-start' }}>
+                <input
+                  type="checkbox"
+                  checked={selectedStaffIds.includes(s.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => toggleStaffSelection(s.id)}
+                />
+              </div>
               <div className="em-staff-card__avatar"><User size={22} /></div>
               <div className="em-staff-card__info">
                 <div className="em-staff-card__name">{s.name}</div>
@@ -257,12 +401,50 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
                 </div>
               </div>
               <div className="em-staff-card__actions">
-                <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedStaff(s); setPayForm(p => ({ ...p, amount: String(s.base_salary || s.daily_rate * 26 || '') })); setShowPayModal(true); }}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    downloadSalarySlip(s.id, month);
+                  }}
+                >
+                  <Download size={14} /> Slip
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedStaff(s); setPayForm(p => ({ ...p, amount: String(s.base_salary || s.daily_rate * 26 || '') })); setPayDirty(false); setShowPayModal(true); }}>
                   <IndianRupee size={14} /> Pay
                 </button>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {showBulkModal && (
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closeBulkModal(); }}>
+          <div className="em-modal em-modal--sm" onClick={(e) => e.stopPropagation()}>
+            <div className="em-modal__header">
+              <h2>Bulk Salary Payment ({selectedStaffIds.length} staff)</h2>
+              <button className="btn btn-ghost btn-icon" aria-label="Close bulk salary modal" onClick={() => closeBulkModal()}><X size={18} /></button>
+            </div>
+            {bulkDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
+            <form onSubmit={submitBulkSalaryPayment}>
+              <div className="em-modal__body">
+                <div className="em-form-grid">
+                  <div className="em-form-group"><label>For Month</label><input className="em-input" type="month" value={month} onChange={e => { setMonth(e.target.value); setBulkDirty(true); }} required /></div>
+                  <div className="em-form-group"><label>Payment Date</label><input className="em-input" type="date" value={bulkForm.payment_date} onChange={e => { setBulkForm(p => ({ ...p, payment_date: e.target.value })); setBulkDirty(true); }} required /></div>
+                  <div className="em-form-group"><label>Method</label><select className="em-input" value={bulkForm.payment_method} onChange={e => { setBulkForm(p => ({ ...p, payment_method: e.target.value })); setBulkDirty(true); }}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
+                  <div className="em-form-group"><label>Reference #</label><input className="em-input" value={bulkForm.reference_number} onChange={e => { setBulkForm(p => ({ ...p, reference_number: e.target.value })); setBulkDirty(true); }} /></div>
+                  <div className="em-form-group"><label>Bonus (applies each)</label><input className="em-input" type="number" min="0" value={bulkForm.bonus} onChange={e => { setBulkForm(p => ({ ...p, bonus: e.target.value })); setBulkDirty(true); }} /></div>
+                  <div className="em-form-group"><label>Deduction (applies each)</label><input className="em-input" type="number" min="0" value={bulkForm.deduction} onChange={e => { setBulkForm(p => ({ ...p, deduction: e.target.value })); setBulkDirty(true); }} /></div>
+                  <div className="em-form-group em-form-group--full"><label>Notes</label><input className="em-input" value={bulkForm.notes} onChange={e => { setBulkForm(p => ({ ...p, notes: e.target.value })); setBulkDirty(true); }} /></div>
+                </div>
+              </div>
+              <div className="em-modal__footer">
+                <button type="button" className="btn btn-ghost" onClick={() => closeBulkModal()}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={bulkSubmitting}>{bulkSubmitting ? 'Processing...' : 'Process Bulk Payment'}</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

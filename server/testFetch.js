@@ -4,10 +4,13 @@ require('dotenv').config();
 
 async function testFetch() {
     try {
+        if (!process.env.JWT_SECRET) {
+            throw new Error('JWT_SECRET is required in environment to run testFetch.js');
+        }
         // MOCK A TOKEN for user 1 (Admin)
         const token = jwt.sign(
             { id: 1, role: 'Admin', branch_id: 1, name: 'Admin Test' },
-            process.env.JWT_SECRET || 'fallback_secret',
+            process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
 

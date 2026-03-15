@@ -221,15 +221,30 @@ module.exports = (upload, removeUploadFile) => {
             const [salaryRecords] = await pool.query(
                 "SELECT COUNT(*) as cnt FROM sarga_staff_salary WHERE staff_id = ?", [id]
             ).catch(() => [[{ cnt: 0 }]]);
+
+            const [salaryPayments] = await pool.query(
+                "SELECT COUNT(*) as cnt FROM sarga_staff_salary_payments WHERE staff_id = ?", [id]
+            ).catch(() => [[{ cnt: 0 }]]);
             
             const [attendance] = await pool.query(
                 "SELECT COUNT(*) as cnt FROM sarga_staff_attendance WHERE staff_id = ?", [id]
             ).catch(() => [[{ cnt: 0 }]]);
 
+            const [leaveBalances] = await pool.query(
+                "SELECT COUNT(*) as cnt FROM sarga_staff_leave_balance WHERE staff_id = ?", [id]
+            ).catch(() => [[{ cnt: 0 }]]);
+
+            const [expensePayments] = await pool.query(
+                "SELECT COUNT(*) as cnt FROM sarga_payments WHERE staff_id = ?", [id]
+            ).catch(() => [[{ cnt: 0 }]]);
+
             const linked = [];
             if (assignments[0].cnt > 0) linked.push(`${assignments[0].cnt} job assignment(s)`);
             if (salaryRecords[0].cnt > 0) linked.push(`${salaryRecords[0].cnt} salary record(s)`);
+            if (salaryPayments[0].cnt > 0) linked.push(`${salaryPayments[0].cnt} salary payment transaction(s)`);
             if (attendance[0].cnt > 0) linked.push(`${attendance[0].cnt} attendance record(s)`);
+            if (leaveBalances[0].cnt > 0) linked.push(`${leaveBalances[0].cnt} leave balance record(s)`);
+            if (expensePayments[0].cnt > 0) linked.push(`${expensePayments[0].cnt} payment ledger entry(ies)`);
 
             if (linked.length > 0) {
                 return res.status(409).json({ message: `Cannot delete: staff has ${linked.join(', ')}. Deactivate instead.` });

@@ -692,6 +692,32 @@ const BillsDocsTab = ({ branchId }) => {
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [uploadForm, setUploadForm] = useState({ document_type: 'Invoice', related_tab: '', vendor_name: '', bill_number: '', bill_date: new Date().toISOString().split('T')[0], amount: '', description: '', file: null });
+    const [uploadDirty, setUploadDirty] = useState(false);
+
+    const openUploadModal = () => {
+        setUploadDirty(false);
+        setShowUploadModal(true);
+    };
+
+    const closeUploadModal = (force = false) => {
+        if (!force && uploadDirty && !uploading) {
+            const shouldClose = window.confirm('You have unsaved upload form changes. Discard them?');
+            if (!shouldClose) return;
+        }
+        setShowUploadModal(false);
+        setUploadDirty(false);
+    };
+
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (!(showUploadModal && uploadDirty && !uploading)) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [showUploadModal, uploadDirty, uploading]);
 
     const fetchDocs = useCallback(async () => {
         setLoading(true);
@@ -731,7 +757,7 @@ const BillsDocsTab = ({ branchId }) => {
             const url = uploadForm.file ? '/bills-documents/upload' : '/bills-documents';
             await api.post(url, uploadForm.file ? fd : uploadForm, uploadForm.file ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined);
             toast.success('Document uploaded');
-            setShowUploadModal(false);
+            closeUploadModal(true);
             setUploadForm({ document_type: 'Invoice', related_tab: '', vendor_name: '', bill_number: '', bill_date: new Date().toISOString().split('T')[0], amount: '', description: '', file: null });
             fetchDocs();
         } catch (err) { toast.error(err.response?.data?.message || 'Upload failed'); }
@@ -776,7 +802,7 @@ const BillsDocsTab = ({ branchId }) => {
                     <input type="date" className="acc-input acc-input--sm" value={filter.start_date} onChange={e => setFilter(p => ({ ...p, start_date: e.target.value }))} />
                     <input type="date" className="acc-input acc-input--sm" value={filter.end_date} onChange={e => setFilter(p => ({ ...p, end_date: e.target.value }))} />
                 </div>
-                <button className="acc-btn acc-btn--primary" onClick={() => setShowUploadModal(true)}>
+                <button className="acc-btn acc-btn--primary" onClick={openUploadModal}>
                     <Upload size={15} /> Upload Document
                 </button>
             </div>
@@ -859,7 +885,7 @@ const BillsDocsTab = ({ branchId }) => {
                     <FolderOpen size={48} />
                     <h3>No documents yet</h3>
                     <p>Upload your first bill or document to get started</p>
-                    <button className="acc-btn acc-btn--primary" onClick={() => setShowUploadModal(true)}>
+                    <button className="acc-btn acc-btn--primary" onClick={openUploadModal}>
                         <Upload size={15} /> Upload Document
                     </button>
                 </div>
@@ -867,24 +893,25 @@ const BillsDocsTab = ({ branchId }) => {
 
             {/* Upload Modal */}
             {showUploadModal && (
-                <div className="acc-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowUploadModal(false); }}>
+                <div className="acc-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) closeUploadModal(); }}>
                     <div className="acc-modal" onClick={e => e.stopPropagation()}>
                         <div className="acc-modal__header">
                             <h2>Upload Document</h2>
-                            <button className="acc-btn acc-btn--ghost acc-btn--icon" onClick={() => setShowUploadModal(false)}><X size={18} /></button>
+                            <button className="acc-btn acc-btn--ghost acc-btn--icon" aria-label="Close upload modal" onClick={() => closeUploadModal()}><X size={18} /></button>
                         </div>
+                        {uploadDirty && <div className="acc-alert acc-alert--warning" style={{ margin: '0 16px' }}>Unsaved changes</div>}
                         <form onSubmit={handleUpload}>
                             <div className="acc-modal__body">
                                 <div className="acc-form-grid">
                                     <div className="acc-form-group">
                                         <label>Document Type</label>
-                                        <select className="acc-input" value={uploadForm.document_type} onChange={e => setUploadForm(p => ({ ...p, document_type: e.target.value }))}>
+                                        <select className="acc-input" value={uploadForm.document_type} onChange={e => { setUploadForm(p => ({ ...p, document_type: e.target.value })); setUploadDirty(true); }}>
                                             {DOCUMENT_TYPES.map(t => <option key={t}>{t}</option>)}
                                         </select>
                                     </div>
                                     <div className="acc-form-group">
                                         <label>Related Category</label>
-                                        <select className="acc-input" value={uploadForm.related_tab} onChange={e => setUploadForm(p => ({ ...p, related_tab: e.target.value }))}>
+                                        <select className="acc-input" value={uploadForm.related_tab} onChange={e => { setUploadForm(p => ({ ...p, related_tab: e.target.value })); setUploadDirty(true); }}>
                                             <option value="">General</option>
                                             <option value="office">Office</option>
                                             <option value="transport">Transport</option>
@@ -895,32 +922,32 @@ const BillsDocsTab = ({ branchId }) => {
                                     </div>
                                     <div className="acc-form-group">
                                         <label>Vendor Name</label>
-                                        <input className="acc-input" value={uploadForm.vendor_name} onChange={e => setUploadForm(p => ({ ...p, vendor_name: e.target.value }))} placeholder="Vendor / supplier name" />
+                                        <input className="acc-input" value={uploadForm.vendor_name} onChange={e => { setUploadForm(p => ({ ...p, vendor_name: e.target.value })); setUploadDirty(true); }} placeholder="Vendor / supplier name" />
                                     </div>
                                     <div className="acc-form-group">
                                         <label>Bill Number</label>
-                                        <input className="acc-input" value={uploadForm.bill_number} onChange={e => setUploadForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g., INV-001" />
+                                        <input className="acc-input" value={uploadForm.bill_number} onChange={e => { setUploadForm(p => ({ ...p, bill_number: e.target.value })); setUploadDirty(true); }} placeholder="e.g., INV-001" />
                                     </div>
                                     <div className="acc-form-group">
                                         <label>Bill Date</label>
-                                        <input className="acc-input" type="date" value={uploadForm.bill_date} onChange={e => setUploadForm(p => ({ ...p, bill_date: e.target.value }))} />
+                                        <input className="acc-input" type="date" value={uploadForm.bill_date} onChange={e => { setUploadForm(p => ({ ...p, bill_date: e.target.value })); setUploadDirty(true); }} />
                                     </div>
                                     <div className="acc-form-group">
                                         <label>Amount (₹)</label>
-                                        <input className="acc-input" type="number" min="0" step="0.01" value={uploadForm.amount} onChange={e => setUploadForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
+                                        <input className="acc-input" type="number" min="0" step="0.01" value={uploadForm.amount} onChange={e => { setUploadForm(p => ({ ...p, amount: e.target.value })); setUploadDirty(true); }} placeholder="0.00" />
                                     </div>
                                     <div className="acc-form-group acc-form-group--full">
                                         <label>Description</label>
-                                        <input className="acc-input" value={uploadForm.description} onChange={e => setUploadForm(p => ({ ...p, description: e.target.value }))} placeholder="Brief description..." />
+                                        <input className="acc-input" value={uploadForm.description} onChange={e => { setUploadForm(p => ({ ...p, description: e.target.value })); setUploadDirty(true); }} placeholder="Brief description..." />
                                     </div>
                                     <div className="acc-form-group acc-form-group--full">
                                         <label>File (JPG, PNG, PDF, XLS, DOC — max 10MB)</label>
-                                        <input type="file" className="acc-input" accept=".jpg,.jpeg,.png,.webp,.pdf,.xls,.xlsx,.doc,.docx" onChange={e => setUploadForm(p => ({ ...p, file: e.target.files[0] || null }))} />
+                                        <input type="file" className="acc-input" accept=".jpg,.jpeg,.png,.webp,.pdf,.xls,.xlsx,.doc,.docx" onChange={e => { setUploadForm(p => ({ ...p, file: e.target.files[0] || null })); setUploadDirty(true); }} />
                                     </div>
                                 </div>
                             </div>
                             <div className="acc-modal__footer">
-                                <button type="button" className="acc-btn acc-btn--ghost" onClick={() => setShowUploadModal(false)}>Cancel</button>
+                                <button type="button" className="acc-btn acc-btn--ghost" onClick={() => closeUploadModal()}>Cancel</button>
                                 <button type="submit" className="acc-btn acc-btn--primary" disabled={uploading}>
                                     {uploading ? <><Loader2 size={14} className="spin" /> Uploading...</> : <><Upload size={14} /> Upload</>}
                                 </button>

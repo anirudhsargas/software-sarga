@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
-const SECRET = 'printing_shop_secret_key_2025';
+const SECRET = process.env.JWT_SECRET;
+if (!SECRET) {
+    throw new Error('JWT_SECRET is required in environment to run test_laser.js');
+}
 
 // Admin User token payload
 const payload = {

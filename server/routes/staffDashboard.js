@@ -3,6 +3,44 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { validate, attendanceSchema } = require('../middleware/validate');
+const PDFDocument = require('pdfkit');
+
+async function calculateSalaryForMonth(staffId, staff, yearMonth) {
+    const [attendance] = await pool.query(`
+        SELECT status FROM sarga_staff_attendance
+        WHERE staff_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
+    `, [staffId, yearMonth]);
+
+    const [leaveBalance] = await pool.query(`
+        SELECT paid_leaves_used, unpaid_leaves_used
+        FROM sarga_staff_leave_balance
+        WHERE staff_id = ? AND \`year_month\` = ?
+    `, [staffId, yearMonth]);
+
+    const leaves = leaveBalance[0] || { paid_leaves_used: 0, unpaid_leaves_used: 0 };
+
+    if (staff.salary_type === 'Monthly') {
+        const perDayRate = Number(staff.base_salary || 0) / 26;
+        const unpaidLeave = Number(leaves.unpaid_leaves_used || 0);
+        const daysWorked = Math.max(0, 26 - unpaidLeave);
+        return {
+            calculatedSalary: Number((perDayRate * daysWorked).toFixed(2)),
+            presentDays: attendance.filter(a => a.status === 'Present').length,
+            unpaidLeaves: unpaidLeave,
+            paidLeaves: Number(leaves.paid_leaves_used || 0),
+            totalEntries: attendance.length
+        };
+    }
+
+    const presentDays = attendance.filter(a => a.status === 'Present').length;
+    return {
+        calculatedSalary: Number((presentDays * Number(staff.daily_rate || 0)).toFixed(2)),
+        presentDays,
+        unpaidLeaves: Number(leaves.unpaid_leaves_used || 0),
+        paidLeaves: Number(leaves.paid_leaves_used || 0),
+        totalEntries: attendance.length
+    };
+}
 
 // ========== STAFF DASHBOARD ENDPOINTS ==========
 
@@ -125,11 +163,32 @@ router.get('/:id/salary-info', authenticateToken, async (req, res) => {
 router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { base_salary, bonus, deduction, payment_month, payment_method, reference_number, notes, payment_amount, payment_date } = req.body;
+        const {
+            base_salary,
+            bonus,
+            deduction,
+            payment_month,
+            payment_method,
+            reference_number,
+            notes,
+            payment_amount,
+            amount,
+            payment_date
+        } = req.body;
 
-        const net_salary = base_salary + (bonus || 0) - (deduction || 0);
+        const bonusNum = Number(bonus || 0);
+        const deductionNum = Number(deduction || 0);
+        const paidAmount = Number(payment_amount ?? amount ?? 0);
+
+        // Backward-compatible base salary handling if client sends only amount.
+        let resolvedBaseSalary = Number(base_salary || 0);
+        if (!resolvedBaseSalary) {
+            const [[staffRow]] = await pool.query('SELECT base_salary FROM sarga_staff WHERE id = ?', [id]);
+            resolvedBaseSalary = Number(staffRow?.base_salary || paidAmount || 0);
+        }
+
+        const net_salary = resolvedBaseSalary + bonusNum - deductionNum;
         const paid_date = new Date();
-        const paidAmount = Number(payment_amount || 0);
         const effectiveDate = payment_date ? new Date(payment_date) : paid_date;
 
         // Check if salary record exists for this month
@@ -156,7 +215,7 @@ router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accou
                     paid_date = ?, payment_method = ?, reference_number = ?, 
                     notes = ?, status = ?
                 WHERE id = ?
-            `, [net_salary, bonus || 0, deduction || 0, paid_date, payment_method, reference_number, notes, status, existing[0].id]);
+            `, [net_salary, bonusNum, deductionNum, paid_date, payment_method, reference_number, notes, status, existing[0].id]);
         } else {
             // Create new
             const status = paidAmount >= net_salary ? 'Paid' : 'Partial';
@@ -165,7 +224,7 @@ router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accou
                 (staff_id, base_salary, net_salary, payment_month, bonus, deduction, 
                  paid_date, payment_method, reference_number, notes, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, [id, base_salary, net_salary, payment_month, bonus || 0, deduction || 0, paid_date, payment_method, reference_number, notes, status]);
+            `, [id, resolvedBaseSalary, net_salary, payment_month, bonusNum, deductionNum, paid_date, payment_method, reference_number, notes, status]);
         }
 
         // Fetch staff info for payment record
@@ -204,6 +263,225 @@ router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accou
     } catch (err) {
         console.error('Salary payment error:', err);
         res.status(500).json({ message: 'Failed to record salary payment' });
+    }
+});
+
+// Bulk salary payment for selected staff
+router.post('/bulk-pay-salary', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+    try {
+        const {
+            staff_ids,
+            payment_month,
+            payment_method,
+            payment_date,
+            notes,
+            reference_number,
+            bonus,
+            deduction
+        } = req.body;
+
+        if (!Array.isArray(staff_ids) || staff_ids.length === 0) {
+            return res.status(400).json({ message: 'staff_ids is required' });
+        }
+        if (!payment_month) {
+            return res.status(400).json({ message: 'payment_month is required' });
+        }
+
+        const bonusNum = Number(bonus || 0);
+        const deductionNum = Number(deduction || 0);
+        const effectiveDate = payment_date ? new Date(payment_date) : new Date();
+        const ym = String(payment_month).slice(0, 7);
+
+        const processed = [];
+        const failed = [];
+
+        for (const staffId of staff_ids) {
+            try {
+                const [[staff]] = await pool.query(
+                    'SELECT id, name, branch_id, salary_type, base_salary, daily_rate FROM sarga_staff WHERE id = ?',
+                    [staffId]
+                );
+                if (!staff) {
+                    failed.push({ staff_id: staffId, error: 'Staff not found' });
+                    continue;
+                }
+
+                const calc = await calculateSalaryForMonth(staffId, staff, ym);
+                const base = Number(calc.calculatedSalary || 0);
+                const netSalary = Math.max(0, base + bonusNum - deductionNum);
+                const paidAmount = netSalary;
+
+                const [existing] = await pool.query(
+                    'SELECT id FROM sarga_staff_salary WHERE staff_id = ? AND payment_month = ?',
+                    [staffId, payment_month]
+                );
+
+                let salaryRecordId;
+                if (existing.length > 0) {
+                    salaryRecordId = existing[0].id;
+                    await pool.query(
+                        `UPDATE sarga_staff_salary
+                         SET base_salary = ?, net_salary = ?, bonus = ?, deduction = ?,
+                             paid_date = ?, payment_method = ?, reference_number = ?, notes = ?, status = ?
+                         WHERE id = ?`,
+                        [base, netSalary, bonusNum, deductionNum, effectiveDate, payment_method, reference_number, notes, 'Paid', salaryRecordId]
+                    );
+                } else {
+                    const [ins] = await pool.query(
+                        `INSERT INTO sarga_staff_salary
+                         (staff_id, base_salary, net_salary, payment_month, bonus, deduction, paid_date, payment_method, reference_number, notes, status)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Paid')`,
+                        [staffId, base, netSalary, payment_month, bonusNum, deductionNum, effectiveDate, payment_method, reference_number, notes]
+                    );
+                    salaryRecordId = ins.insertId;
+                }
+
+                await pool.query(
+                    `INSERT INTO sarga_staff_salary_payments
+                     (staff_id, payment_date, payment_amount, payment_method, reference_number, notes, created_by)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [staffId, effectiveDate, paidAmount, payment_method, reference_number, notes, req.user.id]
+                );
+
+                await pool.query(
+                    `INSERT INTO sarga_payments
+                     (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date, staff_id)
+                     VALUES (?, 'Salary', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        staff.branch_id,
+                        staff.name,
+                        paidAmount,
+                        payment_method,
+                        payment_method === 'UPI' ? 0 : paidAmount,
+                        payment_method === 'UPI' ? paidAmount : 0,
+                        reference_number,
+                        `Bulk salary payment for ${payment_month}${notes ? ` - ${notes}` : ''}`,
+                        effectiveDate,
+                        staffId
+                    ]
+                );
+
+                processed.push({ staff_id: staffId, staff_name: staff.name, salary_record_id: salaryRecordId, amount: paidAmount });
+            } catch (e) {
+                failed.push({ staff_id: staffId, error: e.message || 'Failed' });
+            }
+        }
+
+        auditLog(req.user.id, 'SALARY_BULK_PAYMENT', `Bulk salary payment for ${payment_month} (processed=${processed.length}, failed=${failed.length})`);
+
+        res.json({
+            message: 'Bulk salary processing completed',
+            processed_count: processed.length,
+            failed_count: failed.length,
+            processed,
+            failed
+        });
+    } catch (err) {
+        console.error('Bulk salary payment error:', err);
+        res.status(500).json({ message: 'Failed to process bulk salary payment' });
+    }
+});
+
+// Download salary slip PDF for a staff and month (YYYY-MM)
+router.get('/:id/salary-slip/:year_month', authenticateToken, async (req, res) => {
+    try {
+        const { id, year_month } = req.params;
+
+        if (!/^\d{4}-\d{2}$/.test(year_month)) {
+            return res.status(400).json({ message: 'Invalid year_month format. Use YYYY-MM' });
+        }
+
+        if (String(req.user.id) !== String(id) && !['Admin', 'Accountant', 'Front Office'].includes(req.user.role)) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        const [[staff]] = await pool.query(
+            'SELECT id, name, user_id, role, salary_type, base_salary, daily_rate, branch_id FROM sarga_staff WHERE id = ?',
+            [id]
+        );
+        if (!staff) return res.status(404).json({ message: 'Staff not found' });
+
+        const paymentMonthDate = `${year_month}-01`;
+        const [[salaryRecord]] = await pool.query(
+            `SELECT id, base_salary, net_salary, payment_month, bonus, deduction, status, paid_date, payment_method, reference_number, notes
+             FROM sarga_staff_salary
+             WHERE staff_id = ? AND payment_month = ?`,
+            [id, paymentMonthDate]
+        );
+
+        const calc = await calculateSalaryForMonth(id, staff, year_month);
+
+        const [payments] = await pool.query(
+            `SELECT payment_date, payment_amount, payment_method, reference_number
+             FROM sarga_staff_salary_payments
+             WHERE staff_id = ? AND DATE_FORMAT(payment_date, '%Y-%m') = ?
+             ORDER BY payment_date ASC`,
+            [id, year_month]
+        );
+
+        const totalPaid = payments.reduce((s, p) => s + Number(p.payment_amount || 0), 0);
+        const netSalary = Number(salaryRecord?.net_salary ?? calc.calculatedSalary ?? 0);
+        const pending = Math.max(0, netSalary - totalPaid);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="salary-slip-${staff.name.replace(/[^a-z0-9]/gi, '_')}-${year_month}.pdf"`);
+
+        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        doc.pipe(res);
+
+        doc.fontSize(18).font('Helvetica-Bold').text('SALARY SLIP', { align: 'center' });
+        doc.moveDown(0.4);
+        doc.fontSize(11).font('Helvetica').text(`Month: ${year_month}`, { align: 'center' });
+        doc.moveDown(1.2);
+
+        doc.font('Helvetica-Bold').fontSize(12).text('Employee Details');
+        doc.moveDown(0.3);
+        doc.font('Helvetica').fontSize(10);
+        doc.text(`Name: ${staff.name}`);
+        doc.text(`Staff ID: ${staff.user_id || staff.id}`);
+        doc.text(`Role: ${staff.role || '-'}`);
+        doc.text(`Salary Type: ${staff.salary_type || '-'}`);
+        doc.moveDown(0.8);
+
+        const label = (x, y, key, val) => {
+            doc.font('Helvetica').fontSize(10).text(key, x, y);
+            doc.font('Helvetica-Bold').text(String(val), x + 180, y, { width: 150, align: 'right' });
+        };
+
+        const startY = doc.y;
+        doc.font('Helvetica-Bold').fontSize(12).text('Salary Summary');
+        doc.moveDown(0.3);
+        label(40, doc.y, 'Calculated Salary', `Rs. ${Number(calc.calculatedSalary || 0).toFixed(2)}`);
+        doc.moveDown(0.6);
+        label(40, doc.y, 'Bonus', `Rs. ${Number(salaryRecord?.bonus || 0).toFixed(2)}`);
+        doc.moveDown(0.6);
+        label(40, doc.y, 'Deduction', `Rs. ${Number(salaryRecord?.deduction || 0).toFixed(2)}`);
+        doc.moveDown(0.6);
+        label(40, doc.y, 'Net Salary', `Rs. ${netSalary.toFixed(2)}`);
+        doc.moveDown(0.6);
+        label(40, doc.y, 'Paid Amount', `Rs. ${totalPaid.toFixed(2)}`);
+        doc.moveDown(0.6);
+        label(40, doc.y, 'Pending Amount', `Rs. ${pending.toFixed(2)}`);
+        doc.moveDown(1.2);
+
+        doc.font('Helvetica-Bold').fontSize(12).text('Payment Details');
+        doc.moveDown(0.3);
+        doc.font('Helvetica').fontSize(10);
+        if (payments.length === 0) {
+            doc.text('No payment entries recorded for this month.');
+        } else {
+            payments.forEach((p, idx) => {
+                doc.text(`${idx + 1}. ${new Date(p.payment_date).toLocaleDateString('en-IN')} - Rs. ${Number(p.payment_amount || 0).toFixed(2)} (${p.payment_method || 'N/A'})${p.reference_number ? ` [Ref: ${p.reference_number}]` : ''}`);
+            });
+        }
+
+        doc.moveDown(1.2);
+        doc.font('Helvetica').fontSize(9).fillColor('#555').text(`Generated on ${new Date().toLocaleString('en-IN')} by Sarga System`, { align: 'right' });
+
+        doc.end();
+    } catch (err) {
+        console.error('Salary slip PDF error:', err);
+        if (!res.headersSent) res.status(500).json({ message: 'Failed to generate salary slip PDF' });
     }
 });
 
