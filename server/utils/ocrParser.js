@@ -37,8 +37,20 @@ async function extractTextFromPdf(pdfPath) {
     const buffer = await fs.readFile(pdfPath);
     const parser = new PDFParse({ data: buffer });
     try {
-        const parsed = await parser.getText();
-        return String(parsed?.text || '');
+        const parsedText = await parser.getText();
+        let parsedTables = null;
+        try {
+            parsedTables = await parser.getTable();
+        } catch (_) {
+            parsedTables = null;
+        }
+
+        return {
+            text: String(parsedText?.text || ''),
+            pages: Array.isArray(parsedText?.pages) ? parsedText.pages.map((p) => String(p?.text || '')) : [],
+            total: Number(parsedText?.total || 0),
+            tables: parsedTables
+        };
     } finally {
         // Ensure parser resources are released when available.
         if (typeof parser.destroy === 'function') {
@@ -93,6 +105,29 @@ function parseNumber(value) {
 
 function normalizeSpace(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function parseNumberish(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return NaN;
+    const token = raw.match(/\d[\d,]*(?:\.\d+)?/);
+    if (!token) return NaN;
+    return parseNumber(token[0]);
+}
+
+function inferGstRateByHsn(hsn) {
+    const code = String(hsn || '').replace(/\D/g, '');
+    if (!code) return 0;
+
+    // Common GST buckets by major HSN chapters used in print/office procurement.
+    if (code.startsWith('48') || code.startsWith('49')) return 12; // Paper / printed matter
+    if (code.startsWith('44')) return 18; // Wood/articles (e.g., trophies, frames)
+    if (code.startsWith('39')) return 18; // Plastics/packaging
+    if (code.startsWith('84') || code.startsWith('85')) return 18; // Machinery/electrical
+    if (code.startsWith('73') || code.startsWith('76')) return 18; // Metal articles
+
+    // Safe default where HSN exists but no explicit GST column is present.
+    return 18;
 }
 
 function toIsoDate(raw) {
@@ -295,6 +330,7 @@ function parseSalesOrderRow(line) {
 
     const resolvedRate = Number.isFinite(rate) && rate > 0 ? rate : (amount / quantity);
     return {
+        serial_no: serial,
         name: description,
         hsn,
         quantity,
@@ -366,6 +402,7 @@ function parseSalesOrderStackedRow(lines, startIndex) {
 
     return {
         row: {
+            serial_no: parseNumber(serialLine),
             name: description,
             hsn,
             quantity,
@@ -419,6 +456,90 @@ function extractItemsByHeader(lines) {
         unique.push(item);
     }
 
+    return unique;
+}
+
+function pickHeaderIndex(row, matcher) {
+    for (let i = 0; i < row.length; i++) {
+        const cell = normalizeSpace(row[i]).toLowerCase();
+        if (matcher(cell)) return i;
+    }
+    return -1;
+}
+
+function extractItemsFromPdfTables(tableResult) {
+    const items = [];
+    const pages = Array.isArray(tableResult?.pages) ? tableResult.pages : [];
+
+    for (const page of pages) {
+        const tables = Array.isArray(page?.tables) ? page.tables : [];
+        for (const table of tables) {
+            if (!Array.isArray(table) || table.length < 2) continue;
+
+            let headerIdx = -1;
+            let itemCol = -1;
+            let hsnCol = -1;
+            let qtyCol = -1;
+            let rateCol = -1;
+            let amountCol = -1;
+
+            for (let r = 0; r < Math.min(table.length, 8); r++) {
+                const row = Array.isArray(table[r]) ? table[r] : [];
+                const rowNorm = row.map((c) => normalizeSpace(c).toLowerCase());
+                itemCol = pickHeaderIndex(rowNorm, (c) => c.includes('description'));
+                hsnCol = pickHeaderIndex(rowNorm, (c) => c.includes('hsn'));
+                qtyCol = pickHeaderIndex(rowNorm, (c) => c.includes('quantity') && !c.includes('avail'));
+                rateCol = pickHeaderIndex(rowNorm, (c) => c === 'rate' || c.includes('rate'));
+                amountCol = pickHeaderIndex(rowNorm, (c) => c === 'amount' || c.includes('amount'));
+                if (itemCol >= 0 && hsnCol >= 0 && qtyCol >= 0 && rateCol >= 0 && amountCol >= 0) {
+                    headerIdx = r;
+                    break;
+                }
+            }
+
+            if (headerIdx < 0) continue;
+
+            for (let r = headerIdx + 1; r < table.length; r++) {
+                const row = Array.isArray(table[r]) ? table[r] : [];
+                if (row.length === 0) continue;
+
+                const serialCol = pickHeaderIndex(table[headerIdx].map((c) => normalizeSpace(c).toLowerCase()), (c) => c.includes('sl no') || c.includes('si no') || c === 'sl' || c === 'si');
+                const serial = serialCol >= 0 ? parseNumberish(row[serialCol]) : parseNumberish(row[0]);
+
+                const itemName = normalizeSpace(row[itemCol]);
+                const hsn = normalizeSpace(row[hsnCol]);
+                const qty = parseNumberish(row[qtyCol]);
+                const rate = parseNumberish(row[rateCol]);
+                const amount = parseNumberish(row[amountCol]);
+
+                const joined = normalizeSpace(row.join(' ')).toLowerCase();
+                if (/\b(total|grand total|amount chargeable|output\s+sgst|output\s+cgst|input\s+sgst|input\s+cgst)\b/.test(joined)) {
+                    continue;
+                }
+
+                if (!itemName || !Number.isFinite(qty) || qty <= 0) continue;
+
+                items.push({
+                    serial_no: Number.isFinite(serial) ? serial : (r - headerIdx),
+                    name: itemName,
+                    hsn,
+                    quantity: qty,
+                    cost_price: Number.isFinite(rate) && rate > 0 ? rate : (Number.isFinite(amount) && qty > 0 ? amount / qty : NaN),
+                    amount: Number.isFinite(amount) ? amount : NaN,
+                    gst_rate: inferGstRateByHsn(hsn)
+                });
+            }
+        }
+    }
+
+    const unique = [];
+    const seen = new Set();
+    for (const item of items) {
+        const key = `${normalizeSpace(item.name).toLowerCase()}|${item.hsn}|${item.quantity}|${Number(item.amount || 0).toFixed(2)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(item);
+    }
     return unique;
 }
 
@@ -535,8 +656,10 @@ async function recognizeImage(imagePath) {
 }
 
 // Basic Regex-based Parser to extract Invoice Data
-function parseInvoiceText(text) {
-    const pages = splitIntoPages(text);
+function parseInvoiceText(text, options = {}) {
+    const pages = Array.isArray(options.pages) && options.pages.length > 0
+        ? options.pages.map((p) => String(p || '').trim()).filter(Boolean)
+        : splitIntoPages(text);
     const firstPageLines = (pages[0] || '').split('\n').map(l => l.trim()).filter(Boolean);
     const layout = inferLayoutFromPage(firstPageLines);
     const lines = pages.flatMap(p => p.split('\n').map(l => l.trim()).filter(Boolean));
@@ -564,15 +687,17 @@ function parseInvoiceText(text) {
     }
 
     // Header-driven extraction first (for Sales Order style tables).
-    const headerItems = extractItemsByHeader(lines);
+    const tableItems = extractItemsFromPdfTables(options.tables);
+    const headerItems = tableItems.length > 0 ? tableItems : extractItemsByHeader(lines);
     if (headerItems.length > 0) {
         items = headerItems.map((parsed) => ({
+            serial_no: Number.isFinite(Number(parsed.serial_no)) ? Number(parsed.serial_no) : '',
             name: parsed.name,
             quantity: parsed.quantity,
             cost_price: parsed.cost_price,
             amount: Number.isFinite(parsed.amount) ? parsed.amount : parsed.quantity * parsed.cost_price,
             hsn: parsed.hsn || '',
-            gst_rate: 0,
+            gst_rate: Number.isFinite(Number(parsed.gst_rate)) ? Number(parsed.gst_rate) : inferGstRateByHsn(parsed.hsn),
             item_type: 'Retail',
             source_code: '',
             model_name: '',
@@ -586,12 +711,13 @@ function parseInvoiceText(text) {
 
             if (parsed.name.length > 2 && parsed.quantity > 0 && parsed.cost_price > 0) {
                 items.push({
+                    serial_no: Number.isFinite(Number(parsed.serial_no)) ? Number(parsed.serial_no) : '',
                     name: parsed.name,
                     quantity: parsed.quantity,
                     cost_price: parsed.cost_price,
                     amount: Number.isFinite(parsed.amount) ? parsed.amount : parsed.quantity * parsed.cost_price,
                     hsn: parsed.hsn || '',
-                    gst_rate: 0,
+                    gst_rate: inferGstRateByHsn(parsed.hsn),
                     item_type: 'Retail',
                     source_code: '',
                     model_name: '',
@@ -611,8 +737,9 @@ function parseInvoiceText(text) {
         bill_number: bill_number || '',
         bill_date: bill_date || '',
         total_amount: Number.isFinite(totalFromLines) ? totalFromLines : totalFromItems,
+        page_count: Number(options.pageCount || pages.length || 0),
         items,
-        raw_text: text // Send raw text for debugging if needed
+        raw_text: pages.join('\n \n') || text // Keep page-wise text separated by space/newline
     };
 }
 
@@ -620,13 +747,20 @@ function parseInvoiceText(text) {
 async function extractBillData(filePath, mimeType) {
     const isPdf = mimeType === 'application/pdf';
     let text = '';
+    let pageTexts = [];
+    let pageCount = 0;
+    let tableData = null;
     const tempImages = [];
     const outputDir = path.dirname(filePath);
 
     try {
         if (isPdf) {
             // Fast path: use embedded PDF text first (no Ghostscript dependency).
-            text = await extractTextFromPdf(filePath);
+            const parsedPdf = await extractTextFromPdf(filePath);
+            text = String(parsedPdf?.text || '');
+            pageTexts = Array.isArray(parsedPdf?.pages) ? parsedPdf.pages : [];
+            pageCount = Number(parsedPdf?.total || pageTexts.length || 0);
+            tableData = parsedPdf?.tables || null;
             const hasUsefulText = text.replace(/\s+/g, '').length > 80;
 
             if (!hasUsefulText) {
@@ -641,7 +775,11 @@ async function extractBillData(filePath, mimeType) {
             text = await recognizeImage(filePath);
         }
 
-        const parsedData = parseInvoiceText(text);
+        const parsedData = parseInvoiceText(text, {
+            pages: pageTexts,
+            pageCount,
+            tables: tableData
+        });
         return parsedData;
 
     } finally {

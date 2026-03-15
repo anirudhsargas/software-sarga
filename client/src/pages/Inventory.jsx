@@ -51,6 +51,7 @@ const Inventory = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [printQuantities, setPrintQuantities] = useState({}); // { id: qty }
     const [printingLabel, setPrintingLabel] = useState(false);
+    const NEW_ITEM_WINDOW_DAYS = 7;
 
     // Consumables actions state
     const [showConsumeModal, setShowConsumeModal] = useState(false);
@@ -296,6 +297,21 @@ const Inventory = () => {
         );
     };
 
+    const getStockBasedPrintQty = (item) => {
+        const stockQty = Number(item?.quantity) || 0;
+        return Math.max(1, Math.floor(stockQty || 1));
+    };
+
+    const applyStockQuantitiesForSelected = () => {
+        const next = {};
+        items
+            .filter(i => selectedIds.includes(i.id))
+            .forEach((item) => {
+                next[item.id] = getStockBasedPrintQty(item);
+            });
+        setPrintQuantities(next);
+    };
+
     const handlePrintLabels = async () => {
         if (selectedIds.length === 0) return;
 
@@ -305,6 +321,33 @@ const Inventory = () => {
             initialQtys[id] = 1;
         });
         setPrintQuantities(initialQtys);
+        setShowPrintModal(true);
+    };
+
+    const handlePrintNewItemsLabels = () => {
+        const now = Date.now();
+        const maxAgeMs = NEW_ITEM_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+        const newItems = items.filter((item) => {
+            if (!item?.created_at) return false;
+            const createdTs = new Date(item.created_at).getTime();
+            if (!Number.isFinite(createdTs)) return false;
+            return now - createdTs <= maxAgeMs;
+        });
+
+        if (newItems.length === 0) {
+            toast.error(`No new items found in the last ${NEW_ITEM_WINDOW_DAYS} days`);
+            return;
+        }
+
+        const nextIds = newItems.map((item) => item.id);
+        const nextQuantities = {};
+        newItems.forEach((item) => {
+            nextQuantities[item.id] = getStockBasedPrintQty(item);
+        });
+
+        setSelectedIds(nextIds);
+        setPrintQuantities(nextQuantities);
         setShowPrintModal(true);
     };
 
@@ -404,6 +447,12 @@ const Inventory = () => {
                     <p className="section-subtitle">Manage stock, prices, and reorder levels.</p>
                 </div>
                 <div className="row gap-sm">
+                    {items.length > 0 && (
+                        <button className="btn btn-ghost" onClick={handlePrintNewItemsLabels}>
+                            <Printer size={18} />
+                            <span>Print New Item Labels</span>
+                        </button>
+                    )}
                     {selectedIds.length > 0 && (
                         <button className="btn btn-ghost" onClick={handlePrintLabels}>
                             <Printer size={18} />
@@ -1106,12 +1155,30 @@ const Inventory = () => {
                             <h2 className="section-title mb-8">Label Quantities</h2>
                             <p className="section-subtitle mb-16">Specify how many labels to print for each item.</p>
 
+                            <div className="row gap-sm mb-12">
+                                <button className="btn btn-ghost" onClick={applyStockQuantitiesForSelected}>
+                                    Use Current Stock Qty
+                                </button>
+                                <button
+                                    className="btn btn-ghost"
+                                    onClick={() => {
+                                        const reset = {};
+                                        selectedIds.forEach((id) => {
+                                            reset[id] = 1;
+                                        });
+                                        setPrintQuantities(reset);
+                                    }}
+                                >
+                                    Reset All to 1
+                                </button>
+                            </div>
+
                             <div className="stack-md mb-24" style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '8px' }}>
                                 {items.filter(i => selectedIds.includes(i.id)).map(item => (
                                     <div key={item.id} className="row items-center justify-between panel panel--tight pb-8 pt-8">
                                         <div className="flex-1 mr-16">
                                             <div className="user-name text-sm">{item.name}</div>
-                                            <div className="muted text-xs">SKU: {item.sku || 'N/A'}</div>
+                                            <div className="muted text-xs">SKU: {item.sku || 'N/A'} | Stock: {Number(item.quantity) || 0}</div>
                                         </div>
                                         <div className="row items-center gap-sm">
                                             <button

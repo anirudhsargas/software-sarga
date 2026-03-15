@@ -43,6 +43,18 @@ const VENDOR_BILL_STATEMENT_COLUMNS = [
     'b.created_at'
 ].join(', ');
 
+function normalizeVendorName(name = '') {
+    return String(name || '').replace(/\s+/g, ' ').trim();
+}
+
+function stripFiscalSuffix(name = '') {
+    return normalizeVendorName(name).replace(/\s*-\s*\(\d{4}\s*[-/]\s*\d{4}\)\s*$/i, '').trim();
+}
+
+function vendorMatchKey(name = '') {
+    return stripFiscalSuffix(name).toLowerCase();
+}
+
 // --- VENDOR ROUTES ---
 
 // List Vendors / Payees
@@ -195,6 +207,66 @@ router.get('/vendor-bills', authenticateToken, async (req, res) => {
         const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Full Vendor Bill Details (bill + items + linked document)
+router.get('/vendor-bills/:id/full', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [billRows] = await pool.query(
+            `SELECT b.*, v.name as vendor_name, br.name as branch_name
+             FROM sarga_vendor_bills b
+             JOIN sarga_vendors v ON b.vendor_id = v.id
+             JOIN sarga_branches br ON b.branch_id = br.id
+             WHERE b.id = ?
+             LIMIT 1`,
+            [id]
+        );
+
+        if (!billRows.length) {
+            return res.status(404).json({ message: 'Vendor bill not found' });
+        }
+
+        const bill = billRows[0];
+        if (!['Admin', 'Accountant'].includes(req.user.role) && Number(bill.branch_id) !== Number(req.user.branch_id)) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        const [items] = await pool.query(
+            `SELECT i.id, i.bill_id, i.inventory_item_id, i.quantity, i.unit_cost, i.total_cost,
+                    inv.name as item_name, inv.sku as item_sku, inv.unit as item_unit
+             FROM sarga_vendor_bill_items i
+             LEFT JOIN sarga_inventory inv ON inv.id = i.inventory_item_id
+             WHERE i.bill_id = ?
+             ORDER BY i.id ASC`,
+            [id]
+        );
+
+        const [candidateDocs] = await pool.query(
+            `SELECT bd.id, bd.branch_id, bd.document_type, bd.vendor_name, bd.bill_number, bd.bill_date,
+                    bd.amount, bd.file_path, bd.file_name, bd.file_type, bd.description, bd.created_at
+             FROM sarga_bills_documents bd
+             WHERE bd.document_type = 'Vendor Bill'
+               AND bd.bill_date = ?
+               AND (bd.bill_number = ? OR (? IS NULL AND bd.bill_number IS NULL))
+               AND ABS(COALESCE(bd.amount, 0) - ?) < 0.01
+             ORDER BY bd.created_at DESC
+             LIMIT 25`,
+            [bill.bill_date, bill.bill_number || null, bill.bill_number || null, Number(bill.total_amount) || 0]
+        );
+
+        const billVendorKey = vendorMatchKey(bill.vendor_name);
+        const document = candidateDocs.find((doc) => vendorMatchKey(doc.vendor_name) === billVendorKey) || null;
+
+        res.json({
+            bill,
+            items,
+            document
+        });
+    } catch (err) {
+        console.error('Vendor bill full details error:', err);
         res.status(500).json({ message: 'Database error' });
     }
 });

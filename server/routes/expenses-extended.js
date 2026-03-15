@@ -6,6 +6,7 @@ const router = express.Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
+const { invalidateHierarchyCache } = require('./jobs');
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -29,6 +30,467 @@ const documentFileFilter = (req, file, cb) => {
 };
 
 const uploadDocs = multer({ storage: documentStorage, fileFilter: documentFileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
+
+const BILL_DOC_TYPES = new Set([
+  'Vendor Bill',
+  'Utility Bill',
+  'Rent Receipt',
+  'EMI Receipt',
+  'Kuri Receipt',
+  'Transport Bill',
+  'Office Bill',
+  'Petty Cash Receipt',
+  'Other'
+]);
+
+function normalizeBillDocumentType(input, relatedTab = '') {
+  const raw = String(input || '').trim();
+  const tab = String(relatedTab || '').toLowerCase();
+
+  const directMap = {
+    'invoice': 'Vendor Bill',
+    'sales order': 'Vendor Bill',
+    'bill': 'Vendor Bill',
+    'vendor bill': 'Vendor Bill',
+    'utility': 'Utility Bill',
+    'utility bill': 'Utility Bill',
+    'rent': 'Rent Receipt',
+    'rent receipt': 'Rent Receipt',
+    'emi': 'EMI Receipt',
+    'emi receipt': 'EMI Receipt',
+    'kuri': 'Kuri Receipt',
+    'kuri receipt': 'Kuri Receipt',
+    'transport': 'Transport Bill',
+    'transport bill': 'Transport Bill',
+    'office': 'Office Bill',
+    'office bill': 'Office Bill',
+    'petty cash': 'Petty Cash Receipt',
+    'petty cash receipt': 'Petty Cash Receipt',
+    'receipt': 'Other',
+    'other': 'Other'
+  };
+
+  const key = raw.toLowerCase();
+  if (directMap[key]) return directMap[key];
+  if (BILL_DOC_TYPES.has(raw)) return raw;
+
+  if (tab === 'vendors' || tab === 'vendor') return 'Vendor Bill';
+  if (tab === 'utilities' || tab === 'utility') return 'Utility Bill';
+  if (tab === 'rent') return 'Rent Receipt';
+  if (tab === 'transport') return 'Transport Bill';
+  if (tab === 'office') return 'Office Bill';
+  if (tab === 'petty-cash' || tab === 'petty_cash') return 'Petty Cash Receipt';
+
+  return 'Other';
+}
+
+function mapVendorTypeFromDocumentType(documentType = '') {
+  const dt = String(documentType || '').trim();
+  if (dt === 'Vendor Bill') return 'Vendor';
+  if (dt === 'Utility Bill') return 'Utility';
+  if (dt === 'Rent Receipt') return 'Rent';
+  return 'Other';
+}
+
+function normalizeVendorName(name = '') {
+  return String(name || '').replace(/\s+/g, ' ').trim();
+}
+
+function stripFiscalSuffix(name = '') {
+  return normalizeVendorName(name).replace(/\s*-\s*\(\d{4}\s*[-/]\s*\d{4}\)\s*$/i, '').trim();
+}
+
+function vendorMatchKey(name = '') {
+  return stripFiscalSuffix(name).toLowerCase();
+}
+
+async function ensureVendorExistsFromBill({ vendorName, documentType, branchId }) {
+  const rawName = normalizeVendorName(vendorName);
+  if (!rawName) return null;
+
+  const canonicalName = stripFiscalSuffix(rawName) || rawName;
+  const targetKey = vendorMatchKey(canonicalName);
+
+  const [rows] = await pool.query(
+    `SELECT id, name
+     FROM sarga_vendors
+     WHERE LOWER(TRIM(name)) IN (?, ?)
+     LIMIT 100`,
+    [rawName.toLowerCase(), canonicalName.toLowerCase()]
+  );
+
+  const existing = rows.find((row) => vendorMatchKey(row.name) === targetKey) || rows[0];
+  if (existing?.id) return existing.id;
+
+  const vendorType = mapVendorTypeFromDocumentType(documentType);
+  const [insertRes] = await pool.query(
+    'INSERT INTO sarga_vendors (name, type, branch_id) VALUES (?, ?, ?)',
+    [canonicalName, vendorType, branchId || null]
+  );
+  return insertRes.insertId;
+}
+
+function normalizeLineItemsInput(lineItemsRaw) {
+  if (!lineItemsRaw) return [];
+
+  let parsed = lineItemsRaw;
+  if (typeof lineItemsRaw === 'string') {
+    try {
+      parsed = JSON.parse(lineItemsRaw);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((item) => {
+      const itemName = String(item?.item_name || item?.name || item?.description || '').trim();
+      const qtyRaw = Number(item?.quantity ?? item?.qty ?? 0) || 0;
+      const rateRaw = Number(item?.rate ?? item?.unit_price ?? 0) || 0;
+      const totalRaw = Number(item?.total_amount ?? item?.amount ?? item?.mrp ?? 0) || 0;
+
+      const quantity = qtyRaw > 0
+        ? qtyRaw
+        : (totalRaw > 0 || rateRaw > 0 ? 1 : 0);
+
+      const rate = rateRaw > 0
+        ? rateRaw
+        : (totalRaw > 0 && quantity > 0 ? totalRaw / quantity : 0);
+
+      const totalAmount = totalRaw > 0
+        ? totalRaw
+        : (quantity > 0 && rate > 0 ? quantity * rate : 0);
+
+      return {
+        item_name: itemName,
+        quantity,
+        unit: String(item?.unit || 'pcs').trim() || 'pcs',
+        rate,
+        hsn_sac: String(item?.hsn_sac || item?.hsn || '').trim() || null,
+        gst_percent: Number(item?.gst_percent ?? item?.gst_rate ?? 0) || 0,
+        total_amount: totalAmount,
+        category_name: String(item?.category_name || item?.category || '').trim() || null,
+        subcategory_name: String(item?.subcategory_name || item?.subcategory || '').trim() || null,
+        subcategory_id: item?.subcategory_id ? Number(item.subcategory_id) : null
+      };
+    })
+    .filter((item) => item.item_name && (item.quantity > 0 || item.total_amount > 0 || item.rate > 0));
+}
+
+async function syncLineItemsToInventory({ lineItems, vendorName }) {
+  if (!Array.isArray(lineItems) || lineItems.length === 0) return;
+
+  const upsertedInventoryItems = [];
+
+  const toCode = (value = '', maxLen = 30) => String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '')
+    .slice(0, maxLen);
+
+  const extractSizeCode = (itemName = '') => {
+    const raw = String(itemName || '').toUpperCase();
+    const dimMatch = raw.match(/\b\d{1,3}\s*[Xx]\s*\d{1,3}(?:\s*[Xx]\s*\d{1,3})?\b/);
+    if (dimMatch?.[0]) return dimMatch[0].replace(/\s+/g, '').replace(/X/g, 'X');
+
+    const unitMatch = raw.match(/\b\d+(?:\.\d+)?\s*(MM|CM|IN|FT)\b/);
+    if (unitMatch?.[0]) return unitMatch[0].replace(/\s+/g, '');
+
+    const alphaSizeMatch = raw.match(/\b(XXXL|XXL|2XL|XL|L|M|S|XS)\b/);
+    if (alphaSizeMatch?.[1]) return alphaSizeMatch[1].replace('2XL', 'XXL');
+
+    return 'M';
+  };
+
+  const buildSkuBase = ({ vendor, category, itemName, sizeCode }) => {
+    const vendorCode = toCode(String(vendor || '').split(/\s+/).slice(0, 2).join(''), 3)
+      || toCode(category || 'INV', 3)
+      || 'INV';
+    const modelCode = toCode(itemName || 'ITEM', 24) || 'ITEM';
+    const size = toCode(sizeCode || 'M', 10) || 'M';
+    return `${vendorCode}-${modelCode}-${size}`;
+  };
+
+  const ensureUniqueSku = async (baseSku, inventoryId = null) => {
+    const normalizedBase = String(baseSku || '').trim();
+    if (!normalizedBase) return null;
+
+    const [rows] = await pool.query(
+      `SELECT id FROM sarga_inventory
+       WHERE UPPER(REPLACE(COALESCE(sku, ''), ' ', '')) = UPPER(REPLACE(?, ' ', ''))
+         AND (? IS NULL OR id <> ?)
+       LIMIT 1`,
+      [normalizedBase, inventoryId, inventoryId]
+    );
+
+    if (!rows.length) return normalizedBase;
+    const suffix = inventoryId ? `-${inventoryId}` : `-${Date.now().toString().slice(-4)}`;
+    const trimmed = normalizedBase.slice(0, Math.max(10, 80 - suffix.length));
+    return `${trimmed}${suffix}`;
+  };
+
+  const inferInventoryCategory = (itemName, hsn) => {
+    const name = String(itemName || '').toLowerCase();
+    const hsnCode = String(hsn || '').replace(/\D/g, '');
+    const vendor = String(vendorName || '').toLowerCase();
+
+    if (/memento|troph|award|shield|plaque|souvenir/.test(vendor)) {
+      return 'Memento';
+    }
+
+    if (/paper|board|sheet|card|sticker|label/.test(name) || hsnCode.startsWith('48') || hsnCode.startsWith('49')) {
+      return 'Paper & Print';
+    }
+    if (/ink|toner|cartridge|ribbon/.test(name)) {
+      return 'Printing Consumables';
+    }
+    if (/wire|cable|switch|adapter|motor|machine|tool/.test(name) || hsnCode.startsWith('84') || hsnCode.startsWith('85')) {
+      return 'Machine & Electrical';
+    }
+    if (/tape|glue|adhesive|lamination|pouch|packing|box/.test(name) || hsnCode.startsWith('39')) {
+      return 'Packaging';
+    }
+    return 'Bill Products';
+  };
+
+  for (const item of lineItems) {
+    const {
+      item_name,
+      quantity,
+      unit,
+      rate,
+      hsn_sac,
+      gst_percent,
+      total_amount,
+      category_name,
+      subcategory_name,
+      subcategory_id
+    } = item;
+
+    const derivedRate = Number(rate) > 0
+      ? Number(rate)
+      : (Number(total_amount) > 0 && Number(quantity) > 0 ? Number(total_amount) / Number(quantity) : 0);
+    const manualCategory = String(subcategory_name || category_name || '').trim();
+    const inferredCategory = manualCategory || inferInventoryCategory(item_name, hsn_sac);
+
+    const sizeCode = extractSizeCode(item_name);
+    const sourceCode = toCode(String(vendorName || '').split(/\s+/).slice(0, 2).join(''), 3)
+      || toCode(inferredCategory || 'INV', 3)
+      || 'INV';
+    const modelName = String(item_name || '').trim().slice(0, 100);
+
+    const [[existing]] = await pool.query(
+      `SELECT id, quantity, cost_price
+       FROM sarga_inventory
+       WHERE LOWER(name) = LOWER(?)
+         AND (hsn = ? OR (? IS NULL AND hsn IS NULL))
+       LIMIT 1`,
+      [item_name, hsn_sac, hsn_sac]
+    );
+
+    if (existing?.id) {
+      const baseSku = buildSkuBase({ vendor: vendorName, category: inferredCategory, itemName: item_name, sizeCode });
+      const nextSku = await ensureUniqueSku(baseSku, existing.id);
+
+      await pool.query(
+        `UPDATE sarga_inventory
+         SET quantity = quantity + ?,
+           category = COALESCE(category, ?),
+             unit = COALESCE(?, unit),
+             hsn = COALESCE(?, hsn),
+             gst_rate = CASE WHEN ? > 0 THEN ? ELSE gst_rate END,
+             cost_price = CASE WHEN ? > 0 THEN ? ELSE cost_price END,
+             vendor_name = COALESCE(?, vendor_name),
+             source_code = COALESCE(source_code, ?),
+             model_name = COALESCE(model_name, ?),
+             size_code = COALESCE(size_code, ?),
+             sku = CASE WHEN sku IS NULL OR sku = '' THEN ? ELSE sku END
+         WHERE id = ?`,
+        [
+          Number(quantity) || 0,
+          inferredCategory,
+          unit || null,
+          hsn_sac,
+          Number(gst_percent) || 0,
+          Number(gst_percent) || 0,
+          derivedRate,
+          derivedRate,
+          vendorName || null,
+          sourceCode,
+          modelName,
+          sizeCode,
+          nextSku,
+          existing.id
+        ]
+      );
+      upsertedInventoryItems.push({
+        inventoryId: existing.id,
+        name: item_name,
+        category: inferredCategory,
+        sellPrice: derivedRate,
+        categoryName: category_name || null,
+        subcategoryName: subcategory_name || null,
+        subcategoryId: subcategory_id || null
+      });
+      continue;
+    }
+
+    const [insertRes] = await pool.query(
+      `INSERT INTO sarga_inventory
+       (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, source_code, model_name, size_code, item_type, vendor_name)
+       VALUES (?, NULL, NULL, ?, ?, 0, ?, 0, ?, 0, ?, ?, ?, ?, 'Retail', ?)`,
+      [
+        item_name,
+        unit || 'pcs',
+        Number(quantity) || 0,
+        derivedRate,
+        hsn_sac,
+        Number(gst_percent) || 0,
+        sourceCode,
+        modelName,
+        sizeCode,
+        vendorName || null
+      ]
+    );
+
+    const inventoryId = insertRes.insertId;
+    upsertedInventoryItems.push({
+      inventoryId,
+      name: item_name,
+      category: inferredCategory,
+      sellPrice: derivedRate,
+      categoryName: category_name || null,
+      subcategoryName: subcategory_name || null,
+      subcategoryId: subcategory_id || null
+    });
+
+    await pool.query(
+      'UPDATE sarga_inventory SET category = ? WHERE id = ? AND (category IS NULL OR category = "")',
+
+      [inferredCategory, inventoryId]
+    );
+
+    const baseSku = buildSkuBase({ vendor: vendorName, category: inferredCategory, itemName: item_name, sizeCode });
+    const nextSku = await ensureUniqueSku(baseSku, inventoryId);
+    if (nextSku) {
+      await pool.query(
+        'UPDATE sarga_inventory SET sku = ? WHERE id = ? AND (sku IS NULL OR sku = "")',
+        [nextSku, inventoryId]
+      );
+    }
+  }
+
+  return upsertedInventoryItems;
+}
+
+async function ensureAutoImportSubcategory(preferredSubcategoryName = 'Bill Products') {
+  const [existing] = await pool.query(
+    `SELECT s.id
+     FROM sarga_product_subcategories s
+     INNER JOIN sarga_product_categories c ON c.id = s.category_id
+     WHERE LOWER(s.name) = LOWER(?)
+     LIMIT 1`,
+    [preferredSubcategoryName]
+  );
+  if (existing.length > 0) return existing[0].id;
+
+  const [catRows] = await pool.query(
+    'SELECT id FROM sarga_product_categories WHERE LOWER(name) = LOWER(?) LIMIT 1',
+    ['Auto Imported']
+  );
+
+  let categoryId = catRows[0]?.id;
+  if (!categoryId) {
+    const [[posRow]] = await pool.query('SELECT COALESCE(MAX(position), 0) + 1 AS nextPos FROM sarga_product_categories');
+    const [catIns] = await pool.query(
+      'INSERT INTO sarga_product_categories (name, position) VALUES (?, ?)',
+      ['Auto Imported', posRow?.nextPos || 1]
+    );
+    categoryId = catIns.insertId;
+  }
+
+  const [[subPos]] = await pool.query(
+    'SELECT COALESCE(MAX(position), 0) + 1 AS nextPos FROM sarga_product_subcategories WHERE category_id = ?',
+    [categoryId]
+  );
+
+  const [subIns] = await pool.query(
+    'INSERT INTO sarga_product_subcategories (category_id, name, position) VALUES (?, ?, ?)',
+    [categoryId, preferredSubcategoryName, subPos?.nextPos || 1]
+  );
+  return subIns.insertId;
+}
+
+async function findBestSubcategoryId(inventoryCategory = '') {
+  const normalize = (value) => String(value || '').trim().toLowerCase();
+  const normalizedCategory = normalize(inventoryCategory);
+  if (!normalizedCategory) {
+    return ensureAutoImportSubcategory('Bill Products');
+  }
+
+  const [allSubcats] = await pool.query(
+    `SELECT s.id as sub_id, s.name as sub_name, c.name as cat_name
+     FROM sarga_product_subcategories s
+     INNER JOIN sarga_product_categories c ON c.id = s.category_id
+     ORDER BY s.name`
+  );
+
+  for (const row of allSubcats) {
+    if (normalize(row.sub_name) === normalizedCategory) return row.sub_id;
+  }
+
+  for (const row of allSubcats) {
+    const subName = normalize(row.sub_name);
+    if (normalizedCategory.includes(subName) || subName.includes(normalizedCategory)) return row.sub_id;
+  }
+
+  for (const row of allSubcats) {
+    const catName = normalize(row.cat_name);
+    if (normalizedCategory.includes(catName) || catName.includes(normalizedCategory)) return row.sub_id;
+  }
+
+  return ensureAutoImportSubcategory(inventoryCategory);
+}
+
+async function ensureProductLibraryFromInventoryItem({ inventoryId, name, category, sellPrice, subcategoryId }) {
+  if (!inventoryId) return;
+
+  const [alreadyLinked] = await pool.query(
+    'SELECT id FROM sarga_products WHERE inventory_item_id = ? LIMIT 1',
+    [inventoryId]
+  );
+  if (alreadyLinked.length > 0) return;
+
+  // Use the directly-provided subcategory ID if available, otherwise fall back to name-based lookup
+  const resolvedSubcategoryId = subcategoryId
+    ? subcategoryId
+    : await findBestSubcategoryId(category);
+  const [[positionRow]] = await pool.query(
+    'SELECT COALESCE(MAX(position), 0) + 1 AS nextPos FROM sarga_products WHERE subcategory_id = ?',
+    [resolvedSubcategoryId]
+  );
+
+  const [productIns] = await pool.query(
+    `INSERT INTO sarga_products
+     (subcategory_id, name, product_code, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product)
+     VALUES (?, ?, NULL, 'Normal', ?, 0, 0, 0, ?, ?, 1)`,
+    [
+      resolvedSubcategoryId,
+      String(name || '').trim() || `Inventory Item ${inventoryId}`,
+      'Auto-created from bill upload',
+      positionRow?.nextPos || 1,
+      inventoryId
+    ]
+  );
+
+  if (Number(sellPrice) > 0) {
+    await pool.query(
+      'INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate) VALUES (?, 1, NULL, ?, ?)',
+      [productIns.insertId, Number(sellPrice), Number(sellPrice)]
+    );
+  }
+}
 
 // ========== OFFICE & ADMIN EXPENSES ==========
 
@@ -1025,6 +1487,97 @@ router.get('/bills-documents', authenticateToken, async (req, res) => {
   }
 });
 
+// Get full bill/document details (document + linked vendor bill + items)
+router.get('/bills-documents/:id/full', authenticateToken, async (req, res) => {
+  try {
+    const { branch_id, role } = req.user;
+    const { id } = req.params;
+
+    const [docRows] = await pool.query(
+      `SELECT bd.*, s.name as uploaded_by_name, b.name as branch_name
+       FROM sarga_bills_documents bd
+       LEFT JOIN sarga_staff s ON bd.uploaded_by = s.id
+       LEFT JOIN sarga_branches b ON bd.branch_id = b.id
+       WHERE bd.id = ?
+       LIMIT 1`,
+      [id]
+    );
+
+    if (!docRows.length) {
+      return res.status(404).json({ error: 'Bill/document not found' });
+    }
+
+    const document = docRows[0];
+    if (!['Admin', 'Accountant'].includes(role) && Number(document.branch_id) !== Number(branch_id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    let vendorBill = null;
+    let items = [];
+
+    if (document.document_type === 'Vendor Bill') {
+      const documentVendorKey = vendorMatchKey(document.vendor_name);
+
+      const [vendorRows] = await pool.query(
+        `SELECT id, name
+         FROM sarga_vendors
+         WHERE branch_id = ? OR branch_id IS NULL
+         ORDER BY id DESC`,
+        [document.branch_id]
+      );
+
+      const vendor = vendorRows.find((row) => vendorMatchKey(row.name) === documentVendorKey) || null;
+
+      if (vendor?.id) {
+        const [billRows] = await pool.query(
+          `SELECT b.*, v.name as vendor_name, br.name as branch_name
+           FROM sarga_vendor_bills b
+           JOIN sarga_vendors v ON b.vendor_id = v.id
+           JOIN sarga_branches br ON b.branch_id = br.id
+           WHERE b.vendor_id = ?
+             AND b.branch_id = ?
+             AND b.bill_date = ?
+             AND (b.bill_number = ? OR (? IS NULL AND b.bill_number IS NULL))
+             AND ABS(COALESCE(b.total_amount, 0) - ?) < 0.01
+           ORDER BY b.created_at DESC
+           LIMIT 1`,
+          [
+            vendor.id,
+            document.branch_id,
+            document.bill_date,
+            document.bill_number || null,
+            document.bill_number || null,
+            Number(document.amount) || 0
+          ]
+        );
+
+        if (billRows.length) {
+          vendorBill = billRows[0];
+          const [itemRows] = await pool.query(
+            `SELECT i.id, i.bill_id, i.inventory_item_id, i.quantity, i.unit_cost, i.total_cost,
+                    inv.name as item_name, inv.sku as item_sku, inv.unit as item_unit
+             FROM sarga_vendor_bill_items i
+             LEFT JOIN sarga_inventory inv ON inv.id = i.inventory_item_id
+             WHERE i.bill_id = ?
+             ORDER BY i.id ASC`,
+            [vendorBill.id]
+          );
+          items = itemRows;
+        }
+      }
+    }
+
+    res.json({
+      document,
+      vendor_bill: vendorBill,
+      items
+    });
+  } catch (error) {
+    console.error('Get full bill/document error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Upload bill/document (file + metadata)
 router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), uploadDocs.single('file'), async (req, res) => {
   try {
@@ -1035,10 +1588,20 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
     const { branch_id, id: uploaded_by } = req.user;
     const {
       document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
-      amount, description
+      amount, description, line_items
     } = req.body;
+    const normalizedDocumentType = normalizeBillDocumentType(document_type, related_tab);
+    const normalizedLineItems = normalizeLineItemsInput(line_items);
 
     const filePath = `/uploads/${req.file.filename}`;
+
+    // Keep vendor master in sync so Vendors tab can show bill vendors.
+    const vendorId = await ensureVendorExistsFromBill({
+      vendorName: vendor_name,
+      documentType: normalizedDocumentType,
+      branchId: branch_id
+    });
+
     const [result] = await pool.query(
       `INSERT INTO sarga_bills_documents 
        (branch_id, document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
@@ -1046,7 +1609,7 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         branch_id,
-        document_type,
+        normalizedDocumentType,
         related_tab || null,
         related_id || null,
         vendor_name || null,
@@ -1061,6 +1624,67 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
         uploaded_by
       ]
     );
+
+    // Sync vendor bill into sarga_vendor_bills so vendor purchases/balance/transaction history work.
+    let vendorBillId = null;
+    if (normalizedDocumentType === 'Vendor Bill' && vendorId) {
+      try {
+        const [vbResult] = await pool.query(
+          `INSERT INTO sarga_vendor_bills (vendor_id, branch_id, bill_number, bill_date, total_amount, description)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [vendorId, branch_id, bill_number || null, bill_date, Number(amount) || 0, description || null]
+        );
+        vendorBillId = vbResult.insertId;
+      } catch (vbError) {
+        console.error('Vendor bill record creation failed:', vbError);
+      }
+    }
+
+    // Vendor bill line-items should appear in Inventory immediately after upload.
+    if (normalizedDocumentType === 'Vendor Bill' && normalizedLineItems.length > 0) {
+      try {
+        const syncedItems = await syncLineItemsToInventory({
+          lineItems: normalizedLineItems,
+          vendorName: vendor_name
+        });
+
+        // Link line items to the vendor bill record for transaction detail
+        if (vendorBillId && syncedItems?.length) {
+          for (const item of syncedItems) {
+            const matchingLine = normalizedLineItems.find(
+              (li) => li.item_name.toLowerCase() === item.name.toLowerCase()
+            );
+            if (matchingLine && item.inventoryId) {
+              await pool.query(
+                `INSERT INTO sarga_vendor_bill_items (bill_id, inventory_item_id, quantity, unit_cost, total_cost)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                  vendorBillId,
+                  item.inventoryId,
+                  Number(matchingLine.quantity) || 0,
+                  Number(matchingLine.rate) || 0,
+                  Number(matchingLine.total_amount || (matchingLine.quantity * matchingLine.rate)) || 0
+                ]
+              );
+            }
+          }
+        }
+
+        for (const item of syncedItems || []) {
+          await ensureProductLibraryFromInventoryItem({
+            inventoryId: item.inventoryId,
+            name: item.name,
+            category: item.subcategoryName || item.categoryName || item.category,
+            sellPrice: item.sellPrice,
+            subcategoryId: item.subcategoryId || null
+          });
+        }
+        // New products were created — clear the 5-min hierarchy cache so they appear immediately
+        invalidateHierarchyCache();
+      } catch (inventorySyncError) {
+        console.error('Inventory sync from bill upload failed:', inventorySyncError);
+      }
+    }
 
     auditLog(req.user.id, 'BILL_UPLOAD', `Uploaded bill: ${req.file.originalname}`, { entity_type: 'bill_document', entity_id: result.insertId });
     res.json({ success: true, id: result.insertId, file_path: filePath });
@@ -1078,17 +1702,38 @@ router.post('/bills-documents', authenticateToken, authorizeRoles('Admin', 'Acco
       document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
       amount, file_path, file_name, file_type, file_size_kb, description
     } = req.body;
+    const normalizedDocumentType = normalizeBillDocumentType(document_type, related_tab);
+
+    // Keep vendor master in sync so Vendors tab can show bill vendors.
+    const vendorId = await ensureVendorExistsFromBill({
+      vendorName: vendor_name,
+      documentType: normalizedDocumentType,
+      branchId: branch_id
+    });
 
     const [result] = await pool.query(
       `INSERT INTO sarga_bills_documents 
        (branch_id, document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
         amount, file_path, file_name, file_type, file_size_kb, description, uploaded_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [branch_id, document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
+      [branch_id, normalizedDocumentType, related_tab, related_id, vendor_name, bill_number, bill_date,
         amount, file_path, file_name, file_type, file_size_kb, description, uploaded_by]
     );
 
-    auditLog(req.user.id, 'BILL_DOCUMENT_ADD', `Added bill document: ${document_type} ${vendor_name || ''} ₹${amount || 0}`, { entity_type: 'bill_document', entity_id: result.insertId });
+    // Sync vendor bill into sarga_vendor_bills so vendor purchases/balance/transaction history work.
+    if (normalizedDocumentType === 'Vendor Bill' && vendorId) {
+      try {
+        await pool.query(
+          `INSERT INTO sarga_vendor_bills (vendor_id, branch_id, bill_number, bill_date, total_amount, description)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [vendorId, branch_id, bill_number || null, bill_date, Number(amount) || 0, description || null]
+        );
+      } catch (vbError) {
+        console.error('Vendor bill record creation failed:', vbError);
+      }
+    }
+
+    auditLog(req.user.id, 'BILL_DOCUMENT_ADD', `Added bill document: ${normalizedDocumentType} ${vendor_name || ''} ₹${amount || 0}`, { entity_type: 'bill_document', entity_id: result.insertId });
     res.json({ success: true, id: result.insertId });
   } catch (error) {
     console.error('Add bill/document error:', error);
@@ -1104,17 +1749,25 @@ router.put('/bills-documents/:id', authenticateToken, authorizeRoles('Admin', 'A
       document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
       amount, description
     } = req.body;
+    const normalizedDocumentType = normalizeBillDocumentType(document_type, related_tab);
+
+    // Keep vendor master in sync when vendor name is updated on a document.
+    await ensureVendorExistsFromBill({
+      vendorName: vendor_name,
+      documentType: normalizedDocumentType,
+      branchId: req.user.branch_id
+    });
 
     await pool.query(
       `UPDATE sarga_bills_documents 
        SET document_type=?, related_tab=?, related_id=?, vendor_name=?, bill_number=?, 
            bill_date=?, amount=?, description=?
        WHERE id=?`,
-      [document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
+      [normalizedDocumentType, related_tab, related_id, vendor_name, bill_number, bill_date,
         amount, description, id]
     );
 
-    auditLog(req.user.id, 'BILL_DOCUMENT_UPDATE', `Updated bill document #${id}: ${document_type}`, { entity_type: 'bill_document', entity_id: id });
+    auditLog(req.user.id, 'BILL_DOCUMENT_UPDATE', `Updated bill document #${id}: ${normalizedDocumentType}`, { entity_type: 'bill_document', entity_id: id });
     res.json({ success: true });
   } catch (error) {
     console.error('Update bill/document error:', error);

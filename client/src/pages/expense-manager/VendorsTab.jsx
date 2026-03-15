@@ -10,6 +10,7 @@ import { fmt, fmtDate } from './constants';
 import { serverToday } from '../../services/serverTime';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
+import FullBillModal from './FullBillModal';
 
 const emptyVendorForm = { name: '', type: 'Vendor', contact_person: '', phone: '', address: '', gstin: '', order_link: '' };
 
@@ -20,6 +21,7 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [vendorLedger, setVendorLedger] = useState(null);
   const [loadingLedger, setLoadingLedger] = useState(false);
+  const [fullBillState, setFullBillState] = useState({ open: false, vendorBillId: null });
 
   // Admin CRUD state
   const [showForm, setShowForm] = useState(false);
@@ -70,6 +72,11 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
     } catch { setVendorLedger({ rows: [], payments: [], purchases: [] }); }
     finally { setLoadingLedger(false); }
   }, []);
+
+  const openFullBillFromTransaction = (row) => {
+    if (row?._entry_type !== 'Purchase' || !row?.id) return;
+    setFullBillState({ open: true, vendorBillId: row.id });
+  };
 
   /* ── Admin CRUD ── */
   const openAddForm = () => {
@@ -335,6 +342,7 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
                     <th>Reference</th>
                     <th>Description</th>
                     <th style={{ textAlign: 'right' }}>Amount</th>
+                    <th style={{ textAlign: 'center' }}>Bill</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -355,6 +363,13 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
                       <td style={{ textAlign: 'right', fontWeight: 600, color: r._entry_type === 'Purchase' ? 'var(--error)' : 'var(--success)' }}>
                         {r._entry_type === 'Purchase' ? '-' : '+'}₹{fmt(Number(r.amount || r.total_amount || 0))}
                       </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {r._entry_type === 'Purchase' ? (
+                          <button className="btn btn-ghost btn-sm" onClick={() => openFullBillFromTransaction(r)}>
+                            View Bill
+                          </button>
+                        ) : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -367,6 +382,12 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
             </div>
           )}
         </div>
+
+        <FullBillModal
+          open={fullBillState.open}
+          vendorBillId={fullBillState.vendorBillId}
+          onClose={() => setFullBillState({ open: false, vendorBillId: null })}
+        />
       </div>
     );
   }
@@ -670,6 +691,12 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
           </div>
         </div>
       )}
+
+      <FullBillModal
+        open={fullBillState.open}
+        vendorBillId={fullBillState.vendorBillId}
+        onClose={() => setFullBillState({ open: false, vendorBillId: null })}
+      />
     </div>
   );
 };

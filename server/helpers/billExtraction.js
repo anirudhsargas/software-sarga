@@ -71,6 +71,7 @@ function buildSuggestionsFromOcr(ocrData = {}) {
     tax_amount: 0,
     subtotal: 0,
     line_items: items.map((line) => ({
+      serial_no: toNumber(line?.serial_no, 0) || '',
       description: String(line?.name || ''),
       hsn_sac: String(line?.hsn || ''),
       quantity: toNumber(line?.quantity, 0),

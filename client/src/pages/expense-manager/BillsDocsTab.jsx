@@ -5,6 +5,7 @@ import { fmtDate, today, fmt, DOCUMENT_TYPES } from './constants';
 import { imgUrl } from '../../services/api';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import SmartBillUpload from './SmartBillUpload';
+import FullBillModal from './FullBillModal';
 
 const defaultForm = { document_type: 'Invoice', related_tab: '', vendor_name: '', bill_number: '', bill_date: today(), amount: '', description: '', file: null };
 const PAGE_SIZE = 50;
@@ -18,6 +19,7 @@ const BillsDocsTab = ({ onError }) => {
   const [uploading, setUploading] = useState(false);
   const [page, setPage] = useState(1);
   const [form, setForm] = useState(defaultForm);
+  const [fullBillDocId, setFullBillDocId] = useState(null);
 
   const fetchDocs = useCallback(async () => {
     try {
@@ -100,7 +102,12 @@ const BillsDocsTab = ({ onError }) => {
                 <tr key={d.id}>
                   <td>{fmtDate(d.bill_date)}</td><td><span className="em-type-badge em-type-badge--other">{d.document_type}</span></td><td>{d.vendor_name || '—'}</td><td>{d.bill_number || '—'}</td><td className="em-amount-cell">{d.amount ? `₹${fmt(d.amount)}` : '—'}</td>
                   <td>{d.file_path ? <a href={imgUrl(d.file_path)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm"><Eye size={14} /> View</a> : '—'}</td>
-                  <td><button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleDelete(d.id)}><Trash2 size={14} /></button></td>
+                  <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setFullBillDocId(d.id)}>
+                      <Eye size={14} /> Full Bill
+                    </button>
+                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleDelete(d.id)}><Trash2 size={14} /></button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -146,6 +153,12 @@ const BillsDocsTab = ({ onError }) => {
           onError={(err) => onError(err.response?.data?.message || 'Smart upload failed')}
         />
       )}
+
+      <FullBillModal
+        open={Boolean(fullBillDocId)}
+        documentId={fullBillDocId}
+        onClose={() => setFullBillDocId(null)}
+      />
     </div>
   );
 };
