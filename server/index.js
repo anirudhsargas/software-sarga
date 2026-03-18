@@ -148,20 +148,22 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Request logger
 // Moved to top for better visibility
 
-// General API rate limit — 200 requests per 5 minutes per IP
+const isProduction = process.env.NODE_ENV === 'production';
+
+// General API rate limit
 const generalLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
-    max: 200,
+    max: isProduction ? 200 : 2000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: 'Too many requests. Please slow down.' }
 });
 app.use('/api', generalLimiter);
 
-// Strict rate limit for write operations — 60 per 5 minutes per IP
+// Rate limit for write operations
 const writeLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
-    max: 60,
+    max: isProduction ? 60 : 600,
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: 'Too many write requests. Please slow down.' }
@@ -173,10 +175,10 @@ app.use('/api', (req, res, next) => {
     next();
 });
 
-// Upload rate limit — 20 uploads per 5 minutes per IP
+// Upload rate limit
 const uploadLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
-    max: 20,
+    max: isProduction ? 20 : 120,
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: 'Too many file uploads. Please slow down.' }
@@ -295,6 +297,9 @@ app.use('/api/job-priority', require('./routes/jobPriority'));
 app.use('/api/ai/sales-prediction', require('./routes/salesPrediction'));
 app.use('/api/ai/order-predictions', require('./routes/orderPredictions'));
 app.use('/api/production-tracker', require('./routes/productionTracker'));
+
+// Upsell suggestions API
+app.use('/api', require('./routes/upsell'));
 
 // Health check with DB ping (must be before the error handler)
 app.get('/api/ping', async (req, res) => {

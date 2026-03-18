@@ -6,6 +6,54 @@ const { invalidateHierarchyCache } = require('./jobs');
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
 
+    // Auto-migrate: add company_name, company_code, size columns if they don't exist.
+    (async () => {
+        try {
+            const [[dbRow]] = await pool.query('SELECT DATABASE() AS db');
+            const dbName = dbRow?.db;
+            const [cols] = await pool.query(
+                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = ?
+                   AND TABLE_NAME = 'sarga_products'
+                   AND COLUMN_NAME IN ('company_name', 'company_code', 'size')`,
+                [dbName]
+            );
+            const existing = cols.map((r) => r.COLUMN_NAME);
+
+            if (!existing.includes('company_name')) {
+                await pool.query('ALTER TABLE sarga_products ADD COLUMN company_name VARCHAR(100) DEFAULT NULL');
+            }
+            if (!existing.includes('company_code')) {
+                await pool.query('ALTER TABLE sarga_products ADD COLUMN company_code VARCHAR(10) DEFAULT NULL');
+            }
+            if (!existing.includes('size')) {
+                await pool.query('ALTER TABLE sarga_products ADD COLUMN size VARCHAR(30) DEFAULT NULL');
+            }
+
+            await pool.query(
+                `CREATE TABLE IF NOT EXISTS sarga_product_image_requests (
+                    id INT NOT NULL AUTO_INCREMENT,
+                    product_id INT NOT NULL,
+                    current_image_url VARCHAR(255) DEFAULT NULL,
+                    proposed_image_url VARCHAR(255) NOT NULL,
+                    requested_by INT NOT NULL,
+                    status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+                    admin_note TEXT NULL,
+                    requested_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_by INT NULL,
+                    reviewed_at TIMESTAMP NULL DEFAULT NULL,
+                    PRIMARY KEY (id),
+                    KEY idx_product_status (product_id, status),
+                    KEY idx_status_requested_at (status, requested_at),
+                    CONSTRAINT fk_product_image_requests_product
+                        FOREIGN KEY (product_id) REFERENCES sarga_products(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`
+            );
+        } catch (err) {
+            console.warn('products migration warning:', err.message);
+        }
+    })();
+
     // Auto-create an inventory entry when a product is added to the Product Library
     async function autoCreateInventoryFromProduct(productId, productName, productCode, subcategoryId, slabs, companyName, companyCode, size) {
         // Check if already linked
@@ -348,8 +396,8 @@ module.exports = (upload, removeUploadFile) => {
 
             const { has_paper_rate, paper_rate, has_double_side_rate } = req.body;
             const [prodResult] = await connection.query(
-                "INSERT INTO sarga_products (subcategory_id, name, product_code, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [subcategory_id, String(name).trim(), product_code || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 ? 1 : 0, nextPos, inventory_item_id || null, isPhysicalProduct ? 1 : 0]
+                "INSERT INTO sarga_products (subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [subcategory_id, String(name).trim(), product_code || null, company_name || null, company_code || null, size || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 ? 1 : 0, nextPos, inventory_item_id || null, isPhysicalProduct ? 1 : 0]
             );
             const productId = prodResult.insertId;
 
@@ -406,7 +454,7 @@ module.exports = (upload, removeUploadFile) => {
     // Update Product
     router.put('/products/:id', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
         const { id } = req.params;
-        const { subcategory_id, name, product_code, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, inventory_item_id, isPhysicalProduct } = req.body;
+        const { subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, inventory_item_id, isPhysicalProduct } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : req.body.image_url;
@@ -416,8 +464,8 @@ module.exports = (upload, removeUploadFile) => {
             await connection.beginTransaction();
 
             await connection.query(
-                "UPDATE sarga_products SET subcategory_id = ?, name = ?, product_code = ?, calculation_type = ?, description = ?, image_url = ?, has_paper_rate = ?, paper_rate = ?, has_double_side_rate = ?, inventory_item_id = ?, is_physical_product = ? WHERE id = ?",
-                [subcategory_id, String(name).trim(), product_code || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 ? 1 : 0, inventory_item_id || null, isPhysicalProduct ? 1 : 0, id]
+                "UPDATE sarga_products SET subcategory_id = ?, name = ?, product_code = ?, company_name = ?, company_code = ?, size = ?, calculation_type = ?, description = ?, image_url = ?, has_paper_rate = ?, paper_rate = ?, has_double_side_rate = ?, inventory_item_id = ?, is_physical_product = ? WHERE id = ?",
+                [subcategory_id, String(name).trim(), product_code || null, company_name || null, company_code || null, size || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 ? 1 : 0, inventory_item_id || null, isPhysicalProduct ? 1 : 0, id]
             );
 
             // Update Slabs: DELETE and INSERT is cleaner
@@ -557,6 +605,200 @@ module.exports = (upload, removeUploadFile) => {
         }
     });
 
+    // Designer submits a product image update request for admin approval
+    router.post('/products/:id/image-update-requests', authenticateToken, authorizeRoles('Designer'), upload.single('image'), async (req, res) => {
+        const productId = Number(req.params.id);
+        const requestedBy = req.user?.id;
+
+        if (!req.file) {
+            return res.status(400).json({ message: 'Image file is required' });
+        }
+        if (!Number.isFinite(productId) || productId <= 0) {
+            return res.status(400).json({ message: 'Invalid product id' });
+        }
+
+        const proposedImageUrl = `/uploads/${req.file.filename}`;
+
+        try {
+            const [productRows] = await pool.query(
+                'SELECT id, name, image_url FROM sarga_products WHERE id = ? LIMIT 1',
+                [productId]
+            );
+            const product = productRows[0];
+            if (!product) {
+                await removeUploadFile(proposedImageUrl).catch(() => {});
+                return res.status(404).json({ message: 'Product not found' });
+            }
+
+            const [pendingRows] = await pool.query(
+                `SELECT id, proposed_image_url
+                 FROM sarga_product_image_requests
+                 WHERE product_id = ? AND status = 'pending'
+                 ORDER BY id DESC LIMIT 1`,
+                [productId]
+            );
+
+            if (pendingRows.length > 0) {
+                await removeUploadFile(proposedImageUrl).catch(() => {});
+                return res.status(409).json({
+                    message: 'An image update request is already pending for this product.'
+                });
+            }
+
+            const [insertResult] = await pool.query(
+                `INSERT INTO sarga_product_image_requests
+                 (product_id, current_image_url, proposed_image_url, requested_by, status)
+                 VALUES (?, ?, ?, ?, 'pending')`,
+                [productId, product.image_url || null, proposedImageUrl, requestedBy]
+            );
+
+            auditLog(req.user.id, 'PRODUCT_IMAGE_REQUEST_CREATE', `Designer submitted image update request for product #${productId}`, {
+                entity_type: 'product',
+                entity_id: productId,
+                request_id: insertResult.insertId
+            });
+
+            return res.status(201).json({
+                message: 'Image update request submitted for admin approval.',
+                request_id: insertResult.insertId,
+                product_id: productId,
+                status: 'pending'
+            });
+        } catch (err) {
+            await removeUploadFile(proposedImageUrl).catch(() => {});
+            console.error('Create product image request error:', err);
+            return res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // Admin list of image update requests
+    router.get('/products/image-update-requests', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        try {
+            const status = String(req.query.status || 'pending').toLowerCase();
+            const allowedStatuses = ['pending', 'approved', 'rejected', 'all'];
+            const normalizedStatus = allowedStatuses.includes(status) ? status : 'pending';
+
+            const params = [];
+            let whereSql = '';
+            if (normalizedStatus !== 'all') {
+                whereSql = 'WHERE r.status = ?';
+                params.push(normalizedStatus);
+            }
+
+            const [rows] = await pool.query(
+                `SELECT
+                    r.id,
+                    r.product_id,
+                    r.current_image_url,
+                    r.proposed_image_url,
+                    r.requested_by,
+                    r.status,
+                    r.admin_note,
+                    r.requested_at,
+                    r.reviewed_by,
+                    r.reviewed_at,
+                    p.name AS product_name,
+                    p.product_code,
+                    req_staff.name AS requested_by_name,
+                    rev_staff.name AS reviewed_by_name
+                 FROM sarga_product_image_requests r
+                 JOIN sarga_products p ON p.id = r.product_id
+                 LEFT JOIN sarga_staff req_staff ON req_staff.id = r.requested_by
+                 LEFT JOIN sarga_staff rev_staff ON rev_staff.id = r.reviewed_by
+                 ${whereSql}
+                 ORDER BY r.requested_at DESC, r.id DESC`,
+                params
+            );
+
+            return res.json(rows);
+        } catch (err) {
+            console.error('List product image requests error:', err);
+            return res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // Admin approves/rejects image update request
+    router.patch('/products/image-update-requests/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        const requestId = Number(req.params.id);
+        const action = String(req.body?.action || '').toLowerCase();
+        const adminNote = req.body?.note || null;
+
+        if (!Number.isFinite(requestId) || requestId <= 0) {
+            return res.status(400).json({ message: 'Invalid request id' });
+        }
+        if (!['approve', 'reject'].includes(action)) {
+            return res.status(400).json({ message: 'Action must be approve or reject' });
+        }
+
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const [reqRows] = await connection.query(
+                `SELECT id, product_id, current_image_url, proposed_image_url, status
+                 FROM sarga_product_image_requests
+                 WHERE id = ?
+                 LIMIT 1`,
+                [requestId]
+            );
+
+            const requestRow = reqRows[0];
+            if (!requestRow) {
+                await connection.rollback();
+                return res.status(404).json({ message: 'Image update request not found' });
+            }
+            if (requestRow.status !== 'pending') {
+                await connection.rollback();
+                return res.status(400).json({ message: 'This request has already been reviewed' });
+            }
+
+            if (action === 'approve') {
+                await connection.query(
+                    'UPDATE sarga_products SET image_url = ? WHERE id = ?',
+                    [requestRow.proposed_image_url, requestRow.product_id]
+                );
+            }
+
+            await connection.query(
+                `UPDATE sarga_product_image_requests
+                 SET status = ?, admin_note = ?, reviewed_by = ?, reviewed_at = NOW()
+                 WHERE id = ?`,
+                [action === 'approve' ? 'approved' : 'rejected', adminNote, req.user.id, requestId]
+            );
+
+            await connection.commit();
+
+            if (action === 'approve') {
+                if (requestRow.current_image_url && requestRow.current_image_url !== requestRow.proposed_image_url) {
+                    await removeUploadFile(requestRow.current_image_url).catch(() => {});
+                }
+            } else {
+                if (requestRow.proposed_image_url) {
+                    await removeUploadFile(requestRow.proposed_image_url).catch(() => {});
+                }
+            }
+
+            auditLog(req.user.id, 'PRODUCT_IMAGE_REQUEST_REVIEW', `${action}d product image request #${requestId}`, {
+                entity_type: 'product',
+                entity_id: requestRow.product_id,
+                request_id: requestId,
+                action
+            });
+
+            invalidateHierarchyCache();
+            return res.json({
+                message: action === 'approve' ? 'Image request approved and live now.' : 'Image request rejected.',
+                status: action === 'approve' ? 'approved' : 'rejected'
+            });
+        } catch (err) {
+            await connection.rollback();
+            console.error('Review product image request error:', err);
+            return res.status(500).json({ message: 'Database error' });
+        } finally {
+            connection.release();
+        }
+    });
+
     // Get Full Product Details (including slabs and extras)
     router.get('/products/:id', authenticateToken, async (req, res) => {
         try {
@@ -564,10 +806,43 @@ module.exports = (upload, removeUploadFile) => {
             const product = products[0];
             if (!product) return res.status(404).json({ message: 'Product not found' });
 
+            let inventoryMeta = null;
+            if (product.inventory_item_id) {
+                const [invRows] = await pool.query(
+                    `SELECT id, sku, source_code, model_name, size_code, vendor_name, name
+                     FROM sarga_inventory
+                     WHERE id = ?
+                     LIMIT 1`,
+                    [product.inventory_item_id]
+                );
+                inventoryMeta = invRows[0] || null;
+            }
+
+            // Derive from inventory as fallback for older products that don't have direct columns
+            const skuFallback = String(product.product_code || inventoryMeta?.sku || '');
+            const codeParts = skuFallback.split('-').map(p => String(p || '').trim()).filter(Boolean);
+            const fallbackCompanyCode = String(codeParts[0] || inventoryMeta?.source_code || '').toUpperCase();
+            const fallbackSize = String(inventoryMeta?.size_code || '').toUpperCase();
+            const fallbackCompanyName = String(inventoryMeta?.vendor_name || '').trim();
+
+            // Direct stored columns take priority; fall back to inventory-derived values
+            const resolvedProductCode = String(product.product_code || inventoryMeta?.sku || '').trim();
+            const resolvedCompanyName = String(product.company_name || '').trim() || fallbackCompanyName;
+            const resolvedCompanyCode = String(product.company_code || '').trim() || fallbackCompanyCode;
+            const resolvedSize = String(product.size || '').trim() || fallbackSize;
+
             const [slabs] = await pool.query("SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC", [product.id]);
             const [extras] = await pool.query("SELECT * FROM sarga_product_extras_template WHERE product_id = ?", [product.id]);
 
-            res.json({ ...product, slabs, extras });
+            res.json({
+                ...product,
+                product_code: resolvedProductCode,
+                company_name: resolvedCompanyName,
+                company_code: resolvedCompanyCode,
+                size: resolvedSize,
+                slabs,
+                extras
+            });
         } catch (err) {
             res.status(500).json({ message: 'Database error' });
         }

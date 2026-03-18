@@ -99,7 +99,7 @@ const Dashboard = () => {
         { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Admin'], group: 'finance' },
         { name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Admin'], group: 'manage' },
         { name: 'Branches', icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'manage' },
-        { name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office'], group: 'operations' },
+        { name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'operations' },
         { name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'business' },
         { name: 'Attendance & Salary', icon: Receipt, path: '/dashboard/attendance-salary', roles: ['Designer'], group: 'finance' },
         { name: 'Plate Management', icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'operations' },

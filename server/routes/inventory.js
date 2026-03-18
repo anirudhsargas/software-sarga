@@ -46,26 +46,144 @@ async function findInventoryByScannedCode(rawCode) {
 
 // --- INVENTORY ROUTES (Admin Only) ---
 
-// List Inventory
+// List Inventory with enhanced filtering
 router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
     try {
         const { page, limit, offset } = parsePagination(req);
         const usePagination = !!req.query.page;
+        
+        // Input validation and sanitization
+        const search = req.query.search ? `%${String(req.query.search).trim().substring(0, 100)}%` : null;
+        const itemType = req.query.item_type ? String(req.query.item_type).trim() : null;
+        const category = req.query.category ? String(req.query.category).trim() : null;
+        const status = req.query.status ? String(req.query.status).toLowerCase().trim() : null;
+        const priceMin = req.query.price_min ? Math.max(0, parseFloat(req.query.price_min)) : null;
+        const priceMax = req.query.price_max ? Math.max(0, parseFloat(req.query.price_max)) : null;
+        const quantityMin = req.query.quantity_min ? Math.max(0, parseInt(req.query.quantity_min)) : null;
+        const quantityMax = req.query.quantity_max ? Math.max(0, parseInt(req.query.quantity_max)) : null;
+        const sortBy = req.query.sort_by ? String(req.query.sort_by).toLowerCase().trim() : 'created_at';
+        const sortOrder = req.query.sort_order ? String(req.query.sort_order).toUpperCase().trim() : 'DESC';
+        
+        // Validate sort parameters
+        const validSortFields = ['id', 'name', 'sku', 'quantity', 'cost_price', 'mrp', 'category', 'created_at', 'updated_at'];
+        const validSortOrders = ['ASC', 'DESC'];
+        const finalSortBy = validSortFields.includes(sortBy) ? `i.${sortBy}` : 'i.created_at';
+        const finalSortOrder = validSortOrders.includes(sortOrder) ? sortOrder : 'DESC';
+        
+        // Validate status
+        const validStatuses = ['low', 'ok', 'out-of-stock', 'in-stock'];
+        const finalStatus = validStatuses.includes(status) ? status : null;
+        
+        // Validate price range
+        if (priceMin !== null && priceMax !== null && priceMin > priceMax) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'Invalid price range: min price cannot exceed max price' 
+            });
+        }
 
-        // Show all inventory items, joined with products if they exist
-        const countQuery = `SELECT COUNT(*) as cnt FROM sarga_inventory`;
-        const dataQuery = `SELECT i.*, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id ORDER BY i.created_at DESC`;
+        // Use DISTINCT to avoid duplicate rows from multiple products per inventory item
+        let countQuery = `SELECT COUNT(DISTINCT i.id) as cnt 
+                         FROM sarga_inventory i 
+                         LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+                         LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id`;
+        
+        let dataQuery = `SELECT DISTINCT i.*, p.id as linked_product_id, ps.name as product_subcategory_name 
+                        FROM sarga_inventory i 
+                        LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+                        LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id`;
+        
+        let whereClauses = [];
+        let params = [];
 
+        // Search filter (name or SKU)
+        if (search) {
+            whereClauses.push(`(i.name LIKE ? OR i.sku LIKE ?)`);
+            params.push(search, search);
+        }
+
+        // Item type filter (with case-insensitive comparison)
+        if (itemType) {
+            whereClauses.push(`LOWER(i.item_type) = LOWER(?)`);
+            params.push(itemType);
+        }
+
+        // Category filter (check both inventory category and product subcategory)
+        if (category) {
+            whereClauses.push(`(LOWER(i.category) = LOWER(?) OR LOWER(ps.name) = LOWER(?))`);
+            params.push(category, category);
+        }
+
+        // Status filter (stock level indicators)
+        if (finalStatus === 'low') {
+            whereClauses.push(`i.quantity <= COALESCE(i.reorder_level, 10)`);
+        } else if (finalStatus === 'ok') {
+            whereClauses.push(`i.quantity > COALESCE(i.reorder_level, 10)`);
+        } else if (finalStatus === 'out-of-stock') {
+            whereClauses.push(`i.quantity = 0`);
+        } else if (finalStatus === 'in-stock') {
+            whereClauses.push(`i.quantity > 0`);
+        }
+
+        // Price range filter (cost price)
+        if (priceMin !== null) {
+            whereClauses.push(`i.cost_price >= ?`);
+            params.push(priceMin);
+        }
+        if (priceMax !== null) {
+            whereClauses.push(`i.cost_price <= ?`);
+            params.push(priceMax);
+        }
+
+        // Quantity range filter
+        if (quantityMin !== null) {
+            whereClauses.push(`i.quantity >= ?`);
+            params.push(quantityMin);
+        }
+        if (quantityMax !== null) {
+            whereClauses.push(`i.quantity <= ?`);
+            params.push(quantityMax);
+        }
+
+        // Build WHERE clause
+        if (whereClauses.length > 0) {
+            const whereSection = ` WHERE ` + whereClauses.join(' AND ');
+            countQuery += whereSection;
+            dataQuery += whereSection;
+        }
+
+        // Add ordering
+        dataQuery += ` ORDER BY ${finalSortBy} ${finalSortOrder}, i.id ASC`;
+
+        // Execute queries
         if (usePagination) {
-            const [[{ cnt }]] = await pool.query(countQuery);
-            const [rows] = await pool.query(dataQuery + ' LIMIT ? OFFSET ?', [limit, offset]);
+            const [[{ cnt }]] = await pool.query(countQuery, params);
+            const [rows] = await pool.query(
+                dataQuery + ' LIMIT ? OFFSET ?', 
+                [...params, limit, offset]
+            );
             return res.json(paginatedResponse(rows, cnt, page, limit));
         }
 
-        const [rows] = await pool.query(dataQuery);
-        res.json(rows);
+        // No pagination - return all results (with reasonable limit for performance)
+        const maxLimit = 10000;
+        const [rows] = await pool.query(
+            dataQuery + ' LIMIT ?', 
+            [...params, maxLimit]
+        );
+        res.json({
+            success: true,
+            count: rows.length,
+            data: rows,
+            note: rows.length === maxLimit ? `Results limited to ${maxLimit}. Use pagination for complete results.` : null
+        });
     } catch (err) {
-        res.status(500).json({ message: 'Database error' });
+        console.error('Inventory fetch error:', err);
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to fetch inventory',
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
     }
 });
 

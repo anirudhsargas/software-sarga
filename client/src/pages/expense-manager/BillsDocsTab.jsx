@@ -57,7 +57,13 @@ const BillsDocsTab = ({ onError }) => {
       type: 'danger'
     });
     if (!isConfirmed) return;
-    try { await api.delete(`/bills-documents/${id}`); fetchDocs(); } catch { }
+
+    const deleteInventoryToo = window.confirm('Also delete inventory entries added from this bill? Click OK for Yes, Cancel for No.');
+
+    try {
+      await api.delete(`/bills-documents/${id}${deleteInventoryToo ? '?deleteInventory=1' : ''}`);
+      fetchDocs();
+    } catch { }
   };
 
   const totalPages = Math.ceil(docs.length / PAGE_SIZE);

@@ -163,6 +163,11 @@ function normalizeLineItemsInput(lineItemsRaw) {
         ? totalRaw
         : (quantity > 0 && rate > 0 ? quantity * rate : 0);
 
+      const explicitSellRaw = item?.sell_price ?? item?.selling_price ?? '';
+      const explicitSell = explicitSellRaw === '' || explicitSellRaw === null || explicitSellRaw === undefined
+        ? 0
+        : (Number(explicitSellRaw) || 0);
+
       return {
         item_name: itemName,
         quantity,
@@ -173,7 +178,11 @@ function normalizeLineItemsInput(lineItemsRaw) {
         total_amount: totalAmount,
         category_name: String(item?.category_name || item?.category || '').trim() || null,
         subcategory_name: String(item?.subcategory_name || item?.subcategory || '').trim() || null,
-        subcategory_id: item?.subcategory_id ? Number(item.subcategory_id) : null
+        subcategory_id: item?.subcategory_id ? Number(item.subcategory_id) : null,
+        // Use only explicit sell price from pricing step; do not silently fall back to MRP.
+        sell_price: explicitSell,
+        custom_sku: String(item?.sku || item?.custom_sku || '').trim() || null,
+        skip_product_library: Boolean(item?.skip_product_library)
       };
     })
     .filter((item) => item.item_name && (item.quantity > 0 || item.total_amount > 0 || item.rate > 0));
@@ -265,7 +274,10 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
       total_amount,
       category_name,
       subcategory_name,
-      subcategory_id
+      subcategory_id,
+      sell_price,
+      custom_sku,
+      skip_product_library
     } = item;
 
     const derivedRate = Number(rate) > 0
@@ -280,13 +292,17 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
       || 'INV';
     const modelName = String(item_name || '').trim().slice(0, 100);
 
+    // Match on name + same vendor: same model from the same supplier → update stock/price.
+    // If the same model name exists but from a different vendor, create a separate inventory item
+    // so each vendor's pricing is tracked independently.
     const [[existing]] = await pool.query(
       `SELECT id, quantity, cost_price
        FROM sarga_inventory
        WHERE LOWER(name) = LOWER(?)
          AND (hsn = ? OR (? IS NULL AND hsn IS NULL))
+         AND LOWER(COALESCE(vendor_name, '')) = LOWER(COALESCE(?, ''))
        LIMIT 1`,
-      [item_name, hsn_sac, hsn_sac]
+      [item_name, hsn_sac, hsn_sac, vendorName || '']
     );
 
     if (existing?.id) {
@@ -301,11 +317,16 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
              hsn = COALESCE(?, hsn),
              gst_rate = CASE WHEN ? > 0 THEN ? ELSE gst_rate END,
              cost_price = CASE WHEN ? > 0 THEN ? ELSE cost_price END,
+             sell_price = CASE WHEN ? > 0 THEN ? ELSE sell_price END,
              vendor_name = COALESCE(?, vendor_name),
              source_code = COALESCE(source_code, ?),
              model_name = COALESCE(model_name, ?),
              size_code = COALESCE(size_code, ?),
-             sku = CASE WHEN sku IS NULL OR sku = '' THEN ? ELSE sku END
+             sku = CASE
+               WHEN ? IS NOT NULL AND ? <> '' THEN ?
+               WHEN sku IS NULL OR sku = '' THEN ?
+               ELSE sku
+             END
          WHERE id = ?`,
         [
           Number(quantity) || 0,
@@ -316,11 +337,16 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
           Number(gst_percent) || 0,
           derivedRate,
           derivedRate,
+          Number(sell_price) || 0,
+          Number(sell_price) || 0,
           vendorName || null,
           sourceCode,
           modelName,
           sizeCode,
-          nextSku,
+          custom_sku || null,
+          custom_sku || null,
+          custom_sku || null,
+          custom_sku || nextSku,
           existing.id
         ]
       );
@@ -329,6 +355,9 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
         name: item_name,
         category: inferredCategory,
         sellPrice: derivedRate,
+        userSellPrice: Number(sell_price) || 0,
+        customSku: custom_sku || null,
+        skipProductLibrary: Boolean(skip_product_library),
         categoryName: category_name || null,
         subcategoryName: subcategory_name || null,
         subcategoryId: subcategory_id || null
@@ -339,12 +368,14 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
     const [insertRes] = await pool.query(
       `INSERT INTO sarga_inventory
        (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, source_code, model_name, size_code, item_type, vendor_name)
-       VALUES (?, NULL, NULL, ?, ?, 0, ?, 0, ?, 0, ?, ?, ?, ?, 'Retail', ?)`,
+       VALUES (?, ?, NULL, ?, ?, 0, ?, ?, ?, 0, ?, ?, ?, ?, 'Retail', ?)`,
       [
         item_name,
+        custom_sku || null,
         unit || 'pcs',
         Number(quantity) || 0,
         derivedRate,
+        Number(sell_price) || 0,
         hsn_sac,
         Number(gst_percent) || 0,
         sourceCode,
@@ -360,6 +391,9 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
       name: item_name,
       category: inferredCategory,
       sellPrice: derivedRate,
+      userSellPrice: Number(sell_price) || 0,
+      customSku: custom_sku || null,
+      skipProductLibrary: Boolean(skip_product_library),
       categoryName: category_name || null,
       subcategoryName: subcategory_name || null,
       subcategoryId: subcategory_id || null
@@ -371,13 +405,16 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
       [inferredCategory, inventoryId]
     );
 
-    const baseSku = buildSkuBase({ vendor: vendorName, category: inferredCategory, itemName: item_name, sizeCode });
-    const nextSku = await ensureUniqueSku(baseSku, inventoryId);
-    if (nextSku) {
-      await pool.query(
-        'UPDATE sarga_inventory SET sku = ? WHERE id = ? AND (sku IS NULL OR sku = "")',
-        [nextSku, inventoryId]
-      );
+    // Only auto-generate SKU if the user didn't provide a custom one
+    if (!custom_sku) {
+      const baseSku = buildSkuBase({ vendor: vendorName, category: inferredCategory, itemName: item_name, sizeCode });
+      const nextSku = await ensureUniqueSku(baseSku, inventoryId);
+      if (nextSku) {
+        await pool.query(
+          'UPDATE sarga_inventory SET sku = ? WHERE id = ? AND (sku IS NULL OR sku = "")',
+          [nextSku, inventoryId]
+        );
+      }
     }
   }
 
@@ -453,14 +490,24 @@ async function findBestSubcategoryId(inventoryCategory = '') {
   return ensureAutoImportSubcategory(inventoryCategory);
 }
 
-async function ensureProductLibraryFromInventoryItem({ inventoryId, name, category, sellPrice, subcategoryId }) {
+async function ensureProductLibraryFromInventoryItem({ inventoryId, name, category, costPrice, userSellPrice, customSku, subcategoryId }) {
   if (!inventoryId) return;
+
+  // Fetch inventory metadata to derive company_name, company_code, size
+  const [[invMeta]] = await pool.query(
+    'SELECT vendor_name, source_code, size_code, sku FROM sarga_inventory WHERE id = ? LIMIT 1',
+    [inventoryId]
+  );
+  const effectiveSku = customSku || invMeta?.sku || '';
+  const skuParts = effectiveSku.split('-').map(p => String(p || '').trim()).filter(Boolean);
+  const derivedCompanyCode = skuParts[0] || String(invMeta?.source_code || '').toUpperCase();
+  const derivedCompanyName = String(invMeta?.vendor_name || '').trim();
+  const derivedSize = String(invMeta?.size_code || '').trim();
 
   const [alreadyLinked] = await pool.query(
     'SELECT id FROM sarga_products WHERE inventory_item_id = ? LIMIT 1',
     [inventoryId]
   );
-  if (alreadyLinked.length > 0) return;
 
   // Use the directly-provided subcategory ID if available, otherwise fall back to name-based lookup
   const resolvedSubcategoryId = subcategoryId
@@ -471,25 +518,90 @@ async function ensureProductLibraryFromInventoryItem({ inventoryId, name, catego
     [resolvedSubcategoryId]
   );
 
+  // costPrice is the vendor purchase price — store it in the description for reference.
+  // For MEMENTO category: selling price = 2× cost (standard doubling rule).
+  // For all other categories: selling price is left at 0 — user must set it manually.
+  const [[subcatRow]] = await pool.query(
+    `SELECT sc.name AS subcatName, pc.name AS catName
+     FROM sarga_product_subcategories sc
+     JOIN sarga_product_categories pc ON pc.id = sc.category_id
+     WHERE sc.id = ?`,
+    [resolvedSubcategoryId]
+  );
+  const parentCategoryName = (subcatRow?.catName || '').toLowerCase();
+  const isMemento = parentCategoryName.includes('memento');
+
+  const cost = Number(costPrice) || 0;
+  const userSell = Number(userSellPrice) || 0;
+  // Priority: 1) User-entered sell price, 2) 2× cost for Memento, 3) 0 (needs manual entry)
+  const sellRate = userSell > 0 ? userSell : (isMemento && cost > 0 ? cost * 2 : 0);
+
+  const costNote = cost > 0 ? ` Cost: ₹${cost.toFixed(2)}.` : '';
+  const priceNote = sellRate > 0
+    ? ` Sell: ₹${sellRate.toFixed(2)}${userSell > 0 ? '' : ' (2× cost)'}.`
+    : ' Set selling price before use.';
+
+  if (alreadyLinked.length > 0) {
+    const existingProductId = alreadyLinked[0].id;
+
+    // Always update SKU/company metadata on the product record
+    await pool.query(
+      `UPDATE sarga_products
+       SET product_code = COALESCE(?, product_code),
+           company_name = COALESCE(NULLIF(?, ''), company_name),
+           company_code = COALESCE(NULLIF(?, ''), company_code),
+           size = COALESCE(NULLIF(?, ''), size)
+       WHERE id = ?`,
+      [customSku || null, derivedCompanyName || null, derivedCompanyCode || null, derivedSize || null, existingProductId]
+    );
+
+    if (sellRate > 0) {
+      const [slabs] = await pool.query(
+        'SELECT id FROM sarga_product_slabs WHERE product_id = ? ORDER BY id ASC LIMIT 1',
+        [existingProductId]
+      );
+      if (slabs.length > 0) {
+        await pool.query(
+          'UPDATE sarga_product_slabs SET base_value = ?, unit_rate = ? WHERE id = ?',
+          [sellRate, sellRate, slabs[0].id]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate) VALUES (?, 1, NULL, ?, ?)',
+          [existingProductId, sellRate, sellRate]
+        );
+      }
+    }
+
+    await pool.query(
+      'UPDATE sarga_products SET description = ? WHERE id = ?',
+      [`Auto-created from bill upload.${costNote}${priceNote}`, existingProductId]
+    );
+
+    return;
+  }
+
   const [productIns] = await pool.query(
     `INSERT INTO sarga_products
-     (subcategory_id, name, product_code, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product)
-     VALUES (?, ?, NULL, 'Normal', ?, 0, 0, 0, ?, ?, 1)`,
+     (subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product)
+     VALUES (?, ?, ?, ?, ?, ?, 'Normal', ?, 0, 0, 0, ?, ?, 1)`,
     [
       resolvedSubcategoryId,
       String(name || '').trim() || `Inventory Item ${inventoryId}`,
-      'Auto-created from bill upload',
+      customSku || null,
+      derivedCompanyName || null,
+      derivedCompanyCode || null,
+      derivedSize || null,
+      `Auto-created from bill upload.${costNote}${priceNote}`,
       positionRow?.nextPos || 1,
       inventoryId
     ]
   );
 
-  if (Number(sellPrice) > 0) {
-    await pool.query(
-      'INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate) VALUES (?, 1, NULL, ?, ?)',
-      [productIns.insertId, Number(sellPrice), Number(sellPrice)]
-    );
-  }
+  await pool.query(
+    'INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate) VALUES (?, 1, NULL, ?, ?)',
+    [productIns.insertId, sellRate, sellRate]
+  );
 }
 
 // ========== OFFICE & ADMIN EXPENSES ==========
@@ -1588,12 +1700,47 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
     const { branch_id, id: uploaded_by } = req.user;
     const {
       document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
-      amount, description, line_items
+      amount, description, line_items, force_duplicate
     } = req.body;
     const normalizedDocumentType = normalizeBillDocumentType(document_type, related_tab);
     const normalizedLineItems = normalizeLineItemsInput(line_items);
+    const allowDuplicate = String(force_duplicate || '').trim() === '1';
 
     const filePath = `/uploads/${req.file.filename}`;
+
+    // Prevent accidental duplicate uploads unless user explicitly confirms override.
+    if (!allowDuplicate) {
+      const [possibleDuplicateRows] = await pool.query(
+        `SELECT id, file_name, created_at
+         FROM sarga_bills_documents
+         WHERE branch_id = ?
+           AND document_type = ?
+           AND COALESCE(LOWER(vendor_name), '') = COALESCE(LOWER(?), '')
+           AND bill_date = ?
+           AND ABS(COALESCE(amount, 0) - ?) < 0.01
+           AND ((? IS NULL OR ? = '') OR COALESCE(LOWER(bill_number), '') = COALESCE(LOWER(?), ''))
+         ORDER BY id DESC
+         LIMIT 1`,
+        [
+          branch_id,
+          normalizedDocumentType,
+          vendor_name || null,
+          bill_date || null,
+          Number(amount) || 0,
+          bill_number || null,
+          bill_number || null,
+          bill_number || null
+        ]
+      );
+
+      if (possibleDuplicateRows.length > 0) {
+        return res.status(409).json({
+          error: 'Possible duplicate bill found. Is this another bill?',
+          code: 'POSSIBLE_DUPLICATE_BILL',
+          duplicate: possibleDuplicateRows[0]
+        });
+      }
+    }
 
     // Keep vendor master in sync so Vendors tab can show bill vendors.
     const vendorId = await ensureVendorExistsFromBill({
@@ -1671,11 +1818,16 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
         }
 
         for (const item of syncedItems || []) {
+          if (item.skipProductLibrary) {
+            continue;
+          }
           await ensureProductLibraryFromInventoryItem({
             inventoryId: item.inventoryId,
             name: item.name,
             category: item.subcategoryName || item.categoryName || item.category,
-            sellPrice: item.sellPrice,
+            costPrice: item.sellPrice,    // bill rate = our purchase cost, not selling price
+            userSellPrice: item.userSellPrice || 0,
+            customSku: item.customSku || null,
             subcategoryId: item.subcategoryId || null
           });
         }
@@ -1783,11 +1935,104 @@ router.delete('/bills-documents/:id', authenticateToken, async (req, res) => {
     }
 
     const { id } = req.params;
-    const [rows] = await pool.query('SELECT file_path FROM sarga_bills_documents WHERE id = ?', [id]);
+    const deleteInventory = String(req.query.deleteInventory || '').trim() === '1';
+    const [rows] = await pool.query(
+      `SELECT id, branch_id, document_type, vendor_name, bill_number, bill_date, amount, file_path
+       FROM sarga_bills_documents
+       WHERE id = ?`,
+      [id]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Bill document not found' });
+    }
+
+    const document = rows[0];
+
+    // Optional rollback: remove vendor bill + reverse inventory quantities created from this bill.
+    if (deleteInventory && String(document.document_type || '').toLowerCase() === 'vendor bill') {
+      const vendorKey = vendorMatchKey(document.vendor_name || '');
+      let vendorId = null;
+
+      if (vendorKey) {
+        const [vendorRows] = await pool.query(
+          `SELECT id, name
+           FROM sarga_vendors
+           WHERE branch_id = ? OR branch_id IS NULL
+           ORDER BY id DESC`,
+          [document.branch_id]
+        );
+        const matchedVendor = vendorRows.find((row) => vendorMatchKey(row.name) === vendorKey) || null;
+        vendorId = matchedVendor?.id || null;
+      }
+
+      if (vendorId) {
+        const [vendorBills] = await pool.query(
+          `SELECT id
+           FROM sarga_vendor_bills
+           WHERE vendor_id = ?
+             AND branch_id = ?
+             AND bill_date = ?
+             AND (bill_number = ? OR (? IS NULL AND bill_number IS NULL))
+             AND ABS(COALESCE(total_amount, 0) - ?) < 0.01`,
+          [
+            vendorId,
+            document.branch_id,
+            document.bill_date,
+            document.bill_number || null,
+            document.bill_number || null,
+            Number(document.amount) || 0
+          ]
+        );
+
+        for (const vb of vendorBills) {
+          const [vbItems] = await pool.query(
+            'SELECT inventory_item_id, quantity FROM sarga_vendor_bill_items WHERE bill_id = ?',
+            [vb.id]
+          );
+
+          const touchedInventoryIds = [];
+          for (const item of vbItems) {
+            if (!item.inventory_item_id) continue;
+            touchedInventoryIds.push(item.inventory_item_id);
+            await pool.query(
+              'UPDATE sarga_inventory SET quantity = GREATEST(COALESCE(quantity, 0) - ?, 0) WHERE id = ?',
+              [Number(item.quantity) || 0, item.inventory_item_id]
+            );
+          }
+
+          await pool.query('DELETE FROM sarga_vendor_bill_items WHERE bill_id = ?', [vb.id]);
+          await pool.query('DELETE FROM sarga_vendor_bills WHERE id = ?', [vb.id]);
+
+          const uniqueIds = [...new Set(touchedInventoryIds.filter(Boolean))];
+          if (uniqueIds.length > 0) {
+            const placeholders = uniqueIds.map(() => '?').join(',');
+            const [zeroQtyRows] = await pool.query(
+              `SELECT id FROM sarga_inventory WHERE id IN (${placeholders}) AND COALESCE(quantity, 0) <= 0`,
+              uniqueIds
+            );
+            const zeroIds = zeroQtyRows.map((r) => r.id);
+            if (zeroIds.length > 0) {
+              const zeroPlaceholders = zeroIds.map(() => '?').join(',');
+              await pool.query(
+                `UPDATE sarga_products
+                 SET inventory_item_id = NULL, is_physical_product = 0
+                 WHERE inventory_item_id IN (${zeroPlaceholders})`,
+                zeroIds
+              );
+              await pool.query(
+                `DELETE FROM sarga_inventory WHERE id IN (${zeroPlaceholders})`,
+                zeroIds
+              );
+            }
+          }
+        }
+      }
+    }
+
     await pool.query('DELETE FROM sarga_bills_documents WHERE id = ?', [id]);
 
-    if (rows.length > 0 && rows[0].file_path && rows[0].file_path.startsWith('/uploads/')) {
-      const fileName = path.basename(rows[0].file_path);
+    if (document.file_path && document.file_path.startsWith('/uploads/')) {
+      const fileName = path.basename(document.file_path);
       const filePath = path.join(uploadsDir, fileName);
       if (filePath.startsWith(uploadsDir)) {
         fs.promises.unlink(filePath).catch(() => null);

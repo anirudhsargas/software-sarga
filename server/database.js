@@ -38,6 +38,36 @@ const initDb = async () => {
       )
     `);
     // Add columns if upgrading existing DB
+
+      // Vendor Payments Table
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS sarga_vendor_payments (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          vendor_name VARCHAR(150) NOT NULL,
+          amount DECIMAL(12,2) NOT NULL,
+          payment_method VARCHAR(50) NOT NULL,
+          branch_id INT,
+          payment_date DATE NOT NULL,
+          description TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE SET NULL
+        )
+      `);
+
+      // Staff Payments Table
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS sarga_staff_payments (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          staff_name VARCHAR(150) NOT NULL,
+          amount DECIMAL(12,2) NOT NULL,
+          payment_method VARCHAR(50) NOT NULL,
+          branch_id INT,
+          payment_date DATE NOT NULL,
+          description TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE SET NULL
+        )
+      `);
     try { await connection.query('ALTER TABLE sarga_branches ADD COLUMN email VARCHAR(100)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
     try { await connection.query('ALTER TABLE sarga_branches ADD COLUMN smtp_user VARCHAR(100)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
     try { await connection.query('ALTER TABLE sarga_branches ADD COLUMN smtp_pass VARCHAR(100)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }

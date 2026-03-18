@@ -5,7 +5,7 @@ import api from '../../services/api';
 import './SmartBillUpload.css';
 
 const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
-  const [step, setStep] = useState('upload'); // upload | extracting | suggestions | linking | confirming
+  const [step, setStep] = useState('upload'); // upload | extracting | suggestions | pricing | linking | confirming
   const [file, setFile] = useState(null);
   const [extractedData, setExtractedData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -81,6 +81,8 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
         rate,
         gst_percent: gstPercent,
         mrp: mrp !== '' && Number.isFinite(Number(mrp)) ? Number(mrp).toFixed(2) : '',
+        sell_price: '',
+        sku: '',
         category_id: '',
         subcategory_id: '',
         category_name: '',
@@ -141,6 +143,80 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
       next[index] = row;
       return next;
     });
+  };
+
+  const getSkuSuggestion = (item, index) => {
+    const vendorCode = String(finalForm.vendor_name || 'INV')
+      .toUpperCase()
+      .replace(/[^A-Z0-9 ]+/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.slice(0, 2))
+      .join('')
+      .slice(0, 3) || 'INV';
+
+    const itemCode = String(item?.item_name || 'ITEM')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '')
+      .slice(0, 8) || 'ITEM';
+
+    const serial = String(item?.serial_no || index + 1).padStart(2, '0');
+    return `${vendorCode}-${itemCode}-${serial}`;
+  };
+
+  const resolveItemCategory = (item) => {
+    if (categoryMode === 'single') {
+      const selectedCategory = hierarchyOptions.find((cat) => String(cat.id) === String(globalCategoryId));
+      const selectedSubcategory = selectedCategory?.subcategories?.find((sub) => String(sub.id) === String(globalSubcategoryId));
+      return {
+        categoryId: selectedCategory?.id || item.category_id || null,
+        subcategoryId: selectedSubcategory?.id || item.subcategory_id || null,
+        categoryName: selectedCategory?.name || item.category_name || '',
+        subcategoryName: selectedSubcategory?.name || item.subcategory_name || ''
+      };
+    }
+
+    const rowCategory = hierarchyOptions.find((cat) => String(cat.id) === String(item.category_id));
+    const rowSubcategory = rowCategory?.subcategories?.find((sub) => String(sub.id) === String(item.subcategory_id));
+    return {
+      categoryId: rowCategory?.id || item.category_id || null,
+      subcategoryId: rowSubcategory?.id || item.subcategory_id || null,
+      categoryName: rowCategory?.name || item.category_name || '',
+      subcategoryName: rowSubcategory?.name || item.subcategory_name || ''
+    };
+  };
+
+  const isMementoOrPhotoFrameItem = (item, resolvedCategory) => {
+    const name = String(item?.item_name || '').toLowerCase();
+    const categoryText = `${resolvedCategory?.categoryName || ''} ${resolvedCategory?.subcategoryName || ''}`.toLowerCase();
+    return /memento|photo\s*frame|photoframe|frame|troph|award|shield|plaque|souvenir/.test(`${name} ${categoryText}`);
+  };
+
+  const isConsumableItem = (item, resolvedCategory) => {
+    const name = String(item?.item_name || '').toLowerCase();
+    const categoryText = `${resolvedCategory?.categoryName || ''} ${resolvedCategory?.subcategoryName || ''}`.toLowerCase();
+    return /consumable|ink|toner|cartridge|ribbon|paper|sheet|sticker|label|adhesive|glue|lamination|pouch|tape/.test(`${name} ${categoryText}`);
+  };
+
+  const initPricingStep = () => {
+    setEditableItems((prev) => prev.map((item) => {
+      const cost = Number(item.rate || 0);
+      const resolvedCategory = resolveItemCategory(item);
+      const isConsumable = isConsumableItem(item, resolvedCategory);
+      const isMementoOrFrame = isMementoOrPhotoFrameItem(item, resolvedCategory);
+
+      return {
+        ...item,
+        sku: item.sku || getSkuSuggestion(item, Number(item.serial_no || 0) - 1),
+        // For memento/photo frame suggest 2x cost. For consumables, keep sell price blank.
+        sell_price: item.sell_price !== ''
+          ? item.sell_price
+          : (isConsumable ? '' : (isMementoOrFrame && cost > 0 ? (cost * 2).toFixed(2) : ''))
+      };
+    }));
+    setStep('pricing');
   };
 
   const handleFileDrop = (e) => {
@@ -261,52 +337,62 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
     setError('');
 
     try {
-      const selectedCategory = hierarchyOptions.find((cat) => String(cat.id) === String(globalCategoryId));
-      const selectedSubcategory = selectedCategory?.subcategories?.find((sub) => String(sub.id) === String(globalSubcategoryId));
+      const buildUploadFormData = (payloadItems, forceDuplicate = false) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('document_type', normalizeDocumentType(finalForm.document_type, finalForm.related_tab));
+        formData.append('related_tab', finalForm.related_tab);
+        formData.append('vendor_name', finalForm.vendor_name);
+        formData.append('bill_number', finalForm.bill_number);
+        formData.append('bill_date', finalForm.bill_date);
+        formData.append('amount', finalForm.amount);
+        const autoDescription = editableItems.length > 0
+          ? editableItems.slice(0, 6).map((item) => item.item_name).filter(Boolean).join(', ')
+          : '';
+        formData.append('description', finalForm.description || autoDescription);
+        formData.append('line_items', JSON.stringify(payloadItems));
+        if (forceDuplicate) {
+          formData.append('force_duplicate', '1');
+        }
+        return formData;
+      };
 
       const payloadItems = editableItems.map((item) => {
-        if (categoryMode === 'single' && selectedCategory && selectedSubcategory) {
-          return {
-            ...item,
-            category_id: selectedCategory.id,
-            subcategory_id: selectedSubcategory.id,
-            category_name: selectedCategory.name,
-            subcategory_name: selectedSubcategory.name
-          };
-        }
-
-        if (categoryMode === 'per-item') {
-          const rowCategory = hierarchyOptions.find((cat) => String(cat.id) === String(item.category_id));
-          const rowSubcategory = rowCategory?.subcategories?.find((sub) => String(sub.id) === String(item.subcategory_id));
-          return {
-            ...item,
-            category_id: rowCategory?.id || item.category_id || null,
-            subcategory_id: rowSubcategory?.id || item.subcategory_id || null,
-            category_name: rowCategory?.name || item.category_name || '',
-            subcategory_name: rowSubcategory?.name || item.subcategory_name || ''
-          };
-        }
-
-        return item;
+        const resolvedCategory = resolveItemCategory(item);
+        const consumable = isConsumableItem(item, resolvedCategory);
+        return {
+          ...item,
+          category_id: resolvedCategory.categoryId,
+          subcategory_id: resolvedCategory.subcategoryId,
+          category_name: resolvedCategory.categoryName,
+          subcategory_name: resolvedCategory.subcategoryName,
+          sku: String(item.sku || '').trim() || getSkuSuggestion(item, Number(item.serial_no || 0) - 1),
+          sell_price: Number(item.sell_price || 0) || 0,
+          skip_product_library: consumable
+        };
       });
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('document_type', normalizeDocumentType(finalForm.document_type, finalForm.related_tab));
-      formData.append('related_tab', finalForm.related_tab);
-      formData.append('vendor_name', finalForm.vendor_name);
-      formData.append('bill_number', finalForm.bill_number);
-      formData.append('bill_date', finalForm.bill_date);
-      formData.append('amount', finalForm.amount);
-      const autoDescription = editableItems.length > 0
-        ? editableItems.slice(0, 6).map((item) => item.item_name).filter(Boolean).join(', ')
-        : '';
-      formData.append('description', finalForm.description || autoDescription);
-      formData.append('line_items', JSON.stringify(payloadItems));
+      let response;
+      try {
+        response = await api.post('/bills-documents/upload', buildUploadFormData(payloadItems), {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } catch (uploadErr) {
+        const duplicateCode = uploadErr?.response?.data?.code;
+        if (uploadErr?.response?.status === 409 && duplicateCode === 'POSSIBLE_DUPLICATE_BILL') {
+          const proceed = window.confirm('This looks like a duplicate bill. Is this another bill? Click OK to upload anyway.');
+          if (!proceed) {
+            setLoading(false);
+            return;
+          }
 
-      const response = await api.post('/bills-documents/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+          response = await api.post('/bills-documents/upload', buildUploadFormData(payloadItems, true), {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        } else {
+          throw uploadErr;
+        }
+      }
 
       // If product is linked, create inventory entry
       if (linkedProduct?.should_add) {
@@ -724,14 +810,14 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
               <button className="btn btn-outline" onClick={() => setStep('upload')}>
                 Upload Different File
               </button>
-              <button className="btn btn-primary" onClick={submitForm} disabled={loading || !finalForm.amount || !hasRequiredCategorySelection()}>
+              <button className="btn btn-primary" onClick={editableItems.length > 0 ? initPricingStep : submitForm} disabled={loading || !finalForm.amount || !hasRequiredCategorySelection()}>
                 {loading ? (
                   <>
                     <Loader2 size={18} className="spin" />
                     Uploading...
                   </>
                 ) : (
-                  'Upload Bill'
+                  editableItems.length > 0 ? 'Next: SKU & Pricing →' : 'Upload Bill'
                 )}
               </button>
             </div>
@@ -742,6 +828,83 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
                 Category and subcategory selection is mandatory for low-confidence extraction.
               </div>
             )}
+          </div>
+        )}
+
+        {/* PRICING STEP */}
+        {step === 'pricing' && (
+          <div className="pricing-section">
+            <h2>💰 Set SKU &amp; Selling Price</h2>
+            <p className="subtitle">Review purchase costs and confirm selling prices before saving to the product library.</p>
+
+            <div className="pricing-table-wrap">
+              <table className="pricing-table">
+                <thead>
+                  <tr>
+                    <th>Item Name</th>
+                    <th>Cost (₹)</th>
+                    <th>SKU</th>
+                    <th>Selling Price (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {editableItems.map((item, idx) => {
+                    const resolvedCategory = resolveItemCategory(item);
+                    const consumable = isConsumableItem(item, resolvedCategory);
+                    const suggestedSku = getSkuSuggestion(item, idx);
+                    return (
+                    <tr key={idx}>
+                      <td className="pricing-item-name">
+                        {item.item_name || `Item ${idx + 1}`}
+                        {consumable && <div className="pricing-item-hint">Consumable: inventory-only</div>}
+                      </td>
+                      <td className="pricing-cost">₹{Number(item.rate || 0).toFixed(2)}</td>
+                      <td>
+                        <input
+                          type="text"
+                          className="pricing-input"
+                          value={item.sku || ''}
+                          onChange={(e) => updateEditableItem(idx, 'sku', e.target.value)}
+                          placeholder={suggestedSku}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          className="pricing-input pricing-sell-input"
+                          value={item.sell_price || ''}
+                          onChange={(e) => updateEditableItem(idx, 'sell_price', e.target.value)}
+                          placeholder={consumable ? 'Inventory only' : '0.00'}
+                          min="0"
+                          step="0.01"
+                          disabled={consumable}
+                        />
+                      </td>
+                    </tr>
+                  );})}
+                </tbody>
+              </table>
+            </div>
+
+            {error && (
+              <div className="error-message">
+                <AlertCircle size={18} />
+                {error}
+              </div>
+            )}
+
+            <div className="action-buttons">
+              <button className="btn btn-outline" onClick={() => setStep('suggestions')}>
+                ← Back
+              </button>
+              <button className="btn btn-primary" onClick={submitForm} disabled={loading}>
+                {loading ? (
+                  <><Loader2 size={18} className="spin" /> Uploading...</>
+                ) : (
+                  'Confirm &amp; Upload'
+                )}
+              </button>
+            </div>
           </div>
         )}
 

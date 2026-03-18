@@ -16,6 +16,9 @@ import offlineDb from '../services/offlineDb';
 import { useOnlineStatus } from '../hooks/useOffline';
 import { getCachedHierarchy, getCachedMachines, getCachedBranches, prefetchBillingData, forcePrefetchBillingData } from '../services/offlineSync';
 
+// --- Upsell popup state ---
+const defaultUpsell = { open: false, suggestions: [], loading: false, baseProduct: null };
+
 const customerTypes = ['Walk-in', 'Retail', 'Association', 'Offset'];
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
 
@@ -68,6 +71,9 @@ const Billing = () => {
     description: '',
     paymentDate: serverToday()
   });
+
+  // Upsell popup state
+  const [upsell, setUpsell] = useState(defaultUpsell);
 
   const [form, setForm] = useState({
     type: 'Walk-in',
@@ -1001,6 +1007,21 @@ const Billing = () => {
     };
     setOrderLines((prev) => [...prev, line]);
     resetOrderForm();
+
+    // --- ML Upsell: fetch suggestions after adding a product ---
+    if (selectedProduct?.name) {
+      setUpsell({ open: false, suggestions: [], loading: true, baseProduct: selectedProduct.name });
+      api.post('/upsell-suggestions', { products: [selectedProduct.name] })
+        .then(res => {
+          const suggestions = res.data?.suggestions || [];
+          if (suggestions.length > 0) {
+            setUpsell({ open: true, suggestions, loading: false, baseProduct: selectedProduct.name });
+          } else {
+            setUpsell(defaultUpsell);
+          }
+        })
+        .catch(() => setUpsell(defaultUpsell));
+    }
   };
 
   const removeOrderLine = (id) => {
@@ -1251,6 +1272,48 @@ const Billing = () => {
 
   return (
     <>
+      {/* Upsell Popup Modal */}
+      {upsell.open && (
+        <div className="modal-backdrop" onClick={() => setUpsell(defaultUpsell)}>
+          <div className="modal" style={{ maxWidth: 420, padding: 24 }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Customers often add:</h2>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+              {upsell.suggestions.map(s => (
+                <li key={s.name} style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 500 }}>{s.name}</span>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => {
+                      // Add suggested item as a quick line
+                      setOrderLines(prev => [...prev, {
+                        id: `upsell-${s.name}-${Date.now()}`,
+                        product_id: null,
+                        inventory_item_id: null,
+                        product_name: s.name,
+                        calculation_type: 'flat',
+                        quantity: 1,
+                        unit_price: 0,
+                        total_amount: 0,
+                        applied_extras: [],
+                        customPaperRate: 0,
+                        is_double_side: false,
+                        description: s.name,
+                        category: 'Upsell',
+                        subcategory: '',
+                        machine_id: null,
+                        is_inventory_item: false
+                      }]);
+                      setUpsell(defaultUpsell);
+                      toast.success(`Added: ${s.name}`);
+                    }}
+                  >Add</button>
+                </li>
+              ))}
+            </ul>
+            <button className="btn btn-ghost" style={{ marginTop: 10 }} onClick={() => setUpsell(defaultUpsell)}>Close</button>
+          </div>
+        </div>
+      )}
       {/* Branch selection for admin */}
       {isAdmin && branches.length > 0 && (
         <div className="mb-16">

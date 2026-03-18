@@ -62,6 +62,8 @@ const SortableItem = ({ id, children, className, disabled, ...props }) => {
 const ProductLibrary = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === 'Admin';
+    const isDesigner = user?.role === 'Designer';
+    const canRequestImageUpdate = isDesigner;
     const { confirm } = useConfirm();
     const [hierarchy, setHierarchy] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -101,6 +103,9 @@ const ProductLibrary = () => {
 
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
+    const [imageRequestSubmitting, setImageRequestSubmitting] = useState(false);
+    const [pendingImageRequests, setPendingImageRequests] = useState([]);
+    const [loadingPendingImageRequests, setLoadingPendingImageRequests] = useState(false);
 
     const [newProduct, setNewProduct] = useState({
         name: '',
@@ -125,6 +130,11 @@ const ProductLibrary = () => {
     }, []);
 
     useEffect(() => {
+        if (!isAdmin) return;
+        fetchPendingImageRequests();
+    }, [isAdmin]);
+
+    useEffect(() => {
         if (!productImage) {
             if (!isEditing) setProductImagePreview('');
             return;
@@ -143,6 +153,19 @@ const ProductLibrary = () => {
             console.error("Fetch hierarchy error:", err);
             toast.error(err.response?.data?.message || err.message || 'Failed to load product library');
             setLoading(false);
+        }
+    };
+
+    const fetchPendingImageRequests = async () => {
+        if (!isAdmin) return;
+        setLoadingPendingImageRequests(true);
+        try {
+            const res = await api.get('/products/image-update-requests', { params: { status: 'pending' } });
+            setPendingImageRequests(Array.isArray(res.data) ? res.data : []);
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to load pending image requests');
+        } finally {
+            setLoadingPendingImageRequests(false);
         }
     };
 
@@ -360,6 +383,53 @@ const ProductLibrary = () => {
         }
     };
 
+    const handleSubmitProductImageRequest = async (e) => {
+        e.preventDefault();
+        if (!canRequestImageUpdate || !isEditing || !editId) return;
+        if (!productImage) {
+            toast.error('Please select an image first');
+            return;
+        }
+
+        setImageRequestSubmitting(true);
+        try {
+            const formData = new FormData();
+            formData.append('image', productImage);
+            await api.post(`/products/${editId}/image-update-requests`, formData);
+            toast.success('Image update request sent to admin for approval');
+            setShowProdModal(false);
+            setProductImage(null);
+            setProductImagePreview('');
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to submit image request');
+        } finally {
+            setImageRequestSubmitting(false);
+        }
+    };
+
+    const handleReviewImageRequest = async (requestId, action) => {
+        if (!isAdmin) return;
+        const isApprove = action === 'approve';
+        const isConfirmed = await confirm({
+            title: isApprove ? 'Approve Image Update' : 'Reject Image Update',
+            message: isApprove
+                ? 'Approve this image and make it live immediately?'
+                : 'Reject this submitted image update?',
+            confirmText: isApprove ? 'Approve' : 'Reject',
+            type: isApprove ? 'primary' : 'danger'
+        });
+        if (!isConfirmed) return;
+
+        try {
+            await api.patch(`/products/image-update-requests/${requestId}`, { action });
+            toast.success(isApprove ? 'Image approved and live now' : 'Image request rejected');
+            fetchPendingImageRequests();
+            fetchHierarchy();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to review image request');
+        }
+    };
+
     const handleDragEnd = async (event) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
@@ -476,6 +546,7 @@ const ProductLibrary = () => {
                 image_url: prod.image_url,
                 isPhysicalProduct: prod.is_physical_product === 1 || prod.is_physical_product === true
             });
+            setProductImage(null);
             setProductImagePreview(prod.image_url ? imgUrl(prod.image_url) : '');
             setShowProdModal(true);
         } catch (err) {
@@ -816,6 +887,37 @@ const ProductLibrary = () => {
                                 </SortableItem>
                             ))}
 
+
+                        {isAdmin && (
+                            <div className="bg-light p-12 rounded border stack-sm">
+                                <div className="row space-between items-center gap-md">
+                                    <strong>Pending Product Image Approvals</strong>
+                                    <span className="badge badge--sm">{loadingPendingImageRequests ? 'Loading...' : `${pendingImageRequests.length} Pending`}</span>
+                                </div>
+                                {!loadingPendingImageRequests && pendingImageRequests.length === 0 && (
+                                    <p className="muted text-sm">No pending designer image requests.</p>
+                                )}
+                                {!loadingPendingImageRequests && pendingImageRequests.length > 0 && pendingImageRequests.slice(0, 6).map((req) => (
+                                    <div key={req.id} className="row gap-md items-center" style={{ alignItems: 'center' }}>
+                                        <div style={{ minWidth: 46 }}>
+                                            {req.proposed_image_url ? (
+                                                <SecureImage src={req.proposed_image_url} alt={req.product_name} className="thumb-img" />
+                                            ) : (
+                                                <div className="thumb-img" style={{ display: 'grid', placeItems: 'center' }}><Package size={14} /></div>
+                                            )}
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 600 }}>{req.product_name || `Product #${req.product_id}`}</div>
+                                            <div className="muted text-xs">Requested by {req.requested_by_name || `Staff #${req.requested_by}`}</div>
+                                        </div>
+                                        <div className="row gap-sm">
+                                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleReviewImageRequest(req.id, 'reject')}>Reject</button>
+                                            <button type="button" className="btn btn-primary btn-sm" onClick={() => handleReviewImageRequest(req.id, 'approve')}>Approve</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                             {viewInfo.type === 'category' && viewInfo.items.map((sub, idx) => (
                                 <SortableItem key={sub.id} id={sub.id} disabled={!isAdmin} className={`product-card pointer${sub.is_active === 0 || sub.is_active === false ? ' product-card--disabled' : ''}`}>
                                     {isAdmin && (
@@ -1008,10 +1110,32 @@ const ProductLibrary = () => {
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '600px' }}>
                         <button className="modal-close" onClick={() => { setShowProdModal(false); setIsEditing(false); }}><X size={20} /></button>
-                        <h2 className="section-title mb-4">{isEditing ? (isAdmin ? 'Edit Product' : 'View Product Rates') : 'Add New Product'}</h2>
+                        <h2 className="section-title mb-4">{isEditing ? (isAdmin ? 'Edit Product' : (canRequestImageUpdate ? 'Request Product Image Update' : 'View Product Rates')) : 'Add New Product'}</h2>
                         {isAdmin && <p className="muted mb-16 text-sm">Define pricing rules and default extras.</p>}
+                        {canRequestImageUpdate && isEditing && <p className="muted mb-16 text-sm">Upload a new product image. Admin approval is required before it goes live.</p>}
 
-                        <form onSubmit={handleSaveProduct} className="stack-md">
+                        <form onSubmit={isAdmin ? handleSaveProduct : handleSubmitProductImageRequest} className="stack-md">
+                            {canRequestImageUpdate && isEditing && (
+                            <div>
+                                <label className="label">Proposed Product Image</label>
+                                <input
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/webp"
+                                    className="input-field"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0] || null;
+                                        if (file) openCropper(file);
+                                        e.target.value = '';
+                                    }}
+                                />
+                                {productImagePreview && (
+                                    <div className="row gap-sm" style={{ marginTop: '8px' }}>
+                                        <img src={productImagePreview} alt="Preview" className="thumb-img" />
+                                        <span className="text-sm muted">Preview</span>
+                                    </div>
+                                )}
+                            </div>
+                            )}
                             <fieldset disabled={!isAdmin} style={{border:'none',padding:0,margin:0}}>
                             <div>
                                 <label className="label">Sub-category</label>
@@ -1558,6 +1682,11 @@ const ProductLibrary = () => {
 
                             </fieldset>
                             {isAdmin && <button type="submit" className="btn btn-primary btn--full mt-8">{isEditing ? 'Update Product Details' : 'Save Product to Library'}</button>}
+                            {canRequestImageUpdate && isEditing && (
+                                <button type="submit" className="btn btn-primary btn--full mt-8" disabled={imageRequestSubmitting || !productImage}>
+                                    {imageRequestSubmitting ? 'Submitting...' : 'Submit Image For Admin Approval'}
+                                </button>
+                            )}
                         </form>
                     </div>
                 </div>

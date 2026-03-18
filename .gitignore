@@ -1,15 +1,37 @@
+# Dependencies
 node_modules/
+server/node_modules/
+client/node_modules/
+
+# Environment variables - NEVER commit these
 .env
 .env.local
 .env.*.local
+.env*.local
+
+# Build outputs
 dist/
 build/
 *.log
+
+# IDE
 .vscode/
 .idea/
 .DS_Store
+
+# User uploads
 uploads/
-server/node_modules/
-client/node_modules/
+
+# Database backups and sensitive data
+*.sql
+*.backup
+*.bak
+dev-scripts/
+
+# Vercel
 .vercel
-.env*.local
+
+# Development temp files
+*.tmp
+check_*.js
+test_*.js

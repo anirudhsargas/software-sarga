@@ -43,10 +43,15 @@ const Inventory = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
 
     const [hierarchy, setHierarchy] = useState([]);
     const [allProducts, setAllProducts] = useState([]);
     const [productSearch, setProductSearch] = useState('');
+    const [filterType, setFilterType] = useState('');
+    const [filterCategory, setFilterCategory] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
 
     const [selectedIds, setSelectedIds] = useState([]);
     const [printQuantities, setPrintQuantities] = useState({}); // { id: qty }
@@ -68,7 +73,15 @@ const Inventory = () => {
     useEffect(() => {
         fetchInventory();
         fetchHierarchy();
-    }, [page]);
+    }, [page, debouncedSearch, filterType, filterCategory, filterStatus]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setPage(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -87,8 +100,17 @@ const Inventory = () => {
 
     const fetchInventory = async () => {
         setLoading(true);
+        setError('');
         try {
-            const res = await api.get('/inventory?page=' + page);
+            const params = {
+                page,
+                search: debouncedSearch,
+                item_type: filterType,
+                category: filterCategory,
+                status: filterStatus
+            };
+            const queryString = new URLSearchParams(params).toString();
+            const res = await api.get(`/inventory?${queryString}`);
             // Handle paginated response structure
             if (res.data && res.data.data) {
                 setItems(res.data.data);
@@ -446,6 +468,29 @@ const Inventory = () => {
                     <h1 className="section-title">Inventory</h1>
                     <p className="section-subtitle">Manage stock, prices, and reorder levels.</p>
                 </div>
+                <div className="flex-1 max-w-md mx-16">
+                    <div className="input-group--flex">
+                        <div className="input-icon">
+                            <Search size={18} />
+                        </div>
+                        <input
+                            type="text"
+                            className="input-field"
+                            placeholder="Search by name or SKU..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        {searchTerm && (
+                            <button 
+                                className="input-action"
+                                onClick={() => setSearchTerm('')}
+                                title="Clear Search"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                    </div>
+                </div>
                 <div className="row gap-sm">
                     {items.length > 0 && (
                         <button className="btn btn-ghost" onClick={handlePrintNewItemsLabels}>
@@ -483,6 +528,61 @@ const Inventory = () => {
                         </>
                     )}
                 </div>
+            </div>
+
+            <div className="row gap-md p-sm bg-surface-2 rounded-md border border-light">
+                <div className="input-group" style={{ maxWidth: '180px' }}>
+                    <select 
+                        className="input-field py-xs" 
+                        value={filterType} 
+                        onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
+                    >
+                        <option value="">All Types</option>
+                        <option value="Retail">Retail</option>
+                        <option value="Consumable">Consumable</option>
+                    </select>
+                </div>
+                <div className="input-group" style={{ maxWidth: '220px' }}>
+                    <select 
+                        className="input-field py-xs" 
+                        value={filterCategory} 
+                        onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }}
+                    >
+                        <option value="">All Categories</option>
+                        {hierarchy.map(cat => (
+                            <optgroup key={cat.id} label={cat.name}>
+                                {cat.subcategories.map(sub => (
+                                    <option key={sub.id} value={sub.name}>{sub.name}</option>
+                                ))}
+                            </optgroup>
+                        ))}
+                    </select>
+                </div>
+                <div className="input-group" style={{ maxWidth: '180px' }}>
+                    <select 
+                        className="input-field py-xs" 
+                        value={filterStatus} 
+                        onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
+                    >
+                        <option value="">All Statuses</option>
+                        <option value="ok">Stock OK</option>
+                        <option value="low">Low Stock</option>
+                    </select>
+                </div>
+                {(filterType || filterCategory || filterStatus) && (
+                    <button 
+                        className="btn btn-ghost btn-sm" 
+                        onClick={() => {
+                            setFilterType('');
+                            setFilterCategory('');
+                            setFilterStatus('');
+                            setPage(1);
+                        }}
+                    >
+                        <X size={14} />
+                        <span>Clear Filters</span>
+                    </button>
+                )}
             </div>
 
             {error && (
@@ -549,7 +649,7 @@ const Inventory = () => {
                                             </div>
                                         </td>
                                         <td className="text-sm">{item.sku || '-'}</td>
-                                        <td className="text-sm">{item.category || '-'}</td>
+                                        <td className="text-sm">{item.category || item.product_subcategory_name || '-'}</td>
                                         <td className="text-sm">{item.quantity}</td>
                                         <td className="text-sm">{item.unit}</td>
                                         <td className="text-sm">{Number(item.cost_price).toFixed(2)}</td>

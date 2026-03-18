@@ -12,7 +12,8 @@
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   z-index: 0;
   pointer-events: none;
 }
@@ -459,6 +460,87 @@
   background: #f3f4f6;
   color: #bbb;
   cursor: not-allowed;
+}
+
+/* ── Pricing Step ─────────────────────────────────── */
+.pricing-section .subtitle {
+  color: #64748b;
+  font-size: 13px;
+  margin: 4px 0 16px;
+}
+
+.pricing-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin: 0 0 16px;
+}
+
+.pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.pricing-table th {
+  background: #f8fafc;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.pricing-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.pricing-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pricing-item-name {
+  font-weight: 500;
+  max-width: 220px;
+  word-break: break-word;
+  color: #1e293b;
+}
+
+.pricing-item-hint {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+.pricing-cost {
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pricing-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #fff;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+
+.pricing-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.pricing-sell-input {
+  min-width: 100px;
 }
 
 .items-table-wrap {
