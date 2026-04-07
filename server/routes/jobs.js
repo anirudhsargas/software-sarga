@@ -1,10 +1,11 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog, auditFieldChanges, getUsageMap, sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser } = require('../helpers');
+const { auditLog, auditFieldChanges, getUsageMap, sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser, generateJobNumber } = require('../helpers');
 const { analyzeDesign } = require('../helpers/designAnalyzer');
 const { validate, addJobSchema } = require('../middleware/validate');
-const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+console.log('[DEBUG] addJobSchema imported:', !!addJobSchema);
+const { paginate } = require('../helpers/pagination');
 const { branchFilter } = require('../middleware/branchFilter');
 
 const JOB_LIST_COLUMNS = [
@@ -273,15 +274,15 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
         console.error('[MachineSync] Error syncing job to machine:', err.message);
     }
 };
+const JOB_LIST_COL_MINIMAL = 'j.id, j.job_number, j.job_name, j.status, j.total_amount, j.balance_amount, j.delivery_date, j.category, j.created_at, j.payment_status, j.used_sheets, j.required_sheets';
 
 // --- JOB ROUTES ---
 
 // List All Jobs (with Customer details)
 router.get('/jobs', authenticateToken, async (req, res) => {
     try {
-        const { search, status, branch_id: qBranch, category } = req.query;
-        const { page, limit, offset } = parsePagination(req);
-        const usePagination = !!req.query.page;
+        const { search, status, branch_id: qBranch, category, tab } = req.query;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
         const { branchId } = await branchFilter(req);
 
         let where = '';
@@ -296,28 +297,52 @@ router.get('/jobs', authenticateToken, async (req, res) => {
             myStatusParams.push(req.user.id, req.user.role);
         }
 
-        if (!['Admin', 'Accountant', 'Front Office', 'front office'].includes(req.user.role)) {
+        if (isStaff) {
             // Show jobs assigned to this staff directly OR by role, restricted to their branch
-            where += ' AND EXISTS (SELECT 1 FROM sarga_job_staff_assignments jsa WHERE jsa.job_id = j.id AND (jsa.staff_id = ? OR (jsa.staff_id IS NULL AND jsa.role = ?)))';
+            if (tab === 'history') {
+                where += ' AND EXISTS (SELECT 1 FROM sarga_job_staff_assignments jsa WHERE jsa.job_id = j.id AND (jsa.staff_id = ? OR (jsa.staff_id IS NULL AND jsa.role = ?)) AND (jsa.status = "Completed" OR j.status = "Cancelled"))';
+            } else {
+                // Default staff view: Active
+                where += ' AND EXISTS (SELECT 1 FROM sarga_job_staff_assignments jsa WHERE jsa.job_id = j.id AND (jsa.staff_id = ? OR (jsa.staff_id IS NULL AND jsa.role = ?)) AND jsa.status != "Completed" AND j.status != "Cancelled")';
+            }
             params.push(req.user.id, req.user.role);
             if (branchId) {
                 where += ' AND j.branch_id = ?';
                 params.push(branchId);
             }
-        } else if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            // Front Office: can see all jobs in their branch
-            if (branchId && !qBranch) {
-                where += ' AND j.branch_id = ?';
-                params.push(branchId);
+        } else {
+            // Admin / Accountant / Front Office
+            if (!['Admin', 'Accountant'].includes(req.user.role)) {
+                // Front Office: default to their branch
+                if (branchId && !qBranch) {
+                    where += ' AND j.branch_id = ?';
+                    params.push(branchId);
+                }
             }
             if (qBranch) {
                 where += ' AND j.branch_id = ?';
                 params.push(qBranch);
             }
-        } else if (qBranch) {
-            where += ' AND j.branch_id = ?';
-            params.push(qBranch);
+
+            // Tabs / Filters
+            if (tab === 'active') {
+                where += " AND j.status NOT IN ('Delivered', 'Completed', 'Cancelled')";
+            } else if (tab === 'completed') {
+                where += ' AND j.status = "Completed"';
+            } else if (tab === 'delivered') {
+                where += ' AND j.status = "Delivered"';
+            } else if (tab === 'due') {
+                where += ' AND j.balance_amount > 0 AND j.status != "Cancelled"';
+            } else if (tab === 'overdue') {
+                where += ' AND j.delivery_date < NOW() AND j.status NOT IN ("Delivered", "Cancelled")';
+            } else if (tab === 'payments') {
+                where += ' AND j.payment_status = "Paid"';
+            } else if (!search && !status) {
+                // Default dashboard query for Admins: last 90 days only
+                where += ' AND j.created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)';
+            }
         }
+
         if (status) {
             where += ' AND j.status = ?';
             params.push(status);
@@ -325,7 +350,6 @@ router.get('/jobs', authenticateToken, async (req, res) => {
         if (category) {
             const cat = String(category).trim().toUpperCase();
             if (cat === 'OTHER') {
-                // "Others" means everything except explicit Offset/Laser buckets.
                 where += " AND (j.category IS NULL OR UPPER(j.category) NOT IN ('OFFSET', 'LASER'))";
             } else {
                 where += ' AND UPPER(COALESCE(j.category, "")) = ?';
@@ -344,20 +368,16 @@ router.get('/jobs', authenticateToken, async (req, res) => {
             LEFT JOIN sarga_branches b ON j.branch_id = b.id
             WHERE 1=1 ${where}`;
 
-        if (usePagination) {
-            const [[{ cnt }]] = await pool.query(`SELECT COUNT(*) as cnt ${baseFrom}`, params);
-            const [rows] = await pool.query(`
-                SELECT j.*, COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile, b.name as branch_name${myStatusSelect}
-                ${baseFrom} ORDER BY j.created_at DESC LIMIT ? OFFSET ?
-            `, [...myStatusParams, ...params, limit, offset]);
-            return res.json(paginatedResponse(rows, cnt, page, limit));
-        }
+        const countQuery = `SELECT COUNT(*) as total ${baseFrom}`;
+        const [[{ total }]] = await pool.query(countQuery, params);
 
-        const [rows] = await pool.query(`
-            SELECT j.*, COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile, b.name as branch_name${myStatusSelect}
-            ${baseFrom} ORDER BY j.created_at DESC
-        `, [...myStatusParams, ...params]);
-        res.json(rows);
+        const dataQuery = `
+            SELECT ${JOB_LIST_COL_MINIMAL}, COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile, b.name as branch_name${myStatusSelect}
+            ${baseFrom} ORDER BY j.created_at DESC LIMIT ? OFFSET ?
+        `;
+        const [rows] = await pool.query(dataQuery, [...myStatusParams, ...params, limit, offset]);
+
+        res.json(response(rows, total));
     } catch (err) {
         console.error('List jobs error:', err);
         res.status(500).json({ message: 'Database error' });
@@ -479,10 +499,9 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
         const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
         const created = [];
 
-        const bulkBaseTime = Date.now();
         for (let i = 0; i < order_lines.length; i += 1) {
             const line = order_lines[i] || {};
-            const jobNumber = `J-${(bulkBaseTime + i).toString().slice(-8)}-${i + 1}`;
+            const jobNumber = await generateJobNumber(connection, branchId);
             const total = Number(line.total_amount) || 0;
 
             try {
@@ -582,11 +601,10 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
 
     const balance_amount = (total_amount || 0) - (advance_paid || 0);
     const payment_status = (total_amount > 0 && advance_paid >= total_amount) ? 'Paid' : (advance_paid > 0 ? 'Partial' : 'Unpaid');
-    const job_number = `J-${Date.now().toString().slice(-8)}`;
-
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
+        const job_number = await generateJobNumber(connection, branch_id);
 
         // 1. Insert job (atomic with payment)
         const [result] = await connection.query(
@@ -665,6 +683,9 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
         }
 
         res.status(201).json({ id: result.insertId, job_number, message: 'Job created successfully' });
+
+        // Trigger anomaly check asynchronously (non-blocking)
+        try { require('./anomalies').checkAnomalies().catch(() => {}); } catch (_) {}
     } catch (err) {
         await connection.rollback();
         console.error("Job create error:", err);
@@ -832,6 +853,34 @@ router.get('/jobs/assignments/suggestions', authenticateToken, async (req, res) 
 
         res.json({ suggestions });
     } catch (err) {
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// GET /jobs/assignments/all — Fetch all assignments for offline sync
+router.get('/jobs/assignments/all', authenticateToken, async (req, res) => {
+    try {
+        const { branchId } = await branchFilter(req);
+        let where = '';
+        const params = [];
+
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+            if (branchId) {
+                where = ' WHERE j.branch_id = ?';
+                params.push(branchId);
+            }
+        }
+
+        const [rows] = await pool.query(`
+            SELECT jsa.* 
+            FROM sarga_job_staff_assignments jsa
+            INNER JOIN sarga_jobs j ON jsa.job_id = j.id
+            ${where}
+        `, params);
+
+        res.json(rows);
+    } catch (err) {
+        console.error('Fetch all assignments error:', err);
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -1293,17 +1342,22 @@ router.delete('/jobs/:id', authenticateToken, authorizeRoles('Admin', 'Accountan
 
 // ─── Repeat Order (One-click clone) ───────────────────────────
 router.post('/jobs/:id/repeat', authenticateToken, async (req, res) => {
+    const connection = await pool.getConnection();
     try {
-        const [rows] = await pool.query('SELECT * FROM sarga_jobs WHERE id = ?', [req.params.id]);
-        if (!rows[0]) return res.status(404).json({ message: 'Original job not found' });
+        await connection.beginTransaction();
+        const [rows] = await connection.query('SELECT * FROM sarga_jobs WHERE id = ? FOR UPDATE', [req.params.id]);
+        if (!rows[0]) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Original job not found' });
+        }
 
         const orig = rows[0];
-        const job_number = `J-${Date.now().toString().slice(-8)}`;
+        const job_number = await generateJobNumber(connection, orig.branch_id);
         const quantity = Number(req.body.quantity) || Number(orig.quantity) || 1;
         const unit_price = Number(req.body.unit_price) || Number(orig.unit_price) || 0;
         const total_amount = quantity * unit_price;
 
-        const [result] = await pool.query(
+        const [result] = await connection.query(
             `INSERT INTO sarga_jobs 
             (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, machine_id, paper_size, required_sheets)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'Unpaid', ?, ?, ?, ?, ?, ?, ?)`,
@@ -1314,7 +1368,7 @@ router.post('/jobs/:id/repeat', authenticateToken, async (req, res) => {
                 orig.description ? `[Repeat of ${orig.job_number}] ${orig.description}` : `Repeat of ${orig.job_number}`,
                 quantity, unit_price, total_amount, total_amount,
                 null, // delivery_date — user sets later
-                orig.applied_extras || '[]',
+                JSON.stringify(orig.applied_extras || []),
                 orig.category, orig.subcategory, orig.machine_id,
                 orig.paper_size, orig.required_sheets
             ]
@@ -1330,6 +1384,8 @@ router.post('/jobs/:id/repeat', authenticateToken, async (req, res) => {
             await calculateAndUpdateJobCost({ id: result.insertId, product_id: orig.product_id, quantity, total_amount });
         } catch (e) { /* non-critical */ }
 
+        await connection.commit();
+
         auditLog(req.user.id, 'JOB_REPEAT', `Repeated job ${orig.job_number} as ${job_number} for customer ${orig.customer_id || 'walk-in'}`);
 
         res.status(201).json({
@@ -1339,8 +1395,11 @@ router.post('/jobs/:id/repeat', authenticateToken, async (req, res) => {
             original_job_number: orig.job_number
         });
     } catch (err) {
+        await connection.rollback();
         console.error('Repeat order error:', err);
         res.status(500).json({ message: 'Failed to repeat order' });
+    } finally {
+        connection.release();
     }
 });
 

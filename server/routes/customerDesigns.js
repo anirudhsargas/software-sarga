@@ -6,6 +6,7 @@ const router = express.Router();
 const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
+const { paginate } = require('../helpers/pagination');
 
 // ─── Uploads Dir ─────────────────────────────────────────────
 const uploadsDir = path.join(__dirname, '..', 'uploads', 'designs');
@@ -74,18 +75,25 @@ const removeFile = async (fileUrl) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/customers/:id/designs', authenticateToken, async (req, res) => {
     try {
-        const [designs] = await pool.query(
-            `SELECT d.*, s.name as uploaded_by_name, j.job_number, j.job_name
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const baseFrom = `
              FROM sarga_customer_designs d
              LEFT JOIN sarga_staff s ON d.uploaded_by = s.id
              LEFT JOIN sarga_jobs j ON d.job_id = j.id
              WHERE d.customer_id = ?
-             ORDER BY d.created_at DESC`,
-            [req.params.id]
+        `;
+
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, [req.params.id]);
+        const [designs] = await pool.query(
+            `SELECT d.*, s.name as uploaded_by_name, j.job_number, j.job_name
+             ${baseFrom}
+             ORDER BY d.created_at DESC
+             LIMIT ? OFFSET ?`,
+            [req.params.id, limit, offset]
         );
-        res.json(designs);
+        res.json(response(designs, total));
     } catch (err) {
-        if (err.code === 'ER_NO_SUCH_TABLE') return res.json([]);
+        if (err.code === 'ER_NO_SUCH_TABLE') return res.json({ data: [], total: 0, totalPages: 0 });
         console.error('Designs list error:', err);
         res.status(500).json({ message: 'Database error' });
     }
@@ -94,6 +102,7 @@ router.get('/customers/:id/designs', authenticateToken, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 // POST /customers/:id/designs — Upload one or more design files
 // ═══════════════════════════════════════════════════════════════
+const compressImageUpload = require('../middleware/compressImageUpload');
 router.post('/customers/:id/designs', authenticateToken, (req, res, next) => {
     uploadDesign.array('files', 10)(req, res, (err) => {
         if (err) {
@@ -102,7 +111,7 @@ router.post('/customers/:id/designs', authenticateToken, (req, res, next) => {
         }
         next();
     });
-}, async (req, res) => {
+}, compressImageUpload, async (req, res) => {
     const customerId = req.params.id;
     const { title, notes, tags, job_id } = req.body;
 
@@ -223,17 +232,24 @@ router.delete('/customers/:customerId/designs/:designId', authenticateToken, asy
 // ═══════════════════════════════════════════════════════════════
 router.get('/jobs/:jobId/designs', authenticateToken, async (req, res) => {
     try {
-        const [designs] = await pool.query(
-            `SELECT d.*, s.name as uploaded_by_name
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const baseFrom = `
              FROM sarga_customer_designs d
              LEFT JOIN sarga_staff s ON d.uploaded_by = s.id
              WHERE d.job_id = ?
-             ORDER BY d.created_at DESC`,
-            [req.params.jobId]
+        `;
+
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, [req.params.jobId]);
+        const [designs] = await pool.query(
+            `SELECT d.*, s.name as uploaded_by_name
+             ${baseFrom}
+             ORDER BY d.created_at DESC
+             LIMIT ? OFFSET ?`,
+            [req.params.jobId, limit, offset]
         );
-        res.json(designs);
+        res.json(response(designs, total));
     } catch (err) {
-        if (err.code === 'ER_NO_SUCH_TABLE') return res.json([]);
+        if (err.code === 'ER_NO_SUCH_TABLE') return res.json({ data: [], total: 0, totalPages: 0 });
         res.status(500).json({ message: 'Database error' });
     }
 });

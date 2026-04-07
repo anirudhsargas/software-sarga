@@ -5,7 +5,7 @@ import {
   CreditCard, Building2, Wallet, Clock, CheckCircle,
   ArrowUpRight, ArrowDownRight, Zap, Plus
 } from 'lucide-react';
-import api from '../../services/api';
+import localDb from '../../services/localDb';
 import { fmt, fmtDate, thisMonth } from './constants';
 
 const DashboardTab = ({ branches, onPayment }) => {
@@ -18,15 +18,16 @@ const DashboardTab = ({ branches, onPayment }) => {
   const fetchDashboard = useCallback(async () => {
     try {
       setLoading(true);
-      // Calculate last day of month properly
-      const [y, m] = month.split('-').map(Number);
-      const lastDay = new Date(y, m, 0).getDate();
-      const [dashRes, cashRes] = await Promise.all([
-        api.get('/expense-dashboard', { params: { month, branch_id: branchFilter || undefined } }),
-        api.get('/reports/cash-vs-bank', { params: { start_date: `${month}-01`, end_date: `${month}-${String(lastDay).padStart(2, '0')}` } }).catch(() => null)
-      ]);
-      setDashboard(dashRes.data);
-      if (cashRes) setCashVsBank(cashRes.data?.rows?.[0] || null);
+      const data = await localDb.getExpenseDashboard({ month, branch_id: branchFilter || undefined });
+      setDashboard(data);
+      if (data.cash_vs_bank) {
+        setCashVsBank({
+          cash_total: data.cash_vs_bank.cash_total || 0,
+          upi_total: data.cash_vs_bank.upi_total || 0,
+          bank_total: data.cash_vs_bank.bank_total || 0,
+          other_total: data.cash_vs_bank.other_total || 0
+        });
+      }
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }, [month, branchFilter]);

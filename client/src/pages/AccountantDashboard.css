@@ -887,14 +887,18 @@
     font-size: 11px;
     font-weight: 600;
     background: var(--accent, #6366f1);
-    color: #000;
+    color: #fff;
     letter-spacing: 0.2px;
+}
+
+.dark .acc-branch-chip {
+    color: #121314;
 }
 
 .acc-branch-chip__x {
     background: none;
     border: none;
-    color: rgba(0, 0, 0, .7);
+    color: rgba(255, 255, 255, .7);
     cursor: pointer;
     font-size: 14px;
     line-height: 1;
@@ -902,7 +906,15 @@
     margin-left: 2px;
 }
 
+.dark .acc-branch-chip__x {
+    color: rgba(0, 0, 0, .7);
+}
+
 .acc-branch-chip__x:hover {
+    color: #fff;
+}
+
+.dark .acc-branch-chip__x:hover {
     color: #000;
 }
 
@@ -957,8 +969,12 @@
 
 .acc-branch-dropdown__action-btn:hover {
     background: var(--accent, #6366f1);
-    color: #000;
+    color: #fff;
     border-color: var(--accent, #6366f1);
+}
+
+.dark .acc-branch-dropdown__action-btn:hover {
+    color: #121314;
 }
 
 .acc-branch-dropdown__item {

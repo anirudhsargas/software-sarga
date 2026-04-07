@@ -128,10 +128,6 @@ app.use(cors({
         if (/^https?:\/\/(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
             return callback(null, true);
         }
-        // Allow only the specific Vercel deployment
-        if (/^https:\/\/software-sarga(-[a-z0-9]+)?\.vercel\.app$/.test(origin)) {
-            return callback(null, true);
-        }
         // Allow ngrok tunnels (for development/testing)
         if (/^https:\/\/[a-zA-Z0-9-]+\.ngrok(-free)?\.(app|dev)$/.test(origin)) {
             return callback(null, true);
@@ -146,7 +142,10 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logger
-// Moved to top for better visibility
+app.use((req, res, next) => {
+    console.log(`[REQUEST] ${req.method} ${req.url}`);
+    next();
+});
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -277,7 +276,9 @@ app.use('/api', require('./routes/frontOffice'));
 app.use('/api', require('./routes/expenses'));
 app.use('/api', require('./routes/finance'));
 app.use('/api', require('./routes/expenses-extended'));
+app.use('/api', require('./routes/coupons'));
 app.use('/api/stock-verification', require('./routes/stockVerification'));
+app.use('/api', require('./routes/stockRequests'));
 
 // Three Books System Routes
 app.use('/api/machines', require('./routes/machines'));
@@ -300,6 +301,39 @@ app.use('/api/production-tracker', require('./routes/productionTracker'));
 
 // Upsell suggestions API
 app.use('/api', require('./routes/upsell'));
+
+// Anomaly detection (calls Python ML service)
+app.use('/api/ai', require('./routes/anomalies'));
+
+// ML sales forecast (calls Python ML service)
+app.use('/api/ai/forecast', require('./routes/forecast'));
+
+// AI business insights (calls Python ML service)
+app.use('/api/ai', require('./routes/insights'));
+
+// Seasonal analysis (calls Python ML service)
+app.use('/api/ai', require('./routes/seasonal'));
+
+// Stock planning (calls Python ML service)
+app.use('/api/ai/stock-planning', require('./routes/stockPlanning'));
+
+// Order forecast (calls Python ML service)
+app.use('/api/ai/order-forecast', require('./routes/orderForecast'));
+
+// AI upsell suggestions (calls Python ML service — Apriori)
+app.use('/api/ai', require('./routes/aiUpsell'));
+
+// AI turnaround time prediction (calls Python ML service — GBR)
+app.use('/api/ai/turnaround', require('./routes/aiTurnaround'));
+
+// AI expense categorizer (calls Python ML service — TF-IDF + NB/LR)
+app.use('/api/ai/categorize-expense', require('./routes/expenseCategorizer'));
+
+// CCTV Attendance System
+app.use('/api/cctv', require('./routes/cctvAttendance'));
+
+// CCTV Camera & Face Data Management
+app.use('/api/cctv', require('./routes/cctvCameras')(upload, removeUploadFile));
 
 // Health check with DB ping (must be before the error handler)
 app.get('/api/ping', async (req, res) => {
@@ -343,6 +377,47 @@ if (process.env.NODE_ENV !== 'test') {
                 require('./scripts/sendDailyReports');
             } catch (e) {
                 console.warn('[Warning] scripts/sendDailyReports not loaded:', e.message);
+            }
+
+            // Anomaly detection cron — every 15 minutes
+            try {
+                const cron = require('node-cron');
+                const { checkAnomalies } = require('./routes/anomalies');
+                cron.schedule('*/15 * * * *', () => {
+                    console.log('[Cron] Running anomaly check…');
+                    checkAnomalies().catch(err => console.error('[Cron] Anomaly check failed:', err.message));
+                });
+                // Run once on startup (after a short delay so DB is warm)
+                setTimeout(() => checkAnomalies().catch(() => {}), 10_000);
+                console.log('[Cron] Anomaly detection scheduled every 15 minutes');
+            } catch (e) {
+                console.warn('[Warning] Anomaly cron not loaded:', e.message);
+            }
+
+            // Business insights cron — daily at 7:00 AM
+            try {
+                const cron2 = require('node-cron');
+                const { generateInsights } = require('./routes/insights');
+                cron2.schedule('0 7 * * *', () => {
+                    console.log('[Cron] Generating daily business insights…');
+                    generateInsights().catch(err => console.error('[Cron] Insights generation failed:', err.message));
+                });
+                console.log('[Cron] Business insights scheduled daily at 7:00 AM');
+            } catch (e) {
+                console.warn('[Warning] Insights cron not loaded:', e.message);
+            }
+
+            // Seasonal analysis cron — 1st of every month at 6:00 AM
+            try {
+                const cron3 = require('node-cron');
+                const { computeSeasonal } = require('./routes/seasonal');
+                cron3.schedule('0 6 1 * *', () => {
+                    console.log('[Cron] Recomputing seasonal analysis…');
+                    computeSeasonal().catch(err => console.error('[Cron] Seasonal analysis failed:', err.message));
+                });
+                console.log('[Cron] Seasonal analysis scheduled monthly (1st at 6:00 AM)');
+            } catch (e) {
+                console.warn('[Warning] Seasonal cron not loaded:', e.message);
             }
         });
     }).catch(err => {

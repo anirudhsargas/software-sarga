@@ -447,7 +447,7 @@ const JobPriority = () => {
 
                     <button onClick={() => { setLoading(true); fetchQueue(); fetchStats(); }} style={{
                         display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
-                        borderRadius: '10px', border: 'none', background: 'var(--accent)', color: 'white',
+                        borderRadius: '10px', border: 'none', background: 'var(--accent)', color: 'var(--on-accent)',
                         fontSize: '13px', fontWeight: 500, cursor: 'pointer'
                     }}>
                         <RefreshCw size={15} /> Refresh

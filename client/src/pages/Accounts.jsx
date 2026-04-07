@@ -686,6 +686,10 @@ const BillsDocsTab = ({ branchId }) => {
     const { confirm } = useConfirm();
     const [docs, setDocs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [docsPage, setDocsPage] = useState(1);
+    const [docsLimit] = useState(30);
+    const [docsTotal, setDocsTotal] = useState(0);
+    const [docsTotalPages, setDocsTotalPages] = useState(1);
     const [filter, setFilter] = useState({ document_type: '', vendor_name: '', start_date: '', end_date: '' });
     const [editingDoc, setEditingDoc] = useState(null);
     const [editForm, setEditForm] = useState({});
@@ -722,16 +726,18 @@ const BillsDocsTab = ({ branchId }) => {
     const fetchDocs = useCallback(async () => {
         setLoading(true);
         try {
-            const params = {};
+            const params = { page: docsPage, limit: docsLimit };
             if (filter.document_type) params.document_type = filter.document_type;
             if (filter.vendor_name) params.vendor_name = filter.vendor_name;
             if (filter.start_date) params.start_date = filter.start_date;
             if (filter.end_date) params.end_date = filter.end_date;
             const r = await api.get('/bills-documents', { params });
-            setDocs(r.data);
-        } catch { setDocs([]); }
+            setDocs(r.data.data || []);
+            setDocsTotal(r.data.total || 0);
+            setDocsTotalPages(r.data.totalPages || 1);
+        } catch { setDocs([]); setDocsTotal(0); setDocsTotalPages(1); }
         finally { setLoading(false); }
-    }, [filter]);
+    }, [filter, docsPage, docsLimit]);
 
     useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
@@ -879,6 +885,14 @@ const BillsDocsTab = ({ branchId }) => {
                             </tbody>
                         </table>
                     </div>
+                    {/* Pagination Controls */}
+                    {docsTotalPages > 1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
+                            <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(docsPage - 1) * docsLimit + 1}–{Math.min(docsPage * docsLimit, docsTotal)} of {docsTotal}</span>
+                            <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setDocsPage(p => Math.max(1, p - 1))} disabled={docsPage <= 1}><ChevronLeft size={16} /></button>
+                            <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setDocsPage(p => Math.min(docsTotalPages, p + 1))} disabled={docsPage >= docsTotalPages}><ChevronRight size={16} /></button>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="acc-empty">

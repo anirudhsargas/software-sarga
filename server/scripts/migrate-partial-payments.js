@@ -1,45 +1,39 @@
 const { pool } = require('../database');
 
+const addColumn = async (table, col, def) => {
+  try {
+    await pool.query(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+    console.log(`✓ Added ${col}`);
+  } catch (e) {
+    if (e.code === 'ER_DUP_FIELDNAME') {
+      console.log(`  ${col} already exists — skipping`);
+    } else {
+      throw e;
+    }
+  }
+};
+
 const migrate = async () => {
   try {
     console.log('Starting migration: Add partial payment support...');
 
-    // Add columns to sarga_payments table
-    await pool.query(`
-      ALTER TABLE sarga_payments 
-      ADD COLUMN IF NOT EXISTS bill_total_amount DECIMAL(12, 2) DEFAULT 0
-    `);
-    console.log('✓ Added bill_total_amount column');
+    await addColumn('sarga_payments', 'bill_total_amount', 'DECIMAL(12, 2) DEFAULT 0');
+    await addColumn('sarga_payments', 'is_partial_payment', 'TINYINT(1) DEFAULT 0');
+    await addColumn('sarga_payments', 'bill_reference_id', 'INT DEFAULT NULL');
+    await addColumn('sarga_payments', 'payment_status', "ENUM('Pending', 'Partially Paid', 'Fully Paid') DEFAULT 'Fully Paid'");
 
-    await pool.query(`
-      ALTER TABLE sarga_payments 
-      ADD COLUMN IF NOT EXISTS is_partial_payment TINYINT(1) DEFAULT 0
-    `);
-    console.log('✓ Added is_partial_payment column');
-
-    await pool.query(`
-      ALTER TABLE sarga_payments 
-      ADD COLUMN IF NOT EXISTS bill_reference_id INT DEFAULT NULL
-    `);
-    console.log('✓ Added bill_reference_id column');
-
-    await pool.query(`
-      ALTER TABLE sarga_payments 
-      ADD COLUMN IF NOT EXISTS payment_status ENUM('Pending', 'Partially Paid', 'Fully Paid') DEFAULT 'Pending'
-    `);
-    console.log('✓ Added payment_status column');
-
-    // Set payment_status for existing payments
-    await pool.query(`
+    // Set payment_status for existing payments that have no status yet
+    const [r] = await pool.query(`
       UPDATE sarga_payments 
       SET payment_status = 'Fully Paid' 
-      WHERE payment_status = 'Pending'
+      WHERE payment_status = 'Pending' OR payment_status IS NULL
     `);
-    console.log('✓ Updated existing payments status to Fully Paid');
+    console.log(`✓ Updated ${r.affectedRows} existing payments to Fully Paid`);
 
     console.log('\n✅ Migration completed successfully!');
   } catch (err) {
     console.error('Migration failed:', err.message);
+    process.exit(1);
   }
 };
 

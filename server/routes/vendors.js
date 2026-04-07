@@ -3,6 +3,7 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { validate, addVendorSchema } = require('../middleware/validate');
+const { paginate } = require('../helpers/pagination');
 
 const VENDOR_COLUMNS = [
     'id',
@@ -62,7 +63,9 @@ router.get('/vendors', authenticateToken, async (req, res) => {
     const { type } = req.query;
     const { role, branch_id } = req.user;
     try {
-        let query = `SELECT ${VENDOR_COLUMNS} FROM sarga_vendors`;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+
+        let query = `FROM sarga_vendors`;
         const params = [];
         const conditions = [];
 
@@ -77,14 +80,14 @@ router.get('/vendors', authenticateToken, async (req, res) => {
             params.push(branch_id);
         }
 
-        if (conditions.length > 0) {
-            query += " WHERE " + conditions.join(" AND ");
-        }
-
-        query += " ORDER BY name ASC";
-        const [rows] = await pool.query(query, params);
-        res.json(rows);
+        const where = conditions.length > 0 ? " WHERE " + conditions.join(" AND ") : "";
+        
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${query}${where}`, params);
+        const [rows] = await pool.query(`SELECT ${VENDOR_COLUMNS} ${query}${where} ORDER BY name ASC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+        
+        res.json(response(rows, total));
     } catch (err) {
+        console.error('List vendors error:', err);
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -184,29 +187,37 @@ router.post('/vendor-purchases', authenticateToken, authorizeRoles('Admin', 'Acc
 router.get('/vendor-bills', authenticateToken, async (req, res) => {
     const { vendor_id, branch_id } = req.query;
     try {
-        let query = `
-            SELECT b.*, v.name as vendor_name, br.name as branch_name
-            FROM sarga_vendor_bills b
-            JOIN sarga_vendors v ON b.vendor_id = v.id
-            JOIN sarga_branches br ON b.branch_id = br.id
-            WHERE 1=1
-        `;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+
+        let where = '';
         const params = [];
         if (vendor_id) {
-            query += " AND b.vendor_id = ?";
+            where += " AND b.vendor_id = ?";
             params.push(vendor_id);
         }
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            query += " AND b.branch_id = ?";
+            where += " AND b.branch_id = ?";
             params.push(req.user.branch_id);
         } else if (branch_id) {
-            query += " AND b.branch_id = ?";
+            where += " AND b.branch_id = ?";
             params.push(branch_id);
         }
-        query += " ORDER BY b.bill_date DESC, b.created_at DESC";
-        const [rows] = await pool.query(query, params);
-        res.json(rows);
+
+        const baseFrom = `
+            FROM sarga_vendor_bills b
+            JOIN sarga_vendors v ON b.vendor_id = v.id
+            JOIN sarga_branches br ON b.branch_id = br.id
+            WHERE 1=1 ${where}`;
+
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+        const [rows] = await pool.query(`
+            SELECT b.*, v.name as vendor_name, br.name as branch_name
+            ${baseFrom} ORDER BY b.bill_date DESC, b.created_at DESC LIMIT ? OFFSET ?
+        `, [...params, limit, offset]);
+        
+        res.json(response(rows, total));
     } catch (err) {
+        console.error('List vendor bills error:', err);
         res.status(500).json({ message: 'Database error' });
     }
 });

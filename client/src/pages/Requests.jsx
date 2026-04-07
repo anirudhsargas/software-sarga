@@ -34,7 +34,8 @@ const Requests = () => {
         setFetching(true);
         try {
             const res = await api.get('/requests/discount');
-            const combined = res.data.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' }));
+            const dataArray = res.data.data || (Array.isArray(res.data) ? res.data : []);
+            const combined = dataArray.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' }));
             setAllRequests(combined);
         } catch (err) {
             console.error('Failed to fetch discount requests:', err);
@@ -46,27 +47,35 @@ const Requests = () => {
     const fetchAllRequests = async () => {
         setFetching(true);
         try {
+            const fallbackResponse = { data: { data: [] } };
             const [idResponse, customerResponse, vendorResponse, openingResponse, attendanceResponse, discountResponse] = await Promise.all([
                 api.get('/requests/id-change'),
                 api.get('/requests/customer-change'),
                 api.get('/vendor-requests', { params: { status: 'Pending' } }),
-                api.get('/daily-report/change-requests', { params: { status: 'Pending' } }).catch(() => ({ data: [] })),
-                api.get('/requests/attendance').catch(() => ({ data: [] })),
-                api.get('/requests/discount').catch(() => ({ data: [] }))
+                api.get('/daily-report/change-requests', { params: { status: 'Pending' } }).catch(() => fallbackResponse),
+                api.get('/requests/attendance').catch(() => fallbackResponse),
+                api.get('/requests/discount').catch(() => fallbackResponse)
             ]);
 
-            setIdRequests(idResponse.data);
-            setCustomerRequests(customerResponse.data);
-            setVendorRequests(vendorResponse.data);
+            const idData = idResponse.data.data || (Array.isArray(idResponse.data) ? idResponse.data : []);
+            const customerData = customerResponse.data.data || (Array.isArray(customerResponse.data) ? customerResponse.data : []);
+            const vendorData = vendorResponse.data.data || (Array.isArray(vendorResponse.data) ? vendorResponse.data : []);
+            const openingData = openingResponse.data.data || (Array.isArray(openingResponse.data) ? openingResponse.data : []);
+            const attendanceData = attendanceResponse.data.data || (Array.isArray(attendanceResponse.data) ? attendanceResponse.data : []);
+            const discountData = discountResponse.data.data || (Array.isArray(discountResponse.data) ? discountResponse.data : []);
+
+            setIdRequests(idData);
+            setCustomerRequests(customerData);
+            setVendorRequests(vendorData);
 
             // Combine and sort all requests by created_at
             const combined = [
-                ...idResponse.data.map(r => ({ ...r, request_type: 'ID_CHANGE' })),
-                ...customerResponse.data.map(r => ({ ...r, request_type: 'CUSTOMER_CHANGE' })),
-                ...vendorResponse.data.map(r => ({ ...r, request_type: 'VENDOR_REQUEST', request_type_value: r.request_type })),
-                ...openingResponse.data.map(r => ({ ...r, request_type: 'OPENING_CHANGE' })),
-                ...attendanceResponse.data.map(r => ({ ...r, request_type: 'ATTENDANCE_CHANGE' })),
-                ...discountResponse.data.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' }))
+                ...idData.map(r => ({ ...r, request_type: 'ID_CHANGE' })),
+                ...customerData.map(r => ({ ...r, request_type: 'CUSTOMER_CHANGE' })),
+                ...vendorData.map(r => ({ ...r, request_type: 'VENDOR_REQUEST', request_type_value: r.request_type })),
+                ...openingData.map(r => ({ ...r, request_type: 'OPENING_CHANGE' })),
+                ...attendanceData.map(r => ({ ...r, request_type: 'ATTENDANCE_CHANGE' })),
+                ...discountData.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' }))
             ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             setAllRequests(combined);
@@ -167,16 +176,16 @@ const Requests = () => {
             return <span className="badge" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent)' }}>Customer {selectedRequest?.action}</span>;
         }
         if (type === 'VENDOR_REQUEST') {
-            return <span className="badge" style={{ backgroundColor: 'var(--warning)', color: '#fff' }}>Admin Setup</span>;
+            return <span className="badge" style={{ backgroundColor: 'var(--warning)', color: 'var(--on-accent)' }}>Admin Setup</span>;
         }
         if (type === 'OPENING_CHANGE') {
-            return <span className="badge" style={{ backgroundColor: 'var(--accent)', color: '#fff' }}>Opening Change</span>;
+            return <span className="badge" style={{ backgroundColor: 'var(--accent)', color: 'var(--on-accent)' }}>Opening Change</span>;
         }
         if (type === 'ATTENDANCE_CHANGE') {
-            return <span className="badge" style={{ backgroundColor: 'var(--success)', color: '#fff' }}>Attendance Change</span>;
+            return <span className="badge" style={{ backgroundColor: 'var(--success)', color: 'var(--on-accent)' }}>Attendance Change</span>;
         }
         if (type === 'DISCOUNT_REQUEST') {
-            return <span className="badge" style={{ backgroundColor: 'var(--warning)', color: '#fff' }}>Discount Approval</span>;
+            return <span className="badge" style={{ backgroundColor: 'var(--warning)', color: 'var(--on-accent)' }}>Discount Approval</span>;
         }
         return <span className="badge">{type}</span>;
     };

@@ -157,7 +157,18 @@ const DailyReportOffset = () => {
     };
 
     const calculateTotals = () => {
-        const totalCollected = workEntries.reduce((sum, entry) => sum + parseFloat(entry.amount_collected || 0), 0);
+        let totalCollected = 0;
+        let cashCollected = 0;
+        let upiCollected = 0;
+        let chequeCollected = 0;
+        let transferCollected = 0;
+        workEntries.forEach(entry => {
+            totalCollected += parseFloat(entry.amount_collected || 0);
+            cashCollected += parseFloat(entry.cash_amount || 0);
+            upiCollected += parseFloat(entry.upi_amount || 0);
+            chequeCollected += parseFloat(entry.cheque_amount || 0);
+            transferCollected += parseFloat(entry.account_transfer_amount || 0);
+        });
         const totalExpenses = expenses.reduce((sum, exp) => sum + parseFloat(exp.amount || 0), 0);
         const totalCreditOut = creditTransactions
             .filter(t => t.transaction_type === 'Credit Out')
@@ -168,7 +179,17 @@ const DailyReportOffset = () => {
 
         const closingBalance = parseFloat(openingBalance) + totalCollected + totalCreditIn - totalExpenses - totalCreditOut;
 
-        return { totalCollected, totalExpenses, totalCreditOut, totalCreditIn, closingBalance };
+        return {
+            totalCollected,
+            totalExpenses,
+            totalCreditOut,
+            totalCreditIn,
+            closingBalance,
+            cashCollected,
+            upiCollected,
+            chequeCollected,
+            transferCollected
+        };
     };
 
     const handleSave = async () => {
@@ -667,7 +688,8 @@ const DailyReportOffset = () => {
             </div>
 
             {/* Summary */}
-            <div className="panel" style={{ backgroundColor: 'var(--surface-2)' }}>>
+
+            <div className="panel" style={{ backgroundColor: 'var(--surface-2)' }}> 
                 <h3 className="panel-title">Daily Summary</h3>
                 <div className="row gap-lg" style={{ flexWrap: 'wrap' }}>
                     <div className="stack-xs">
@@ -680,6 +702,22 @@ const DailyReportOffset = () => {
                             <TrendingUp size={18} style={{ display: 'inline', marginRight: '4px' }} />
                             ₹{totals.totalCollected.toFixed(2)}
                         </span>
+                    </div>
+                    <div className="stack-xs">
+                        <span className="text-sm muted">Cash Closing</span>
+                        <span className="text-lg font-medium">₹{totals.cashCollected.toFixed(2)}</span>
+                    </div>
+                    <div className="stack-xs">
+                        <span className="text-sm muted">UPI Closing</span>
+                        <span className="text-lg font-medium">₹{totals.upiCollected.toFixed(2)}</span>
+                    </div>
+                    <div className="stack-xs">
+                        <span className="text-sm muted">Cheque Closing</span>
+                        <span className="text-lg font-medium">₹{totals.chequeCollected.toFixed(2)}</span>
+                    </div>
+                    <div className="stack-xs">
+                        <span className="text-sm muted">Account Transfer Closing</span>
+                        <span className="text-lg font-medium">₹{totals.transferCollected.toFixed(2)}</span>
                     </div>
                     <div className="stack-xs">
                         <span className="text-sm muted">Total Expenses</span>

@@ -66,8 +66,8 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                 {/* Branch — only show for Admin/Accountant; Front Office auto-resolves on server */}
                 {isAdmin && (branches || []).length > 0 && (
                   <div className="em-form-group">
-                    <label>Branch</label>
-                    <select className="em-input" value={form.branch_id} onChange={e => setForm(p => ({ ...p, branch_id: e.target.value }))}>
+                    <label htmlFor="branch_id">Branch</label>
+                    <select id="branch_id" name="branch_id" className="em-input" value={form.branch_id} onChange={e => setForm(p => ({ ...p, branch_id: e.target.value }))}>
                       <option value="">Auto (your branch)</option>
                       {(branches || []).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
@@ -75,16 +75,16 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                 )}
 
                 <div className="em-form-group">
-                  <label>Category</label>
-                  <select className="em-input" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
+                  <label htmlFor="type">Category</label>
+                  <select id="type" name="type" className="em-input" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
                     {['Vendor', 'Utility', 'Salary', 'Rent', 'Other'].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
 
                 {form.type === 'Vendor' && (vendors || []).length > 0 && (
                   <div className="em-form-group">
-                    <label>Vendor</label>
-                    <select className="em-input" value={form.vendor_id} onChange={e => {
+                    <label htmlFor="vendor_id">Vendor</label>
+                    <select id="vendor_id" name="vendor_id" className="em-input" value={form.vendor_id} onChange={e => {
                       const v = (vendors || []).find(x => x.id === Number(e.target.value));
                       setForm(p => ({ ...p, vendor_id: e.target.value, payee_name: v?.name || p.payee_name }));
                     }}>
@@ -95,22 +95,22 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                 )}
 
                 <div className="em-form-group">
-                  <label>Payee / Paid To *</label>
-                  <input className="em-input" value={form.payee_name} onChange={e => setForm(p => ({ ...p, payee_name: e.target.value }))} placeholder="Name" required />
+                  <label htmlFor="payee_name">Payee / Paid To *</label>
+                  <input id="payee_name" name="payee_name" className="em-input" value={form.payee_name} onChange={e => setForm(p => ({ ...p, payee_name: e.target.value }))} placeholder="Name" required />
                 </div>
 
                 {/* Partial Payment Toggle (Hidden for Utilities) */}
                 {form.type !== 'Utility' && (
                   <div className="em-form-group em-form-group--full" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: 0 }}>
-                      <input type="checkbox" checked={form.is_partial_payment || false}
+                    <label htmlFor="is_partial_payment" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: 0 }}>
+                      <input id="is_partial_payment" name="is_partial_payment" type="checkbox" checked={form.is_partial_payment || false}
                         onChange={e => setForm(p => ({ ...p, is_partial_payment: e.target.checked }))} />
                       Partial Payment
                     </label>
                     {form.is_partial_payment && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-                        <label style={{ fontSize: 13, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Bill Total:</label>
-                        <input className="em-input" type="number" min="0" step="0.01" style={{ maxWidth: 140 }}
+                        <label htmlFor="bill_total_amount" style={{ fontSize: 13, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Bill Total:</label>
+                        <input id="bill_total_amount" name="bill_total_amount" className="em-input" type="number" min="0" step="0.01" style={{ maxWidth: 140 }}
                           value={form.bill_total_amount} placeholder="Full bill amount"
                           onChange={e => setForm(p => ({ ...p, bill_total_amount: e.target.value }))} />
                       </div>
@@ -119,8 +119,8 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                 )}
 
                 <div className="em-form-group">
-                  <label>Amount (₹) *{form.is_partial_payment ? ' (paying now)' : ''}</label>
-                  <input className="em-input" type="number" min="0" step="0.01" value={form.amount}
+                  <label htmlFor="amount">Amount (₹) *{form.is_partial_payment ? ' (paying now)' : ''}</label>
+                  <input id="amount" name="amount" className="em-input" type="number" min="0" step="0.01" value={form.amount}
                     onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} required />
                   {isPartial && (
                     <div style={{ fontSize: 12, color: 'var(--warning)', marginTop: 4 }}>
@@ -130,8 +130,8 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                 </div>
 
                 <div className="em-form-group">
-                  <label>Payment Method</label>
-                  <select className="em-input" value={form.payment_method} onChange={e => setForm(p => ({ ...p, payment_method: e.target.value }))}>
+                  <label htmlFor="payment_method">Payment Method</label>
+                  <select id="payment_method" name="payment_method" className="em-input" value={form.payment_method} onChange={e => setForm(p => ({ ...p, payment_method: e.target.value }))}>
                     {['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Both'].map(m => <option key={m}>{m}</option>)}
                   </select>
                 </div>
@@ -139,8 +139,8 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                 {form.payment_method === 'Both' && (
                   <>
                     <div className="em-form-group">
-                      <label>Cash Amount</label>
-                      <input className="em-input" type="number" min="0" step="0.01" value={form.cash_amount}
+                      <label htmlFor="cash_amount">Cash Amount</label>
+                      <input id="cash_amount" name="cash_amount" className="em-input" type="number" min="0" step="0.01" value={form.cash_amount}
                         onChange={e => {
                           const cash = Number(e.target.value) || 0;
                           const total = Number(form.amount) || 0;
@@ -148,8 +148,8 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                         }} />
                     </div>
                     <div className="em-form-group">
-                      <label>UPI Amount</label>
-                      <input className="em-input" type="number" min="0" step="0.01" value={form.upi_amount}
+                      <label htmlFor="upi_amount">UPI Amount</label>
+                      <input id="upi_amount" name="upi_amount" className="em-input" type="number" min="0" step="0.01" value={form.upi_amount}
                         onChange={e => {
                           const upi = Number(e.target.value) || 0;
                           const total = Number(form.amount) || 0;
@@ -161,13 +161,13 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                 )}
 
                 <div className="em-form-group">
-                  <label>Reference #</label>
-                  <input className="em-input" value={form.reference_number} onChange={e => setForm(p => ({ ...p, reference_number: e.target.value }))} placeholder="Bill/cheque/transaction number" />
+                  <label htmlFor="reference_number">Reference #</label>
+                  <input id="reference_number" name="reference_number" className="em-input" value={form.reference_number} onChange={e => setForm(p => ({ ...p, reference_number: e.target.value }))} placeholder="Bill/cheque/transaction number" />
                 </div>
 
                 <div className="em-form-group em-form-group--full">
-                  <label>Description</label>
-                  <input className="em-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Payment notes" />
+                  <label htmlFor="description">Description</label>
+                  <input id="description" name="description" className="em-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Payment notes" />
                 </div>
               </div>
             </div>

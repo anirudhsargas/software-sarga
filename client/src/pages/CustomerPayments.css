@@ -417,7 +417,7 @@
 
 .cp-discount-btn--active {
   background: var(--accent);
-  color: #000;
+  color: #fff;
 }
 
 .cp-discount-status {
@@ -426,15 +426,15 @@
 }
 
 .cp-discount-status--ok {
-  color: #10b981;
+  color: var(--success);
 }
 
 .cp-discount-status--warn {
-  color: #f59e0b;
+  color: var(--warning);
 }
 
 .cp-discount-status--err {
-  color: #ef4444;
+  color: var(--error);
 }
 
 /* ── BILL TOTALS ── */
@@ -454,7 +454,7 @@
 }
 
 .cp-totals-row--discount {
-  color: #10b981;
+  color: var(--success);
 }
 
 .cp-discount-strike {

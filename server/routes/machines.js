@@ -3,6 +3,7 @@ const router = express.Router();
 const { pool } = require('../database');
 const auth = require('../middleware/auth');
 const { auditLog } = require('../helpers');
+const { paginate } = require('../helpers/pagination');
 
 // ==================== BOOK STAFF ASSIGNMENTS (Offset/Laser/Other) ====================
 
@@ -151,7 +152,7 @@ router.get('/:id/staff-assignments', auth.authenticate, auth.requireRole(['Admin
 });
 
 // ==================== GET ALL MACHINES ====================
-// Staff only see machines assigned to them; Admin sees all
+// Staff only see machines assigned to them; Admin/Accountant default to their own branch unless specified
 router.get('/', auth.authenticate, async (req, res) => {
     try {
         const { branch_id, is_active } = req.query;
@@ -179,11 +180,11 @@ router.get('/', auth.authenticate, async (req, res) => {
             query += ` WHERE 1=1 AND m.branch_id = ?`;
             params.push(user.branch_id);
         } else {
+            // Admin/Accountant: default to their own branch unless explicitly specified
             query += ` WHERE 1=1`;
-            if (branch_id) {
-                query += ` AND m.branch_id = ?`;
-                params.push(branch_id);
-            }
+            const effectiveBranchId = branch_id || user.branch_id;
+            query += ` AND m.branch_id = ?`;
+            params.push(effectiveBranchId);
         }
 
         // Filter by active status
@@ -217,20 +218,28 @@ router.get('/', auth.authenticate, async (req, res) => {
 router.get('/count-requests', auth.authenticate, auth.requireRole(['Admin', 'Accountant']), async (req, res) => {
     try {
         const { status = 'Pending' } = req.query;
-        const [requests] = await pool.query(
-            `SELECT mcr.*, m.machine_name, b.name as branch_name,
-                    sub.name as submitted_by_name,
-                    rev.name as reviewed_by_name
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+
+        const baseFrom = `
              FROM sarga_machine_count_requests mcr
              JOIN sarga_machines m ON mcr.machine_id = m.id
              LEFT JOIN sarga_branches b ON m.branch_id = b.id
              LEFT JOIN sarga_staff sub ON mcr.submitted_by = sub.id
              LEFT JOIN sarga_staff rev ON mcr.reviewed_by = rev.id
              WHERE mcr.status = ?
-             ORDER BY mcr.created_at DESC`,
-            [status]
+        `;
+
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, [status]);
+        const [requests] = await pool.query(
+            `SELECT mcr.*, m.machine_name, b.name as branch_name,
+                    sub.name as submitted_by_name,
+                    rev.name as reviewed_by_name
+             ${baseFrom}
+             ORDER BY mcr.created_at DESC
+             LIMIT ? OFFSET ?`,
+            [status, limit, offset]
         );
-        res.json(requests);
+        res.json(response(requests, total));
     } catch (error) {
         console.error('Error fetching count requests:', error);
         res.status(500).json({ error: 'Failed to fetch count requests' });
@@ -408,16 +417,17 @@ router.get('/:id', auth.authenticate, async (req, res) => {
 // ==================== CREATE MACHINE (ADMIN ONLY) ====================
 router.post('/', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
     try {
-        const { machine_name, machine_type, counter_type, branch_id, location } = req.body;
+        const { machine_name, machine_type, counter_type, branch_id, location, ip_address, snmp_community, mpr_username, mpr_password } = req.body;
 
         if (!machine_name || !machine_type || !branch_id) {
             return res.status(400).json({ error: 'Machine name, type, and branch are required' });
         }
 
         const [result] = await pool.query(
-            `INSERT INTO sarga_machines (machine_name, machine_type, counter_type, branch_id, location)
-       VALUES (?, ?, ?, ?, ?)`,
-            [machine_name, machine_type, counter_type || 'Manual', branch_id, location]
+            `INSERT INTO sarga_machines (machine_name, machine_type, counter_type, branch_id, location, ip_address, snmp_community, mpr_username, mpr_password)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [machine_name, machine_type, counter_type || 'Manual', branch_id, location, ip_address || null,
+             snmp_community || 'public', mpr_username || null, mpr_password || null]
         );
 
         const [machines] = await pool.query(
@@ -440,7 +450,7 @@ router.post('/', auth.authenticate, auth.requireRole(['Admin']), async (req, res
 router.put('/:id', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
     try {
         const { id } = req.params;
-        const { machine_name, machine_type, counter_type, branch_id, location, is_active } = req.body;
+        const { machine_name, machine_type, counter_type, branch_id, location, ip_address, is_active, snmp_community, mpr_username, mpr_password } = req.body;
 
         const [existing] = await pool.query('SELECT id FROM sarga_machines WHERE id = ?', [id]);
         if (existing.length === 0) {
@@ -455,6 +465,10 @@ router.put('/:id', auth.authenticate, auth.requireRole(['Admin']), async (req, r
         if (counter_type !== undefined) { updates.push('counter_type = ?'); params.push(counter_type); }
         if (branch_id !== undefined) { updates.push('branch_id = ?'); params.push(branch_id); }
         if (location !== undefined) { updates.push('location = ?'); params.push(location); }
+        if (ip_address !== undefined) { updates.push('ip_address = ?'); params.push(ip_address || null); }
+        if (snmp_community !== undefined) { updates.push('snmp_community = ?'); params.push(snmp_community || 'public'); }
+        if (mpr_username !== undefined) { updates.push('mpr_username = ?'); params.push(mpr_username || null); }
+        if (mpr_password !== undefined) { updates.push('mpr_password = ?'); params.push(mpr_password || null); }
         if (is_active !== undefined) { updates.push('is_active = ?'); params.push(is_active ? 1 : 0); }
 
         if (updates.length === 0) {
@@ -602,30 +616,34 @@ router.get('/:id/staff', auth.authenticate, async (req, res) => {
 router.get('/:id/readings', auth.authenticate, async (req, res) => {
     try {
         const { id } = req.params;
-        const { start_date, end_date, limit = 30 } = req.query;
+        const { start_date, end_date } = req.query;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit, 30);
 
-        let query = `
-      SELECT mr.*, s.name as created_by_name
-      FROM sarga_machine_readings mr
-      LEFT JOIN sarga_staff s ON mr.created_by = s.id
-      WHERE mr.machine_id = ?
-    `;
+        let whereClauses = ['mr.machine_id = ?'];
         const params = [id];
 
         if (start_date) {
-            query += ` AND mr.reading_date >= ?`;
+            whereClauses.push('mr.reading_date >= ?');
             params.push(start_date);
         }
         if (end_date) {
-            query += ` AND mr.reading_date <= ?`;
+            whereClauses.push('mr.reading_date <= ?');
             params.push(end_date);
         }
 
-        query += ` ORDER BY mr.reading_date DESC LIMIT ?`;
-        params.push(parseInt(limit));
+        const whereSection = ' WHERE ' + whereClauses.join(' AND ');
+        const baseFrom = `
+          FROM sarga_machine_readings mr
+          LEFT JOIN sarga_staff s ON mr.created_by = s.id
+          ${whereSection}
+        `;
 
-        const [readings] = await pool.query(query, params);
-        res.json(readings);
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+        const [readings] = await pool.query(
+            `SELECT mr.*, s.name as created_by_name ${baseFrom} ORDER BY mr.reading_date DESC LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+        res.json(response(readings, total));
     } catch (error) {
         console.error('Error fetching machine readings:', error);
         res.status(500).json({ error: 'Failed to fetch machine readings' });
@@ -695,7 +713,7 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
             ? parseInt(closing_count) : null;
         const totalCopies = closeCount !== null ? Math.max(0, closeCount - openCount) : 0;
 
-        // ─── Mismatch detection (non-admin only, new reading for the day) ───
+        // ─── Mismatch detection and validation (non-admin only, new reading for the day) ───
         let countRequestCreated = false;
         if (!isAdmin) {
             const [lastClose] = await pool.query(
@@ -706,6 +724,12 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
             );
             if (lastClose.length > 0 && lastClose[0].closing_count !== null) {
                 const expectedCount = lastClose[0].closing_count;
+                if (openCount < expectedCount) {
+                    return res.status(400).json({
+                        error: 'Opening count cannot be less than previous closing count (' + expectedCount + ')',
+                        min_opening_count: expectedCount
+                    });
+                }
                 if (openCount !== expectedCount) {
                     // Remove any existing pending request for the same machine+date
                     await pool.query(
@@ -981,6 +1005,182 @@ router.put('/count-requests/:reqId', auth.authenticate, auth.requireRole(['Admin
     } catch (error) {
         console.error('Error reviewing count request:', error);
         res.status(500).json({ error: 'Failed to review count request' });
+    }
+});
+
+// ==================== MPR INTEGRATION ====================
+
+// GET /machines/:id/mpr-meter-data — Fetch actual meter count from MPR web interface
+router.get('/:id/mpr-meter-data', auth.authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Get machine details (need IP address)
+        const [machines] = await pool.query(
+            'SELECT id, machine_name, ip_address, snmp_community, mpr_username, mpr_password FROM sarga_machines WHERE id = ?',
+            [id]
+        );
+        
+        if (machines.length === 0) {
+            return res.status(404).json({ error: 'Machine not found' });
+        }
+        
+        const machine = machines[0];
+        if (!machine.ip_address) {
+            return res.status(400).json({ error: 'Machine IP address not configured' });
+        }
+        
+        // Import MPR service
+        const mprService = require('../services/mprIntegration');
+        
+        // Fetch meter data with stored credentials
+        const meterData = await mprService.fetchBizhubMeterCounts(
+            machine.ip_address,
+            6000,
+            machine.snmp_community || 'public',
+            machine.mpr_username || null,
+            machine.mpr_password || null
+        );
+        
+        // Store the fetch attempt for audit
+        auditLog(req.user.id, 'MPR_DATA_FETCH', `Fetched meter data from ${machine.machine_name}`, { entity_type: 'machine', entity_id: id });
+        
+        res.json({
+            machine_id: id,
+            machine_name: machine.machine_name,
+            ip_address: machine.ip_address,
+            meter_data: meterData
+        });
+    } catch (error) {
+        console.error('Error fetching MPR meter data:', error);
+        res.status(500).json({ error: 'Failed to fetch meter data', details: error.message });
+    }
+});
+
+// POST /machines/:id/verify-count — Compare manual entry with MPR meter data
+router.post('/:id/verify-count', auth.authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { manual_opening_count } = req.body;
+        
+        if (manual_opening_count === undefined) {
+            return res.status(400).json({ error: 'manual_opening_count is required' });
+        }
+        
+        // Get machine details
+        const [machines] = await pool.query(
+            'SELECT id, machine_name, ip_address, snmp_community, mpr_username, mpr_password FROM sarga_machines WHERE id = ?',
+            [id]
+        );
+        
+        if (machines.length === 0) {
+            return res.status(404).json({ error: 'Machine not found' });
+        }
+        
+        const machine = machines[0];
+        if (!machine.ip_address) {
+            return res.status(400).json({ error: 'Machine IP address not configured' });
+        }
+        
+        // Get yesterday's closing count
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        
+        const [lastClosing] = await pool.query(
+            'SELECT closing_count FROM sarga_machine_readings WHERE machine_id = ? AND reading_date = ?',
+            [id, yesterdayStr]
+        );
+        
+        const yesterdayClosingCount = lastClosing.length > 0 ? lastClosing[0].closing_count : null;
+        
+        // Fetch actual meter data from MPR with stored credentials
+        const mprService = require('../services/mprIntegration');
+        const meterData = await mprService.fetchBizhubMeterCounts(
+            machine.ip_address,
+            6000,
+            machine.snmp_community || 'public',
+            machine.mpr_username || null,
+            machine.mpr_password || null
+        );
+        
+        // Compare
+        const comparison = mprService.compareCounterData(
+            manual_opening_count,
+            meterData,
+            yesterdayClosingCount
+        );
+        
+        // If there's a mismatch, create a count request for admin review
+        if (comparison.has_mismatch && meterData.total_prints) {
+            const [result] = await pool.query(
+                `INSERT INTO sarga_machine_count_requests 
+                 (machine_id, reading_date, expected_count, entered_count, submitted_by, status)
+                 VALUES (?, ?, ?, ?, ?, 'Pending')`,
+                [id, today, meterData.total_prints, manual_opening_count, req.user.id]
+            );
+            
+            comparison.count_request_id = result.insertId;
+            comparison.count_request_created = true;
+            
+            auditLog(req.user.id, 'MACHINE_COUNT_MISMATCH', 
+                `Count mismatch for ${machine.machine_name}: Manual=${manual_opening_count}, Machine=${meterData.total_prints}`,
+                { entity_type: 'machine_count_request', entity_id: result.insertId }
+            );
+        }
+        
+        res.json({
+            machine_id: id,
+            machine_name: machine.machine_name,
+            verification_date: today,
+            manual_entry: manual_opening_count,
+            actual_meter_count: meterData.total_prints,
+            comparison_result: comparison
+        });
+    } catch (error) {
+        console.error('Error verifying count:', error);
+        res.status(500).json({ error: 'Failed to verify count', details: error.message });
+    }
+});
+
+// GET /machines/:id/meter-comparison — Get comparison history
+router.get('/:id/meter-comparison', auth.authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { page = 1, limit = 30 } = req.query;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        
+        // Get count requests for this machine (mismatches)
+        const [requests] = await pool.query(
+            `SELECT mcr.*, mr.opening_count, mr.closing_count, mr.total_copies,
+                    s.name as submitted_by_name, rev.name as reviewed_by_name
+             FROM sarga_machine_count_requests mcr
+             LEFT JOIN sarga_machine_readings mr ON mcr.machine_id = mr.machine_id AND mcr.reading_date = mr.reading_date
+             LEFT JOIN sarga_staff s ON mcr.submitted_by = s.id
+             LEFT JOIN sarga_staff rev ON mcr.reviewed_by = rev.id
+             WHERE mcr.machine_id = ?
+             ORDER BY mcr.reading_date DESC
+             LIMIT ? OFFSET ?`,
+            [id, parseInt(limit), offset]
+        );
+        
+        // Get count for pagination
+        const [[{ total }]] = await pool.query(
+            'SELECT COUNT(*) as total FROM sarga_machine_count_requests WHERE machine_id = ?',
+            [id]
+        );
+        
+        res.json({
+            machine_id: id,
+            total_mismatches: total,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            comparisons: requests
+        });
+    } catch (error) {
+        console.error('Error fetching meter comparison:', error);
+        res.status(500).json({ error: 'Failed to fetch comparison history' });
     }
 });
 

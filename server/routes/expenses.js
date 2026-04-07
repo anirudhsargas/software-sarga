@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getUserBranchId, auditLog } = require('../helpers');
+const { paginate } = require('../helpers/pagination');
 
 // ═══════════════════════════════════════════════════════════════════════
 //  EXPENSE DASHBOARD — Aggregated stats
@@ -442,33 +443,42 @@ router.get('/vendor-requests', authenticateToken, async (req, res) => {
     try {
         const { status } = req.query; // 'Pending', 'Approved', 'Rejected', or undefined (all)
         const isAdmin = ['Admin', 'Accountant'].includes(req.user.role);
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
-        let query = `
-            SELECT vr.*, 
-                   req.name as requested_by_name, req.role as requester_role,
-                   rev.name as reviewed_by_name,
-                   b.name as branch_name
-            FROM sarga_vendor_requests vr
-            LEFT JOIN sarga_staff req ON req.id = vr.requested_by
-            LEFT JOIN sarga_staff rev ON rev.id = vr.reviewed_by
-            LEFT JOIN sarga_branches b ON b.id = vr.branch_id
-        `;
+        let whereClauses = [];
         const params = [];
 
         if (!isAdmin) {
-            query += ' WHERE vr.requested_by = ?';
+            whereClauses.push('vr.requested_by = ?');
             params.push(req.user.id);
         }
 
         if (status) {
-            query += (params.length > 0 ? ' AND' : ' WHERE') + ' vr.status = ?';
+            whereClauses.push('vr.status = ?');
             params.push(status);
         }
 
-        query += ' ORDER BY vr.created_at DESC';
+        const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
 
-        const [requests] = await pool.query(query, params);
-        res.json(requests);
+        const baseFrom = `
+            FROM sarga_vendor_requests vr
+            LEFT JOIN sarga_staff req ON req.id = vr.requested_by
+            LEFT JOIN sarga_staff rev ON rev.id = vr.reviewed_by
+            LEFT JOIN sarga_branches b ON b.id = vr.branch_id
+            ${whereSection}`;
+
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+        const [rows] = await pool.query(`
+            SELECT vr.*, 
+                   req.name as requested_by_name, req.role as requester_role,
+                   rev.name as reviewed_by_name,
+                   b.name as branch_name
+            ${baseFrom}
+            ORDER BY vr.created_at DESC
+            LIMIT ? OFFSET ?
+        `, [...params, limit, offset]);
+
+        res.json(response(rows, total));
     } catch (err) {
         console.error('GET /vendor-requests error:', err);
         res.status(500).json({ error: 'Failed to retrieve vendor requests' });

@@ -19,11 +19,11 @@ router.get('/branches', authenticateToken, async (req, res) => {
 
 // Add Branch
 router.post('/branches', authenticateToken, authorizeRoles('Admin'), validate(branchSchema), async (req, res) => {
-    const { name, address, phone, upi_id } = req.body;
+    const { name, address, phone, upi_id, short_name } = req.body;
     try {
         const [result] = await pool.query(
-            "INSERT INTO sarga_branches (name, address, phone, upi_id) VALUES (?, ?, ?, ?)",
-            [name, address, phone, upi_id || null]
+            "INSERT INTO sarga_branches (name, address, phone, upi_id, short_name) VALUES (?, ?, ?, ?, ?)",
+            [name, address, phone, upi_id || null, short_name || null]
         );
         res.status(201).json({ id: result.insertId, message: 'Branch added successfully' });
         auditLog(req.user.id, 'BRANCH_ADD', `Added branch: ${name}`, { entity_type: 'branch', entity_id: result.insertId });
@@ -36,12 +36,12 @@ router.post('/branches', authenticateToken, authorizeRoles('Admin'), validate(br
 // Update Branch
 router.put('/branches/:id', authenticateToken, authorizeRoles('Admin'), validate(branchSchema), async (req, res) => {
     const { id } = req.params;
-    const { name, address, phone, upi_id } = req.body;
-    console.log(`Updating branch ${id}:`, { name, address, phone, upi_id });
+    const { name, address, phone, upi_id, short_name } = req.body;
+    console.log(`Updating branch ${id}:`, { name, address, phone, upi_id, short_name });
     try {
         const [result] = await pool.query(
-            "UPDATE sarga_branches SET name = ?, address = ?, phone = ?, upi_id = ? WHERE id = ?",
-            [name, address, phone, upi_id || null, id]
+            "UPDATE sarga_branches SET name = ?, address = ?, phone = ?, upi_id = ?, short_name = ? WHERE id = ?",
+            [name, address, phone, upi_id || null, short_name || null, id]
         );
         console.log(`Update result for branch ${id}:`, result.affectedRows, 'rows affected');
         auditLog(req.user.id, 'BRANCH_UPDATE', `Updated branch #${id}: ${name}`, { entity_type: 'branch', entity_id: id });

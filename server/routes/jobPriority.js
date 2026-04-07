@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
+const { paginate } = require('../helpers/pagination');
 
 // ───────────────────── Priority Scoring Engine ─────────────────────
 //
@@ -144,6 +145,18 @@ router.get('/queue', authenticateToken, async (req, res) => {
             params.push(branch_id);
         }
 
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit, 100);
+
+        const baseFrom = `
+            FROM sarga_jobs j
+            LEFT JOIN sarga_customers c ON j.customer_id = c.id
+            LEFT JOIN sarga_machines m ON j.machine_id = m.id
+            LEFT JOIN sarga_branches b ON j.branch_id = b.id
+            WHERE j.status IN ('Pending', 'Processing')
+            ${branchFilter}
+        `;
+
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
         // Fetch active (non-completed/cancelled/delivered) jobs with customer & machine info
         const [jobs] = await pool.query(`
             SELECT j.id, j.job_number, j.job_name, j.description, j.quantity,
@@ -155,14 +168,10 @@ router.get('/queue', authenticateToken, async (req, res) => {
                    c.mobile AS customer_mobile,
                    m.machine_name, m.machine_type,
                    b.name AS branch_name
-            FROM sarga_jobs j
-            LEFT JOIN sarga_customers c ON j.customer_id = c.id
-            LEFT JOIN sarga_machines m ON j.machine_id = m.id
-            LEFT JOIN sarga_branches b ON j.branch_id = b.id
-            WHERE j.status IN ('Pending', 'Processing')
-            ${branchFilter}
+            ${baseFrom}
             ORDER BY j.created_at ASC
-        `, params);
+            LIMIT ? OFFSET ?
+        `, [...params, limit, offset]);
 
         const now = new Date();
 
@@ -223,7 +232,7 @@ router.get('/queue', authenticateToken, async (req, res) => {
         const highCount = scored.filter(j => j.urgency === 'high').length;
         const overdueCount = scored.filter(j => j.score_reasons.includes('OVERDUE')).length;
 
-        res.json({
+        res.json(response({
             queues,
             unassigned,
             summary: {
@@ -236,7 +245,7 @@ router.get('/queue', authenticateToken, async (req, res) => {
                 unassigned: unassigned.length
             },
             generated_at: now.toISOString()
-        });
+        }, total));
     } catch (err) {
         console.error('Job priority queue error:', err);
         res.status(500).json({ message: 'Failed to compute priority queue' });
@@ -262,6 +271,14 @@ router.get('/machine/:id', authenticateToken, async (req, res) => {
 
         const machine = machines[0];
 
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit, 50);
+        const baseFrom = `
+            FROM sarga_jobs j
+            LEFT JOIN sarga_customers c ON j.customer_id = c.id
+            WHERE j.machine_id = ? AND j.status IN ('Pending', 'Processing')
+        `;
+
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, [machineId]);
         // Active jobs on this machine
         const [jobs] = await pool.query(`
             SELECT j.id, j.job_number, j.job_name, j.description, j.quantity,
@@ -271,11 +288,10 @@ router.get('/machine/:id', authenticateToken, async (req, res) => {
                    COALESCE(c.name, 'Walk-in') AS customer_name,
                    c.type AS customer_type,
                    c.mobile AS customer_mobile
-            FROM sarga_jobs j
-            LEFT JOIN sarga_customers c ON j.customer_id = c.id
-            WHERE j.machine_id = ? AND j.status IN ('Pending', 'Processing')
+            ${baseFrom}
             ORDER BY j.created_at ASC
-        `, [machineId]);
+            LIMIT ? OFFSET ?
+        `, [machineId, limit, offset]);
 
         const now = new Date();
         const scored = jobs.map(job => {
@@ -293,12 +309,12 @@ router.get('/machine/:id', authenticateToken, async (req, res) => {
             return { ...job, queue_position: idx + 1, estimated_start: eta.toISOString(), est_duration_min: estMinutes };
         });
 
-        res.json({
+        res.json(response({
             machine,
             jobs: withEta,
             total: withEta.length,
             generated_at: now.toISOString()
-        });
+        }, total));
     } catch (err) {
         console.error('Machine priority queue error:', err);
         res.status(500).json({ message: 'Failed to compute machine queue' });

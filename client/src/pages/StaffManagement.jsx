@@ -1,16 +1,115 @@
-import React, { useEffect, useState } from 'react';
-import { UserPlus, Search, Shield, Phone, User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
+import { User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar } from 'lucide-react';
 import HolidayCalendar from '../components/HolidayCalendar';
 import SecureImage from '../components/SecureImage';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
 import api, { imgUrl } from '../services/api';
-import { serverNow } from '../services/serverTime';
 import ImageCropModal from '../components/ImageCropModal';
-import { isTouchDevice } from '../services/utils';
 import Pagination from '../components/Pagination';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
+
+// Memoized staff row
+const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword }) => (
+    <tr
+        key={s.id}
+        onDoubleClick={() => navigate(`/dashboard/employee/${s.id}`)}
+        style={{ cursor: 'pointer' }}
+        title="Double click to view dashboard"
+    >
+        <td>
+            <div className="row gap-sm">
+                <div className="user-avatar avatar-sm">
+                    {s.image_url ? (
+                        <SecureImage src={s.image_url} alt={s.name} className="avatar-img" />
+                    ) : (
+                        <User size={16} />
+                    )}
+                </div>
+                <span className="user-name">{s.name}</span>
+            </div>
+        </td>
+        <td>{s.role}</td>
+        <td>{s.branch_name || 'N/A'}</td>
+        <td>+91 {s.user_id || s.mobile}</td>
+        <td>{new Date(s.created_at).toLocaleDateString()}</td>
+        <td>
+            {isAdmin ? (
+                <div className="row gap-sm" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        className="btn btn-ghost"
+                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            navigate('/dashboard/attendance-salary', {
+                                state: {
+                                    paymentPrefill: {
+                                        type: 'Salary',
+                                        staff_id: s.id,
+                                        payee_name: s.name,
+                                        description: `Salary for ${new Date().toLocaleString('default', { month: 'long' })}`
+                                    }
+                                }
+                            });
+                        }}
+                        title="Pay Salary"
+                    >
+                        <Banknote size={15} />
+                    </button>
+                    <button
+                        className="btn btn-ghost"
+                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/employee/${s.id}`); }}
+                        title="View Dashboard"
+                    >
+                        <BarChart3 size={15} />
+                    </button>
+                    <button
+                        className="btn btn-ghost"
+                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedStaff({ ...s, countryCode: '+91' });
+                            setEditStaffImage(null);
+                            setEditStaffPreview('');
+                            setShowEditModal(true);
+                        }}
+                        title="Edit Staff Member"
+                    >
+                        <Edit2 size={15} />
+                    </button>
+                    <button
+                        className="btn btn-ghost"
+                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
+                        onClick={(e) => { e.stopPropagation(); handleResetPassword(s.id); }}
+                        title="Reset Password to Default"
+                    >
+                        <Key size={15} />
+                    </button>
+                    <button
+                        className="btn btn-ghost text-error"
+                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
+                        onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
+                        title="Delete Staff Member"
+                    >
+                        <Trash2 size={15} />
+                    </button>
+                </div>
+            ) : (
+                <button
+                    className="btn btn-ghost"
+                    style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
+                    onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/employee/${s.id}`); }}
+                    title="View Dashboard"
+                >
+                    <BarChart3 size={15} />
+                </button>
+            )}
+        </td>
+    </tr>
+));
 
 const StaffManagement = () => {
     const { confirm } = useConfirm();
@@ -23,7 +122,6 @@ const StaffManagement = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState(null);
     const [showHolidayModal, setShowHolidayModal] = useState(false);
-    const [showSalaryConfig, setShowSalaryConfig] = useState(false);
     const [newStaff, setNewStaff] = useState({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: '', salary_type: 'Monthly', base_salary: '', daily_rate: '' });
     const [branches, setBranches] = useState([]);
     const [error, setError] = useState('');
@@ -36,8 +134,8 @@ const StaffManagement = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
     const [selectedBranchFilter, setSelectedBranchFilter] = useState('');
-
-
+    const [searchInput, setSearchInput] = useState('');
+    const debouncedSearch = useDebounce(searchInput, 300);
 
     const roles = ['Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'];
 
@@ -48,10 +146,10 @@ const StaffManagement = () => {
 
     useEffect(() => {
         fetchStaff();
-    }, [page, selectedBranchFilter]); // Fetch when page OR branch filter changes
+    }, [page, selectedBranchFilter]);
 
     useEffect(() => {
-        setPage(1); // Reset to first page when branch filter changes
+        setPage(1);
     }, [selectedBranchFilter]);
 
     useEffect(() => {
@@ -81,7 +179,6 @@ const StaffManagement = () => {
         try {
             const response = await api.get('/branches');
             setBranches(response.data);
-            // Don't auto-set branch_id here to allow "Select Branch" placeholder
         } catch (err) {
             console.error('Failed to fetch branches');
         }
@@ -96,7 +193,6 @@ const StaffManagement = () => {
             }
             const response = await api.get(url);
             const res = response.data;
-            // Sort staff alphabetically by name
             const sortedStaff = [...res.data].sort((a, b) =>
                 (a.name || '').localeCompare(b.name || '')
             );
@@ -111,9 +207,7 @@ const StaffManagement = () => {
     };
 
     const validateMobile = (value) => {
-        // Remove white spaces and non-numeric characters
         const cleaned = value.replace(/\D/g, '');
-        // Limit to 10 digits
         return cleaned.slice(0, 10);
     };
 
@@ -184,7 +278,6 @@ const StaffManagement = () => {
             formData.append('role', selectedStaff.role);
             formData.append('branch_id', selectedStaff.branch_id || '');
 
-            // Add salary fields if admin
             if (isAdmin) {
                 formData.append('salary_type', selectedStaff.salary_type || 'Monthly');
                 if (selectedStaff.salary_type === 'Monthly') {
@@ -210,7 +303,6 @@ const StaffManagement = () => {
 
     const handleRemoveStaffImage = async () => {
         if (!selectedStaff) return;
-
         const isConfirmed = await confirm({
             title: 'Remove Photo',
             message: 'Are you sure you want to remove this staff photo?',
@@ -218,7 +310,6 @@ const StaffManagement = () => {
             type: 'danger'
         });
         if (!isConfirmed) return;
-
         setLoading(true);
         try {
             await api.delete(`/staff/${selectedStaff.id}/image`);
@@ -236,12 +327,11 @@ const StaffManagement = () => {
     const handleDeleteStaff = async (id) => {
         const isConfirmed = await confirm({
             title: 'Delete Staff Member',
-            message: 'Are you sure you want to delete this staff member?\n\nThis will also remove their related requests and logs. This action cannot be undone.',
+            message: 'Are you sure you want to delete this staff member?\n\nThis action cannot be undone.',
             confirmText: 'Delete',
             type: 'danger'
         });
         if (!isConfirmed) return;
-
         try {
             await api.delete(`/staff/${id}`);
             fetchStaff();
@@ -253,12 +343,11 @@ const StaffManagement = () => {
     const handleResetPassword = async (id) => {
         const isConfirmed = await confirm({
             title: 'Reset Password',
-            message: 'Reset password to mobile number?\n\nThe staff member will be required to change it on next login.',
+            message: 'Reset password to mobile number?',
             confirmText: 'Reset',
-            type: 'danger' // Using danger or primary contextually, it's a major action
+            type: 'danger'
         });
         if (!isConfirmed) return;
-
         try {
             await api.put(`/staff/${id}/reset-password`, {});
             toast.success('Password reset successfully!');
@@ -266,6 +355,16 @@ const StaffManagement = () => {
             setError('Failed to reset password');
         }
     };
+
+    const filteredStaff = useMemo(() => {
+        if (!debouncedSearch) return staff;
+        const q = debouncedSearch.toLowerCase();
+        return staff.filter(s =>
+            (s.name && s.name.toLowerCase().includes(q)) ||
+            (s.mobile && s.mobile.includes(q)) ||
+            (s.role && s.role.toLowerCase().includes(q))
+        );
+    }, [staff, debouncedSearch]);
 
     return (
         <div className="stack-lg">
@@ -276,18 +375,11 @@ const StaffManagement = () => {
                 </div>
                 {isAdmin && (
                     <div className="row gap-sm">
-                        <button
-                            onClick={() => setShowHolidayModal(true)}
-                            className="btn btn-ghost"
-                            style={{ gap: 8 }}
-                        >
+                        <button onClick={() => setShowHolidayModal(true)} className="btn btn-ghost" style={{ gap: 8 }}>
                             <Calendar size={20} />
                             <span>Mark Holiday</span>
                         </button>
-                        <button
-                            onClick={() => setShowAddModal(true)}
-                            className="btn btn-primary"
-                        >
+                        <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
                             <Plus size={20} />
                             <span>Add Staff</span>
                         </button>
@@ -295,512 +387,206 @@ const StaffManagement = () => {
                 )}
             </div>
 
-            <div className="panel panel--tight">
-                <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <label htmlFor="branch-filter" style={{ fontWeight: '500', marginRight: '8px' }}>
-                        Filter by Branch:
-                    </label>
-                    <select
-                        id="branch-filter"
-                        value={selectedBranchFilter}
-                        onChange={(e) => setSelectedBranchFilter(e.target.value)}
-                        style={{
-                            padding: '8px 12px',
-                            borderRadius: '4px',
-                            border: '1px solid #ddd',
-                            fontSize: '14px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="">All Branches</option>
-                        {branches.map((branch) => (
-                            <option key={branch.id} value={branch.id}>
-                                {branch.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="table-scroll">
-                    <table className="table">
-                        <thead>
-                            <tr>
-                                <th>Staff Details</th>
-                                <th>Role</th>
-                                <th>Branch</th>
-                                <th>Mobile (User ID)</th>
-                                {/* Password Status column removed */}
-                                <th>Joined</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading && staff.length === 0 ? (
-                                <tr>
-                                    <td colSpan="5" className="text-center muted table-empty">
-                                        <Loader2 className="animate-spin" />
-                                    </td>
-                                </tr>
-                            ) : staff.length === 0 ? (
-                                <tr>
-                                    <td colSpan="5" className="text-center muted table-empty">
-                                        No staff members found.
-                                    </td>
-                                </tr>
-                            ) : (
-                                staff.map((s) => (
-                                    <tr
-                                        key={s.id}
-                                        onDoubleClick={() => navigate(`/dashboard/employee/${s.id}`)}
-                                        className="hover:bg-slate-50 transition-colors"
-                                        title="Double click to view dashboard"
-                                        style={{ cursor: 'pointer' }}
-                                    >
-                                        <td>
-                                            <div className="row gap-sm">
-                                                <div className="user-avatar avatar-sm">
-                                                    {s.image_url ? (
-                                                        <SecureImage
-                                                            src={s.image_url}
-                                                            alt={s.name}
-                                                            className="avatar-img"
-                                                        />
-                                                    ) : (
-                                                        <User size={16} />
-                                                    )}
-                                                </div>
-                                                <span className="user-name">
-                                                    {s.name}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span className="badge">{s.role}</span>
-                                        </td>
-                                        <td className="text-sm">{s.branch_name || 'N/A'}</td>
-                                        <td className="text-sm">+91 {s.user_id}</td>
-                                        {/* Password Status cell removed */}
-                                        <td className="text-sm muted">
-                                            {new Date(s.created_at).toLocaleDateString()}
-                                        </td>
-                                        <td>
-                                            {isAdmin ? (
-                                                <div className="row gap-sm" onClick={(e) => e.stopPropagation()}>
-                                                    <button
-                                                        className="btn btn-ghost"
-                                                        style={{ padding: '8px', minWidth: 'auto', border: 'none' }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            navigate('/payments', {
-                                                                state: {
-                                                                    paymentPrefill: {
-                                                                        type: 'Salary',
-                                                                        staff_id: s.id,
-                                                                        payee_name: s.name,
-                                                                        description: `Salary for ${serverNow().toLocaleString('default', { month: 'long' })}`
-                                                                    }
-                                                                }
-                                                            });
-                                                        }}
-                                                        title="Pay Salary"
-                                                    >
-                                                        <Banknote size={16} />
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-ghost"
-                                                        style={{ padding: '8px', minWidth: 'auto', border: 'none' }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            navigate(`/dashboard/employee/${s.id}`);
-                                                        }}
-                                                        title="View Dashboard"
-                                                    >
-                                                        <BarChart3 size={16} />
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-ghost btn-danger"
-                                                        style={{ padding: '8px', minWidth: 'auto', border: 'none' }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedStaff({ ...s, countryCode: '+91' });
-                                                            setShowEditModal(true);
-                                                        }}
-                                                        title="Edit Staff Member"
-                                                    >
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-ghost btn-danger"
-                                                        style={{ padding: '8px', minWidth: 'auto', border: 'none' }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleResetPassword(s.id);
-                                                        }}
-                                                        title="Reset Password to Default"
-                                                    >
-                                                        <Key size={16} />
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-ghost btn-danger"
-                                                        style={{ padding: '8px', minWidth: 'auto', border: 'none' }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDeleteStaff(s.id);
-                                                        }}
-                                                        title="Delete Staff Member"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    className="btn btn-ghost"
-                                                    style={{ padding: '8px', minWidth: 'auto', border: 'none' }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigate(`/dashboard/employee/${s.id}`);
-                                                    }}
-                                                    title="View Dashboard"
-                                                >
-                                                    <BarChart3 size={16} />
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+            <div className="row gap-sm" style={{ marginBottom: 12 }}>
+                <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Search staff..."
+                    style={{ minWidth: 180 }}
+                    value={searchInput}
+                    onChange={e => setSearchInput(e.target.value)}
+                />
+                <select 
+                    className="input-field" 
+                    style={{ width: 180 }}
+                    value={selectedBranchFilter}
+                    onChange={e => setSelectedBranchFilter(e.target.value)}
+                >
+                    <option value="">All Branches</option>
+                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
             </div>
+
+            <div className="table-scroll">
+                <table className="table">
+                    <thead>
+                        <tr>
+                            <th>Staff Details</th>
+                            <th>Role</th>
+                            <th>Branch</th>
+                            <th>Mobile (User ID)</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading && filteredStaff.length === 0 ? (
+                            <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>
+                                <Loader2 className="animate-spin" style={{ display: 'inline', marginRight: 8 }} /> Loading staff...
+                            </td></tr>
+                        ) : filteredStaff.length === 0 ? (
+                            <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>
+                                No staff members found.
+                            </td></tr>
+                        ) : filteredStaff.map(s => (
+                            <StaffRow
+                                key={s.id}
+                                staff={s}
+                                navigate={navigate}
+                                setSelectedStaff={setSelectedStaff}
+                                setShowEditModal={setShowEditModal}
+                                setEditStaffImage={setEditStaffImage}
+                                setEditStaffPreview={setEditStaffPreview}
+                                handleDelete={handleDeleteStaff}
+                                isAdmin={isAdmin}
+                                handleResetPassword={handleResetPassword}
+                            />
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
             <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 
-            {/* Add Staff Modal */}
             {showAddModal && (
                 <div className="modal-backdrop">
                     <div className="modal">
-                        <button
-                            className="modal-close"
-                            onClick={() => setShowAddModal(false)}
-                        >
-                            <X size={22} />
-                        </button>
-
+                        <button className="modal-close" onClick={() => setShowAddModal(false)}><X size={22} /></button>
                         <h2 className="section-title mb-16">Add Staff Member</h2>
                         <form onSubmit={handleAddStaff} className="stack-md">
                             <div>
-                                <label className="label">Staff Photo (Optional)</label>
-                                <input
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/webp"
-                                    className="input-field"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        if (file) openCropper(file, 'newStaff');
-                                        e.target.value = '';
-                                    }}
-                                />
-                                {newStaffPreview && (
-                                    <div className="row gap-sm" style={{ marginTop: '8px' }}>
-                                        <img src={newStaffPreview} alt="Preview" className="thumb-img" />
-                                        <span className="text-sm muted">Preview</span>
-                                    </div>
-                                )}
+                                <label className="label">Staff Photo</label>
+                                <input type="file" name="newStaffPhoto" accept="image/*" onChange={e => openCropper(e.target.files?.[0], 'newStaff')} />
+                                {newStaffPreview && <img src={newStaffPreview} className="thumb-img" alt="preview" style={{ marginTop: 8, borderRadius: 8, maxHeight: 80 }} />}
                             </div>
                             <div>
                                 <label className="label">Full Name</label>
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    placeholder="Enter full name"
-                                    value={newStaff.name}
-                                    onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
-                                    required
-                                />
+                                <input type="text" name="newStaffName" className="input-field" placeholder="Full Name" value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} required />
                             </div>
                             <div>
-                                <label className="label">Mobile Number (User ID)</label>
-                                <div className="row gap-sm">
-                                    <input
-                                        type="text"
-                                        className="input-field"
-                                        style={{ width: '80px', textAlign: 'center' }}
-                                        value={newStaff.countryCode}
-                                        onChange={(e) => setNewStaff({ ...newStaff, countryCode: e.target.value })}
-                                        placeholder="+91"
-                                    />
-                                    <input
-                                        type="tel"
-                                        className="input-field"
-                                        placeholder="10 digit number"
-                                        value={newStaff.mobile}
-                                        onChange={(e) => setNewStaff({ ...newStaff, mobile: validateMobile(e.target.value) })}
-                                        required
-                                    />
-                                </div>
+                                <label className="label">Mobile Number</label>
+                                <input type="tel" name="newStaffMobile" className="input-field" placeholder="10-digit mobile" value={newStaff.mobile} onChange={e => setNewStaff({...newStaff, mobile: validateMobile(e.target.value)})} required />
                             </div>
                             <div>
                                 <label className="label">Branch</label>
-                                <select
-                                    className="input-field"
-                                    value={newStaff.branch_id}
-                                    onChange={(e) => setNewStaff({ ...newStaff, branch_id: e.target.value })}
-                                    required
-                                >
-                                    <option value="" disabled>Select Branch</option>
+                                <select name="newStaffBranch" className="input-field" value={newStaff.branch_id} onChange={e => setNewStaff({...newStaff, branch_id: e.target.value})} required>
+                                    <option value="">Select Branch</option>
                                     {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="label">Role</label>
-                                <select
-                                    className="input-field"
-                                    value={newStaff.role}
-                                    onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
-                                >
+                                <select name="newStaffRole" className="input-field" value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
                                     {roles.map(r => <option key={r} value={r}>{r}</option>)}
                                 </select>
                             </div>
-
                             {isAdmin && (
                                 <>
-                                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginTop: '16px' }}>
-                                        <h3 className="section-subtitle">Salary & Compensation</h3>
-                                    </div>
-
                                     <div>
                                         <label className="label">Salary Type</label>
-                                        <select
-                                            className="input-field"
-                                            value={newStaff.salary_type || 'Monthly'}
-                                            onChange={(e) => setNewStaff({ ...newStaff, salary_type: e.target.value })}
-                                        >
+                                        <select name="newStaffSalaryType" className="input-field" value={newStaff.salary_type} onChange={e => setNewStaff({...newStaff, salary_type: e.target.value})}>
                                             <option value="Monthly">Monthly</option>
                                             <option value="Daily">Daily</option>
                                         </select>
                                     </div>
-
                                     {newStaff.salary_type === 'Monthly' ? (
                                         <div>
-                                            <label className="label">Base Monthly Salary (₹)</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                className="input-field"
-                                                placeholder="e.g., 25000"
-                                                value={newStaff.base_salary || ''}
-                                                onChange={(e) => setNewStaff({ ...newStaff, base_salary: e.target.value })}
-                                            />
+                                            <label className="label">Base Salary (₹)</label>
+                                            <input type="number" name="newStaffSalary" className="input-field" placeholder="0" min="0" value={newStaff.base_salary} onChange={e => setNewStaff({...newStaff, base_salary: e.target.value})} />
                                         </div>
                                     ) : (
                                         <div>
                                             <label className="label">Daily Rate (₹)</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                className="input-field"
-                                                placeholder="e.g., 500"
-                                                value={newStaff.daily_rate || ''}
-                                                onChange={(e) => setNewStaff({ ...newStaff, daily_rate: e.target.value })}
-                                            />
+                                            <input type="number" name="newStaffDailyRate" className="input-field" placeholder="0" min="0" value={newStaff.daily_rate} onChange={e => setNewStaff({...newStaff, daily_rate: e.target.value})} />
                                         </div>
                                     )}
                                 </>
                             )}
-
-                            {error && <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>}
-
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="btn btn-primary btn--full"
-                            >
-                                {loading ? <Loader2 className="animate-spin" /> : "Create Account"}
+                            <button type="submit" disabled={loading} className="btn btn-primary btn--full">
+                                {loading ? <Loader2 size={16} className="animate-spin" /> : 'Create Account'}
                             </button>
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* Edit Staff Modal */}
             {showEditModal && selectedStaff && (
                 <div className="modal-backdrop">
                     <div className="modal">
-                        <button
-                            className="modal-close"
-                            onClick={() => {
-                                setShowEditModal(false);
-                                setSelectedStaff(null);
-                            }}
-                        >
-                            <X size={22} />
-                        </button>
-
+                        <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={22} /></button>
                         <h2 className="section-title mb-16">Edit Staff Member</h2>
                         <form onSubmit={handleUpdateStaff} className="stack-md">
                             <div>
-                                <label className="label">Staff Photo (Optional)</label>
-                                <input
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/webp"
-                                    className="input-field"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        if (file) openCropper(file, 'editStaff');
-                                        e.target.value = '';
-                                    }}
-                                />
-                                {editStaffPreview && (
-                                    <div className="row gap-sm" style={{ marginTop: '8px' }}>
-                                        <img src={editStaffPreview} alt="Preview" className="thumb-img" />
-                                        <span className="text-sm muted">Preview</span>
-                                        <button
-                                            type="button"
-                                            className="btn btn-ghost btn-sm text-error"
-                                            onClick={handleRemoveStaffImage}
-                                        >
-                                            Remove Photo
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                            <div>
-                                <label className="label">Full Name</label>
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    value={selectedStaff.name}
-                                    onChange={(e) => setSelectedStaff({ ...selectedStaff, name: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="label">Mobile Number (User ID)</label>
-                                <div className="row gap-sm">
-                                    <input
-                                        type="text"
-                                        className="input-field"
-                                        style={{ width: '80px', textAlign: 'center' }}
-                                        value={selectedStaff.countryCode || '+91'}
-                                        onChange={(e) => setSelectedStaff({ ...selectedStaff, countryCode: e.target.value })}
-                                    />
-                                    <input
-                                        type="tel"
-                                        className="input-field"
-                                        value={selectedStaff.user_id}
-                                        onChange={(e) => setSelectedStaff({ ...selectedStaff, user_id: validateMobile(e.target.value) })}
-                                        required
-                                    />
+                                <label className="label">Staff Photo</label>
+                                <div className="row gap-sm" style={{ alignItems: 'center' }}>
+                                    {editStaffPreview && <img src={editStaffPreview} alt="Preview" style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover' }} />}
+                                    <input type="file" name="editStaffPhoto" accept="image/*" onChange={e => openCropper(e.target.files?.[0], 'editStaff')} />
+                                    {(editStaffImage || selectedStaff?.image_url) && (
+                                        <button type="button" className="btn btn-ghost text-error" style={{ padding: '4px 8px', fontSize: 12 }} onClick={handleRemoveStaffImage}>Remove</button>
+                                    )}
                                 </div>
                             </div>
                             <div>
+                                <label className="label">Full Name</label>
+                                <input type="text" name="editStaffName" className="input-field" value={selectedStaff.name} onChange={e => setSelectedStaff({...selectedStaff, name: e.target.value})} required />
+                            </div>
+                            <div>
+                                <label className="label">Mobile Number</label>
+                                <input type="tel" name="editStaffMobile" className="input-field" value={selectedStaff.user_id} onChange={e => setSelectedStaff({...selectedStaff, user_id: validateMobile(e.target.value)})} required />
+                            </div>
+                            <div>
                                 <label className="label">Branch</label>
-                                <select
-                                    className="input-field"
-                                    value={selectedStaff.branch_id || ''}
-                                    onChange={(e) => setSelectedStaff({ ...selectedStaff, branch_id: e.target.value })}
-                                    required
-                                >
-                                    <option value="" disabled>Select Branch</option>
+                                <select name="editStaffBranch" className="input-field" value={selectedStaff.branch_id || ''} onChange={e => setSelectedStaff({...selectedStaff, branch_id: e.target.value})}>
+                                    <option value="">Select Branch</option>
                                     {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="label">Role</label>
-                                <select
-                                    className="input-field"
-                                    value={selectedStaff.role}
-                                    onChange={(e) => setSelectedStaff({ ...selectedStaff, role: e.target.value })}
-                                >
+                                <select name="editStaffRole" className="input-field" value={selectedStaff.role} onChange={e => setSelectedStaff({...selectedStaff, role: e.target.value})}>
                                     {roles.map(r => <option key={r} value={r}>{r}</option>)}
                                 </select>
                             </div>
-
                             {isAdmin && (
                                 <>
-                                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginTop: '16px' }}>
-                                        <h3 className="section-subtitle">Salary & Compensation</h3>
-                                    </div>
-
                                     <div>
                                         <label className="label">Salary Type</label>
-                                        <select
-                                            className="input-field"
-                                            value={selectedStaff.salary_type || 'Monthly'}
-                                            onChange={(e) => setSelectedStaff({ ...selectedStaff, salary_type: e.target.value })}
-                                        >
+                                        <select name="editStaffSalaryType" className="input-field" value={selectedStaff.salary_type || 'Monthly'} onChange={e => setSelectedStaff({...selectedStaff, salary_type: e.target.value})}>
                                             <option value="Monthly">Monthly</option>
                                             <option value="Daily">Daily</option>
                                         </select>
                                     </div>
-
-                                    {selectedStaff.salary_type === 'Monthly' ? (
+                                    {(selectedStaff.salary_type || 'Monthly') === 'Monthly' ? (
                                         <div>
-                                            <label className="label">Base Monthly Salary (₹)</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                className="input-field"
-                                                placeholder="e.g., 25000"
-                                                value={selectedStaff.base_salary || ''}
-                                                onChange={(e) => setSelectedStaff({ ...selectedStaff, base_salary: e.target.value })}
-                                            />
+                                            <label className="label">Base Salary (₹)</label>
+                                            <input type="number" name="editStaffSalary" className="input-field" min="0" value={selectedStaff.base_salary || ''} onChange={e => setSelectedStaff({...selectedStaff, base_salary: e.target.value})} />
                                         </div>
                                     ) : (
                                         <div>
                                             <label className="label">Daily Rate (₹)</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                className="input-field"
-                                                placeholder="e.g., 500"
-                                                value={selectedStaff.daily_rate || ''}
-                                                onChange={(e) => setSelectedStaff({ ...selectedStaff, daily_rate: e.target.value })}
-                                            />
+                                            <input type="number" name="editStaffDailyRate" className="input-field" min="0" value={selectedStaff.daily_rate || ''} onChange={e => setSelectedStaff({...selectedStaff, daily_rate: e.target.value})} />
                                         </div>
                                     )}
                                 </>
                             )}
-
-                            {error && <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>}
-
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="btn btn-primary btn--full"
-                            >
-                                {loading ? <Loader2 className="animate-spin" /> : "Update Details"}
+                            <button type="submit" disabled={loading} className="btn btn-primary btn--full">
+                                {loading ? <Loader2 size={16} className="animate-spin" /> : 'Update Details'}
                             </button>
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* Mark Holiday Modal */}
             {showHolidayModal && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ padding: 0, overflow: 'hidden', border: 'none', background: 'transparent' }}>
-                        <button
-                            className="modal-close"
-                            onClick={() => setShowHolidayModal(false)}
-                            style={{ zIndex: 10, top: 12, right: 12 }}
-                        >
-                            <X size={22} />
-                        </button>
-                        <HolidayCalendar onSuccess={() => {
-                            setTimeout(() => setShowHolidayModal(false), 1500);
-                        }} />
+                    <div className="modal" style={{ padding: 0 }}>
+                        <button className="modal-close" onClick={() => setShowHolidayModal(false)}><X size={22} /></button>
+                        <HolidayCalendar onSuccess={() => setShowHolidayModal(false)} />
                     </div>
                 </div>
             )}
 
-            <ImageCropModal
-                file={cropState?.file || null}
-                title="Crop Staff Photo"
-                outputSize={512}
-                onCancel={handleCropCancel}
-                onComplete={handleCropComplete}
-            />
+            <ImageCropModal file={cropState?.file} title="Crop Photo" onCancel={handleCropCancel} onComplete={handleCropComplete} />
         </div>
     );
 };

@@ -4,6 +4,8 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { branchFilter } = require('../middleware/branchFilter');
+const { validate, emiMasterSchema, emiPaymentSchema, kuriMasterSchema, kuriPaymentSchema } = require('../middleware/validate');
+const { paginate } = require('../helpers/pagination');
 
 // ==================== EMI MASTER ROUTES ====================
 
@@ -11,37 +13,48 @@ const { branchFilter } = require('../middleware/branchFilter');
 router.get('/emi-master', authenticateToken, async (req, res) => {
   try {
     const branchScope = await branchFilter(req, { column: 'em.branch_id' });
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
-    let query = `
+    let whereClauses = [];
+    const params = [];
+
+    if (branchScope.clause) {
+      whereClauses.push(branchScope.clause.replace(' AND ', ''));
+      params.push(...branchScope.params);
+    }
+
+    const { is_active, emi_type } = req.query;
+
+    if (is_active !== undefined) {
+      whereClauses.push('em.is_active = ?');
+      params.push(is_active);
+    }
+
+    if (emi_type) {
+      whereClauses.push('em.emi_type = ?');
+      params.push(emi_type);
+    }
+
+    const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
+
+    const baseFrom = `
+      FROM sarga_emi_master em
+      LEFT JOIN sarga_branches b ON em.branch_id = b.id
+      ${whereSection}`;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+    const [rows] = await pool.query(`
       SELECT 
         em.*,
         b.name as branch_name,
         (SELECT SUM(amount) FROM sarga_emi_payments WHERE emi_id = em.id) as total_paid,
         (SELECT COUNT(*) FROM sarga_emi_payments WHERE emi_id = em.id) as payment_count
-      FROM sarga_emi_master em
-      LEFT JOIN sarga_branches b ON em.branch_id = b.id
-      WHERE 1=1
-    `;
+      ${baseFrom}
+      ORDER BY em.due_day ASC, em.created_at DESC
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
 
-    const params = [...branchScope.params];
-    query += branchScope.clause;
-
-    const { is_active, emi_type } = req.query;
-
-    if (is_active !== undefined) {
-      query += ' AND em.is_active = ?';
-      params.push(is_active);
-    }
-
-    if (emi_type) {
-      query += ' AND em.emi_type = ?';
-      params.push(emi_type);
-    }
-
-    query += ' ORDER BY em.due_day ASC, em.created_at DESC';
-
-    const [emis] = await pool.query(query, params);
-    res.json(emis);
+    res.json(response(rows, total));
   } catch (error) {
     console.error('Error fetching EMIs:', error);
     res.status(500).json({ error: 'Failed to fetch EMIs' });
@@ -168,7 +181,7 @@ router.get('/emi-master/:id', authenticateToken, async (req, res) => {
 });
 
 // Create new EMI
-router.post('/emi-master', authenticateToken, async (req, res) => {
+router.post('/emi-master', authenticateToken, validate(emiMasterSchema), async (req, res) => {
   try {
     if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only Admin and Accountant can add EMI commitments' });
@@ -218,7 +231,7 @@ router.post('/emi-master', authenticateToken, async (req, res) => {
 });
 
 // Update EMI
-router.put('/emi-master/:id', authenticateToken, async (req, res) => {
+router.put('/emi-master/:id', authenticateToken, validate(emiMasterSchema), async (req, res) => {
   try {
     if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only Admin and Accountant can update EMI commitments' });
@@ -307,7 +320,7 @@ router.delete('/emi-master/:id', authenticateToken, async (req, res) => {
 // ==================== EMI PAYMENT ROUTES ====================
 
 // Record EMI payment
-router.post('/emi-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.post('/emi-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(emiPaymentSchema), async (req, res) => {
   try {
     const {
       emi_id,
@@ -371,41 +384,48 @@ router.post('/emi-payments', authenticateToken, authorizeRoles('Admin', 'Account
 router.get('/kuri-master', authenticateToken, async (req, res) => {
   try {
     const { branchId } = await branchFilter(req);
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
-    let query = `
-      SELECT 
-        km.*,
-        b.name as branch_name,
-        (SELECT SUM(amount) FROM sarga_kuri_payments WHERE kuri_id = km.id) as total_paid,
-        (SELECT COUNT(*) FROM sarga_kuri_payments WHERE kuri_id = km.id) as payment_count
-      FROM sarga_kuri_master km
-      LEFT JOIN sarga_branches b ON km.branch_id = b.id
-      WHERE 1=1
-    `;
-
+    let whereClauses = [];
     const params = [];
 
     if (branchId) {
-      query += ' AND (km.branch_id = ? OR km.branch_id IS NULL)';
+      whereClauses.push('(km.branch_id = ? OR km.branch_id IS NULL)');
       params.push(branchId);
     }
 
     const { is_active, prize_taken } = req.query;
 
     if (is_active !== undefined) {
-      query += ' AND km.is_active = ?';
+      whereClauses.push('km.is_active = ?');
       params.push(is_active);
     }
 
     if (prize_taken !== undefined) {
-      query += ' AND km.prize_taken = ?';
+      whereClauses.push('km.prize_taken = ?');
       params.push(prize_taken);
     }
 
-    query += ' ORDER BY km.due_day ASC, km.created_at DESC';
+    const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
 
-    const [kuris] = await pool.query(query, params);
-    res.json(kuris);
+    const baseFrom = `
+      FROM sarga_kuri_master km
+      LEFT JOIN sarga_branches b ON km.branch_id = b.id
+      ${whereSection}`;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+    const [rows] = await pool.query(`
+      SELECT 
+        km.*,
+        b.name as branch_name,
+        (SELECT SUM(amount) FROM sarga_kuri_payments WHERE kuri_id = km.id) as total_paid,
+        (SELECT COUNT(*) FROM sarga_kuri_payments WHERE kuri_id = km.id) as payment_count
+      ${baseFrom}
+      ORDER BY km.due_day ASC, km.created_at DESC
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
+
+    res.json(response(rows, total));
   } catch (error) {
     console.error('Error fetching Kuris:', error);
     res.status(500).json({ error: 'Failed to fetch Kuris' });
@@ -527,7 +547,7 @@ router.get('/kuri-master/:id', authenticateToken, async (req, res) => {
 });
 
 // Create new Kuri
-router.post('/kuri-master', authenticateToken, async (req, res) => {
+router.post('/kuri-master', authenticateToken, validate(kuriMasterSchema), async (req, res) => {
   try {
     if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only Admin and Accountant can add Kuri commitments' });
@@ -584,7 +604,7 @@ router.post('/kuri-master', authenticateToken, async (req, res) => {
 });
 
 // Update Kuri
-router.put('/kuri-master/:id', authenticateToken, async (req, res) => {
+router.put('/kuri-master/:id', authenticateToken, validate(kuriMasterSchema), async (req, res) => {
   try {
     if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only Admin and Accountant can update Kuri commitments' });
@@ -682,7 +702,7 @@ router.delete('/kuri-master/:id', authenticateToken, async (req, res) => {
 // ==================== KURI PAYMENT ROUTES ====================
 
 // Record Kuri payment (supports daily small payments)
-router.post('/kuri-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.post('/kuri-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(kuriPaymentSchema), async (req, res) => {
   try {
     const {
       kuri_id,

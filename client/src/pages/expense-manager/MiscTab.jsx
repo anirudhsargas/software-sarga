@@ -11,6 +11,7 @@ const MiscTab = ({ onError }) => {
   const { confirm } = useConfirm();
   const [dashboard, setDashboard] = useState(null);
   const [expenses, setExpenses] = useState([]);
+  const [total, setTotal] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(defaultForm);
@@ -37,9 +38,16 @@ const MiscTab = ({ onError }) => {
   };
 
   const fetchDashboard = useCallback(async () => { try { const r = await api.get('/misc-dashboard'); setDashboard(r.data); } catch { } }, []);
-  const fetchExpenses = useCallback(async () => { try { const r = await api.get('/misc-expenses'); setExpenses(r.data); setPage(1); } catch { } }, []);
+  const fetchExpenses = useCallback(async (pageNum = 1) => {
+    try {
+      const r = await api.get(`/misc-expenses?page=${pageNum}&limit=${PAGE_SIZE}`);
+      setExpenses(r.data.data || []);
+      setTotal(r.data.total || 0);
+      setPage(pageNum);
+    } catch { }
+  }, []);
 
-  useEffect(() => { fetchDashboard(); fetchExpenses(); }, [fetchDashboard, fetchExpenses]);
+  useEffect(() => { fetchDashboard(); fetchExpenses(1); }, [fetchDashboard, fetchExpenses]);
 
   useEffect(() => {
     const handleBeforeUnload = (event) => {
@@ -60,7 +68,7 @@ const MiscTab = ({ onError }) => {
       if (editing) await api.put(`/misc-expenses/${editing.id}`, form);
       else await api.post('/misc-expenses', form);
       closeFormModal(true); setEditing(null); setForm(defaultForm);
-      fetchDashboard(); fetchExpenses();
+      fetchDashboard(); fetchExpenses(page);
     } catch (err) { onError(err.response?.data?.message || 'Failed'); }
     finally { setSubmitting(false); }
   };
@@ -80,11 +88,11 @@ const MiscTab = ({ onError }) => {
       type: 'danger'
     });
     if (!isConfirmed) return;
-    try { await api.delete(`/misc-expenses/${id}`); fetchDashboard(); fetchExpenses(); } catch { }
+    try { await api.delete(`/misc-expenses/${id}`); fetchDashboard(); fetchExpenses(page); } catch { }
   };
 
-  const totalPages = Math.ceil(expenses.length / PAGE_SIZE);
-  const pagedExpenses = expenses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const pagedExpenses = expenses;
 
   return (
     <div className="em-section">
@@ -101,14 +109,14 @@ const MiscTab = ({ onError }) => {
         </div>
       )}
 
-      {expenses.length > 0 ? (
+      {total > 0 ? (
         <div className="em-card">
           <div className="em-card__title">All Misc Expenses <button className="btn btn-ghost btn-sm" onClick={() => exportRowsToCsv(expenses, 'misc-expenses.csv')}><Download size={14} /> CSV</button></div>
-          {expenses.length > PAGE_SIZE && (
+          {total > PAGE_SIZE && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, expenses.length)} of {expenses.length}</span>
-              <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
-              <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}</span>
+              <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => fetchExpenses(page - 1)} disabled={page <= 1}><ChevronLeft size={16} /></button>
+              <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => fetchExpenses(page + 1)} disabled={page >= totalPages}><ChevronRight size={16} /></button>
             </div>
           )}
           <div className="em-table-wrap">

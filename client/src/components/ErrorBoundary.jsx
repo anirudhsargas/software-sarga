@@ -25,12 +25,27 @@ class ErrorBoundary extends React.Component {
     // Auto-reload once on chunk load errors (stale PWA cache)
     if (isChunkError(error)) {
       const reloadKey = 'sarga_chunk_reload';
-      if (!sessionStorage.getItem(reloadKey)) {
-        sessionStorage.setItem(reloadKey, '1');
-        console.warn('[PWA] Stale chunk in error boundary — reloading.');
-        window.location.reload();
+      const count = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
+      
+      if (count < 2) {
+        sessionStorage.setItem(reloadKey, (count + 1).toString());
+        console.warn(`[PWA] Chunk load error (attempt ${count + 1}) — reloading.`);
+        
+        // If it's the second attempt, try to unregister service workers first
+        if (count === 1 && 'serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (let registration of registrations) {
+              registration.unregister();
+            }
+          }).finally(() => {
+            window.location.reload();
+          });
+        } else {
+          window.location.reload();
+        }
       } else {
-        sessionStorage.removeItem(reloadKey);
+        // We've tried twice and it's still failing. Stay on the error screen.
+        console.error('[PWA] Persistent chunk load error after multiple reloads.');
       }
     }
   }
@@ -63,11 +78,11 @@ class ErrorBoundary extends React.Component {
           </p>
           {!isChunk && error && (
             <pre style={{
-              background: '#f3f4f6',
+              background: 'var(--surface-2)',
               padding: '1rem',
               borderRadius: '0.5rem',
               fontSize: '0.8rem',
-              color: '#374151',
+              color: 'var(--text-secondary)',
               maxWidth: '600px',
               overflow: 'auto',
               marginBottom: '1.5rem',
@@ -81,8 +96,8 @@ class ErrorBoundary extends React.Component {
               onClick={() => window.location.reload()}
               style={{
                 padding: '0.5rem 1.5rem',
-                backgroundColor: '#3b82f6',
-                color: '#fff',
+                backgroundColor: 'var(--accent)',
+                color: 'var(--on-accent)',
                 border: 'none',
                 borderRadius: '0.375rem',
                 cursor: 'pointer',
@@ -99,7 +114,7 @@ class ErrorBoundary extends React.Component {
                   style={{
                     padding: '0.5rem 1.5rem',
                     backgroundColor: 'var(--accent-2)',
-                    color: '#fff',
+                    color: 'var(--on-accent)',
                     border: 'none',
                     borderRadius: '0.375rem',
                     cursor: 'pointer',
@@ -113,7 +128,7 @@ class ErrorBoundary extends React.Component {
                   style={{
                     padding: '0.5rem 1.5rem',
                     backgroundColor: 'var(--muted)',
-                    color: '#fff',
+                    color: 'var(--on-accent)',
                     border: 'none',
                     borderRadius: '0.375rem',
                     cursor: 'pointer',

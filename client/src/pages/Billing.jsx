@@ -1,20 +1,24 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api, { imgUrl } from '../services/api';
+import localDb from '../services/localDb';
 import SecureImage from '../components/SecureImage';
 import auth from '../services/auth';
 import { serverToday } from '../services/serverTime';
-import { Camera, Download, Printer, Scissors, WifiOff, Plus, Minus } from 'lucide-react';
+import { Camera, Download, Printer, Scissors, WifiOff, Plus, Minus, AlertCircle, Tag, X, CheckCircle, Loader2 } from 'lucide-react';
 import ScannerModal from '../components/ScannerModal';
 import PaperOptimizer from '../components/PaperOptimizer';
 import { calculateProductPrice } from '../utils/pricing';
 import { downloadInvoicePDF, printInvoicePDF } from '../utils/invoicePdf';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
+import UpsellSuggestions from '../components/UpsellSuggestions';
 import { GST_RATE } from '../constants';
+import { forcePrefetchBillingData } from '../services/offlineSync';
 import offlineDb from '../services/offlineDb';
 import { useOnlineStatus } from '../hooks/useOffline';
-import { getCachedHierarchy, getCachedMachines, getCachedBranches, prefetchBillingData, forcePrefetchBillingData } from '../services/offlineSync';
+import { syncManager } from '../services/syncWorkerManager';
+// All sync logic is now handled by syncWorker.js in a Web Worker.
 
 // --- Upsell popup state ---
 const defaultUpsell = { open: false, suggestions: [], loading: false, baseProduct: null };
@@ -35,6 +39,7 @@ const Billing = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [offlineMode, setOfflineMode] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState(null);
   const [customerSearching, setCustomerSearching] = useState(false);
   const mobileSearchRef = useRef(null);
@@ -103,6 +108,14 @@ const Billing = () => {
   const [discountReason, setDiscountReason] = useState('');
   const [discountRequestLoading, setDiscountRequestLoading] = useState(false);
 
+  // Coupon states
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null); // { code, discount_type, discount_value }
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
+
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
+
   const [jobData, setJobData] = useState({
     job_name: '',
     description: '',
@@ -163,20 +176,26 @@ const Billing = () => {
     setDiscountMode('amount');
     setDiscountRequest(null);
     setDiscountReason('');
+    setCouponInput('');
+    setAppliedCoupon(null);
+    setCouponError('');
   };
 
   const loadStaffOptions = async () => {
     if (staffOptions.length > 0) return;
-    const response = await api.get('/staff?all=true');
-    const allStaff = response.data || [];
-    // Sort: current user's branch staff first
-    const userBranchId = auth.getUser()?.branch_id;
-    allStaff.sort((a, b) => {
-      const aMatch = a.branch_id === userBranchId ? 0 : 1;
-      const bMatch = b.branch_id === userBranchId ? 0 : 1;
-      return aMatch - bMatch;
-    });
-    setStaffOptions(allStaff);
+    try {
+      const allStaff = await localDb.getStaff() || [];
+      // Sort: current user's branch staff first
+      const userBranchId = auth.getUser()?.branch_id;
+      allStaff.sort((a, b) => {
+        const aMatch = a.branch_id === userBranchId ? 0 : 1;
+        const bMatch = b.branch_id === userBranchId ? 0 : 1;
+        return aMatch - bMatch;
+      });
+      setStaffOptions(allStaff);
+    } catch (err) {
+      console.error('Failed to load staff options:', err);
+    }
   };
 
   const loadRoleSuggestions = async (jobsToAssign, role) => {
@@ -228,70 +247,85 @@ const Billing = () => {
   useEffect(() => {
     const fetchMachines = async () => {
       try {
-        const response = await api.get('/machines?is_active=true');
-        setMachines(response.data || []);
-        offlineDb.cacheData('machines', response.data || []).catch(() => {});
+        const cached = await localDb.getMachines();
+        if (cached && cached.length > 0) {
+          setMachines(cached);
+        } else {
+          // Cache empty — fetch directly from server
+          try {
+            const userBranchId = auth.getUser()?.branch_id;
+            const res = await api.get('/machines', { params: { branch_id: userBranchId } });
+            const serverMachines = Array.isArray(res.data) ? res.data : [];
+            setMachines(serverMachines);
+          } catch (apiErr) {
+            console.error('Failed to fetch machines from server:', apiErr);
+          }
+        }
       } catch (err) {
-        try {
-          const cached = await getCachedMachines();
-          if (cached) setMachines(cached);
-        } catch (_) {}
+        console.error('Failed to fetch machines:', err);
       }
     };
 
     const fetchBranches = async () => {
       try {
-        const res = await api.get('/branches');
-        setBranches(res.data || []);
-        if (isAdmin && res.data?.length > 0 && !selectedBranchId) {
-          setSelectedBranchId(res.data[0].id);
+        const data = await localDb.getBranches();
+        setBranches(data || []);
+        if (isAdmin && data?.length > 0 && !selectedBranchId) {
+          setSelectedBranchId(data[0].id);
         }
         const userBranchId = auth.getUser()?.branch_id;
-        const branch = (res.data || []).find(b => b.id === userBranchId);
+        const branch = (data || []).find(b => b.id === userBranchId);
         if (branch?.upi_id) setBranchUpiId(branch.upi_id);
-        offlineDb.cacheData('branches', res.data || []).catch(() => {});
-      } catch {
-        try {
-          const cached = await getCachedBranches();
-          if (cached) {
-            setBranches(cached);
-            if (isAdmin && cached.length > 0 && !selectedBranchId) {
-              setSelectedBranchId(cached[0].id);
-            }
-            const userBranchId = auth.getUser()?.branch_id;
-            const branch = cached.find(b => b.id === userBranchId);
-            if (branch?.upi_id) setBranchUpiId(branch.upi_id);
-          }
-        } catch (_) {}
+      } catch (err) {
+        console.error('Failed to fetch branches:', err);
       }
     };
 
     fetchMachines();
     fetchBranches();
+
+    // Listen for machine updates from sync manager
+    const handleMachineSync = (data) => {
+      if (data && data.key === 'machines') {
+        fetchMachines();
+      }
+    };
+
+    syncManager.on('master_data_updated', handleMachineSync);
+
+    return () => {
+      syncManager.off('master_data_updated', handleMachineSync);
+    };
   }, []);
 
   useEffect(() => {
     const fetchHierarchy = async () => {
       try {
-        const response = await api.get('/product-hierarchy');
-        setHierarchy(response.data || []);
-        // Cache for offline use
-        offlineDb.cacheData('product-hierarchy', response.data || []).catch(() => {});
-      } catch (err) {
-        // Fallback to offline cache
-        console.warn('Failed to load products from server, trying offline cache...');
-        try {
-          const cached = await getCachedHierarchy();
-          if (cached && cached.length > 0) {
-            setHierarchy(cached);
-            setProductError('');
-            toast('Using cached product data (offline mode)', { icon: '📶' });
-          } else {
-            setProductError('Failed to load products — no cached data available');
+        let data = await localDb.getProducts();
+        if (data && data.length > 0) {
+          setHierarchy(data);
+          setProductError('');
+        } else {
+          // Cache miss — fetch directly from server
+          try {
+            const response = await api.get('/product-hierarchy');
+            const serverHierarchy = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+            if (serverHierarchy.length > 0) {
+              setHierarchy(serverHierarchy);
+              setProductError('');
+              // Cache for next load
+              offlineDb.cacheData('hierarchy', serverHierarchy).catch(() => {});
+            } else {
+              setProductError('No products available. Sync required.');
+            }
+          } catch (apiErr) {
+            console.error('Failed to fetch hierarchy from server:', apiErr);
+            setProductError('No products available. Sync required.');
           }
-        } catch (_) {
-          setProductError('Failed to load products');
         }
+      } catch (err) {
+        console.error('Failed to fetch hierarchy:', err);
+        setProductError('Failed to load products');
       } finally {
         setLoading(false);
       }
@@ -345,8 +379,7 @@ const Billing = () => {
     mobileSearchRef.current = setTimeout(async () => {
       try {
         setCustomerSearching(true);
-        const response = await api.get('/customers', { params: { search: form.mobile, cross_branch: '1' } });
-        const results = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+        const results = await localDb.getCustomers({ search: form.mobile });
         const match = results.find((c) => String(c.mobile) === form.mobile);
         if (!match) {
           setExistingCustomer(null);
@@ -458,34 +491,6 @@ const Billing = () => {
     const trimmedGst = form.gst?.trim().toUpperCase() || '';
     const trimmedAddress = form.address?.trim() || '';
 
-    if (existingCustomer) {
-      const existingMobile = String(existingCustomer.mobile || '').replace(/\D/g, '').slice(0, 10);
-      const payload = {
-        mobile: existingMobile,
-        name: trimmedName || existingCustomer.name || 'Walk-in Customer',
-        type: form.type,
-        email: trimmedEmail || null,
-        gst: trimmedGst || null,
-        address: trimmedAddress || null
-      };
-
-      const shouldUpdate =
-        String(existingCustomer.type || '') !== String(payload.type || '') ||
-        String(existingCustomer.name || '') !== String(payload.name || '') ||
-        String(existingCustomer.email || '') !== String(payload.email || '') ||
-        String(existingCustomer.gst || '') !== String(payload.gst || '') ||
-        String(existingCustomer.address || '') !== String(payload.address || '');
-
-      if (shouldUpdate && existingCustomer.id) {
-        await api.put(`/customers/${existingCustomer.id}`, payload);
-        const updatedCustomer = { ...existingCustomer, ...payload };
-        setExistingCustomer(updatedCustomer);
-        return updatedCustomer;
-      }
-
-      return existingCustomer;
-    }
-
     // Walk-ins without mobile: skip customer creation, return null
     if (isWalkIn && !trimmedMobile) {
       return null;
@@ -505,33 +510,19 @@ const Billing = () => {
       address: trimmedAddress || null
     };
 
-    try {
-      const response = await api.post('/customers', payload);
-      const newCustomer = { id: response.data?.id, ...payload };
-      setExistingCustomer(newCustomer);
-      return newCustomer;
-    } catch (err) {
-      // If duplicate mobile, look up the existing customer instead
-      if (err.response?.status === 409 || err.response?.data?.message?.toLowerCase().includes('already exists')) {
-        const searchRes = await api.get('/customers', { params: { search: trimmedMobile, cross_branch: '1' } });
-        const results = Array.isArray(searchRes.data) ? searchRes.data : (searchRes.data?.data || []);
-        const found = results.find(c => String(c.mobile) === trimmedMobile);
-        if (found) {
-          setExistingCustomer(found);
-          return found;
-        }
-      }
-      throw err;
-    }
+    // Use localDb.createCustomer which handles creation and returns the customer
+    // It also handles existing customer updates or logic internally if we choose to expand it,
+    // but for now it performs a create (local first).
+    const customer = await localDb.createCustomer(payload);
+    setExistingCustomer(customer);
+    return customer;
   };
-
   const handleAddOrder = async () => {
     if (!canProceed) {
       setError('Enter required customer details before continuing.');
       return;
     }
 
-    // Validate customer fields
     const custErrors = validateCustomerFields();
     if (Object.keys(custErrors).length > 0) {
       setFieldErrors(custErrors);
@@ -539,7 +530,6 @@ const Billing = () => {
       return;
     }
 
-    // Validate order lines
     if (orderLines.length === 0) {
       setError('Add at least one product to the bill.');
       return;
@@ -555,13 +545,11 @@ const Billing = () => {
       }
     }
 
-    // Block negative or zero bill total (e.g. discount exceeds subtotal)
     if (totals.gross <= 0) {
       setError('Bill total must be greater than zero. Please adjust items or discount.');
       return;
     }
 
-    // Validate payment
     const payErrors = validatePayment();
     if (Object.keys(payErrors).length > 0) {
       setFieldErrors((prev) => ({ ...prev, ...payErrors }));
@@ -569,7 +557,6 @@ const Billing = () => {
       return;
     }
 
-    // Walk-in customers must pay the full amount
     if (isWalkIn && advancePaid < totals.gross * 0.99) {
       setError('Walk-in customers must make full payment before creating a bill.');
       setFieldErrors((prev) => ({ ...prev, advancePaid: 'Full payment required for walk-in customers' }));
@@ -586,7 +573,6 @@ const Billing = () => {
         setError('Discount approval is still pending. Please wait for admin to approve, then click Create Bill.');
         return;
       }
-      // APPROVED — fall through
     }
 
     setError('');
@@ -594,38 +580,14 @@ const Billing = () => {
     setSaving(true);
     try {
       const customer = await ensureCustomer();
-      let createdJobs = [];
-
-      if (orderLines.length > 0) {
-        const payload = {
-          customer_id: customer?.id || null,
-          order_lines: orderLines
-        };
-        if (isAdmin && selectedBranchId) {
-          payload.branch_id = selectedBranchId;
-        }
-        const jobRes = await api.post('/jobs/bulk', payload);
-        createdJobs = jobRes.data?.jobs || [];
-        console.log('✓ Jobs created from /jobs/bulk:', createdJobs);
-        createdJobs.forEach((j, idx) => {
-          console.log(`  Job ${idx}: id=${j.id} (type: ${typeof j.id}), job_number=${j.job_number}`);
-        });
-      }
-
-      const customerName = form.name?.trim() || existingCustomer?.name || 'Walk-in';
+      const customerName = form.name?.trim() || customer?.name || 'Walk-in';
       const cashAmount = Number(payment.methodAmounts.Cash) || 0;
       const upiAmount = Number(payment.methodAmounts.UPI) || 0;
       const chequeAmount = Number(payment.methodAmounts.Cheque) || 0;
       const transferAmount = Number(payment.methodAmounts['Account Transfer']) || 0;
-      const selectedMethods = payment.selectedMethods.length > 0
-        ? payment.selectedMethods
-        : ['Cash'];
-      const isCashUpiCombo = selectedMethods.length === 2
-        && selectedMethods.includes('Cash')
-        && selectedMethods.includes('UPI');
-      const paymentMethod = isCashUpiCombo
-        ? 'Both'
-        : selectedMethods[0];
+      const selectedMethods = payment.selectedMethods.length > 0 ? payment.selectedMethods : ['Cash'];
+      const isCashUpiCombo = selectedMethods.length === 2 && selectedMethods.includes('Cash') && selectedMethods.includes('UPI');
+      const paymentMethod = isCashUpiCombo ? 'Both' : selectedMethods[0];
       const paymentLabel = selectedMethods.join(' + ');
 
       const methodNote = selectedMethods.length > 1 ? `Methods: ${paymentLabel}` : '';
@@ -634,13 +596,13 @@ const Billing = () => {
       if (transferAmount > 0) transferNotes.push(`Transfer ₹${transferAmount.toFixed(2)}`);
       const autoDescription = [methodNote, transferNotes.join(', ')].filter(Boolean).join('. ');
 
-      // Walk-in + fully paid → auto-deliver (no staff assignment needed)
       const isAutoDeliver = isWalkIn && advancePaid >= totals.gross * 0.99;
 
-      const paymentRes = await api.post('/customer-payments', {
+      const billPayload = {
         customer_id: customer?.id || null,
         customer_name: customerName,
         customer_mobile: form.mobile || null,
+        customer_type: form.type,
         total_amount: totals.gross,
         net_amount: totals.net,
         sgst_amount: totals.sgst,
@@ -651,17 +613,33 @@ const Billing = () => {
         payment_method: paymentMethod,
         cash_amount: cashAmount,
         upi_amount: upiAmount,
+        cheque_amount: chequeAmount,
+        account_transfer_amount: transferAmount,
         reference_number: payment.referenceNumber,
         description: payment.description || autoDescription,
         payment_date: payment.paymentDate,
-        order_lines: orderLines,
-        job_ids: createdJobs.map((job) => job.id),
-        auto_deliver: isAutoDeliver
-      });
+        order_lines: orderLines.map(line => ({
+            ...line,
+            // Ensure product IDs are safe for localDb
+            product_id: line.product_id ? Number(line.product_id) : null,
+            machine_id: line.machine_id ? Number(line.machine_id) : null
+        })),
+        auto_deliver: isAutoDeliver,
+        coupon_code: appliedCoupon?.code || null
+      };
+
+      if (isAdmin && selectedBranchId) {
+        billPayload.branch_id = selectedBranchId;
+      }
+
+      // Use localDb.createBill which returns local state and starts background sync
+      const result = await localDb.createBill(billPayload);
+      const { payment: createdPayment = {}, jobs: createdJobs = [] } = result;
+
       const jobsForAssign = createdJobs.map((job, index) => {
         const orderLine = orderLines[index] || {};
         return {
-          id: job.id,  // Explicitly preserve job ID
+          id: job.id,
           job_number: job.job_number,
           product_id: orderLine.product_id,
           product_name: orderLine.product_name || orderLine.job_name,
@@ -671,13 +649,13 @@ const Billing = () => {
           description: orderLine.description
         };
       });
-      console.log('jobsForAssign created:', jobsForAssign);
+
       setAssignJobs(jobsForAssign);
       setAssignRoles({});
       setAssignSelections({});
       setRoleSuggestions({});
-      // Use server-generated sequential invoice number (gap-free for tax compliance)
-      const invoiceNumber = paymentRes.data?.invoice_number || `INV-${Date.now().toString(36).toUpperCase()}`;
+
+      const invoiceNumber = createdPayment.invoice_number || `LOCAL-${Date.now().toString(36).toUpperCase()}`;
       setLastBillData({
         invoiceNumber,
         invoiceDate: payment.paymentDate,
@@ -710,53 +688,16 @@ const Billing = () => {
       setLastOrderCustomerType(currentCustomerType);
       setLastOrderAutoDelivered(isAutoDeliver);
       setShowPostBillOptions(true);
-    } catch (err) {
-      // Detect network failure → queue bill offline
-      const isNetworkError = !err.response && (err.code === 'ERR_NETWORK' || err.message === 'Network Error' || !navigator.onLine);
 
-      if (isNetworkError) {
-        try {
-          const customerName = form.name?.trim() || existingCustomer?.name || 'Walk-in';
-          const cashAmount = Number(payment.methodAmounts.Cash) || 0;
-          const upiAmount = Number(payment.methodAmounts.UPI) || 0;
-          const selectedMethods = payment.selectedMethods.length > 0 ? payment.selectedMethods : ['Cash'];
-          const isCashUpiCombo = selectedMethods.length === 2 && selectedMethods.includes('Cash') && selectedMethods.includes('UPI');
-          const paymentMethod = isCashUpiCombo ? 'Both' : selectedMethods[0];
-
-          await offlineDb.queueBill({
-            customerId: existingCustomer?.id || null,
-            customerName,
-            customerMobile: form.mobile || null,
-            customerType: form.type,
-            totalAmount: totals.gross,
-            netAmount: totals.net,
-            sgstAmount: totals.sgst,
-            cgstAmount: totals.cgst,
-            discountPercent: totals.effectiveDiscount || null,
-            discountAmount: totals.discountAmount || null,
-            advancePaid,
-            paymentMethod,
-            cashAmount,
-            upiAmount,
-            referenceNumber: payment.referenceNumber || null,
-            description: payment.description || '',
-            paymentDate: payment.paymentDate,
-            orderLines: orderLines.map(l => ({ ...l })),
-          });
-
-          toast.success(`Bill saved offline! It will sync when internet returns.`, { duration: 5000, icon: '📴' });
-          resetBillingState();
-          setShowPostBillOptions(false);
-        } catch (offlineErr) {
-          setError('Network unavailable and failed to save offline. Please try again.');
-          console.error('Offline save failed:', offlineErr);
-        }
+      if (createdPayment.syncStatus === 'pending') {
+          toast.success('Bill saved locally! Will sync when online.', { icon: '📴' });
       } else {
-        const msg = err.response?.data?.error
-          ? `${err.response.data.message}: ${err.response.data.error}`
-          : (err.response?.data?.message || 'Failed to save customer');
-        setError(msg);
+          toast.success('Bill created successfully!');
       }
+
+    } catch (err) {
+      console.error('Bill creation failed:', err);
+      setError(err.message || 'Failed to create bill. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -1059,24 +1000,41 @@ const Billing = () => {
   const totals = useMemo(() => {
     const round2 = (n) => Math.round(n * 100) / 100;
     const subtotal = round2(orderLines.reduce((sum, line) => sum + (Number(line.total_amount) || 0), 0));
-    // Derive the active discount percent from whichever mode is active
-    const activePct = discountMode === 'amount'
-      ? (subtotal > 0 ? Math.min((discountInputAmount / subtotal) * 100, 100) : 0)
-      : discountPercent;
-    const effectiveDiscount = (
-      activePct > 0 && activePct <= 5
-    ) || (
-        activePct > 5 &&
-        discountRequest?.status === 'APPROVED' &&
-        Math.abs(Number(discountRequest.discount_percent) - activePct) < 0.1
-      ) ? activePct : 0;
+
+    // If coupon is applied, it overrides manual discount
+    let activePct = 0;
+    let couponFlatAmount = 0;
+    if (appliedCoupon) {
+      if (appliedCoupon.discount_type === 'percent') {
+        activePct = appliedCoupon.discount_value;
+      } else {
+        // Flat amount coupon — convert to equivalent percent for the calc
+        couponFlatAmount = Math.min(appliedCoupon.discount_value, subtotal);
+        activePct = subtotal > 0 ? (couponFlatAmount / subtotal) * 100 : 0;
+      }
+    } else {
+      // Manual discount
+      activePct = discountMode === 'amount'
+        ? (subtotal > 0 ? Math.min((discountInputAmount / subtotal) * 100, 100) : 0)
+        : discountPercent;
+    }
+
+    // Effective discount: coupon always applies; manual needs approval if >5%
+    const effectiveDiscount = appliedCoupon
+      ? activePct
+      : ((activePct > 0 && activePct <= 5) || (
+          activePct > 5 &&
+          discountRequest?.status === 'APPROVED' &&
+          Math.abs(Number(discountRequest.discount_percent) - activePct) < 0.1
+        ) ? activePct : 0);
+
     const gross = round2(subtotal * (1 - effectiveDiscount / 100));
     const discountAmount = round2(subtotal - gross);
     const net = round2(gross / (1 + GST_RATE));
     const sgst = round2(net * (GST_RATE / 2));
     const cgst = round2(net * (GST_RATE / 2));
     return { gross, net, sgst, cgst, subtotal, effectiveDiscount, discountAmount, activePct };
-  }, [orderLines, discountPercent, discountInputAmount, discountMode, discountRequest]);
+  }, [orderLines, discountPercent, discountInputAmount, discountMode, discountRequest, appliedCoupon]);
 
   const paymentBalance = useMemo(() => {
     const total = Number(totals.gross) || 0;
@@ -1095,6 +1053,43 @@ const Billing = () => {
     } catch (e) {
       console.warn('Failed to check discount approval', e);
     }
+  };
+
+  const handleApplyCoupon = async () => {
+    const code = couponInput.trim().toUpperCase().replace(/\s+/g, '');
+    if (!code) {
+      setCouponError('Enter a coupon code');
+      return;
+    }
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const res = await api.post('/coupons/validate', { code, order_total: totals.subtotal });
+      if (res.data.valid) {
+        setAppliedCoupon({
+          code: res.data.code,
+          discount_type: res.data.discount_type,
+          discount_value: res.data.discount_value
+        });
+        setCouponError('');
+        toast.success(res.data.message);
+      } else {
+        setCouponError(res.data.message || 'Invalid coupon');
+        setAppliedCoupon(null);
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Invalid coupon code';
+      setCouponError(msg);
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponError('');
   };
 
   const handleSubmitDiscountRequest = async () => {
@@ -1379,6 +1374,23 @@ const Billing = () => {
 
         {loading && <div className="muted">Loading products...</div>}
         {customerSearching && <div className="muted" style={{ fontSize: '13px', padding: '4px 0' }}>Searching customer...</div>}
+        {offlineMode && (
+          <div style={{
+            display: 'flex',
+            gap: 12,
+            alignItems: 'center',
+            padding: '12px 16px',
+            backgroundColor: 'var(--warning-bg, #fef3c7)',
+            borderLeft: '4px solid var(--warning, #f59e0b)',
+            borderRadius: 4,
+            marginBottom: 16,
+            fontSize: 13,
+            color: 'var(--warning-text, #92400e)'
+          }}>
+            <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <span><strong>Using offline data.</strong> Changes will sync when internet returns.</span>
+          </div>
+        )}
         {/* Step Indicators */}
         <div className="billing-steps">
           <div className={`billing-step ${orderLines.length === 0 ? 'billing-step--active' : 'billing-step--done'}`}>
@@ -1478,75 +1490,115 @@ const Billing = () => {
                   </div>
                 </div>
 
-                {/* Row 2: Name + Email */}
-                <div className="billing-form-grid billing-form-grid--2">
-                  <div>
-                    <label className="label">Customer Name {isWalkIn ? '(optional)' : ''}</label>
-                    <input
-                      className={`input-field ${fieldErrors.name ? 'input-field--error' : ''}`}
-                      value={form.name}
-                      onChange={(e) => handleChange('name', e.target.value)}
-                      placeholder="Customer name"
-                      maxLength={100}
-                    />
-                    {fieldErrors.name && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.name}</span>}
-                  </div>
-                  <div>
-                    <label className="label">Email Address (optional)</label>
-                    <input
-                      type="email"
-                      className={`input-field ${fieldErrors.email ? 'input-field--error' : ''}`}
-                      value={form.email}
-                      onChange={(e) => {
-                        handleChange('email', e.target.value);
-                        if (e.target.value && !validateEmail(e.target.value)) {
-                          setFieldErrors((prev) => ({ ...prev, email: 'Invalid email format' }));
-                        } else {
-                          setFieldErrors((prev) => { const { email, ...rest } = prev; return rest; });
-                        }
-                      }}
-                      placeholder="Email"
-                    />
-                    {fieldErrors.email && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.email}</span>}
-                  </div>
+                {/* Row 2: Name */}
+                <div>
+                  <label className="label">Customer Name {isWalkIn ? '(optional)' : ''}</label>
+                  <input
+                    className={`input-field ${fieldErrors.name ? 'input-field--error' : ''}`}
+                    value={form.name}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    placeholder="Customer name"
+                    maxLength={100}
+                  />
+                  {fieldErrors.name && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.name}</span>}
                 </div>
 
-                {/* Row 3: Address + GST */}
-                <div className={`billing-form-grid ${needsGst ? 'billing-form-grid--2' : 'billing-form-grid--1'}`}>
-                  <div>
-                    <label className="label">Address (optional)</label>
-                    <textarea
-                      className="input-field"
-                      style={{ minHeight: '70px', resize: 'vertical' }}
-                      value={form.address}
-                      onChange={(e) => handleChange('address', e.target.value)}
-                      placeholder="Address"
-                      maxLength={500}
-                    />
-                    {fieldErrors.address && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.address}</span>}
-                  </div>
-                  {needsGst && (
+                {/* Optional fields toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowOptionalFields(v => !v)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--accent, #6366f1)',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    padding: '2px 0',
+                    width: 'fit-content'
+                  }}
+                >
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    background: 'var(--accent, #6366f1)',
+                    color: 'var(--on-accent)',
+                    fontSize: 11,
+                    lineHeight: 1,
+                    transition: 'transform 0.2s',
+                    transform: showOptionalFields ? 'rotate(45deg)' : 'rotate(0deg)'
+                  }}>+</span>
+                  {showOptionalFields ? 'Hide optional fields' : 'Add email, address, GST…'}
+                </button>
+
+                {/* Optional: Email + Address + GST */}
+                {showOptionalFields && (
+                  <>
+                    {/* Email */}
                     <div>
-                      <label className="label">GST Number (optional)</label>
+                      <label className="label">Email Address (optional)</label>
                       <input
-                        className={`input-field ${fieldErrors.gst ? 'input-field--error' : ''}`}
-                        value={form.gst}
+                        type="email"
+                        className={`input-field ${fieldErrors.email ? 'input-field--error' : ''}`}
+                        value={form.email}
                         onChange={(e) => {
-                          const val = e.target.value.toUpperCase();
-                          handleChange('gst', val);
-                          if (val && !validateGST(val)) {
-                            setFieldErrors((prev) => ({ ...prev, gst: 'Invalid GST format' }));
+                          handleChange('email', e.target.value);
+                          if (e.target.value && !validateEmail(e.target.value)) {
+                            setFieldErrors((prev) => ({ ...prev, email: 'Invalid email format' }));
                           } else {
-                            setFieldErrors((prev) => { const { gst, ...rest } = prev; return rest; });
+                            setFieldErrors((prev) => { const { email, ...rest } = prev; return rest; });
                           }
                         }}
-                        placeholder="e.g. 29ABCDE1234F1Z5"
-                        maxLength={15}
+                        placeholder="Email"
                       />
-                      {fieldErrors.gst && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.gst}</span>}
+                      {fieldErrors.email && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.email}</span>}
                     </div>
-                  )}
-                </div>
+
+                    {/* Address + GST */}
+                    <div className={`billing-form-grid ${needsGst ? 'billing-form-grid--2' : 'billing-form-grid--1'}`}>
+                      <div>
+                        <label className="label">Address (optional)</label>
+                        <textarea
+                          className="input-field"
+                          style={{ minHeight: '70px', resize: 'vertical' }}
+                          value={form.address}
+                          onChange={(e) => handleChange('address', e.target.value)}
+                          placeholder="Address"
+                          maxLength={500}
+                        />
+                        {fieldErrors.address && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.address}</span>}
+                      </div>
+                      {needsGst && (
+                        <div>
+                          <label className="label">GST Number (optional)</label>
+                          <input
+                            className={`input-field ${fieldErrors.gst ? 'input-field--error' : ''}`}
+                            value={form.gst}
+                            onChange={(e) => {
+                              const val = e.target.value.toUpperCase();
+                              handleChange('gst', val);
+                              if (val && !validateGST(val)) {
+                                setFieldErrors((prev) => ({ ...prev, gst: 'Invalid GST format' }));
+                              } else {
+                                setFieldErrors((prev) => { const { gst, ...rest } = prev; return rest; });
+                              }
+                            }}
+                            placeholder="e.g. 29ABCDE1234F1Z5"
+                            maxLength={15}
+                          />
+                          {fieldErrors.gst && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.gst}</span>}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1757,6 +1809,34 @@ const Billing = () => {
                   </select>
                 </div>
               </div>
+
+              {/* AI Upsell Suggestions — shown after category selection */}
+              {selectedCategory?.name && (
+                <UpsellSuggestions
+                  currentServices={[selectedCategory.name]}
+                  branchId={selectedBranchId}
+                  onAdd={(serviceName) => {
+                    setOrderLines(prev => [...prev, {
+                      id: `upsell-${serviceName}-${Date.now()}`,
+                      product_id: null,
+                      product_name: serviceName,
+                      calculation_type: 'flat',
+                      quantity: 1,
+                      unit_price: 0,
+                      total_amount: 0,
+                      applied_extras: [],
+                      customPaperRate: 0,
+                      is_double_side: false,
+                      description: serviceName,
+                      category: serviceName,
+                      subcategory: '',
+                      machine_id: null,
+                      is_inventory_item: false
+                    }]);
+                    toast.success(`Added: ${serviceName}`);
+                  }}
+                />
+              )}
 
               {selectedProduct && (
                 <>
@@ -1971,9 +2051,10 @@ const Billing = () => {
                 </div>
 
                 {/* Discount */}
-                <div className="billing-discount-section">
+                <div className="billing-discount-section" style={appliedCoupon ? { opacity: 0.5, pointerEvents: 'none' } : {}}>
                   <div className="row gap-sm items-center mb-8">
                     <label className="label" style={{ margin: 0 }}>Discount</label>
+                    {appliedCoupon && <span className="text-xs muted" style={{ fontStyle: 'italic' }}>(Overridden by coupon)</span>}
                     <div className="billing-discount-toggle">
                       <button
                         type="button"
@@ -2067,6 +2148,70 @@ const Billing = () => {
                       <span className="billing-discount-status billing-discount-status--err">⚠ &gt;10% Admin only</span>
                     )}
                   </div>
+                </div>
+
+                {/* Coupon Code */}
+                <div className="billing-discount-section" style={{ marginTop: '12px' }}>
+                  <div className="row gap-sm items-center mb-8">
+                    <Tag size={14} style={{ color: 'var(--muted)' }} />
+                    <label className="label" style={{ margin: 0 }}>Coupon Code</label>
+                  </div>
+                  {appliedCoupon ? (
+                    <div className="row gap-sm items-center" style={{ flexWrap: 'wrap' }}>
+                      <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 14px', borderRadius: '10px',
+                        background: 'rgba(47, 125, 74, 0.1)', border: '1px solid rgba(47, 125, 74, 0.25)',
+                        color: 'var(--success)', fontWeight: 600, fontSize: '14px'
+                      }}>
+                        <CheckCircle size={16} />
+                        <span style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>{appliedCoupon.code}</span>
+                        <span style={{ fontWeight: 400, fontSize: '13px', opacity: 0.8 }}>
+                          {appliedCoupon.discount_type === 'percent'
+                            ? `${appliedCoupon.discount_value}% off`
+                            : `₹${Number(appliedCoupon.discount_value).toFixed(0)} off`
+                          }
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={handleRemoveCoupon}
+                        style={{ padding: '4px 10px', fontSize: '12px', color: 'var(--error)' }}
+                      >
+                        <X size={14} /> Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="row gap-sm items-center" style={{ flexWrap: 'wrap' }}>
+                        <input
+                          type="text"
+                          className="input-field"
+                          style={{ maxWidth: '200px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}
+                          placeholder="Enter code"
+                          value={couponInput}
+                          onChange={(e) => { setCouponInput(e.target.value); setCouponError(''); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon(); } }}
+                          disabled={couponLoading}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={handleApplyCoupon}
+                          disabled={couponLoading || !couponInput.trim()}
+                          style={{ gap: '6px' }}
+                        >
+                          {couponLoading ? <><Loader2 size={14} className="spin" /> Checking...</> : <><Tag size={14} /> Apply</>}
+                        </button>
+                      </div>
+                      {couponError && (
+                        <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--error)', fontWeight: 500 }}>
+                          {couponError}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Payment Methods */}

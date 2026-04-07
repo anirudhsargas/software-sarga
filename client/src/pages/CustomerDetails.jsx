@@ -9,7 +9,9 @@ import {
   Upload, FileText, Download, X, Loader2, Copy
 } from 'lucide-react';
 import api from '../services/api';
+import localDb from '../services/localDb';
 import toast from 'react-hot-toast';
+import { whatsappUrl, paymentReminderMessage, dueCollectionMessage } from '../utils/whatsapp';
 
 import './CustomerDetails.css';
 
@@ -35,6 +37,51 @@ const ago = (d) => {
   if (days < 30) return `${days}d ago`;
   if (days < 365) return `${Math.floor(days / 30)}mo ago`;
   return `${Math.floor(days / 365)}y ago`;
+};
+
+const WhatsAppBtn = ({ mobile, customerName, outstanding, orderCount }) => {
+  const [open, setOpen] = React.useState(false);
+  const btnRef = React.useRef(null);
+  const ref = React.useRef(null);
+  const [dropPos, setDropPos] = React.useState({ top: 0, left: 0 });
+
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  React.useEffect(() => {
+    if (open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX });
+    }
+  }, [open]);
+
+  const options = [];
+  if (outstanding > 0) {
+    options.push({ label: 'Payment Reminder', icon: '💰', message: dueCollectionMessage({ customerName, totalDue: outstanding, jobCount: orderCount || 1 }) });
+  }
+  options.push({ label: 'Say Hello', icon: '👋', message: `Dear ${customerName || 'Customer'},\n\nGreetings from Sarga! 🙏\n\nHow can we help you today?` });
+  return (
+    <span ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
+      <button ref={btnRef} onClick={() => setOpen(!open)} style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: 6, padding: '2px 8px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }} title="WhatsApp">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        WhatsApp ▾
+      </button>
+      {open && (
+        <div style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, background: 'var(--surface, #fff)', border: '1px solid var(--border, #e5e7eb)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', zIndex: 9999, minWidth: 190, overflow: 'hidden' }}>
+          {options.map((opt, i) => (
+            <a key={i} href={whatsappUrl(mobile, opt.message)} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}
+              style={{ display: 'block', padding: '10px 14px', fontSize: '13px', color: 'var(--text, #333)', textDecoration: 'none', borderBottom: i < options.length - 1 ? '1px solid var(--border, #eee)' : 'none', whiteSpace: 'nowrap' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg, #f3f4f6)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >{opt.icon} {opt.label}</a>
+          ))}
+        </div>
+      )}
+    </span>
+  );
 };
 
 const CustomerDetails = () => {
@@ -67,9 +114,13 @@ const CustomerDetails = () => {
     try {
       if (!silent) setLoading(true);
       else setRefreshing(true);
-      const res = await api.get(`/customers/${id}/dashboard`);
-      setData(res.data);
-      setError('');
+      const dashboardData = await localDb.getCustomerDashboard(id);
+      if (dashboardData) {
+        setData(dashboardData);
+        setError('');
+      } else {
+        setError('Customer not found locally');
+      }
     } catch (err) {
       console.error('Dashboard fetch error:', err);
       setError('Failed to load customer dashboard');
@@ -99,7 +150,7 @@ const CustomerDetails = () => {
   }, [tab, id]);
 
   /* ── Auto-refresh every 30s (pauses when tab hidden) ── */
-  usePolling(() => fetchDashboard(true), 30000);
+
 
   /* ───── derived ───── */
   const filteredJobs = useMemo(() => {
@@ -219,7 +270,7 @@ const CustomerDetails = () => {
       {/* ── HEADER ── */}
       <div className="cd-header">
         <div className="cd-header-left">
-          <button className="btn btn-ghost" onClick={() => navigate(-1)}>
+          <button className="btn btn-ghost" onClick={() => navigate('/dashboard/customers')}>
             <ArrowLeft size={16} /> Back
           </button>
           <h1 className="cd-title">Customer Dashboard</h1>
@@ -241,7 +292,13 @@ const CustomerDetails = () => {
             {summary.totalOrders > 10 && <span className="cd-badge cd-badge--star"><Star size={10} /> Loyal</span>}
           </div>
           <div className="cd-profile-details">
-            {customer.mobile && <span><Phone size={13} /> +91 {customer.mobile}</span>}
+            {customer.mobile && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Phone size={13} /> <a href={`tel:+91${customer.mobile}`} style={{ color: 'inherit', textDecoration: 'none' }}>+91 {customer.mobile}</a>
+                <a href={`tel:+91${customer.mobile}`} style={{ color: 'var(--success)', textDecoration: 'none', fontWeight: 600, fontSize: 12 }} title="Call">📞</a>
+                <WhatsAppBtn mobile={customer.mobile} customerName={customer.name} outstanding={payments.outstandingBalance} orderCount={summary.totalOrders - summary.completedOrders - summary.cancelledOrders} />
+              </span>
+            )}
             {customer.email && <span><Mail size={13} /> {customer.email}</span>}
             {customer.address && <span><MapPin size={13} /> {customer.address}</span>}
             {customer.gst && <span><Hash size={13} /> GST: {customer.gst}</span>}
@@ -545,7 +602,7 @@ const CustomerDetails = () => {
                         <div style={{ textAlign: 'center', color: 'var(--muted, var(--muted))' }}>
                           <FileText size={40} style={{ opacity: 0.4 }} />
                           <div style={{ fontSize: 11, marginTop: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
-                            {d.file_type || path.extname(d.original_name || '')}
+                            {d.file_type || (d.original_name || '').split('.').pop()?.toUpperCase() || ''}
                           </div>
                         </div>
                       )}
@@ -559,11 +616,11 @@ const CustomerDetails = () => {
                         onMouseLeave={e => e.currentTarget.style.opacity = 0}
                       >
                         <button onClick={(e) => { e.stopPropagation(); window.open(fileUrl, '_blank'); }}
-                          style={{ background: '#fff', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600 }}>
+                          style={{ background: 'var(--surface)', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600 }}>
                           <Eye size={14} /> View
                         </button>
                         <a href={fileUrl} download onClick={e => e.stopPropagation()}
-                          style={{ background: '#fff', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, textDecoration: 'none', color: 'inherit' }}>
+                          style={{ background: 'var(--surface)', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, textDecoration: 'none', color: 'inherit' }}>
                           <Download size={14} /> Save
                         </a>
                       </div>
@@ -646,7 +703,7 @@ const CustomerDetails = () => {
           <div style={{ background: 'var(--surface, #222)', borderRadius: 16, width: '100%', maxWidth: 500, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Upload size={20} color="var(--accent)" />
                 </div>
                 <h2 style={{ margin: 0, fontSize: '20px' }}>Upload Designs</h2>
@@ -699,12 +756,14 @@ const CustomerDetails = () => {
               <div>
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>Title (optional)</label>
                 <input type="text" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} placeholder="e.g., Business Card Design v2"
+                  name="uploadTitle"
                   style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px solid var(--border, #555)', background: 'var(--bg, #333)', color: 'inherit', outline: 'none', fontSize: 13 }}
                 />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>Link to Job (optional)</label>
                 <select value={uploadJobId} onChange={e => setUploadJobId(e.target.value)}
+                  name="uploadJobId"
                   style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px solid var(--border, #555)', background: 'var(--bg, #333)', color: 'inherit', outline: 'none', fontSize: 13 }}>
                   <option value="">No job linked</option>
                   {(data?.jobs || []).slice(0, 50).map(j => (
@@ -715,12 +774,14 @@ const CustomerDetails = () => {
               <div>
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>Tags (comma-separated)</label>
                 <input type="text" value={uploadTags} onChange={e => setUploadTags(e.target.value)} placeholder="e.g., logo, visiting card, letterhead"
+                  name="uploadTags"
                   style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px solid var(--border, #555)', background: 'var(--bg, #333)', color: 'inherit', outline: 'none', fontSize: 13 }}
                 />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>Notes (optional)</label>
                 <textarea value={uploadNotes} onChange={e => setUploadNotes(e.target.value)} placeholder="Any special instructions or notes..." rows={2}
+                  name="uploadNotes"
                   style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px solid var(--border, #555)', background: 'var(--bg, #333)', color: 'inherit', outline: 'none', resize: 'vertical', fontFamily: 'inherit', fontSize: 13 }}
                 />
               </div>
@@ -744,7 +805,7 @@ const CustomerDetails = () => {
           onClick={() => setPreviewDesign(null)}
         >
           <button onClick={() => setPreviewDesign(null)}
-            style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
+            style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
             <X size={16} /> Close
           </button>
           <img
@@ -753,7 +814,7 @@ const CustomerDetails = () => {
             style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', objectFit: 'contain' }}
             onClick={e => e.stopPropagation()}
           />
-          <div style={{ position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', borderRadius: 10, padding: '10px 20px', color: '#fff', textAlign: 'center' }}>
+          <div style={{ position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', borderRadius: 10, padding: '10px 20px', color: 'var(--on-accent)', textAlign: 'center' }}>
             <div style={{ fontSize: 14, fontWeight: 600 }}>{previewDesign.title}</div>
             {previewDesign.notes && <div style={{ fontSize: 12, marginTop: 4, opacity: 0.8 }}>{previewDesign.notes}</div>}
           </div>

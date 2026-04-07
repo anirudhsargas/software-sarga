@@ -32,7 +32,7 @@
   margin-top: 16px;
   background: rgba(176, 58, 46, 0.08);
   border: 1px solid rgba(176, 58, 46, 0.3);
-  color: #b03a2e;
+  color: var(--error);
   border-radius: 14px;
   padding: 12px 14px;
   display: flex;
@@ -133,7 +133,11 @@
 
 .employee-detail__tab.is-active {
   background: var(--accent);
-  color: var(--surface);
+  color: #fff;
+}
+
+.dark .employee-detail__tab.is-active {
+  color: #121314;
 }
 
 .employee-detail__tab:hover {
@@ -338,7 +342,7 @@
 
 .employee-detail__status.is-processing {
   background: rgba(0, 120, 212, 0.15);
-  color: #0078d4;
+  color: var(--accent);
 }
 
 .employee-detail__status.is-pending {
@@ -632,7 +636,11 @@
 
 .employee-detail__btn.is-primary {
   background: var(--accent);
-  color: var(--surface);
+  color: #fff;
+}
+
+.dark .employee-detail__btn.is-primary {
+  color: #121314;
 }
 
 .employee-detail__btn.is-ghost {

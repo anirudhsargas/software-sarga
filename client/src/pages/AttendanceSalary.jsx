@@ -1,7 +1,10 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
+import localDb from '../services/localDb';
 import auth from '../services/auth';
 import { Calendar, IndianRupee, CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, Sun, Download } from 'lucide-react';
+import SkeletonLoader from '../components/SkeletonLoader';
+import ServerError from '../components/ServerError';
 
 const statusConfig = {
   Present: { color: 'var(--success)', bg: 'var(--success)18', label: 'P' },
@@ -30,24 +33,25 @@ const AttendanceSalary = () => {
     setLoading(true);
     setError(null);
     try {
-      const [attRes, salRes, calcRes] = await Promise.allSettled([
-        api.get(`/staff/${staffId}/attendance/${selectedMonth}`),
-        api.get(`/staff/${staffId}/salary-info`),
-        api.get(`/staff/${staffId}/salary-calculation/${selectedMonth}`),
+      const [attData, calcData] = await Promise.all([
+        localDb.getStaffAttendance(staffId, selectedMonth),
+        localDb.getStaffSalaryCalculation(staffId, selectedMonth)
       ]);
 
-      if (attRes.status === 'fulfilled') {
-        setAttendance(attRes.value.data?.attendance || []);
-        setSummary(attRes.value.data?.summary || null);
-      }
-      if (salRes.status === 'fulfilled') {
-        setSalaryInfo(salRes.value.data || null);
-      }
-      if (calcRes.status === 'fulfilled') {
-        setSalaryCalc(calcRes.value.data || null);
-      }
+      setAttendance(attData || []);
+      // Calculate a basic summary locally
+      setSummary({
+        present: (attData || []).filter(a => a.status === 'Present').length,
+        absent: (attData || []).filter(a => a.status === 'Absent').length,
+        halfDay: (attData || []).filter(a => a.status === 'Half Day').length,
+        holiday: (attData || []).filter(a => a.status === 'Holiday').length,
+        leave: 0
+      });
+      
+      setSalaryCalc(calcData || null);
+      setSalaryInfo(null); // Will be filled from master data if available
     } catch (err) {
-      setError('Failed to load data');
+      setError('Failed to load data from local storage');
     } finally {
       setLoading(false);
     }
@@ -103,14 +107,7 @@ const AttendanceSalary = () => {
   };
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
-        <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
-          <div style={{ width: 32, height: 32, border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-          Loading your details...
-        </div>
-      </div>
-    );
+    return <SkeletonLoader type="form" count={3} />;
   }
 
   return (
@@ -127,7 +124,7 @@ const AttendanceSalary = () => {
         </div>
       </div>
 
-      {error && <div className="alert alert--error mb-16">{error}</div>}
+      {error && <ServerError onRetry={fetchData} lastUpdated={null} message={error} />}
 
       {/* Salary Overview Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>

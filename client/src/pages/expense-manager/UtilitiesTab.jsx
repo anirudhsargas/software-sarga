@@ -206,7 +206,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
             <span style={{ fontSize: 13, color: 'var(--muted)' }}>Utility Dashboard</span>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <button className="btn btn-sm" style={{ background: 'var(--warning)', color: '#fff', border: 'none' }} onClick={() => openBillForm(selectedUtility)}>
+            <button className="btn btn-sm" style={{ background: 'var(--warning)', color: 'var(--on-accent)', border: 'none' }} onClick={() => openBillForm(selectedUtility)}>
               <ShoppingCart size={14} /> Add Bill
             </button>
             <button className="btn btn-primary btn-sm" onClick={() => onPayment({ type: 'Utility', payee_name: selectedUtility })}>
@@ -293,7 +293,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
               <Icon size={32} strokeWidth={1} />
               <p>No transactions found for {selectedUtility}</p>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-sm" style={{ background: 'var(--warning)', color: '#fff', border: 'none' }} onClick={() => openBillForm(selectedUtility)}><ShoppingCart size={14} /> Add Bill</button>
+                <button className="btn btn-sm" style={{ background: 'var(--warning)', color: 'var(--on-accent)', border: 'none' }} onClick={() => openBillForm(selectedUtility)}><ShoppingCart size={14} /> Add Bill</button>
                 <button className="btn btn-primary btn-sm" onClick={() => onPayment({ type: 'Utility', payee_name: selectedUtility })}><Plus size={14} /> Add Payment</button>
               </div>
             </div>

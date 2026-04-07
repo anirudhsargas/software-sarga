@@ -7,6 +7,8 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { invalidateHierarchyCache } = require('./jobs');
+const { validate, officeExpenseSchema } = require('../middleware/validate');
+const { paginate } = require('../helpers/pagination');
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -676,48 +678,56 @@ router.get('/office-expenses', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { expense_type, start_date, end_date } = req.query;
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
-    let query = `
-      SELECT o.*, s.name as created_by_name, b.name as branch_name
-      FROM sarga_office_expenses o
-      LEFT JOIN sarga_staff s ON o.created_by = s.id
-      LEFT JOIN sarga_branches b ON o.branch_id = b.id
-      WHERE 1=1
-    `;
+    let whereClauses = [];
     const params = [];
 
     if (!['Admin', 'Accountant'].includes(role)) {
-      query += ' AND o.branch_id = ?';
+      whereClauses.push('o.branch_id = ?');
       params.push(branch_id);
     }
 
     if (expense_type) {
-      query += ' AND o.expense_type = ?';
+      whereClauses.push('o.expense_type = ?');
       params.push(expense_type);
     }
 
     if (start_date) {
-      query += ' AND o.expense_date >= ?';
+      whereClauses.push('o.expense_date >= ?');
       params.push(start_date);
     }
 
     if (end_date) {
-      query += ' AND o.expense_date <= ?';
+      whereClauses.push('o.expense_date <= ?');
       params.push(end_date);
     }
 
-    query += ' ORDER BY o.expense_date DESC, o.created_at DESC';
+    const whereSection = whereClauses.length > 0 ? ' AND ' + whereClauses.join(' AND ') : '';
 
-    const [rows] = await pool.query(query, params);
-    res.json(rows);
+    const baseFrom = `
+      FROM sarga_office_expenses o
+      LEFT JOIN sarga_staff s ON o.created_by = s.id
+      LEFT JOIN sarga_branches b ON o.branch_id = b.id
+      WHERE 1=1 ${whereSection}`;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+    const [rows] = await pool.query(`
+      SELECT o.*, s.name as created_by_name, b.name as branch_name
+      ${baseFrom}
+      ORDER BY o.expense_date DESC, o.created_at DESC
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
+
+    res.json(response(rows, total));
   } catch (error) {
     console.error('Get office expenses error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Add office expense
-router.post('/office-expenses', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.post('/office-expenses', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(officeExpenseSchema), async (req, res) => {
   try {
     const { branch_id, id: created_by } = req.user;
     const { expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number } = req.body;
@@ -748,14 +758,17 @@ router.post('/office-expenses', authenticateToken, authorizeRoles('Admin', 'Acco
 
     auditLog(req.user.id, 'OFFICE_EXPENSE_ADD', `Added office expense: ${expense_type} ₹${amount}`, { entity_type: 'office_expense', entity_id: result.insertId });
     res.json({ success: true, id: result.insertId });
+
+    // Trigger anomaly check asynchronously (non-blocking)
+    try { require('./anomalies').checkAnomalies().catch(() => {}); } catch (_) {}
   } catch (error) {
     console.error('Add office expense error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Update office expense
-router.put('/office-expenses/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.put('/office-expenses/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(officeExpenseSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number } = req.body;
@@ -771,7 +784,7 @@ router.put('/office-expenses/:id', authenticateToken, authorizeRoles('Admin', 'A
     res.json({ success: true });
   } catch (error) {
     console.error('Update office expense error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -788,7 +801,7 @@ router.delete('/office-expenses/:id', authenticateToken, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Delete office expense error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -865,7 +878,7 @@ router.get('/transport-dashboard', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Transport dashboard error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -873,49 +886,52 @@ router.get('/transport-dashboard', authenticateToken, async (req, res) => {
 router.get('/transport-expenses', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
-    const { transport_type, vehicle_number, start_date, end_date } = req.query;
+    const { transport_type, start_date, end_date } = req.query;
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
-    let query = `
-      SELECT t.*, s.name as created_by_name, b.name as branch_name
-      FROM sarga_transport_expenses t
-      LEFT JOIN sarga_staff s ON t.created_by = s.id
-      LEFT JOIN sarga_branches b ON t.branch_id = b.id
-      WHERE 1=1
-    `;
+    let whereClauses = [];
     const params = [];
 
     if (!['Admin', 'Accountant'].includes(role)) {
-      query += ' AND t.branch_id = ?';
+      whereClauses.push('t.branch_id = ?');
       params.push(branch_id);
     }
 
     if (transport_type) {
-      query += ' AND t.transport_type = ?';
+      whereClauses.push('t.transport_type = ?');
       params.push(transport_type);
     }
 
-    if (vehicle_number) {
-      query += ' AND t.vehicle_number LIKE ?';
-      params.push(`%${vehicle_number}%`);
-    }
-
     if (start_date) {
-      query += ' AND t.expense_date >= ?';
+      whereClauses.push('t.expense_date >= ?');
       params.push(start_date);
     }
 
     if (end_date) {
-      query += ' AND t.expense_date <= ?';
+      whereClauses.push('t.expense_date <= ?');
       params.push(end_date);
     }
 
-    query += ' ORDER BY t.expense_date DESC, t.created_at DESC';
+    const whereSection = whereClauses.length > 0 ? ' AND ' + whereClauses.join(' AND ') : '';
 
-    const [rows] = await pool.query(query, params);
-    res.json(rows);
+    const baseFrom = `
+      FROM sarga_transport_expenses t
+      LEFT JOIN sarga_staff s ON t.created_by = s.id
+      LEFT JOIN sarga_branches b ON t.branch_id = b.id
+      WHERE 1=1 ${whereSection}`;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+    const [rows] = await pool.query(`
+      SELECT t.*, s.name as created_by_name, b.name as branch_name
+      ${baseFrom}
+      ORDER BY t.expense_date DESC, t.created_at DESC
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
+
+    res.json(response(rows, total));
   } catch (error) {
     console.error('Get transport expenses error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -959,7 +975,7 @@ router.post('/transport-expenses', authenticateToken, authorizeRoles('Admin', 'A
     res.json({ success: true, id: result.insertId });
   } catch (error) {
     console.error('Add transport expense error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -986,7 +1002,7 @@ router.put('/transport-expenses/:id', authenticateToken, authorizeRoles('Admin',
     res.json({ success: true });
   } catch (error) {
     console.error('Update transport expense error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1003,7 +1019,7 @@ router.delete('/transport-expenses/:id', authenticateToken, async (req, res) => 
     res.json({ success: true });
   } catch (error) {
     console.error('Delete transport expense error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1091,49 +1107,52 @@ router.get('/misc-dashboard', authenticateToken, async (req, res) => {
 router.get('/misc-expenses', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
-    const { expense_category, is_recurring, start_date, end_date } = req.query;
+    const { expense_category, start_date, end_date } = req.query;
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
-    let query = `
-      SELECT m.*, s.name as created_by_name, b.name as branch_name
-      FROM sarga_misc_expenses m
-      LEFT JOIN sarga_staff s ON m.created_by = s.id
-      LEFT JOIN sarga_branches b ON m.branch_id = b.id
-      WHERE 1=1
-    `;
+    let whereClauses = [];
     const params = [];
 
     if (!['Admin', 'Accountant'].includes(role)) {
-      query += ' AND m.branch_id = ?';
+      whereClauses.push('m.branch_id = ?');
       params.push(branch_id);
     }
 
     if (expense_category) {
-      query += ' AND m.expense_category = ?';
+      whereClauses.push('m.expense_category = ?');
       params.push(expense_category);
     }
 
-    if (is_recurring !== undefined) {
-      query += ' AND m.is_recurring = ?';
-      params.push(is_recurring === 'true' ? 1 : 0);
-    }
-
     if (start_date) {
-      query += ' AND m.expense_date >= ?';
+      whereClauses.push('m.expense_date >= ?');
       params.push(start_date);
     }
 
     if (end_date) {
-      query += ' AND m.expense_date <= ?';
+      whereClauses.push('m.expense_date <= ?');
       params.push(end_date);
     }
 
-    query += ' ORDER BY m.expense_date DESC, m.created_at DESC';
+    const whereSection = whereClauses.length > 0 ? ' AND ' + whereClauses.join(' AND ') : '';
 
-    const [rows] = await pool.query(query, params);
-    res.json(rows);
+    const baseFrom = `
+      FROM sarga_misc_expenses m
+      LEFT JOIN sarga_staff s ON m.created_by = s.id
+      LEFT JOIN sarga_branches b ON m.branch_id = b.id
+      WHERE 1=1 ${whereSection}`;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+    const [rows] = await pool.query(`
+      SELECT m.*, s.name as created_by_name, b.name as branch_name
+      ${baseFrom}
+      ORDER BY m.expense_date DESC, m.created_at DESC
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
+
+    res.json(response(rows, total));
   } catch (error) {
     console.error('Get misc expenses error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1305,40 +1324,48 @@ router.get('/petty-cash-ledger', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { transaction_type, start_date, end_date } = req.query;
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
-    let query = `
-      SELECT p.*, s.name as created_by_name, b.name as branch_name
-      FROM sarga_petty_cash p
-      LEFT JOIN sarga_staff s ON p.created_by = s.id
-      LEFT JOIN sarga_branches b ON p.branch_id = b.id
-      WHERE 1=1
-    `;
+    let whereClauses = [];
     const params = [];
 
     if (!['Admin', 'Accountant'].includes(role)) {
-      query += ' AND p.branch_id = ?';
+      whereClauses.push('p.branch_id = ?');
       params.push(branch_id);
     }
 
     if (transaction_type) {
-      query += ' AND p.transaction_type = ?';
+      whereClauses.push('p.transaction_type = ?');
       params.push(transaction_type);
     }
 
     if (start_date) {
-      query += ' AND p.transaction_date >= ?';
+      whereClauses.push('p.transaction_date >= ?');
       params.push(start_date);
     }
 
     if (end_date) {
-      query += ' AND p.transaction_date <= ?';
+      whereClauses.push('p.transaction_date <= ?');
       params.push(end_date);
     }
 
-    query += ' ORDER BY p.transaction_date DESC, p.created_at DESC';
+    const whereSection = whereClauses.length > 0 ? ' AND ' + whereClauses.join(' AND ') : '';
 
-    const [rows] = await pool.query(query, params);
-    res.json(rows);
+    const baseFrom = `
+      FROM sarga_petty_cash p
+      LEFT JOIN sarga_staff s ON p.created_by = s.id
+      LEFT JOIN sarga_branches b ON p.branch_id = b.id
+      WHERE 1=1 ${whereSection}`;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+    const [rows] = await pool.query(`
+      SELECT p.*, s.name as created_by_name, b.name as branch_name
+      ${baseFrom}
+      ORDER BY p.transaction_date DESC, p.created_at DESC
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
+
+    res.json(response(rows, total));
   } catch (error) {
     console.error('Get petty cash ledger error:', error);
     res.status(500).json({ error: error.message });
@@ -1549,53 +1576,61 @@ router.get('/bills-documents', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { document_type, vendor_name, start_date, end_date, related_tab } = req.query;
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
-    let query = `
-      SELECT bd.*, s.name as uploaded_by_name, b.name as branch_name
-      FROM sarga_bills_documents bd
-      LEFT JOIN sarga_staff s ON bd.uploaded_by = s.id
-      LEFT JOIN sarga_branches b ON bd.branch_id = b.id
-      WHERE 1=1
-    `;
+    let whereClauses = [];
     const params = [];
 
     if (!['Admin', 'Accountant'].includes(role)) {
-      query += ' AND bd.branch_id = ?';
+      whereClauses.push('bd.branch_id = ?');
       params.push(branch_id);
     }
 
     if (document_type) {
-      query += ' AND bd.document_type = ?';
+      whereClauses.push('bd.document_type = ?');
       params.push(document_type);
     }
 
     if (vendor_name) {
-      query += ' AND bd.vendor_name LIKE ?';
+      whereClauses.push('bd.vendor_name LIKE ?');
       params.push(`%${vendor_name}%`);
     }
 
     if (start_date) {
-      query += ' AND bd.bill_date >= ?';
+      whereClauses.push('bd.bill_date >= ?');
       params.push(start_date);
     }
 
     if (end_date) {
-      query += ' AND bd.bill_date <= ?';
+      whereClauses.push('bd.bill_date <= ?');
       params.push(end_date);
     }
 
     if (related_tab) {
-      query += ' AND bd.related_tab = ?';
+      whereClauses.push('bd.related_tab = ?');
       params.push(related_tab);
     }
 
-    query += ' ORDER BY bd.bill_date DESC, bd.created_at DESC LIMIT 200';
+    const whereSection = whereClauses.length > 0 ? ' AND ' + whereClauses.join(' AND ') : '';
 
-    const [rows] = await pool.query(query, params);
-    res.json(rows);
+    const baseFrom = `
+      FROM sarga_bills_documents bd
+      LEFT JOIN sarga_staff s ON bd.uploaded_by = s.id
+      LEFT JOIN sarga_branches b ON bd.branch_id = b.id
+      WHERE 1=1 ${whereSection}`;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+    const [rows] = await pool.query(`
+      SELECT bd.*, s.name as uploaded_by_name, b.name as branch_name
+      ${baseFrom}
+      ORDER BY bd.bill_date DESC, bd.created_at DESC
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
+
+    res.json(response(rows, total));
   } catch (error) {
     console.error('Get bills/documents error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1700,7 +1735,7 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
     const { branch_id, id: uploaded_by } = req.user;
     const {
       document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
-      amount, description, line_items, force_duplicate
+      amount, description, line_items, force_duplicate, stock_branch_id
     } = req.body;
     const normalizedDocumentType = normalizeBillDocumentType(document_type, related_tab);
     const normalizedLineItems = normalizeLineItemsInput(line_items);
@@ -1833,6 +1868,30 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
         }
         // New products were created — clear the 5-min hierarchy cache so they appear immediately
         invalidateHierarchyCache();
+
+        // Update per-branch stock so inter-branch stock requests reflect real quantities
+        const targetBranchId = Number(stock_branch_id) || branch_id;
+        if (targetBranchId) {
+          for (const item of syncedItems || []) {
+            if (!item.inventoryId) continue;
+            const lineItem = normalizedLineItems.find(
+              li => String(li.item_name || '').toLowerCase() === String(item.name || '').toLowerCase()
+            );
+            const qty = Number(lineItem?.quantity) || 0;
+            if (qty > 0) {
+              try {
+                await pool.query(
+                  `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity)
+                   VALUES (?, ?, ?)
+                   ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity), updated_at = CURRENT_TIMESTAMP`,
+                  [item.inventoryId, targetBranchId, qty]
+                );
+              } catch (bsErr) {
+                console.error('Branch stock upsert failed for item', item.inventoryId, bsErr.message);
+              }
+            }
+          }
+        }
       } catch (inventorySyncError) {
         console.error('Inventory sync from bill upload failed:', inventorySyncError);
       }
@@ -2429,16 +2488,42 @@ router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accoun
 
 // List utility bills
 router.get('/utility-bills', authenticateToken, async (req, res) => {
-  const { utility_type, branch_id } = req.query;
   try {
-    let query = `SELECT ub.*, b.name as branch_name FROM sarga_utility_bills ub JOIN sarga_branches b ON ub.branch_id = b.id WHERE 1=1`;
+    const { utility_type, branch_id } = req.query;
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+
+    let whereClauses = [];
     const params = [];
-    if (utility_type) { query += " AND ub.utility_type = ?"; params.push(utility_type); }
-    if (!['Admin', 'Accountant'].includes(req.user.role)) { query += " AND ub.branch_id = ?"; params.push(req.user.branch_id); }
-    else if (branch_id) { query += " AND ub.branch_id = ?"; params.push(branch_id); }
-    query += " ORDER BY ub.bill_date DESC";
-    const [rows] = await pool.query(query, params);
-    res.json(rows);
+
+    if (utility_type) {
+      whereClauses.push("ub.utility_type = ?");
+      params.push(utility_type);
+    }
+
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      whereClauses.push("ub.branch_id = ?");
+      params.push(req.user.branch_id);
+    } else if (branch_id) {
+      whereClauses.push("ub.branch_id = ?");
+      params.push(branch_id);
+    }
+
+    const whereSection = whereClauses.length > 0 ? ' AND ' + whereClauses.join(' AND ') : '';
+
+    const baseFrom = `
+      FROM sarga_utility_bills ub 
+      JOIN sarga_branches b ON ub.branch_id = b.id 
+      WHERE 1=1 ${whereSection}`;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+    const [rows] = await pool.query(`
+      SELECT ub.*, b.name as branch_name 
+      ${baseFrom}
+      ORDER BY ub.bill_date DESC
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
+
+    res.json(response(rows, total));
   } catch (err) {
     console.error('Utility bills list error:', err);
     res.status(500).json({ message: 'Database error' });

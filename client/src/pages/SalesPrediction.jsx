@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
+import Pagination from '../components/Pagination';
+import ForecastChart from '../components/ForecastChart';
 import {
     TrendingUp, TrendingDown, RefreshCw, BarChart3, ShoppingBag,
     CalendarDays, Package, AlertTriangle, ChevronDown, ChevronUp,
     Sparkles, IndianRupee, ArrowUpRight, ArrowDownRight, Minus,
-    Sun, CloudSun, Snowflake, Loader2, XCircle, Boxes, LineChart
+    Sun, CloudSun, Snowflake, Loader2, XCircle, Boxes, LineChart,
+    ShoppingCart, Truck, ExternalLink, Info
 } from 'lucide-react';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -195,6 +198,135 @@ const StockRow = ({ item }) => {
     );
 };
 
+// ──────────────── Purchase Row ────────────────
+const urgencyConfig = {
+    critical: { label: 'Critical',   color: 'var(--error)',   bg: 'rgba(176,58,46,0.08)',  border: 'rgba(176,58,46,0.3)' },
+    low_stock:{ label: 'Low Stock',  color: 'var(--warning)', bg: 'rgba(179,107,0,0.08)',  border: 'rgba(179,107,0,0.3)' },
+    reorder:  { label: 'Reorder',    color: 'var(--warning)', bg: 'rgba(108,112,119,0.08)',border: 'rgba(108,112,119,0.2)' },
+    plan:     { label: 'Plan Ahead', color: 'var(--accent)',  bg: 'rgba(0,122,255,0.06)',  border: 'rgba(0,122,255,0.15)' },
+    ok:       { label: 'OK',         color: 'var(--success)', bg: 'rgba(47,125,74,0.06)',  border: 'var(--border)' }
+};
+
+const PurchaseCard = ({ item, index }) => {
+    const uc = urgencyConfig[item.urgency] || urgencyConfig.ok;
+    return (
+        <div style={{
+            background: 'var(--surface)', borderRadius: '12px',
+            border: `1px solid ${uc.border}`,
+            borderLeft: `4px solid ${uc.color}`,
+            padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px'
+        }}>
+            {/* Header row */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.item_name}
+                        </span>
+                        {item.sku && (
+                            <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '6px', background: 'var(--bg-2)', color: 'var(--muted)', fontFamily: "'Space Grotesk', sans-serif" }}>
+                                {item.sku}
+                            </span>
+                        )}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
+                        {item.category || 'Uncategorized'}{item.vendor_name ? ` · ${item.vendor_name}` : ''}
+                    </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    <span style={{
+                        padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
+                        background: uc.bg, color: uc.color, border: `1px solid ${uc.border}`
+                    }}>{uc.label}</span>
+                    <ConfidenceDot level={item.confidence} />
+                </div>
+            </div>
+
+            {/* Metrics row */}
+            <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))',
+                gap: '8px', padding: '10px 12px',
+                background: 'var(--bg)', borderRadius: '8px'
+            }}>
+                {item.has_inventory && item.current_stock !== null && (
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '2px' }}>Current Stock</div>
+                        <div style={{
+                            fontSize: '18px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif",
+                            color: item.current_stock === 0 ? 'var(--error)' : item.current_stock <= item.reorder_level ? 'var(--warning)' : 'var(--text)'
+                        }}>
+                            {item.current_stock}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--muted)' }}>{item.unit}</div>
+                    </div>
+                )}
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '2px' }}>Avg/Month</div>
+                    <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {item.avg_monthly_sales}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)' }}>{item.unit}</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '2px' }}>Predicted Demand</div>
+                    <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", color: 'var(--accent)' }}>
+                        {item.predicted_demand}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)' }}>{item.unit}</div>
+                </div>
+                {item.suggested_buy_qty !== null && (
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '2px' }}>Suggested Buy</div>
+                        <div style={{
+                            fontSize: '18px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif",
+                            color: item.suggested_buy_qty > 0 ? 'var(--warning)' : 'var(--success)'
+                        }}>
+                            {item.suggested_buy_qty > 0 ? item.suggested_buy_qty : '—'}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--muted)' }}>{item.suggested_buy_qty > 0 ? item.unit : 'sufficient'}</div>
+                    </div>
+                )}
+                {item.estimated_cost > 0 && (
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '2px' }}>Est. Cost</div>
+                        <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", color: 'var(--text)' }}>
+                            ₹{Number(item.estimated_cost).toLocaleString('en-IN')}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--muted)' }}>approx</div>
+                    </div>
+                )}
+            </div>
+
+            {/* Vendor / Action row */}
+            {(item.vendor_contact || item.purchase_link) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    {item.vendor_contact && (
+                        <span style={{ fontSize: '12px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Truck size={12} /> {item.vendor_contact}
+                        </span>
+                    )}
+                    {item.purchase_link && (
+                        <a href={item.purchase_link} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: '12px', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+                            <ExternalLink size={12} /> Buy / Order Link
+                        </a>
+                    )}
+                </div>
+            )}
+
+            {/* Non-inventory note */}
+            {!item.has_inventory && (
+                <div style={{
+                    fontSize: '11px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '5px',
+                    padding: '6px 10px', background: 'rgba(0,122,255,0.04)', borderRadius: '6px'
+                }}>
+                    <Info size={11} /> High-demand service — link to inventory to track stock &amp; cost
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ════════════════════════════════════════════════════════════════════
 //  Main Component
 // ════════════════════════════════════════════════════════════════════
@@ -203,25 +335,32 @@ const SalesPrediction = () => {
     const [insights, setInsights] = useState(null);
     const [stock, setStock] = useState(null);
     const [seasonal, setSeasonal] = useState(null);
+    const [purchase, setPurchase] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('overview');
     const [showAllProducts, setShowAllProducts] = useState(false);
+    const [purchaseFilter, setPurchaseFilter] = useState('all');
+    // Pagination for stock table
+    const [stockPage, setStockPage] = useState(1);
+    const stockLimit = 10;
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            const [fRes, iRes, sRes, seRes] = await Promise.allSettled([
+            const [fRes, iRes, sRes, seRes, pRes] = await Promise.allSettled([
                 api.get('/ai/sales-prediction/forecast?months_back=12&months_ahead=3'),
                 api.get('/ai/sales-prediction/insights'),
                 api.get('/ai/sales-prediction/stock-recommendations'),
-                api.get('/ai/sales-prediction/seasonal')
+                api.get('/ai/sales-prediction/seasonal'),
+                api.get('/ai/sales-prediction/purchase-suggestions?months_back=6&months_ahead=2&buffer_pct=20')
             ]);
             if (fRes.status === 'fulfilled') setForecast(fRes.value.data);
             if (iRes.status === 'fulfilled') setInsights(iRes.value.data);
             if (sRes.status === 'fulfilled') setStock(sRes.value.data);
             if (seRes.status === 'fulfilled') setSeasonal(seRes.value.data);
+            if (pRes.status === 'fulfilled') setPurchase(pRes.value.data);
 
             if (fRes.status === 'rejected' && iRes.status === 'rejected') {
                 setError('Failed to load prediction data');
@@ -243,12 +382,36 @@ const SalesPrediction = () => {
         return [...hist, ...pred];
     }, [forecast]);
 
+    const stockRecommendations = stock?.recommendations || [];
+    const stockTotalPages = Math.max(1, Math.ceil(stockRecommendations.length / stockLimit));
+
+    const paginatedStockRecommendations = useMemo(() => {
+        const start = (stockPage - 1) * stockLimit;
+        return stockRecommendations.slice(start, start + stockLimit);
+    }, [stockRecommendations, stockPage, stockLimit]);
+
+    useEffect(() => {
+        if (stockPage > stockTotalPages) {
+            setStockPage(stockTotalPages);
+        }
+    }, [stockPage, stockTotalPages]);
+
     const tabs = [
         { id: 'overview', label: 'AI Insights', icon: <Sparkles size={15} /> },
         { id: 'forecast', label: 'Forecast', icon: <LineChart size={15} /> },
         { id: 'seasonal', label: 'Seasonal', icon: <CalendarDays size={15} /> },
-        { id: 'stock', label: 'Stock Planning', icon: <Boxes size={15} /> }
+        { id: 'purchase', label: 'Purchase List', icon: <ShoppingCart size={15} /> }
     ];
+
+    // ── Filtered purchase suggestions ──
+    const allSuggestions = purchase?.suggestions || [];
+    const filteredSuggestions = useMemo(() => {
+        if (purchaseFilter === 'all') return allSuggestions;
+        if (purchaseFilter === 'buy') return allSuggestions.filter(s => s.suggested_buy_qty > 0);
+        if (purchaseFilter === 'critical') return allSuggestions.filter(s => s.urgency === 'critical' || s.urgency === 'low_stock');
+        if (purchaseFilter === 'plan') return allSuggestions.filter(s => !s.has_inventory);
+        return allSuggestions;
+    }, [allSuggestions, purchaseFilter]);
 
     if (loading) {
         return (
@@ -273,7 +436,7 @@ const SalesPrediction = () => {
                 </div>
                 <button onClick={fetchAll} style={{
                     display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
-                    borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#000',
+                    borderRadius: '10px', border: 'none', background: 'var(--accent)', color: 'var(--text)',
                     fontSize: '13px', fontWeight: 500, cursor: 'pointer'
                 }}>
                     <RefreshCw size={15} /> Refresh
@@ -449,6 +612,9 @@ const SalesPrediction = () => {
             {/* ═══════════════  TAB: Forecast  ═══════════════ */}
             {activeTab === 'forecast' && forecast && (
                 <div>
+                    {/* ML Revenue Forecast (recharts) */}
+                    <ForecastChart />
+
                     {/* Overall Chart */}
                     <div style={{
                         background: 'var(--surface)', borderRadius: 'var(--radius)',
@@ -696,77 +862,181 @@ const SalesPrediction = () => {
                 </div>
             )}
 
-            {/* ═══════════════  TAB: Stock Planning  ═══════════════ */}
-            {activeTab === 'stock' && stock && (
+            {/* ═══════════════  TAB: Purchase List  ═══════════════ */}
+            {activeTab === 'purchase' && (
                 <div>
-                    {/* Stock Summary */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-                        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '16px', border: '1px solid var(--border)' }}>
-                            <div style={{ fontSize: '12px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Package size={14} /> Total Items
+                    {/* Purchase Summary KPI Cards */}
+                    {purchase && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '16px', border: '1px solid var(--border)' }}>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <ShoppingCart size={14} /> Total Suggestions
+                                </div>
+                                <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", marginTop: '4px' }}>
+                                    {purchase.summary?.total_suggestions || 0}
+                                </div>
                             </div>
-                            <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", marginTop: '4px' }}>
-                                {stock.summary?.total_items || 0}
+                            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '16px', border: '1px solid rgba(176,58,46,0.2)' }}>
+                                <div style={{ fontSize: '12px', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <AlertTriangle size={14} /> Critical / Low Stock
+                                </div>
+                                <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", marginTop: '4px', color: 'var(--error)' }}>
+                                    {(purchase.summary?.critical || 0) + (purchase.summary?.low_stock || 0)}
+                                </div>
+                            </div>
+                            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '16px', border: '1px solid rgba(179,107,0,0.2)' }}>
+                                <div style={{ fontSize: '12px', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Truck size={14} /> Need to Buy Now
+                                </div>
+                                <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", marginTop: '4px', color: 'var(--warning)' }}>
+                                    {purchase.summary?.needs_purchase || 0}
+                                </div>
+                            </div>
+                            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '16px', border: '1px solid var(--border)' }}>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <IndianRupee size={14} /> Est. Purchase Cost
+                                </div>
+                                <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", marginTop: '4px' }}>
+                                    {purchase.summary?.estimated_total_cost > 0
+                                        ? `₹${Number(purchase.summary.estimated_total_cost).toLocaleString('en-IN')}`
+                                        : '—'}
+                                </div>
                             </div>
                         </div>
-                        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '16px', border: '1px solid rgba(176,58,46,0.2)' }}>
-                            <div style={{ fontSize: '12px', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <AlertTriangle size={14} /> Critical
-                            </div>
-                            <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", marginTop: '4px', color: 'var(--error)' }}>
-                                {stock.summary?.critical || 0}
-                            </div>
-                        </div>
-                        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '16px', border: '1px solid rgba(179,107,0,0.2)' }}>
-                            <div style={{ fontSize: '12px', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Boxes size={14} /> Low Stock
-                            </div>
-                            <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", marginTop: '4px', color: 'var(--warning)' }}>
-                                {stock.summary?.low_stock || 0}
-                            </div>
-                        </div>
-                        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '16px', border: '1px solid rgba(108,112,119,0.2)' }}>
-                            <div style={{ fontSize: '12px', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <ShoppingBag size={14} /> Need Reorder
-                            </div>
-                            <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", marginTop: '4px', color: 'var(--warning)' }}>
-                                {stock.summary?.need_reorder || 0}
-                            </div>
-                        </div>
+                    )}
+
+                    {/* Filter Pills */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                        {[
+                            { key: 'all',      label: 'All' },
+                            { key: 'buy',      label: 'Buy Now' },
+                            { key: 'critical', label: '🔴 Critical / Low' },
+                            { key: 'plan',     label: '📋 Plan Ahead' }
+                        ].map(f => (
+                            <button key={f.key} onClick={() => setPurchaseFilter(f.key)} style={{
+                                padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border)',
+                                background: purchaseFilter === f.key ? 'var(--accent)' : 'var(--surface)',
+                                color: purchaseFilter === f.key ? '#000' : 'var(--text)',
+                                fontSize: '13px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.15s'
+                            }}>
+                                {f.label} {f.key === 'all' ? `(${allSuggestions.length})` : ''}
+                            </button>
+                        ))}
                     </div>
 
-                    {/* Stock Table */}
+                    {/* How it works banner */}
                     <div style={{
-                        background: 'var(--surface)', borderRadius: 'var(--radius)',
-                        border: '1px solid var(--border)', overflow: 'hidden'
+                        padding: '10px 14px', marginBottom: '16px', borderRadius: '10px',
+                        background: 'rgba(0,122,255,0.06)', border: '1px solid rgba(0,122,255,0.15)',
+                        fontSize: '12px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '8px'
                     }}>
-                        <div style={{
-                            display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px 100px 90px',
-                            gap: '12px', padding: '10px 16px', fontSize: '11px', fontWeight: 600,
-                            color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px',
-                            borderBottom: '1px solid var(--border)', background: 'var(--bg)'
-                        }}>
-                            <span>Item</span>
-                            <span style={{ textAlign: 'right' }}>Stock</span>
-                            <span style={{ textAlign: 'right' }}>Usage</span>
-                            <span style={{ textAlign: 'right' }}>Runway</span>
-                            <span style={{ textAlign: 'right' }}>Status</span>
-                            <span style={{ textAlign: 'right' }}>Action</span>
-                        </div>
-                        {(stock.recommendations || []).map((item, i) => (
-                            <StockRow key={i} item={item} />
-                        ))}
-                        {(!stock.recommendations || stock.recommendations.length === 0) && (
-                            <div style={{ padding: '32px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>
-                                No inventory items with usage data found.
-                            </div>
-                        )}
+                        <Sparkles size={13} color="var(--accent)" />
+                        AI analyses the last 6 months of sales, forecasts demand for the next 2 months (+20% safety buffer), compares to current stock, and recommends how much to purchase for each item.
                     </div>
+
+                    {/* Purchase Suggestion Cards */}
+                    {filteredSuggestions.length === 0 ? (
+                        <div style={{
+                            textAlign: 'center', padding: '48px 24px',
+                            background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)'
+                        }}>
+                            <ShoppingCart size={36} color="var(--muted)" style={{ opacity: 0.4, marginBottom: '12px' }} />
+                            <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>No purchase suggestions</div>
+                            <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                                Link your products to inventory items and process some orders — the AI will suggest what to buy next.
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '14px' }}>
+                            {filteredSuggestions.map((item, i) => (
+                                <PurchaseCard key={i} item={item} index={i} />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Print / summary table for buy-now items */}
+                    {filteredSuggestions.filter(s => s.suggested_buy_qty > 0).length > 0 && (
+                        <div style={{ marginTop: '28px' }}>
+                            <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Truck size={16} color="var(--warning)" /> Consolidated Purchase Order
+                            </h3>
+                            <div style={{
+                                background: 'var(--surface)', borderRadius: 'var(--radius)',
+                                border: '1px solid var(--border)', overflow: 'hidden'
+                            }}>
+                                {/* Table header */}
+                                <div style={{
+                                    display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1.2fr',
+                                    gap: '10px', padding: '10px 16px', fontSize: '11px', fontWeight: 600,
+                                    color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px',
+                                    borderBottom: '1px solid var(--border)', background: 'var(--bg)'
+                                }}>
+                                    <span>Item / Product</span>
+                                    <span style={{ textAlign: 'right' }}>Current Stock</span>
+                                    <span style={{ textAlign: 'right' }}>Forecast Demand</span>
+                                    <span style={{ textAlign: 'right' }}>Buy Qty</span>
+                                    <span style={{ textAlign: 'right' }}>Unit Cost</span>
+                                    <span style={{ textAlign: 'right' }}>Total Cost</span>
+                                </div>
+                                {filteredSuggestions
+                                    .filter(s => s.suggested_buy_qty > 0)
+                                    .map((item, i, arr) => (
+                                    <div key={i} style={{
+                                        display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1.2fr',
+                                        gap: '10px', padding: '11px 16px', alignItems: 'center',
+                                        borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                                        borderLeft: `3px solid ${(urgencyConfig[item.urgency] || urgencyConfig.ok).color}`
+                                    }}>
+                                        <div>
+                                            <div style={{ fontSize: '13px', fontWeight: 600 }}>{item.item_name}</div>
+                                            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                                                {item.vendor_name ? `Vendor: ${item.vendor_name}` : item.category || ''}
+                                            </div>
+                                        </div>
+                                        <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontSize: '13px' }}>
+                                            {item.current_stock !== null ? `${item.current_stock} ${item.unit}` : '—'}
+                                        </div>
+                                        <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontSize: '13px', color: 'var(--accent)' }}>
+                                            {item.buffered_demand} {item.unit}
+                                        </div>
+                                        <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontSize: '14px', fontWeight: 700, color: 'var(--warning)' }}>
+                                            {item.suggested_buy_qty}
+                                        </div>
+                                        <div style={{ textAlign: 'right', fontSize: '13px', color: 'var(--muted)', fontFamily: "'Space Grotesk', sans-serif" }}>
+                                            {item.cost_price > 0 ? `₹${item.cost_price.toLocaleString('en-IN')}` : '—'}
+                                        </div>
+                                        <div style={{ textAlign: 'right', fontSize: '13px', fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
+                                            {item.estimated_cost > 0 ? `₹${Number(item.estimated_cost).toLocaleString('en-IN')}` : '—'}
+                                        </div>
+                                    </div>
+                                ))}
+                                {/* Total row */}
+                                {(() => {
+                                    const totalCost = filteredSuggestions
+                                        .filter(s => s.suggested_buy_qty > 0 && s.estimated_cost > 0)
+                                        .reduce((sum, s) => sum + s.estimated_cost, 0);
+                                    return totalCost > 0 ? (
+                                        <div style={{
+                                            display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1.2fr',
+                                            gap: '10px', padding: '12px 16px',
+                                            borderTop: '2px solid var(--border)', background: 'var(--bg-2)'
+                                        }}>
+                                            <div style={{ fontSize: '13px', fontWeight: 700 }}>Total Estimated Purchase</div>
+                                            <div /><div /><div /><div />
+                                            <div style={{ textAlign: 'right', fontSize: '15px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", color: 'var(--warning)' }}>
+                                                ₹{totalCost.toLocaleString('en-IN')}
+                                            </div>
+                                        </div>
+                                    ) : null;
+                                })()}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* No data fallback */}
-            {!forecast && !insights && !seasonal && !stock && !error && (
+            {!forecast && !insights && !seasonal && !stock && !purchase && !error && (
                 <div style={{
                     textAlign: 'center', padding: '48px 24px',
                     background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)'

@@ -1,3 +1,8 @@
+// --- PERFORMANCE OPTIMIZATION: Ensure these indexes exist in your DB ---
+// ALTER TABLE sarga_jobs ADD INDEX idx_jobs_status (status);
+// ALTER TABLE sarga_jobs ADD INDEX idx_jobs_branch_id (branch_id);
+// ALTER TABLE sarga_jobs ADD INDEX idx_jobs_delivery_date (delivery_date);
+
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
@@ -33,17 +38,46 @@ router.get('/front-office/attendance-reminder', authenticateToken, async (req, r
         const today = now.toISOString().split('T')[0];
 
         // Count active branch staff who should have attendance marked.
-        const [rows] = await pool.query(
-            `SELECT s.id, s.name, s.role, sa.status
-             FROM sarga_staff s
-             LEFT JOIN sarga_staff_attendance sa
-               ON sa.staff_id = s.id AND sa.attendance_date = ?
-             WHERE s.branch_id = ?
-               AND s.is_active = 1
-               AND s.role NOT IN ('Admin')
-             ORDER BY s.name ASC`,
-            [today, branchId]
-        );
+        let rows;
+        try {
+            const result = await pool.query(
+                `SELECT s.id, s.name, s.role, sa.status
+                 FROM sarga_staff s
+                 LEFT JOIN sarga_staff_attendance sa
+                   ON sa.staff_id = s.id AND sa.attendance_date = ?
+                 WHERE s.branch_id = ?
+                   AND s.is_active = 1
+                   AND s.role NOT IN ('Admin')
+                 ORDER BY s.name ASC`,
+                [today, branchId]
+            );
+            rows = result[0];
+        } catch (queryErr) {
+            console.error('[AttendanceReminder] Database query failed:', {
+                error: queryErr.message,
+                code: queryErr.code,
+                errno: queryErr.errno,
+                sql: queryErr.sql,
+                branchId,
+                today
+            });
+            return res.status(500).json({ 
+                message: 'Failed to load attendance reminder',
+                error: queryErr.message,
+                code: queryErr.code 
+            });
+        }
+
+        if (!Array.isArray(rows)) {
+            console.error('[AttendanceReminder] Query returned non-array rows:', {
+                rows,
+                type: typeof rows
+            });
+            return res.status(500).json({ 
+                message: 'Invalid query response',
+                error: 'Query did not return expected array'
+            });
+        }
 
         const missing = rows.filter(r => !r.status);
         const marked = rows.filter(r => !!r.status);
@@ -59,10 +93,19 @@ router.get('/front-office/attendance-reminder', authenticateToken, async (req, r
             reminder_until: '10:00'
         });
     } catch (err) {
-        console.error('Attendance reminder error:', err);
-        res.status(500).json({ message: 'Failed to load attendance reminder' });
+        console.error('[AttendanceReminder] Unexpected error:', {
+            error: err.message,
+            stack: err.stack,
+            name: err.name
+        });
+        res.status(500).json({ 
+            message: 'Failed to load attendance reminder',
+            error: err.message 
+        });
     }
 });
+
+const { paginate } = require('../helpers/pagination');
 
 // ─── FRONT OFFICE DASHBOARD ─────────────────────────────────────────
 router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
@@ -71,56 +114,44 @@ router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
 
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-
         const today = new Date().toISOString().split('T')[0];
 
-        // 1. Quick Stats (Aligned with Admin Stats) ──────────────────
-        // Today's orders (New jobs created today)
+        // Limit dashboard queries to last 90 days for performance
+        const recentWhere = ` AND j.created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)`;
+
+        // 1. Quick Stats ──────────────────
         const [[todayOrders]] = await pool.query(
             `SELECT COUNT(*) as count FROM sarga_jobs j WHERE DATE(j.created_at) = ? ${branchWhere}`,
             [today, ...branchParams]
         );
-
-        // In-progress jobs (all active jobs not completed/delivered)
         const [[inProgress]] = await pool.query(
             `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') ${branchWhere}`,
             branchParams
         );
-
-        // Completed / Ready for pickup (all jobs with status 'Completed' regardless of date)
         const [[readyPickup]] = await pool.query(
             `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status = 'Completed' ${branchWhere}`,
             branchParams
         );
-
-        // Total due (outstanding balance across all non-cancelled jobs)
         const [[totalDue]] = await pool.query(
-            `SELECT COALESCE(SUM(j.balance_amount), 0) as amount
-             FROM sarga_jobs j WHERE j.status != 'Cancelled' ${branchWhere}`,
+            `SELECT COALESCE(SUM(j.balance_amount), 0) as amount FROM sarga_jobs j WHERE j.status != 'Cancelled' ${branchWhere}`,
             branchParams
         );
-
-        // Today's collections
         const payBranchWhere = branchId ? ' AND p.branch_id = ?' : '';
         const [[todayCollections]] = await pool.query(
             `SELECT COALESCE(SUM(p.advance_paid), 0) as amount FROM sarga_customer_payments p WHERE DATE(p.payment_date) = ? ${payBranchWhere}`,
             [today, ...(branchId ? [branchId] : [])]
         );
-
-        // Delivered today
         const [[deliveredToday]] = await pool.query(
             `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status = 'Delivered' AND DATE(j.updated_at) = ? ${branchWhere}`,
             [today, ...branchParams]
         );
 
-        // 2. Active Jobs Queue ────────────────────────────────────
+        // 2. Active Jobs Queue (last 90 days, only needed fields)
         const [activeJobs] = await pool.query(
-            `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.balance_amount,
-                    j.status, j.payment_status, j.delivery_date, j.created_at, j.quantity, j.category,
-                    COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
+            `SELECT j.id, j.job_number, j.job_name, j.status, j.total_amount, j.balance_amount, j.delivery_date, COALESCE(c.name, 'Walk-in') as customer_name
              FROM sarga_jobs j
              LEFT JOIN sarga_customers c ON j.customer_id = c.id
-             WHERE j.status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') ${branchWhere}
+             WHERE j.status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') ${branchWhere} ${recentWhere}
              ORDER BY
                 CASE j.status
                     WHEN 'Processing' THEN 1
@@ -230,10 +261,7 @@ router.get('/front-office/active-jobs', authenticateToken, async (req, res) => {
         const { branchId } = await branchFilter(req);
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-
-        const PAGE_SIZE = 50;
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const offset = (page - 1) * PAGE_SIZE;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const activeStatuses = "('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production')";
         const [[{ total }]] = await pool.query(
@@ -246,9 +274,9 @@ router.get('/front-office/active-jobs', authenticateToken, async (req, res) => {
              FROM sarga_jobs j LEFT JOIN sarga_customers c ON j.customer_id = c.id
              WHERE j.status IN ${activeStatuses} ${branchWhere}
              ORDER BY CASE j.status WHEN 'Processing' THEN 1 WHEN 'Designing' THEN 2 WHEN 'Printing' THEN 3 WHEN 'Pending' THEN 4 ELSE 5 END, j.delivery_date ASC, j.created_at DESC
-             LIMIT ? OFFSET ?`, [...branchParams, PAGE_SIZE, offset]
+             LIMIT ? OFFSET ?`, [...branchParams, limit, offset]
         );
-        res.json({ data: jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
+        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total));
     } catch (err) {
         console.error('Active jobs error:', err);
         res.status(500).json({ message: 'Failed to load active jobs' });
@@ -261,10 +289,7 @@ router.get('/front-office/due-customers', authenticateToken, async (req, res) =>
         const { branchId } = await branchFilter(req);
         const custBranchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-
-        const PAGE_SIZE = 50;
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const offset = (page - 1) * PAGE_SIZE;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const [[{ total }]] = await pool.query(
             `SELECT COUNT(*) as total FROM (
@@ -287,9 +312,9 @@ router.get('/front-office/due-customers', authenticateToken, async (req, res) =>
              GROUP BY c.id
              HAVING due_amount >= 1
              ORDER BY due_amount DESC
-             LIMIT ? OFFSET ?`, [...branchParams, PAGE_SIZE, offset]
+             LIMIT ? OFFSET ?`, [...branchParams, limit, offset]
         );
-        res.json({ data: rows.map(c => ({ ...c, total_billed: Number(c.total_billed), total_paid: Number(c.total_paid), due_amount: Number(c.due_amount) })), total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
+        res.json(response(rows.map(c => ({ ...c, total_billed: Number(c.total_billed), total_paid: Number(c.total_paid), due_amount: Number(c.due_amount) })), total));
     } catch (err) {
         console.error('Due customers error:', err);
         res.status(500).json({ message: 'Failed to load due customers' });
@@ -303,10 +328,7 @@ router.get('/front-office/overdue-jobs', authenticateToken, async (req, res) => 
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
         const today = new Date().toISOString().split('T')[0];
-
-        const PAGE_SIZE = 50;
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const offset = (page - 1) * PAGE_SIZE;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const [[{ total }]] = await pool.query(
             `SELECT COUNT(*) as total FROM sarga_jobs j WHERE j.delivery_date < ? AND j.status NOT IN ('Delivered', 'Cancelled') ${branchWhere}`,
@@ -319,9 +341,9 @@ router.get('/front-office/overdue-jobs', authenticateToken, async (req, res) => 
              FROM sarga_jobs j LEFT JOIN sarga_customers c ON j.customer_id = c.id
              WHERE j.delivery_date < ? AND j.status NOT IN ('Delivered', 'Cancelled') ${branchWhere}
              ORDER BY j.delivery_date ASC
-             LIMIT ? OFFSET ?`, [today, ...branchParams, PAGE_SIZE, offset]
+             LIMIT ? OFFSET ?`, [today, ...branchParams, limit, offset]
         );
-        res.json({ data: jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
+        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total));
     } catch (err) {
         console.error('Overdue jobs error:', err);
         res.status(500).json({ message: 'Failed to load overdue jobs' });
@@ -334,10 +356,7 @@ router.get('/front-office/recent-payments', authenticateToken, async (req, res) 
         const { branchId } = await branchFilter(req);
         const payBranchWhere = branchId ? ' AND p.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-
-        const PAGE_SIZE = 50;
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const offset = (page - 1) * PAGE_SIZE;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const [[{ total }]] = await pool.query(
             `SELECT COUNT(*) as total FROM sarga_customer_payments p WHERE 1=1 ${payBranchWhere}`, branchParams
@@ -349,9 +368,9 @@ router.get('/front-office/recent-payments', authenticateToken, async (req, res) 
              LEFT JOIN sarga_customers c ON p.customer_id = c.id
              WHERE 1=1 ${payBranchWhere}
              ORDER BY p.created_at DESC
-             LIMIT ? OFFSET ?`, [...branchParams, PAGE_SIZE, offset]
+             LIMIT ? OFFSET ?`, [...branchParams, limit, offset]
         );
-        res.json({ data: rows.map(p => ({ ...p, amount: Number(p.amount) })), total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
+        res.json(response(rows.map(p => ({ ...p, amount: Number(p.amount) })), total));
     } catch (err) {
         console.error('Recent payments error:', err);
         res.status(500).json({ message: 'Failed to load recent payments' });
@@ -389,13 +408,9 @@ router.get('/front-office/search', authenticateToken, async (req, res) => {
 router.get('/front-office/delivered', authenticateToken, async (req, res) => {
     try {
         const { branchId } = await branchFilter(req);
-
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-
-        const PAGE_SIZE = 50;
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const offset = (page - 1) * PAGE_SIZE;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const [[{ total }]] = await pool.query(
             `SELECT COUNT(*) as total FROM sarga_jobs j WHERE j.status = 'Delivered' ${branchWhere}`,
@@ -412,17 +427,9 @@ router.get('/front-office/delivered', authenticateToken, async (req, res) => {
              WHERE j.status = 'Delivered' ${branchWhere}
              ORDER BY j.updated_at DESC
              LIMIT ? OFFSET ?`,
-            [...branchParams, PAGE_SIZE, offset]
+            [...branchParams, limit, offset]
         );
-
-        const mapped = jobs.map(j => ({
-            ...j,
-            total_amount: Number(j.total_amount),
-            advance_paid: Number(j.advance_paid),
-            balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0)
-        }));
-
-        res.json({ data: mapped, total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
+        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total));
     } catch (err) {
         console.error('Delivered jobs error:', err);
         res.status(500).json({ message: 'Failed to load delivered jobs' });
@@ -433,13 +440,9 @@ router.get('/front-office/delivered', authenticateToken, async (req, res) => {
 router.get('/front-office/completed', authenticateToken, async (req, res) => {
     try {
         const { branchId } = await branchFilter(req);
-
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-
-        const PAGE_SIZE = 50;
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const offset = (page - 1) * PAGE_SIZE;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const [[{ total }]] = await pool.query(
             `SELECT COUNT(*) as total FROM sarga_jobs j WHERE j.status = 'Completed' ${branchWhere}`,
@@ -456,17 +459,9 @@ router.get('/front-office/completed', authenticateToken, async (req, res) => {
              WHERE j.status = 'Completed' ${branchWhere}
              ORDER BY j.updated_at DESC
              LIMIT ? OFFSET ?`,
-            [...branchParams, PAGE_SIZE, offset]
+            [...branchParams, limit, offset]
         );
-
-        const mapped = jobs.map(j => ({
-            ...j,
-            total_amount: Number(j.total_amount),
-            advance_paid: Number(j.advance_paid),
-            balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0)
-        }));
-
-        res.json({ data: mapped, total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE });
+        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total));
     } catch (err) {
         console.error('Completed work error:', err);
         res.status(500).json({ message: 'Failed to load completed work' });

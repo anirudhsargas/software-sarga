@@ -1,32 +1,30 @@
 /**
- * Parse pagination query params from request.
- * @param {object} req - Express request
- * @param {number} defaultLimit - Default page size (default 20)
- * @returns {{ page: number, limit: number, offset: number }}
+ * Universal pagination helper for Sarga.
+ * Calculates offset and returns a standardized response formatter.
+ * 
+ * @param {object} query - Original request query object
+ * @param {number} page - Current page
+ * @param {number} limit - Records per page
  */
-function parsePagination(req, defaultLimit = 20) {
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || defaultLimit));
-    const offset = (page - 1) * limit;
-    return { page, limit, offset };
-}
+const paginate = (query, page = 1, limit = 20) => {
+  const safePage = Math.max(1, parseInt(page) || 1);
+  const safeLimit = Math.min(100, Math.max(1, parseInt(limit) || 20));
+  const offset = (safePage - 1) * safeLimit;
 
-/**
- * Build a paginated response object.
- * @param {Array} data - The rows for the current page
- * @param {number} total - Total row count
- * @param {number} page - Current page number
- * @param {number} limit - Page size
- * @returns {{ data: Array, total: number, page: number, limit: number, totalPages: number }}
- */
-function paginatedResponse(data, total, page, limit) {
-    return {
-        data,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit)
-    };
-}
+  return {
+    limit: safeLimit,
+    offset,
+    page: safePage,
+    response: (data, total) => ({
+      data,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+      hasNext: safePage < Math.ceil(total / (safeLimit || 1)),
+      hasPrev: safePage > 1
+    })
+  };
+};
 
-module.exports = { parsePagination, paginatedResponse };
+module.exports = { paginate };

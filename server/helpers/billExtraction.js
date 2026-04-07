@@ -65,22 +65,38 @@ function buildSuggestionsFromOcr(ocrData = {}) {
   const items = Array.isArray(ocrData.items) ? ocrData.items : [];
   const normalized = {
     vendor_name: String(ocrData.vendor_name || ''),
+    vendor_contact: ocrData.vendor_contact ? String(ocrData.vendor_contact) : null,
     bill_number: ocrData.bill_number ? String(ocrData.bill_number) : null,
     bill_date: ocrData.bill_date ? String(ocrData.bill_date) : null,
     total_amount: toNumber(ocrData.total_amount, 0),
     tax_amount: 0,
     subtotal: 0,
-    line_items: items.map((line) => ({
-      serial_no: toNumber(line?.serial_no, 0) || '',
-      description: String(line?.name || ''),
-      hsn_sac: String(line?.hsn || ''),
-      quantity: toNumber(line?.quantity, 0),
-      unit_price: toNumber(line?.cost_price, 0),
-      rate: toNumber(line?.cost_price, 0),
-      gst_percent: toNumber(line?.gst_rate, 0),
-      total_amount: toNumber(line?.amount, toNumber(line?.quantity, 0) * toNumber(line?.cost_price, 0)),
-      amount: toNumber(line?.amount, toNumber(line?.quantity, 0) * toNumber(line?.cost_price, 0))
-    })),
+    category: ocrData.category || null,
+    line_items: items.map((line) => {
+      const qty = toNumber(line?.quantity, 0);
+      const costPrice = toNumber(line?.cost_price || line?.unit_price, 0);
+      const gstPct = toNumber(line?.gst_rate || line?.gst_percent, 0);
+      const taxable = qty * costPrice;
+      const gstAmt = gstPct > 0 ? taxable * gstPct / 100 : 0;
+      const rawAmount = toNumber(line?.amount, 0);
+      const totalAmount = rawAmount > 0 ? rawAmount : (gstAmt > 0 ? taxable + gstAmt : taxable);
+      // MRP: prefer bill-stated mrp, fallback to cost+gst per unit
+      const billMrp = toNumber(line?.mrp, 0);
+      const computedMrp = costPrice > 0 ? costPrice * (1 + gstPct / 100) : 0;
+      const mrp = billMrp > 0 ? billMrp : computedMrp;
+      return {
+        serial_no: toNumber(line?.serial_no, 0) || '',
+        description: String(line?.name || line?.description || ''),
+        hsn_sac: String(line?.hsn || line?.hsn_sac || ''),
+        quantity: qty,
+        unit_price: costPrice,
+        rate: costPrice,
+        gst_percent: gstPct,
+        mrp,
+        amount: rawAmount,
+        total_amount: totalAmount
+      };
+    }),
     confidence: 0.45
   };
 
@@ -95,6 +111,8 @@ function buildSuggestionsFromOcr(ocrData = {}) {
       bill_number: normalized.bill_number,
       bill_date: normalized.bill_date,
       vendor_name: normalized.vendor_name,
+      vendor_contact: normalized.vendor_contact || null,
+      category: normalized.category || null,
       tax: normalized.tax_amount,
       subtotal: normalized.subtotal,
       items: normalized.line_items,
@@ -115,20 +133,26 @@ async function extractWithGemini(filePath) {
   const mimeType = getMimeType(filePath);
 
   const prompt = `
-You are a bill/invoice parser for an Indian print shop.
-Extract data from this bill image and return ONLY valid JSON, no extra text:
+You are a bill/invoice parser for an Indian print/stationery shop.
+Extract ALL data from this bill image and return ONLY valid JSON, no extra text:
 {
   "vendor_name": "string",
+  "vendor_contact": "string or null",
   "bill_number": "string or null",
   "bill_date": "YYYY-MM-DD or null",
   "total_amount": number or 0,
   "tax_amount": number or 0,
   "subtotal": number or 0,
+  "category": "one of: Vendor, Utility, Rent, Transport, Office & Admin, Miscellaneous or null",
   "line_items": [
     {
-      "description": "string",
+      "serial_no": number,
+      "description": "item name string",
+      "hsn_sac": "HSN or SAC code string or empty",
       "quantity": number,
       "unit_price": number,
+      "gst_percent": number or 0,
+      "mrp": number or 0,
       "amount": number
     }
   ],
@@ -137,7 +161,15 @@ Extract data from this bill image and return ONLY valid JSON, no extra text:
 
 Rules:
 - All amounts in INR numbers only, no symbols
+- unit_price is the per-unit price BEFORE GST/tax (the cost/rate column)
+- mrp is the Maximum Retail Price printed on item label, or the per-unit selling price if shown; if not shown compute as unit_price * (1 + gst_percent/100)
+- amount is the line total AFTER adding GST (unit_price * quantity + GST)
+- gst_percent is the GST rate (e.g. 18 for 18%), use 0 if not shown
+- hsn_sac is the HSN code or SAC code for the item, extract if present
+- vendor_contact is phone/mobile number of vendor if visible
+- category: guess the expense category from the bill content
 - Dates in YYYY-MM-DD format
+- serial_no is the row/item number in the bill table
 - If a field is not found, use null or 0
 - Return ONLY the JSON, nothing else
 `;
@@ -263,17 +295,38 @@ async function processBillDocument(filePath) {
 
     const normalized = {
       vendor_name: String(extracted?.vendor_name || ''),
+      vendor_contact: extracted?.vendor_contact ? String(extracted.vendor_contact) : null,
       bill_number: extracted?.bill_number || null,
       bill_date: extracted?.bill_date || null,
       total_amount: toNumber(extracted?.total_amount, 0),
       tax_amount: toNumber(extracted?.tax_amount, 0),
       subtotal: toNumber(extracted?.subtotal, 0),
-      line_items: Array.isArray(extracted?.line_items) ? extracted.line_items.map((line) => ({
-        description: String(line?.description || ''),
-        quantity: toNumber(line?.quantity, 0),
-        unit_price: toNumber(line?.unit_price, 0),
-        amount: toNumber(line?.amount, 0)
-      })) : [],
+      category: extracted?.category || null,
+      line_items: Array.isArray(extracted?.line_items) ? extracted.line_items.map((line) => {
+        const qty = toNumber(line?.quantity, 0);
+        const unitPrice = toNumber(line?.unit_price, 0);
+        const gstPct = toNumber(line?.gst_percent, 0);
+        const taxable = qty * unitPrice;
+        const gstAmt = gstPct > 0 ? taxable * gstPct / 100 : 0;
+        // Prefer Gemini's amount if given and greater than taxable (meaning it includes GST)
+        const lineAmount = toNumber(line?.amount, 0);
+        const totalAmount = lineAmount > taxable + 0.01 ? lineAmount : (gstAmt > 0 ? taxable + gstAmt : lineAmount || taxable);
+        const billMrp = toNumber(line?.mrp, 0);
+        const computedMrp = unitPrice > 0 ? unitPrice * (1 + gstPct / 100) : 0;
+        const mrp = billMrp > 0 ? billMrp : computedMrp;
+        return {
+          serial_no: line?.serial_no || '',
+          description: String(line?.description || ''),
+          hsn_sac: String(line?.hsn_sac || line?.hsn || ''),
+          quantity: qty,
+          unit_price: unitPrice,
+          rate: unitPrice,
+          gst_percent: gstPct,
+          mrp,
+          amount: lineAmount,
+          total_amount: totalAmount
+        };
+      }) : [],
       confidence: Math.max(0, Math.min(1, toNumber(extracted?.confidence, 0.9)))
     };
 
@@ -283,6 +336,8 @@ async function processBillDocument(filePath) {
         bill_number: normalized.bill_number,
         bill_date: normalized.bill_date,
         vendor_name: normalized.vendor_name,
+        vendor_contact: normalized.vendor_contact || null,
+        category: normalized.category || null,
         tax: normalized.tax_amount,
         subtotal: normalized.subtotal,
         items: normalized.line_items,

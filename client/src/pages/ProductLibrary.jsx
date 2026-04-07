@@ -3,7 +3,7 @@ import api, { imgUrl } from '../services/api';
 import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
 
-import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon } from 'lucide-react';
 import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
 import {
@@ -887,8 +887,7 @@ const ProductLibrary = () => {
                                 </SortableItem>
                             ))}
 
-
-                        {isAdmin && (
+                        {isAdmin && pendingImageRequests.length > 0 && (
                             <div className="bg-light p-12 rounded border stack-sm">
                                 <div className="row space-between items-center gap-md">
                                     <strong>Pending Product Image Approvals</strong>
@@ -1108,32 +1107,62 @@ const ProductLibrary = () => {
 
             {showProdModal && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: '600px' }}>
+                    <div className="modal" style={{ maxWidth: '620px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         <button className="modal-close" onClick={() => { setShowProdModal(false); setIsEditing(false); }}><X size={20} /></button>
-                        <h2 className="section-title mb-4">{isEditing ? (isAdmin ? 'Edit Product' : (canRequestImageUpdate ? 'Request Product Image Update' : 'View Product Rates')) : 'Add New Product'}</h2>
-                        {isAdmin && <p className="muted mb-16 text-sm">Define pricing rules and default extras.</p>}
-                        {canRequestImageUpdate && isEditing && <p className="muted mb-16 text-sm">Upload a new product image. Admin approval is required before it goes live.</p>}
+                        <h2 className="section-title" style={{ marginBottom: '4px', flexShrink: 0 }}>{isEditing ? (isAdmin ? 'Edit Product' : (canRequestImageUpdate ? 'Request Product Image Update' : 'View Product Rates')) : 'Add New Product'}</h2>
+                        {isAdmin && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: '0 0 20px', flexShrink: 0 }}>Define pricing rules and default extras.</p>}
+                        {canRequestImageUpdate && isEditing && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: '0 0 20px', flexShrink: 0 }}>Upload a new product image. Admin approval is required before it goes live.</p>}
 
-                        <form onSubmit={isAdmin ? handleSaveProduct : handleSubmitProductImageRequest} className="stack-md">
+                        <form onSubmit={isAdmin ? handleSaveProduct : handleSubmitProductImageRequest} className="stack-md" style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
                             {canRequestImageUpdate && isEditing && (
                             <div>
                                 <label className="label">Proposed Product Image</label>
-                                <input
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/webp"
-                                    className="input-field"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        if (file) openCropper(file);
-                                        e.target.value = '';
-                                    }}
-                                />
-                                {productImagePreview && (
-                                    <div className="row gap-sm" style={{ marginTop: '8px' }}>
-                                        <img src={productImagePreview} alt="Preview" className="thumb-img" />
-                                        <span className="text-sm muted">Preview</span>
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: '16px',
+                                    padding: '12px 16px',
+                                    background: 'var(--surface-2, #1e293b)',
+                                    border: '1.5px dashed var(--border, #334155)',
+                                    borderRadius: '10px',
+                                    transition: 'border-color 0.2s',
+                                }}>
+                                    {productImagePreview ? (
+                                        <img src={productImagePreview} alt="Preview" style={{
+                                            width: '64px', height: '64px', borderRadius: '10px',
+                                            objectFit: 'cover', border: '2px solid var(--border, #334155)',
+                                            flexShrink: 0
+                                        }} />
+                                    ) : (
+                                        <div style={{
+                                            width: '64px', height: '64px', borderRadius: '10px',
+                                            background: 'var(--bg, #0f172a)', display: 'flex',
+                                            alignItems: 'center', justifyContent: 'center',
+                                            color: 'var(--text-muted, #64748b)', flexShrink: 0
+                                        }}>
+                                            <ImageIcon size={24} />
+                                        </div>
+                                    )}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <label style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                            padding: '6px 14px', borderRadius: '6px',
+                                            background: 'var(--primary, #6366f1)', color: 'var(--on-accent)',
+                                            fontSize: '12px', fontWeight: 600, cursor: 'pointer'
+                                        }}>
+                                            <Upload size={14} /> Choose Image
+                                            <input type="file" accept="image/png,image/jpeg,image/webp"
+                                                style={{ display: 'none' }}
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0] || null;
+                                                    if (file) openCropper(file);
+                                                    e.target.value = '';
+                                                }}
+                                            />
+                                        </label>
+                                        <p style={{ fontSize: '11px', color: 'var(--text-muted, #64748b)', margin: '6px 0 0' }}>
+                                            PNG, JPG or WebP. Max 2MB.
+                                        </p>
                                     </div>
-                                )}
+                                </div>
                             </div>
                             )}
                             <fieldset disabled={!isAdmin} style={{border:'none',padding:0,margin:0}}>
@@ -1156,32 +1185,63 @@ const ProductLibrary = () => {
                             </div>
                             {isAdmin && (
                             <div>
-                                <label className="label">Product Image (Optional)</label>
-                                <input
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/webp"
-                                    className="input-field"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        if (file) openCropper(file);
-                                        e.target.value = '';
-                                    }}
-                                />
-                                {productImagePreview && (
-                                    <div className="row gap-sm" style={{ marginTop: '8px' }}>
-                                        <img src={productImagePreview} alt="Preview" className="thumb-img" />
-                                        <span className="text-sm muted">Preview</span>
-                                        {isEditing && (
-                                            <button
-                                                type="button"
-                                                className="btn btn-ghost btn-sm text-error"
-                                                onClick={handleRemoveProductImage}
-                                            >
-                                                Remove Image
-                                            </button>
-                                        )}
+                                <label className="label">Product Image <span style={{ fontWeight: 400, color: 'var(--text-muted, #64748b)' }}>(Optional)</span></label>
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: '16px',
+                                    padding: '12px 16px',
+                                    background: 'var(--surface-2, #1e293b)',
+                                    border: '1.5px dashed var(--border, #334155)',
+                                    borderRadius: '10px',
+                                    transition: 'border-color 0.2s',
+                                }}>
+                                    {productImagePreview ? (
+                                        <img src={productImagePreview} alt="Preview" style={{
+                                            width: '72px', height: '72px', borderRadius: '10px',
+                                            objectFit: 'cover', border: '2px solid var(--border, #334155)',
+                                            flexShrink: 0
+                                        }} />
+                                    ) : (
+                                        <div style={{
+                                            width: '72px', height: '72px', borderRadius: '10px',
+                                            background: 'var(--bg, #0f172a)', display: 'flex',
+                                            alignItems: 'center', justifyContent: 'center',
+                                            color: 'var(--text-muted, #64748b)', flexShrink: 0
+                                        }}>
+                                            <ImageIcon size={28} />
+                                        </div>
+                                    )}
+                                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <label style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                padding: '6px 14px', borderRadius: '6px',
+                                                background: 'var(--primary, #6366f1)', color: 'var(--on-accent)',
+                                                fontSize: '12px', fontWeight: 600, cursor: 'pointer'
+                                            }}>
+                                                <Upload size={14} /> {productImagePreview ? 'Change' : 'Upload'}
+                                                <input type="file" accept="image/png,image/jpeg,image/webp"
+                                                    style={{ display: 'none' }}
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0] || null;
+                                                        if (file) openCropper(file);
+                                                        e.target.value = '';
+                                                    }}
+                                                />
+                                            </label>
+                                            {isEditing && productImagePreview && (
+                                                <button type="button" className="btn btn-ghost btn-sm text-error"
+                                                    style={{ fontSize: '12px', padding: '5px 10px' }}
+                                                    onClick={handleRemoveProductImage}
+                                                >
+                                                    <Trash2 size={13} /> Remove
+                                                </button>
+                                            )}
+                                        </div>
+                                        <p style={{ fontSize: '11px', color: 'var(--text-muted, #64748b)', margin: 0 }}>
+                                            PNG, JPG or WebP. Max 2MB.
+                                        </p>
                                     </div>
-                                )}
+                                </div>
                             </div>
                             )}
                             {/* Product Name */}
@@ -1202,9 +1262,9 @@ const ProductLibrary = () => {
                                 />
                             </div>
 
-                            {/* Company Name + Size side by side */}
+                            {/* Company Name + Code + Size */}
                             {isAdmin && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', alignItems: 'end' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '14px', alignItems: 'end' }}>
                                 <div>
                                     <label className="label">Company Name</label>
                                     <input
@@ -1269,7 +1329,7 @@ const ProductLibrary = () => {
                                     <span style={{
                                         fontSize: '10px',
                                         background: 'var(--primary, #6366f1)',
-                                        color: '#fff',
+                                        color: 'var(--on-accent)',
                                         padding: '2px 7px',
                                         borderRadius: '20px',
                                         fontWeight: 700,
@@ -1302,21 +1362,21 @@ const ProductLibrary = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '12px',
-                                padding: '11px 14px',
-                                background: newProduct.isPhysicalProduct ? 'rgba(99,102,241,0.08)' : 'var(--surface-2)',
+                                padding: '12px 16px',
+                                background: newProduct.isPhysicalProduct ? 'rgba(99,102,241,0.06)' : 'var(--surface-2, #1e293b)',
                                 border: `1.5px solid ${newProduct.isPhysicalProduct ? 'var(--primary, #6366f1)' : 'var(--border, #334155)'}`,
-                                borderRadius: '8px',
+                                borderRadius: '10px',
                                 cursor: 'pointer',
-                                transition: 'border-color 0.2s, background 0.2s',
+                                transition: 'all 0.2s ease',
                                 userSelect: 'none'
                             }}>
                                 <input
                                     type="checkbox"
                                     checked={newProduct.isPhysicalProduct}
                                     onChange={e => setNewProduct({ ...newProduct, isPhysicalProduct: e.target.checked })}
-                                    style={{ width: '16px', height: '16px', accentColor: 'var(--primary, #6366f1)', cursor: 'pointer', flexShrink: 0 }}
+                                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary, #6366f1)', cursor: 'pointer', flexShrink: 0 }}
                                 />
-                                <div>
+                                <div style={{ lineHeight: 1.4 }}>
                                     <span style={{ fontSize: '13px', fontWeight: 600 }}>Physical Product</span>
                                     <span style={{ fontSize: '12px', color: 'var(--text-muted, #94a3b8)', marginLeft: '6px' }}>
                                         — tracks stock in Inventory
@@ -1326,8 +1386,16 @@ const ProductLibrary = () => {
                             )}
 
                             {isAdmin && (
-                            <div className="row gap-md">
-                                <div className="flex-1">
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: newProduct.calculation_type === 'Slab' ? '1fr 1fr' : '1fr auto',
+                                gap: '14px', alignItems: 'start',
+                                padding: '14px 16px',
+                                background: 'var(--surface-2, #1e293b)',
+                                borderRadius: '10px',
+                                border: '1px solid var(--border, #334155)'
+                            }}>
+                                <div>
                                     <label className="label">Calculation Method</label>
                                     <select
                                         className="input-field"
@@ -1362,16 +1430,20 @@ const ProductLibrary = () => {
                                         )}
                                     </div>
                                 )}
-                                <div className="flex-1">
-                                    <label className="label row items-center gap-xs">
+                                <div style={{ display: 'flex', alignItems: 'center', paddingTop: '28px' }}>
+                                    <label style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                        fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+                                        userSelect: 'none', whiteSpace: 'nowrap'
+                                    }}>
                                         <input
                                             type="checkbox"
                                             checked={newProduct.has_double_side_rate}
                                             onChange={e => setNewProduct({ ...newProduct, has_double_side_rate: e.target.checked })}
+                                            style={{ width: '16px', height: '16px', accentColor: 'var(--primary, #6366f1)', cursor: 'pointer' }}
                                         />
                                         Enable Double Side Rate
                                     </label>
-
                                 </div>
                             </div>
                             )}
@@ -1681,7 +1753,7 @@ const ProductLibrary = () => {
                             </div>
 
                             </fieldset>
-                            {isAdmin && <button type="submit" className="btn btn-primary btn--full mt-8">{isEditing ? 'Update Product Details' : 'Save Product to Library'}</button>}
+                            {isAdmin && <button type="submit" className="btn btn-primary btn--full" style={{ marginTop: '16px', padding: '12px 20px', fontSize: '14px', fontWeight: 600, borderRadius: '10px' }}>{isEditing ? 'Update Product Details' : 'Save Product to Library'}</button>}
                             {canRequestImageUpdate && isEditing && (
                                 <button type="submit" className="btn btn-primary btn--full mt-8" disabled={imageRequestSubmitting || !productImage}>
                                     {imageRequestSubmitting ? 'Submitting...' : 'Submit Image For Admin Approval'}

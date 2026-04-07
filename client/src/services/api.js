@@ -1,19 +1,46 @@
+// --- Request Deduplication ---
+const pendingRequests = new Map();
+
+/** Deduplicated GET: If same request fires twice, only make one API call */
+export const deduplicatedGet = async (url) => {
+    if (pendingRequests.has(url)) {
+        return pendingRequests.get(url); // Return existing promise
+    }
+    const promise = api.get(url).finally(() => pendingRequests.delete(url));
+    pendingRequests.set(url, promise);
+    return promise;
+};
+
+// --- Response Caching for Stable Data ---
+const cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/** Cached GET: For stable data (products, branches, customers) */
+export const cachedGet = async (url) => {
+    const cached = cache.get(url);
+    if (cached && Date.now() - cached.time < CACHE_TTL) {
+        return cached.data; // Return from memory cache instantly
+    }
+    const response = await api.get(url);
+    cache.set(url, { data: response, time: Date.now() });
+    return response;
+};
 import axios from 'axios';
 
 // Centralized API URL for mobile/network access
 const getApiUrl = () => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const envUrl = import.meta.env.VITE_API_BASE_URL;
+
+    // If we're on localhost, try to use the local port 5000
+    if (isLocal) {
+        return `http://localhost:5000/api/`;
+    }
+
     if (envUrl) return envUrl;
 
-    // Fallback for local development or missing env
-    const fallback = `${window.location.protocol}//${window.location.hostname}:5000/api/`;
-    
-    // In production, warn if VITE_API_BASE_URL is missing
-    if (import.meta.env.PROD) {
-        console.warn('⚠️ VITE_API_BASE_URL is not defined in production environment. Falling back to:', fallback);
-    }
-    
-    return fallback;
+    // Fallback
+    return `${window.location.protocol}//${window.location.hostname}:5000/api/`;
 };
 
 export const API_URL = getApiUrl();

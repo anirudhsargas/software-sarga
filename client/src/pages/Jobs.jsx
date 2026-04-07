@@ -4,9 +4,13 @@ import { Clock, Search, FileText, User, Loader2, Plus, X, Edit2, Trash2, IndianR
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
 import api from '../services/api';
+import localDb from '../services/localDb';
 import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
 import './Jobs.css';
+import { useOptimistic } from '../hooks/useOptimistic';
+import SkeletonLoader from '../components/SkeletonLoader';
+import ServerError from '../components/ServerError';
 
 // ── Priority helpers ──
 const URGENCY_CONFIG = {
@@ -52,7 +56,7 @@ const UrgencyBadge = ({ urgency }) => {
 
 const Jobs = () => {
     const navigate = useNavigate();
-    const [jobs, setJobs] = useState([]);
+    const { data: jobs, setData: setJobs, optimisticUpdate } = useOptimistic([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
@@ -60,9 +64,6 @@ const Jobs = () => {
     const [categoryFilter, setCategoryFilter] = useState('');
     const [branches, setBranches] = useState([]);
     const [error, setError] = useState('');
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [total, setTotal] = useState(0);
     const [activeTab, setActiveTab] = useState('active'); // active, completed, delivered, due, overdue, payments
     const [sortByPriority, setSortByPriority] = useState(false);
     const [deliveryDueModal, setDeliveryDueModal] = useState({
@@ -73,54 +74,95 @@ const Jobs = () => {
     });
     const [creditRequesting, setCreditRequesting] = useState(false);
 
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [total, setTotal] = useState(0);
+    const LIMIT = 20;
+
     const userRole = auth.getUser()?.role;
     const isFinancialsVisible = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
-
     const statuses = ['Pending', 'Processing', 'Approval Pending', 'Completed', 'Delivered', 'Cancelled'];
 
-    useEffect(() => {
-        fetchBranches();
-    }, []);
-
-    const fetchJobs = useCallback(async () => {
+    const fetchJobs = async (pageNum = 1) => {
         setLoading(true);
+        setError('');
         try {
-            let url = `/jobs?page=${page}&search=${searchQuery}&status=${statusFilter}&branch_id=${branchFilter}`;
-            if (categoryFilter) url += `&category=${encodeURIComponent(categoryFilter)}`;
-            const res = await api.get(url);
-            setJobs(res.data.data || []);
-            setTotalPages(res.data.total_pages || 1);
-            setTotal(res.data.total || 0);
+            const params = new URLSearchParams();
+            params.append('page', pageNum);
+            params.append('limit', LIMIT);
+            
+            // Filters
+            if (searchQuery) params.append('search', searchQuery);
+            if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
+            if (branchFilter) params.append('branch_id', branchFilter);
+            if (categoryFilter) params.append('category', categoryFilter);
+            
+            // Tab support (for backend server-side filtering)
+            const isFrontOffice = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
+            if (isFrontOffice) {
+                params.append('tab', activeTab);
+            } else {
+                // For staff, adjust tab if needed (backend handles staff visibility)
+                params.append('tab', activeTab === 'active' ? 'active' : 'history');
+            }
+
+            const response = await api.get(`/jobs?${params.toString()}`);
+            const res = response.data;
+
+            if (res.data && res.total !== undefined) {
+                setJobs(res.data);
+                setTotal(res.total);
+                setTotalPages(res.totalPages || Math.ceil(res.total / LIMIT));
+            } else if (Array.isArray(res)) {
+                setJobs(res);
+                setTotal(res.length);
+                setTotalPages(1);
+            } else {
+                setJobs([]);
+                setTotal(0);
+                setTotalPages(1);
+            }
+
+            setPage(pageNum);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to load jobs');
-            console.error(err);
+            console.error('Failed to fetch jobs:', err);
+            setError('Failed to load jobs from server');
+            setJobs([]);
         } finally {
             setLoading(false);
         }
-    }, [page, searchQuery, statusFilter, branchFilter, categoryFilter]);
+    };
 
-    usePolling(fetchJobs, 30000);
+    const goToPage = (pageNum) => {
+        if (pageNum < 1 || pageNum > totalPages) return;
+        fetchJobs(pageNum);
+    };
+
+    const fetchBranches = async () => {
+        try {
+            const data = await localDb.getBranches();
+            setBranches(data || []);
+        } catch (error) {
+            console.error('Error fetching branches:', error);
+        }
+    };
 
     useEffect(() => {
-        fetchJobs();
-        const handlePaymentUpdate = () => {
-            fetchJobs();
-        };
+        fetchBranches();
+        fetchJobs(1);
+    }, []);
+
+    useEffect(() => {
+        fetchJobs(1);
+    }, [searchQuery, statusFilter, branchFilter, categoryFilter, activeTab]);
+
+    useEffect(() => {
+        const handlePaymentUpdate = () => fetchJobs(page);
         window.addEventListener('paymentRecorded', handlePaymentUpdate);
-
-        return () => {
-            window.removeEventListener('paymentRecorded', handlePaymentUpdate);
-        };
-    }, [fetchJobs]);
-
-    useEffect(() => {
-        fetchJobs();
-    }, [page, statusFilter, branchFilter, categoryFilter]);
-
-    // reset to first page whenever filters change
-    useEffect(() => {
-        setPage(1);
-    }, [searchQuery, statusFilter, branchFilter, categoryFilter]);
+        return () => window.removeEventListener('paymentRecorded', handlePaymentUpdate);
+    }, [page]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -132,18 +174,8 @@ const Jobs = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [deliveryDueModal.isOpen]);
 
-    const fetchBranches = async () => {
-        try {
-            const response = await api.get('/branches');
-            setBranches(response.data);
-        } catch (error) {
-            console.error('Error fetching branches:', error);
-        }
-    };
-
     const handleUpdateStatus = async (job, newStatus) => {
         const balance = Number(job.balance_amount) || 0;
-
         if (newStatus === 'Delivered' && balance > 0) {
             setDeliveryDueModal({
                 isOpen: true,
@@ -154,27 +186,17 @@ const Jobs = () => {
             return;
         }
 
-        try {
-            await api.put(`/jobs/${job.id}`, { status: newStatus });
-            toast.success('Job status updated successfully');
-            fetchJobs();
-        } catch (error) {
-            console.error('Error updating status:', error);
-            const apiMsg = error.response?.data?.message;
-            const remaining = Number(error.response?.data?.remaining_amount) || 0;
-
-            if (newStatus === 'Delivered' && remaining > 0) {
-                setDeliveryDueModal({
-                    isOpen: true,
-                    job,
-                    remaining,
-                    message: apiMsg || 'Full payment is required before delivery.'
-                });
-                return;
-            }
-
-            toast.error(apiMsg || 'Failed to update status');
-        }
+        await optimisticUpdate({
+            updateFn: (prev) => prev.map(j => 
+                j.id === job.id ? { ...j, status: newStatus, _updating: true } : j
+            ),
+            serverFn: () => localDb.updateJobStatus(job.id, newStatus),
+            rollbackFn: () => fetchJobs(page),
+            successMsg: `Job status updated to ${newStatus}`,
+            errorMsg: 'Failed to update job status'
+        });
+        
+        setJobs(prev => prev.map(j => j.id === job.id ? { ...j, _updating: false } : j));
     };
 
     const closeDeliveryDueModal = () => {
@@ -197,16 +219,15 @@ const Jobs = () => {
     const handleRequestAdminCredit = async () => {
         const job = deliveryDueModal.job;
         if (!job) return;
-
-        const total = Number(job.total_amount) || 0;
+        const totalAmt = Number(job.total_amount) || 0;
         const remaining = Number(deliveryDueModal.remaining) || Number(job.balance_amount) || 0;
-        const percent = total > 0 ? Math.min(100, Math.max(0.1, (remaining / total) * 100)) : 1;
+        const percent = totalAmt > 0 ? Math.min(100, Math.max(0.1, (remaining / totalAmt) * 100)) : 1;
 
         setCreditRequesting(true);
         try {
             await api.post('/requests/discount', {
                 discount_percent: Number(percent.toFixed(2)),
-                total_amount: total,
+                total_amount: totalAmt,
                 customer_name: job.customer_name || 'Walk-in',
                 reason: `Credit request for delivery: Job ${job.job_number}, pending due Rs. ${remaining.toFixed(2)}.`
             });
@@ -223,10 +244,22 @@ const Jobs = () => {
         try {
             const res = await api.post(`/jobs/${jobId}/repeat`);
             toast.success(res.data.message || 'Order repeated!');
-            fetchJobs();
+            fetchJobs(1);
             navigate(`/dashboard/jobs/${res.data.id}`);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to repeat order');
+        }
+    };
+
+    const handleDeleteJob = async (e, jobId) => {
+        e.stopPropagation();
+        if (!window.confirm('Delete this job permanently? This cannot be undone.')) return;
+        try {
+            await api.delete(`/jobs/${jobId}`);
+            toast.success('Job deleted');
+            fetchJobs(page);
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to delete job');
         }
     };
 
@@ -291,8 +324,6 @@ const Jobs = () => {
                 </div>
             </div>
 
-
-            {/* Main Tabs for all users */}
             <div className="jobs-tab-bar">
                 {['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole) ? (
                     <>
@@ -311,13 +342,26 @@ const Jobs = () => {
                 )}
             </div>
 
-            {/* Category Filter Row - visible for all users */}
             <div className="row gap-sm wrap" style={{ padding: '12px 0', marginBottom: 16 }}>
                 <span className="text-sm" style={{ fontWeight: 700, color: 'var(--muted)', minWidth: 'fit-content', marginRight: 4 }}>Type:</span>
                 <button onClick={() => setCategoryFilter('')} className={`jobs-cat-btn${categoryFilter === '' ? ' jobs-cat-btn--active' : ''}`}>All</button>
                 <button onClick={() => setCategoryFilter('OFFSET')} className={`jobs-cat-btn${categoryFilter === 'OFFSET' ? ' jobs-cat-btn--active' : ''}`}>Offset</button>
                 <button onClick={() => setCategoryFilter('LASER')} className={`jobs-cat-btn${categoryFilter === 'LASER' ? ' jobs-cat-btn--active' : ''}`}>Laser</button>
                 <button onClick={() => setCategoryFilter('OTHER')} className={`jobs-cat-btn${categoryFilter === 'OTHER' ? ' jobs-cat-btn--active' : ''}`}>Others</button>
+            </div>
+
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '8px 0',
+                fontSize: '13px',
+                color: 'var(--text-muted)'
+            }}>
+                <span>
+                    {loading ? 'Loading...' : `Showing ${((page-1)*LIMIT)+1}–${Math.min(page*LIMIT, total)} of ${total} jobs`}
+                </span>
+                <span>{totalPages} pages total</span>
             </div>
 
             <div className="panel panel--tight">
@@ -330,6 +374,7 @@ const Jobs = () => {
                                 <th>Branch</th>
                                 <th>Status</th>
                                 {sortByPriority && <th>Priority</th>}
+                                <th>Production</th>
                                 {isFinancialsVisible && <th>Amount</th>}
                                 {isFinancialsVisible && <th>Balance</th>}
                                 <th>Delivery</th>
@@ -338,58 +383,38 @@ const Jobs = () => {
                         </thead>
                         <tbody>
                             {(() => {
-                                const isFrontOffice = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
-                                const now = new Date();
-
-                                let filtered = jobs.filter(j => {
-                                    // If there's a search query, skip tab filtering and show all results
-                                    if (searchQuery.trim()) return true;
-
-                                    if (isFrontOffice) {
-                                        // Front Office filtering by tab
-                                        if (activeTab === 'active') return j.status !== 'Delivered' && j.status !== 'Completed' && j.status !== 'Cancelled';
-                                        if (activeTab === 'completed') return j.status === 'Completed';
-                                        if (activeTab === 'delivered') return j.status === 'Delivered';
-                                        if (activeTab === 'due') return Number(j.balance_amount || 0) > 0 && j.status !== 'Cancelled';
-                                        if (activeTab === 'overdue') {
-                                            if (!j.delivery_date) return false;
-                                            return new Date(j.delivery_date) < now && j.status !== 'Delivered' && j.status !== 'Cancelled';
-                                        }
-                                        if (activeTab === 'payments') return j.payment_status === 'Paid';
-                                    } else {
-                                        // Staff filtering (by my assignment status)
-                                        const myStatus = j.my_assignment_status;
-                                        if (activeTab === 'active') return myStatus !== 'Completed' && j.status !== 'Cancelled';
-                                        if (activeTab === 'history') return myStatus === 'Completed' || j.status === 'Cancelled';
-                                    }
-                                    return true;
-                                });
-
+                                let displayJobs = [...jobs];
                                 if (sortByPriority) {
-                                    filtered = filtered.map(j => {
+                                    displayJobs = displayJobs.map(j => {
                                         const { score, urgency } = computeClientPriority(j);
                                         return { ...j, _score: score, _urgency: urgency };
                                     }).sort((a, b) => b._score - a._score);
                                 }
-                                return filtered.map((j) => (
+
+                                if (loading && jobs.length === 0) {
+                                    return (
+                                        <tr>
+                                            <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
+                                                <SkeletonLoader type="table" count={6} />
+                                            </td>
+                                        </tr>
+                                    );
+                                }
+                                if (error && jobs.length === 0) {
+                                    return (
+                                        <tr>
+                                            <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
+                                                <ServerError onRetry={() => fetchJobs(1)} message={error} />
+                                            </td>
+                                        </tr>
+                                    );
+                                }
+                                return displayJobs.map((j) => (
                                     <tr key={j.id} onDoubleClick={() => navigate(`/dashboard/jobs/${j.id}`)} style={{ cursor: 'pointer' }}>
                                         <td>
                                             <div className="stack-xs">
                                                 <span className="font-bold text-sm">{j.job_number}</span>
                                                 <span className="text-sm">{j.job_name}</span>
-                                                {Number(j.used_sheets) > 0 && (() => {
-                                                    const req = Number(j.required_sheets) || 0;
-                                                    const used = Number(j.used_sheets) || 0;
-                                                    const waste = req > 0 ? Math.max(0, used - req) : 0;
-                                                    const pct = req > 0 ? ((waste / req) * 100).toFixed(0) : null;
-                                                    const color = pct === null ? 'var(--muted)' : Number(pct) <= 3 ? 'var(--success)' : Number(pct) <= 8 ? 'var(--warning)' : 'var(--error)';
-                                                    return (
-                                                        <span style={{ fontSize: '10px', fontWeight: 600, color, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                                                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block' }} />
-                                                            {used} sheets{pct !== null ? ` · ${pct}% waste` : ''}
-                                                        </span>
-                                                    );
-                                                })()}
                                             </div>
                                         </td>
                                         <td>
@@ -414,12 +439,36 @@ const Jobs = () => {
                                             ) : (
                                                 <span className={`badge ${getStatusColor(j.status)}`}>{j.status}</span>
                                             )}
+                                            {j._updating && <Loader2 size={12} className="animate-spin ml-4 inline-block" style={{ verticalAlign: 'middle' }} />}
                                         </td>
                                         {sortByPriority && (
                                             <td>
                                                 <UrgencyBadge urgency={j._urgency || 'medium'} />
                                             </td>
                                         )}
+                                        <td>
+                                            {Number(j.used_sheets) > 0 ? (() => {
+                                                const req = Number(j.required_sheets) || 0;
+                                                const used = Number(j.used_sheets) || 0;
+                                                const waste = req > 0 ? Math.max(0, used - req) : 0;
+                                                const pct = req > 0 ? ((waste / req) * 100).toFixed(0) : null;
+                                                const color = pct === null ? 'var(--muted)' : Number(pct) <= 3 ? 'var(--success)' : Number(pct) <= 8 ? 'var(--warning)' : 'var(--error)';
+                                                return (
+                                                    <div className="stack-xs">
+                                                        <span style={{ fontSize: '11px', fontWeight: 600, color }}>
+                                                            {used} / {req} sheets
+                                                        </span>
+                                                        {pct !== null && (
+                                                            <span style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                                                                {pct}% waste
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })() : (
+                                                <span className="muted text-xs">—</span>
+                                            )}
+                                        </td>
                                         {isFinancialsVisible && (
                                             <td>
                                                 <div className="row items-center gap-xs text-sm">
@@ -459,6 +508,16 @@ const Jobs = () => {
                                                         <RotateCcw size={16} />
                                                     </button>
                                                 )}
+                                                {['Admin', 'Accountant'].includes(userRole) && (
+                                                    <button
+                                                        className="btn btn-ghost"
+                                                        style={{ padding: '6px', color: 'var(--error)' }}
+                                                        title="Delete Job"
+                                                        onClick={(e) => handleDeleteJob(e, j.id)}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -468,7 +527,15 @@ const Jobs = () => {
                     </table>
                 </div>
             </div>
-            <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
+            
+            <Pagination
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                limit={LIMIT}
+                onPageChange={goToPage}
+                loading={loading}
+            />
 
             {deliveryDueModal.isOpen && (
                 <div className="modal-backdrop" style={{ zIndex: 1000 }}>

@@ -1,19 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import usePolling from '../hooks/usePolling';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    ArrowLeft, Briefcase, IndianRupee, User, Clock, AlertCircle,
-    Loader2, CheckCircle2, Calendar, Building2, Package, Phone,
-    Mail, MapPin, Hash, FileText, Users, CreditCard, Activity,
-    XCircle, RotateCcw, Layers, Plus, Trash2, Image, Copy,
-    Upload, Eye, ThumbsUp, ThumbsDown, MessageSquare, Shield,
-    FileDown
-} from 'lucide-react';
+import { ArrowLeft, Briefcase, Clock, Calendar, Search, RefreshCw, FileText, FileDown, Copy, AlertCircle, IndianRupee, Layers, Package, Phone, User, Building2, Shield, CheckCircle2, ChevronDown, Trash2, Upload, Eye, ThumbsUp, ThumbsDown, RotateCcw, MessageSquare, CreditCard, XCircle, Activity, Loader2, Users, Plus, Image } from 'lucide-react';
+import LoadingButton from '../components/LoadingButton';
+import SkeletonLoader from '../components/SkeletonLoader';
 import api, { imgUrl } from '../services/api';
+import localDb from '../services/localDb';
 import SecureImage from '../components/SecureImage';
 import auth from '../services/auth';
 import toast from 'react-hot-toast';
 import { downloadInvoicePDF } from '../utils/invoicePdf';
+import { whatsappUrl, workStatusMessage, paymentReminderMessage, orderReadyMessage } from '../utils/whatsapp';
 import './JobDetail.css';
 
 const statusColors = {
@@ -49,22 +46,76 @@ const Badge = ({ label, color }) => {
     );
 };
 
-const InfoRow = ({ icon: Icon, label, value, isPhone }) => (
+const InfoRow = ({ icon: Icon, label, value, isPhone, whatsappOptions }) => (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 0', borderBottom: '1px solid var(--border, #e5e7eb)' }}>
         <Icon size={16} style={{ marginTop: 2, color: 'var(--muted, var(--muted))', flexShrink: 0 }} />
         <span className="job-info-label" style={{ color: 'var(--muted, var(--muted))', fontSize: '13px', minWidth: 110, flexShrink: 0 }}>{label}</span>
-        <span style={{ fontSize: '13px', fontWeight: 500, flex: 1, wordBreak: 'break-word', overflow: 'hidden' }}>
-            {isPhone && value ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap', minWidth: 0 }}>
+            <span style={{ fontSize: '13px', fontWeight: 500, wordBreak: 'break-word', minWidth: 0 }}>
+                {isPhone && value ? value : (value || '—')}
+            </span>
+            {isPhone && value && (
                 <>
-                    {value} {' '}
-                    <a href={`tel:${value}`} style={{ marginLeft: 8, color: 'var(--success)', textDecoration: 'none', fontWeight: 600 }} title="Call">
-                        Call
+                    <a href={`tel:${value}`} style={{ color: 'var(--success)', textDecoration: 'none', fontWeight: 600, fontSize: '13px', flexShrink: 0 }} title="Call">
+                        📞 Call
                     </a>
+                    {whatsappOptions && whatsappOptions.length > 0 && <WhatsAppDropdown mobile={value} options={whatsappOptions} />}
                 </>
-            ) : (value || '—')}
-        </span>
+            )}
+        </div>
     </div>
 );
+
+const WhatsAppDropdown = ({ mobile, options }) => {
+    const [open, setOpen] = React.useState(false);
+    const btnRef = React.useRef(null);
+    const [dropPos, setDropPos] = React.useState({ top: 0, left: 0 });
+    const ref = React.useRef(null);
+
+    React.useEffect(() => {
+        if (open && btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect();
+            setDropPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX });
+        }
+    }, [open]);
+
+    React.useEffect(() => {
+        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+    return (
+        <div ref={ref} style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+            <button
+                ref={btnRef}
+                onClick={() => setOpen(!open)}
+                style={{ background: '#25D366', color: 'var(--on-accent)', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                title="WhatsApp"
+            >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                WhatsApp ▾
+            </button>
+            {open && (
+                <div style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, background: 'var(--surface, #fff)', border: '1px solid var(--border, #e5e7eb)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', zIndex: 9999, minWidth: 210, overflow: 'hidden' }}>
+                    {options.map((opt, i) => (
+                        <a
+                            key={i}
+                            href={whatsappUrl(mobile, opt.message)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setOpen(false)}
+                            style={{ display: 'block', padding: '10px 16px', fontSize: '13px', color: 'var(--text, #333)', textDecoration: 'none', borderBottom: i < options.length - 1 ? '1px solid var(--border, #eee)' : 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg, #f3f4f6)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                            {opt.icon} {opt.label}
+                        </a>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const Section = ({ title, icon: Icon, children }) => (
     <div className="job-section" style={{ background: 'var(--surface, #fff)', border: '1px solid var(--border, #e5e7eb)', borderRadius: 10, padding: '20px', marginBottom: 16 }}>
@@ -100,11 +151,13 @@ const StatCard = ({ label, value, icon: Icon, color, subValue }) => (
     </div>
 );
 
+import { useOptimistic } from '../hooks/useOptimistic';
+
 const JobDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const userRole = auth.getUser()?.role;
-    const [data, setData] = useState(null);
+    const { data, setData, optimisticUpdate } = useOptimistic(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [paymentModal, setPaymentModal] = useState(false);
@@ -153,22 +206,32 @@ const JobDetail = () => {
     const fetchJob = async () => {
         try {
             setLoading(true);
-            const res = await api.get(`/jobs/${id}`);
-            setData(res.data);
+            const details = await localDb.getJobDetails(id);
+            if (details) {
+                setData(details);
+                setPaperLogs(details.paper_logs || []);
+                // Simple summary calculation if not provided by backend
+                const req = details.job?.required_sheets || 0;
+                const used = (details.paper_logs || []).reduce((sum, log) => sum + (log.sheets_used || 0), 0);
+                const wasted = (details.paper_logs || []).reduce((sum, log) => sum + (log.sheets_wasted || 0), 0);
+                setPaperSummary({
+                    required_sheets: req,
+                    used_sheets: used + wasted,
+                    waste_sheets: wasted,
+                    waste_percent: req > 0 ? ((wasted / req) * 100).toFixed(1) : '0'
+                });
+            } else {
+                setError('Job not found locally');
+            }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to load job details');
+            console.error('Failed to load job details:', err);
+            setError('Failed to load job details');
         } finally {
             setLoading(false);
         }
     };
 
-    const fetchPaperLogs = async () => {
-        try {
-            const res = await api.get(`/jobs/${id}/paper-logs`);
-            setPaperLogs(res.data.logs || []);
-            setPaperSummary(res.data.summary || {});
-        } catch { /* ignore if table not ready */ }
-    };
+    const fetchPaperLogs = () => fetchJob(); // Unified in getJobDetails
 
     const handleLogPaper = async () => {
         if (!paperForm.stage) return toast.error('Select a production stage');
@@ -177,13 +240,13 @@ const JobDetail = () => {
         if (used === 0 && wasted === 0) return toast.error('Enter sheets used or wasted');
         setLoggingPaper(true);
         try {
-            await api.post(`/jobs/${id}/paper-logs`, paperForm);
-            toast.success('Paper usage logged');
+            await localDb.logPaperUsage(id, paperForm);
+            toast.success('Paper usage logged locally');
             setPaperLogModal(false);
             setPaperForm({ stage: '', paper_size: '', sheets_used: '', sheets_wasted: '', notes: '' });
-            fetchPaperLogs();
+            fetchJob();
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to log paper usage');
+            toast.error('Failed to log paper usage');
         } finally {
             setLoggingPaper(false);
         }
@@ -203,11 +266,10 @@ const JobDetail = () => {
     const handleUpdateRequired = async () => {
         const val = Math.max(0, Math.round(Number(requiredInput) || 0));
         try {
-            await api.put(`/jobs/${id}`, { required_sheets: val });
-            toast.success('Required sheets updated');
+            await localDb.updateJobStatus(id, null, { required_sheets: val });
+            toast.success('Required sheets updated locally');
             setEditingRequired(false);
             fetchJob();
-            fetchPaperLogs();
         } catch (err) {
             toast.error('Failed to update');
         }
@@ -319,14 +381,14 @@ const JobDetail = () => {
     const handleUpdatePlates = async () => {
         const val = Math.max(0, Math.round(Number(plateInput) || 0));
         try {
-            await api.put(`/jobs/${id}`, { plate_count: val });
-            toast.success('Plate count updated');
+            await localDb.updateJobStatus(id, null, { plate_count: val });
+            toast.success('Plate count updated locally');
             setEditingPlates(false);
             fetchJob();
         } catch { toast.error('Failed to update'); }
     };
 
-    usePolling(fetchJob, 15000);
+
 
     useEffect(() => {
         fetchJob();
@@ -362,24 +424,39 @@ const JobDetail = () => {
         }
     };
 
-    const handleAssignmentStatus = async (assignmentId, newStatus) => {
-        try {
-            await api.put(`/jobs/assignments/${assignmentId}/status`, { status: newStatus });
-            fetchJob();
-        } catch (err) {
-            console.error(err);
-            toast.error(err.response?.data?.message || err.message || 'Failed to update assignment status');
-        }
+    const handleAssignmentStatus = async (aid, newStatus) => {
+        optimisticUpdate({
+            updateFn: (prev) => ({
+                ...prev,
+                assignments: prev.assignments.map(a => a.id === aid ? { ...a, status: newStatus, _updating: true } : a)
+            }),
+            serverFn: async () => {
+                await localDb.updateAssignmentStatus(aid, newStatus);
+                return (prev) => ({
+                    ...prev,
+                    assignments: prev.assignments.map(a => a.id === aid ? { ...a, _updating: false } : a)
+                });
+            },
+            rollbackFn: (prev) => ({
+                ...prev,
+                assignments: prev.assignments.map(a => a.id === aid ? { ...a, _updating: false } : a)
+            }),
+            successMsg: `Assignment status: ${newStatus}`,
+            errorMsg: 'Failed to update assignment'
+        });
     };
 
     const handleUpdateStatus = async (newStatus) => {
-        try {
-            await api.put(`/jobs/${id}`, { status: newStatus });
-            fetchJob();
-        } catch (err) {
-            console.error(err);
-            toast.error(err.response?.data?.message || err.message || 'Failed to update status');
-        }
+        optimisticUpdate({
+            updateFn: (prev) => ({ ...prev, job: { ...prev.job, status: newStatus }, _updating: true }),
+            serverFn: async () => {
+                await localDb.updateJobStatus(id, newStatus);
+                return (prev) => ({ ...prev, _updating: false });
+            },
+            rollbackFn: (prev) => ({ ...prev, _updating: false }),
+            successMsg: `Status: ${newStatus}`,
+            errorMsg: 'Failed to update status'
+        });
     };
 
     const handleRecordPayment = () => {
@@ -402,13 +479,15 @@ const JobDetail = () => {
         if (!cancelReason.trim()) return toast.error('Please provide a cancellation reason');
         setCancelling(true);
         try {
-            await api.put(`/jobs/${id}`, { status: 'Cancelled', description: `${data.job.description ? data.job.description + '\n' : ''}[CANCELLED] ${cancelReason.trim()}` });
-            toast.success('Order cancelled successfully');
+            await localDb.updateJobStatus(id, 'Cancelled', { 
+                description: `${data.job.description ? data.job.description + '\n' : ''}[CANCELLED] ${cancelReason.trim()}` 
+            });
+            toast.success('Order cancelled locally');
             setCancelModal(false);
             setCancelReason('');
             fetchJob();
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to cancel order');
+            toast.error('Failed to cancel order');
         } finally {
             setCancelling(false);
         }
@@ -453,10 +532,10 @@ const JobDetail = () => {
     if (error || !data) {
         return (
             <div style={{ padding: 24 }}>
-                <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent, var(--accent))', marginBottom: 16 }}>
+                <button onClick={() => navigate('/dashboard/jobs')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent, var(--accent))', marginBottom: 16 }}>
                     <ArrowLeft size={18} /> Back
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--error)', padding: 16, background: '#fee2e2', borderRadius: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--error)', padding: 16, background: 'var(--error-bg)', borderRadius: 8 }}>
                     <AlertCircle size={20} />
                     <span>{error || 'Job not found'}</span>
                 </div>
@@ -482,7 +561,7 @@ const JobDetail = () => {
             <div className="job-detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
                 <div>
                     <button
-                        onClick={() => navigate(-1)}
+                        onClick={() => navigate('/dashboard/jobs')}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted, var(--muted))', marginBottom: 8, padding: 0 }}
                     >
                         <ArrowLeft size={16} /> Back to Jobs
@@ -579,7 +658,7 @@ const JobDetail = () => {
                         <button
                             className="btn"
                             onClick={handleRepeatOrder}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f0fdf4', color: 'var(--success)', border: '1px solid #bbf7d0', fontWeight: 600 }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--success-bg)', color: 'var(--success)', border: '1px solid var(--success)', fontWeight: 600 }}
                         >
                             <Copy size={18} /> Repeat Order
                         </button>
@@ -590,7 +669,7 @@ const JobDetail = () => {
                         <button
                             className="btn"
                             onClick={() => setCancelModal(true)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fef2f2', color: 'var(--error)', border: '1px solid #fecaca', fontWeight: 600 }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--error-bg)', color: 'var(--error)', border: '1px solid var(--error)', fontWeight: 600 }}
                         >
                             <XCircle size={18} /> Cancel Order
                         </button>
@@ -601,7 +680,7 @@ const JobDetail = () => {
                         <button
                             className="btn"
                             onClick={() => { setRefundAmount(String(job.advance_paid)); setRefundModal(true); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fefce8', color: 'var(--warning)', border: '1px solid #fde68a', fontWeight: 600 }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--warning-bg)', color: 'var(--warning)', border: '1px solid var(--warning)', fontWeight: 600 }}
                         >
                             <RotateCcw size={18} /> Process Refund
                         </button>
@@ -621,7 +700,7 @@ const JobDetail = () => {
                             {currentUserAssignment.status === 'In Progress' && job.status !== 'Approval Pending' && auth.getUser()?.role === 'Designer' && (
                                 <button className="btn btn-warning" onClick={async () => {
                                     await handleUpdateStatus('Approval Pending');
-                                }} style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600, color: '#fff', background: 'var(--warning)', borderColor: 'var(--warning)' }}>
+                                }} style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600, color: 'var(--on-accent)', background: 'var(--warning)', borderColor: 'var(--warning)' }}>
                                     Send for Customer Verification
                                 </button>
                             )}
@@ -668,21 +747,25 @@ const JobDetail = () => {
                     )}
 
                     {['Admin', 'Front Office', 'front office'].includes(userRole) ? (
-                        <select
-                            className={`badge ${
-                                job.status === 'Pending' ? 'badge--warning' :
-                                job.status === 'Processing' ? 'badge--info' :
-                                job.status === 'Approval Pending' ? 'badge--warning' :
-                                job.status === 'Completed' ? 'badge--success' :
-                                job.status === 'Delivered' ? 'badge--primary' :
-                                job.status === 'Cancelled' ? 'badge--danger' : ''
-                            }`}
-                            style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', fontSize: '13px', fontWeight: 600, outline: 'none' }}
-                            value={job.status}
-                            onChange={(e) => handleUpdateStatus(e.target.value)}
-                        >
-                            {Object.keys(statusColors).map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <select
+                                className={`badge ${
+                                    job.status === 'Pending' ? 'badge--warning' :
+                                    job.status === 'Processing' ? 'badge--info' :
+                                    job.status === 'Approval Pending' ? 'badge--warning' :
+                                    job.status === 'Completed' ? 'badge--success' :
+                                    job.status === 'Delivered' ? 'badge--primary' :
+                                    job.status === 'Cancelled' ? 'badge--danger' : ''
+                                }`}
+                                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', fontSize: '13px', fontWeight: 600, outline: 'none', opacity: job._updating ? 0.6 : 1 }}
+                                value={job.status}
+                                onChange={(e) => handleUpdateStatus(e.target.value)}
+                                disabled={job._updating}
+                            >
+                                {Object.keys(statusColors).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            {job._updating && <Loader2 size={16} className="animate-spin" style={{ color: 'var(--accent)' }} />}
+                        </div>
                     ) : (
                         <Badge label={job.status} color={statusColor} />
                     )}
@@ -747,7 +830,7 @@ const JobDetail = () => {
                                                 style={{ width: 70, padding: '4px 6px', borderRadius: 6, border: '2px solid var(--accent)', outline: 'none', fontSize: '13px', fontWeight: 700, textAlign: 'center', background: 'var(--bg, #f3f4f6)' }}
                                                 onKeyDown={e => { if (e.key === 'Enter') handleUpdatePlates(); if (e.key === 'Escape') setEditingPlates(false); }}
                                             />
-                                            <button onClick={handleUpdatePlates} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>OK</button>
+                                            <button onClick={handleUpdatePlates} style={{ background: 'var(--accent)', color: 'var(--on-accent)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>OK</button>
                                         </div>
                                     ) : (
                                         <span onClick={() => { setPlateInput(String(job.plate_count || 0)); setEditingPlates(true); }}
@@ -761,7 +844,11 @@ const JobDetail = () => {
                                 <InfoRow icon={Calendar} label="Deadline" value={fmtDate(job.delivery_date)} />
                                 <InfoRow icon={Calendar} label="Booked On" value={fmtDateTime(job.created_at)} />
                                 <InfoRow icon={User} label="Customer" value={job.customer_name} />
-                                <InfoRow icon={Phone} label="Contact" value={job.customer_mobile} isPhone />
+                                <InfoRow icon={Phone} label="Contact" value={job.customer_mobile} isPhone whatsappOptions={[
+                                    { label: 'Send Work Status', icon: '📋', message: workStatusMessage({ customerName: job.customer_name, jobNumber: job.job_number, jobName: job.job_name, status: job.status, deliveryDate: job.delivery_date }) },
+                                    ...(balance > 0 ? [{ label: 'Payment Reminder', icon: '💰', message: paymentReminderMessage({ customerName: job.customer_name, jobNumber: job.job_number, jobName: job.job_name, totalAmount: job.total_amount, balance, dueDate: job.delivery_date }) }] : []),
+                                    ...(['Completed', 'Delivered'].includes(job.status) ? [{ label: 'Order Ready for Pickup', icon: '✅', message: orderReadyMessage({ customerName: job.customer_name, jobNumber: job.job_number, jobName: job.job_name }) }] : []),
+                                ]} />
                             </div>
                         </div>
                         {job.description && (
@@ -811,10 +898,10 @@ const JobDetail = () => {
                                                         <div style={{ fontSize: '15px', fontWeight: 700 }}>{a.staff_name || `All ${a.role || a.staff_role}s`}</div>
                                                         <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{a.staff_name ? a.staff_role : 'Role-based Assignment'}</div>
                                                     </div>
-                                                    <div className={`badge ${isCompleted ? 'badge--success' : isProcessing ? 'badge--info' : 'badge--neutral'}`}>
+                                                    <div className={`badge ${isCompleted ? 'badge--success' : isProcessing ? 'badge--info' : 'badge--neutral'}`} style={{ opacity: a._updating ? 0.6 : 1 }}>
                                                         {isCompleted && <CheckCircle2 size={10} />}
-                                                        {isProcessing && <div className="pulse-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />}
-                                                        {a.status || 'Assigned'}
+                                                        {isProcessing && !a._updating && <div className="pulse-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />}
+                                                        {a._updating ? <Loader2 size={10} className="animate-spin" /> : (a.status || 'Assigned')}
                                                     </div>
                                                 </div>
                                             </div>
@@ -892,7 +979,7 @@ const JobDetail = () => {
                                                         style={{ width: 70, padding: '4px 6px', borderRadius: 6, border: '2px solid var(--accent)', outline: 'none', fontSize: '14px', fontWeight: 700, textAlign: 'center', background: 'var(--bg, #f3f4f6)' }}
                                                         onKeyDown={e => { if (e.key === 'Enter') handleUpdateRequired(); if (e.key === 'Escape') setEditingRequired(false); }}
                                                     />
-                                                    <button onClick={handleUpdateRequired} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>OK</button>
+                                                    <button onClick={handleUpdateRequired} style={{ background: 'var(--accent)', color: 'var(--on-accent)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>OK</button>
                                                 </div>
                                             ) : (
                                                 <div onClick={() => { setRequiredInput(String(req)); setEditingRequired(true); }} style={{ fontSize: '20px', fontWeight: 700, cursor: 'pointer' }} title="Click to edit">
@@ -999,7 +1086,7 @@ const JobDetail = () => {
                                 {proofs.map(p => {
                                     const proofUrl = imgUrl(p.file_url);
                                     const isImg = p.file_type === 'image';
-                                    const statusBg = p.status === 'Approved' ? '#dcfce7' : p.status === 'Rejected' ? '#fee2e2' : p.status === 'Revision Requested' ? '#fef3c7' : '#dbeafe';
+                                    const statusBg = p.status === 'Approved' ? '#dcfce7' : p.status === 'Rejected' ? 'var(--error-bg)' : p.status === 'Revision Requested' ? '#fef3c7' : 'var(--accent-light)';
                                     const statusColor = p.status === 'Approved' ? '#166534' : p.status === 'Rejected' ? '#991b1b' : p.status === 'Revision Requested' ? '#92400e' : '#1e40af';
 
                                     return (
@@ -1077,7 +1164,7 @@ const JobDetail = () => {
                                                     <button onClick={() => handleReviewProof.bind(null, 'Approved')() || setReviewModal(p)}
                                                         style={{ display: 'none' }} />
                                                     <button onClick={() => { setReviewModal(p); setReviewFeedback(''); }}
-                                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px', borderRadius: 8, border: '1px solid #bbf7d0', background: '#f0fdf4', color: 'var(--success)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px', borderRadius: 8, border: '1px solid var(--success)', background: 'var(--success-bg)', color: 'var(--success)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                                                         <ThumbsUp size={14} /> Review Proof
                                                     </button>
                                                 </div>
@@ -1183,7 +1270,7 @@ const JobDetail = () => {
                                                     </div>
                                                 )}
                                             </a>
-                                            <button onClick={() => handleDeleteDesign(d.id)} title="Delete" style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: 4, padding: 2, cursor: 'pointer', lineHeight: 0 }}>
+                                            <button onClick={() => handleDeleteDesign(d.id)} title="Delete" style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', color: 'var(--on-accent)', border: 'none', borderRadius: 4, padding: 2, cursor: 'pointer', lineHeight: 0 }}>
                                                 <Trash2 size={12} />
                                             </button>
                                         </div>
@@ -1225,8 +1312,8 @@ const JobDetail = () => {
                                 autoFocus
                                 style={{
                                     fontSize: '20px',
-                                    color: '#eee',
-                                    background: '#333',
+                                    color: 'var(--text)',
+                                    background: 'var(--surface-2)',
                                     border: '2px solid #555',
                                     borderRadius: '8px',
                                     padding: '12px',
@@ -1251,7 +1338,7 @@ const JobDetail = () => {
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
                     <div style={{ background: '#222', borderRadius: 16, width: '100%', maxWidth: 440, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--error-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <XCircle size={20} color="var(--error)" />
                             </div>
                             <h2 style={{ margin: 0, fontSize: '20px' }}>Cancel Order</h2>
@@ -1260,7 +1347,7 @@ const JobDetail = () => {
                             This will mark order <strong>{job.job_number}</strong> as Cancelled. This action can be reversed by changing the status.
                         </p>
                         {Number(job.advance_paid) > 0 && (
-                            <div style={{ padding: 12, background: '#fefce8', border: '1px solid #fde68a', borderRadius: 8, marginBottom: 16, fontSize: '13px', color: '#92400e' }}>
+                            <div style={{ padding: 12, background: 'var(--warning-bg)', border: '1px solid var(--warning)', borderRadius: 8, marginBottom: 16, fontSize: '13px', color: '#92400e' }}>
                                 <strong>Note:</strong> Customer has paid ₹{Number(job.advance_paid).toLocaleString('en-IN')} in advance. You can process a refund after cancellation.
                             </div>
                         )}
@@ -1278,14 +1365,14 @@ const JobDetail = () => {
                         </div>
                         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
                             <button className="btn btn-ghost flex-1" onClick={() => { setCancelModal(false); setCancelReason(''); }}>Go Back</button>
-                            <button
-                                className="btn flex-1"
+                            <LoadingButton
                                 onClick={handleCancelOrder}
-                                disabled={cancelling || !cancelReason.trim()}
-                                style={{ background: 'var(--error)', color: '#fff', border: 'none', fontWeight: 600, opacity: cancelling || !cancelReason.trim() ? 0.5 : 1 }}
+                                loading={cancelling}
+                                disabled={!cancelReason.trim()}
+                                style={{ flex: 1, background: 'var(--error)', color: 'var(--on-accent)', border: 'none', fontWeight: 600, opacity: !cancelReason.trim() ? 0.5 : 1 }}
                             >
-                                {cancelling ? <><Loader2 size={16} className="animate-spin" /> Cancelling...</> : 'Confirm Cancellation'}
-                            </button>
+                                Confirm Cancellation
+                            </LoadingButton>
                         </div>
                     </div>
                 </div>
@@ -1296,7 +1383,7 @@ const JobDetail = () => {
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
                     <div style={{ background: '#222', borderRadius: 16, width: '100%', maxWidth: 440, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <Layers size={20} color="var(--accent)" />
                             </div>
                             <h2 style={{ margin: 0, fontSize: '20px' }}>Log Paper Usage</h2>
@@ -1364,10 +1451,13 @@ const JobDetail = () => {
 
                         <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
                             <button className="btn btn-ghost flex-1" onClick={() => { setPaperLogModal(false); setPaperForm({ stage: '', paper_size: '', sheets_used: '', sheets_wasted: '', notes: '' }); }}>Cancel</button>
-                            <button className="btn btn-primary flex-1" onClick={handleLogPaper} disabled={loggingPaper}
-                                style={{ opacity: loggingPaper ? 0.5 : 1 }}>
-                                {loggingPaper ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : 'Log Usage'}
-                            </button>
+                            <LoadingButton 
+                                onClick={handleLogPaper} 
+                                loading={loggingPaper}
+                                className="btn-primary flex-1"
+                            >
+                                Log Usage
+                            </LoadingButton>
                         </div>
                     </div>
                 </div>
@@ -1378,7 +1468,7 @@ const JobDetail = () => {
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
                     <div style={{ background: '#222', borderRadius: 16, width: '100%', maxWidth: 440, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <Eye size={20} color="var(--accent-2)" />
                             </div>
                             <h2 style={{ margin: 0, fontSize: '20px' }}>Upload Proof for Approval</h2>
@@ -1391,7 +1481,7 @@ const JobDetail = () => {
                             <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Proof File *</label>
                             <input type="file" ref={proofFileRef} onChange={handleUploadProof}
                                 accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.ai,.eps,.psd,.cdr,.tiff,.tif,.bmp"
-                                style={{ color: '#eee', fontSize: '13px' }} />
+                                style={{ color: 'var(--text)', fontSize: '13px' }} />
                         </div>
 
                         <div className="form-group" style={{ marginBottom: 14 }}>
@@ -1415,7 +1505,7 @@ const JobDetail = () => {
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
                     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, width: '100%', maxWidth: 480, padding: 32, boxShadow: 'var(--shadow-lg)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <Eye size={20} color="var(--accent-2)" />
                             </div>
                             <h2 style={{ margin: 0, fontSize: '20px' }}>Review Proof v{reviewModal.version}</h2>
@@ -1475,7 +1565,7 @@ const JobDetail = () => {
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
                     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, width: '100%', maxWidth: 440, padding: 32, boxShadow: 'var(--shadow-lg)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fefce8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--warning-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <RotateCcw size={20} color="var(--warning)" />
                             </div>
                             <h2 style={{ margin: 0, fontSize: '20px' }}>Process Refund</h2>
@@ -1527,14 +1617,14 @@ const JobDetail = () => {
                         </div>
                         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
                             <button className="btn btn-ghost flex-1" onClick={() => { setRefundModal(false); setRefundAmount(''); setRefundNote(''); }}>Cancel</button>
-                            <button
-                                className="btn flex-1"
+                            <LoadingButton
                                 onClick={handleRefund}
-                                disabled={refunding || !refundAmount || Number(refundAmount) <= 0}
-                                style={{ background: 'var(--warning)', color: '#fff', border: 'none', fontWeight: 600, opacity: refunding || !refundAmount || Number(refundAmount) <= 0 ? 0.5 : 1 }}
+                                loading={refunding}
+                                disabled={!refundAmount || Number(refundAmount) <= 0}
+                                style={{ flex: 1, background: 'var(--warning)', color: 'var(--on-accent)', border: 'none', fontWeight: 600, opacity: !refundAmount || Number(refundAmount) <= 0 ? 0.5 : 1 }}
                             >
-                                {refunding ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : `Refund ₹${Number(refundAmount || 0).toLocaleString('en-IN')}`}
-                            </button>
+                                Refund ₹{Number(refundAmount || 0).toLocaleString('en-IN')}
+                            </LoadingButton>
                         </div>
                     </div>
                 </div>

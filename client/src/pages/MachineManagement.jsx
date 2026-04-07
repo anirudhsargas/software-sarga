@@ -10,6 +10,8 @@ import api from '../services/api';
 import { serverToday } from '../services/serverTime';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
+import { syncManager } from '../services/syncWorkerManager';
+import MeterVerification from '../components/MeterVerification';
 
 const MachineManagement = () => {
     const { confirm } = useConfirm();
@@ -33,16 +35,20 @@ const MachineManagement = () => {
     const [workSaving, setWorkSaving] = useState(false);
     const [formData, setFormData] = useState({
         machine_name: '', machine_type: 'Offset', counter_type: 'Manual',
-        branch_id: '', location: '', is_active: true
+        branch_id: '', location: '', ip_address: '', is_active: true,
+        snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: ''
     });
     const [workForm, setWorkForm] = useState({
         customer_name: '', work_details: '', copies: '', payment_type: 'Cash',
         cash_amount: '', upi_amount: '', credit_amount: '', total_amount: '', remarks: ''
     });
     const [readingForm, setReadingForm] = useState({ opening_count: '', closing_count: '', notes: '' });
+    const [filterType, setFilterType] = useState('All');
     const [readingSaving, setReadingSaving] = useState(false);
     const [countRequests, setCountRequests] = useState([]);
     const [countRequestWorking, setCountRequestWorking] = useState(false);
+    const [liveCount, setLiveCount] = useState(null);
+    const [liveCountLoading, setLiveCountLoading] = useState(false);
 
     // Book assignments (Offset / Laser / Other)
     const [bookAssignments, setBookAssignments] = useState({ Offset: [], Laser: [], Other: [] });
@@ -86,7 +92,8 @@ const MachineManagement = () => {
     const fetchMachines = async () => {
         try {
             setLoading(true);
-            const res = await api.get('/machines');
+            const userBranchId = auth.getUser()?.branch_id;
+            const res = await api.get('/machines', { params: { branch_id: userBranchId } });
             setMachines(res.data);
         } catch (e) { console.error('Error fetching machines:', e); }
         finally { setLoading(false); }
@@ -97,6 +104,19 @@ const MachineManagement = () => {
             const res = await api.get('/machines/book-assignments');
             setBookAssignments(res.data || { Offset: [], Laser: [], Other: [] });
         } catch (e) { console.error('Error fetching book assignments:', e); }
+    };
+
+    const fetchLiveCount = async (machineId, ipAddress) => {
+        if (!ipAddress) { setLiveCount(null); return; }
+        try {
+            setLiveCountLoading(true);
+            const res = await api.get(`/machines/${machineId}/mpr-meter-data`);
+            setLiveCount(res.data.meter_data);
+        } catch (_) {
+            setLiveCount(null);
+        } finally {
+            setLiveCountLoading(false);
+        }
     };
 
     const openBookAssignModal = (bookType) => {
@@ -181,6 +201,9 @@ const MachineManagement = () => {
             setShowModal(false);
             resetForm();
             fetchMachines();
+            // Invalidate machines cache so billing page gets fresh data
+            syncManager.invalidateCache('machines');
+            toast.success('Machine saved and cache refreshed');
         } catch (e) {
             toast.error(e.response?.data?.error || 'Failed to save machine');
         }
@@ -192,7 +215,11 @@ const MachineManagement = () => {
         setFormData({
             machine_name: machine.machine_name, machine_type: machine.machine_type,
             counter_type: machine.counter_type, branch_id: machine.branch_id,
-            location: machine.location || '', is_active: machine.is_active === 1
+            location: machine.location || '', ip_address: machine.ip_address || '', is_active: machine.is_active === 1,
+            snmp_community: machine.snmp_community || 'public',
+            mpr_requires_login: !!(machine.mpr_username),
+            mpr_username: machine.mpr_username || '',
+            mpr_password: machine.mpr_password || ''
         });
         setShowModal(true);
     };
@@ -212,6 +239,8 @@ const MachineManagement = () => {
         try {
             await api.put(`/machines/${machine.id}`, { is_active: machine.is_active === 1 ? 0 : 1 });
             fetchMachines();
+            // Invalidate machines cache so billing page gets fresh data
+            syncManager.invalidateCache('machines');
         } catch (e) { toast.error(e.response?.data?.error || 'Failed to update machine'); }
     };
 
@@ -229,18 +258,22 @@ const MachineManagement = () => {
         try {
             await api.delete(`/machines/${machine.id}`);
             fetchMachines();
+            // Invalidate machines cache so billing page gets fresh data
+            syncManager.invalidateCache('machines');
         } catch (e) { toast.error(e.response?.data?.error || 'Failed to delete machine'); }
     };
 
     const resetForm = () => {
-        setFormData({ machine_name: '', machine_type: 'Offset', counter_type: 'Manual', branch_id: '', location: '', is_active: true });
+        setFormData({ machine_name: '', machine_type: 'Offset', counter_type: 'Manual', branch_id: '', location: '', ip_address: '', is_active: true, snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: '' });
         setEditingMachine(null);
     };
 
     const handleCardDoubleClick = (machine) => {
         setSelectedMachine(machine);
         setDetailTab('work');
+        setLiveCount(null);
         fetchMachineDetails(machine.id);
+        fetchLiveCount(machine.id, machine.ip_address);
     };
 
     // ─── Staff Assignment ────────────────────────────────────────
@@ -352,6 +385,12 @@ const MachineManagement = () => {
     const fmt = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 });
     const fmtCur = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
+    const filteredMachines = filterType === 'All'
+        ? machines
+        : filterType === 'Others'
+            ? machines.filter(m => m.machine_type !== 'Offset' && m.machine_type !== 'Laser')
+            : machines.filter(m => m.machine_type === filterType);
+
     // ─── Detail View ─────────────────────────────────────────────
     if (selectedMachine) {
         return (
@@ -370,6 +409,11 @@ const MachineManagement = () => {
                             <p className="section-subtitle">
                                 <span className={`badge ${getTypeColor(selectedMachine.machine_type)}`}>{selectedMachine.machine_type}</span>
                                 {' '}{selectedMachine.branch_name} &middot; {selectedMachine.location || 'No location set'}
+                                {selectedMachine.ip_address && (
+                                    <span style={{ marginLeft: 8, fontFamily: 'var(--font-mono, monospace)', fontSize: 12, color: 'var(--clr-muted)' }}>
+                                        · IP: {selectedMachine.ip_address}
+                                    </span>
+                                )}
                             </p>
                         </div>
                     </div>
@@ -424,6 +468,31 @@ const MachineManagement = () => {
                                     {machineDetails.assigned_staff?.length || 0}
                                 </div>
                             </div>
+                            {machineDetails.ip_address && (
+                                <div className="panel" style={{ padding: 16, textAlign: 'center', position: 'relative', border: '1px solid var(--clr-primary)', background: 'color-mix(in srgb, var(--clr-primary) 8%, transparent)' }}>
+                                    <div className="text-sm" style={{ marginBottom: 4, color: 'var(--clr-primary)', fontWeight: 600 }}>Live Count</div>
+                                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono, monospace)', color: 'var(--clr-primary)' }}>
+                                        {liveCountLoading ? (
+                                            <Loader2 size={20} className="animate-spin" style={{ display: 'inline-block' }} />
+                                        ) : liveCount?.total_prints != null ? (
+                                            liveCount.total_prints.toLocaleString('en-IN')
+                                        ) : '—'}
+                                    </div>
+                                    <button
+                                        onClick={() => fetchLiveCount(selectedMachine.id, machineDetails.ip_address)}
+                                        disabled={liveCountLoading}
+                                        title="Refresh live count"
+                                        style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-primary)', padding: 2 }}
+                                    >
+                                        <RefreshCw size={13} className={liveCountLoading ? 'animate-spin' : ''} />
+                                    </button>
+                                    {liveCount?.fetched_at && (
+                                        <div style={{ fontSize: 10, color: 'var(--clr-muted)', marginTop: 2 }}>
+                                            {new Date(liveCount.fetched_at).toLocaleTimeString()}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Opening/Closing Count Entry */}
@@ -432,58 +501,60 @@ const MachineManagement = () => {
                                 <Gauge size={16} style={{ verticalAlign: -3, marginRight: 6 }} />
                                 Today's Counter ({serverToday ? serverToday() : new Date().toISOString().split('T')[0]})
                             </h3>
-                            <div className="row gap-md items-end" style={{ flexWrap: 'wrap' }}>
-                                <div className="form-group" style={{ flex: 1, minWidth: 140, margin: 0 }}>
-                                    <label className="form-label text-sm">Opening Count</label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr auto', gap: '16px', alignItems: 'flex-end' }}>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label text-sm" style={{ fontWeight: 600, color: 'var(--clr-muted)' }}>Opening Count</label>
                                     <input type="number" className="input-field"
                                         value={readingForm.opening_count}
                                         onChange={e => setReadingForm({ ...readingForm, opening_count: e.target.value })}
                                         disabled={machineDetails.today_reading && !isAdmin}
+                                        style={{ height: 42, fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-mono, monospace)' }}
                                         placeholder="0"
                                     />
-                                    {/* Show expected count hint */}
                                     {machineDetails.expected_opening_count != null && (
-                                        <div style={{ fontSize: 12, marginTop: 4, color: 'var(--clr-muted, #888)' }}>
-                                            Last count: <strong>{machineDetails.expected_opening_count.toLocaleString('en-IN')}</strong>
+                                        <div style={{ fontSize: 11, marginTop: 4, color: 'var(--clr-muted)' }}>
+                                            Expected: <strong>{machineDetails.expected_opening_count.toLocaleString('en-IN')}</strong>
                                         </div>
                                     )}
-                                    {/* Warn if staff has changed from expected */}
                                     {!isAdmin && !machineDetails.today_reading &&
                                         machineDetails.expected_opening_count != null &&
                                         readingForm.opening_count !== '' &&
                                         parseInt(readingForm.opening_count) !== machineDetails.expected_opening_count && (
-                                        <div style={{ fontSize: 12, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--clr-warning, #d97706)' }}>
-                                            <AlertTriangle size={12} />
-                                            Differs from last count — will be sent to admin for review
+                                        <div style={{ fontSize: 10, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--clr-warning)' }}>
+                                            <AlertTriangle size={10} /> Flagged for review
                                         </div>
                                     )}
                                 </div>
-                                <div className="form-group" style={{ flex: 1, minWidth: 140, margin: 0 }}>
-                                    <label className="form-label text-sm">Closing Count</label>
+
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label text-sm" style={{ fontWeight: 600, color: 'var(--clr-muted)' }}>Closing Count</label>
                                     <input type="number" className="input-field"
                                         value={readingForm.closing_count}
                                         onChange={e => setReadingForm({ ...readingForm, closing_count: e.target.value })}
+                                        style={{ height: 42, fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-mono, monospace)' }}
                                         placeholder="—"
                                     />
-                                    {/* Show calculated copies */}
                                     {readingForm.closing_count !== '' && readingForm.opening_count !== '' &&
                                         parseInt(readingForm.closing_count) > parseInt(readingForm.opening_count) && (
-                                        <div style={{ fontSize: 12, marginTop: 4, color: 'var(--clr-primary)' }}>
-                                            Copies today: <strong>{(parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count)).toLocaleString('en-IN')}</strong>
+                                        <div style={{ fontSize: 11, marginTop: 4, color: 'var(--clr-primary)', fontWeight: 600 }}>
+                                            +{(parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count)).toLocaleString('en-IN')} copies
                                         </div>
                                     )}
                                 </div>
-                                <div className="form-group" style={{ flex: 2, minWidth: 200, margin: 0 }}>
-                                    <label className="form-label text-sm">Notes</label>
+
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label text-sm" style={{ fontWeight: 600, color: 'var(--clr-muted)' }}>Notes</label>
                                     <input type="text" className="input-field"
                                         value={readingForm.notes}
                                         onChange={e => setReadingForm({ ...readingForm, notes: e.target.value })}
-                                        placeholder="Optional notes..."
+                                        style={{ height: 42 }}
+                                        placeholder="Remarks..."
                                     />
                                 </div>
+
                                 <button className="btn btn-primary" onClick={handleSaveReading} disabled={readingSaving}
-                                    style={{ minWidth: 100 }}>
-                                    {readingSaving ? <Loader2 className="animate-spin" size={16} /> : 'Save'}
+                                    style={{ height: 42, padding: '0 24px', fontWeight: 600 }}>
+                                    {readingSaving ? <Loader2 className="animate-spin" size={18} /> : 'Save Reading'}
                                 </button>
                             </div>
                             {machineDetails.today_reading && !isAdmin && (
@@ -500,7 +571,8 @@ const MachineManagement = () => {
                                 { key: 'production', label: 'Production Summary', icon: TrendingUp },
                                 { key: 'jobs', label: 'Job Queue', icon: Package },
                                 { key: 'staff', label: 'Assigned Staff', icon: Users },
-                                { key: 'readings', label: 'Reading History', icon: Hash }
+                                { key: 'readings', label: 'Reading History', icon: Hash },
+                                { key: 'meter', label: 'MPR Verification', icon: Eye }
                             ].map(tab => (
                                 <button key={tab.key}
                                     className={`btn ${detailTab === tab.key ? 'btn-primary' : 'btn-ghost'}`}
@@ -519,7 +591,7 @@ const MachineManagement = () => {
                                     {countRequests.length > 0 && (
                                         <span style={{
                                             position: 'absolute', top: 4, right: 4,
-                                            background: 'var(--clr-danger, #ef4444)', color: '#fff',
+                                            background: 'var(--clr-danger, #ef4444)', color: 'var(--on-accent)',
                                             borderRadius: '50%', width: 16, height: 16,
                                             fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             fontWeight: 700, lineHeight: 1
@@ -779,7 +851,7 @@ const MachineManagement = () => {
                                                             <div className="row gap-sm">
                                                                 <button
                                                                     className="btn btn-sm"
-                                                                    style={{ background: 'var(--clr-success)', color: '#fff', padding: '4px 10px', fontSize: 12 }}
+                                                                    style={{ background: 'var(--clr-success)', color: 'var(--on-accent)', padding: '4px 10px', fontSize: 12 }}
                                                                     disabled={countRequestWorking}
                                                                     onClick={() => handleCountRequestReview(req.id, 'Approved', null)}>
                                                                     <CheckCircle size={13} /> Approve
@@ -805,6 +877,20 @@ const MachineManagement = () => {
                                         <strong>Reject</strong> = revert to the expected count (last day's closing)
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* MPR Meter Verification Tab (Admin only) */}
+                        {detailTab === 'meter' && isAdmin && machineDetails && (
+                            <div className="panel panel--tight">
+                                <div style={{ padding: '12px 16px' }}>
+                                    <MeterVerification 
+                                        machineId={machineDetails.id}
+                                        machineName={machineDetails.machine_name}
+                                        machineIpAddress={machineDetails.ip_address}
+                                        lastClosingCount={machineDetails.expected_opening_count}
+                                    />
+                                </div>
                             </div>
                         )}
                     </>
@@ -935,7 +1021,7 @@ const MachineManagement = () => {
                                         onChange={() => toggleStaff(s.id)} />
                                     <div style={{
                                         width: 28, height: 28, borderRadius: '50%',
-                                        background: 'var(--accent)', color: '#fff',
+                                        background: 'var(--accent)', color: 'var(--on-accent)',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: 12, fontWeight: 600, flexShrink: 0
                                     }}>
@@ -988,8 +1074,26 @@ const MachineManagement = () => {
                     <p className="muted">{isAdmin ? 'No machines found. Add your first machine.' : 'No machines assigned to you.'}</p>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
-                    {machines.map(machine => (
+                <>
+                    {/* Machine Type Filter */}
+                    <div className="row items-center gap-md" style={{ marginBottom: 14 }}>
+                        <span className="text-sm font-medium muted">Type:</span>
+                        <div className="row gap-xs">
+                            {['All', 'Offset', 'Laser', 'Others'].map(type => (
+                                <button
+                                    key={type}
+                                    className={`btn btn-sm ${filterType === type ? 'btn-primary' : 'btn-ghost'}`}
+                                    onClick={() => setFilterType(type)}
+                                    style={{ borderRadius: 20, padding: '4px 16px', fontSize: 13 }}
+                                >
+                                    {type}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+                        {filteredMachines.map(machine => (
                         <div key={machine.id} className="panel"
                             onDoubleClick={() => handleCardDoubleClick(machine)}
                             style={{
@@ -1048,6 +1152,11 @@ const MachineManagement = () => {
                                     <span className="muted">{machine.branch_name}</span>
                                     {machine.location && <span className="muted">&middot; {machine.location}</span>}
                                 </div>
+                                {machine.ip_address && (
+                                    <div className="row items-center gap-xs text-sm" style={{ marginBottom: 4 }}>
+                                        <span className="muted" style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>IP: {machine.ip_address}</span>
+                                    </div>
+                                )}
 
                                 {/* Assigned Staff */}
                                 <div className="row items-center gap-xs" style={{ marginTop: 8 }}>
@@ -1067,15 +1176,16 @@ const MachineManagement = () => {
                         </div>
                     ))}
                 </div>
+                </>
             )}
 
             {/* Add/Edit Machine Modal */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>
                     <div className="modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
+                        <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <h2>{editingMachine ? 'Edit Machine' : 'Add New Machine'}</h2>
-                            <button className="btn btn-ghost" onClick={() => { setShowModal(false); resetForm(); }}>×</button>
+                            <button className="btn btn-ghost" style={{ marginLeft: 'auto', flexShrink: 0 }} onClick={() => { setShowModal(false); resetForm(); }}>×</button>
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div className="modal-body stack-md">
@@ -1119,6 +1229,47 @@ const MachineManagement = () => {
                                         value={formData.location}
                                         onChange={e => setFormData({ ...formData, location: e.target.value })}
                                         placeholder="e.g., Ground Floor, Room 101" />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">IP Address</label>
+                                    <input type="text" className="input-field"
+                                        value={formData.ip_address}
+                                        onChange={e => setFormData({ ...formData, ip_address: e.target.value })}
+                                        placeholder="e.g., 192.168.1.105" />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">SNMP Community</label>
+                                    <input type="text" className="input-field"
+                                        value={formData.snmp_community}
+                                        onChange={e => setFormData({ ...formData, snmp_community: e.target.value })}
+                                        placeholder="public" />
+                                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>For most printers: leave as "public". For Canon: skip this and use web login below instead. For Kyocera/others with non-standard SNMP: enter the community name.</small>
+                                </div>
+                                <div className="form-group">
+                                    <label className="row items-center gap-sm" style={{ cursor: 'pointer', marginBottom: '0.5rem' }}>
+                                        <input type="checkbox" checked={formData.mpr_requires_login}
+                                            onChange={e => setFormData({ ...formData, mpr_requires_login: e.target.checked, mpr_username: e.target.checked ? formData.mpr_username : '', mpr_password: e.target.checked ? formData.mpr_password : '' })} />
+                                        <span className="form-label" style={{ margin: 0 }}>✓ Printer requires web login (Canon, some Ricoh)</span>
+                                    </label>
+                                    {formData.mpr_requires_login && (
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.5rem', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
+                                            <div>
+                                                <label className="form-label" style={{ fontSize: '0.8rem' }}>👤 Username</label>
+                                                <input type="text" className="input-field"
+                                                    value={formData.mpr_username}
+                                                    onChange={e => setFormData({ ...formData, mpr_username: e.target.value })}
+                                                    placeholder="e.g., admin" autoComplete="off" />
+                                                <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem', display: 'block', marginTop: '0.25rem' }}>Canon default: admin or your domain user</small>
+                                            </div>
+                                            <div>
+                                                <label className="form-label" style={{ fontSize: '0.8rem' }}>🔐 Password</label>
+                                                <input type="password" className="input-field"
+                                                    value={formData.mpr_password}
+                                                    onChange={e => setFormData({ ...formData, mpr_password: e.target.value })}
+                                                    placeholder="Your login password" autoComplete="new-password" />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="form-group">
                                     <label className="row items-center gap-sm" style={{ cursor: 'pointer' }}>
@@ -1182,7 +1333,7 @@ const MachineManagement = () => {
                                                     <div className="text-xs muted" style={{ fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{bName}</div>
                                                     {staffArr.map(s => (
                                                         <div key={s.staff_id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                                                            <div style={{ width: 22, height: 22, borderRadius: '50%', background: bt.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                                                            <div style={{ width: 22, height: 22, borderRadius: '50%', background: bt.color, color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                                                                 {s.staff_name?.charAt(0)?.toUpperCase()}
                                                             </div>
                                                             <div>
@@ -1243,12 +1394,12 @@ const MachineManagement = () => {
                                             <input type="checkbox"
                                                 checked={bookAssignStaffIds.includes(s.id)}
                                                 onChange={() => toggleBookStaff(s.id)} />
-                                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+                                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
                                                 {s.name?.charAt(0)?.toUpperCase()}
                                             </div>
                                             <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: 600, fontSize: 14, color: '#000' }}>{s.name}</div>
-                                                <div style={{ fontSize: 12, color: '#555' }}>Front Office &middot; {s.branch_name || ''}</div>
+                                                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{s.name}</div>
+                                                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Front Office &middot; {s.branch_name || ''}</div>
                                             </div>
                                         </label>
                                     ))}

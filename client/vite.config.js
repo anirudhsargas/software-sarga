@@ -1,13 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt', // Don't force reloads, let user decide
       includeAssets: ['vite.svg', 'icons/*.png'],
       manifest: false, // we already have public/manifest.json
       workbox: {
@@ -18,8 +19,18 @@ export default defineConfig({
         // Runtime caching for the API
         runtimeCaching: [
           {
-            // Cache product hierarchy, categories, staff — data that rarely changes
-            urlPattern: /\/api\/(product-hierarchy|products|categories|branches|staff|machines)/,
+            // Cache product hierarchy, branches, customers for instant load
+            urlPattern: /\/api\/(product-hierarchy|branches|customers)/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'sarga-api-stable',
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 }, // 1 day
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Cache product/category/staff/machines (less critical)
+            urlPattern: /\/api\/(products|categories|staff|machines)/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'sarga-api-data',
@@ -42,10 +53,54 @@ export default defineConfig({
         navigateFallback: 'index.html',
         navigateFallbackAllowlist: [/^(?!\/__).*/],
       },
+      devOptions: {
+        enabled: false, // Disable Service Worker in development to avoid HMR conflicts
+        type: 'module',
+        navigateFallback: 'index.html',
+      },
     }),
+    visualizer({ open: false, gzipSize: true, brotliSize: true }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core (loads first)
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ui': ['lucide-react'],
+          // Split heavy pages into separate chunks
+          'page-billing': ['./src/pages/Billing.jsx'],
+          'page-reports': ['./src/pages/SalesPrediction.jsx', './src/pages/AIMonitoring.jsx', './src/pages/OrderPredictions.jsx'],
+          'page-expense': ['./src/pages/ExpenseManager.jsx'],
+          'page-staff': ['./src/pages/StaffManagement.jsx', './src/pages/AttendanceSalary.jsx'],
+          // Heavy libraries → separate chunks (lazy-loaded)
+          'pdf-export': ['jspdf', 'jspdf-autotable'],
+          'image-processing': ['react-easy-crop'],
+          'qr-code': ['html5-qrcode'],
+          // Drag & drop
+          'dnd-kit': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+        },
+      },
+    },
+    cssCodeSplit: true,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+      format: {
+        comments: false,
+      },
+    },
+    sourcemap: false,
+    // Increase chunk size limit to avoid many small chunks
+    chunkSizeWarningLimit: 500,
+    // Emit module preload polyfill
+    modulePreload: true,
+  },
   server: {
-    port: 5174,
+    port: 5173,
     strictPort: true,
     host: '0.0.0.0',
     proxy: {

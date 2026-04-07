@@ -45,7 +45,7 @@ router.post('/backups', authenticateToken, authorizeRoles('Admin'), asyncHandler
     exec(dumpCmd, (error, stdout, stderr) => {
         if (error) {
             console.error('Backup failed:', error);
-            return res.status(500).json({ message: 'Backup failed', error: error.message });
+            return res.status(500).json({ message: 'Backup failed' });
         }
         const stats = fs.statSync(BACKUP_FILE);
         auditLog(req.user.id, 'BACKUP_CREATE', `Created backup: backup-${DATE}.sql (${(stats.size / (1024 * 1024)).toFixed(2)} MB)`);
@@ -80,7 +80,7 @@ router.post('/backups/restore', authenticateToken, authorizeRoles('Admin'), asyn
     exec(restoreCmd, (error, stdout, stderr) => {
         if (error) {
             console.error('Restore failed:', error);
-            return res.status(500).json({ message: 'Restore failed', error: error.message });
+            return res.status(500).json({ message: 'Restore failed' });
         }
         auditLog(req.user.id, 'BACKUP_RESTORE', `Restored database from: ${safeName}`);
         res.json({ message: `Database restored successfully from ${safeName}` });

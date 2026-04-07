@@ -16,6 +16,10 @@ const createIdempotencyKey = () => (typeof crypto !== 'undefined' && crypto.rand
 const StaffExpensesTab = ({ onPayment, onError }) => {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [salaryInfo, setSalaryInfo] = useState(null);
   const [loadingInfo, setLoadingInfo] = useState(false);
@@ -63,16 +67,27 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  const fetchStaff = useCallback(async () => {
+  const fetchStaff = useCallback(async (pageNum = 1) => {
     setLoading(true);
     try {
-      const r = await api.get('/staff');
-      setStaffList(Array.isArray(r.data) ? r.data : r.data?.data || []);
-    } catch { setStaffList([]); }
-    finally { setLoading(false); }
-  }, []);
+      const params = new URLSearchParams();
+      params.append('page', pageNum);
+      params.append('limit', limit);
+      const r = await api.get(`/staff?${params.toString()}`);
+      setStaffList(r.data.data || []);
+      setTotal(r.data.total || 0);
+      setTotalPages(r.data.totalPages || 1);
+      setPage(r.data.page || 1);
+    } catch {
+      setStaffList([]);
+      setTotal(0);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
+  }, [limit]);
 
-  useEffect(() => { fetchStaff(); }, [fetchStaff]);
+  useEffect(() => { fetchStaff(page); }, [fetchStaff, page]);
 
   const openStaffSalary = useCallback(async (staff) => {
     setSelectedStaff(staff);
@@ -279,73 +294,8 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
               </div>
             )}
 
-            {/* Recent Payments */}
-            {payments.length > 0 && (
-              <div className="em-card">
-                <div className="em-card__title"><IndianRupee size={16} /> Recent Payment Transactions</div>
-                <div className="em-table-wrap">
-                  <table className="em-table">
-                    <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Reference</th><th>Notes</th></tr></thead>
-                    <tbody>
-                      {payments.map(p => (
-                        <tr key={p.id}>
-                          <td>{fmtDate(p.payment_date)}</td>
-                          <td className="em-amount-cell">₹{fmt(p.payment_amount)}</td>
-                          <td>{p.payment_method || '—'}</td>
-                          <td>{p.reference_number || '—'}</td>
-                          <td className="em-desc-cell">{p.notes || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+            {/* Recent Payments - Placeholder or logic for recent payments for this staff */}
           </>
-        )}
-
-        {/* Salary Payment Modal */}
-        {showPayModal && (
-          <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closePayModal(); }}>
-            <div className="em-modal em-modal--sm" onClick={e => e.stopPropagation()}>
-              <div className="em-modal__header"><h2>Pay Salary — {selectedStaff.name}</h2><button className="btn btn-ghost btn-icon" aria-label="Close salary payment modal" onClick={() => closePayModal()}><X size={18} /></button></div>
-              {payDirty && !payConfirming && <div className="alert alert--warning mb-12">Unsaved changes</div>}
-              {!payConfirming ? (
-                <form onSubmit={handleSalaryReview}>
-                  <div className="em-modal__body">
-                    <div className="em-form-grid">
-                      <div className="em-form-group"><label>For Month</label><input className="em-input" type="month" value={month} onChange={e => { setMonth(e.target.value); setPayDirty(true); }} required /></div>
-                      <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={payForm.amount} onChange={e => { setPayForm(p => ({ ...p, amount: e.target.value })); setPayDirty(true); }} required /></div>
-                      <div className="em-form-group"><label>Bonus (₹)</label><input className="em-input" type="number" min="0" value={payForm.bonus} onChange={e => { setPayForm(p => ({ ...p, bonus: e.target.value })); setPayDirty(true); }} /></div>
-                      <div className="em-form-group"><label>Deduction (₹)</label><input className="em-input" type="number" min="0" value={payForm.deduction} onChange={e => { setPayForm(p => ({ ...p, deduction: e.target.value })); setPayDirty(true); }} /></div>
-                      <div className="em-form-group"><label>Payment Method</label><select className="em-input" value={payForm.payment_method} onChange={e => { setPayForm(p => ({ ...p, payment_method: e.target.value })); setPayDirty(true); }}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
-                      <div className="em-form-group"><label>Reference #</label><input className="em-input" value={payForm.reference_number} onChange={e => { setPayForm(p => ({ ...p, reference_number: e.target.value })); setPayDirty(true); }} /></div>
-                      <div className="em-form-group em-form-group--full"><label>Notes</label><input className="em-input" value={payForm.notes} onChange={e => { setPayForm(p => ({ ...p, notes: e.target.value })); setPayDirty(true); }} /></div>
-                    </div>
-                  </div>
-                  <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => closePayModal()}>Cancel</button><button type="submit" className="btn btn-primary" disabled={!payForm.amount || Number(payForm.amount) <= 0}>Review & Confirm</button></div>
-                </form>
-              ) : (
-                <form onSubmit={submitSalaryPayment}>
-                  <div className="em-modal__body">
-                    <div className="em-confirm-summary">
-                      <div className="em-confirm-summary__title"><CheckCircle size={18} /> Confirm Salary Payment</div>
-                      <div className="em-confirm-summary__rows">
-                        <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Employee</span><span className="em-confirm-summary__value">{selectedStaff.name}</span></div>
-                        <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">For Month</span><span className="em-confirm-summary__value">{month}</span></div>
-                        <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Amount</span><span className="em-confirm-summary__value em-confirm-summary__amount">₹{fmt(Number(payForm.amount))}</span></div>
-                        {Number(payForm.bonus) > 0 && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Bonus</span><span className="em-confirm-summary__value" style={{ color: 'var(--success)' }}>+₹{fmt(Number(payForm.bonus))}</span></div>}
-                        {Number(payForm.deduction) > 0 && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Deduction</span><span className="em-confirm-summary__value" style={{ color: 'var(--error)' }}>-₹{fmt(Number(payForm.deduction))}</span></div>}
-                        <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Method</span><span className="em-confirm-summary__value">{payForm.payment_method}</span></div>
-                      </div>
-                      <div className="em-confirm-summary__warn"><AlertTriangle size={14} /> Please verify the salary details before confirming.</div>
-                    </div>
-                  </div>
-                  <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setPayConfirming(false)}>← Back to Edit</button><button type="submit" className="btn btn-primary" disabled={paySubmitting}>{paySubmitting ? 'Processing...' : 'Confirm Payment'}</button></div>
-                </form>
-              )}
-            </div>
-          </div>
         )}
       </div>
     );
@@ -414,10 +364,21 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
                     e.stopPropagation();
                     downloadSalarySlip(s.id, month);
                   }}
+                  title="Download Salary Slip"
                 >
                   <Download size={14} /> Slip
                 </button>
-                <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedStaff(s); setPayForm(p => ({ ...p, amount: String(s.base_salary || s.daily_rate * 26 || '') })); setPayDirty(false); setShowPayModal(true); }}>
+                <button 
+                  className="btn btn-primary btn-sm" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    setSelectedStaff(s); 
+                    setPayForm(p => ({ ...p, amount: String(s.base_salary || s.daily_rate * 26 || '') })); 
+                    setPayDirty(false); 
+                    setShowPayModal(true); 
+                  }}
+                  title="Pay Salary"
+                >
                   <IndianRupee size={14} /> Pay
                 </button>
               </div>

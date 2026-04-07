@@ -3,15 +3,16 @@ const router = express.Router();
 const { pool } = require('../database');
 const auth = require('../middleware/auth');
 const { auditLog } = require('../helpers');
+const { paginate } = require('../helpers/pagination');
 
 // ==================== GET DAILY REPORTS (OFFSET) ====================
 router.get('/offset', auth.authenticate, async (req, res) => {
     try {
         const { branch_id, start_date, end_date, status } = req.query;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
         const user = req.user;
 
         let query = `
-      SELECT dr.*, b.name as branch_name, s.name as created_by_name
       FROM sarga_daily_report_offset dr
       LEFT JOIN sarga_branches b ON dr.branch_id = b.id
       LEFT JOIN sarga_staff s ON dr.created_by = s.id
@@ -41,10 +42,10 @@ router.get('/offset', auth.authenticate, async (req, res) => {
             params.push(status);
         }
 
-        query += ` ORDER BY dr.report_date DESC LIMIT 100`;
-
-        const [reports] = await pool.query(query, params);
-        res.json(reports);
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${query}`, params);
+        const [rows] = await pool.query(`SELECT dr.*, b.name as branch_name, s.name as created_by_name ${query} ORDER BY dr.report_date DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+        
+        res.json(response(rows, total));
     } catch (error) {
         console.error('Error fetching offset reports:', error);
         res.status(500).json({ error: 'Failed to fetch reports' });
@@ -323,7 +324,7 @@ router.post('/offset', auth.authenticate, async (req, res) => {
             [reportId]
         );
 
-        auditLog(req.user.id, 'DAILY_REPORT_SAVE', `Saved offset daily report for ${report_date}, branch ${branchId}`, { entity_type: 'daily_report', entity_id: reportId });
+        auditLog(req.user.id, 'DAILY_REPORT_SAVE', `Saved offset daily report for ${report_date}, branch ${effectiveBranchId}`, { entity_type: 'daily_report', entity_id: reportId });
         res.json(finalReport[0]);
     } catch (error) {
         await connection.rollback();

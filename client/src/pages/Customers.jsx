@@ -1,12 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useDebounce } from '../hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
 import { Users, Search, Phone, User, Loader2, Plus, X, Edit2, Trash2, Filter, Mail, MapPin } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
+import localDb from '../services/localDb';
 import { isTouchDevice } from '../services/utils';
 import { calculateProductPrice } from '../utils/pricing';
+import { whatsappUrl } from '../utils/whatsapp';
 import Pagination from '../components/Pagination';
 import { useConfirm } from '../contexts/ConfirmContext';
+import SkeletonLoader from '../components/SkeletonLoader';
+import ServerError from '../components/ServerError';
+import toast from 'react-hot-toast';
 
 const Customers = () => {
     const { confirm } = useConfirm();
@@ -29,11 +36,21 @@ const Customers = () => {
         address: ''
     });
     const [error, setError] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchInput, setSearchInput] = useState('');
+    const searchQuery = useDebounce(searchInput, 300);
     const [typeFilter, setTypeFilter] = useState('');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+
+    const customerListRef = useRef(null);
+    const customerVirtualizer = useVirtualizer({
+        count: customers.length,
+        getScrollElement: () => customerListRef.current,
+        estimateSize: () => 72,
+        overscan: 10,
+    });
+
 
     const hasUnsavedChanges = (showAddModal && addFormDirty) || (showEditModal && editFormDirty);
 
@@ -67,19 +84,48 @@ const Customers = () => {
 
     const customerTypes = ['Walk-in', 'Retail', 'Association', 'Offset'];
 
-    useEffect(() => {
-        fetchCustomers();
-    }, [page, typeFilter]);
 
-    // Debounced search
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setPage(1);
-            fetchCustomers();
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
+    // --- PAGINATION STATE ---
+    // Already declared: page, setPage, totalPages, setTotalPages, total, setTotal
+    const LIMIT = 20;
 
+    // --- PAGINATED FETCH ---
+    const fetchCustomers = async (pageNum = 1) => {
+        setLoading(true);
+        setError('');
+        try {
+            const params = new URLSearchParams();
+            params.append('page', pageNum);
+            params.append('limit', LIMIT);
+            if (searchQuery) params.append('search', searchQuery);
+            if (typeFilter) params.append('type', typeFilter);
+            const res = await api.get(`/customers?${params.toString()}`);
+            if (res.data?.data && res.data?.total !== undefined) {
+                setCustomers(res.data.data);
+                setTotal(res.data.total);
+                setTotalPages(res.data.totalPages || Math.ceil(res.data.total / LIMIT));
+            } else if (Array.isArray(res.data)) {
+                setCustomers(res.data);
+                setTotal(res.data.length);
+                setTotalPages(1);
+            } else {
+                setCustomers([]);
+                setTotal(0);
+                setTotalPages(1);
+            }
+            setPage(pageNum);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (err) {
+            setError('Failed to fetch customers from server');
+            setCustomers([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // --- EFFECTS ---
+    useEffect(() => { fetchCustomers(1); }, []);
+    useEffect(() => { fetchCustomers(1); }, [searchQuery, typeFilter]);
     useEffect(() => {
         const handleBeforeUnload = (event) => {
             if (!hasUnsavedChanges) return;
@@ -90,22 +136,10 @@ const Customers = () => {
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [hasUnsavedChanges]);
 
-    const fetchCustomers = async () => {
-        try {
-            setLoading(true);
-            const params = new URLSearchParams({ page, limit: 20 });
-            if (searchQuery.trim()) params.append('search', searchQuery.trim());
-            if (typeFilter) params.append('type', typeFilter);
-            const response = await api.get(`/customers?${params}`);
-            const res = response.data;
-            setCustomers(res.data || []);
-            setTotal(res.total || 0);
-            setTotalPages(res.totalPages || 1);
-        } catch (err) {
-            setError('Failed to fetch customers');
-        } finally {
-            setLoading(false);
-        }
+    // --- PAGINATION HANDLER ---
+    const goToPage = (pageNum) => {
+        if (pageNum < 1 || pageNum > totalPages) return;
+        fetchCustomers(pageNum);
     };
 
     const validateMobile = (value) => {
@@ -119,12 +153,13 @@ const Customers = () => {
         }
         setLoading(true);
         try {
-            await api.post('/customers', newCustomer);
+            await localDb.createCustomer(newCustomer);
             closeAddModal(true);
             setNewCustomer({ mobile: '', name: '', type: 'Walk-in', email: '', gst: '', address: '' });
+            toast.success('Customer added locally');
             fetchCustomers();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to add customer');
+            setError('Failed to add customer');
         } finally {
             setLoading(false);
         }
@@ -135,39 +170,16 @@ const Customers = () => {
         if (selectedCustomer.mobile.length !== 10) {
             return setError('Mobile number must be exactly 10 digits');
         }
-        if (!isAdmin) {
-            setLoading(true);
-            try {
-                await api.post('/requests/customer-change', {
-                    customer_id: selectedCustomer.id,
-                    action: 'EDIT',
-                    payload: {
-                        mobile: selectedCustomer.mobile,
-                        name: selectedCustomer.name,
-                        type: selectedCustomer.type,
-                        email: selectedCustomer.email,
-                        gst: selectedCustomer.gst,
-                        address: selectedCustomer.address
-                    }
-                });
-                closeEditModal(true);
-                setSelectedCustomer(null);
-            } catch (err) {
-                setError(err.response?.data?.message || 'Failed to submit edit request');
-            } finally {
-                setLoading(false);
-            }
-            return;
-        }
-
+        
         setLoading(true);
         try {
-            await api.put(`/customers/${selectedCustomer.id}`, selectedCustomer);
+            await localDb.createCustomer(selectedCustomer); // createCustomer handles upsert
             closeEditModal(true);
             setSelectedCustomer(null);
+            toast.success('Customer updated locally');
             fetchCustomers();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to update customer');
+            setError('Failed to update customer');
         } finally {
             setLoading(false);
         }
@@ -226,20 +238,44 @@ const Customers = () => {
     const [branches, setBranches] = useState([]);
 
     const [extraInputs, setExtraInputs] = useState([]); // [{purpose, amount}]
+    const [turnaroundEstimate, setTurnaroundEstimate] = useState(null);
 
     useEffect(() => {
         if (showJobModal) {
             fetchHierarchy();
             fetchBranches();
+        } else {
+            setTurnaroundEstimate(null);
         }
     }, [showJobModal]);
 
+    // Fetch turnaround estimate when product + quantity + branch change
+    useEffect(() => {
+        if (!selectedProduct || !jobData.quantity || !jobData.branch_id) {
+            setTurnaroundEstimate(null);
+            return;
+        }
+        const timer = setTimeout(async () => {
+            try {
+                const res = await api.post('/ai/turnaround', {
+                    service_type: selectedProduct.category || selectedProduct.name,
+                    quantity: Number(jobData.quantity),
+                    branch_id: Number(jobData.branch_id),
+                });
+                setTurnaroundEstimate(res.data);
+            } catch {
+                setTurnaroundEstimate(null);
+            }
+        }, 600);
+        return () => clearTimeout(timer);
+    }, [selectedProduct?.id, jobData.quantity, jobData.branch_id]);
+
     const fetchBranches = async () => {
         try {
-            const response = await api.get('/branches');
-            setBranches(response.data || []);
-            if ((response.data || []).length > 0) {
-                setJobData(prev => ({ ...prev, branch_id: response.data[0].id }));
+            const data = await localDb.getBranches();
+            setBranches(data || []);
+            if ((data || []).length > 0) {
+                setJobData(prev => ({ ...prev, branch_id: data[0].id }));
             }
         } catch (err) {
             console.error('Failed to fetch branches');
@@ -248,8 +284,8 @@ const Customers = () => {
 
     const fetchHierarchy = async () => {
         try {
-            const res = await api.get('/product-hierarchy');
-            setHierarchy(res.data);
+            const data = await localDb.getProducts(); // Hierarchy is cached in meta/products
+            setHierarchy(data);
         } catch (err) {
             console.error("Hierarchy error", err);
         }
@@ -396,8 +432,8 @@ const Customers = () => {
                         placeholder="Search by name or mobile..."
                         className="input-field"
                         style={{ paddingLeft: 32, width: '100%', height: 36, fontSize: 14 }}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        value={searchInput}
+                        onChange={e => setSearchInput(e.target.value)}
                     />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 4px 0 8px', height: 36, flexShrink: 0 }}>
@@ -416,7 +452,9 @@ const Customers = () => {
 
             <div className="card p-0 overflow-hidden shadow-sm">
                 {loading && customers.length === 0 ? (
-                    <div className="text-center p-40 muted">Loading customers...</div>
+                    <SkeletonLoader type="table" count={8} />
+                ) : error && customers.length === 0 ? (
+                    <ServerError onRetry={fetchCustomers} message={error} />
                 ) : customers.length === 0 ? (
                     <div className="text-center p-40 muted">No customers found.</div>
                 ) : customers.map((c, idx) => (
@@ -451,6 +489,10 @@ const Customers = () => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2, color: 'var(--muted)', fontSize: 13 }}>
                                 <Phone size={12} style={{ flexShrink: 0 }} />
                                 <span style={{ fontFamily: 'monospace' }}>+91 {c.mobile}</span>
+                                <a href={`tel:+91${c.mobile}`} title="Call" style={{ color: 'var(--success)', textDecoration: 'none', marginLeft: 4, display: 'flex' }}><Phone size={12} /></a>
+                                <a href={whatsappUrl(c.mobile, `Dear ${c.name || 'Customer'},\n\nGreetings from Sarga! 🙏\n\nHow can we help you today?`)} target="_blank" rel="noopener noreferrer" title="WhatsApp" style={{ color: '#25D366', textDecoration: 'none', marginLeft: 2, display: 'flex' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                </a>
                             </div>
                             {c.email && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1, color: 'var(--muted)', fontSize: 12, overflow: 'hidden' }}>
@@ -499,7 +541,14 @@ const Customers = () => {
                     </div>
                 ))}
             </div>
-            <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
+            <Pagination
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                limit={LIMIT}
+                onPageChange={goToPage}
+                loading={loading}
+            />
 
             {/* Modals... */}
             {showAddModal && (
@@ -524,11 +573,10 @@ const Customers = () => {
                                 <div className="flex-1">
                                     <label className="label">Mobile Number</label>
                                     <div className="row gap-sm">
-                                        <span className="badge" style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--bg-light)' }}>+91</span>
+                                        <span className="badge" style={{ padding: '12px 14px', borderRadius: '12px' }}>+91</span>
                                         <input
                                             type="tel"
                                             className="input-field"
-                                            placeholder="10-digit mobile"
                                             value={newCustomer.mobile}
                                             onChange={(e) => updateNewCustomer({ mobile: validateMobile(e.target.value) })}
                                             required
@@ -547,7 +595,7 @@ const Customers = () => {
                                 </div>
                             </div>
                             <div>
-                                <label className="label">Email Address (Optional)</label>
+                                <label className="label">Email Address</label>
                                 <input
                                     type="email"
                                     className="input-field"
@@ -555,30 +603,8 @@ const Customers = () => {
                                     onChange={(e) => updateNewCustomer({ email: e.target.value })}
                                 />
                             </div>
-                            <div>
-                                <label className="label">GST Number (Optional)</label>
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    value={newCustomer.gst}
-                                    onChange={(e) => updateNewCustomer({ gst: e.target.value.toUpperCase() })}
-                                    placeholder="GSTIN"
-                                />
-                            </div>
-                            <div>
-                                <label className="label">Full Address</label>
-                                <textarea
-                                    className="input-field"
-                                    style={{ minHeight: '80px', resize: 'vertical' }}
-                                    value={newCustomer.address}
-                                    onChange={(e) => updateNewCustomer({ address: e.target.value })}
-                                />
-                            </div>
-
-                            {error && <p className="text-sm text-error">{error}</p>}
-
                             <button type="submit" disabled={loading} className="btn btn-primary btn--full mt-8">
-                                {loading ? <Loader2 className="animate-spin" /> : "Save Customer"}
+                                {loading ? <Loader2 className="animate-spin" /> : "Add Customer"}
                             </button>
                         </form>
                     </div>
@@ -643,28 +669,26 @@ const Customers = () => {
                                     className="input-field"
                                     value={selectedCustomer.gst || ''}
                                     onChange={(e) => updateSelectedCustomer({ gst: e.target.value.toUpperCase() })}
-                                    placeholder="GSTIN"
                                 />
                             </div>
                             <div>
                                 <label className="label">Address</label>
                                 <textarea
                                     className="input-field"
-                                    style={{ minHeight: '80px', resize: 'vertical' }}
+                                    style={{ minHeight: '80px' }}
                                     value={selectedCustomer.address || ''}
                                     onChange={(e) => updateSelectedCustomer({ address: e.target.value })}
                                 />
                             </div>
-
                             {error && <p className="text-sm text-error">{error}</p>}
-
-                            <button type="submit" disabled={loading} className="btn btn-primary btn--full">
+                            <button type="submit" disabled={loading} className="btn btn-primary btn--full mt-8">
                                 {loading ? <Loader2 className="animate-spin" /> : (isAdmin ? "Update Customer" : "Send Edit Request")}
                             </button>
                         </form>
                     </div>
                 </div>
             )}
+
 
             {/* Advanced Add Job Modal */}
             {showJobModal && selectedCustomer && (
@@ -753,6 +777,15 @@ const Customers = () => {
                                             required
                                         />
                                     </div>
+                                    {turnaroundEstimate && (
+                                        <div className="flex-1" style={{ alignSelf: 'flex-end' }}>
+                                            <div style={{ padding: '8px 12px', background: 'var(--color-surface, #f0f4ff)', border: '1px solid var(--color-border, #d0d7e3)', borderRadius: '8px', fontSize: '0.82rem', lineHeight: 1.4 }}>
+                                                <span style={{ marginRight: 4 }}>⏱️</span>
+                                                Estimated completion: <strong>{new Date(turnaroundEstimate.ready_by).toLocaleDateString(undefined, { weekday: 'long' })}, {new Date(turnaroundEstimate.ready_by).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</strong>
+                                                {' '}(~{turnaroundEstimate.predicted_hours}h)
+                                            </div>
+                                        </div>
+                                    )}
                                     {selectedProduct?.has_paper_rate && (
                                         <div className="flex-1">
                                             <label className="label">Paper Rate (Add-on)</label>

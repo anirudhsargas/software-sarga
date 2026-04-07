@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link } from 'lucide-react';
+import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, Eye, TrendingUp, TrendingDown, DollarSign, BarChart3, Clock, ShoppingCart, Image as ImageIcon, ArrowLeftRight, Bell } from 'lucide-react';
 import api from '../services/api';
 import auth from '../services/auth';
+import localDb from '../services/localDb';
 import Pagination from '../components/Pagination';
+import SecureImage from '../components/SecureImage';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
+import SmartBillUpload from './expense-manager/SmartBillUpload';
 
 const emptyItem = {
     name: '',
@@ -31,6 +34,7 @@ const emptyItem = {
 const Inventory = () => {
     const { confirm } = useConfirm();
     const isAdmin = ['Admin', 'Accountant'].includes(auth.getUser()?.role);
+    const isFrontOffice = auth.getUser()?.role === 'Front Office';
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -64,11 +68,24 @@ const Inventory = () => {
     const [showRestockModal, setShowRestockModal] = useState(false);
     const [restockData, setRestockData] = useState({ id: null, quantity: '', cost: '', notes: '' });
 
-    // Bill Upload OCR state
-    const [processingBill, setProcessingBill] = useState(false);
-    const [showReviewModal, setShowReviewModal] = useState(false);
-    const [extractedBillData, setExtractedBillData] = useState(null);
-    const fileInputRef = useRef(null);
+    // Bill Upload state
+    const [showSmartUpload, setShowSmartUpload] = useState(false);
+
+    // Inter-branch stock request state
+    const [showStockRequestModal, setShowStockRequestModal] = useState(false);
+    const [stockRequestData, setStockRequestData] = useState({ inventory_item_id: null, item_name: '', notes: '' });
+    const [branchAvailability, setBranchAvailability] = useState(null); // { item, branches[] }
+    const [branchAvailabilityLoading, setBranchAvailabilityLoading] = useState(false);
+    const [branchRequestQtys, setBranchRequestQtys] = useState({}); // { branchId: qty string }
+    const [showStockRequestsPanel, setShowStockRequestsPanel] = useState(false);
+    const [stockRequests, setStockRequests] = useState([]);
+    const [stockRequestsLoading, setStockRequestsLoading] = useState(false);
+    const [stockRequestSaving, setStockRequestSaving] = useState(false);
+
+    // Product Detail Dashboard state
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [detailItem, setDetailItem] = useState(null);
+    const [detailLoading, setDetailLoading] = useState(false);
 
     useEffect(() => {
         fetchInventory();
@@ -91,12 +108,15 @@ const Inventory = () => {
                 else if (showPrintModal) setShowPrintModal(false);
                 else if (showConsumeModal) setShowConsumeModal(false);
                 else if (showRestockModal) setShowRestockModal(false);
-                else if (showReviewModal) setShowReviewModal(false);
+                else if (showSmartUpload) setShowSmartUpload(false);
+                else if (showDetailModal) setShowDetailModal(false);
+            else if (showStockRequestModal) setShowStockRequestModal(false);
+            else if (showStockRequestsPanel) setShowStockRequestsPanel(false);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [showAddModal, showEditModal, showPrintModal, showConsumeModal, showRestockModal, showReviewModal]);
+    }, [showAddModal, showEditModal, showPrintModal, showConsumeModal, showRestockModal, showSmartUpload, showDetailModal, showStockRequestModal, showStockRequestsPanel]);
 
     const fetchInventory = async () => {
         setLoading(true);
@@ -104,23 +124,16 @@ const Inventory = () => {
         try {
             const params = {
                 page,
-                search: debouncedSearch,
-                item_type: filterType,
-                category: filterCategory,
-                status: filterStatus
+                search: debouncedSearch || undefined,
+                item_type: filterType || undefined,
+                category: filterCategory || undefined,
+                status: filterStatus || undefined,
+                limit: 50
             };
-            const queryString = new URLSearchParams(params).toString();
-            const res = await api.get(`/inventory?${queryString}`);
-            // Handle paginated response structure
-            if (res.data && res.data.data) {
-                setItems(res.data.data);
-                setTotal(res.data.total);
-                setTotalPages(res.data.totalPages); // Assuming totalPages is also nested
-            } else {
-                setItems(Array.isArray(res.data) ? res.data : []);
-                setTotal(res.headers['x-total-count'] || (Array.isArray(res.data) ? res.data.length : 0));
-                setTotalPages(1); // Default to 1 if not paginated or totalPages not provided
-            }
+            const res = await api.get('/inventory', { params });
+            setItems(res.data.data || []);
+            setTotal(res.data.total || 0);
+            setTotalPages(res.data.totalPages || 1);
         } catch (err) {
             setError('Failed to fetch inventory');
         } finally {
@@ -130,27 +143,98 @@ const Inventory = () => {
 
     const fetchHierarchy = async () => {
         try {
-            const res = await api.get('/product-hierarchy');
-            setHierarchy(res.data);
-
-            // Flatten products for easy selection
-            const products = [];
-            res.data.forEach(cat => {
-                cat.subcategories.forEach(sub => {
-                    sub.products.forEach(p => {
-                        products.push({
-                            ...p,
-                            category_name: cat.name,
-                            subcategory_name: sub.name
-                        });
-                    });
-                });
-            });
-            setAllProducts(products);
+            const [products, hierarchyData] = await Promise.all([
+                localDb.getProductList(),
+                localDb.getProducts()
+            ]);
+            setAllProducts(products || []);
+            setHierarchy(hierarchyData || []);
         } catch (err) {
             console.error("Fetch hierarchy error:", err);
         }
     };
+
+    const fetchStockRequests = async () => {
+        setStockRequestsLoading(true);
+        try {
+            const res = await api.get('/stock-requests');
+            setStockRequests(res.data || []);
+        } catch (err) {
+            toast.error('Failed to load stock requests');
+        } finally {
+            setStockRequestsLoading(false);
+        }
+    };
+
+    const openStockRequestModal = async (item) => {
+        setStockRequestData({ inventory_item_id: item.id, item_name: item.name, notes: '' });
+        setBranchAvailability(null);
+        setBranchRequestQtys({});
+        setShowStockRequestModal(true);
+        setBranchAvailabilityLoading(true);
+        try {
+            const res = await api.get(`/inventory/${item.id}/branch-availability`);
+            setBranchAvailability(res.data);
+            const qtys = {};
+            res.data.branches.forEach(b => { qtys[b.id] = ''; });
+            setBranchRequestQtys(qtys);
+        } catch (err) {
+            toast.error('Failed to load branch stock info');
+        } finally {
+            setBranchAvailabilityLoading(false);
+        }
+    };
+
+    const handleStockRequest = async (e) => {
+        e.preventDefault();
+        const requests = Object.entries(branchRequestQtys)
+            .filter(([, qty]) => parseInt(qty) > 0)
+            .map(([branchId, qty]) => ({ to_branch_id: branchId, quantity: parseInt(qty) }));
+        if (requests.length === 0) {
+            toast.error('Enter quantity for at least one branch');
+            return;
+        }
+        setStockRequestSaving(true);
+        try {
+            await Promise.all(requests.map(r => api.post('/stock-requests', {
+                inventory_item_id: stockRequestData.inventory_item_id,
+                to_branch_id: r.to_branch_id,
+                quantity: r.quantity,
+                notes: stockRequestData.notes || undefined
+            })));
+            toast.success(`${requests.length} stock request${requests.length > 1 ? 's' : ''} submitted`);
+            setShowStockRequestModal(false);
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to submit request');
+        } finally {
+            setStockRequestSaving(false);
+        }
+    };
+
+    const handleReviewStockRequest = async (id, action) => {
+        const urlMap = {
+            approve: `/stock-requests/${id}/approve`,
+            reject: `/stock-requests/${id}/approve`,
+            send: `/stock-requests/${id}/send`,
+            receive: `/stock-requests/${id}/receive`
+        };
+        const bodyMap = {
+            approve: { action: 'approve' },
+            reject: { action: 'reject' },
+            send: {},
+            receive: {}
+        };
+        try {
+            await api.put(urlMap[action], bodyMap[action]);
+            const labels = { approve: 'Approved', reject: 'Rejected', send: 'Sent', receive: 'Received' };
+            toast.success(`Request ${labels[action]}`);
+            fetchStockRequests();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Action failed');
+        }
+    };
+
+    const pendingRequestsCount = stockRequests.filter(r => ['Pending', 'Sent'].includes(r.status)).length;
 
     const filteredProducts = useMemo(() => {
         if (!productSearch) return [];
@@ -189,53 +273,6 @@ const Inventory = () => {
         size_code: item.size_code || ''
     });
 
-    const handleFileUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        setProcessingBill(true);
-        const formData = new FormData();
-        formData.append('bill_file', file);
-
-        try {
-            const res = await api.post('/inventory/extract-bill', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            setExtractedBillData(res.data);
-            setShowReviewModal(true);
-        } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to process bill');
-        } finally {
-            setProcessingBill(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    };
-
-    const handleBatchSaveBill = async () => {
-        if (!extractedBillData || !extractedBillData.items || extractedBillData.items.length === 0) {
-            toast.error("No items to save.");
-            return;
-        }
-
-        try {
-            for (const item of extractedBillData.items) {
-                await api.post('/inventory', {
-                    ...emptyItem,
-                    ...item,
-                    vendor_name: extractedBillData.vendor_name || '',
-                    vendor_contact: extractedBillData.vendor_contact || '',
-                    item_type: 'Retail',
-                });
-            }
-            toast.success("All extracted items added successfully!");
-            setShowReviewModal(false);
-            setExtractedBillData(null);
-            fetchInventory();
-        } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to save items');
-        }
-    };
-
     const handleAddItem = async (e) => {
         e.preventDefault();
         setError('');
@@ -256,7 +293,7 @@ const Inventory = () => {
             });
             setShowAddModal(false);
             setNewItem(emptyItem);
-            toast.success('Inventory item added successfully');
+            toast.success('Inventory item added');
             fetchInventory();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to add item');
@@ -286,7 +323,7 @@ const Inventory = () => {
             });
             setShowEditModal(false);
             setSelectedItem(null);
-            toast.success('Inventory item updated successfully');
+            toast.success('Inventory item updated');
             fetchInventory();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update item');
@@ -306,10 +343,10 @@ const Inventory = () => {
 
         try {
             await api.delete(`/inventory/${id}`);
-            toast.success('Inventory item deleted successfully');
+            toast.success('Inventory item deleted');
             fetchInventory();
         } catch (err) {
-            setError('Failed to delete item');
+            toast.error(err.response?.data?.message || 'Failed to delete item');
         }
     };
 
@@ -421,11 +458,8 @@ const Inventory = () => {
         e.preventDefault();
         setSaving(true);
         try {
-            await api.post(`/inventory/${consumeData.id}/consume`, {
-                quantity_consumed: consumeData.quantity,
-                notes: consumeData.notes
-            });
-            toast.success('Stock consumed successfully');
+            await api.post(`/inventory/${consumeData.id}/consume`, { quantity: consumeData.quantity, notes: consumeData.notes });
+            toast.success('Stock consumed');
             setShowConsumeModal(false);
             setConsumeData({ id: null, quantity: '', notes: '' });
             fetchInventory();
@@ -440,12 +474,8 @@ const Inventory = () => {
         e.preventDefault();
         setSaving(true);
         try {
-            const res = await api.post(`/inventory/${restockData.id}/restock`, {
-                quantity_received: restockData.quantity,
-                cost_price: restockData.cost || undefined,
-                notes: restockData.notes
-            });
-            toast.success(`Restocked successfully. Gap: ${res.data.days_since_last_reorder ?? 'N/A'} days`);
+            await api.post(`/inventory/${restockData.id}/restock`, { quantity: restockData.quantity, cost: restockData.cost, notes: restockData.notes });
+            toast.success(`Restocked successfully`);
             setShowRestockModal(false);
             setRestockData({ id: null, quantity: '', cost: '', notes: '' });
             fetchInventory();
@@ -459,6 +489,20 @@ const Inventory = () => {
     const getStatus = (item) => {
         if (Number(item.quantity) <= Number(item.reorder_level || 0)) return 'low';
         return 'ok';
+    };
+
+    const openItemDetail = async (itemId) => {
+        setDetailLoading(true);
+        setShowDetailModal(true);
+        try {
+            const res = await api.get(`/inventory/${itemId}`);
+            setDetailItem(res.data);
+        } catch (err) {
+            toast.error('Failed to load item details');
+            setShowDetailModal(false);
+        } finally {
+            setDetailLoading(false);
+        }
     };
 
     return (
@@ -475,6 +519,7 @@ const Inventory = () => {
                         </div>
                         <input
                             type="text"
+                            name="inventorySearch"
                             className="input-field"
                             placeholder="Search by name or SKU..."
                             value={searchTerm}
@@ -504,22 +549,27 @@ const Inventory = () => {
                             <span>Print Labels ({selectedIds.length})</span>
                         </button>
                     )}
+                    <button
+                        className="btn btn-ghost"
+                        style={{ position: 'relative' }}
+                        onClick={() => { fetchStockRequests(); setShowStockRequestsPanel(true); }}
+                    >
+                        <Bell size={18} />
+                        <span>Stock Requests</span>
+                        {pendingRequestsCount > 0 && (
+                            <span style={{ position: 'absolute', top: 4, right: 4, background: 'var(--danger)', color: 'var(--on-accent)', borderRadius: '50%', width: 16, height: 16, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                                {pendingRequestsCount}
+                            </span>
+                        )}
+                    </button>
                     {isAdmin && (
                         <>
-                            <input
-                                type="file"
-                                accept=".jpg,.jpeg,.png,.pdf"
-                                style={{ display: 'none' }}
-                                ref={fileInputRef}
-                                onChange={handleFileUpload}
-                            />
                             <button
                                 className="btn btn-secondary"
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={processingBill}
+                                onClick={() => setShowSmartUpload(true)}
                             >
-                                {processingBill ? <Loader2 size={18} className="animate-spin" /> : <Printer size={18} />}
-                                <span>{processingBill ? 'Processing...' : 'Scan Bill'}</span>
+                                <Printer size={18} />
+                                <span>Scan Bill</span>
                             </button>
                             <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
                                 <Plus size={18} />
@@ -533,6 +583,7 @@ const Inventory = () => {
             <div className="row gap-md p-sm bg-surface-2 rounded-md border border-light">
                 <div className="input-group" style={{ maxWidth: '180px' }}>
                     <select 
+                        name="filterType"
                         className="input-field py-xs" 
                         value={filterType} 
                         onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
@@ -544,6 +595,7 @@ const Inventory = () => {
                 </div>
                 <div className="input-group" style={{ maxWidth: '220px' }}>
                     <select 
+                        name="filterCategory"
                         className="input-field py-xs" 
                         value={filterCategory} 
                         onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }}
@@ -560,6 +612,7 @@ const Inventory = () => {
                 </div>
                 <div className="input-group" style={{ maxWidth: '180px' }}>
                     <select 
+                        name="filterStatus"
                         className="input-field py-xs" 
                         value={filterStatus} 
                         onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
@@ -614,47 +667,53 @@ const Inventory = () => {
                                 <th>Cost</th>
                                 <th>GST %</th>
                                 <th>Status</th>
-                                {isAdmin && <th>Actions</th>}
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={isAdmin ? 10 : 9} className="text-center muted table-empty">
+                                    <td colSpan={10} className="text-center muted table-empty">
                                         <Loader2 className="animate-spin" />
                                     </td>
                                 </tr>
                             ) : items.length === 0 ? (
                                 <tr>
-                                    <td colSpan={isAdmin ? 10 : 9} className="text-center muted table-empty">
+                                    <td colSpan={10} className="text-center muted table-empty">
                                         No inventory items found.
                                     </td>
                                 </tr>
                             ) : (
                                 items.map((item) => (
-                                    <tr key={item.id} className={selectedIds.includes(item.id) ? 'row-selected' : ''}>
-                                        <td>
+                                    <tr key={item.id} className={selectedIds.includes(item.id) ? 'row-selected' : ''} style={{ cursor: 'pointer' }}>
+                                        <td onClick={(e) => e.stopPropagation()}>
                                             <input
                                                 type="checkbox"
                                                 checked={selectedIds.includes(item.id)}
                                                 onChange={() => toggleSelect(item.id)}
                                             />
                                         </td>
-                                        <td>
-                                            <div className="row gap-sm">
-                                                <div className="user-avatar avatar-sm">
-                                                    {item.linked_product_id ? <Link size={14} className="text-primary" /> : <Package size={16} />}
-                                                </div>
+                                        <td onClick={() => openItemDetail(item.id)}>
+                                            <div className="row gap-sm items-center">
+                                                {item.product_image_url ? (
+                                                    <div style={{ width: 36, height: 36, borderRadius: 6, overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border)' }}>
+                                                        <SecureImage src={item.product_image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </div>
+                                                ) : (
+                                                    <div className="user-avatar avatar-sm">
+                                                        {item.linked_product_id ? <Link size={14} className="text-primary" /> : <Package size={16} />}
+                                                    </div>
+                                                )}
                                                 <span className="user-name">{item.name}</span>
                                             </div>
                                         </td>
-                                        <td className="text-sm">{item.sku || '-'}</td>
-                                        <td className="text-sm">{item.category || item.product_subcategory_name || '-'}</td>
-                                        <td className="text-sm">{item.quantity}</td>
-                                        <td className="text-sm">{item.unit}</td>
-                                        <td className="text-sm">{Number(item.cost_price).toFixed(2)}</td>
-                                        <td className="text-sm">{item.gst_rate}%</td>
-                                        <td>
+                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.sku || '-'}</td>
+                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.category || item.product_subcategory_name || '-'}</td>
+                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.quantity}</td>
+                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.unit}</td>
+                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{Number(item.cost_price).toFixed(2)}</td>
+                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.gst_rate}%</td>
+                                        <td onClick={() => openItemDetail(item.id)}>
                                             <span className={`badge ${getStatus(item) === 'low' ? 'badge--warn' : 'badge--ok'}`}>
                                                 {getStatus(item) === 'low' ? 'Low' : 'OK'}
                                             </span>
@@ -701,7 +760,25 @@ const Inventory = () => {
                                                     >
                                                         <Trash2 size={16} />
                                                     </button>
+                                                    <button
+                                                        className="btn btn-ghost"
+                                                        title="Request from Another Branch"
+                                                        onClick={() => openStockRequestModal(item)}
+                                                    >
+                                                        <ArrowLeftRight size={16} />
+                                                    </button>
                                                 </div>
+                                            </td>
+                                        )}
+                                        {!isAdmin && (
+                                            <td>
+                                                <button
+                                                    className="btn btn-ghost"
+                                                    title="Request from Another Branch"
+                                                    onClick={() => openStockRequestModal(item)}
+                                                >
+                                                    <ArrowLeftRight size={16} />
+                                                </button>
                                             </td>
                                         )}
                                     </tr>
@@ -727,6 +804,7 @@ const Inventory = () => {
                                 <div className="search-input-container">
                                     <Search size={18} className="search-icon" />
                                     <input
+                                        name="addProductSearch"
                                         className="input-field"
                                         placeholder="Search product from library..."
                                         value={productSearch}
@@ -763,6 +841,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Item Name</label>
                                         <input
+                                            name="addItemName"
                                             className="input-field"
                                             value={newItem.name}
                                             onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
@@ -773,6 +852,7 @@ const Inventory = () => {
                                         <div className="flex-1">
                                             <label className="label">SKU (Unique Code)</label>
                                             <input
+                                                name="addItemSku"
                                                 className="input-field"
                                                 style={{ fontWeight: 700, letterSpacing: '0.5px' }}
                                                 value={newItem.sku}
@@ -789,6 +869,7 @@ const Inventory = () => {
                                             <div style={{ width: '80px' }}>
                                                 <label className="label">Source</label>
                                                 <input
+                                                    name="addItemSource"
                                                     className="input-field"
                                                     maxLength={3}
                                                     placeholder="ABC"
@@ -803,6 +884,7 @@ const Inventory = () => {
                                             <div className="flex-1">
                                                 <label className="label">Model Name</label>
                                                 <input
+                                                    name="addItemModel"
                                                     className="input-field"
                                                     placeholder="Model"
                                                     value={newItem.model_name}
@@ -816,6 +898,7 @@ const Inventory = () => {
                                             <div style={{ width: '80px' }}>
                                                 <label className="label">Size</label>
                                                 <input
+                                                    name="addItemSize"
                                                     className="input-field"
                                                     maxLength={10}
                                                     placeholder="L"
@@ -832,6 +915,7 @@ const Inventory = () => {
                                             <div className="flex-1">
                                                 <label className="label">Category</label>
                                                 <select
+                                                    name="addItemCategory"
                                                     className="input-field"
                                                     value={newItem.category}
                                                     onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
@@ -849,6 +933,7 @@ const Inventory = () => {
                                             <div className="flex-1">
                                                 <label className="label">HSN Code</label>
                                                 <input
+                                                    name="addItemHsn"
                                                     className="input-field"
                                                     value={newItem.hsn}
                                                     onChange={(e) => setNewItem({ ...newItem, hsn: e.target.value })}
@@ -861,6 +946,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Quantity</label>
                                         <input
+                                            name="addItemQty"
                                             type="number"
                                             className="input-field"
                                             value={newItem.quantity}
@@ -871,6 +957,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Unit</label>
                                         <input
+                                            name="addItemUnit"
                                             className="input-field"
                                             value={newItem.unit}
                                             onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
@@ -879,6 +966,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Reorder Level</label>
                                         <input
+                                            name="addItemReorderLevel"
                                             type="number"
                                             className="input-field"
                                             value={newItem.reorder_level}
@@ -891,6 +979,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Cost Price</label>
                                         <input
+                                            name="addItemCostPrice"
                                             type="number"
                                             step="0.01"
                                             className="input-field"
@@ -904,6 +993,7 @@ const Inventory = () => {
                                             <div className="flex-1">
                                                 <label className="label">GST Rate %</label>
                                                 <input
+                                                    name="addItemGstRate"
                                                     type="number"
                                                     className="input-field"
                                                     value={newItem.gst_rate}
@@ -914,6 +1004,7 @@ const Inventory = () => {
                                             <div className="flex-1">
                                                 <label className="label">Discount %</label>
                                                 <input
+                                                    name="addItemDiscount"
                                                     type="number"
                                                     className="input-field"
                                                     value={newItem.discount}
@@ -928,6 +1019,7 @@ const Inventory = () => {
                                     <div>
                                         <label className="label">Sell Price</label>
                                         <input
+                                            name="addItemSellPrice"
                                             type="number"
                                             step="0.01"
                                             className="input-field"
@@ -941,6 +1033,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Vendor Name</label>
                                         <input
+                                            name="addItemVendorName"
                                             className="input-field"
                                             placeholder="Where do we buy this?"
                                             value={newItem.vendor_name}
@@ -950,6 +1043,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Vendor Contact</label>
                                         <input
+                                            name="addItemVendorContact"
                                             className="input-field"
                                             placeholder="Phone or Email"
                                             value={newItem.vendor_contact}
@@ -960,6 +1054,7 @@ const Inventory = () => {
                                 <div>
                                     <label className="label">Purchase Link</label>
                                     <input
+                                        name="addItemPurchaseLink"
                                         className="input-field"
                                         placeholder="https://amazon.in/..."
                                         value={newItem.purchase_link}
@@ -996,6 +1091,7 @@ const Inventory = () => {
                                 <div className="search-input-container">
                                     <Search size={18} className="search-icon" />
                                     <input
+                                        name="editProductSearch"
                                         className="input-field"
                                         placeholder="Search product from library..."
                                         value={productSearch}
@@ -1032,6 +1128,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Item Name</label>
                                         <input
+                                            name="editItemName"
                                             className="input-field"
                                             value={selectedItem.name}
                                             onChange={(e) => setSelectedItem({ ...selectedItem, name: e.target.value })}
@@ -1042,6 +1139,7 @@ const Inventory = () => {
                                         <div className="flex-1">
                                             <label className="label">SKU (Unique Code)</label>
                                             <input
+                                                name="editItemSku"
                                                 className="input-field"
                                                 style={{ fontWeight: 700, letterSpacing: '0.5px' }}
                                                 value={selectedItem.sku || ''}
@@ -1058,6 +1156,7 @@ const Inventory = () => {
                                             <div style={{ width: '80px' }}>
                                                 <label className="label">Source</label>
                                                 <input
+                                                    name="editItemSource"
                                                     className="input-field"
                                                     maxLength={3}
                                                     placeholder="ABC"
@@ -1072,6 +1171,7 @@ const Inventory = () => {
                                             <div className="flex-1">
                                                 <label className="label">Model Name</label>
                                                 <input
+                                                    name="editItemModel"
                                                     className="input-field"
                                                     placeholder="Model"
                                                     value={selectedItem.model_name || ''}
@@ -1085,6 +1185,7 @@ const Inventory = () => {
                                             <div style={{ width: '80px' }}>
                                                 <label className="label">Size</label>
                                                 <input
+                                                    name="editItemSize"
                                                     className="input-field"
                                                     maxLength={10}
                                                     placeholder="L"
@@ -1101,6 +1202,7 @@ const Inventory = () => {
                                             <div className="flex-1">
                                                 <label className="label">Category</label>
                                                 <select
+                                                    name="editItemCategory"
                                                     className="input-field"
                                                     value={selectedItem.category}
                                                     onChange={(e) => setSelectedItem({ ...selectedItem, category: e.target.value })}
@@ -1118,6 +1220,7 @@ const Inventory = () => {
                                             <div className="flex-1">
                                                 <label className="label">HSN Code</label>
                                                 <input
+                                                    name="editItemHsn"
                                                     className="input-field"
                                                     value={selectedItem.hsn || ''}
                                                     onChange={(e) => setSelectedItem({ ...selectedItem, hsn: e.target.value })}
@@ -1130,6 +1233,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Quantity</label>
                                         <input
+                                            name="editItemQty"
                                             type="number"
                                             className="input-field"
                                             value={selectedItem.quantity}
@@ -1140,6 +1244,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Unit</label>
                                         <input
+                                            name="editItemUnit"
                                             className="input-field"
                                             value={selectedItem.unit || ''}
                                             onChange={(e) => setSelectedItem({ ...selectedItem, unit: e.target.value })}
@@ -1148,6 +1253,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Reorder Level</label>
                                         <input
+                                            name="editItemReorderLevel"
                                             type="number"
                                             className="input-field"
                                             value={selectedItem.reorder_level}
@@ -1160,6 +1266,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Cost Price</label>
                                         <input
+                                            name="editItemCostPrice"
                                             type="number"
                                             step="0.01"
                                             className="input-field"
@@ -1173,6 +1280,7 @@ const Inventory = () => {
                                             <div className="flex-1">
                                                 <label className="label">GST Rate %</label>
                                                 <input
+                                                    name="editItemGstRate"
                                                     type="number"
                                                     className="input-field"
                                                     value={selectedItem.gst_rate}
@@ -1183,6 +1291,7 @@ const Inventory = () => {
                                             <div className="flex-1">
                                                 <label className="label">Discount %</label>
                                                 <input
+                                                    name="editItemDiscount"
                                                     type="number"
                                                     className="input-field"
                                                     value={selectedItem.discount}
@@ -1197,6 +1306,7 @@ const Inventory = () => {
                                     <div>
                                         <label className="label">Sell Price</label>
                                         <input
+                                            name="editItemSellPrice"
                                             type="number"
                                             step="0.01"
                                             className="input-field"
@@ -1210,6 +1320,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Vendor Name</label>
                                         <input
+                                            name="editItemVendorName"
                                             className="input-field"
                                             placeholder="Where do we buy this?"
                                             value={selectedItem.vendor_name || ''}
@@ -1219,6 +1330,7 @@ const Inventory = () => {
                                     <div className="flex-1">
                                         <label className="label">Vendor Contact</label>
                                         <input
+                                            name="editItemVendorContact"
                                             className="input-field"
                                             placeholder="Phone or Email"
                                             value={selectedItem.vendor_contact || ''}
@@ -1229,6 +1341,7 @@ const Inventory = () => {
                                 <div>
                                     <label className="label">Purchase Link</label>
                                     <input
+                                        name="editItemPurchaseLink"
                                         className="input-field"
                                         placeholder="https://amazon.in/..."
                                         value={selectedItem.purchase_link || ''}
@@ -1337,6 +1450,7 @@ const Inventory = () => {
                             <div>
                                 <label className="label">Quantity Consumed</label>
                                 <input
+                                    name="consumeQty"
                                     type="number"
                                     className="input-field"
                                     min="1"
@@ -1348,6 +1462,7 @@ const Inventory = () => {
                             <div>
                                 <label className="label">Notes (Optional)</label>
                                 <textarea
+                                    name="consumeNotes"
                                     className="input-field"
                                     placeholder="e.g., Taken for Designer desk"
                                     value={consumeData.notes}
@@ -1373,6 +1488,7 @@ const Inventory = () => {
                             <div>
                                 <label className="label">Quantity Received</label>
                                 <input
+                                    name="restockQty"
                                     type="number"
                                     className="input-field"
                                     min="1"
@@ -1384,6 +1500,7 @@ const Inventory = () => {
                             <div>
                                 <label className="label">New Cost Price (Optional)</label>
                                 <input
+                                    name="restockCost"
                                     type="number"
                                     step="0.01"
                                     className="input-field"
@@ -1395,6 +1512,7 @@ const Inventory = () => {
                             <div>
                                 <label className="label">Notes (Optional)</label>
                                 <textarea
+                                    name="restockNotes"
                                     className="input-field"
                                     placeholder="e.g., Delivery delayed by 2 days"
                                     value={restockData.notes}
@@ -1409,101 +1527,465 @@ const Inventory = () => {
                 </div>
             )}
 
-            {showReviewModal && extractedBillData && (
-                <div className="modal-backdrop" style={{ zIndex: 1000 }}>
-                    <div className="modal" style={{ maxWidth: '800px', width: '100%' }}>
-                        <button className="modal-close" onClick={() => setShowReviewModal(false)}><X size={22} /></button>
-                        <h2 className="section-title mb-16">Review Extracted Bill details</h2>
-                        <div className="alert alert--info mb-16">
-                            <span>Please review the data extracted by the OCR system. You may edit any field before saving to inventory. Items with existing Names/Categories will be merged automatically.</span>
-                        </div>
+            {showSmartUpload && (
+                <SmartBillUpload
+                    defaultDocumentType="Vendor Bill"
+                    defaultRelatedTab="vendors"
+                    onClose={() => setShowSmartUpload(false)}
+                    onSuccess={() => {
+                        setShowSmartUpload(false);
+                        fetchInventory();
+                        toast.success('Bill uploaded — stock and expenses updated!');
+                    }}
+                    onError={() => toast.error('Bill upload failed')}
+                />
+            )}
 
-                        <div className="row gap-md mb-16">
-                            <div className="flex-1">
-                                <label className="label">Vendor Name</label>
-                                <input className="input-field" value={extractedBillData.vendor_name || ''} onChange={(e) => setExtractedBillData({ ...extractedBillData, vendor_name: e.target.value })} />
-                            </div>
-                            <div className="flex-1">
-                                <label className="label">Vendor Contact</label>
-                                <input className="input-field" value={extractedBillData.vendor_contact || ''} onChange={(e) => setExtractedBillData({ ...extractedBillData, vendor_contact: e.target.value })} />
-                            </div>
-                        </div>
+            {/* Product Detail Dashboard Modal */}
+            {showDetailModal && (
+                <div className="modal-backdrop" onClick={() => { setShowDetailModal(false); setDetailItem(null); }}>
+                    <div className="modal" style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                        <button className="modal-close" onClick={() => { setShowDetailModal(false); setDetailItem(null); }}>
+                            <X size={22} />
+                        </button>
 
-                        <div className="panel panel--tight table-scroll mb-16">
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>Item Name</th>
-                                        <th>Qty</th>
-                                        <th>Unit Cost</th>
-                                        <th style={{ width: '40px' }}></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {extractedBillData.items.map((item, idx) => (
-                                        <tr key={idx}>
-                                            <td>
-                                                <input className="input-field" style={{ padding: '4px 8px', height: '30px' }} value={item.name} onChange={(e) => {
-                                                    const newItems = [...extractedBillData.items];
-                                                    newItems[idx].name = e.target.value;
-                                                    setExtractedBillData({ ...extractedBillData, items: newItems });
-                                                }} />
-                                            </td>
-                                            <td>
-                                                <input type="number" className="input-field" style={{ padding: '4px 8px', height: '30px', width: '70px' }} value={item.quantity} onChange={(e) => {
-                                                    const newItems = [...extractedBillData.items];
-                                                    newItems[idx].quantity = e.target.value;
-                                                    setExtractedBillData({ ...extractedBillData, items: newItems });
-                                                }} />
-                                            </td>
-                                            <td>
-                                                <input type="number" step="0.01" className="input-field" style={{ padding: '4px 8px', height: '30px', width: '100px' }} value={item.cost_price} onChange={(e) => {
-                                                    const newItems = [...extractedBillData.items];
-                                                    newItems[idx].cost_price = e.target.value;
-                                                    setExtractedBillData({ ...extractedBillData, items: newItems });
-                                                }} />
-                                            </td>
-                                            <td>
-                                                <button className="btn btn-ghost" onClick={() => {
-                                                    const newItems = extractedBillData.items.filter((_, i) => i !== idx);
-                                                    setExtractedBillData({ ...extractedBillData, items: newItems });
-                                                }}>
-                                                    <Trash2 size={16} className="text-danger" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {extractedBillData.items.length === 0 && (
-                                        <tr>
-                                            <td colSpan="4" className="text-center muted table-empty">
-                                                No items extracted. The image might have been too blurry or layout not recognized.
-                                            </td>
-                                        </tr>
+                        {detailLoading ? (
+                            <div className="text-center py-32">
+                                <Loader2 className="animate-spin" size={32} />
+                                <p className="muted mt-8">Loading item details...</p>
+                            </div>
+                        ) : detailItem ? (
+                            <div>
+                                {/* Header with image */}
+                                <div className="row gap-lg items-start mb-24">
+                                    {detailItem.product_image_url ? (
+                                        <div style={{ width: 120, height: 120, borderRadius: 12, overflow: 'hidden', flexShrink: 0, border: '2px solid var(--border)', background: 'var(--surface-alt)' }}>
+                                            <SecureImage src={detailItem.product_image_url} alt={detailItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        </div>
+                                    ) : (
+                                        <div style={{ width: 120, height: 120, borderRadius: 12, flexShrink: 0, border: '2px dashed var(--border)', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <ImageIcon size={40} className="muted" />
+                                        </div>
                                     )}
-                                </tbody>
-                            </table>
-                            <button className="btn btn-ghost mt-4 w-full" onClick={() => {
-                                setExtractedBillData({
-                                    ...extractedBillData,
-                                    items: [...extractedBillData.items, { name: 'New Item', quantity: 1, cost_price: 0 }]
-                                });
-                            }}>
-                                <Plus size={16} /> Add Missing Row
+                                    <div className="flex-1">
+                                        <h2 className="section-title mb-4">{detailItem.name}</h2>
+                                        {detailItem.sku && (
+                                            <p className="text-sm muted mb-4" style={{ fontFamily: 'monospace', letterSpacing: '0.5px' }}>SKU: {detailItem.sku}</p>
+                                        )}
+                                        <div className="row gap-sm mb-8">
+                                            <span className={`badge ${getStatus(detailItem) === 'low' ? 'badge--warn' : 'badge--ok'}`}>
+                                                {getStatus(detailItem) === 'low' ? 'Low Stock' : 'Stock OK'}
+                                            </span>
+                                            <span className="badge">{detailItem.item_type || 'Retail'}</span>
+                                            {detailItem.linked_product_id && (
+                                                <span className="badge badge--ok"><Link size={12} style={{ marginRight: 4 }} /> Linked</span>
+                                            )}
+                                        </div>
+                                        {(detailItem.product_category_name || detailItem.product_subcategory_name || detailItem.category) && (
+                                            <p className="text-sm">
+                                                {detailItem.product_category_name && <span className="muted">{detailItem.product_category_name}</span>}
+                                                {detailItem.product_category_name && (detailItem.product_subcategory_name || detailItem.category) && <span className="muted"> › </span>}
+                                                <span style={{ fontWeight: 500 }}>{detailItem.product_subcategory_name || detailItem.category}</span>
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Key Metrics Cards */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+                                    <div className="panel panel--tight" style={{ textAlign: 'center', padding: '12px 8px' }}>
+                                        <Package size={18} className="text-primary mb-4" />
+                                        <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{detailItem.quantity}</div>
+                                        <div className="text-xs muted">In Stock ({detailItem.unit})</div>
+                                    </div>
+                                    {!isFrontOffice && (
+                                        <div className="panel panel--tight" style={{ textAlign: 'center', padding: '12px 8px' }}>
+                                            <DollarSign size={18} className="text-primary mb-4" />
+                                            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>₹{Number(detailItem.cost_price).toFixed(2)}</div>
+                                            <div className="text-xs muted">Cost Price</div>
+                                        </div>
+                                    )}
+                                    {!isFrontOffice && (
+                                        <div className="panel panel--tight" style={{ textAlign: 'center', padding: '12px 8px' }}>
+                                            <BarChart3 size={18} className="text-primary mb-4" />
+                                            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>₹{detailItem.stock_value}</div>
+                                            <div className="text-xs muted">Stock Value</div>
+                                        </div>
+                                    )}
+                                    {!isFrontOffice && detailItem.item_type !== 'Consumable' && (
+                                        <div className="panel panel--tight" style={{ textAlign: 'center', padding: '12px 8px' }}>
+                                            <TrendingUp size={18} className={Number(detailItem.margin) > 0 ? 'text-primary mb-4' : 'text-danger mb-4'} />
+                                            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{detailItem.margin}%</div>
+                                            <div className="text-xs muted">Margin</div>
+                                        </div>
+                                    )}
+                                    {isFrontOffice && detailItem.item_type !== 'Consumable' && (
+                                        <div className="panel panel--tight" style={{ textAlign: 'center', padding: '12px 8px' }}>
+                                            <DollarSign size={18} className="text-primary mb-4" />
+                                            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>₹{Number(detailItem.sell_price || 0).toFixed(2)}</div>
+                                            <div className="text-xs muted">Retail Price</div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Pricing & Tax Details */}
+                                <div className="panel panel--tight mb-16" style={{ background: 'var(--surface-alt)' }}>
+                                    <h3 className="text-sm font-medium mb-12" style={{ fontWeight: 600 }}>{isFrontOffice ? 'Pricing' : 'Pricing & Tax'}</h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px' }}>
+                                        {!isFrontOffice && (
+                                            <div className="row justify-between">
+                                                <span className="text-sm muted">Cost Price</span>
+                                                <span className="text-sm" style={{ fontWeight: 500 }}>₹{Number(detailItem.cost_price).toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        {detailItem.item_type !== 'Consumable' && (
+                                            <div className="row justify-between">
+                                                <span className="text-sm muted">Retail Price</span>
+                                                <span className="text-sm" style={{ fontWeight: 500 }}>₹{Number(detailItem.sell_price || 0).toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        <div className="row justify-between">
+                                            <span className="text-sm muted">GST Rate</span>
+                                            <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.gst_rate}%</span>
+                                        </div>
+                                        {!isFrontOffice && (
+                                            <div className="row justify-between">
+                                                <span className="text-sm muted">GST Amount</span>
+                                                <span className="text-sm" style={{ fontWeight: 500 }}>₹{detailItem.gst_amount}</span>
+                                            </div>
+                                        )}
+                                        {!isFrontOffice && detailItem.item_type !== 'Consumable' && (
+                                            <>
+                                                <div className="row justify-between">
+                                                    <span className="text-sm muted">Discount</span>
+                                                    <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.discount || 0}%</span>
+                                                </div>
+                                                <div className="row justify-between">
+                                                    <span className="text-sm muted">HSN Code</span>
+                                                    <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.hsn || '-'}</span>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Stock Details */}
+                                <div className="panel panel--tight mb-16" style={{ background: 'var(--surface-alt)' }}>
+                                    <h3 className="text-sm font-medium mb-12" style={{ fontWeight: 600 }}>Stock Details</h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px' }}>
+                                        <div className="row justify-between">
+                                            <span className="text-sm muted">Current Stock</span>
+                                            <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.quantity} {detailItem.unit}</span>
+                                        </div>
+                                        <div className="row justify-between">
+                                            <span className="text-sm muted">Reorder Level</span>
+                                            <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.reorder_level || 0} {detailItem.unit}</span>
+                                        </div>
+                                        {detailItem.source_code && (
+                                            <div className="row justify-between">
+                                                <span className="text-sm muted">Source Code</span>
+                                                <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.source_code}</span>
+                                            </div>
+                                        )}
+                                        {detailItem.model_name && (
+                                            <div className="row justify-between">
+                                                <span className="text-sm muted">Model</span>
+                                                <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.model_name}</span>
+                                            </div>
+                                        )}
+                                        {detailItem.size_code && (
+                                            <div className="row justify-between">
+                                                <span className="text-sm muted">Size</span>
+                                                <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.size_code}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Vendor Info */}
+                                {(detailItem.vendor_name || detailItem.vendor_contact || detailItem.purchase_link) && (
+                                    <div className="panel panel--tight mb-16" style={{ background: 'var(--surface-alt)' }}>
+                                        <h3 className="text-sm font-medium mb-12" style={{ fontWeight: 600 }}>Vendor Information</h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px' }}>
+                                            {detailItem.vendor_name && (
+                                                <div className="row justify-between">
+                                                    <span className="text-sm muted">Vendor</span>
+                                                    <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.vendor_name}</span>
+                                                </div>
+                                            )}
+                                            {detailItem.vendor_contact && (
+                                                <div className="row justify-between">
+                                                    <span className="text-sm muted">Contact</span>
+                                                    <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.vendor_contact}</span>
+                                                </div>
+                                            )}
+                                            {detailItem.purchase_link && (
+                                                <div style={{ gridColumn: '1 / -1' }}>
+                                                    <span className="text-sm muted">Purchase Link: </span>
+                                                    <a href={detailItem.purchase_link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary">{detailItem.purchase_link}</a>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Product Description */}
+                                {detailItem.product_description && (
+                                    <div className="panel panel--tight mb-16" style={{ background: 'var(--surface-alt)' }}>
+                                        <h3 className="text-sm font-medium mb-8" style={{ fontWeight: 600 }}>Description</h3>
+                                        <p className="text-sm">{detailItem.product_description}</p>
+                                    </div>
+                                )}
+
+                                {/* Restock History */}
+                                {!isFrontOffice && detailItem.restocks && detailItem.restocks.length > 0 && (
+                                    <div className="panel panel--tight mb-16">
+                                        <h3 className="text-sm font-medium mb-12" style={{ fontWeight: 600 }}>
+                                            <ShoppingCart size={14} style={{ marginRight: 6 }} />
+                                            Restock History
+                                        </h3>
+                                        <div className="table-scroll">
+                                            <table className="table" style={{ fontSize: '0.8rem' }}>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Date</th>
+                                                        <th>Qty Received</th>
+                                                        <th>Cost</th>
+                                                        <th>Days Gap</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {detailItem.restocks.map((r, i) => (
+                                                        <tr key={i}>
+                                                            <td>{new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</td>
+                                                            <td>{r.quantity_received}</td>
+                                                            <td>₹{Number(r.cost_price).toFixed(2)}</td>
+                                                            <td>{r.days_since_last_reorder != null ? `${r.days_since_last_reorder}d` : '-'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Consumption History (Consumables) */}
+                                {detailItem.consumptions && detailItem.consumptions.length > 0 && (
+                                    <div className="panel panel--tight mb-16">
+                                        <h3 className="text-sm font-medium mb-12" style={{ fontWeight: 600 }}>
+                                            <Clock size={14} style={{ marginRight: 6 }} />
+                                            Consumption History
+                                        </h3>
+                                        <div className="table-scroll">
+                                            <table className="table" style={{ fontSize: '0.8rem' }}>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Date</th>
+                                                        <th>Qty Used</th>
+                                                        <th>By</th>
+                                                        <th>Notes</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {detailItem.consumptions.map((c, i) => (
+                                                        <tr key={i}>
+                                                            <td>{new Date(c.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</td>
+                                                            <td>{c.quantity_consumed}</td>
+                                                            <td>{c.consumed_by || '-'}</td>
+                                                            <td className="muted">{c.notes || '-'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Timestamps */}
+                                <div className="text-xs muted text-center mt-16">
+                                    Added: {new Date(detailItem.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </div>
+
+                                {/* Request Stock from Branch */}
+                                <div className="mt-16" style={{ borderTop: '1px solid var(--border)', paddingTop: 16, textAlign: 'center' }}>
+                                    <button
+                                        className="btn btn--secondary"
+                                        onClick={() => { setShowDetailModal(false); openStockRequestModal(detailItem); }}
+                                        style={{ gap: 8 }}
+                                    >
+                                        <ArrowLeftRight size={16} />
+                                        Request Stock from Another Branch
+                                    </button>
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+            )}
+            )}
+
+            {/* Stock Request Modal */}
+            {showStockRequestModal && (
+                <div className="modal-backdrop">
+                    <div className="modal" style={{ maxWidth: '500px' }}>
+                        <button className="modal-close" onClick={() => setShowStockRequestModal(false)}>
+                            <X size={22} />
+                        </button>
+                        <h2 className="section-title mb-4">Request Stock from Another Branch</h2>
+                        <p className="section-subtitle mb-16">
+                            <strong>{stockRequestData.item_name}</strong>
+                        </p>
+
+                        {branchAvailabilityLoading ? (
+                            <div className="text-center py-24"><Loader2 className="animate-spin" size={28} /></div>
+                        ) : branchAvailability ? (
+                            <form onSubmit={handleStockRequest} className="stack-md">
+                                {branchAvailability.branches.length === 0 ? (
+                                    <p className="muted text-center py-16">No other branches available.</p>
+                                ) : (
+                                    <div className="stack-sm">
+                                        <div className="row gap-sm text-xs muted pb-4" style={{ borderBottom: '1px solid var(--border)', fontWeight: 600 }}>
+                                            <span style={{ flex: 2 }}>Branch</span>
+                                            <span style={{ flex: 1, textAlign: 'center' }}>Available Stock</span>
+                                            <span style={{ flex: 1, textAlign: 'right' }}>Qty to Request</span>
+                                        </div>
+                                        {branchAvailability.branches.map(b => (
+                                            <div key={b.id} className="row gap-sm items-center py-8" style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                                <div style={{ flex: 2 }}>
+                                                    <div className="text-sm" style={{ fontWeight: 600 }}>{b.name}</div>
+                                                    {b.short_name && <div className="text-xs muted">{b.short_name}</div>}
+                                                </div>
+                                                <div style={{ flex: 1, textAlign: 'center' }}>
+                                                    <span className={`badge ${b.available_stock > 0 ? 'badge--ok' : 'badge--warn'}`}>
+                                                        {b.available_stock} {b.unit}
+                                                    </span>
+                                                </div>
+                                                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                                                    <input
+                                                        type="number"
+                                                        className="input-field text-center"
+                                                        style={{ width: '80px', padding: '4px 8px' }}
+                                                        min="0"
+                                                        max={b.available_stock || undefined}
+                                                        placeholder="0"
+                                                        value={branchRequestQtys[b.id] || ''}
+                                                        onChange={e => setBranchRequestQtys(prev => ({ ...prev, [b.id]: e.target.value }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="label">Notes (Optional)</label>
+                                    <textarea
+                                        className="input-field"
+                                        placeholder="e.g., Urgent — needed for order #1234"
+                                        value={stockRequestData.notes}
+                                        onChange={e => setStockRequestData({ ...stockRequestData, notes: e.target.value })}
+                                    />
+                                </div>
+                                {branchAvailability.branches.length > 0 && (
+                                    <button type="submit" className="btn btn-primary btn--full" disabled={stockRequestSaving}>
+                                        {stockRequestSaving ? 'Submitting…' : 'Submit Request'}
+                                    </button>
+                                )}
+                            </form>
+                        ) : (
+                            <p className="muted text-center py-16">Failed to load branch data.</p>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Stock Requests Panel */}
+            {showStockRequestsPanel && (
+                <div className="modal-backdrop" onClick={() => setShowStockRequestsPanel(false)}>
+                    <div className="modal" style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                        <button className="modal-close" onClick={() => setShowStockRequestsPanel(false)}>
+                            <X size={22} />
+                        </button>
+                        <div className="row items-center justify-between mb-16">
+                            <h2 className="section-title">Stock Transfer Requests</h2>
+                            <button className="btn btn-ghost btn-sm" onClick={fetchStockRequests} disabled={stockRequestsLoading}>
+                                {stockRequestsLoading ? <Loader2 size={16} className="animate-spin" /> : 'Refresh'}
                             </button>
                         </div>
 
-                        <div className="row justify-end gap-sm">
-                            <button className="btn btn-secondary" onClick={() => setShowReviewModal(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleBatchSaveBill}>Save All to Inventory</button>
+                        {/* Status legend */}
+                        <div className="row gap-md mb-16 text-xs" style={{ flexWrap: 'wrap' }}>
+                            <span className="row gap-xs items-center"><span className="badge badge--warn">Pending</span> Awaiting approval</span>
+                            <span className="row gap-xs items-center"><span className="badge badge--ok">Approved</span> Ready to send</span>
+                            <span className="row gap-xs items-center"><span className="badge" style={{ background: 'var(--primary)', color: 'var(--on-accent)' }}>Sent</span> In transit</span>
+                            <span className="row gap-xs items-center"><span className="badge" style={{ background: 'var(--success)', color: 'var(--on-accent)' }}>Received</span> Complete</span>
                         </div>
 
-                        {extractedBillData.raw_text && (
-                            <details className="mt-16 muted text-xs">
-                                <summary className="cursor-pointer">Show Raw OCR Text (Debug)</summary>
-                                <pre style={{ maxHeight: '150px', overflow: 'auto', background: 'var(--surface-alt)', padding: '8px', border: '1px solid var(--border)', marginTop: '8px' }}>
-                                    {extractedBillData.raw_text}
-                                </pre>
-                            </details>
+                        {stockRequestsLoading ? (
+                            <div className="text-center py-24"><Loader2 className="animate-spin" size={28} /></div>
+                        ) : stockRequests.length === 0 ? (
+                            <p className="muted text-center py-24">No stock transfer requests yet.</p>
+                        ) : (
+                            <div className="stack-sm">
+                                {stockRequests.map(sr => {
+                                    const statusColor = sr.status === 'Pending' ? 'badge--warn'
+                                        : sr.status === 'Approved' ? 'badge--ok'
+                                        : sr.status === 'Sent' ? '' : sr.status === 'Received' ? '' : 'badge--error';
+                                    const statusStyle = sr.status === 'Sent' ? { background: 'var(--primary)', color: 'var(--on-accent)' }
+                                        : sr.status === 'Received' ? { background: 'var(--success)', color: 'var(--on-accent)' } : {};
+
+                                    return (
+                                        <div key={sr.id} className="panel panel--tight" style={{ padding: '12px 16px' }}>
+                                            <div className="row items-start justify-between gap-md">
+                                                <div className="flex-1">
+                                                    <div className="row items-center gap-sm mb-4">
+                                                        <span className="text-sm" style={{ fontWeight: 700 }}>{sr.item_name}</span>
+                                                        {sr.item_sku && <span className="text-xs muted" style={{ fontFamily: 'monospace' }}>{sr.item_sku}</span>}
+                                                        <span className={`badge ${statusColor}`} style={statusStyle}>{sr.status}</span>
+                                                    </div>
+                                                    <div className="text-xs muted mb-4">
+                                                        <strong>{sr.from_branch_name}</strong> requests <strong>{sr.quantity} pcs</strong> from <strong>{sr.to_branch_name}</strong>
+                                                    </div>
+                                                    {sr.notes && <div className="text-xs muted mb-4" style={{ fontStyle: 'italic' }}>"{sr.notes}"</div>}
+                                                    <div className="text-xs muted">
+                                                        Requested by {sr.created_by_name} · {new Date(sr.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        {sr.resolved_by_name && <span> · {sr.status === 'Rejected' ? 'Rejected' : 'Approved'} by {sr.resolved_by_name}</span>}
+                                                        {sr.sent_by_name && <span> · Sent by {sr.sent_by_name}</span>}
+                                                        {sr.received_by_name && <span> · Received by {sr.received_by_name}</span>}
+                                                    </div>
+                                                </div>
+                                                <div className="row gap-sm" style={{ flexShrink: 0, alignSelf: 'center' }}>
+                                                    {sr.status === 'Pending' && (
+                                                        <>
+                                                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--success)' }} onClick={() => handleReviewStockRequest(sr.id, 'approve')} title="Approve this request">
+                                                                <Check size={14} /> Approve
+                                                            </button>
+                                                            <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleReviewStockRequest(sr.id, 'reject')} title="Reject this request">
+                                                                <X size={14} /> Reject
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {sr.status === 'Approved' && (
+                                                        <button className="btn btn-primary btn-sm" onClick={() => handleReviewStockRequest(sr.id, 'send')} title="Send stock — will deduct from source branch">
+                                                            <ArrowLeftRight size={14} /> Send Stock
+                                                        </button>
+                                                    )}
+                                                    {sr.status === 'Sent' && (
+                                                        <button className="btn btn-sm" style={{ background: 'var(--success)', color: 'var(--on-accent)' }} onClick={() => handleReviewStockRequest(sr.id, 'receive')} title="Confirm you received the stock">
+                                                            <Check size={14} /> Receive Stock
+                                                        </button>
+                                                    )}
+                                                    {sr.status === 'Received' && (
+                                                        <span className="text-xs" style={{ color: 'var(--success)', fontWeight: 600 }}>✓ Complete</span>
+                                                    )}
+                                                    {sr.status === 'Rejected' && (
+                                                        <span className="text-xs" style={{ color: 'var(--danger)', fontWeight: 600 }}>✗ Rejected</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         )}
                     </div>
                 </div>

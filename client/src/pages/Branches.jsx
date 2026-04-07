@@ -12,7 +12,7 @@ const Branches = () => {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingBranch, setEditingBranch] = useState(null);
-    const [formData, setFormData] = useState({ name: '', address: '', phone: '', upi_id: '' });
+    const [formData, setFormData] = useState({ name: '', address: '', phone: '', upi_id: '', short_name: '' });
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -53,7 +53,7 @@ const Branches = () => {
             }
             setShowModal(false);
             setEditingBranch(null);
-            setFormData({ name: '', address: '', phone: '', upi_id: '' });
+            setFormData({ name: '', address: '', phone: '', upi_id: '', short_name: '' });
             fetchBranches();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to save branch');
@@ -89,7 +89,7 @@ const Branches = () => {
                 <button
                     onClick={() => {
                         setEditingBranch(null);
-                        setFormData({ name: '', address: '', phone: '', upi_id: '' });
+                        setFormData({ name: '', address: '', phone: '', upi_id: '', short_name: '' });
                         setShowModal(true);
                     }}
                     className="btn btn-primary"
@@ -105,6 +105,7 @@ const Branches = () => {
                         <thead>
                             <tr>
                                 <th>Branch Name</th>
+                                <th>Code</th>
                                 <th>Address</th>
                                 <th>Phone</th>
                                 <th>UPI ID</th>
@@ -129,8 +130,8 @@ const Branches = () => {
                                     <tr
                                         key={b.id}
                                         {...(isTouchDevice()
-                                            ? { onClick: () => { setEditingBranch(b); setFormData({ name: b.name, address: b.address || '', phone: b.phone || '', upi_id: b.upi_id || '' }); setShowModal(true); } }
-                                            : { onDoubleClick: () => { setEditingBranch(b); setFormData({ name: b.name, address: b.address || '', phone: b.phone || '', upi_id: b.upi_id || '' }); setShowModal(true); } }
+                                            ? { onClick: () => { setEditingBranch(b); setFormData({ name: b.name, address: b.address || '', phone: b.phone || '', upi_id: b.upi_id || '', short_name: b.short_name || '' }); setShowModal(true); } }
+                                            : { onDoubleClick: () => { setEditingBranch(b); setFormData({ name: b.name, address: b.address || '', phone: b.phone || '', upi_id: b.upi_id || '', short_name: b.short_name || '' }); setShowModal(true); } }
                                         )}
                                         title={isTouchDevice() ? "Click to edit" : "Double click to edit"}
                                         style={{ cursor: 'pointer' }}
@@ -142,6 +143,19 @@ const Branches = () => {
                                                 </div>
                                                 <span className="user-name">{b.name}</span>
                                             </div>
+                                        </td>
+                                        <td>
+                                            <span style={{ 
+                                                display: 'inline-block', 
+                                                padding: '2px 8px', 
+                                                borderRadius: '4px', 
+                                                backgroundColor: 'var(--accent-light)', 
+                                                color: 'var(--primary)',
+                                                fontWeight: '600',
+                                                fontSize: '12px'
+                                            }}>
+                                                {b.short_name || '---'}
+                                            </span>
                                         </td>
                                         <td className="text-sm muted">
                                             <div className="row gap-sm">
@@ -173,7 +187,7 @@ const Branches = () => {
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setEditingBranch(b);
-                                                        setFormData({ name: b.name, address: b.address || '', phone: b.phone || '', upi_id: b.upi_id || '' });
+                                                        setFormData({ name: b.name, address: b.address || '', phone: b.phone || '', upi_id: b.upi_id || '', short_name: b.short_name || '' });
                                                         setShowModal(true);
                                                     }}
                                                 >
@@ -207,20 +221,37 @@ const Branches = () => {
                         </button>
                         <h2 className="section-title mb-16">{editingBranch ? 'Edit Branch' : 'Add Branch'}</h2>
                         <form onSubmit={handleSubmit} className="stack-md">
-                            <div>
-                                <label className="label">Branch Name</label>
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    required
-                                />
+                            <div className="row gap-md">
+                                <div style={{ flex: 2 }}>
+                                    <label className="label">Branch Name</label>
+                                    <input
+                                        type="text"
+                                        className="input-field"
+                                        name="branchName"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label className="label">Code (3 chars)</label>
+                                    <input
+                                        type="text"
+                                        className="input-field"
+                                        name="branchShortName"
+                                        maxLength={3}
+                                        placeholder="PBA"
+                                        value={formData.short_name || ''}
+                                        onChange={(e) => setFormData({ ...formData, short_name: e.target.value.toUpperCase() })}
+                                        style={{ textTransform: 'uppercase' }}
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <label className="label">Address</label>
                                 <textarea
                                     className="input-field"
+                                    name="branchAddress"
                                     rows="3"
                                     value={formData.address}
                                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
@@ -231,6 +262,7 @@ const Branches = () => {
                                 <input
                                     type="text"
                                     className="input-field"
+                                    name="branchPhone"
                                     value={formData.phone}
                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                 />
@@ -240,6 +272,7 @@ const Branches = () => {
                                 <input
                                     type="text"
                                     className="input-field"
+                                    name="branchUpiId"
                                     placeholder="e.g. shopname@upi"
                                     value={formData.upi_id}
                                     onChange={(e) => setFormData({ ...formData, upi_id: e.target.value })}

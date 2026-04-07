@@ -3,6 +3,7 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { validate, attendanceSchema } = require('../middleware/validate');
+const { paginate } = require('../helpers/pagination');
 const PDFDocument = require('pdfkit');
 const rateLimit = require('express-rate-limit');
 
@@ -58,8 +59,16 @@ async function calculateSalaryForMonth(staffId, staff, yearMonth) {
 router.get('/:id/work-history', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
-        // Get jobs from assignments
+        const baseFrom = `
+            FROM sarga_job_staff_assignments jsa
+            INNER JOIN sarga_jobs j ON j.id = jsa.job_id
+            LEFT JOIN sarga_customers c ON j.customer_id = c.id
+            WHERE jsa.staff_id = ?
+        `;
+
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, [id]);
         const [jobs] = await pool.query(`
             SELECT 
                 j.id,
@@ -79,18 +88,16 @@ router.get('/:id/work-history', authenticateToken, async (req, res) => {
                 jsa.assigned_date,
                 jsa.completed_date,
                 jsa.status as assignment_status
-            FROM sarga_job_staff_assignments jsa
-            INNER JOIN sarga_jobs j ON j.id = jsa.job_id
-            LEFT JOIN sarga_customers c ON j.customer_id = c.id
-            WHERE jsa.staff_id = ?
+            ${baseFrom}
             ORDER BY j.created_at DESC
-        `, [id]);
+            LIMIT ? OFFSET ?
+        `, [id, limit, offset]);
 
-        res.json(jobs);
+        res.json(response(jobs, total));
     } catch (err) {
         console.error('Work history error:', err);
         // Return empty array instead of error to handle tables that don't exist yet
-        res.json([]);
+        res.json({ data: [], total: 0, totalPages: 0 });
     }
 });
 
@@ -136,7 +143,7 @@ router.get('/:id/salary-info', authenticateToken, async (req, res) => {
             FROM sarga_staff_salary
             WHERE staff_id = ?
             ORDER BY payment_month DESC
-            LIMIT 12
+            LIMIT 50
         `, [id]);
 
         // Calculate current month salary
@@ -153,7 +160,7 @@ router.get('/:id/salary-info', authenticateToken, async (req, res) => {
             FROM sarga_staff_salary_payments
             WHERE staff_id = ?
             ORDER BY payment_date DESC
-            LIMIT 20
+            LIMIT 50
         `, [id]);
 
         res.json({
@@ -560,6 +567,14 @@ router.post('/:id/attendance', authenticateToken, validate(attendanceSchema), as
         const isSunday = date.getDay() === 0;
         if (isSunday && status === 'Present' && req.user.role !== 'Admin') {
             return res.status(403).json({ message: 'Only Admin can mark Present on Sunday.' });
+        }
+
+        // Prevent marking attendance for future dates
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        date.setHours(0,0,0,0);
+        if (date > today) {
+            return res.status(400).json({ message: 'Attendance cannot be marked for future dates.' });
         }
 
         // Check if attendance already exists for this staff and date

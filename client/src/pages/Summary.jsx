@@ -1,9 +1,10 @@
-﻿import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Building2, Activity, Printer, AlertTriangle, Clock, Wallet, Users, Package, TrendingUp, BarChart3, Target, ClipboardList, IndianRupee, ShoppingCart, UserCheck, ArrowUpRight, ArrowDownRight, Brain, Sparkles, ShieldAlert, LineChart } from 'lucide-react';
 
 import api from '../services/api';
 import { formatCurrency as formatCurrencyShared } from '../constants';
+import OrderForecastWidget from '../components/OrderForecastWidget';
 
 const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
 const SalesPrediction = React.lazy(() => import('./SalesPrediction'));
@@ -69,12 +70,13 @@ const Summary = () => {
 
     const getStatusColor = (status) => {
         switch (status) {
-            case 'Completed': return 'var(--color-ok, #16a34a)';
-            case 'Delivered': return 'var(--color-primary, #2563eb)';
-            case 'Processing': return 'var(--color-warning, #f59e0b)';
-            case 'Pending': return 'var(--text-muted, #9ca3af)';
-            case 'Cancelled': return 'var(--error, #dc2626)';
-            default: return 'var(--text-main, #333)';
+            case 'Completed': return 'var(--color-ok, #22c55e)';
+            case 'Delivered': return 'var(--color-primary, #60a5fa)';
+            case 'Processing': return 'var(--color-warning, #fbbf24)';
+            case 'Pending': return 'var(--text-muted, #94a3b8)';
+            case 'Approval Pending': return 'var(--color-warning, #fbbf24)';
+            case 'Cancelled': return 'var(--error, #ef4444)';
+            default: return 'var(--text-main, #e2e8f0)';
         }
     };
 
@@ -245,15 +247,15 @@ const Summary = () => {
                                 <TrendingUp size={20} className="muted" />
                             </div>
                             <div className="stack-sm">
-                                <div className="row space-between p-12 bg-surface-lowest rounded border-all">
+                                <div className="row space-between p-16 bg-surface-lowest rounded border-all mb-3" style={{marginBottom: 16}}>
                                     <span className="font-medium muted">EMI Commitments</span>
                                     <span className="font-bold">{fmt(statsToday?.financial_roadmap?.emi_total)}</span>
                                 </div>
-                                <div className="row space-between p-12 bg-surface-lowest rounded border-all">
+                                <div className="row space-between p-16 bg-surface-lowest rounded border-all mb-3" style={{marginBottom: 16}}>
                                     <span className="font-medium muted">Kuri Installments</span>
                                     <span className="font-bold">{fmt(statsToday?.financial_roadmap?.kuri_total)}</span>
                                 </div>
-                                <div className="row space-between p-12 bg-primary text-white rounded shadow-md mt-4">
+                                <div className="row space-between p-20 bg-primary text-white rounded shadow-md mt-4" style={{marginTop: 24, marginBottom: 8}}>
                                     <span className="font-bold">Total Monthly Fixed</span>
                                     <span className="font-black text-lg">{fmt(statsToday?.financial_roadmap?.total_monthly_commitment)}</span>
                                 </div>
@@ -263,7 +265,7 @@ const Summary = () => {
 
                     {/* Fraud / System Health Banner */}
                     {statsToday?.monitoring_stats?.active_alerts > 0 && (
-                        <div className="row items-center gap-md p-16 rounded border-all mb-24 bg-error-light" style={{ borderColor: 'var(--error)', background: '#fef2f2' }}>
+                        <div className="row items-center gap-md p-16 rounded border-all mb-24 bg-error-light" style={{ borderColor: 'var(--error)', background: 'var(--error-bg)' }}>
                             <ShieldAlert size={28} className="text-error" />
                             <div className="flex-1">
                                 <div className="font-bold text-error">AI Monitoring Alert</div>
@@ -312,10 +314,10 @@ const Summary = () => {
                                 </div>
                                 <Activity size={22} className="muted" />
                             </div>
-                            <div className="summary-grid summary-grid--inventory">
+                            <div className="summary-grid summary-grid--inventory" style={{gap: 18}}>
                                 {Object.entries(statsOverall?.status_counts || {}).filter(([s]) => s !== 'Cancelled').map(([status, count]) => (
-                                    <div key={status} className="row space-between p-12 border-all rounded bg-surface-lowest">
-                                        <span className="font-medium" style={{ color: getStatusColor(status) }}>{status}</span>
+                                    <div key={status} className="row p-16 border-all rounded bg-surface-lowest mb-2" style={{marginBottom: 14, gap: '16px'}}>
+                                        <span className="font-medium" style={{ color: getStatusColor(status), minWidth: '140px' }}>{status}:</span>
                                         <span className="font-bold">{fmtNum(count)}</span>
                                     </div>
                                 ))}
@@ -374,14 +376,19 @@ const Summary = () => {
                                 <Printer size={22} className="muted" />
                             </div>
                             <div className="summary-list">
-                                <div className="summary-list__item">
-                                    <div><div className="summary-list__title">Konica 4065</div><div className="summary-list__meta">Pages printed today</div></div>
-                                    <div className="summary-list__value">{fmtNum(statsToday?.machines?.konica_4065_pages)}</div>
-                                </div>
-                                <div className="summary-list__item">
-                                    <div><div className="summary-list__title">Konica 3070</div><div className="summary-list__meta">Pages printed today</div></div>
-                                    <div className="summary-list__value">{fmtNum(statsToday?.machines?.konica_3070_pages)}</div>
-                                </div>
+                                {Array.isArray(statsToday?.machines) && statsToday.machines.length > 0 ? (
+                                    statsToday.machines.map(machine => (
+                                        <div key={machine.id || machine.name} className="summary-list__item">
+                                            <div>
+                                                <div className="summary-list__title">{machine.name}</div>
+                                                <div className="summary-list__meta">Pages printed today</div>
+                                            </div>
+                                            <div className="summary-list__value">{fmtNum(machine.pages)}</div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-center p-16 muted">No machine readings today</div>
+                                )}
                             </div>
                         </section>
                     </div>
@@ -492,6 +499,9 @@ const Summary = () => {
                             </div>
                         </section>
                     )}
+
+                    {/* ─── Section 7: Order Forecast ─── */}
+                    <OrderForecastWidget />
                 </>
             )}
 

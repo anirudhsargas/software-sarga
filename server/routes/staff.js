@@ -2,8 +2,8 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getUserBranchId, auditLog, normalizeMobile } = require('../helpers');
 const bcrypt = require('bcryptjs');
-const { validate, addStaffSchema } = require('../middleware/validate');
-const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+const { validate, addStaffSchema, staffSalaryUpdateSchema } = require('../middleware/validate');
+const { paginate } = require('../helpers/pagination');
 
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
@@ -38,8 +38,7 @@ module.exports = (upload, removeUploadFile) => {
     // List Staff
     router.get('/', authenticateToken, async (req, res) => {
         try {
-            const { page, limit, offset } = parsePagination(req);
-            const usePagination = !!req.query.page;
+            const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
             let where = "WHERE s.role != 'Admin'";
             const params = [];
@@ -49,7 +48,6 @@ module.exports = (upload, removeUploadFile) => {
                 where += ' AND s.branch_id = ?';
                 params.push(branchId);
             } else if (req.query.branch_id) {
-                // Allow Admin/Accountant to filter by branch via query parameter
                 where += ' AND s.branch_id = ?';
                 params.push(req.query.branch_id);
             }
@@ -57,21 +55,18 @@ module.exports = (upload, removeUploadFile) => {
             const select = `SELECT s.id, s.user_id, s.name, s.role, s.is_first_login, s.created_at, s.branch_id, s.image_url, s.salary_type, s.base_salary, s.daily_rate, b.name as branch_name`;
             const baseFrom = `FROM sarga_staff s LEFT JOIN sarga_branches b ON s.branch_id = b.id ${where}`;
 
-            if (usePagination) {
-                const [[{ cnt }]] = await pool.query(`SELECT COUNT(*) as cnt ${baseFrom}`, params);
-                const [rows] = await pool.query(`${select} ${baseFrom} ORDER BY s.created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
-                return res.json(paginatedResponse(rows, cnt, page, limit));
-            }
-
-            const [rows] = await pool.query(`${select} ${baseFrom} ORDER BY s.created_at DESC`, params);
-            res.json(rows);
+            const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+            const [rows] = await pool.query(`${select} ${baseFrom} ORDER BY s.created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+            
+            res.json(response(rows, total));
         } catch (err) {
+            console.error('List staff error:', err);
             res.status(500).json({ message: 'Database error' });
         }
     });
 
     // Update Staff
-    router.put('/:id', authenticateToken, upload.single('image'), async (req, res) => {
+    router.put('/:id', authenticateToken, upload.single('image'), validate(staffSalaryUpdateSchema), async (req, res) => {
         let { id } = req.params;
         if (id === 'me') id = req.user.id;
 

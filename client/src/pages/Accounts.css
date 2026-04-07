@@ -25,8 +25,12 @@
   display: grid;
   place-items: center;
   background: var(--accent);
-  color: #000;
+  color: #fff;
   flex-shrink: 0;
+}
+
+.dark .acc-header__icon {
+  color: #121314;
 }
 
 .acc-header__title {
@@ -81,7 +85,7 @@
 
 .acc-tab:hover {
   color: var(--text, #1e293b);
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--surface-2);
 }
 
 .acc-tab--active {
@@ -446,7 +450,11 @@
 
 .acc-btn--primary {
   background: var(--accent);
-  color: #000;
+  color: #fff;
+}
+
+.dark .acc-btn--primary {
+  color: #121314;
 }
 
 .acc-btn--primary:hover { background: var(--accent-2); }

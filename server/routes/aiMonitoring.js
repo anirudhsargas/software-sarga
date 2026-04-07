@@ -9,44 +9,45 @@ const {
     runFullAnalysis,
     computeStaffBaselines
 } = require('../helpers/anomalyDetection');
+const { paginate } = require('../helpers/pagination');
 
 // All routes require Admin or Accountant role
 const authMiddleware = [authenticateToken, authorizeRoles('Admin', 'Accountant')];
 
 // ─── GET /alerts — List all fraud alerts ──────────────────────
 router.get('/alerts', ...authMiddleware, asyncHandler(async (req, res) => {
-    const { status, severity, staff_id, start_date, end_date, limit = 50, offset = 0 } = req.query;
+    const { status, severity, staff_id, start_date, end_date } = req.query;
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit, 50);
 
-    let where = '1=1';
+    let whereClauses = ['1=1'];
     const params = [];
 
-    if (status) { where += ' AND fa.status = ?'; params.push(status); }
-    if (severity) { where += ' AND fa.severity = ?'; params.push(severity); }
-    if (staff_id) { where += ' AND fa.staff_id = ?'; params.push(staff_id); }
-    if (start_date) { where += ' AND fa.created_at >= ?'; params.push(start_date); }
-    if (end_date) { where += ' AND fa.created_at <= ?'; params.push(end_date + ' 23:59:59'); }
+    if (status) { whereClauses.push('fa.status = ?'); params.push(status); }
+    if (severity) { whereClauses.push('fa.severity = ?'); params.push(severity); }
+    if (staff_id) { whereClauses.push('fa.staff_id = ?'); params.push(staff_id); }
+    if (start_date) { whereClauses.push('fa.created_at >= ?'); params.push(start_date); }
+    if (end_date) { whereClauses.push('fa.created_at <= ?'); params.push(end_date + ' 23:59:59'); }
 
-    const [alerts] = await pool.query(
-        `SELECT fa.*, s.name AS staff_name, s.user_id AS staff_user_id, s.role AS staff_role
+    const whereSection = whereClauses.join(' AND ');
+    const baseFrom = `
          FROM sarga_fraud_alerts fa
          LEFT JOIN sarga_staff s ON fa.staff_id = s.id
-         WHERE ${where}
+         WHERE ${whereSection}
+    `;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total ${baseFrom}`, params);
+    const [alerts] = await pool.query(
+        `SELECT fa.*, s.name AS staff_name, s.user_id AS staff_user_id, s.role AS staff_role
+         ${baseFrom}
          ORDER BY fa.created_at DESC
          LIMIT ? OFFSET ?`,
-        [...params, parseInt(limit), parseInt(offset)]
+        [...params, limit, offset]
     );
 
-    const [countRows] = await pool.query(
-        `SELECT COUNT(*) AS total FROM sarga_fraud_alerts fa WHERE ${where}`, params
-    );
-
-    res.json({
-        alerts: alerts.map(a => ({
-            ...a,
-            details: (() => { try { return JSON.parse(a.details); } catch { return a.details; } })()
-        })),
-        total: countRows[0].total
-    });
+    res.json(response(alerts.map(a => ({
+        ...a,
+        details: (() => { try { return JSON.parse(a.details); } catch { return a.details; } })()
+    })), total));
 }));
 
 // ─── GET /dashboard — Summary statistics ──────────────────────

@@ -2,6 +2,7 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { invalidateHierarchyCache } = require('./jobs');
+const { paginate } = require('../helpers/pagination');
 
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
@@ -133,6 +134,41 @@ module.exports = (upload, removeUploadFile) => {
             const [rows] = await pool.query("SELECT * FROM sarga_product_categories ORDER BY name ASC");
             res.json(rows);
         } catch (err) {
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // List All Products (paginated for sync/search)
+    router.get('/products', authenticateToken, async (req, res) => {
+        try {
+            const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+            const search = req.query.search ? `%${req.query.search}%` : null;
+
+            let where = 'WHERE p.is_active = 1';
+            const params = [];
+            
+            if (search) {
+                where += ' AND (p.name LIKE ? OR p.product_code LIKE ?)';
+                params.push(search, search);
+            }
+
+            const baseFrom = `
+                FROM sarga_products p
+                LEFT JOIN sarga_product_subcategories s ON p.subcategory_id = s.id
+                LEFT JOIN sarga_product_categories c ON s.category_id = c.id
+                ${where}`;
+
+            const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+            const [rows] = await pool.query(`
+                SELECT p.*, s.name AS subcategory_name, c.name AS category_name
+                ${baseFrom}
+                ORDER BY p.name ASC
+                LIMIT ? OFFSET ?
+            `, [...params, limit, offset]);
+            
+            res.json(response(rows, total));
+        } catch (err) {
+            console.error('Get products error:', err);
             res.status(500).json({ message: 'Database error' });
         }
     });

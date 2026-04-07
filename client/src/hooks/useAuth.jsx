@@ -10,17 +10,17 @@ export const AuthProvider = ({ children }) => {
         const data = await auth.login(userId, password);
         setUser(data.user);
         return data;
-    }, []);
+    }, [setUser]);
 
     const logout = useCallback(() => {
         auth.logout();
         setUser(null);
-    }, []);
+    }, [setUser]);
 
     const updateUser = useCallback((nextUser) => {
         auth.setUser(nextUser);
         setUser(nextUser);
-    }, []);
+    }, [setUser]);
 
     const value = useMemo(
         () => ({ user, login, logout, updateUser }),

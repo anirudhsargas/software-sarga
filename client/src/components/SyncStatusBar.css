@@ -1,0 +1,42 @@
+.sync-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: all 200ms ease;
+  user-select: none;
+}
+
+.sync-bar:hover {
+  border-color: var(--accent);
+}
+
+.sync-bar--offline {
+  background: rgba(239,68,68,0.08);
+  border-color: rgba(239,68,68,0.3);
+  color: var(--error);
+}
+
+.sync-bar--syncing {
+  background: rgba(245,158,11,0.08);
+  border-color: rgba(245,158,11,0.3);
+}
+
+.sync-bar--synced {
+  background: rgba(16,185,129,0.08);
+  border-color: rgba(16,185,129,0.3);
+}
+
+.sync-bar__badge {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+}

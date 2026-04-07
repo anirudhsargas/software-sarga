@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Briefcase, Plus, Edit2, Trash2, Download, IndianRupee, Receipt, X, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Briefcase, Plus, Edit2, Trash2, Download, IndianRupee, Receipt, X, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, OFFICE_EXPENSE_TYPES } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -11,6 +11,9 @@ const OfficeTab = ({ onError }) => {
   const { confirm } = useConfirm();
   const [dashboard, setDashboard] = useState(null);
   const [expenses, setExpenses] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingExpenses, setLoadingExpenses] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(defaultForm);
@@ -37,9 +40,27 @@ const OfficeTab = ({ onError }) => {
   };
 
   const fetchDashboard = useCallback(async () => { try { const r = await api.get('/office-dashboard'); setDashboard(r.data); } catch { } }, []);
-  const fetchExpenses = useCallback(async () => { try { const r = await api.get('/office-expenses'); setExpenses(r.data); setPage(1); } catch { } }, []);
+  const fetchExpenses = useCallback(async (pageNum = 1) => {
+    setLoadingExpenses(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('page', pageNum);
+      params.append('limit', PAGE_SIZE);
+      const r = await api.get(`/office-expenses?${params.toString()}`);
+      setExpenses(r.data.data || []);
+      setTotal(r.data.total || 0);
+      setTotalPages(r.data.totalPages || 1);
+      setPage(r.data.page || 1);
+    } catch {
+      setExpenses([]);
+      setTotal(0);
+      setTotalPages(1);
+    } finally {
+      setLoadingExpenses(false);
+    }
+  }, []);
 
-  useEffect(() => { fetchDashboard(); fetchExpenses(); }, [fetchDashboard, fetchExpenses]);
+  useEffect(() => { fetchDashboard(); fetchExpenses(page); }, [fetchDashboard, page, fetchExpenses]);
 
   useEffect(() => {
     const handleBeforeUnload = (event) => {
@@ -83,8 +104,7 @@ const OfficeTab = ({ onError }) => {
     try { await api.delete(`/office-expenses/${id}`); fetchDashboard(); fetchExpenses(); } catch { }
   };
 
-  const totalPages = Math.ceil(expenses.length / PAGE_SIZE);
-  const pagedExpenses = expenses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
 
   return (
     <div className="em-section">
@@ -115,12 +135,14 @@ const OfficeTab = ({ onError }) => {
         </div>
       )}
 
-      {expenses.length > 0 ? (
+      {loadingExpenses ? (
+        <div className="em-loading"><Loader2 className="spin" size={20} /> Loading expenses...</div>
+      ) : expenses.length > 0 ? (
         <div className="em-card">
           <div className="em-card__title">All Office Expenses <button className="btn btn-ghost btn-sm" onClick={() => exportRowsToCsv(expenses, 'office-expenses.csv')}><Download size={14} /> CSV</button></div>
-          {expenses.length > PAGE_SIZE && (
+          {totalPages > 1 && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, expenses.length)} of {expenses.length}</span>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}</span>
               <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
               <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
             </div>
@@ -129,7 +151,7 @@ const OfficeTab = ({ onError }) => {
             <table className="em-table">
               <thead><tr><th>Date</th><th>Type</th><th>Vendor</th><th>Amount</th><th>Method</th><th>Description</th><th>Actions</th></tr></thead>
               <tbody>
-                {pagedExpenses.map(r => (
+                {expenses.map(r => (
                   <tr key={r.id}>
                     <td>{fmtDate(r.expense_date)}</td><td><span className="em-type-badge em-type-badge--other">{r.expense_type}</span></td><td>{r.vendor_name || '—'}</td><td className="em-amount-cell">₹{fmt(r.amount)}</td><td>{r.payment_method}</td><td className="em-desc-cell">{r.description || ''}</td>
                     <td><button className="btn btn-ghost btn-icon btn-sm" aria-label="Edit office expense" onClick={() => openEdit(r)}><Edit2 size={14} /></button> <button className="btn btn-ghost btn-icon btn-sm" aria-label="Delete office expense" onClick={() => handleDelete(r.id)}><Trash2 size={14} /></button></td>

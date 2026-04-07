@@ -4,11 +4,11 @@ import {
   Calendar, CreditCard, Receipt, Loader2, Plus, Wallet,
   User, Phone, Hash, FileText, IndianRupee, CheckCircle2, Clock,
   AlertTriangle, Banknote, Smartphone, Building2, ChevronDown, ChevronUp,
-  Search, X, Layers, CheckCircle, Printer, ShieldCheck, ShieldX, ShieldAlert
+  Search, X, Layers, CheckCircle, Printer, ShieldCheck, ShieldX, ShieldAlert, AlertCircle
 } from 'lucide-react';
 import api from '../services/api';
+import localDb from '../services/localDb';
 import useAuth from '../hooks/useAuth';
-
 import { serverToday } from '../services/serverTime';
 import Pagination from '../components/Pagination';
 import ReceiptModal from '../components/ReceiptModal';
@@ -18,6 +18,8 @@ import './CustomerPayments.css';
 import toast from 'react-hot-toast';
 import { GST_RATE, formatCurrencyDecimal } from '../constants';
 import { Tag } from 'lucide-react';
+import offlineDb from '../services/offlineDb';
+import { useOnlineStatus } from '../hooks/useOffline';
 
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
 
@@ -25,8 +27,10 @@ const CustomerPayments = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isOnline = useOnlineStatus();
   const canVerify = ['Admin', 'Accountant'].includes(user?.role);
   const [loading, setLoading] = useState(false);
+  const [offlineMode, setOfflineMode] = useState(false);
   const [verifyFilter, setVerifyFilter] = useState('all');
   const [payments, setPayments] = useState([]);
   const [error, setError] = useState('');
@@ -245,17 +249,44 @@ const CustomerPayments = () => {
   const fetchPayments = async (page = paymentsPage) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: 20 });
-      const response = await api.get(`/customer-payments?${params}`);
-      const res = response.data;
-      setPayments(res.data || []);
-      setPaymentsTotal(res.total || 0);
-      setPaymentsTotalPages(res.totalPages || 1);
-      if (page !== paymentsPage) {
-        setPaymentsPage(page);
+      if (isOnline) {
+        // Fetch from server with pagination
+        const res = await api.get('/customer-payments', {
+          params: { page, limit: 20 }
+        });
+        
+        // Handle both raw array and paginated object response
+        const data = res.data.data || res.data;
+        const total = res.data.total || data.length;
+        const totalPages = res.data.totalPages || 1;
+        
+        setPayments(data || []);
+        setPaymentsTotal(total);
+        setPaymentsTotalPages(totalPages);
+      } else {
+        // Fetch from local IndexedDB with pagination
+        const result = await localDb.getPayments({ 
+          type: 'Customer',
+          page,
+          limit: 20
+        });
+        
+        setPayments(result.data || []);
+        setPaymentsTotal(result.total || 0);
+        setPaymentsTotalPages(result.totalPages || 1);
       }
     } catch (err) {
+      console.error('[CustomerPayments] Fetch error:', err);
       setError('Failed to fetch customer payments');
+      // If server fails, try local as fallback
+      try {
+        const result = await localDb.getPayments({ type: 'Customer', page, limit: 20 });
+        setPayments(result.data || []);
+        setPaymentsTotal(result.total || 0);
+        setPaymentsTotalPages(result.totalPages || 1);
+      } catch (localErr) {
+        setError('Failed to fetch customer payments (offline fallback also failed)');
+      }
     } finally {
       setLoading(false);
     }
@@ -283,25 +314,24 @@ const CustomerPayments = () => {
 
   const fetchCustomers = async () => {
     try {
-      const response = await api.get('/customers?cross_branch=1');
-      setCustomers(response.data || []);
+      const data = await localDb.getCustomers();
+      setCustomers(data || []);
     } catch (err) {
-      setError('Failed to fetch customers');
+      setError('Failed to fetch customers from local storage');
     }
   };
 
   const fetchCustomerJobs = async (customerId) => {
     try {
-      const response = await api.get(`/customers/${customerId}/jobs`);
-      const jobs = response.data || [];
-      setCustomerJobs(jobs);
+      const jobs = await localDb.getCustomerJobs(customerId);
+      setCustomerJobs(jobs || []);
 
       const prefilledJobId = location.state?.job_id;
-      if (prefilledJobId && jobs.some(j => String(j.id) === String(prefilledJobId))) {
+      if (prefilledJobId && (jobs || []).some(j => String(j.id) === String(prefilledJobId))) {
         setSelectedJobId(prefilledJobId);
-      } else if (jobs.length > 1) {
+      } else if ((jobs || []).length > 1) {
         setSelectedJobId('all');
-      } else if (jobs.length === 1) {
+      } else if ((jobs || []).length === 1) {
         setSelectedJobId(jobs[0].id);
       } else {
         setSelectedJobId(null);
@@ -383,11 +413,15 @@ const CustomerPayments = () => {
 
       const cashAmount = Number(payment.methodAmounts.Cash) || 0;
       const upiAmount = Number(payment.methodAmounts.UPI) || 0;
+      const chequeAmount = Number(payment.methodAmounts.Cheque) || 0;
+      const transferAmount = Number(payment.methodAmounts['Account Transfer']) || 0;
+      const totalAdvancePaid = cashAmount + upiAmount + chequeAmount + transferAmount;
+      
       const selected = payment.selectedMethods.length > 0 ? payment.selectedMethods : ['Cash'];
       const isCashUpiCombo = selected.length === 2 && selected.includes('Cash') && selected.includes('UPI');
       const paymentMethod = isCashUpiCombo ? 'Both' : selected[0];
 
-      const response = await api.post('/customer-payments', {
+      const savedPaymentLocal = {
         ...formData,
         customer_id: formData.customer_id ? Number(formData.customer_id) : null,
         bill_amount: billAmount,
@@ -397,20 +431,23 @@ const CustomerPayments = () => {
         cgst_amount: totals.cgst,
         discount_percent: totals.effectiveDiscount || null,
         discount_amount: totals.discountAmount || null,
-        advance_paid: Number(formData.advance_paid) || 0,
-        balance_amount: Math.max(totals.gross - (Number(formData.advance_paid) || 0), 0),
+        advance_paid: totalAdvancePaid,
+        balance_amount: Math.max(totals.gross - totalAdvancePaid, 0),
         payment_method: paymentMethod,
         cash_amount: cashAmount,
         upi_amount: upiAmount,
+        cheque_amount: chequeAmount,
+        account_transfer_amount: transferAmount,
         order_lines: orderLines,
-        job_ids: jobIdsToSend
-      });
+        job_ids: jobIdsToSend,
+        type: 'Customer'
+      };
 
-      const savedPayment = response.data?.payment || {
-        ...formData,
-        payment_method: paymentMethod,
-        balance_amount: Number(formData.balance_amount) || 0,
-        id: response.data?.id
+      const result = await localDb.createPayment(savedPaymentLocal);
+
+      const savedPayment = {
+        ...savedPaymentLocal,
+        id: result.id
       };
 
       // Emit global event to trigger background refresh in other active views (like JobDetail, Summary)
@@ -437,7 +474,7 @@ const CustomerPayments = () => {
         description: '',
         payment_date: serverToday()
       });
-      setPayment({ selectedMethods: ['Cash'], methodAmounts: { Cash: 0, UPI: 0, Cheque: 0, 'AccountTransfer': 0 } });
+      setPayment({ selectedMethods: ['Cash'], methodAmounts: { Cash: 0, UPI: 0, Cheque: 0, 'Account Transfer': 0 } });
       setDiscountPercent(0);
       setDiscountInputAmount(0);
       setDiscountMode('amount');
@@ -452,7 +489,70 @@ const CustomerPayments = () => {
       }
       fetchPayments(1);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save customer payment');
+      // Check if this is a network error
+      const isNetworkError = !err.response && (err.code === 'ERR_NETWORK' || err.message === 'Network Error' || !navigator.onLine);
+      
+      if (isNetworkError) {
+        // Queue payment for offline sync
+        try {
+          const cashAmount = Number(payment.methodAmounts.Cash) || 0;
+          const upiAmount = Number(payment.methodAmounts.UPI) || 0;
+          const chequeAmount = Number(payment.methodAmounts.Cheque) || 0;
+          const transferAmount = Number(payment.methodAmounts['Account Transfer']) || 0;
+          
+          await offlineDb.savePendingPayment({
+            customer_id: formData.customer_id ? Number(formData.customer_id) : null,
+            customer_name: formData.customer_name,
+            customer_mobile: formData.customer_mobile || null,
+            total_amount: totals.gross,
+            net_amount: totals.net,
+            sgst_amount: totals.sgst,
+            cgst_amount: totals.cgst,
+            discount_percent: totals.effectiveDiscount || null,
+            discount_amount: totals.discountAmount || null,
+            advance_paid: cashAmount + upiAmount + chequeAmount + transferAmount,
+            cash_amount: cashAmount,
+            upi_amount: upiAmount,
+            cheque_amount: chequeAmount,
+            account_transfer_amount: transferAmount,
+            reference_number: formData.reference_number || null,
+            description: formData.description || '',
+            payment_date: formData.payment_date,
+            order_lines: orderLines,
+            job_ids: orderLines.length === 0 ? (selectedJobId === 'all' ? customerJobs.filter((j) => getJobBalance(j) > 0).map((j) => Number(j.id)) : (selectedJobId ? [Number(selectedJobId)] : [])) : []
+          });
+          
+          toast.success(`Payment saved offline! It will sync when internet returns.`, { duration: 5000, icon: '📴' });
+          const keepCustomerId = formData.customer_id;
+          setFormData({
+            customer_id: keepCustomerId,
+            customer_name: formData.customer_name,
+            customer_mobile: formData.customer_mobile,
+            total_amount: 0,
+            net_amount: 0,
+            sgst_amount: 0,
+            cgst_amount: 0,
+            advance_paid: 0,
+            balance_amount: 0,
+            reference_number: '',
+            description: '',
+            payment_date: serverToday()
+          });
+          setPayment({ selectedMethods: ['Cash'], methodAmounts: { Cash: 0, UPI: 0, Cheque: 0, 'Account Transfer': 0 } });
+          setDiscountPercent(0);
+          setDiscountInputAmount(0);
+          setDiscountMode('amount');
+          
+          if (keepCustomerId) {
+            fetchCustomerJobs(keepCustomerId);
+          }
+        } catch (offlineErr) {
+          console.error('[CustomerPayments] Failed to save payment offline:', offlineErr);
+          setError('Failed to save payment (network and offline backup both failed)');
+        }
+      } else {
+        setError(err.response?.data?.message || 'Failed to save customer payment');
+      }
     } finally {
       setSaving(false);
     }
@@ -542,9 +642,10 @@ const CustomerPayments = () => {
   };
 
   const updateMethodAmount = (method, value) => {
+    const numValue = Number(value) || 0;
     setPayment((prev) => ({
       ...prev,
-      methodAmounts: { ...prev.methodAmounts, [method]: value }
+      methodAmounts: { ...prev.methodAmounts, [method]: numValue }
     }));
   };
 
@@ -639,7 +740,7 @@ const CustomerPayments = () => {
         <div className="cp-header-left">
           <div>
             <h1 className="cp-title">Customer Payments</h1>
-            <p className="cp-subtitle">Collect advance or full payment for customer orders</p>
+            <p className="cp-subtitle">{isOnline ? 'Collect advance or full payment for customer orders' : 'Offline — payments will sync when internet returns.'}</p>
           </div>
         </div>
         <div className="cp-header-badge">
@@ -647,6 +748,24 @@ const CustomerPayments = () => {
           <span>{invoiceId}</span>
         </div>
       </div>
+
+      {!isOnline && (
+        <div style={{
+          display: 'flex',
+          gap: 12,
+          alignItems: 'center',
+          padding: '12px 16px',
+          backgroundColor: 'var(--warning-bg, #fef3c7)',
+          borderLeft: '4px solid var(--warning, #f59e0b)',
+          borderRadius: 4,
+          marginBottom: 16,
+          fontSize: 13,
+          color: 'var(--warning-text, #92400e)'
+        }}>
+          <AlertCircle size={16} style={{ flexShrink: 0 }} />
+          <span><strong>Offline mode.</strong> Payments will be saved locally and sync when internet returns.</span>
+        </div>
+      )}
 
       {/* ── TWO-COLUMN LAYOUT ── */}
       <div className="cp-grid">
@@ -983,7 +1102,6 @@ const CustomerPayments = () => {
                 <div className="cp-display-field" style={{ fontSize: 14 }}>
                   <Calendar size={14} style={{ flexShrink: 0 }} />
                   <span>{formData.payment_date}</span>
-                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)' }}>Today</span>
                 </div>
               </div>
             </div>
@@ -1022,6 +1140,8 @@ const CustomerPayments = () => {
                     type="number"
                     className="input-field"
                     min="0"
+                    step="0.01"
+                    placeholder="0.00"
                     value={payment.methodAmounts.Cash}
                     onChange={(e) => updateMethodAmount('Cash', e.target.value)}
                   />
@@ -1034,6 +1154,8 @@ const CustomerPayments = () => {
                     type="number"
                     className="input-field"
                     min="0"
+                    step="0.01"
+                    placeholder="0.00"
                     value={payment.methodAmounts.UPI}
                     onChange={(e) => updateMethodAmount('UPI', e.target.value)}
                   />
@@ -1046,6 +1168,8 @@ const CustomerPayments = () => {
                     type="number"
                     className="input-field"
                     min="0"
+                    step="0.01"
+                    placeholder="0.00"
                     value={payment.methodAmounts.Cheque}
                     onChange={(e) => updateMethodAmount('Cheque', e.target.value)}
                   />
@@ -1058,6 +1182,7 @@ const CustomerPayments = () => {
                     type="number"
                     className="input-field"
                     min="0"
+                    step="0.01"
                     value={payment.methodAmounts['Account Transfer']}
                     onChange={(e) => updateMethodAmount('Account Transfer', e.target.value)}
                   />
@@ -1306,7 +1431,7 @@ const CustomerPayments = () => {
                       </td>
                       <td>
                         {vStatus === 'N/A' ? (
-                          <span className="cp-verify-badge cp-verify-na" style={{ fontSize: 11, color: '#9ca3af' }}>—</span>
+                          <span className="cp-verify-badge cp-verify-na" style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>
                         ) : vStatus === 'Verified' ? (
                           <span className="cp-verify-badge cp-verify-ok" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#10b981', fontWeight: 600 }}>
                             <ShieldCheck size={13} /> Verified

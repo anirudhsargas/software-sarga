@@ -197,15 +197,28 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
 
     return (
         <div className="modal-backdrop" style={{ zIndex: 1000 }}>
-            <div className="modal" style={{ maxWidth: '460px', width: '92%' }}>
+            <div className="modal" style={{ maxWidth: '460px', width: '92%', position: 'relative' }}>
                 {/* Header */}
-                <div className="row space-between items-center mb-16">
-                    <div className="row gap-sm items-center">
-                        <Camera size={18} />
-                        <h2 className="section-title" style={{ margin: 0 }}>Scan QR Code</h2>
-                    </div>
-                    <button className="icon-button" onClick={onClose}><X size={20} /></button>
+                <div className="row gap-sm items-center mb-24">
+                    <Camera size={18} />
+                    <h2 className="section-title" style={{ margin: 0 }}>Scan QR Code</h2>
                 </div>
+
+                {/* Absolutely positioned close button */}
+                <button 
+                    className="icon-button" 
+                    onClick={onClose}
+                    style={{ 
+                        position: 'absolute', 
+                        top: '20px', 
+                        right: '20px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        zIndex: 10
+                    }}
+                >
+                    <X size={20} />
+                </button>
 
                 {/* Mode tabs */}
                 <div className="row gap-sm mb-16">
@@ -243,7 +256,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                         {scanning && (
                             <div style={{
                                 padding: '12px 24px', borderRadius: '8px',
-                                background: 'var(--muted)', color: '#666',
+                                background: 'var(--muted)', color: 'var(--text-muted)',
                                 fontWeight: 600, fontSize: '15px'
                             }}>
                                 ⏳ Reading QR code from image...
@@ -256,7 +269,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                 {mode === 'camera' && (
                     <div
                         id={camDivId.current}
-                        style={{ width: '100%', borderRadius: '8px', overflow: 'hidden', background: '#111', minHeight: '240px' }}
+                        style={{ width: '100%', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-2)', minHeight: '240px' }}
                     />
                 )}
 
@@ -264,7 +277,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                 {cameraError && (
                     <div style={{
                         marginTop: '10px', padding: '10px 14px',
-                        background: '#fff3cd', borderRadius: '8px',
+                        background: 'var(--warning-bg)', borderRadius: '8px',
                         color: '#856404', fontSize: '13px'
                     }}>
                         ⚠️ {cameraError}

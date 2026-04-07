@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useDebounce } from '../hooks/useDebounce';
 import { useLocation } from 'react-router-dom';
 import { Plus, X, Trash2, Filter, Receipt, Loader2, Calendar, User, CreditCard, ShoppingBag, ExternalLink, FileText, Search, PlusCircle, Building2 } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
+import localDb from '../services/localDb';
 import { serverToday, serverDateTimeLocal } from '../services/serverTime';
 import Pagination from '../components/Pagination';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -63,6 +66,8 @@ const Payments = () => {
         items: [] // { inventory_item_id, name, quantity, unit_cost, total_cost }
     });
     const [billSearch, setBillSearch] = useState('');
+    const [searchInput, setSearchInput] = useState('');
+    const debouncedSearch = useDebounce(searchInput, 300);
 
     const types = ['Vendor', 'Utility', 'Salary', 'Rent', 'Other'];
 
@@ -77,19 +82,19 @@ const Payments = () => {
 
     useEffect(() => {
         fetchPayments();
-    }, [page]);
+    }, [page, debouncedSearch]);
 
     const fetchStaff = async () => {
         try {
-            const res = await api.get('/staff');
-            setStaffList(Array.isArray(res.data) ? res.data : (res.data?.data || []));
+            const data = await localDb.getStaff();
+            setStaffList(data || []);
         } catch (err) { console.error('Failed to fetch staff', err); }
     };
 
     const fetchInventory = async () => {
         try {
-            const res = await api.get('/inventory');
-            setInventory(Array.isArray(res.data) ? res.data : (res.data?.data || []));
+            const data = await localDb.getInventory();
+            setInventory(data || []);
         } catch (err) { console.error('Failed to fetch inventory', err); }
     };
 
@@ -110,11 +115,10 @@ const Payments = () => {
 
     const fetchBranches = async () => {
         try {
-            const response = await api.get('/branches');
-            const branchData = Array.isArray(response.data) ? response.data : (response.data?.data || []);
-            setBranches(branchData);
-            if (branchData.length > 0) {
-                setFormData(prev => ({ ...prev, branch_id: branchData[0].id }));
+            const data = await localDb.getBranches();
+            setBranches(data || []);
+            if (data.length > 0) {
+                setFormData(prev => ({ ...prev, branch_id: data[0].id }));
             }
         } catch (err) {
             console.error('Failed to fetch branches');
@@ -123,8 +127,8 @@ const Payments = () => {
 
     const fetchPaymentMethods = async () => {
         try {
-            const response = await api.get('/payment-methods');
-            setPaymentMethods(Array.isArray(response.data) ? response.data : (response.data?.data || []));
+            const data = await localDb.getPaymentMethods();
+            setPaymentMethods(data || []);
         } catch (err) {
             console.error('Failed to fetch payment methods');
         }
@@ -132,9 +136,8 @@ const Payments = () => {
 
     const fetchVendors = async (type = '') => {
         try {
-            const params = type ? `?type=${type}` : '';
-            const response = await api.get(`/vendors${params}`);
-            setVendors(Array.isArray(response.data) ? response.data : (response.data?.data || []));
+            const data = await localDb.getVendors({ type });
+            setVendors(data || []);
         } catch (err) {
             console.error('Failed to fetch vendors');
         }
@@ -156,19 +159,12 @@ const Payments = () => {
     const fetchPayments = async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams({ page, limit: 20 });
-            if (filters.branch_id) params.append('branch_id', filters.branch_id);
-            if (filters.type) params.append('type', filters.type);
-            if (filters.startDate) params.append('startDate', filters.startDate);
-            if (filters.endDate) params.append('endDate', filters.endDate);
-
-            const response = await api.get(`/payments?${params.toString()}`);
-            const res = response.data;
-            setPayments(Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []));
-            setTotal(res.total || 0);
-            setTotalPages(res.totalPages || 1);
+            const data = await localDb.getPayments(filters);
+            setPayments(data || []);
+            setTotal(data.length);
+            setTotalPages(1); // Offline pagination simplified
         } catch (err) {
-            setError('Failed to fetch payments');
+            setError('Failed to fetch payments from local storage');
         } finally {
             setLoading(false);
         }
@@ -206,8 +202,8 @@ const Payments = () => {
                 setLoading(false);
                 return;
             }
-            await api.post('/payments', finalFormData);
-            setSuccess('Payment recorded successfully!');
+            await localDb.createPayment(finalFormData);
+            setSuccess('Payment recorded locally!');
             setTimeout(() => setSuccess(''), 3000);
             setShowModal(false);
             setFormData({
@@ -230,7 +226,7 @@ const Payments = () => {
             });
             fetchPayments();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to record payment');
+            setError('Failed to record payment locally');
         } finally {
             setLoading(false);
         }
@@ -256,21 +252,16 @@ const Payments = () => {
                 setLoading(false);
                 return;
             }
-            await api.post('/vendor-bills', billData);
-            setSuccess('Purchase bill recorded successfully!');
+            await localDb.createVendorBill(billData);
+            setSuccess('Purchase bill recorded locally!');
             setTimeout(() => {
                 setSuccess('');
                 setShowBillModal(false);
             }, 1500);
-            setBillData({
-                vendor_id: '',
-                bill_number: '',
-                bill_date: serverToday(),
-                items: []
-            });
-            await fetchVendors(); // Refresh balance/history
+            setBillData({ vendor_id: '', bill_number: '', bill_date: serverToday(), items: [] });
+            await fetchVendors(); 
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to record bill');
+            setError('Failed to record bill locally');
         } finally {
             setLoading(false);
         }
@@ -317,13 +308,13 @@ const Payments = () => {
         setLoading(true);
         setError('');
         try {
-            await api.post('/payment-methods', { name: newMethodName });
+            await localDb.createPaymentMethod(newMethodName);
             setShowAddMethodModal(false);
             setNewMethodName('');
             fetchPaymentMethods();
             setFormData({ ...formData, payment_method: newMethodName });
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to add payment method');
+            setError('Failed to add payment method');
         } finally {
             setLoading(false);
         }
@@ -338,17 +329,17 @@ const Payments = () => {
         setLoading(true);
         setError('');
         try {
-            const response = await api.post('/vendors', newVendor);
-            setSuccess('Payee added successfully!');
-            await fetchVendors(); // Await refresh
+            const resp = await localDb.createVendor(newVendor);
+            setSuccess('Payee added locally!');
+            await fetchVendors();
             setTimeout(() => {
                 setSuccess('');
                 setShowVendorModal(false);
             }, 1500);
             setNewVendor({ name: '', type: 'Vendor', contact_person: '', phone: '', address: '', branch_id: '', order_link: '', gstin: '' });
-            setFormData({ ...formData, vendor_id: response.data.id, payee_name: newVendor.name });
+            setFormData({ ...formData, vendor_id: resp.id, payee_name: newVendor.name });
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to add payee');
+            setError('Failed to add payee');
         } finally {
             setLoading(false);
         }
@@ -369,6 +360,17 @@ const Payments = () => {
             setError('Failed to delete payment');
         }
     };
+
+    // Memoized filtered payments
+    const filteredPayments = useMemo(() => {
+        if (!debouncedSearch) return payments;
+        const q = debouncedSearch.toLowerCase();
+        return payments.filter(p =>
+            (p.payee_name && p.payee_name.toLowerCase().includes(q)) ||
+            (p.description && p.description.toLowerCase().includes(q)) ||
+            (p.vendor_name && p.vendor_name.toLowerCase().includes(q))
+        );
+    }, [payments, debouncedSearch]);
 
     return (
         <div className="stack-lg">
@@ -400,6 +402,14 @@ const Payments = () => {
             {/* Filters */}
             <div className="panel panel--tight">
                 <div className="row gap-sm" style={{ flexWrap: 'wrap' }}>
+                    <input
+                        type="text"
+                        className="input-field"
+                        placeholder="Search payments..."
+                        style={{ minWidth: 180 }}
+                        value={searchInput}
+                        onChange={e => setSearchInput(e.target.value)}
+                    />
                     <div className="flex-1" style={{ minWidth: '200px' }}>
                         <label className="label">Branch</label>
                         <select
@@ -449,7 +459,6 @@ const Payments = () => {
                 </div>
             </div>
 
-            <div className="panel panel--tight">
                 <div className="table-scroll">
                     <table className="table">
                         <thead>
@@ -465,33 +474,111 @@ const Payments = () => {
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {loading && payments.length === 0 ? (
-                                <tr>
-                                    <td colSpan="9" className="text-center muted table-empty">
-                                        <Loader2 className="animate-spin" />
-                                    </td>
-                                </tr>
-                            ) : payments.length === 0 ? (
-                                <tr>
-                                    <td colSpan="9" className="text-center muted table-empty">
-                                        No payment records found.
-                                    </td>
-                                </tr>
-                            ) : (
-                                (payments || []).map((p) => (
-                                    <tr
-                                        key={p.id}
-                                        onDoubleClick={p.vendor_id ? () => fetchPayeeStatement(p.vendor_id) : undefined}
-                                        style={{ cursor: p.vendor_id ? 'pointer' : 'default' }}
-                                        title={p.vendor_id ? 'Double-click to view statement' : ''}
-                                    >
-                                        <td className="text-sm">
-                                            <div className="stack-sm">
-                                                <div className="row gap-sm">
-                                                    <Calendar size={14} className="muted" />
-                                                    {new Date(p.payment_date).toLocaleDateString()}
-                                                </div>
+                    </table>
+                    <VirtualPaymentsTable
+                        payments={filteredPayments}
+                        loading={loading}
+                        fetchPayeeStatement={fetchPayeeStatement}
+                        handleDelete={handleDelete}
+                    />
+                </div>
+
+                                                // Virtualized payments table body
+                                                const VirtualPaymentsTable = ({ payments, loading, fetchPayeeStatement, handleDelete }) => {
+                                                    const parentRef = useRef(null);
+                                                    const rowVirtualizer = useVirtualizer({
+                                                        count: payments.length,
+                                                        getScrollElement: () => parentRef.current,
+                                                        estimateSize: () => 56,
+                                                        overscan: 8,
+                                                    });
+                                                    if (loading && payments.length === 0) {
+                                                        return (
+                                                            <table className="table"><tbody><tr><td colSpan="9" className="text-center muted table-empty"><Loader2 className="animate-spin" /></td></tr></tbody></table>
+                                                        );
+                                                    }
+                                                    if (payments.length === 0) {
+                                                        return (
+                                                            <table className="table"><tbody><tr><td colSpan="9" className="text-center muted table-empty">No payment records found.</td></tr></tbody></table>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <table className="table"><tbody ref={parentRef} style={{ display: 'block', height: 480, overflow: 'auto' }}>
+                                                            {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                                                                const p = payments[virtualRow.index];
+                                                                return <PaymentRow key={p.id} payment={p} fetchPayeeStatement={fetchPayeeStatement} handleDelete={handleDelete} />;
+                                                            })}
+                                                        </tbody></table>
+                                                    );
+                                                };
+
+                                                // Memoized payment row
+                                                const PaymentRow = React.memo(({ payment: p, fetchPayeeStatement, handleDelete }) => (
+                                                    <tr
+                                                        key={p.id}
+                                                        onDoubleClick={p.vendor_id ? () => fetchPayeeStatement(p.vendor_id) : undefined}
+                                                        style={{ cursor: p.vendor_id ? 'pointer' : 'default' }}
+                                                        title={p.vendor_id ? 'Double-click to view statement' : ''}
+                                                    >
+                                                        <td className="text-sm">
+                                                            <div className="stack-sm">
+                                                                <div className="row gap-sm">
+                                                                    <Calendar size={14} className="muted" />
+                                                                    {new Date(p.payment_date).toLocaleDateString()}
+                                                                </div>
+                                                                <span className="text-xs muted">
+                                                                    {new Date(p.payment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div className="stack-sm">
+                                                                <span className="user-name">{p.payee_name}</span>
+                                                                <span className="text-xs muted">{p.description}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="text-sm">
+                                                            {p.vendor_name ? (
+                                                                <span className="badge badge--outline">{p.vendor_name}</span>
+                                                            ) : (
+                                                                <span className="muted">--</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="text-xs muted">
+                                                            {p.period_start ? (
+                                                                <div className="stack-xs">
+                                                                    <span>{new Date(p.period_start).toLocaleDateString()}</span>
+                                                                    <span>to {new Date(p.period_end).toLocaleDateString()}</span>
+                                                                </div>
+                                                            ) : '--'}
+                                                        </td>
+                                                        <td className="text-sm">{p.branch_name}</td>
+                                                        <td><span className="badge">{p.type}</span></td>
+                                                        <td className="text-sm muted">
+                                                            <div className="stack-sm">
+                                                                <div className="row gap-sm">
+                                                                    <CreditCard size={14} />
+                                                                    {p.payment_method}
+                                                                </div>
+                                                                {p.payment_method === 'Both' && (
+                                                                    <span className="text-xs muted">
+                                                                        Cash: ₹{Number(p.cash_amount || 0).toLocaleString()} | UPI: ₹{Number(p.upi_amount || 0).toLocaleString()}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="text-accent">₹{Number(p.amount).toLocaleString()}</td>
+                                                        <td>
+                                                            <button
+                                                                className="btn btn-ghost btn-danger"
+                                                                style={{ padding: '8px', minWidth: 'auto', border: 'none' }}
+                                                                onClick={() => handleDelete(p.id)}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ));
                                                 <span className="text-xs muted">
                                                     {new Date(p.payment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
@@ -1060,7 +1147,7 @@ const Payments = () => {
                                     />
                                 </div>
                                 {billSearch && (
-                                    <div className="dropdown-panel border-all rounded stack-xs shadow-md" style={{ maxHeight: '200px', overflowY: 'auto', position: 'absolute', background: 'white', width: '90%', zIndex: 100 }}>
+                                    <div className="dropdown-panel border-all rounded stack-xs shadow-md" style={{ maxHeight: '200px', overflowY: 'auto', position: 'absolute', background: 'var(--surface)', width: '90%', zIndex: 100 }}>
                                         {(inventory || [])
                                             .filter(i => i.name.toLowerCase().includes(billSearch.toLowerCase()) || i.sku?.toLowerCase().includes(billSearch.toLowerCase()))
                                             .map(item => (

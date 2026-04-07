@@ -3,7 +3,7 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getUserBranchId, hasPendingCustomerBalance, bumpUsageForUser, auditLog, auditFieldChanges, getNextInvoiceNumber, normalizeMobile, asyncHandler } = require('../helpers');
 const { branchFilter } = require('../middleware/branchFilter');
-const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+const { paginate } = require('../helpers/pagination');
 const { validate } = require('../middleware/validate');
 const { customerPaymentSchema } = require('../schemas/paymentSchemas');
 
@@ -39,43 +39,52 @@ const CUSTOMER_PAYMENT_LIST_COLUMNS = [
 
 // List Customer Payments
 router.get('/customer-payments', authenticateToken, async (req, res) => {
-    const { customer_id, startDate, endDate } = req.query;
-    const { page, limit, offset } = parsePagination(req);
-    const usePagination = !!req.query.page;
     try {
-        let where = '';
+        const { customer_id, startDate, endDate } = req.query;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+
+        let whereClauses = [];
         const params = [];
 
         // Branch filter for non-admin
         const branchScope = await branchFilter(req, { column: 'branch_id', allowPrivilegedQuery: false });
-        where += branchScope.clause;
-        params.push(...branchScope.params);
+        if (branchScope.clause && branchScope.clause.trim().length > 0) {
+            whereClauses.push(branchScope.clause.replace(/^\s*AND\s*/, '').trim());
+            params.push(...branchScope.params);
+        }
+
         if (customer_id) {
-            where += ' AND customer_id = ?';
+            whereClauses.push('customer_id = ?');
             params.push(customer_id);
         }
         if (startDate) {
-            where += ' AND payment_date >= ?';
+            whereClauses.push('payment_date >= ?');
             params.push(startDate);
         }
         if (endDate) {
-            where += ' AND payment_date <= ?';
+            whereClauses.push('payment_date <= ?');
             params.push(endDate);
         }
 
-        const baseFrom = `FROM sarga_customer_payments WHERE 1=1 ${where}`;
+        const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
+        const baseFrom = `FROM sarga_customer_payments ${whereSection}`;
 
-        if (usePagination) {
-            const [[{ cnt }]] = await pool.query(`SELECT COUNT(*) as cnt ${baseFrom}`, params);
-            const [rows] = await pool.query(`SELECT ${CUSTOMER_PAYMENT_LIST_COLUMNS} ${baseFrom} ORDER BY payment_date DESC, created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
-            return res.json(paginatedResponse(rows, cnt, page, limit));
-        }
+        // Use proper destructuring for mysql2/promise
+        const [countRows] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+        const total = countRows && countRows[0] ? countRows[0].total : 0;
+        
+        const [rows] = await pool.query(
+            `SELECT id, customer_id, customer_name, total_amount, payment_date, created_at ${baseFrom} ORDER BY payment_date DESC, created_at DESC LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
 
-        const [rows] = await pool.query(`SELECT ${CUSTOMER_PAYMENT_LIST_COLUMNS} ${baseFrom} ORDER BY payment_date DESC, created_at DESC`, params);
-        res.json(rows);
+        res.json(response(rows || [], total));
     } catch (err) {
-        console.error('List customer payments error:', err);
-        res.status(500).json({ message: 'Database error' });
+        console.error('[ERROR] List customer payments:', err.message || err);
+        console.error('[ERROR] Stacktrace:', err.stack);
+        res.status(500).json({
+            message: 'Database error'
+        });
     }
 });
 
@@ -95,12 +104,15 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
         payment_method,
         cash_amount,
         upi_amount,
+        cheque_amount,
+        account_transfer_amount,
         reference_number,
         description,
         payment_date,
         order_lines,
         job_ids,
-        auto_deliver
+        auto_deliver,
+        coupon_code
     } = req.body;
     const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
 
@@ -115,37 +127,29 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
     const advance = Number(advance_paid) || 0;
     const cash = Number(cash_amount) || 0;
     const upi = Number(upi_amount) || 0;
+    const cheque = Number(cheque_amount) || 0;
+    const transfer = Number(account_transfer_amount) || 0;
     const method = String(payment_method || 'Cash');
     const balance = total - advance;
 
     // C-03: advance cannot exceed total (and values cannot be negative)
-    if (total < 0 || advance < 0 || cash < 0 || upi < 0) {
+    if (total < 0 || advance < 0 || cash < 0 || upi < 0 || cheque < 0 || transfer < 0) {
         return res.status(400).json({ message: 'Amounts cannot be negative.' });
     }
     if (advance > total) {
         return res.status(400).json({ message: `Advance (₹${advance}) cannot exceed total amount (₹${total})` });
     }
 
-    // C-07: enforce method-consistent payment split and amount integrity
-    const splitDiff = Math.abs((cash + upi) - advance);
-    if (method === 'Cash') {
-        if (Math.abs(cash - advance) > 0.01 || upi > 0.01) {
-            return res.status(400).json({ message: `For Cash payments, cash amount must equal advance and UPI must be 0.` });
-        }
-    } else if (method === 'UPI') {
-        if (Math.abs(upi - advance) > 0.01 || cash > 0.01) {
-            return res.status(400).json({ message: `For UPI payments, UPI amount must equal advance and cash must be 0.` });
-        }
-    } else if (method === 'Both') {
-        if (cash <= 0 || upi <= 0 || splitDiff > 0.01) {
-            return res.status(400).json({ message: `For Both payments, cash + UPI must equal advance and both must be greater than 0.` });
-        }
-    } else if (['Cheque', 'Account Transfer'].includes(method)) {
-        if (cash > 0.01 || upi > 0.01) {
-            return res.status(400).json({ message: `For ${method} payments, cash and UPI amounts must be 0.` });
-        }
-    } else if (advance > 0 && splitDiff > 0.01) {
-        return res.status(400).json({ message: `Cash (₹${cash}) + UPI (₹${upi}) must equal advance paid (₹${advance})` });
+    // C-07: Multi-method payment validation
+    const methodTotal = cash + upi + cheque + transfer;
+    if (advance > 0 && Math.abs(methodTotal - advance) > 1) {
+        return res.status(400).json({ message: `Payment methods total (₹${methodTotal.toFixed(2)}) must equal advance paid (₹${advance.toFixed(2)})` });
+    }
+    
+    // At least one method must have a positive amount
+    const totalPaidViaMethods = [cash, upi, cheque, transfer].reduce((sum, amount) => sum + (Number(amount) || 0), 0);
+    if (totalPaidViaMethods <= 0) {
+        return res.status(400).json({ message: 'At least one payment method must have an amount greater than 0.' });
     }
 
     const connection = await pool.getConnection();
@@ -176,12 +180,30 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                 resolvedCustomerId = rows[0]?.id || null;
             }
         }
+
+        // Validate and track coupon usage if provided
+        let resolvedCouponCode = null;
+        if (coupon_code && coupon_code.trim()) {
+            const cleanCoupon = coupon_code.trim().toUpperCase().replace(/\s+/g, '');
+            const [couponRows] = await connection.query('SELECT * FROM sarga_coupons WHERE code = ? FOR UPDATE', [cleanCoupon]);
+            if (couponRows.length > 0) {
+                const coupon = couponRows[0];
+                const isValid = coupon.is_active
+                    && (coupon.max_uses === null || coupon.used_count < coupon.max_uses)
+                    && (!coupon.expiry_date || new Date(coupon.expiry_date) >= new Date(new Date().toISOString().split('T')[0]));
+                if (isValid) {
+                    resolvedCouponCode = cleanCoupon;
+                    await connection.query('UPDATE sarga_coupons SET used_count = used_count + 1 WHERE id = ?', [coupon.id]);
+                }
+            }
+        }
+
         let paymentId;
         try {
             const [result] = await connection.query(
                 `INSERT INTO sarga_customer_payments
-                (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, discount_percent, discount_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, order_lines, idempotency_key)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, discount_percent, discount_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, cheque_amount, account_transfer_amount, branch_id, reference_number, description, payment_date, order_lines, idempotency_key, coupon_code)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     resolvedCustomerId,
                     String(customer_name).trim(),
@@ -198,12 +220,15 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                     payment_method || 'Cash',
                     cash,
                     upi,
+                    cheque,
+                    transfer,
                     branchId,
                     reference_number || null,
                     description || null,
                     payment_date,
                     JSON.stringify(order_lines || []),
-                    idempotencyKey
+                    idempotencyKey,
+                    resolvedCouponCode
                 ]
             );
             paymentId = result.insertId;
@@ -211,8 +236,8 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
             if (err.code === 'ER_BAD_FIELD_ERROR' || err.code === 'ER_NO_SUCH_TABLE') {
                 const [result] = await connection.query(
                     `INSERT INTO sarga_customer_payments
-                    (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, order_lines, idempotency_key)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, cheque_amount, account_transfer_amount, branch_id, reference_number, description, payment_date, order_lines, idempotency_key)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         resolvedCustomerId,
                         String(customer_name).trim(),
@@ -227,6 +252,8 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                         payment_method || 'Cash',
                         cash,
                         upi,
+                        cheque,
+                        transfer,
                         branchId,
                         reference_number || null,
                         description || null,
@@ -746,18 +773,17 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
 
         // 5. Machine Stats
         const [machineReadings] = await pool.query(`
-            SELECT m.machine_name, mr.total_copies, mr.reading_date
+            SELECT m.id, m.machine_name, mr.total_copies, mr.reading_date
             FROM sarga_machine_readings mr
             JOIN sarga_machines m ON mr.machine_id = m.id
             WHERE DATE(mr.reading_date) = ? ${branchIds ? " AND m.branch_id IN (?)" : ""}
         `, [today, ...(branchIds ? [branchIds] : [])]);
 
-        const machineMap = {};
-        machineReadings.forEach(r => {
-            const name = r.machine_name.toLowerCase();
-            if (name.includes('4065')) machineMap.konica_4065_pages = r.total_copies;
-            if (name.includes('3070')) machineMap.konica_3070_pages = r.total_copies;
-        });
+        const machines = machineReadings.map(r => ({
+            id: r.id,
+            name: r.machine_name,
+            pages: r.total_copies
+        }));
 
         // 6. Recent Jobs
         const [recentJobs] = await pool.query(`
@@ -965,7 +991,7 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
                 id_cards: Number(salesStats.id_cards_sales) || 0,
                 binding: Number(salesStats.binding_sales) || 0
             },
-            machines: machineMap,
+            machines: machines,
             recent_jobs: recentJobs,
             status_counts: statusMap,
             low_stock: lowStockItems,
@@ -996,35 +1022,42 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
 // List payments pending verification (UPI, Cheque, Account Transfer only)
 router.get('/customer-payments/pending-verification', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     try {
-        const { page, limit, offset } = parsePagination(req);
-        const usePagination = !!req.query.page;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
         const { status: filterStatus, startDate, endDate, search } = req.query;
 
-        let where = `WHERE payment_method IN ('UPI', 'Cheque', 'Account Transfer', 'Both')`;
+        let whereClauses = [];
         const params = [];
 
+        // Branch filter for non-admin
+        const branchScope = await branchFilter(req, { column: 'branch_id', allowPrivilegedQuery: false });
+        if (branchScope.clause.trim()) {
+            whereClauses.push(branchScope.clause.replace(/^\s*AND\s*/, '').trim());
+            params.push(...branchScope.params);
+        }
+
+        // Payment method filter (non-Cash payments require verification)
+        whereClauses.push(`payment_method IN ('UPI', 'Cheque', 'Account Transfer', 'Both')`);
+
         if (filterStatus === 'Pending') {
-            where += ` AND (verification_status = 'Pending' OR verification_status IS NULL)`;
+            whereClauses.push(`(verification_status = 'Pending' OR verification_status IS NULL)`);
         } else if (filterStatus && filterStatus !== 'all') {
-            where += ` AND verification_status = ?`;
+            whereClauses.push(`verification_status = ?`);
             params.push(filterStatus);
         }
-        if (startDate) { where += ` AND payment_date >= ?`; params.push(startDate); }
-        if (endDate) { where += ` AND payment_date <= ?`; params.push(endDate); }
-        if (search) { where += ` AND (customer_name LIKE ? OR reference_number LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+        if (startDate) { whereClauses.push(`payment_date >= ?`); params.push(startDate); }
+        if (endDate) { whereClauses.push(`payment_date <= ?`); params.push(endDate); }
+        if (search) { whereClauses.push(`(customer_name LIKE ? OR reference_number LIKE ?)`); params.push(`%${search}%`, `%${search}%`); }
 
-        const baseFrom = `FROM sarga_customer_payments ${where}`;
+        const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
+        const baseFrom = `FROM sarga_customer_payments ${whereSection}`;
 
-        if (usePagination) {
-            const [[{ cnt }]] = await pool.query(`SELECT COUNT(*) as cnt ${baseFrom}`, params);
-            const [rows] = await pool.query(`SELECT ${CUSTOMER_PAYMENT_LIST_COLUMNS} ${baseFrom} ORDER BY created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
-            return res.json(paginatedResponse(rows, cnt, page, limit));
-        }
-        const [rows] = await pool.query(`SELECT ${CUSTOMER_PAYMENT_LIST_COLUMNS} ${baseFrom} ORDER BY created_at DESC`, params);
-        res.json(rows);
+        const [countResult] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+        const total = countResult[0]?.total || 0;
+        const [rows] = await pool.query(`SELECT ${CUSTOMER_PAYMENT_LIST_COLUMNS} ${baseFrom} ORDER BY created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+        res.json(response(rows, total));
     } catch (err) {
-        console.error('Pending verification list error:', err);
-        res.status(500).json({ message: 'Database error' });
+        console.error('Pending verification list error:', err.message, err.stack);
+        res.status(500).json({ message: err.message || 'Database error' });
     }
 });
 

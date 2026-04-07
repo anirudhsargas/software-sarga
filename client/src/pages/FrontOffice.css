@@ -253,13 +253,17 @@
 
 .fo-action-btn--primary {
     background: var(--accent);
-    color: var(--surface);
+    color: #fff;
     border-color: var(--accent);
 }
 
 .fo-action-btn--primary:hover {
     background: var(--accent-2);
     border-color: var(--accent-2);
+}
+
+.dark .fo-action-btn--primary {
+    color: #121314;
 }
 
 .fo-action-btn--primary kbd {
@@ -270,13 +274,17 @@
 
 .fo-action-btn--success {
     background: var(--accent);
-    color: var(--surface);
+    color: #fff;
     border-color: var(--accent);
 }
 
 .fo-action-btn--success:hover {
     background: var(--accent-2);
     border-color: var(--accent-2);
+}
+
+.dark .fo-action-btn--success {
+    color: #121314;
 }
 
 .fo-action-btn--success kbd {

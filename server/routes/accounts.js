@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { asyncHandler } = require('../helpers');
-const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+const { paginate } = require('../helpers/pagination');
 
 // ─── GST Summary (monthly aggregation) ───
 router.get('/accounts/gst-summary', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
@@ -105,7 +105,7 @@ router.get('/accounts/gst-summary', authenticateToken, authorizeRoles('Admin', '
 // ─── Sales Register (sales bills list with GST) ───
 router.get('/accounts/sales-register', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const { startDate, endDate, branch_id, customer_id, search } = req.query;
-  const { page, limit, offset } = parsePagination(req);
+  const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
   let where = '1=1';
   const params = [];
@@ -157,7 +157,7 @@ router.get('/accounts/sales-register', authenticateToken, authorizeRoles('Admin'
   `, params);
 
   res.json({
-    ...paginatedResponse(rows, cnt, page, limit),
+    ...response(rows, cnt),
     totals
   });
 }));
@@ -166,7 +166,7 @@ router.get('/accounts/sales-register', authenticateToken, authorizeRoles('Admin'
 // ─── Purchase Register (vendor bills with GST) ───
 router.get('/accounts/purchase-register', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const { startDate, endDate, branch_id, vendor_id, search } = req.query;
-  const { page, limit, offset } = parsePagination(req);
+  const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
   let where = '1=1';
   const params = [];
@@ -242,7 +242,7 @@ router.get('/accounts/purchase-register', authenticateToken, authorizeRoles('Adm
   `, params);
 
   res.json({
-    ...paginatedResponse(rows, cnt, page, limit),
+    ...response(rows, cnt),
     totals
   });
 }));

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import usePolling from '../hooks/usePolling';
 import {
   LayoutDashboard, Store, Home, Zap, Landmark,
@@ -6,7 +7,11 @@ import {
   Plus, X, Briefcase
 } from 'lucide-react';
 import api from '../services/api';
+import localDb from '../services/localDb';
 import './ExpenseManager.css';
+import SkeletonLoader from '../components/SkeletonLoader';
+import ServerError from '../components/ServerError';
+import toast from 'react-hot-toast';
 
 /* ── Tab Components ── */
 import DashboardTab from './expense-manager/DashboardTab';
@@ -37,8 +42,15 @@ const tabs = [
 ];
 
 /* ══════════ Main Component ══════════ */
+const VALID_TABS = new Set(tabs.map(t => t.key).concat('reports'));
+
 const ExpenseManager = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const activeTab = (tabFromUrl && VALID_TABS.has(tabFromUrl)) ? tabFromUrl : 'dashboard';
+  const setActiveTab = (tab) => {
+    setSearchParams({ tab }, { replace: tab === 'dashboard' });
+  };
   const [error, setError] = useState('');
   const [branches, setBranches] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -55,15 +67,15 @@ const ExpenseManager = () => {
 
   /* ── Shared fetchers ── */
   const fetchBranches = useCallback(async () => {
-    try { const r = await api.get('/branches'); setBranches(r.data); } catch { }
+    try { const data = await localDb.getBranches(); setBranches(data || []); } catch { }
   }, []);
 
   const fetchVendors = useCallback(async () => {
-    try { const r = await api.get('/vendors'); setVendors(r.data); } catch { }
+    try { const data = await localDb.getVendors(); setVendors(data || []); } catch { }
   }, []);
 
   const fetchDashboardForUtilities = useCallback(async () => {
-    try { const r = await api.get('/expense-dashboard'); setDashboard(r.data); } catch { }
+    try { const data = await localDb.getExpenseDashboard(); setDashboard(data); } catch { }
   }, []);
 
   useEffect(() => { fetchBranches(); fetchVendors(); }, [fetchBranches, fetchVendors]);
@@ -81,10 +93,11 @@ const ExpenseManager = () => {
         body.cash_amount = Number(payForm.cash_amount);
         body.upi_amount = Number(payForm.upi_amount);
       }
-      await api.post('/payments', body);
+      await localDb.saveExpensePayment(body);
       setShowPayModal(false); setPayForm(defaultPayForm);
       setRefreshKey(k => k + 1); // trigger child refreshes
-    } catch (err) { setError(err.response?.data?.message || 'Payment failed'); }
+      toast.success('Payment recorded locally');
+    } catch (err) { setError('Payment failed locally'); }
   };
 
   /* ── Open payment modal with pre-fill ── */
@@ -116,7 +129,7 @@ const ExpenseManager = () => {
       </div>
 
       {/* Error */}
-      {error && <div className="em-error">{error} <button className="btn btn-ghost btn-sm" onClick={() => setError('')}><X size={14} /></button></div>}
+      {error && <ServerError onRetry={() => setError('')} message={error} />}
 
       {/* Tabs */}
       <div className="em-tabs">

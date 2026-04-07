@@ -4,7 +4,7 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog, normalizeMobile } = require('../helpers');
 const { branchFilter } = require('../middleware/branchFilter');
 const { validate, addCustomerSchema } = require('../middleware/validate');
-const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+const { paginate } = require('../helpers/pagination');
 
 const CUSTOMER_COLUMNS = [
     'id',
@@ -36,8 +36,7 @@ const CUSTOMER_PAYMENT_SUMMARY_COLUMNS = [
 router.get('/customers', authenticateToken, async (req, res) => {
     try {
         const { search, type: typeFilter } = req.query;
-        const { page, limit, offset } = parsePagination(req);
-        const usePagination = !!req.query.page;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         let where = '';
         const params = [];
@@ -61,15 +60,12 @@ router.get('/customers', authenticateToken, async (req, res) => {
 
         const baseFrom = `FROM sarga_customers WHERE 1=1 ${where}`;
 
-        if (usePagination) {
-            const [[{ cnt }]] = await pool.query(`SELECT COUNT(*) as cnt ${baseFrom}`, params);
-            const [rows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} ${baseFrom} ORDER BY name ASC LIMIT ? OFFSET ?`, [...params, limit, offset]);
-            return res.json(paginatedResponse(rows, cnt, page, limit));
-        }
-
-        const [rows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} ${baseFrom} ORDER BY name ASC`, params);
-        res.json(rows);
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+        const [rows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} ${baseFrom} ORDER BY name ASC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+        
+        res.json(response(rows, total));
     } catch (err) {
+        console.error('List customers error:', err);
         res.status(500).json({ message: 'Database error' });
     }
 });

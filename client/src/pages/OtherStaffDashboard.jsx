@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Briefcase, FileText, Search, ChevronDown } from 'lucide-react';
+import { Briefcase, FileText, Search, ChevronDown, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
 import auth from '../services/auth';
+import localDb from '../services/localDb';
+import { useOfflineSync } from '../hooks/useOffline';
+import LoadingButton from '../components/LoadingButton';
 
 const OtherStaffDashboard = () => {
   const navigate = useNavigate();
   const user = auth.getUser();
   const staffId = user?.id;
+  const { isOnline, lastSyncTime } = useOfflineSync();
   const [loading, setLoading] = useState(true);
   const [workHistory, setWorkHistory] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -22,12 +25,12 @@ const OtherStaffDashboard = () => {
     if (!staffId) return;
     setLoading(true);
     try {
-      const [workRes, branchRes] = await Promise.all([
-        api.get(`/staff/${staffId}/work-history`),
-        api.get('/branches')
+      const [history, branchList] = await Promise.all([
+        localDb.getStaffWorkHistory(staffId),
+        localDb.getBranches()
       ]);
-      setWorkHistory(Array.isArray(workRes.data) ? workRes.data : []);
-      setBranches(Array.isArray(branchRes.data) ? branchRes.data : []);
+      setWorkHistory(history || []);
+      setBranches(branchList || []);
     } catch (err) {
       console.error('Dashboard fetch error:', err);
     } finally {
@@ -448,7 +451,7 @@ const OtherStaffDashboard = () => {
                   <button
                     style={{
                       background: 'var(--error)',
-                      color: 'white',
+                      color: 'var(--on-accent)',
                       border: 'none',
                       borderRadius: '6px',
                       padding: '8px 12px',
@@ -479,9 +482,36 @@ const OtherStaffDashboard = () => {
           padding: '48px',
           textAlign: 'center'
         }}>
-          <Briefcase size={40} color='var(--muted)' style={{ margin: '0 auto 16px', opacity: 0.4 }} />
           <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--muted)', margin: 0 }}>No jobs found</h3>
           <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0 0' }}>Try adjusting your filters or check back later for new assignments</p>
+          
+          {isOnline && workHistory.length === 0 && (
+            <div style={{ marginTop: '24px' }}>
+              <LoadingButton
+                onClick={fetchDashboard}
+                loading={loading}
+                className="btn-primary"
+                style={{
+                  background: 'var(--accent)',
+                  color: 'var(--on-accent)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <RefreshCw size={16} /> Sync Now
+              </LoadingButton>
+              <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: '8px' }}>
+                If this is your first time, you may need to download your work history.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

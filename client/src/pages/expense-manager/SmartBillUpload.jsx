@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Upload, X, AlertCircle, Loader2, CheckCircle, Link2, Plus } from 'lucide-react';
+import { Upload, X, AlertCircle, Loader2, CheckCircle, Link2, Plus, Trash2 } from 'lucide-react';
 import api from '../../services/api';
+import auth from '../../services/auth';
+import localDb from '../../services/localDb';
 import './SmartBillUpload.css';
 
-const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
+const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, defaultRelatedTab }) => {
   const [step, setStep] = useState('upload'); // upload | extracting | suggestions | pricing | linking | confirming
   const [file, setFile] = useState(null);
   const [extractedData, setExtractedData] = useState(null);
@@ -15,17 +17,24 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
   const [productSuggestions, setProductSuggestions] = useState([]);
   const [editableItems, setEditableItems] = useState([]);
   const [hierarchyOptions, setHierarchyOptions] = useState([]);
+  const [hierarchyLoading, setHierarchyLoading] = useState(false);
   const [categoryMode, setCategoryMode] = useState('single');
   const [globalCategoryId, setGlobalCategoryId] = useState('');
   const [globalSubcategoryId, setGlobalSubcategoryId] = useState('');
+  const [mlPrediction, setMlPrediction] = useState(null);
+  const [categoryOverridden, setCategoryOverridden] = useState(false);
+  const [ocrRawText, setOcrRawText] = useState('');
+  const [branches, setBranches] = useState([]);
+  const [stockBranchId, setStockBranchId] = useState('');
   const [finalForm, setFinalForm] = useState({
-    document_type: 'Invoice',
+    document_type: defaultDocumentType || 'Invoice',
     vendor_name: '',
+    vendor_contact: '',
     bill_number: '',
     bill_date: '',
     amount: '',
     description: '',
-    related_tab: ''
+    related_tab: defaultRelatedTab || ''
   });
   const fileInputRef = useRef(null);
 
@@ -62,16 +71,27 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
     return 'Other';
   };
 
-  const buildEditableItems = (items = []) => {
+  const buildEditableItems = (items = [], fallbackGstPct = 0) => {
     return items.map((item, index) => {
       const quantity = item.quantity ?? '';
-      const rate = item.rate ?? '';
-      const gstPercent = item.gst_percent ?? '';
-      const taxable = item.taxable_amount ?? (quantity && rate ? Number(quantity) * Number(rate) : '');
-      const gstAmount = (taxable !== '' && gstPercent !== '')
+      // Support both rate and unit_price field names from different extraction paths
+      const rate = item.rate ?? item.unit_price ?? '';
+      // Use per-item gst_percent if available, else use bill-level inferred rate
+      const gstPercent = (item.gst_percent != null && item.gst_percent !== '')
+        ? item.gst_percent
+        : (fallbackGstPct > 0 ? fallbackGstPct : '');
+      const taxable = item.taxable_amount ?? (quantity !== '' && rate !== '' ? Number(quantity) * Number(rate) : '');
+      const gstAmount = (taxable !== '' && gstPercent !== '' && Number(gstPercent) > 0)
         ? (Number(taxable) * Number(gstPercent) / 100)
         : '';
-      const mrp = item.total_amount ?? (taxable !== '' && gstAmount !== '' ? Number(taxable) + Number(gstAmount) : taxable);
+      // Prefer bill-stated MRP from OCR; fallback to computed taxable+GST; then to total_amount/amount
+      const billMrp = (item.mrp != null && item.mrp !== '' && Number(item.mrp) > 0)
+        ? Number(item.mrp)
+        : null;
+      const computedMrp = (taxable !== '' && gstAmount !== '')
+        ? Number(taxable) + Number(gstAmount)
+        : null;
+      const mrp = billMrp ?? computedMrp ?? item.total_amount ?? item.amount ?? taxable;
 
       return {
         serial_no: item.serial_no ?? (index + 1),
@@ -92,16 +112,49 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
   };
 
   const fetchHierarchyOptions = async (vendorName = '') => {
+    setHierarchyLoading(true);
+    
+    // Auto-set stock branch to current user's branch
+    const userBranchId = auth.getUser()?.branch_id;
+    if (userBranchId && !stockBranchId) {
+      setStockBranchId(String(userBranchId));
+    }
+    
+    api.get('/branches').then(r => setBranches(r.data || [])).catch(() => {});
     try {
-      const { data } = await api.get('/product-hierarchy');
-      const categories = (Array.isArray(data) ? data : []).filter((cat) =>
+      console.log('[SmartBillUpload] Fetching hierarchy...');
+      const startTime = performance.now();
+      
+      // Try to get from localDb first
+      let hierarchy = await localDb.getProducts();
+      console.log('[SmartBillUpload] LocalDb load time:', (performance.now() - startTime).toFixed(0), 'ms, items:', Array.isArray(hierarchy) ? hierarchy.length : 0);
+      
+      // Fallback to API if localDb is empty - with timeout
+      if (!Array.isArray(hierarchy) || hierarchy.length === 0) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+          
+          const apiResponse = await api.get('/product-hierarchy', { signal: controller.signal });
+          clearTimeout(timeoutId);
+          hierarchy = apiResponse.data;
+          console.log('[SmartBillUpload] API load time:', (performance.now() - startTime).toFixed(0), 'ms, items:', Array.isArray(hierarchy) ? hierarchy.length : 0);
+        } catch (apiErr) {
+          const isTimeout = apiErr.code === 'ECONNABORTED' || String(apiErr.message).includes('timeout');
+          console.warn('[SmartBillUpload] API load failed', { timeout: isTimeout, error: apiErr.message });
+          // Continue with empty array - user can still use "Auto detect"
+        }
+      }
+      
+      const categories = (Array.isArray(hierarchy) ? hierarchy : []).filter((cat) =>
         typeof cat?.id === 'number' && Array.isArray(cat?.subcategories)
       );
+      console.log('[SmartBillUpload] Filtered categories:', categories.length);
       setHierarchyOptions(categories);
 
       const vendorLower = String(vendorName || '').toLowerCase();
       const wantsMemento = /memento|troph|award|shield|plaque|souvenir/.test(vendorLower);
-      if (wantsMemento) {
+      if (wantsMemento && categories.length > 0) {
         const mementoCategory = categories.find((cat) => String(cat.name || '').toLowerCase().includes('memento'));
         const mementoSubcategory = mementoCategory?.subcategories?.find((sub) => String(sub.name || '').toLowerCase().includes('memento'))
           || mementoCategory?.subcategories?.[0];
@@ -121,8 +174,11 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
         }
       }
     } catch (err) {
-      console.error('Failed to load product hierarchy:', err);
+      console.error('[SmartBillUpload] Failed to load product hierarchy:', err);
       setHierarchyOptions([]);
+      // Still continue - "Auto detect" is always available
+    } finally {
+      setHierarchyLoading(false);
     }
   };
 
@@ -202,7 +258,10 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
 
   const initPricingStep = () => {
     setEditableItems((prev) => prev.map((item) => {
-      const cost = Number(item.rate || 0);
+      const rate = Number(item.rate || 0);
+      const gstPct = Number(item.gst_percent || 0);
+      // Cost per unit = rate + GST (the actual purchase price inclusive of tax)
+      const cost = rate * (1 + gstPct / 100);
       const resolvedCategory = resolveItemCategory(item);
       const isConsumable = isConsumableItem(item, resolvedCategory);
       const isMementoOrFrame = isMementoOrPhotoFrameItem(item, resolvedCategory);
@@ -210,10 +269,10 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
       return {
         ...item,
         sku: item.sku || getSkuSuggestion(item, Number(item.serial_no || 0) - 1),
-        // For memento/photo frame suggest 2x cost. For consumables, keep sell price blank.
+        // For memento/photo frame suggest 2x cost (rate+GST), rounded up to nearest 5. For consumables, keep sell price blank.
         sell_price: item.sell_price !== ''
           ? item.sell_price
-          : (isConsumable ? '' : (isMementoOrFrame && cost > 0 ? (cost * 2).toFixed(2) : ''))
+          : (isConsumable ? '' : (isMementoOrFrame && cost > 0 ? (Math.ceil(cost * 2 / 5) * 5).toFixed(0) : ''))
       };
     }));
     setStep('pricing');
@@ -244,7 +303,15 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setExtractedData(response.data);
-      setEditableItems(buildEditableItems(response.data.extracted_data?.items || []));
+      const extractedItems = response.data.extracted_data?.items || [];
+      // Derive a bill-level fallback GST rate from tax_amount/subtotal
+      // so per-item GST can be inferred even when the server doesn't return it per line
+      const billTax = Number(response.data.extracted_data?.tax || 0);
+      const billSubtotal = Number(response.data.extracted_data?.subtotal || 0);
+      const fallbackGstPct = (billTax > 0 && billSubtotal > 0)
+        ? Math.round((billTax / billSubtotal) * 100)
+        : 0;
+      setEditableItems(buildEditableItems(extractedItems, fallbackGstPct));
       setStep('suggestions');
 
       // Pre-fill form with extracted data
@@ -255,10 +322,44 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
         bill_number: response.data.extracted_data.bill_number || '',
         bill_date: response.data.extracted_data.bill_date || '',
         amount: response.data.extracted_data.amount || '',
-        related_tab: response.data.category_suggestions?.[0]?.related_tab || ''
+        vendor_contact: response.data.extracted_data.vendor_contact || '',
+        related_tab: defaultRelatedTab || response.data.category_suggestions?.[0]?.related_tab || ''
       }));
 
       fetchHierarchyOptions(response.data.extracted_data.vendor_name || '');
+
+      // Build OCR text for ML categorizer from extracted data
+      const rawParts = [
+        response.data.extracted_data.vendor_name,
+        response.data.extracted_data.raw_text,
+        ...(response.data.extracted_data.items || []).map(i => i.description),
+        response.data.extracted_data.amount ? `${response.data.extracted_data.amount}` : ''
+      ].filter(Boolean);
+      const ocrText = rawParts.join(' ').trim();
+      setOcrRawText(ocrText);
+
+      // Call ML expense categorizer
+      if (ocrText) {
+        try {
+          const catRes = await api.post('/ai/categorize-expense', { ocr_text: ocrText });
+          if (catRes.data?.predicted_category && catRes.data.confidence > 0) {
+            setMlPrediction(catRes.data);
+            // Auto-fill related_tab from ML prediction
+            const tabMap = {
+              'Vendor': 'vendors', 'Utility': 'utilities', 'Rent': 'rent',
+              'Office & Admin': 'office', 'Transport & Delivery': 'transport',
+              'Marketing & Sales': 'misc', 'Machine & Maintenance': 'misc',
+              'Bank & Finance': 'finance', 'Miscellaneous': 'misc'
+            };
+            const autoTab = tabMap[catRes.data.predicted_category] || '';
+            if (autoTab && !response.data.category_suggestions?.length) {
+              setFinalForm(prev => ({ ...prev, related_tab: autoTab }));
+            }
+          }
+        } catch (catErr) {
+          console.warn('[SmartBillUpload] ML categorizer unavailable:', catErr.message);
+        }
+      }
 
       // Fetch product suggestions if keywords found
       if (response.data.extracted_data.items?.length > 0) {
@@ -281,12 +382,60 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
     }
   };
 
+  const suggestSubcategories = (categoryName = '') => {
+    const catLower = String(categoryName || '').toLowerCase();
+    const categoryMap = {
+      'memento|trophy|award|frame|photo': [
+        { name: 'Trophies & Awards', confidence: 0.95 },
+        { name: 'Photo Frames', confidence: 0.9 },
+        { name: 'Mementos', confidence: 0.85 }
+      ],
+      'consumables|ink|toner|paper': [
+        { name: 'Ink & Toner', confidence: 0.95 },
+        { name: 'Paper & Sheets', confidence: 0.9 },
+        { name: 'Labels & Stickers', confidence: 0.85 }
+      ],
+      'office|admin': [
+        { name: 'Office Supplies', confidence: 0.9 },
+        { name: 'Furniture', confidence: 0.8 },
+        { name: 'Equipment', confidence: 0.75 }
+      ]
+    };
+
+    for (const [pattern, subs] of Object.entries(categoryMap)) {
+      if (new RegExp(pattern, 'i').test(catLower)) {
+        return subs;
+      }
+    }
+    return [];
+  };
+
   const fetchProductSuggestions = async (keyword) => {
     try {
       const response = await api.get('/bills-documents/suggest-products', {
         params: { keyword }
       });
       setProductSuggestions(response.data);
+      
+      // Auto-fill editable items with product library data
+      if (response.data.length > 0) {
+        setEditableItems(prev => prev.map((item, idx) => {
+          const matched = response.data.find(p => 
+            String(item.item_name || '').toLowerCase().includes(String(p.name || '').toLowerCase())
+            || String(p.name || '').toLowerCase().includes(String(item.item_name || '').toLowerCase())
+          );
+          if (matched) {
+            return {
+              ...item,
+              sku: item.sku || matched.sku || '',
+              category_id: String(matched.category_id || ''),
+              category_name: matched.category_name || '',
+              hsn_sac: item.hsn_sac || matched.hsn || ''
+            };
+          }
+          return item;
+        }));
+      }
     } catch (err) {
       console.error('Failed to fetch product suggestions:', err);
     }
@@ -298,6 +447,29 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
       ...prev,
       related_tab: category.related_tab
     }));
+    // Auto-assign to all items in single mode
+    const catMatch = hierarchyOptions.find(c => String(c.name || '').includes(category.type));
+    if (catMatch) {
+      setGlobalCategoryId(String(catMatch.id));
+      setGlobalSubcategoryId('');
+    }
+    // If user picks a different category than ML predicted, save correction
+    if (mlPrediction && ocrRawText && category.type !== mlPrediction.predicted_category) {
+      setCategoryOverridden(true);
+      api.post('/ai/categorize-expense/feedback', {
+        ocr_text: ocrRawText,
+        category: category.type
+      }).catch(() => {});
+    }
+  };
+
+  const handleSubcategorySelect = (subcategoryName) => {
+    if (!globalCategoryId) return;
+    const category = hierarchyOptions.find(c => String(c.id) === String(globalCategoryId));
+    const matched = category?.subcategories?.find(s => String(s.name || '').includes(subcategoryName));
+    if (matched) {
+      setGlobalSubcategoryId(String(matched.id));
+    }
   };
 
   const handleProductLink = (product) => {
@@ -354,6 +526,9 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
         if (forceDuplicate) {
           formData.append('force_duplicate', '1');
         }
+        if (stockBranchId) {
+          formData.append('stock_branch_id', stockBranchId);
+        }
         return formData;
       };
 
@@ -372,21 +547,48 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
         };
       });
 
-      let response;
+      // Save locally first
+      await localDb.createVendorBill({
+        vendor_id: null,
+        vendor_name: finalForm.vendor_name,
+        bill_number: finalForm.bill_number,
+        bill_date: finalForm.bill_date,
+        total_amount: Number(finalForm.amount),
+        items: payloadItems
+      });
+
+      await localDb.saveBillDocument({
+        document_type: normalizeDocumentType(finalForm.document_type, finalForm.related_tab),
+        related_tab: finalForm.related_tab,
+        vendor_name: finalForm.vendor_name,
+        bill_number: finalForm.bill_number,
+        bill_date: finalForm.bill_date,
+        amount: finalForm.amount,
+        description: finalForm.description,
+        // Store the original uploaded file blob for local viewing
+        file_blob: file || undefined,
+        file_name: file?.name || undefined,
+        file_type: file?.type || undefined,
+      });
+
+      // Upload to server so inventory is synced
       try {
-        response = await api.post('/bills-documents/upload', buildUploadFormData(payloadItems), {
+        const formData = buildUploadFormData(payloadItems);
+        await api.post('/bills-documents/upload', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
       } catch (uploadErr) {
-        const duplicateCode = uploadErr?.response?.data?.code;
-        if (uploadErr?.response?.status === 409 && duplicateCode === 'POSSIBLE_DUPLICATE_BILL') {
-          const proceed = window.confirm('This looks like a duplicate bill. Is this another bill? Click OK to upload anyway.');
+        if (uploadErr.response?.status === 409) {
+          const existingName = uploadErr.response.data?.duplicate?.file_name || 'a previous bill';
+          const proceed = window.confirm(
+            `A similar bill (${existingName}) was already uploaded. Upload this one anyway?`
+          );
           if (!proceed) {
-            setLoading(false);
+            setError('Upload cancelled — possible duplicate bill detected.');
             return;
           }
-
-          response = await api.post('/bills-documents/upload', buildUploadFormData(payloadItems, true), {
+          const forceFormData = buildUploadFormData(payloadItems, true);
+          await api.post('/bills-documents/upload', forceFormData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
         } else {
@@ -394,24 +596,24 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
         }
       }
 
-      // If product is linked, create inventory entry
-      if (linkedProduct?.should_add) {
-        try {
-          await api.post(`/bills-documents/${response.data.id}/link-product`, {
-            product_id: linkedProduct.product_id,
-            quantity: linkedProduct.quantity,
-            unit_price: linkedProduct.unit_price,
-            add_to_inventory: true
-          });
-        } catch (err) {
-          console.error('Failed to link product, but bill still uploaded:', err);
-        }
-      }
-
       setStep('confirming');
       onSuccess?.();
+
+      // Save OCR text + chosen category to training data for future ML improvement
+      if (ocrRawText && finalForm.related_tab) {
+        const tabToCat = {
+          'vendors': 'Vendor', 'utilities': 'Utility', 'rent': 'Rent',
+          'office': 'Office & Admin', 'transport': 'Transport & Delivery',
+          'finance': 'Bank & Finance', 'misc': 'Miscellaneous'
+        };
+        const finalCategory = tabToCat[finalForm.related_tab] || finalForm.related_tab;
+        api.post('/ai/categorize-expense/feedback', {
+          ocr_text: ocrRawText,
+          category: finalCategory
+        }).catch(() => {});
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to upload bill');
+      setError(err.response?.data?.error || err.message || 'Failed to upload bill');
     } finally {
       setLoading(false);
     }
@@ -530,7 +732,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
                     onChange={(e) => setFinalForm(prev => ({ ...prev, bill_date: e.target.value }))}
                   />
                 </div>
-                <div className="data-item" style={{ gridColumn: '1 / 3' }}>
+                <div className="data-item">
                   <label>Vendor Name</label>
                   <input
                     type="text"
@@ -539,6 +741,29 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
                     placeholder="Vendor or supplier name"
                   />
                 </div>
+                <div className="data-item">
+                  <label>Vendor Contact</label>
+                  <input
+                    type="text"
+                    value={finalForm.vendor_contact}
+                    onChange={(e) => setFinalForm(prev => ({ ...prev, vendor_contact: e.target.value }))}
+                    placeholder="Phone / mobile"
+                  />
+                </div>
+                {editableItems.length > 0 && (
+                  <div className="data-item">
+                    <label>Stock goes to Branch</label>
+                    <select
+                      value={stockBranchId}
+                      onChange={(e) => setStockBranchId(e.target.value)}
+                    >
+                      <option value={auth.getUser()?.branch_id || ''}>{branches.find(b => b.id === auth.getUser()?.branch_id)?.name || 'Your Branch'} (Default)</option>
+                      {branches.filter(b => b.id !== auth.getUser()?.branch_id).map(b => (
+                        <option key={b.id} value={b.id}>{b.name}{b.short_name ? ` (${b.short_name})` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="data-item">
                   <label>Type</label>
                   <input
@@ -553,7 +778,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
             {/* Category Suggestions */}
             {extractedData.category_suggestions?.length > 0 && (
               <div className="suggestions-section">
-                <h3>Suggested Category</h3>
+                <h3>📁 Suggested Category</h3>
                 <div className="suggestion-chips">
                   {extractedData.category_suggestions.slice(0, 3).map((cat, idx) => (
                     <button
@@ -566,6 +791,68 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
                     </button>
                   ))}
                 </div>
+
+                {/* Subcategory Suggestions */}
+                {selectedCategory && suggestSubcategories(selectedCategory.type).length > 0 && (
+                  <div className="subcategory-suggestions" style={{ marginTop: 8 }}>
+                    <p style={{ margin: '0 0 6px 0', color: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }}>📂 Suggested Subcategory:</p>
+                    <div className="suggestion-chips" style={{ marginTop: 4 }}>
+                      {suggestSubcategories(selectedCategory.type).map((sub, idx) => (
+                        <button
+                          key={idx}
+                          className={`chip chip-sub`}
+                          onClick={() => handleSubcategorySelect(sub.name)}
+                        >
+                          {sub.name}
+                          <small>{Math.round(sub.confidence * 100)}%</small>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ML Auto-detected Category */}
+            {mlPrediction && mlPrediction.predicted_category && (
+              <div className="suggestions-section">
+                <h3>🤖 AI Category Prediction</h3>
+                <div className="ml-prediction-badge">
+                  <span className="ml-predicted-label">
+                    Auto-detected: <strong>{mlPrediction.predicted_category}</strong>
+                  </span>
+                  <span className={`ml-confidence-badge ${mlPrediction.confidence >= 0.8 ? 'high' : mlPrediction.confidence >= 0.5 ? 'medium' : 'low'}`}>
+                    {Math.round(mlPrediction.confidence * 100)}%
+                  </span>
+                  {categoryOverridden && <span className="ml-overridden-tag">Overridden</span>}
+                </div>
+                {mlPrediction.alternatives?.length > 0 && (
+                  <div className="ml-alternatives">
+                    {mlPrediction.alternatives.map((alt, idx) => (
+                      <button
+                        key={idx}
+                        className="chip chip-alt"
+                        onClick={() => {
+                          const tabMap = {
+                            'Vendor': 'vendors', 'Utility': 'utilities', 'Rent': 'rent',
+                            'Office & Admin': 'office', 'Transport & Delivery': 'transport',
+                            'Marketing & Sales': 'misc', 'Machine & Maintenance': 'misc',
+                            'Bank & Finance': 'finance', 'Miscellaneous': 'misc'
+                          };
+                          setFinalForm(prev => ({ ...prev, related_tab: tabMap[alt.category] || '' }));
+                          setCategoryOverridden(true);
+                          api.post('/ai/categorize-expense/feedback', {
+                            ocr_text: ocrRawText,
+                            category: alt.category
+                          }).catch(() => {});
+                        }}
+                      >
+                        {alt.category}
+                        <small>{Math.round(alt.confidence * 100)}%</small>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -603,33 +890,49 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
             {/* Extracted Items Editable Table */}
             {editableItems.length > 0 && (
               <div className="items-section">
-                <div className="category-assignment-card">
-                  <div className="category-assignment-header">
-                    <span className="category-assignment-title">Category &amp; Subcategory</span>
-                    <span className="category-assignment-hint">Choose how to classify items in the product library</span>
-                  </div>
-
+                {/* Mode Toggle */}
+                <div className="category-assignment-section-inline">
+                  <h3>📚 Product Library Classification</h3>
                   <div className="category-mode-toggle">
                     <button
                       type="button"
                       className={`mode-toggle-btn${categoryMode === 'single' ? ' active' : ''}`}
                       onClick={() => setCategoryMode('single')}
                     >
-                      All items same
+                      All items → Same category
                     </button>
                     <button
                       type="button"
                       className={`mode-toggle-btn${categoryMode === 'per-item' ? ' active' : ''}`}
                       onClick={() => setCategoryMode('per-item')}
                     >
-                      Per-item
+                      Classify each item
                     </button>
                   </div>
 
-                  {categoryMode === 'single' && hierarchyOptions.length > 0 && (
-                    <div className="category-selects-row">
+                  {/* Loading Indicator */}
+                  {hierarchyLoading && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      margin: '8px 0',
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      color: 'var(--text-secondary, #666)',
+                      backgroundColor: 'var(--surface-hover, #f5f5f5)',
+                      borderRadius: '4px'
+                    }}>
+                      <Loader2 size={16} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+                      Loading categories...
+                    </div>
+                  )}
+
+                  {/* Single Mode Category Selects - Always show */}
+                  {categoryMode === 'single' && (
+                    <div className="category-single-selects">
                       <div className="category-select-group">
-                        <label className="category-select-label">Category</label>
+                        <label className="category-select-label">📁 Category</label>
                         <select
                           className="category-select"
                           value={globalCategoryId}
@@ -639,21 +942,26 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
                             setGlobalSubcategoryId('');
                           }}
                         >
-                          <option value="">— Auto —</option>
+                          <option value="">— Auto detect —</option>
                           {hierarchyOptions.map((cat) => (
                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                           ))}
+                          {hierarchyOptions.length === 0 && (
+                            <option disabled style={{ color: 'var(--text-disabled)', fontStyle: 'italic' }}>
+                              Loading categories...
+                            </option>
+                          )}
                         </select>
                       </div>
                       <div className="category-select-group">
-                        <label className="category-select-label">Subcategory</label>
+                        <label className="category-select-label">📂 Subcategory</label>
                         <select
                           className="category-select"
                           value={globalSubcategoryId}
                           onChange={(e) => setGlobalSubcategoryId(e.target.value)}
                           disabled={!globalCategoryId}
                         >
-                          <option value="">— Auto —</option>
+                          <option value="">— Auto detect —</option>
                           {(hierarchyOptions.find((cat) => String(cat.id) === String(globalCategoryId))?.subcategories || []).map((sub) => (
                             <option key={sub.id} value={sub.id}>{sub.name}</option>
                           ))}
@@ -663,7 +971,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
                   )}
                 </div>
 
-                <h3>Items from Bill (Editable)</h3>
+                <h3 style={{ marginTop: 14, marginBottom: 10, color: 'var(--text, #333)' }}>Items from Bill (Editable)</h3>
                 <div className="items-table-wrap">
                   <table className="items-table">
                     <thead>
@@ -677,6 +985,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
                         <th>MRP</th>
                         {categoryMode === 'per-item' && <th>Category</th>}
                         {categoryMode === 'per-item' && <th>Subcategory</th>}
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -791,11 +1100,43 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
                               </select>
                             </td>
                           )}
+                          <td className="td-del">
+                            <button
+                              className="btn-delete-row"
+                              title="Remove row"
+                              onClick={() => setEditableItems(prev => prev.filter((_, i) => i !== idx))}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                <button
+                  className="btn-add-row"
+                  onClick={() => setEditableItems(prev => [
+                    ...prev,
+                    {
+                      serial_no: prev.length + 1,
+                      item_name: '',
+                      hsn_sac: '',
+                      quantity: '',
+                      rate: '',
+                      gst_percent: 18,
+                      mrp: '',
+                      sell_price: '',
+                      sku: '',
+                      category_id: '',
+                      subcategory_id: '',
+                      category_name: '',
+                      subcategory_name: ''
+                    }
+                  ])}
+                >
+                  <Plus size={13} /> Add Row
+                </button>
               </div>
             )}
 
@@ -858,7 +1199,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
                         {item.item_name || `Item ${idx + 1}`}
                         {consumable && <div className="pricing-item-hint">Consumable: inventory-only</div>}
                       </td>
-                      <td className="pricing-cost">₹{Number(item.rate || 0).toFixed(2)}</td>
+                      <td className="pricing-cost">₹{(Number(item.rate || 0) * (1 + Number(item.gst_percent || 0) / 100)).toFixed(2)}</td>
                       <td>
                         <input
                           type="text"
@@ -995,6 +1336,9 @@ const SmartBillUpload = ({ onClose, onSuccess, onError }) => {
                 setGlobalSubcategoryId('');
                 setLinkedProduct(null);
                 setProductSuggestions([]);
+                setMlPrediction(null);
+                setCategoryOverridden(false);
+                setOcrRawText('');
                 setError('');
                 setFinalForm({
                   document_type: 'Invoice',

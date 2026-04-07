@@ -184,6 +184,51 @@ const bumpUsageForUser = async (userId, productId) => {
     }
 };
 
+/**
+ * Generate a smart job number: BRANCH-YYMMDD-001
+ * Uses a daily atomic sequence for each branch.
+ * @param {object} connection - MySQL connection (inside a transaction)
+ * @param {number|null} branchId
+ * @returns {Promise<string>}
+ */
+const generateJobNumber = async (connection, branchId = null) => {
+    // 1. Get branch short code (fallback HO)
+    let branchCode = 'HO';
+    if (branchId) {
+        const [branches] = await connection.query("SELECT short_name FROM sarga_branches WHERE id = ?", [branchId]);
+        if (branches[0] && branches[0].short_name) {
+            branchCode = branches[0].short_name.toUpperCase();
+        }
+    }
+
+    // 2. Get today's date in YYMMDD format via MySQL to be consistent with CURDATE()
+    const [[{ today, yymmdd }]] = await connection.query("SELECT CURDATE() as today, DATE_FORMAT(CURDATE(), '%y%m%d') as yymmdd");
+
+    // 3. Atomically get next sequence for this branch/date
+    const targetBranchId = branchId || 0;
+    const [rows] = await connection.query(
+        "SELECT last_seq FROM sarga_job_seq WHERE branch_id = ? AND seq_date = ? FOR UPDATE",
+        [targetBranchId, today]
+    );
+
+    let nextSeq = 1;
+    if (rows.length > 0) {
+        nextSeq = rows[0].last_seq + 1;
+        await connection.query(
+            "UPDATE sarga_job_seq SET last_seq = ? WHERE branch_id = ? AND seq_date = ?",
+            [nextSeq, targetBranchId, today]
+        );
+    } else {
+        await connection.query(
+            "INSERT INTO sarga_job_seq (branch_id, seq_date, last_seq) VALUES (?, ?, 1)",
+            [targetBranchId, today]
+        );
+    }
+
+    const paddedSeq = String(nextSeq).padStart(3, '0');
+    return `${branchCode}-${yymmdd}-${paddedSeq}`;
+};
+
 const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
 };
@@ -193,6 +238,7 @@ module.exports = {
     auditLog,
     auditFieldChanges,
     getNextInvoiceNumber,
+    generateJobNumber,
     getUsageMap,
     sortByPositionThenName,
     sortByUsageThenPosition,

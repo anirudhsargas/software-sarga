@@ -558,4 +558,255 @@ router.get('/seasonal', authenticateToken, async (req, res) => {
     }
 });
 
+// ════════════════════════════════════════════════════════════════════
+//  GET /purchase-suggestions — AI-driven "what to buy" list
+//  Cross-references demand forecast with current inventory to produce
+//  a prioritised purchase plan.
+// ════════════════════════════════════════════════════════════════════
+router.get('/purchase-suggestions', authenticateToken, async (req, res) => {
+    try {
+        const { months_back = 6, months_ahead = 2, buffer_pct = 20 } = req.query;
+        const lookback  = Math.min(Number(months_back)  || 6,  24);
+        const ahead     = Math.min(Number(months_ahead) || 2,   6);
+        const bufferPct = Math.min(Math.max(Number(buffer_pct) || 20, 0), 100);
+
+        // ─── 1. Inventory items with per-month sales history from linked products ───
+        const [linkedUsage] = await pool.query(`
+            SELECT
+                i.id          AS inventory_id,
+                i.name        AS item_name,
+                i.sku,
+                i.category,
+                i.quantity    AS current_stock,
+                i.reorder_level,
+                i.unit,
+                i.cost_price,
+                i.vendor_name,
+                i.vendor_contact,
+                i.purchase_link,
+                p.id          AS product_id,
+                COALESCE(p.name, i.name) AS product_name,
+                YEAR(j.created_at)       AS yr,
+                MONTH(j.created_at)      AS mo,
+                COALESCE(SUM(j.quantity), 0) AS qty_sold,
+                COUNT(j.id)              AS order_count
+            FROM sarga_inventory i
+            LEFT JOIN sarga_products p  ON p.inventory_item_id = i.id
+            LEFT JOIN sarga_jobs j      ON j.product_id = p.id
+                AND j.created_at >= DATE_SUB(CURDATE(), INTERVAL ? MONTH)
+                AND j.status != 'Cancelled'
+            GROUP BY i.id, p.id, yr, mo
+            ORDER BY i.id, yr, mo
+        `, [lookback]);
+
+        // ─── 2. Group per inventory item → build time-series → forecast ───
+        const itemMap = {};
+        for (const row of linkedUsage) {
+            const key = row.inventory_id;
+            if (!itemMap[key]) {
+                itemMap[key] = {
+                    inventory_id:  row.inventory_id,
+                    item_name:     row.item_name,
+                    product_name:  row.product_name,
+                    sku:           row.sku,
+                    category:      row.category,
+                    current_stock: Number(row.current_stock),
+                    reorder_level: Number(row.reorder_level) || 0,
+                    unit:          row.unit || 'pcs',
+                    cost_price:    Number(row.cost_price) || 0,
+                    vendor_name:   row.vendor_name,
+                    vendor_contact:row.vendor_contact,
+                    purchase_link: row.purchase_link,
+                    series:        []
+                };
+            }
+            if (row.yr && row.mo) {
+                itemMap[key].series.push({
+                    year:  row.yr,
+                    month: row.mo - 1,
+                    value: Number(row.qty_sold),
+                    label: `${MONTH_NAMES[row.mo - 1]} ${row.yr}`
+                });
+            }
+        }
+
+        // ─── 3. Also pull top-selling products that have NO inventory link
+        //        so we can still suggest "plan for demand" items ───
+        const [jobProducts] = await pool.query(`
+            SELECT
+                j.product_id,
+                COALESCE(j.job_name, p.name, 'Unknown') AS product_name,
+                COALESCE(j.category, 'Uncategorized')   AS category,
+                YEAR(j.created_at)  AS yr,
+                MONTH(j.created_at) AS mo,
+                COALESCE(SUM(j.quantity), 0) AS qty_sold,
+                COUNT(j.id)         AS order_count
+            FROM sarga_jobs j
+            LEFT JOIN sarga_products p ON j.product_id = p.id
+            WHERE j.created_at >= DATE_SUB(CURDATE(), INTERVAL ? MONTH)
+              AND j.status != 'Cancelled'
+              AND (p.inventory_item_id IS NULL OR p.id IS NULL)
+            GROUP BY j.product_id, product_name, category, yr, mo
+            ORDER BY j.product_id, yr, mo
+        `, [lookback]);
+
+        const jobProdMap = {};
+        for (const row of jobProducts) {
+            const key = `job_${row.product_id || row.product_name}`;
+            if (!jobProdMap[key]) {
+                jobProdMap[key] = {
+                    inventory_id:   null,
+                    item_name:      row.product_name,
+                    product_name:   row.product_name,
+                    sku:            null,
+                    category:       row.category,
+                    current_stock:  null,  // no inventory link
+                    reorder_level:  0,
+                    unit:           'orders',
+                    cost_price:     0,
+                    vendor_name:    null,
+                    vendor_contact: null,
+                    purchase_link:  null,
+                    series:         []
+                };
+            }
+            if (row.yr && row.mo) {
+                jobProdMap[key].series.push({
+                    year:  row.yr,
+                    month: row.mo - 1,
+                    value: Number(row.qty_sold),
+                    label: `${MONTH_NAMES[row.mo - 1]} ${row.yr}`
+                });
+            }
+        }
+
+        // ─── 4. Build suggestions for inventory-linked items ───
+        const now = new Date();
+        const suggestions = [];
+
+        for (const item of Object.values(itemMap)) {
+            const series = item.series;
+            const totalSold = series.reduce((s, d) => s + d.value, 0);
+
+            // forecast using available history
+            const fc = forecastMonths(series.length >= 2 ? series : series.length === 1 ? [series[0], series[0]] : [], ahead);
+            const predictedTotal = fc.reduce((s, f) => s + f.predicted, 0);
+            const avgMonthly    = series.length > 0 ? totalSold / lookback : 0;
+
+            // apply safety buffer
+            const buffered     = Math.ceil(predictedTotal * (1 + bufferPct / 100));
+            const stockDeficit = Math.max(0, buffered - item.current_stock);
+            const suggestedQty = stockDeficit > 0 ? stockDeficit : 0;
+
+            // skip items with zero demand AND adequate stock
+            if (totalSold === 0 && item.current_stock > item.reorder_level) continue;
+
+            // urgency rating
+            let urgency = 'ok';
+            if (item.current_stock !== null) {
+                if (item.current_stock <= 0 && predictedTotal > 0)        urgency = 'critical';
+                else if (item.current_stock < item.reorder_level)          urgency = 'low_stock';
+                else if (suggestedQty > 0)                                 urgency = 'reorder';
+            }
+
+            const confidence = fc[0]?.confidence || 'low';
+
+            suggestions.push({
+                inventory_id:   item.inventory_id,
+                item_name:      item.item_name,
+                product_name:   item.product_name,
+                sku:            item.sku,
+                category:       item.category,
+                current_stock:  item.current_stock,
+                unit:           item.unit,
+                reorder_level:  item.reorder_level,
+                cost_price:     item.cost_price,
+                vendor_name:    item.vendor_name,
+                vendor_contact: item.vendor_contact,
+                purchase_link:  item.purchase_link,
+                history_months: lookback,
+                total_sold_history: totalSold,
+                avg_monthly_sales: Math.round(avgMonthly * 10) / 10,
+                predicted_demand: predictedTotal,
+                buffered_demand:  buffered,
+                suggested_buy_qty: suggestedQty,
+                estimated_cost:  item.cost_price > 0 ? Math.round(suggestedQty * item.cost_price) : null,
+                urgency,
+                confidence,
+                has_inventory: true
+            });
+        }
+
+        // ─── 5. Build demand-only suggestions for non-inventory products ───
+        for (const item of Object.values(jobProdMap)) {
+            const series     = item.series;
+            const totalSold  = series.reduce((s, d) => s + d.value, 0);
+            if (totalSold < 3) continue;  // ignore negligible demand
+
+            const fc = forecastMonths(series.length >= 2 ? series : [series[0], series[0]], ahead);
+            const predictedTotal = fc.reduce((s, f) => s + f.predicted, 0);
+            if (predictedTotal < 1) continue;
+
+            // lastMonth growth
+            const lastVal = series.length > 0 ? series[series.length - 1].value : 0;
+            const prevVal = series.length > 1 ? series[series.length - 2].value : 0;
+            const growth  = growthRate(lastVal, prevVal);
+
+            suggestions.push({
+                inventory_id:   null,
+                item_name:      item.item_name,
+                product_name:   item.product_name,
+                sku:            null,
+                category:       item.category,
+                current_stock:  null,
+                unit:           item.unit,
+                reorder_level:  0,
+                cost_price:     0,
+                vendor_name:    null,
+                vendor_contact: null,
+                purchase_link:  null,
+                history_months: lookback,
+                total_sold_history: totalSold,
+                avg_monthly_sales:  Math.round(totalSold / lookback * 10) / 10,
+                predicted_demand:   predictedTotal,
+                buffered_demand:    Math.ceil(predictedTotal * (1 + bufferPct / 100)),
+                suggested_buy_qty:  null,
+                estimated_cost:     null,
+                urgency:            growth > 15 ? 'reorder' : 'plan',
+                confidence:         fc[0]?.confidence || 'low',
+                growth_pct:         growth,
+                has_inventory:      false
+            });
+        }
+
+        // ─── 6. Sort: critical → low_stock → reorder → plan → ok ───
+        const urgencyOrder = { critical: 0, low_stock: 1, reorder: 2, plan: 3, ok: 4 };
+        suggestions.sort((a, b) => {
+            const uDiff = (urgencyOrder[a.urgency] ?? 5) - (urgencyOrder[b.urgency] ?? 5);
+            if (uDiff !== 0) return uDiff;
+            return (b.predicted_demand || 0) - (a.predicted_demand || 0);
+        });
+
+        // ─── 7. Summary stats ───
+        const inventoryItems = suggestions.filter(s => s.has_inventory);
+        const totalEstimatedCost = inventoryItems.reduce((s, r) => s + (r.estimated_cost || 0), 0);
+
+        res.json({
+            period:   { months_back: lookback, months_ahead: ahead, buffer_pct: bufferPct },
+            summary: {
+                total_suggestions:  suggestions.length,
+                critical:           suggestions.filter(s => s.urgency === 'critical').length,
+                low_stock:          suggestions.filter(s => s.urgency === 'low_stock').length,
+                needs_purchase:     inventoryItems.filter(s => s.suggested_buy_qty > 0).length,
+                estimated_total_cost: totalEstimatedCost
+            },
+            suggestions,
+            generated_at: now.toISOString()
+        });
+    } catch (err) {
+        console.error('Purchase suggestions error:', err);
+        res.status(500).json({ message: 'Failed to generate purchase suggestions' });
+    }
+});
+
 module.exports = router;

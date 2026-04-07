@@ -126,30 +126,39 @@ const DailyReport = () => {
                 const anyEntered = relevantBooks.some(b => Number(balances[b]) > 0);
                 const anyLocked = relevantBooks.some(b => locked[b]);
 
-                // Fetch assigned machines
+                // Fetch assigned machines + their today reading status via laser-live
+                // (authoritative source — has_reading is set per machine for the requested date)
                 let myMachines = [];
+                let machineHasReading = {}; // { machine_id: true/false }
                 try {
-                    const machRes = await api.get('/machines', { params: { branch_id: selectedBranch || branchParam } });
-                    myMachines = (machRes.data || []).filter(m => m.machine_type === 'Digital');
+                    const laserRes = await api.get('/daily-report/laser-live', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
+                    myMachines = laserRes.data.machines || [];
+                    myMachines.forEach(m => { machineHasReading[m.id] = !!m.has_reading; });
                 } catch { }
 
-                if ((!anyEntered && !anyLocked && !promptDone) || (myMachines.length > 0 && !promptDone)) {
+                if (!promptDone) {
                     let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
                     try {
                         const prevRes = await api.get('/daily-report/previous-closing', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
                         prevData = prevRes.data;
                     } catch { }
-                    setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
-                    setPromptMachines(myMachines.map(m => ({
-                        id: m.id, machine_name: m.machine_name, location: m.location,
-                        opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''
-                    })));
-                    const newBalances = {};
-                    relevantBooks.forEach(b => {
-                        newBalances[b] = prevData[b] > 0 ? String(prevData[b]) : '';
-                    });
-                    setPromptBalances(newBalances);
-                    if (relevantBooks.length > 0 || myMachines.length > 0) {
+
+                    const unenteredMachines = myMachines.filter(m => !machineHasReading[m.id]);
+
+                    const needsBalances = relevantBooks.length > 0 && !anyEntered && !anyLocked;
+                    const needsMachines = unenteredMachines.length > 0;
+
+                    if (needsBalances || needsMachines) {
+                        setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
+                        setPromptMachines(unenteredMachines.map(m => ({
+                            id: m.id, machine_name: m.machine_name, location: m.location,
+                            opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''
+                        })));
+                        const newBalances = {};
+                        relevantBooks.forEach(b => {
+                            newBalances[b] = prevData[b] > 0 ? String(prevData[b]) : '';
+                        });
+                        setPromptBalances(newBalances);
                         setShowOpeningPrompt(true);
                     }
                 }
@@ -161,25 +170,34 @@ const DailyReport = () => {
     const handleSavePrompt = async () => {
         setSavingPrompt(true);
         try {
-            const books = Object.keys(promptBalances);
-            const balancePromises = books.map(bookType =>
-                api.put('/daily-report/opening-balance', {
-                    date: reportDate, book_type: bookType, cash_opening: parseFloat(promptBalances[bookType]) || 0
-                })
-            );
-            const machinePromises = promptMachines
-                .filter(m => m.opening_count !== '' && m.opening_count !== null)
-                .map(m => api.post(`/machines/${m.id}/readings`, {
-                    reading_date: reportDate, opening_count: parseInt(m.opening_count) || 0
-                }));
+            // Save balances — ignore 403 (already locked from a prior attempt)
+            for (const bookType of Object.keys(promptBalances)) {
+                try {
+                    await api.put('/daily-report/opening-balance', {
+                        date: reportDate, book_type: bookType, cash_opening: parseFloat(promptBalances[bookType]) || 0
+                    });
+                } catch (err) {
+                    if (err.response?.status !== 403) throw err;
+                }
+            }
 
-            await Promise.all([...balancePromises, ...machinePromises]);
+            // Save machine readings — ignore 403 (already locked), fail on others
+            for (const m of promptMachines.filter(m => m.opening_count !== '' && m.opening_count !== null)) {
+                try {
+                    await api.post(`/machines/${m.id}/readings`, {
+                        reading_date: reportDate, opening_count: parseInt(m.opening_count) || 0
+                    });
+                } catch (err) {
+                    if (err.response?.status !== 403) throw err;
+                }
+            }
+
             setShowOpeningPrompt(false);
             setPromptDone(true);
             loadAllData();
         } catch (err) {
             console.error('Error saving opening data:', err);
-            toast.error('Failed to save opening data. Please try again.');
+            toast.error(err.response?.data?.error || 'Failed to save opening data. Please try again.');
         } finally { setSavingPrompt(false); }
     };
 
@@ -221,10 +239,18 @@ const DailyReport = () => {
 
     // ─── Save Machine Reading ───────────────────────────────────
     const saveMachineReading = async (machineId) => {
+        // Find previous closing count for this machine
+        const machine = laserData.machines.find(m => m.id === machineId);
+        const prevClosing = machine?.prev_closing_count !== undefined ? Number(machine.prev_closing_count) : null;
+        const enteredOpening = parseInt(machineReadingTemp.opening_count) || 0;
+        if (prevClosing !== null && enteredOpening < prevClosing && !isAdmin) {
+            toast.error(`Opening count cannot be less than previous closing count (${prevClosing})`);
+            return;
+        }
         try {
             await api.post(`/machines/${machineId}/readings`, {
                 reading_date: reportDate,
-                opening_count: parseInt(machineReadingTemp.opening_count) || 0,
+                opening_count: enteredOpening,
                 closing_count: machineReadingTemp.closing_count !== '' ? parseInt(machineReadingTemp.closing_count) : null
             });
             setEditingMachine(null);
@@ -232,6 +258,8 @@ const DailyReport = () => {
         } catch (err) {
             if (err.response?.status === 403 && err.response?.data?.is_locked) {
                 toast.success('Opening count is locked. You can still update the closing count, or submit a change request.');
+            } else if (err.response?.status === 400 && err.response?.data?.min_opening_count !== undefined) {
+                toast.error(err.response.data.error);
             } else {
                 console.error('Error saving machine reading:', err);
                 toast.error('Failed to save machine reading');

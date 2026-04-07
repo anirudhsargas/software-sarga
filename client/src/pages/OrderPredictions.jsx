@@ -8,9 +8,9 @@ import api from '../services/api';
 import { formatCurrency as fmt } from '../constants';
 
 const CONFIDENCE_COLORS = {
-    High: { bg: 'var(--color-ok, #16a34a)', light: '#dcfce7', text: '#166534' },
-    Medium: { bg: 'var(--color-warning, #f59e0b)', light: '#fef9c3', text: '#854d0e' },
-    Low: { bg: 'var(--text-muted, #9ca3af)', light: '#f3f4f6', text: '#4b5563' },
+    High: { bg: 'var(--color-ok, #16a34a)', light: 'var(--success-bg)', text: 'var(--success)' },
+    Medium: { bg: 'var(--color-warning, #f59e0b)', light: 'var(--warning-bg)', text: 'var(--warning)' },
+    Low: { bg: 'var(--text-muted, #9ca3af)', light: 'var(--surface-2)', text: 'var(--text-muted)' },
 };
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

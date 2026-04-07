@@ -52,15 +52,15 @@
 .em-sidepanel-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.35);
+    background: transparent;
     z-index: 70;
     display: flex;
     justify-content: flex-end;
 }
 
 .em-sidepanel {
-    width: 440px;
-    max-width: 95vw;
+    width: 100vw;
+    max-width: 100vw;
     height: 100vh;
     background: var(--surface);
     border-left: 1px solid var(--border);
@@ -87,11 +87,20 @@
 }
 
 .em-sidepanel__content {
-    padding: 12px 16px 20px;
-    overflow-y: auto;
+    padding: 12px 16px 12px;
+    overflow-y: hidden;
     overflow-x: hidden;
     flex: 1;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.em-sidepanel__content > .em-section {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 /* ─── Tabs ────────────────────────────────────────────── */
@@ -978,10 +987,9 @@ select.em-input {
 }
 
 .em-desc-cell {
-    max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: 400px;
+    word-break: break-word;
+    white-space: normal;
     color: var(--muted);
 }
 
@@ -2044,10 +2052,14 @@ select.em-input {
     align-items: center;
     justify-content: center;
     background: var(--accent);
-    color: #000;
+    color: #fff;
     border-radius: 50%;
     font-size: 12px;
     font-weight: 700;
+}
+
+.dark .em-guide-step__num {
+    color: #121314;
 }
 
 .em-empty-inline {
@@ -2230,10 +2242,14 @@ select.em-input {
     justify-content: center;
     border-radius: 50%;
     background: var(--accent);
-    color: #000;
+    color: #fff;
     font-size: 20px;
     font-weight: 700;
     flex-shrink: 0;
+}
+
+.dark .em-vendor-profile__avatar {
+    color: #121314;
 }
 
 .em-vendor-profile__info {
@@ -2305,10 +2321,14 @@ select.em-input {
     justify-content: center;
     border-radius: 50%;
     background: var(--accent);
-    color: #000;
+    color: #fff;
     font-size: 14px;
     font-weight: 700;
     flex-shrink: 0;
+}
+
+.dark .em-vendor-card__avatar {
+    color: #121314;
 }
 
 .em-vendor-card__details-grid {
@@ -2416,7 +2436,7 @@ select.em-input {
 .em-utility-card__btn-bill {
     flex: 1;
     background: var(--warning) !important;
-    color: #000 !important;
+    color: #fff !important;
     border: none !important;
     font-size: 12px;
     justify-content: center;
@@ -2582,15 +2602,15 @@ select.em-input {
 /* ─── Staff System ────────────────────────────────────── */
 .em-staff-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 14px;
 }
 
 .em-staff-card {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 18px;
+    gap: 12px;
+    padding: 16px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -2611,10 +2631,14 @@ select.em-input {
     justify-content: center;
     border-radius: 50%;
     background: var(--accent);
-    color: #000;
+    color: #fff;
     font-size: 16px;
     font-weight: 700;
     flex-shrink: 0;
+}
+
+.dark .em-staff-avatar {
+    color: #121314;
 }
 
 .em-staff-card__info {
@@ -2622,6 +2646,7 @@ select.em-input {
     display: flex;
     flex-direction: column;
     gap: 3px;
+    min-width: 0;
 }
 
 .em-staff-card__name {
@@ -2644,8 +2669,21 @@ select.em-input {
 
 .em-staff-card__actions {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-end;
+    white-space: nowrap;
+}
+
+.em-staff-card__actions .btn {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 11.5px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
 /* ─── Balance Bar (Petty Cash) ────────────────────────── */
@@ -2716,9 +2754,13 @@ select.em-input {
 }
 
 .em-report-type-card--active {
-    color: #000;
+    color: #fff;
     background: var(--accent);
     border-color: var(--accent);
+}
+
+.dark .em-report-type-card--active {
+    color: #121314;
 }
 
 /* ─── Report Summary Bar ──────────────────────────────── */
@@ -2823,7 +2865,7 @@ select.em-input {
     height: 56px;
     border-radius: 50%;
     background: var(--accent);
-    color: #000;
+    color: #fff;
     border: none;
     box-shadow: 0 4px 20px rgba(0, 0, 0, .25);
     display: flex;
@@ -2832,6 +2874,10 @@ select.em-input {
     cursor: pointer;
     z-index: 100;
     transition: transform .15s, box-shadow .15s;
+}
+
+.dark .em-fab {
+    color: #121314;
 }
 
 .em-fab:hover {
@@ -2869,7 +2915,11 @@ select.em-input {
 
 .em-fab__item:hover {
     background: var(--accent);
-    color: #000;
+    color: #fff;
+}
+
+.dark .em-fab__item:hover {
+    color: #121314;
 }
 
 @keyframes em-fab-in {

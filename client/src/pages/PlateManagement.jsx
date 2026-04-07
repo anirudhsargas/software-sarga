@@ -204,7 +204,7 @@ const PlateManagement = () => {
                             )}
 
                             {/* Plate Visualization */}
-                            <div className="mt-16 p-16 border rounded" style={{ backgroundColor: '#fdfdfd' }}>
+                            <div className="mt-16 p-16 border rounded" style={{ backgroundColor: 'var(--surface)' }}>
                                 <h4 className="text-sm font-medium mb-12">Dummy Visualization (8 x A5 equivalents)</h4>
                                 <div style={{
                                     display: 'grid',
@@ -213,7 +213,7 @@ const PlateManagement = () => {
                                     gap: '4px',
                                     border: '1px solid var(--border)',
                                     padding: '4px',
-                                    backgroundColor: '#fff'
+                                    backgroundColor: 'var(--surface)'
                                 }}>
                                     {[...Array(DUMMY_SLOTS_A5_CAPACITY)].map((_, idx) => {
                                         // Find which job occupies this slot

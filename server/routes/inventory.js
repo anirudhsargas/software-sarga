@@ -1,10 +1,10 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog } = require('../helpers');
+const { auditLog, getUserBranchId } = require('../helpers');
 const { invalidateHierarchyCache } = require('./jobs');
 const { validate, addInventorySchema } = require('../middleware/validate');
-const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+const { paginate } = require('../helpers/pagination');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
 const multer = require('multer');
@@ -49,8 +49,7 @@ async function findInventoryByScannedCode(rawCode) {
 // List Inventory with enhanced filtering
 router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
     try {
-        const { page, limit, offset } = parsePagination(req);
-        const usePagination = !!req.query.page;
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
         
         // Input validation and sanitization
         const search = req.query.search ? `%${String(req.query.search).trim().substring(0, 100)}%` : null;
@@ -82,17 +81,6 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
             });
         }
 
-        // Use DISTINCT to avoid duplicate rows from multiple products per inventory item
-        let countQuery = `SELECT COUNT(DISTINCT i.id) as cnt 
-                         FROM sarga_inventory i 
-                         LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
-                         LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id`;
-        
-        let dataQuery = `SELECT DISTINCT i.*, p.id as linked_product_id, ps.name as product_subcategory_name 
-                        FROM sarga_inventory i 
-                        LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
-                        LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id`;
-        
         let whereClauses = [];
         let params = [];
 
@@ -145,45 +133,144 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
             params.push(quantityMax);
         }
 
-        // Build WHERE clause
-        if (whereClauses.length > 0) {
-            const whereSection = ` WHERE ` + whereClauses.join(' AND ');
-            countQuery += whereSection;
-            dataQuery += whereSection;
-        }
+        const whereSection = whereClauses.length > 0 ? ` WHERE ` + whereClauses.join(' AND ') : '';
 
-        // Add ordering
-        dataQuery += ` ORDER BY ${finalSortBy} ${finalSortOrder}, i.id ASC`;
-
-        // Execute queries
-        if (usePagination) {
-            const [[{ cnt }]] = await pool.query(countQuery, params);
-            const [rows] = await pool.query(
-                dataQuery + ' LIMIT ? OFFSET ?', 
-                [...params, limit, offset]
-            );
-            return res.json(paginatedResponse(rows, cnt, page, limit));
-        }
-
-        // No pagination - return all results (with reasonable limit for performance)
-        const maxLimit = 10000;
-        const [rows] = await pool.query(
-            dataQuery + ' LIMIT ?', 
-            [...params, maxLimit]
-        );
-        res.json({
-            success: true,
-            count: rows.length,
-            data: rows,
-            note: rows.length === maxLimit ? `Results limited to ${maxLimit}. Use pagination for complete results.` : null
-        });
+        const countQuery = `SELECT COUNT(DISTINCT i.id) as total 
+                         FROM sarga_inventory i 
+                         LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+                         LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
+                         ${whereSection}`;
+        
+        const dataQuery = `SELECT DISTINCT i.*, p.id as linked_product_id, p.image_url as product_image_url, ps.name as product_subcategory_name, pc.name as product_category_name 
+                        FROM sarga_inventory i 
+                        LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+                        LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
+                        LEFT JOIN sarga_product_categories pc ON ps.category_id = pc.id
+                        ${whereSection}
+                        ORDER BY ${finalSortBy} ${finalSortOrder}, i.id ASC
+                        LIMIT ? OFFSET ?`;
+        
+        const [[{ total }]] = await pool.query(countQuery, params);
+        const [rows] = await pool.query(dataQuery, [...params, limit, offset]);
+        
+        res.json(response(rows, total));
     } catch (err) {
         console.error('Inventory fetch error:', err);
         res.status(500).json({ 
             success: false,
-            message: 'Failed to fetch inventory',
-            error: process.env.NODE_ENV === 'development' ? err.message : undefined
+            message: 'Failed to fetch inventory'
         });
+    }
+});
+
+// Get single inventory item detail with full product info
+router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT i.*, 
+                    p.id as linked_product_id, p.image_url as product_image_url, p.description as product_description,
+                    ps.name as product_subcategory_name, ps.id as subcategory_id,
+                    pc.name as product_category_name, pc.id as category_id
+             FROM sarga_inventory i 
+             LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+             LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
+             LEFT JOIN sarga_product_categories pc ON ps.category_id = pc.id
+             WHERE i.id = ? LIMIT 1`,
+            [req.params.id]
+        );
+        if (!rows.length) return res.status(404).json({ message: 'Item not found' });
+
+        const item = rows[0];
+
+        // Get restock history (last 10)
+        const [restocks] = await pool.query(
+            `SELECT quantity_received, cost_price, days_since_last_reorder, created_at 
+             FROM sarga_inventory_reorders WHERE inventory_item_id = ? ORDER BY created_at DESC LIMIT 10`,
+            [item.id]
+        );
+
+        // Get consumption history for consumables (last 10)
+        let consumptions = [];
+        if (item.item_type === 'Consumable') {
+            const [cRows] = await pool.query(
+                `SELECT c.quantity_consumed, c.notes, c.created_at, s.name as consumed_by 
+                 FROM sarga_inventory_consumption c
+                 LEFT JOIN sarga_staff s ON c.consumed_by_user_id = s.id
+                 WHERE c.inventory_item_id = ? ORDER BY c.created_at DESC LIMIT 10`,
+                [item.id]
+            );
+            consumptions = cRows;
+        }
+
+        // Calculate derived values
+        const costPrice = Number(item.cost_price) || 0;
+        const gstRate = Number(item.gst_rate) || 0;
+        const gstAmount = (costPrice * gstRate) / 100;
+        const sellPrice = Number(item.sell_price) || 0;
+        const stockValue = costPrice * (Number(item.quantity) || 0);
+        const margin = sellPrice > 0 ? (((sellPrice - costPrice - gstAmount) / sellPrice) * 100) : 0;
+
+        res.json({
+            ...item,
+            gst_amount: gstAmount.toFixed(2),
+            stock_value: stockValue.toFixed(2),
+            margin: margin.toFixed(1),
+            restocks,
+            consumptions
+        });
+    } catch (err) {
+        console.error('Inventory detail error:', err);
+        res.status(500).json({ message: 'Failed to fetch item details' });
+    }
+});
+
+// Branch availability for stock requests — returns other branches with per-branch stock
+router.get('/inventory/:id/branch-availability', authenticateToken, async (req, res) => {
+    try {
+        const itemId = parseInt(req.params.id);
+        if (!Number.isFinite(itemId)) return res.status(400).json({ message: 'Invalid item id' });
+
+        const userBranchId = await getUserBranchId(req.user.id);
+
+        const [items] = await pool.query(
+            'SELECT id, name, sku, quantity, unit FROM sarga_inventory WHERE id = ?', [itemId]
+        );
+        if (!items.length) return res.status(404).json({ message: 'Item not found' });
+
+        let branches;
+        if (userBranchId) {
+            [branches] = await pool.query(
+                `SELECT b.id, b.name, b.short_name, COALESCE(bs.quantity, 0) AS available_stock
+                 FROM sarga_branches b
+                 LEFT JOIN sarga_branch_stock bs ON bs.branch_id = b.id AND bs.inventory_item_id = ?
+                 WHERE b.id != ?
+                 ORDER BY b.name`,
+                [itemId, userBranchId]
+            );
+        } else {
+            [branches] = await pool.query(
+                `SELECT b.id, b.name, b.short_name, COALESCE(bs.quantity, 0) AS available_stock
+                 FROM sarga_branches b
+                 LEFT JOIN sarga_branch_stock bs ON bs.branch_id = b.id AND bs.inventory_item_id = ?
+                 ORDER BY b.name`,
+                [itemId]
+            );
+        }
+
+        res.json({
+            item: items[0],
+            user_branch_id: userBranchId,
+            branches: branches.map(b => ({
+                id: b.id,
+                name: b.name,
+                short_name: b.short_name,
+                available_stock: b.available_stock,
+                unit: items[0].unit
+            }))
+        });
+    } catch (err) {
+        console.error('Branch availability error:', err);
+        res.status(500).json({ message: 'Database error' });
     }
 });
 
@@ -517,7 +604,7 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
 });
 
 // Update Inventory Item
-router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(addInventorySchema), async (req, res) => {
     const { id } = req.params;
     const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link } = req.body;
     const normalizedSku = normalizeSkuInput(sku);
@@ -776,6 +863,39 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
     } catch (err) {
         console.error('Label gen error:', err);
         res.status(500).json({ message: 'Error generating PDF' });
+    }
+});
+
+// Clear All Inventory (Admin Only)
+router.delete('/inventory/all', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // Check if there are any items to delete
+        const [countRows] = await connection.query('SELECT COUNT(*) as total FROM sarga_inventory');
+        const total = countRows[0].total;
+
+        if (total === 0) {
+            await connection.rollback();
+            return res.status(400).json({ message: 'Inventory is already empty.' });
+        }
+
+        // Unlink products that reference inventory items
+        await connection.query('UPDATE sarga_products SET inventory_item_id = NULL, is_physical_product = 0');
+
+        // Delete all items from sarga_inventory (cascades to other tables)
+        await connection.query('DELETE FROM sarga_inventory');
+
+        await connection.commit();
+        auditLog(req.user.id, 'INVENTORY_CLEAR_ALL', `Cleared all inventory (${total} items deleted)`);
+        res.json({ message: `Inventory cleared successfully (${total} items).` });
+    } catch (err) {
+        await connection.rollback();
+        console.error('Bulk inventory delete error:', err);
+        res.status(500).json({ message: 'Database error' });
+    } finally {
+        connection.release();
     }
 });
 

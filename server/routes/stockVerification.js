@@ -3,6 +3,7 @@ const router = express.Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
+const { paginate } = require('../helpers/pagination');
 
 // Ensure that only Admin or Accountant can access these endpoints
 const allowedRoles = ['Admin', 'Accountant'];
@@ -23,14 +24,19 @@ router.get('/:month', authenticateToken, authorizeRoles(...allowedRoles), async 
         let verification = verifications[0];
 
         if (verification) {
-            // Fetch the items for the existing verification
+            // Fetch ALL inventory items, left-joining saved verification data so
+            // items added to inventory after the draft was saved still appear.
             const [items] = await pool.query(
                 `SELECT 
-                    vi.*, 
-                    i.name, i.sku, i.category, i.unit, i.cost_price 
-                 FROM sarga_stock_verification_items vi
-                 JOIN sarga_inventory i ON vi.inventory_item_id = i.id
-                 WHERE vi.verification_id = ?`,
+                    i.id AS inventory_item_id,
+                    COALESCE(vi.system_quantity, i.quantity) AS system_quantity,
+                    vi.physical_quantity,
+                    vi.notes,
+                    i.name, i.sku, i.category, i.unit, i.cost_price
+                 FROM sarga_inventory i
+                 LEFT JOIN sarga_stock_verification_items vi
+                   ON vi.inventory_item_id = i.id AND vi.verification_id = ?
+                 ORDER BY i.category, i.name`,
                 [verification.id]
             );
             return res.json({ verification, items });
@@ -44,7 +50,8 @@ router.get('/:month', authenticateToken, authorizeRoles(...allowedRoles), async 
                 id as inventory_item_id, 
                 quantity as system_quantity,
                 name, sku, category, unit, cost_price
-             FROM sarga_inventory`
+             FROM sarga_inventory
+             ORDER BY category, name`
         );
 
         // Populate a fresh items array based on current inventory
@@ -192,13 +199,21 @@ router.post('/', authenticateToken, authorizeRoles(...allowedRoles), async (req,
 // Fetch list of past verifications
 router.get('/history/list', authenticateToken, authorizeRoles(...allowedRoles), async (req, res) => {
     try {
-        const [rows] = await pool.query(
-            `SELECT v.*, s.name as verified_by_name 
-             FROM sarga_stock_verifications v 
-             LEFT JOIN sarga_staff s ON v.verified_by = s.id 
-             ORDER BY v.month DESC`
-        );
-        res.json(rows);
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+
+        const baseFrom = `
+            FROM sarga_stock_verifications v 
+            LEFT JOIN sarga_staff s ON v.verified_by = s.id`;
+
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`);
+        const [rows] = await pool.query(`
+            SELECT v.*, s.name as verified_by_name 
+            ${baseFrom}
+            ORDER BY v.month DESC
+            LIMIT ? OFFSET ?
+        `, [limit, offset]);
+        
+        res.json(response(rows, total));
     } catch (err) {
         console.error('Stock verification get history error:', err);
         res.status(500).json({ message: 'Error fetching history.' });

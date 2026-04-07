@@ -3,16 +3,16 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getUserBranchId, auditLog } = require('../helpers');
 const { validate, addPaymentSchema } = require('../middleware/validate');
-const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+const { paginate } = require('../helpers/pagination');
 
 // --- PAYMENT ROUTES ---
 
 // List Payments
 router.get('/payments', authenticateToken, async (req, res) => {
     const { branch_id, type, startDate, endDate } = req.query;
-    const { page, limit, offset } = parsePagination(req);
-    const usePagination = !!req.query.page;
     try {
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+
         let where = '';
         const params = [];
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
@@ -42,15 +42,15 @@ router.get('/payments', authenticateToken, async (req, res) => {
             LEFT JOIN sarga_vendors v ON p.vendor_id = v.id
             WHERE 1=1 ${where}`;
 
-        if (usePagination) {
-            const [[{ cnt }]] = await pool.query(`SELECT COUNT(*) as cnt ${baseFrom}`, params);
-            const [rows] = await pool.query(`SELECT p.*, b.name as branch_name, v.name as vendor_name ${baseFrom} ORDER BY p.payment_date DESC, p.created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
-            return res.json(paginatedResponse(rows, cnt, page, limit));
-        }
-
-        const [rows] = await pool.query(`SELECT p.*, b.name as branch_name, v.name as vendor_name ${baseFrom} ORDER BY p.payment_date DESC, p.created_at DESC`, params);
-        res.json(rows);
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+        const [rows] = await pool.query(`
+            SELECT p.*, b.name as branch_name, v.name as vendor_name 
+            ${baseFrom} ORDER BY p.payment_date DESC, p.created_at DESC LIMIT ? OFFSET ?
+        `, [...params, limit, offset]);
+        
+        res.json(response(rows, total));
     } catch (err) {
+        console.error('List payments error:', err);
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -91,10 +91,11 @@ router.post('/payments', authenticateToken, validate(addPaymentSchema), async (r
         let finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? branch_id : await getUserBranchId(req.user.id);
         if (!finalBranchId) finalBranchId = await getUserBranchId(req.user.id);
 
-        // Convert datetime-local format (YYYY-MM-DDTHH:MM) to MySQL DATETIME format (YYYY-MM-DD HH:MM:SS)
+        // Convert datetime-local format (YYYY-MM-DDTHH:MM) or ISO format to MySQL DATETIME format (YYYY-MM-DD HH:MM:SS)
         let mysqlDateTime = payment_date;
-        if (payment_date && payment_date.includes('T')) {
-            mysqlDateTime = payment_date.replace('T', ' ') + ':00';
+        if (payment_date && (payment_date.includes('T') || payment_date.endsWith('Z'))) {
+            // Convert to YYYY-MM-DD HH:MM:SS
+            mysqlDateTime = new Date(payment_date).toISOString().slice(0, 19).replace('T', ' ');
         } else if (payment_date && !payment_date.includes(' ') && payment_date.length === 10) {
             // Date-only format (YYYY-MM-DD) — append current time
             mysqlDateTime = payment_date + ' ' + new Date().toTimeString().slice(0, 8);
@@ -169,8 +170,8 @@ router.post('/payments', authenticateToken, validate(addPaymentSchema), async (r
                 id: existingByKey[0]?.id
             });
         }
-        console.error('Payment creation error:', err);
-        res.status(500).json({ message: 'Database error' });
+        console.error('[SQL_ERROR_PAYMENT]', err);
+        res.status(500).json({ message: 'Database error', errorDetails: err.message });
     }
 });
 

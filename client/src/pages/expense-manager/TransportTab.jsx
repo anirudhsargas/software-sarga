@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Truck, Plus, Edit2, Trash2, Download, IndianRupee, TrendingUp, X, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Truck, Plus, Edit2, Trash2, Download, IndianRupee, TrendingUp, X, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, TRANSPORT_EXPENSE_TYPES } from './constants';
+import { useDebounce } from '../../hooks/useDebounce';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useConfirm } from '../../contexts/ConfirmContext';
 
 const defaultForm = { transport_type: '', vehicle_number: '', driver_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', from_location: '', to_location: '', distance_km: '' };
@@ -11,6 +13,7 @@ const TransportTab = ({ onError }) => {
   const { confirm } = useConfirm();
   const [dashboard, setDashboard] = useState(null);
   const [expenses, setExpenses] = useState([]);
+  const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(defaultForm);
@@ -37,7 +40,22 @@ const TransportTab = ({ onError }) => {
   };
 
   const fetchDashboard = useCallback(async () => { try { const r = await api.get('/transport-dashboard'); setDashboard(r.data); } catch { } }, []);
-  const fetchExpenses = useCallback(async () => { try { const r = await api.get('/transport-expenses'); setExpenses(r.data); setPage(1); } catch { } }, []);
+  // Defensive: always set expenses as array
+  const safeSetExpenses = (data) => {
+    if (Array.isArray(data)) return setExpenses(data);
+    if (data && typeof data === 'object' && Array.isArray(data.data)) return setExpenses(data.data);
+    return setExpenses([]);
+  };
+
+  const fetchExpenses = useCallback(async () => {
+    try {
+      const r = await api.get('/transport-expenses');
+      safeSetExpenses(r.data);
+      setPage(1);
+    } catch {
+      setExpenses([]);
+    }
+  }, []);
 
   useEffect(() => { fetchDashboard(); fetchExpenses(); }, [fetchDashboard, fetchExpenses]);
 
@@ -83,8 +101,32 @@ const TransportTab = ({ onError }) => {
     try { await api.delete(`/transport-expenses/${id}`); fetchDashboard(); fetchExpenses(); } catch { }
   };
 
-  const totalPages = Math.ceil(expenses.length / PAGE_SIZE);
-  const pagedExpenses = expenses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const debouncedSearch = useDebounce(search, 300);
+  const filteredExpenses = useMemo(() => {
+    const arr = Array.isArray(expenses) ? expenses : [];
+    if (!debouncedSearch) return arr;
+    const s = debouncedSearch.toLowerCase();
+    return arr.filter(r =>
+      (r.transport_type && r.transport_type.toLowerCase().includes(s)) ||
+      (r.vehicle_number && r.vehicle_number.toLowerCase().includes(s)) ||
+      (r.driver_name && r.driver_name.toLowerCase().includes(s)) ||
+      (r.from_location && r.from_location.toLowerCase().includes(s)) ||
+      (r.to_location && r.to_location.toLowerCase().includes(s)) ||
+      (r.amount && String(r.amount).includes(s)) ||
+      (r.description && r.description.toLowerCase().includes(s))
+    );
+  }, [expenses, debouncedSearch]);
+  const totalPages = Math.ceil(filteredExpenses.length / PAGE_SIZE);
+  const pagedExpenses = useMemo(() => filteredExpenses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filteredExpenses, page]);
+
+  // Virtualizer setup
+  const parentRef = React.useRef();
+  const rowVirtualizer = useVirtualizer({
+    count: pagedExpenses.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 48,
+    overscan: 8,
+  });
 
   return (
     <div className="em-section">
@@ -104,25 +146,54 @@ const TransportTab = ({ onError }) => {
       {expenses.length > 0 ? (
         <div className="em-card">
           <div className="em-card__title">All Transport Expenses <button className="btn btn-ghost btn-sm" onClick={() => exportRowsToCsv(expenses, 'transport-expenses.csv')}><Download size={14} /> CSV</button></div>
-          {expenses.length > PAGE_SIZE && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, expenses.length)} of {expenses.length}</span>
-              <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
-              <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
-            </div>
-          )}
-          <div className="em-table-wrap">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 0' }}>
+            <input
+              className="em-input"
+              style={{ maxWidth: 220 }}
+              placeholder="Search transport expenses..."
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+            />
+            {filteredExpenses.length > PAGE_SIZE && (
+              <>
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredExpenses.length)} of {filteredExpenses.length}</span>
+                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
+                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
+              </>
+            )}
+          </div>
+          <div className="em-table-wrap" ref={parentRef} style={{ maxHeight: 480, overflow: 'auto' }}>
             <table className="em-table">
               <thead><tr><th>Date</th><th>Type</th><th>Vehicle</th><th>From → To</th><th>Amount</th><th>Actions</th></tr></thead>
-              <tbody>
-                {pagedExpenses.map(r => (
-                  <tr key={r.id}>
-                    <td>{fmtDate(r.expense_date)}</td><td><span className="em-type-badge em-type-badge--other">{r.transport_type}</span></td><td>{r.vehicle_number || '—'}</td><td>{r.from_location || ''}{r.to_location ? ` → ${r.to_location}` : ''}</td><td className="em-amount-cell">₹{fmt(r.amount)}</td>
-                    <td><button className="btn btn-ghost btn-icon btn-sm" aria-label="Edit transport expense" onClick={() => openEdit(r)}><Edit2 size={14} /></button> <button className="btn btn-ghost btn-icon btn-sm" aria-label="Delete transport expense" onClick={() => handleDelete(r.id)}><Trash2 size={14} /></button></td>
-                  </tr>
-                ))}
+              <tbody style={{ position: 'relative', display: 'block', height: rowVirtualizer.getTotalSize(), minHeight: 48 }}>
+                {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                  const r = pagedExpenses[virtualRow.index];
+                  return (
+                    <tr
+                      key={r.id}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start}px)`
+                      }}
+                    >
+                      <td>{fmtDate(r.expense_date)}</td>
+                      <td><span className="em-type-badge em-type-badge--other">{r.transport_type}</span></td>
+                      <td>{r.vehicle_number || '—'}</td>
+                      <td>{r.from_location || ''}{r.to_location ? ` → ${r.to_location}` : ''}</td>
+                      <td className="em-amount-cell">₹{fmt(r.amount)}</td>
+                      <td>
+                        <button className="btn btn-ghost btn-icon btn-sm" aria-label="Edit transport expense" onClick={() => openEdit(r)}><Edit2 size={14} /></button>
+                        <button className="btn btn-ghost btn-icon btn-sm" aria-label="Delete transport expense" onClick={() => handleDelete(r.id)}><Trash2 size={14} /></button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+            {pagedExpenses.length === 0 && <div className="em-empty-text">No transport expenses found</div>}
           </div>
         </div>
       ) : <div className="em-empty-text">No transport expenses yet</div>}

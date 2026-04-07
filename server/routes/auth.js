@@ -114,17 +114,34 @@ module.exports = (upload) => {
             if (!users[0]) return res.status(404).json({ message: 'User not found' });
 
             if (!currentPassword || !String(currentPassword).trim()) {
-                return res.status(400).json({ message: 'Current password is required' });
+                return res.status(400).json({ message: 'Current password is required for security' });
             }
 
             // Always require current password to prevent account takeover via stolen token.
             const validCurrent = await bcrypt.compare(currentPassword, users[0].password);
             if (!validCurrent) return res.status(401).json({ message: 'Current password is incorrect' });
 
+            // Verify new password meets complexity requirements
+            if (newPassword.length < 8) {
+                return res.status(400).json({ message: 'Password must be at least 8 characters' });
+            }
+            if (!/[A-Z]/.test(newPassword)) {
+                return res.status(400).json({ message: 'Password must contain at least one uppercase letter (A-Z)' });
+            }
+            if (!/[a-z]/.test(newPassword)) {
+                return res.status(400).json({ message: 'Password must contain at least one lowercase letter (a-z)' });
+            }
+            if (!/[0-9]/.test(newPassword)) {
+                return res.status(400).json({ message: 'Password must contain at least one number (0-9)' });
+            }
+            if (!/[@$!%*?&^#()_+\-=\[\]{};':",./<>?\|`~]/.test(newPassword)) {
+                return res.status(400).json({ message: 'Password must contain at least one special character' });
+            }
+
             const hashedPassword = await bcrypt.hash(newPassword, 10);
             await pool.query("UPDATE sarga_staff SET password = ?, is_first_login = 0 WHERE id = ?", [hashedPassword, userId]);
 
-            auditLog(userId, 'PASSWORD_CHANGE', 'User changed their password');
+            auditLog(userId, 'PASSWORD_CHANGE', 'User changed password with complexity requirements');
             res.json({ message: 'Password updated successfully' });
         } catch (err) {
             console.error('Change password error:', err);

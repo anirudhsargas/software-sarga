@@ -19,6 +19,11 @@ const FinanceTab = ({ branches, onError }) => {
 
   // EMI state
   const [emis, setEmis] = useState([]);
+  const [emiPage, setEmiPage] = useState(1);
+  const [emiLimit] = useState(20);
+  const [emiTotal, setEmiTotal] = useState(0);
+  const [emiTotalPages, setEmiTotalPages] = useState(1);
+  const [loadingEmis, setLoadingEmis] = useState(false);
   const [emiDash, setEmiDash] = useState(null);
   const [showEmiForm, setShowEmiForm] = useState(false);
   const [editingEmi, setEditingEmi] = useState(null);
@@ -29,6 +34,11 @@ const FinanceTab = ({ branches, onError }) => {
 
   // Kuri state
   const [kuris, setKuris] = useState([]);
+  const [kuriPage, setKuriPage] = useState(1);
+  const [kuriLimit] = useState(20);
+  const [kuriTotal, setKuriTotal] = useState(0);
+  const [kuriTotalPages, setKuriTotalPages] = useState(1);
+  const [loadingKuris, setLoadingKuris] = useState(false);
   const [kuriDash, setKuriDash] = useState(null);
   const [showKuriForm, setShowKuriForm] = useState(false);
   const [editingKuri, setEditingKuri] = useState(null);
@@ -50,12 +60,46 @@ const FinanceTab = ({ branches, onError }) => {
   const [payConfirming, setPayConfirming] = useState(false);
   const [paySubmitting, setPaySubmitting] = useState(false);
 
-  const fetchEmis = useCallback(async () => {
-    try { const r = await api.get('/emi-master', { params: { is_active: 1 } }); setEmis(r.data); } catch { }
-  }, []);
-  const fetchKuris = useCallback(async () => {
-    try { const r = await api.get('/kuri-master', { params: { is_active: 1 } }); setKuris(r.data); } catch { }
-  }, []);
+  const fetchEmis = useCallback(async (pageNum = 1) => {
+    setLoadingEmis(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('page', pageNum);
+      params.append('limit', emiLimit);
+      params.append('is_active', 1);
+      const r = await api.get(`/emi-master?${params.toString()}`);
+      setEmis(r.data.data || []);
+      setEmiTotal(r.data.total || 0);
+      setEmiTotalPages(r.data.totalPages || 1);
+      setEmiPage(r.data.page || 1);
+    } catch {
+      setEmis([]);
+      setEmiTotal(0);
+      setEmiTotalPages(1);
+    } finally {
+      setLoadingEmis(false);
+    }
+  }, [emiLimit]);
+  const fetchKuris = useCallback(async (pageNum = 1) => {
+    setLoadingKuris(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('page', pageNum);
+      params.append('limit', kuriLimit);
+      params.append('is_active', 1);
+      const r = await api.get(`/kuri-master?${params.toString()}`);
+      setKuris(r.data.data || []);
+      setKuriTotal(r.data.total || 0);
+      setKuriTotalPages(r.data.totalPages || 1);
+      setKuriPage(r.data.page || 1);
+    } catch {
+      setKuris([]);
+      setKuriTotal(0);
+      setKuriTotalPages(1);
+    } finally {
+      setLoadingKuris(false);
+    }
+  }, [kuriLimit]);
   const fetchEmiDash = useCallback(async () => {
     try { const r = await api.get('/emi-dashboard'); setEmiDash(r.data); } catch { }
   }, []);
@@ -63,7 +107,7 @@ const FinanceTab = ({ branches, onError }) => {
     try { const r = await api.get('/kuri-dashboard'); setKuriDash(r.data); } catch { }
   }, []);
 
-  useEffect(() => { fetchEmis(); fetchKuris(); fetchEmiDash(); fetchKuriDash(); }, [fetchEmis, fetchKuris, fetchEmiDash, fetchKuriDash]);
+  useEffect(() => { fetchEmis(emiPage); fetchKuris(kuriPage); fetchEmiDash(); fetchKuriDash(); }, [fetchEmis, fetchKuris, fetchEmiDash, fetchKuriDash, emiPage, kuriPage]);
 
   const openEmiDetail = useCallback(async (emi) => {
     setSelectedEmi(emi); setLoadingDetail(true);
@@ -285,35 +329,47 @@ const FinanceTab = ({ branches, onError }) => {
               <button className="btn btn-primary btn-sm" onClick={() => { setEditingEmi(null); setEmiForm(defaultEmiForm); setShowEmiForm(true); }}><Plus size={15} /> Add EMI</button>
             )}
           </div>
-          {emis.length === 0 ? (
+          {loadingEmis ? (
+            <div className="em-loading"><Loader2 className="spin" size={20} /> Loading EMIs...</div>
+          ) : emis.length === 0 ? (
             <div className="em-empty-state"><div className="em-empty-state__icon"><Landmark size={48} strokeWidth={1.5} /></div><h3 className="em-empty-state__title">No EMI Commitments</h3><p className="em-empty-state__desc">Add your loan EMIs to track monthly payments and get due date reminders.</p></div>
           ) : (
-            <div className="em-finance-cards">
-              {emis.map(e => {
-                const paidPct = Math.min(((e.total_paid || 0) / (e.loan_amount || 1)) * 100, 100);
-                return (
-                  <div key={e.id} className="em-finance-card" onClick={() => openEmiDetail(e)} style={{ cursor: 'pointer' }}>
-                    <div className="em-finance-card__header">
-                      <Landmark size={18} style={{ color: 'var(--accent-2)' }} />
-                      <div className="em-finance-card__title">{e.institution_name}</div>
-                      <span className="em-type-badge em-type-badge--vendor">{e.emi_type}</span>
+            <>
+              <div className="em-finance-cards">
+                {emis.map(e => {
+                  const paidPct = Math.min(((e.total_paid || 0) / (e.loan_amount || 1)) * 100, 100);
+                  return (
+                    <div key={e.id} className="em-finance-card" onClick={() => openEmiDetail(e)} style={{ cursor: 'pointer' }}>
+                      <div className="em-finance-card__header">
+                        <Landmark size={18} style={{ color: 'var(--accent-2)' }} />
+                        <div className="em-finance-card__title">{e.institution_name}</div>
+                        <span className="em-type-badge em-type-badge--vendor">{e.emi_type}</span>
+                      </div>
+                      <div className="em-finance-card__body">
+                        <div className="em-finance-card__row"><span>EMI Amount</span><strong>₹{fmt(e.monthly_emi)}</strong></div>
+                        <div className="em-finance-card__row"><span>Due Day</span><strong>{e.due_day}th</strong></div>
+                        <div className="em-finance-card__row"><span>Paid / Total</span><strong>₹{fmt(e.total_paid)} / ₹{fmt(e.loan_amount)}</strong></div>
+                        <div className="em-progress-wrap"><div className="em-progress-bar"><div className="em-progress-bar__fill" style={{ width: `${paidPct}%` }} /></div><div className="em-progress-label">{paidPct.toFixed(0)}%</div></div>
+                      </div>
+                      <div className="em-finance-card__footer">
+                        {isAdmin && (
+                          <button className="btn btn-ghost btn-sm" onClick={(ev) => { ev.stopPropagation(); setEditingEmi(e); setEmiForm({ institution_name: e.institution_name, emi_type: e.emi_type || 'Loan', loan_amount: e.loan_amount, monthly_emi: e.monthly_emi, tenure_months: e.tenure_months || '', start_date: e.start_date?.slice(0, 10) || '', due_day: e.due_day || '1', branch_id: e.branch_id || '', remarks: e.remarks || '' }); setShowEmiForm(true); }}><Edit2 size={14} /> Edit</button>
+                        )}
+                        <button className="btn btn-primary btn-sm" onClick={(ev) => { ev.stopPropagation(); setPayType('emi'); setPayForm(p => ({ ...p, master_id: e.id, amount: String(e.monthly_emi || '') })); setShowPayForm(true); }}><IndianRupee size={14} /> Pay</button>
+                      </div>
                     </div>
-                    <div className="em-finance-card__body">
-                      <div className="em-finance-card__row"><span>EMI Amount</span><strong>₹{fmt(e.monthly_emi)}</strong></div>
-                      <div className="em-finance-card__row"><span>Due Day</span><strong>{e.due_day}th</strong></div>
-                      <div className="em-finance-card__row"><span>Paid / Total</span><strong>₹{fmt(e.total_paid)} / ₹{fmt(e.loan_amount)}</strong></div>
-                      <div className="em-progress-wrap"><div className="em-progress-bar"><div className="em-progress-bar__fill" style={{ width: `${paidPct}%` }} /></div><div className="em-progress-label">{paidPct.toFixed(0)}%</div></div>
-                    </div>
-                    <div className="em-finance-card__footer">
-                      {isAdmin && (
-                        <button className="btn btn-ghost btn-sm" onClick={(ev) => { ev.stopPropagation(); setEditingEmi(e); setEmiForm({ institution_name: e.institution_name, emi_type: e.emi_type || 'Loan', loan_amount: e.loan_amount, monthly_emi: e.monthly_emi, tenure_months: e.tenure_months || '', start_date: e.start_date?.slice(0, 10) || '', due_day: e.due_day || '1', branch_id: e.branch_id || '', remarks: e.remarks || '' }); setShowEmiForm(true); }}><Edit2 size={14} /> Edit</button>
-                      )}
-                      <button className="btn btn-primary btn-sm" onClick={(ev) => { ev.stopPropagation(); setPayType('emi'); setPayForm(p => ({ ...p, master_id: e.id, amount: String(e.monthly_emi || '') })); setShowPayForm(true); }}><IndianRupee size={14} /> Pay</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+              {/* Pagination Controls */}
+              {emiTotalPages > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(emiPage - 1) * emiLimit + 1}–{Math.min(emiPage * emiLimit, emiTotal)} of {emiTotal}</span>
+                  <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setEmiPage(p => Math.max(1, p - 1))} disabled={emiPage <= 1}><ArrowLeft size={16} /></button>
+                  <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setEmiPage(p => Math.min(emiTotalPages, p + 1))} disabled={emiPage >= emiTotalPages}><ArrowLeft style={{ transform: 'scaleX(-1)' }} size={16} /></button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
@@ -335,31 +391,43 @@ const FinanceTab = ({ branches, onError }) => {
               <button className="btn btn-primary btn-sm" onClick={openKuriRequest}><Plus size={15} /> Request Kuri</button>
             )}
           </div>
-          {kuris.length === 0 ? (
+          {loadingKuris ? (
+            <div className="em-loading"><Loader2 className="spin" size={20} /> Loading Kuris...</div>
+          ) : kuris.length === 0 ? (
             <div className="em-empty-state"><div className="em-empty-state__icon"><Repeat size={48} strokeWidth={1.5} /></div><h3 className="em-empty-state__title">No Kuri / Chit Fund</h3><p className="em-empty-state__desc">Add your Kuri commitments to track installments and due dates.</p></div>
           ) : (
-            <div className="em-finance-cards">
-              {kuris.map(k => (
-                <div key={k.id} className="em-finance-card" onClick={() => openKuriDetail(k)} style={{ cursor: 'pointer' }}>
-                  <div className="em-finance-card__header">
-                    <Repeat size={18} style={{ color: '#8b5cf6' }} />
-                    <div className="em-finance-card__title">{k.kuri_name}</div>
+            <>
+              <div className="em-finance-cards">
+                {kuris.map(k => (
+                  <div key={k.id} className="em-finance-card" onClick={() => openKuriDetail(k)} style={{ cursor: 'pointer' }}>
+                    <div className="em-finance-card__header">
+                      <Repeat size={18} style={{ color: '#8b5cf6' }} />
+                      <div className="em-finance-card__title">{k.kuri_name}</div>
+                    </div>
+                    <div className="em-finance-card__body">
+                      <div className="em-finance-card__row"><span>Monthly</span><strong>₹{fmt(k.monthly_installment)}</strong></div>
+                      <div className="em-finance-card__row"><span>Due Day</span><strong>{k.due_day}th</strong></div>
+                      <div className="em-finance-card__row"><span>Total</span><strong>₹{fmt(k.total_amount)}</strong></div>
+                      {k.organizer_name && <div className="em-finance-card__row"><span>Organizer</span><strong>{k.organizer_name}</strong></div>}
+                    </div>
+                    <div className="em-finance-card__footer">
+                      {isAdmin && (
+                        <button className="btn btn-ghost btn-sm" onClick={(ev) => { ev.stopPropagation(); setEditingKuri(k); setKuriForm({ kuri_name: k.kuri_name, organizer_name: k.organizer_name || '', organizer_phone: k.organizer_phone || '', total_amount: k.total_amount, monthly_installment: k.monthly_installment, duration_months: k.duration_months || '', start_date: k.start_date?.slice(0, 10) || '', due_day: k.due_day || '1', branch_id: k.branch_id || '', description: k.description || '' }); setShowKuriForm(true); }}><Edit2 size={14} /> Edit</button>
+                      )}
+                      <button className="btn btn-primary btn-sm" onClick={(ev) => { ev.stopPropagation(); setPayType('kuri'); setPayForm(p => ({ ...p, master_id: k.id, amount: String(k.monthly_installment || '') })); setShowPayForm(true); }}><IndianRupee size={14} /> Pay</button>
+                    </div>
                   </div>
-                  <div className="em-finance-card__body">
-                    <div className="em-finance-card__row"><span>Monthly</span><strong>₹{fmt(k.monthly_installment)}</strong></div>
-                    <div className="em-finance-card__row"><span>Due Day</span><strong>{k.due_day}th</strong></div>
-                    <div className="em-finance-card__row"><span>Total</span><strong>₹{fmt(k.total_amount)}</strong></div>
-                    {k.organizer_name && <div className="em-finance-card__row"><span>Organizer</span><strong>{k.organizer_name}</strong></div>}
-                  </div>
-                  <div className="em-finance-card__footer">
-                    {isAdmin && (
-                      <button className="btn btn-ghost btn-sm" onClick={(ev) => { ev.stopPropagation(); setEditingKuri(k); setKuriForm({ kuri_name: k.kuri_name, organizer_name: k.organizer_name || '', organizer_phone: k.organizer_phone || '', total_amount: k.total_amount, monthly_installment: k.monthly_installment, duration_months: k.duration_months || '', start_date: k.start_date?.slice(0, 10) || '', due_day: k.due_day || '1', branch_id: k.branch_id || '', description: k.description || '' }); setShowKuriForm(true); }}><Edit2 size={14} /> Edit</button>
-                    )}
-                    <button className="btn btn-primary btn-sm" onClick={(ev) => { ev.stopPropagation(); setPayType('kuri'); setPayForm(p => ({ ...p, master_id: k.id, amount: String(k.monthly_installment || '') })); setShowPayForm(true); }}><IndianRupee size={14} /> Pay</button>
-                  </div>
+                ))}
+              </div>
+              {/* Pagination Controls */}
+              {kuriTotalPages > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(kuriPage - 1) * kuriLimit + 1}–{Math.min(kuriPage * kuriLimit, kuriTotal)} of {kuriTotal}</span>
+                  <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setKuriPage(p => Math.max(1, p - 1))} disabled={kuriPage <= 1}><ArrowLeft size={16} /></button>
+                  <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setKuriPage(p => Math.min(kuriTotalPages, p + 1))} disabled={kuriPage >= kuriTotalPages}><ArrowLeft style={{ transform: 'scaleX(-1)' }} size={16} /></button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </>
       )}

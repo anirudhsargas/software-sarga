@@ -128,8 +128,12 @@
 
 .confirm-modal__actions .btn-warning {
     background: var(--accent, #1f2a33);
-    color: #000;
+    color: #fff;
     border-color: var(--accent, #1f2a33);
+}
+
+.dark .confirm-modal__actions .btn-warning {
+    color: #121314;
 }
 
 .confirm-modal__actions .btn-warning:hover {

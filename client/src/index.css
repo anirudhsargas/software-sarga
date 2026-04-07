@@ -1,47 +1,145 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import './styles/buttons.css';
 
 :root {
   --bg: #f5f3ef;
   --bg-rgb: 245, 243, 239;
   --bg-2: #ebe8e1;
+  --bg-tertiary: #e0ddd6;
+  --bg-primary: #f5f3ef;
+  --bg-secondary: #ebe8e1;
+  --bg-card: #fbfaf7;
+  --bg-hover: #f1efe8;
   --surface: #fbfaf7;
   --surface-rgb: 251, 250, 247;
+  --surface-1: #fbfaf7;
   --surface-2: #f1efe8;
+  --card-bg: #fbfaf7;
   --text: #171717;
+  --text-rgb: 23, 23, 23;
+  --text-primary: #171717;
+  --text-muted: #6c7077;
+  --text-secondary: #6c7077;
+  --text-disabled: #a8adb4;
   --muted: #6c7077;
   --border: #dedad1;
+  --border-color: #dedad1;
+  --border-subtle: rgba(23, 23, 23, 0.06);
   --accent: #1f2a33;
   --accent-2: #2f3b46;
+  --accent-rgb: 31, 42, 51;
   --accent-soft: #dde2e6;
   --success: #2f7d4a;
+  --success-bg: rgba(47, 125, 74, 0.1);
   --error: #b03a2e;
+  --error-bg: rgba(176, 58, 46, 0.1);
+  --error-text: #b03a2e;
   --warning: #b36b00;
+  --warning-bg: rgba(179, 107, 0, 0.1);
+  --clr-success: #2f7d4a;
+  --clr-warning: #b36b00;
+  --clr-error: #b03a2e;
+  --clr-danger: #ef4444;
   --accent-light: #eff6ff;
   --primary: var(--accent);
   --primary-rgb: 31, 42, 51;
   --radius: 14px;
   --shadow-sm: 0 8px 24px rgba(20, 20, 20, 0.08);
+  --shadow-md: 0 12px 40px rgba(20, 20, 20, 0.10);
   --shadow-lg: 0 24px 70px rgba(20, 20, 20, 0.12);
+  --icon-color: #2f3b46;
+  --icon-muted: #6c7077;
+  --input-bg: #f1efe8;
+  --input-border: rgba(23, 23, 23, 0.1);
+  --input-text: #171717;
+  --input-placeholder: #a8adb4;
+  --btn-primary-bg: #1f2a33;
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: transparent;
+  --sidebar-bg: #fbfaf7;
+  --sidebar-text: #6c7077;
+  --sidebar-icon: #6c7077;
+  --sidebar-active-bg: #f1efe8;
+  --table-header-bg: #f1efe8;
+  --table-row-hover: #f1efe8;
+  --table-border: #dedad1;
+  --badge-bg: #dde2e6;
+  --badge-text: #2f3b46;
+  --modal-bg: #fbfaf7;
+  --modal-overlay: rgba(12, 12, 12, 0.45);
+  --toast-bg: #fbfaf7;
+  --toast-text: #171717;
+  --on-accent: #ffffff;
 }
 
 .dark {
   --bg: #0f1111;
   --bg-rgb: 15, 17, 17;
   --bg-2: #0b0c0d;
+  --bg-tertiary: #1a1d1e;
+  --bg-primary: #0f1111;
+  --bg-secondary: #0b0c0d;
+  --bg-card: #1c1f20;
+  --bg-hover: #1c1f20;
   --surface: #151718;
   --surface-rgb: 21, 23, 24;
+  --surface-1: #151718;
   --surface-2: #1c1f20;
+  --card-bg: #1c1f20;
   --text: #f3f4f5;
+  --text-rgb: 243, 244, 245;
+  --text-primary: #f3f4f5;
+  --text-muted: #a8adb4;
+  --text-secondary: #a8adb4;
+  --text-disabled: #6c7077;
   --muted: #a8adb4;
   --border: #2a2f33;
+  --border-color: #2a2f33;
+  --border-subtle: rgba(243, 244, 245, 0.06);
   --accent: #e7e4dd;
   --accent-2: #c9c3b7;
+  --accent-rgb: 231, 228, 221;
   --accent-soft: #2a2f33;
+  --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.15);
+  --error: #f87171;
+  --error-bg: rgba(248, 113, 113, 0.15);
+  --error-text: #f87171;
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.15);
+  --clr-success: #4ade80;
+  --clr-warning: #fbbf24;
+  --clr-error: #f87171;
+  --clr-danger: #f87171;
   --accent-light: rgba(231, 228, 221, 0.08);
   --primary: var(--accent);
   --primary-rgb: 231, 228, 221;
   --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.40);
   --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.45);
+  --icon-color: #c9c3b7;
+  --icon-muted: #a8adb4;
+  --input-bg: #1c1f20;
+  --input-border: rgba(243, 244, 245, 0.1);
+  --input-text: #f3f4f5;
+  --input-placeholder: #6c7077;
+  --btn-primary-bg: #f0ede6;
+  --btn-primary-text: #121314;
+  --btn-secondary-bg: rgba(255, 255, 255, 0.04);
+  --sidebar-bg: #151718;
+  --sidebar-text: #a8adb4;
+  --sidebar-icon: #a8adb4;
+  --sidebar-active-bg: #1c1f20;
+  --table-header-bg: #1c1f20;
+  --table-row-hover: rgba(255, 255, 255, 0.03);
+  --table-border: #2a2f33;
+  --badge-bg: #2a2f33;
+  --badge-text: #c9c3b7;
+  --modal-bg: #151718;
+  --modal-overlay: rgba(0, 0, 0, 0.6);
+  --toast-bg: #1c1f20;
+  --toast-text: #f3f4f5;
+  --on-accent: #121314;
 }
 
 * {
@@ -77,6 +175,7 @@
 body {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   color: var(--text);
+  line-height: 1.5;
   min-height: 100vh;
   background: radial-gradient(1200px 600px at 0% 0%, var(--surface) 0%, var(--bg) 55%, var(--bg-2) 100%);
 }
@@ -186,7 +285,7 @@ button {
 .input-group--flex:focus-within {
   border-color: var(--accent-2);
   box-shadow: 0 0 0 3px rgba(47, 59, 70, 0.15);
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .dark .input-group--flex:focus-within {
@@ -279,7 +378,7 @@ button {
   outline: none;
   border-color: var(--accent-2);
   box-shadow: 0 0 0 3px rgba(47, 59, 70, 0.15);
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .dark .input-field:focus {
@@ -393,7 +492,7 @@ select.input-field {
 
 .btn-primary {
   background: var(--accent);
-  color: #000;
+  color: #fff;
   box-shadow: var(--shadow-sm);
 }
 
@@ -541,6 +640,12 @@ select.input-field {
   color: var(--accent);
 }
 
+.nav-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--surface-2);
+}
+
 .sidebar__footer {
   margin-top: auto;
   padding: 16px;
@@ -566,7 +671,7 @@ select.input-field {
   height: 40px;
   border-radius: 12px;
   background: var(--accent);
-  color: #000;
+  color: #fff;
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -601,7 +706,7 @@ select.input-field {
   display: inline-flex;
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -650,6 +755,17 @@ select.input-field {
   border: 1px solid var(--border);
   background: var(--surface);
   cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.menu-button:hover {
+  background: var(--surface-2);
+  border-color: var(--text-muted);
+}
+
+.menu-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .icon-button {
@@ -668,11 +784,16 @@ select.input-field {
   background: var(--surface);
 }
 
+.icon-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .role-chip {
   padding: 6px 12px;
   border-radius: 999px;
   background: var(--accent);
-  color: #000;
+  color: #fff;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -938,11 +1059,23 @@ select.input-field {
   color: var(--muted);
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.front-office-tab:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.front-office-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .front-office-tab--active {
   background: var(--accent);
-  color: #000;
+  color: #fff;
   border-color: transparent;
 }
 
@@ -1304,7 +1437,11 @@ select.input-field {
 .billing-step--active .billing-step__num {
   background: var(--primary);
   border-color: var(--primary);
-  color: #000;
+  color: #fff;
+}
+
+.dark .billing-step--active .billing-step__num {
+  color: #121314;
 }
 
 .billing-step--done .billing-step__num {
@@ -1360,7 +1497,11 @@ select.input-field {
   padding: 3px 10px;
   border-radius: 99px;
   background: var(--primary);
-  color: #000;
+  color: #fff;
+}
+
+.dark .billing-badge {
+  color: #121314;
 }
 
 .billing-badge--success {
@@ -1418,12 +1559,20 @@ select.input-field {
 
 .billing-type-btn--active {
   background: var(--accent);
-  color: #000;
+  color: #fff;
+}
+
+.dark .billing-type-btn--active {
+  color: #121314;
 }
 
 .billing-type-btn--active:hover {
   background: var(--accent-2);
-  color: #000;
+  color: #fff;
+}
+
+.dark .billing-type-btn--active:hover {
+  color: #121314;
 }
 
 /* Customer found card */
@@ -1612,7 +1761,11 @@ select.input-field {
 
 .billing-discount-btn--active {
   background: var(--primary);
-  color: #000;
+  color: #fff;
+}
+
+.dark .billing-discount-btn--active {
+  color: #121314;
 }
 
 .billing-discount-status {
@@ -1659,13 +1812,21 @@ select.input-field {
 
 .billing-method-pill--active {
   background: var(--primary);
-  color: #000;
+  color: #fff;
   border-color: var(--primary);
+}
+
+.dark .billing-method-pill--active {
+  color: #121314;
 }
 
 .billing-method-pill--active:hover {
   background: var(--primary);
-  color: #000;
+  color: #fff;
+}
+
+.dark .billing-method-pill--active:hover {
+  color: #121314;
 }
 
 /* Create bill bar */
@@ -1771,7 +1932,11 @@ select.input-field {
 
 .billing-qty-btn:hover {
   background: var(--primary);
-  color: #000;
+  color: #fff;
+}
+
+.dark .billing-qty-btn:hover {
+  color: #121314;
 }
 
 .billing-qty-input {
@@ -2157,7 +2322,7 @@ select.badge option {
   height: 32px;
   border-radius: 10px;
   background: var(--accent);
-  color: #000;
+  color: #fff;
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -2344,7 +2509,7 @@ select.badge option {
   margin-left: auto;
   background: var(--error);
   color: #fff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   min-width: 18px;
   height: 18px;
@@ -2460,7 +2625,7 @@ select.badge option {
   height: 320px;
   border-radius: 14px;
   overflow: hidden;
-  background: #111111;
+  background: var(--bg-2);
   border: 1px solid var(--border);
 }
 
@@ -3072,7 +3237,7 @@ select.badge option {
 
 .product-card--disabled .product-card__name::after {
   content: ' (Disabled)';
-  font-size: 10px;
+  font-size: 11px;
   color: var(--error);
   font-weight: 400;
 }
@@ -3087,7 +3252,7 @@ select.badge option {
 }
 
 .badge--sm {
-  font-size: 10px;
+  font-size: 11px;
   padding: 2px 8px;
 }
 
@@ -3495,7 +3660,7 @@ select.badge option {
 }
 
 .dr-tab__badge {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 999px;
@@ -3711,7 +3876,7 @@ select.badge option {
   display: inline-flex;
   padding: 3px 8px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -3935,7 +4100,7 @@ select.badge option {
 .production-stage-count {
   background: currentColor;
   color: white;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   min-width: 18px;
   height: 18px;
@@ -4028,7 +4193,7 @@ select.badge option {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--error);
   background: #fef2f2;
@@ -4318,7 +4483,7 @@ select.badge option {
 
 .jobs-cat-btn--active {
   background: var(--accent);
-  color: #000;
+  color: #fff;
   border-color: var(--accent);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
@@ -4358,4 +4523,28 @@ select.badge option {
 .jobs-tab--active {
   border-bottom-color: var(--accent);
   color: var(--accent);
+}
+
+/* Page Transitions */
+.page-transition {
+  position: relative;
+  width: 100%;
+}
+
+.page-enter {
+  opacity: 0;
+}
+
+.page-enter-active {
+  opacity: 1;
+  transition: opacity 160ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.page-exit {
+  opacity: 1;
+}
+
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 120ms cubic-bezier(0.4, 0, 1, 1);
 }

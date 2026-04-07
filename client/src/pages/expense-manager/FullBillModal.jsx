@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, Loader2, ExternalLink, FileText } from 'lucide-react';
 import api, { imgUrl } from '../../services/api';
+import localDb from '../../services/localDb';
 import { fmt, fmtDate } from './constants';
 
 const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }) => {
@@ -15,6 +16,26 @@ const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }
       setLoading(true);
       setError('');
       try {
+        // Always try local IndexedDB first
+        if (documentId != null) {
+          const allDocs = await localDb.getBillsDocuments();
+          const localDoc = allDocs.find(d => String(d.id) === String(documentId));
+          if (localDoc) {
+            setPayload({ document: localDoc, items: [] });
+            setLoading(false);
+            return;
+          }
+        }
+        if (vendorBillId != null) {
+          const allBills = await localDb.getVendorBills?.() || [];
+          const localBill = allBills.find(b => String(b.id) === String(vendorBillId));
+          if (localBill) {
+            setPayload({ vendor_bill: localBill, items: localBill.items || [] });
+            setLoading(false);
+            return;
+          }
+        }
+        // Fallback to server
         const endpoint = vendorBillId
           ? `/vendor-bills/${vendorBillId}/full`
           : `/bills-documents/${documentId}/full`;
@@ -35,10 +56,23 @@ const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }
   const document = payload?.document || null;
   const items = Array.isArray(payload?.items) ? payload.items : [];
 
+  // Build attachment URL: prefer locally stored blob, then server path
   const attachmentUrl = useMemo(() => {
+    if (document?.file_blob) {
+      return URL.createObjectURL(document.file_blob);
+    }
     if (!document?.file_path) return '';
     return imgUrl(document.file_path);
-  }, [document?.file_path]);
+  }, [document?.file_blob, document?.file_path]);
+
+  // Cleanup blob URL on unmount / change
+  useEffect(() => {
+    return () => {
+      if (document?.file_blob && attachmentUrl) {
+        URL.revokeObjectURL(attachmentUrl);
+      }
+    };
+  }, [attachmentUrl]);
 
   const isImage = String(document?.file_type || '').startsWith('image/');
   const isPdf = String(document?.file_type || '').includes('pdf');

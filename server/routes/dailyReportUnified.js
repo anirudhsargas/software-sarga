@@ -3,6 +3,7 @@ const router = express.Router();
 const { pool } = require('../database');
 const auth = require('../middleware/auth');
 const { auditLog } = require('../helpers');
+const { paginate } = require('../helpers/pagination');
 
 // ==================== HELPER: Get Branch ID ====================
 const getBranchId = (user, queryBranchId) => {
@@ -142,23 +143,35 @@ router.post('/change-request', auth.authenticate, async (req, res) => {
 router.get('/change-requests', auth.authenticate, async (req, res) => {
     try {
         const { status } = req.query;
-        let query = `
-            SELECT cr.*, s.name AS requester_name, b.name AS branch_name,
-                   m.machine_name
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+
+        let whereClauses = [];
+        const params = [];
+
+        if (status) {
+            whereClauses.push('cr.status = ?');
+            params.push(status);
+        }
+
+        const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
+        const baseFrom = `
             FROM sarga_opening_change_requests cr
             JOIN sarga_staff s ON cr.requester_id = s.id
             JOIN sarga_branches b ON cr.branch_id = b.id
             LEFT JOIN sarga_machines m ON cr.machine_id = m.id
+            ${whereSection}
         `;
-        const params = [];
-        if (status) {
-            query += ` WHERE cr.status = ?`;
-            params.push(status);
-        }
-        query += ` ORDER BY cr.created_at DESC`;
 
-        const [rows] = await pool.query(query, params);
-        res.json(rows);
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+        const [rows] = await pool.query(`
+            SELECT cr.*, s.name AS requester_name, b.name AS branch_name,
+                   m.machine_name
+            ${baseFrom}
+            ORDER BY cr.created_at DESC
+            LIMIT ? OFFSET ?
+        `, [...params, limit, offset]);
+
+        res.json(response(rows, total));
     } catch (error) {
         console.error('Error fetching change requests:', error);
         res.status(500).json({ error: 'Failed to fetch change requests' });
@@ -269,11 +282,25 @@ router.get('/previous-closing', auth.authenticate, async (req, res) => {
             }
         }
 
+        // Today's machine readings (to detect if opening counts are already entered)
+        const [todayMachines] = await pool.query(
+            `SELECT mr.machine_id, mr.opening_count
+             FROM sarga_machine_readings mr
+             JOIN sarga_machines m ON mr.machine_id = m.id
+             WHERE mr.reading_date = ? AND m.branch_id = ?`,
+            [date, branchId]
+        );
+        const todayMachineReadings = {}; // { [machine_id]: opening_count }
+        for (const row of todayMachines) {
+            todayMachineReadings[row.machine_id] = Number(row.opening_count);
+        }
+
         res.json({
             Offset: prevOffset.length > 0 ? Number(prevOffset[0].closing_balance) : 0,
             Laser: prevMap['Laser'] ?? 0,
             Other: prevMap['Other'] ?? 0,
-            machines: machineMap   // { [machine_id]: last_closing_count }
+            machines: machineMap,          // { [machine_id]: last_closing_count } — previous day
+            todayMachineReadings           // { [machine_id]: opening_count }     — today already saved
         });
     } catch (error) {
         console.error('Error fetching previous closing:', error);

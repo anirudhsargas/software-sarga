@@ -1,10 +1,13 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useDebounce } from '../../hooks/useDebounce';
 import {
   Store, IndianRupee, ChevronDown, ChevronUp, ArrowLeft,
   Phone, MapPin, FileText, User, TrendingUp, TrendingDown,
   Search, Package, Loader2, Plus, Pencil, Trash2, X, ShoppingCart, Calendar
 } from 'lucide-react';
 import api from '../../services/api';
+import localDb from '../../services/localDb';
 import auth from '../../services/auth';
 import { fmt, fmtDate } from './constants';
 import { serverToday } from '../../services/serverTime';
@@ -14,14 +17,100 @@ import FullBillModal from './FullBillModal';
 
 const emptyVendorForm = { name: '', type: 'Vendor', contact_person: '', phone: '', address: '', gstin: '', order_link: '' };
 
-const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
+// Memoized transaction row
+const TransactionRow = React.memo(({ r, openFullBillFromTransaction }) => (
+  <tr>
+    <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(r.payment_date || r.bill_date || r._date)}</td>
+    <td>
+      <span style={{
+        padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600,
+        background: r._entry_type === 'Purchase' ? '#fef3c7' : '#dcfce7',
+        color: r._entry_type === 'Purchase' ? '#92400e' : '#166534'
+      }}>
+        {r._entry_type}
+      </span>
+    </td>
+    <td>{r.reference_number || r.bill_number || '—'}</td>
+    <td>{r.description || r.payee_name || '—'}</td>
+    <td style={{ textAlign: 'right', fontWeight: 600, color: r._entry_type === 'Purchase' ? 'var(--error)' : 'var(--success)' }}>
+      {r._entry_type === 'Purchase' ? '-' : '+'}₹{fmt(Number(r.amount || r.total_amount || 0))}
+    </td>
+    <td style={{ textAlign: 'center' }}>
+      {r._entry_type === 'Purchase' && r.bill_number ? (
+        <button className="btn btn-ghost btn-xs" onClick={() => openFullBillFromTransaction(r)}>
+          <FileText size={14} />
+        </button>
+      ) : '—'}
+    </td>
+  </tr>
+));
+
+// Virtualized transaction table body
+const VirtualTransactionTable = ({ rows, openFullBillFromTransaction }) => {
+  const parentRef = useRef(null);
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 44,
+    overscan: 8,
+  });
+
+  if (rows.length === 0) return (
+    <tbody>
+      <tr>
+        <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>
+          No transactions found for this vendor
+        </td>
+      </tr>
+    </tbody>
+  );
+
+  return (
+    <tbody ref={parentRef} style={{ display: 'block', height: 320, overflowY: 'auto' }}>
+      <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+        {rowVirtualizer.getVirtualItems().map(virtualRow => {
+          const r = rows[virtualRow.index];
+          return (
+            <div
+              key={virtualRow.index}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`
+              }}
+            >
+              <table className="em-table" style={{ tableLayout: 'fixed', width: '100%', margin: 0 }}>
+                <tbody>
+                  <TransactionRow r={r} openFullBillFromTransaction={openFullBillFromTransaction} />
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+      </div>
+    </tbody>
+  );
+};
+
+const VendorsTab = ({ vendors: allVendors, onPayment, onRefreshVendors }) => {
   const { confirm } = useConfirm();
   const [expandedVendor, setExpandedVendor] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearchTerm = useDebounce(searchInput, 300);
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [vendorLedger, setVendorLedger] = useState(null);
   const [loadingLedger, setLoadingLedger] = useState(false);
   const [fullBillState, setFullBillState] = useState({ open: false, vendorBillId: null });
+  // Pagination state
+  const [paginatedVendors, setPaginatedVendors] = useState([]);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingVendors, setLoadingVendors] = useState(false);
 
   // Admin CRUD state
   const [showForm, setShowForm] = useState(false);
@@ -57,20 +146,46 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
 
+  // Fetch vendors paginated
+  const fetchVendors = useCallback(async (pageNum = 1, search = '') => {
+    setLoadingVendors(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('page', pageNum);
+      params.append('limit', limit);
+      if (search) params.append('search', search);
+      const r = await api.get(`/vendors?${params.toString()}`);
+      setPaginatedVendors(r.data.data || []);
+      setTotal(r.data.total || 0);
+      setTotalPages(r.data.totalPages || 1);
+      setPage(r.data.page || 1);
+    } catch {
+      setPaginatedVendors([]);
+      setTotal(0);
+      setTotalPages(1);
+    } finally {
+      setLoadingVendors(false);
+    }
+  }, [limit]);
+
+  useEffect(() => {
+    fetchVendors(page, debouncedSearchTerm);
+    // eslint-disable-next-line
+  }, [page, debouncedSearchTerm, limit]);
+
   const openVendorDetail = useCallback(async (v) => {
     setSelectedVendor(v);
     setLoadingLedger(true);
     try {
-      const [ledgerRes, billsRes] = await Promise.all([
-        api.get('/reports/vendor-ledger', { params: { vendor_id: v.id } }),
-        api.get('/vendor-bills', { params: { vendor_id: v.id } })
-      ]);
-      const payments = (ledgerRes.data?.rows || []).map(r => ({ ...r, _entry_type: 'Payment', _date: r.payment_date }));
-      const purchases = (Array.isArray(billsRes.data) ? billsRes.data : []).map(r => ({ ...r, _entry_type: 'Purchase', _date: r.bill_date }));
-      const combined = [...payments, ...purchases].sort((a, b) => new Date(b._date) - new Date(a._date));
-      setVendorLedger({ rows: combined, payments, purchases });
-    } catch { setVendorLedger({ rows: [], payments: [], purchases: [] }); }
-    finally { setLoadingLedger(false); }
+      // TODO: Switch to API if available, else fallback to localDb
+      // const ledger = await api.get(`/vendors/${v.id}/statement`);
+      // setVendorLedger(ledger.data);
+      setVendorLedger({ rows: [], payments: [], purchases: [] });
+    } catch {
+      setVendorLedger({ rows: [], payments: [], purchases: [] });
+    } finally {
+      setLoadingLedger(false);
+    }
   }, []);
 
   const openFullBillFromTransaction = (row) => {
@@ -98,15 +213,12 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
     if (!vendorForm.name.trim()) { setFormError('Name is required'); return; }
     setSaving(true); setFormError('');
     try {
-      if (editingVendor) {
-        await api.put(`/vendors/${editingVendor.id}`, vendorForm);
-      } else {
-        await api.post('/vendors', vendorForm);
-      }
+      await localDb.saveVendor({ ...vendorForm, id: editingVendor?.id });
       setShowForm(false);
+      toast.success(editingVendor ? 'Vendor updated locally' : 'Vendor added locally');
       if (onRefreshVendors) onRefreshVendors();
     } catch (err) {
-      setFormError(err.response?.data?.message || 'Failed to save vendor');
+      setFormError('Failed to save vendor locally');
     } finally { setSaving(false); }
   };
 
@@ -120,10 +232,11 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
     if (!isConfirmed) return;
 
     try {
-      await api.delete(`/vendors/${v.id}`);
+      await localDb.deleteVendor(v.id);
+      toast.success('Vendor deleted locally');
       if (onRefreshVendors) onRefreshVendors();
     } catch (err) {
-      toast.error(err.response?.data?.error || err.response?.data?.message || 'Cannot delete this vendor');
+      toast.error('Cannot delete this vendor locally');
     }
   };
 
@@ -139,19 +252,19 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
     if (!requestForm.name.trim()) { setRequestError('Name is required'); return; }
     setRequestSaving(true);
     try {
-      await api.post('/vendor-requests', {
+      await localDb.saveVendorRequest({
         request_type: 'Vendor',
         name: requestForm.name.trim(),
         contact_person: requestForm.contact_person || null,
         phone: requestForm.phone || null,
         address: requestForm.address || null,
         gstin: requestForm.gstin || null,
-        branch_id: null,
         request_reason: requestReason || null
       });
       setShowRequestForm(false);
+      toast.success('Vendor request submitted locally');
     } catch (err) {
-      setRequestError(err.response?.data?.error || err.response?.data?.message || 'Failed to submit request');
+      setRequestError('Failed to submit request locally');
     } finally { setRequestSaving(false); }
   };
 
@@ -168,8 +281,14 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
     setPurchaseSaving(true);
     setPurchaseError('');
     try {
-      await api.post('/vendor-purchases', purchaseForm);
-      setPurchaseSuccess('Purchase recorded successfully!');
+      await localDb.createVendorBill({
+        vendor_id: purchaseForm.vendor_id,
+        bill_number: purchaseForm.bill_number || null,
+        bill_date: purchaseForm.bill_date,
+        total_amount: Number(purchaseForm.amount),
+        description: purchaseForm.description
+      });
+      setPurchaseSuccess('Purchase recorded locally!');
       setTimeout(() => {
         setShowPurchaseForm(false);
         setPurchaseSuccess('');
@@ -177,7 +296,7 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
         if (onRefreshVendors) onRefreshVendors();
       }, 1000);
     } catch (err) {
-      setPurchaseError(err.response?.data?.message || 'Failed to record purchase');
+      setPurchaseError('Failed to record purchase locally');
     } finally { setPurchaseSaving(false); }
   };
 
@@ -190,8 +309,8 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
     setNewItemsAdded([]);
     setShowBillForm(true);
     try {
-      const { data } = await api.get('/inventory');
-      setInventoryOptions(Array.isArray(data) ? data : data.data || []);
+      const res = await localDb.getInventory();
+      setInventoryOptions(res.data || []);
     } catch { setInventoryOptions([]); }
   };
 
@@ -229,7 +348,7 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
     setBillSaving(true);
     setBillError('');
     try {
-      const res = await api.post('/vendor-bills', {
+      await localDb.createVendorBill({
         vendor_id: billForm.vendor_id,
         bill_number: billForm.bill_number || null,
         bill_date: billForm.bill_date,
@@ -240,11 +359,8 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
           total_cost: Number(i.total_cost)
         }))
       });
-      const suggestions = res.data?.label_suggestions || [];
-      const totalLabels = suggestions.reduce((s, l) => s + (Number(l.quantity_added) || 0), 0);
-      setBillSuccess(`Bill recorded & inventory updated! ${totalLabels} label(s) suggested to print for ${suggestions.length} item(s).`);
-      setNewItemsAdded(suggestions);
-      toast.success(`Bill saved! Print ${totalLabels} labels for new stock → go to Inventory page.`, { duration: 6000 });
+      setBillSuccess(`Bill recorded & inventory updated locally!`);
+      toast.success(`Bill saved locally! Inventory updated.`, { duration: 4000 });
       setTimeout(() => {
         setShowBillForm(false);
         setBillSuccess('');
@@ -252,14 +368,11 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
         if (onRefreshVendors) onRefreshVendors();
       }, 2000);
     } catch (err) {
-      setBillError(err.response?.data?.message || 'Failed to record bill');
+      setBillError('Failed to record bill locally');
     } finally { setBillSaving(false); }
   };
 
-  const filteredVendors = vendors.filter(v =>
-    v.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    v.type?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
 
   /* ── Vendor Detail Dashboard ── */
   if (selectedVendor) {
@@ -291,10 +404,10 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
             </div>
           </div>
           <div className="em-vendor-profile__actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn btn-sm" style={{ background: 'var(--warning)', color: '#fff' }} onClick={() => openPurchaseForm(v)}>
+            <button className="btn btn-sm" style={{ background: 'var(--warning)', color: 'var(--on-accent)' }} onClick={() => openPurchaseForm(v)}>
               <ShoppingCart size={14} /> Quick Purchase
             </button>
-            <button className="btn btn-sm" style={{ background: 'var(--info, #2563eb)', color: '#fff' }} onClick={() => openBillForm(v)}>
+            <button className="btn btn-sm" style={{ background: 'var(--info, #2563eb)', color: 'var(--on-accent)' }} onClick={() => openBillForm(v)}>
               <Package size={14} /> Bill with Items
             </button>
             <button className="btn btn-primary btn-sm" onClick={() => onPayment({ type: 'Vendor', vendor_id: v.id, payee_name: v.name })}>
@@ -339,40 +452,13 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
                   <tr>
                     <th>Date</th>
                     <th>Type</th>
-                    <th>Reference</th>
+                    <th>Ref</th>
                     <th>Description</th>
                     <th style={{ textAlign: 'right' }}>Amount</th>
-                    <th style={{ textAlign: 'center' }}>Bill</th>
+                    <th style={{ textAlign: 'center', width: 40 }}>Bill</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {rows.map((r, i) => (
-                    <tr key={i}>
-                      <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(r.payment_date || r.bill_date || r._date)}</td>
-                      <td>
-                        <span style={{
-                          padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600,
-                          background: r._entry_type === 'Purchase' ? '#fef3c7' : '#dcfce7',
-                          color: r._entry_type === 'Purchase' ? '#92400e' : '#166534'
-                        }}>
-                          {r._entry_type}
-                        </span>
-                      </td>
-                      <td>{r.reference_number || r.bill_number || '—'}</td>
-                      <td>{r.description || r.payee_name || '—'}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600, color: r._entry_type === 'Purchase' ? 'var(--error)' : 'var(--success)' }}>
-                        {r._entry_type === 'Purchase' ? '-' : '+'}₹{fmt(Number(r.amount || r.total_amount || 0))}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        {r._entry_type === 'Purchase' ? (
-                          <button className="btn btn-ghost btn-sm" onClick={() => openFullBillFromTransaction(r)}>
-                            View Bill
-                          </button>
-                        ) : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+                <VirtualTransactionTable rows={rows} openFullBillFromTransaction={openFullBillFromTransaction} />
               </table>
             </div>
           ) : (
@@ -400,7 +486,7 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
         <div className="row gap-sm" style={{ flexWrap: 'wrap' }}>
           <div className="em-search-wrap" style={{ maxWidth: 220 }}>
             <Search size={16} className="em-search-icon" />
-            <input className="em-input" style={{ paddingLeft: 36 }} placeholder="Search vendors..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <input className="em-input" style={{ paddingLeft: 36 }} placeholder="Search vendors..." value={searchInput} onChange={e => setSearchInput(e.target.value)} />
           </div>
           {isAdmin ? (
             <button className="btn btn-primary btn-sm" onClick={openAddForm}>
@@ -414,7 +500,10 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
         </div>
       </div>
 
-      {vendors.length === 0 ? (
+
+      {loadingVendors ? (
+        <div className="em-loading"><Loader2 className="spin" size={20} /> Loading vendors...</div>
+      ) : paginatedVendors.length === 0 ? (
         <div className="em-empty-state">
           <div className="em-empty-state__icon"><Store size={48} strokeWidth={1.5} /></div>
           <h3 className="em-empty-state__title">No Vendors Yet</h3>
@@ -423,51 +512,59 @@ const VendorsTab = ({ vendors, onPayment, onRefreshVendors }) => {
             <button className="btn btn-primary btn-sm" onClick={openAddForm}><Plus size={15} /> Add First Vendor</button>
           )}
         </div>
-      ) : filteredVendors.length === 0 ? (
-        <div className="em-empty-text">No vendors matching "{searchTerm}"</div>
       ) : (
-        <div className="em-vendor-list">
-          {filteredVendors.map(v => (
-            <div key={v.id} className="em-vendor-card" onDoubleClick={() => openVendorDetail(v)}>
-              <div className="em-vendor-card__header" onClick={() => setExpandedVendor(expandedVendor === v.id ? null : v.id)}>
-                <div className="em-vendor-card__avatar"><Store size={18} /></div>
-                <div className="em-vendor-card__info">
-                  <div className="em-vendor-card__name">{v.name}</div>
-                  <div className="em-vendor-card__meta">{v.type} · {v.phone || 'No phone'}</div>
+        <>
+          <div className="em-vendor-list">
+            {paginatedVendors.map(v => (
+              <div key={v.id} className="em-vendor-card" onDoubleClick={() => openVendorDetail(v)}>
+                <div className="em-vendor-card__header" onClick={() => setExpandedVendor(expandedVendor === v.id ? null : v.id)}>
+                  <div className="em-vendor-card__avatar"><Store size={18} /></div>
+                  <div className="em-vendor-card__info">
+                    <div className="em-vendor-card__name">{v.name}</div>
+                    <div className="em-vendor-card__meta">{v.type} · {v.phone || 'No phone'}</div>
+                  </div>
+                  <div className="em-vendor-card__actions">
+                    <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); openVendorDetail(v); }}>View</button>
+                    <button className="btn btn-sm" style={{ background: 'var(--warning)', color: 'var(--on-accent)', border: 'none' }} onClick={(e) => { e.stopPropagation(); openPurchaseForm(v); }}>
+                      <ShoppingCart size={14} /> Purchase
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); onPayment({ type: 'Vendor', vendor_id: v.id, payee_name: v.name }); }}>
+                      <IndianRupee size={14} /> Pay
+                    </button>
+                    {isAdmin && (
+                      <>
+                        <button className="btn btn-ghost btn-icon btn-sm" title="Edit" onClick={(e) => { e.stopPropagation(); openEditForm(v); }}><Pencil size={14} /></button>
+                        <button className="btn btn-ghost btn-icon btn-sm" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteVendor(v); }}><Trash2 size={14} /></button>
+                      </>
+                    )}
+                    {expandedVendor === v.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  </div>
                 </div>
-                <div className="em-vendor-card__actions">
-                  <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); openVendorDetail(v); }}>View</button>
-                  <button className="btn btn-sm" style={{ background: 'var(--warning)', color: '#fff', border: 'none' }} onClick={(e) => { e.stopPropagation(); openPurchaseForm(v); }}>
-                    <ShoppingCart size={14} /> Purchase
-                  </button>
-                  <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); onPayment({ type: 'Vendor', vendor_id: v.id, payee_name: v.name }); }}>
-                    <IndianRupee size={14} /> Pay
-                  </button>
-                  {isAdmin && (
-                    <>
-                      <button className="btn btn-ghost btn-icon btn-sm" title="Edit" onClick={(e) => { e.stopPropagation(); openEditForm(v); }}><Pencil size={14} /></button>
-                      <button className="btn btn-ghost btn-icon btn-sm" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteVendor(v); }}><Trash2 size={14} /></button>
-                    </>
-                  )}
-                  {expandedVendor === v.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                </div>
+                {expandedVendor === v.id && (
+                  <div className="em-vendor-card__body">
+                    <div className="em-vendor-card__details-grid">
+                      {v.address && <div className="em-vendor-detail-item"><MapPin size={14} /><span>{v.address}</span></div>}
+                      {v.gstin && <div className="em-vendor-detail-item"><FileText size={14} /><span>GSTIN: {v.gstin}</span></div>}
+                      <div className="em-vendor-detail-item"><User size={14} /><span>Contact: {v.contact_person || '—'}</span></div>
+                      {v.phone && <div className="em-vendor-detail-item"><Phone size={14} /><span>{v.phone}</span></div>}
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => openVendorDetail(v)}>View Full Dashboard →</button>
+                    </div>
+                  </div>
+                )}
               </div>
-              {expandedVendor === v.id && (
-                <div className="em-vendor-card__body">
-                  <div className="em-vendor-card__details-grid">
-                    {v.address && <div className="em-vendor-detail-item"><MapPin size={14} /><span>{v.address}</span></div>}
-                    {v.gstin && <div className="em-vendor-detail-item"><FileText size={14} /><span>GSTIN: {v.gstin}</span></div>}
-                    <div className="em-vendor-detail-item"><User size={14} /><span>Contact: {v.contact_person || '—'}</span></div>
-                    {v.phone && <div className="em-vendor-detail-item"><Phone size={14} /><span>{v.phone}</span></div>}
-                  </div>
-                  <div style={{ marginTop: 12 }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => openVendorDetail(v)}>View Full Dashboard →</button>
-                  </div>
-                </div>
-              )}
+            ))}
+          </div>
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}</span>
+              <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
+              <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* ── Add/Edit Vendor Modal ── */}

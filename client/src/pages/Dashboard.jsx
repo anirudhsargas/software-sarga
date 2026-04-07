@@ -3,14 +3,19 @@ import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2,
-    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine
+    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
+import RequiresConnection from '../components/RequiresConnection';
 import SecureImage from '../components/SecureImage';
 import ImageCropModal from '../components/ImageCropModal';
 import ScannerModal from '../components/ScannerModal';
 import { useConfirm } from '../contexts/ConfirmContext';
+import { useLocation } from 'react-router-dom';
+import ProgressBar from '../components/ProgressBar';
+import AnomalyPanel from '../components/AnomalyPanel';
+import InsightsPanel from '../components/InsightsPanel';
 
 // Lazy-loaded pages — each becomes a separate chunk
 const StaffManagement = React.lazy(() => import('./StaffManagement'));
@@ -44,9 +49,14 @@ const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 const ProductionTracker = React.lazy(() => import('./ProductionTracker'));
 const PlateManagement = React.lazy(() => import('./PlateManagement'));
 const StockVerification = React.lazy(() => import('./StockVerification'));
+const StockPlanning = React.lazy(() => import('./StockPlanning'));
 const OtherStaffDashboard = React.lazy(() => import('./OtherStaffDashboard'));
 const PrinterDashboard = React.lazy(() => import('./PrinterDashboard'));
 const DesignerDashboard = React.lazy(() => import('./DesignerDashboard'));
+const Reports = React.lazy(() => import('./Reports'));
+const CouponManagement = React.lazy(() => import('./CouponManagement'));
+const CCTVAttendance = React.lazy(() => import('./CCTVAttendance'));
+const CCTVManagement = React.lazy(() => import('./CCTVManagement'));
 const PageLoader = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: '8px', color: 'var(--text-muted, var(--muted))' }}>
         <Loader2 size={20} className="animate-spin" /> Loading...
@@ -57,8 +67,17 @@ const Dashboard = () => {
     const { user, logout, updateUser } = useAuth();
     const { confirm } = useConfirm();
     const navigate = useNavigate();
+    const location = useLocation();
     const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [isNavigating, setIsNavigating] = useState(false);
+
+    // Show progress bar on location change
+    useEffect(() => {
+        setIsNavigating(true);
+        const timer = setTimeout(() => setIsNavigating(false), 300);
+        return () => clearTimeout(timer);
+    }, [location.pathname]);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [profileName, setProfileName] = useState('');
     const [profileImage, setProfileImage] = useState(null);
@@ -69,6 +88,8 @@ const Dashboard = () => {
     const [showInventoryScan, setShowInventoryScan] = useState(false);
     const [inventoryScanResult, setInventoryScanResult] = useState(null);
     const [inventoryScanLoading, setInventoryScanLoading] = useState(false);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [anomalyCount, setAnomalyCount] = useState(0);
 
     const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
     const closeSidebar = () => setSidebarOpen(false);
@@ -87,48 +108,46 @@ const Dashboard = () => {
     }, []);
 
     const menuItems = [
+        // Main dashboards
         { name: 'Summary', icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
         { name: 'Front Office', icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
-        { name: 'Customers', icon: UserSquare, path: '/dashboard/customers', roles: ['Admin', 'Front Office'], group: 'business' },
+        { name: 'Dashboard', icon: Grid, path: '/dashboard', roles: ['Accountant', 'Other Staff'] },
+        // Business operations
+        { name: 'Customers', icon: UserSquare, path: '/dashboard/customers', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
         { name: 'Billing', icon: Receipt, path: '/dashboard/billing', roles: ['Front Office'], group: 'business' },
-        { name: 'Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Front Office'], group: 'business' },
+        { name: 'Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Front Office'] },
+        { name: 'Jobs & Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Accountant'], group: 'business' },
         { name: 'Customer Payments', icon: Receipt, path: '/dashboard/customer-payments', roles: ['Admin', 'Front Office'], group: 'business' },
-        { name: 'Staff', icon: Users, path: '/dashboard/staff', roles: ['Front Office'], group: 'manage' },
-        { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Front Office'], group: 'operations' },
-        { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Front Office'], group: 'business' },
-        { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Admin'], group: 'finance' },
-        { name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Admin'], group: 'manage' },
-        { name: 'Branches', icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'manage' },
-        { name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'operations' },
-        { name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'business' },
-        { name: 'Attendance & Salary', icon: Receipt, path: '/dashboard/attendance-salary', roles: ['Designer'], group: 'finance' },
-        { name: 'Plate Management', icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'operations' },
-        { name: 'Jobs & Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin'], group: 'business' },
-        { name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'business' },
-        { name: 'Attendance & Salary', icon: Receipt, path: '/dashboard/attendance-salary', roles: ['Printer', 'Front Office'], group: 'finance' },
-        { name: 'Dashboard', icon: Grid, path: '/dashboard', roles: ['Other Staff'], group: 'main' },
-        { name: 'Attendance & Salary', icon: Receipt, path: '/dashboard/attendance-salary', roles: ['Other Staff'], group: 'finance' },
-        { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Admin'], group: 'operations' },
-        { name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin'], group: 'manage' },
-        { name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'operations' },
-        { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office'], group: 'business' },
-        { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Admin'], group: 'operations' },
-        // Accountant-specific menu items
-        { name: 'Dashboard', icon: Grid, path: '/dashboard', roles: ['Accountant'] },
-        { name: 'Payment Verification', icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'finance' },
-        { name: 'Customers', icon: UserSquare, path: '/dashboard/customers', roles: ['Accountant'] },
-        { name: 'Jobs & Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Accountant'] },
-        { name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Accountant'] },
-        { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Accountant'] },
-        { name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Accountant'] },
-        { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Accountant'] },
+        // Inventory & Operations
+        { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
         { name: 'Stock Verification', icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'operations' },
-        { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Accountant'] },
-        { name: 'Accounts & GST', icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
-        // AI Features
-        { name: 'Design Check', icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
+        { name: 'Stock Planning', icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
+        { name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'operations' },
+        { name: 'Plate Management', icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'operations' },
+        { name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'operations' },
         { name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'operations' },
         { name: 'Production Tracker', icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'operations' },
+        // Staff & HR
+        { name: 'Staff', icon: Users, path: '/dashboard/staff', roles: ['Front Office'], group: 'manage' },
+        { name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Admin', 'Accountant'], group: 'manage' },
+        { name: 'Branches', icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'manage' },
+        { name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin', 'Accountant'], group: 'manage' },
+        { name: 'Coupons', icon: Tag, path: '/dashboard/coupons', roles: ['Admin'], group: 'manage' },
+        { name: 'CCTV Attendance', icon: Camera, path: '/dashboard/cctv-attendance', roles: ['Admin', 'Accountant'], group: 'manage' },
+        { name: 'CCTV Management', icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'manage' },
+        { name: 'Attendance & Salary', icon: Receipt, path: '/dashboard/attendance-salary', roles: ['Designer', 'Printer', 'Front Office', 'Other Staff'], group: 'finance' },
+        // Finance & Reports
+        { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Admin', 'Front Office', 'Accountant'], group: 'finance' },
+        { name: 'Payment Verification', icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'finance' },
+        { name: 'Accounts & GST', icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
+        { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office', 'Admin', 'Accountant'], group: 'business' },
+        // AI Features
+        { name: 'Design Check', icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
+        { name: 'Sales Prediction', icon: TrendingUp, path: '/dashboard/sales-prediction', roles: ['Admin', 'Accountant'], group: 'business' },
+        { name: 'Seasonal Reports', icon: TrendingUp, path: '/dashboard/reports', roles: ['Admin', 'Accountant'], group: 'business' },
+        // Role-specific dashboards
+        { name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'business' },
+        { name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'business' },
     ];
 
     const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role));
@@ -137,10 +156,10 @@ const Dashboard = () => {
     const sidebarGroupDefs = [
         { key: 'main', label: null },
         { key: 'business', label: 'Business' },
-        { key: 'operations', label: 'Operations' },
         { key: 'finance', label: 'Finance' },
         { key: 'manage', label: 'Administration' },
         { key: 'analytics', label: 'Analytics' },
+        { key: 'operations', label: 'Operations' },
     ];
 
     const [collapsedGroups, setCollapsedGroups] = useState(() => {
@@ -284,6 +303,21 @@ const Dashboard = () => {
         }
     }, [user]);
 
+    // Fetch anomaly count for header badge (Admin / Accountant / Front Office)
+    useEffect(() => {
+        if (!['Admin', 'Accountant', 'Front Office'].includes(user?.role)) return;
+        let cancelled = false;
+        const fetchCount = async () => {
+            try {
+                const res = await api.get('ai/anomalies');
+                if (!cancelled) setAnomalyCount(res.data?.anomalies?.length || 0);
+            } catch { /* ignore */ }
+        };
+        fetchCount();
+        const interval = setInterval(fetchCount, 5 * 60 * 1000);
+        return () => { cancelled = true; clearInterval(interval); };
+    }, [user?.role]);
+
     const handleProfileSave = async (e) => {
         e.preventDefault();
         setProfileSaving(true);
@@ -354,6 +388,7 @@ const Dashboard = () => {
 
     return (
         <div className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
+            <ProgressBar active={isNavigating} />
             {/* Mobile Sidebar Overlay */}
             {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} aria-hidden="true"></div>}
 
@@ -476,18 +511,37 @@ const Dashboard = () => {
                         <Grid size={20} />
                     </button>
                     <div className="logo-text">SARGA</div>
-                    <div className="user-avatar avatar-sm" onClick={() => setShowProfileModal(true)}>
-                        {user?.image_url ? (
-                            <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
-                        ) : (
-                            user?.name ? user.name[0] : 'U'
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {anomalyCount > 0 && ['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
+                            <span style={{
+                                background: 'var(--error)', color: 'var(--on-accent)', borderRadius: '999px',
+                                fontSize: '11px', fontWeight: 700, padding: '2px 7px',
+                                lineHeight: '16px', minWidth: '20px', textAlign: 'center',
+                            }} title={`${anomalyCount} anomalies detected`}>
+                                {anomalyCount > 99 ? '99+' : anomalyCount}
+                            </span>
                         )}
+                        <div className="user-avatar avatar-sm" onClick={() => setShowProfileModal(true)}>
+                            {user?.image_url ? (
+                                <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
+                            ) : (
+                                user?.name ? user.name[0] : 'U'
+                            )}
+                        </div>
                     </div>
                 </div>
 
 
 
-                <div className="content-container">
+                {/* AI Panels */}
+                {['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
+                    <div style={{ padding: '16px 16px 0' }}>
+                        <InsightsPanel />
+                        <AnomalyPanel />
+                    </div>
+                )}
+
+                <div className={`content-container ${isNavigating ? 'page-enter' : 'page-enter-active'}`} key={location.pathname}>
                     <Suspense fallback={<PageLoader />}>
                         <Routes>
                             <Route path="" element={<DashboardHome />} />
@@ -503,21 +557,26 @@ const Dashboard = () => {
                             <Route path="requests" element={<IDChangeRequests />} />
                             <Route path="inventory" element={<Inventory />} />
                             <Route path="stock-verification" element={<StockVerification />} />
+                            <Route path="stock-planning" element={<RequiresConnection feature="Stock Planning"><StockPlanning /></RequiresConnection>} />
                             <Route path="customer-payments" element={<CustomerPayments />} />
                             <Route path="payment-verification" element={<PaymentVerification />} />
                             <Route path="expenses" element={<ExpenseManager />} />
                             <Route path="machines" element={<MachineManagement />} />
                             <Route path="daily-report" element={<DailyReport />} />
                             <Route path="attendance-salary" element={<AttendanceSalary />} />
-                            <Route path="ai-monitoring" element={<AIMonitoring />} />
-                            <Route path="design-check" element={<DesignChecker />} />
-                            <Route path="paper-layout" element={<PaperLayoutGenerator />} />
+                            <Route path="ai-monitoring" element={<RequiresConnection feature="AI Monitoring"><AIMonitoring /></RequiresConnection>} />
+                            <Route path="design-check" element={<RequiresConnection feature="Design Checker"><DesignChecker /></RequiresConnection>} />
+                            <Route path="paper-layout" element={<RequiresConnection feature="Paper Layout Generator"><PaperLayoutGenerator /></RequiresConnection>} />
                             <Route path="job-priority" element={<JobPriority />} />
-                            <Route path="sales-prediction" element={<SalesPrediction />} />
-                            <Route path="accounts" element={<Accounts />} />
+                            <Route path="sales-prediction" element={<RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection>} />
+                            <Route path="accounts" element={<RequiresConnection feature="Accounts & GST"><Accounts /></RequiresConnection>} />
                             <Route path="plates" element={<PlateManagement />} />
-                            <Route path="order-predictions" element={<OrderPredictions />} />
-                            <Route path="production-tracker" element={<ProductionTracker />} />
+                            <Route path="order-predictions" element={<RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection>} />
+                            <Route path="production-tracker" element={<RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection>} />
+                            <Route path="reports" element={<RequiresConnection feature="Seasonal Reports"><Reports /></RequiresConnection>} />
+                            <Route path="coupons" element={<CouponManagement />} />
+                            <Route path="cctv-attendance" element={<CCTVAttendance />} />
+                            <Route path="cctv-management" element={<CCTVManagement />} />
                             <Route path="other-staff-dashboard" element={<OtherStaffDashboard />} />
                             <Route path="printer-dashboard" element={<PrinterDashboard />} />
               <Route path="designer-dashboard" element={<DesignerDashboard />} />
@@ -631,7 +690,7 @@ const Dashboard = () => {
                         <div className="stack-md">
                             {/* SKU — prominently at the top */}
                             {inventoryScanResult.sku && (
-                                <div style={{ background: 'var(--primary)', color: '#fff', borderRadius: '8px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ background: 'var(--primary)', color: 'var(--on-accent)', borderRadius: '8px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <span style={{ fontSize: '11px', textTransform: 'uppercase', opacity: 0.85, whiteSpace: 'nowrap' }}>SKU</span>
                                     <span style={{ fontWeight: 700, fontSize: '16px', letterSpacing: '0.04em', flex: 1 }}>{inventoryScanResult.sku}</span>
                                 </div>

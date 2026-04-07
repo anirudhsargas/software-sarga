@@ -3,6 +3,7 @@ const { pool } = require('../database');
 
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { normalizeMobile, auditLog, hasPendingCustomerBalance, asyncHandler } = require('../helpers');
+const { paginate } = require('../helpers/pagination');
 
 // --- USER ID CHANGE REQUESTS ---
 
@@ -21,10 +22,21 @@ router.post('/requests/id-change', authenticateToken, asyncHandler(async (req, r
 // Admin Review Requests
 router.get('/requests/id-change', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
     try {
-        const [rows] = await pool.query(`SELECT r.*, u.name FROM sarga_id_requests r 
-                                     JOIN sarga_staff u ON r.user_id_internal = u.id 
-                                     WHERE r.status = 'PENDING'`);
-        res.json(rows);
+        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const baseFrom = `
+             FROM sarga_id_requests r 
+             JOIN sarga_staff u ON r.user_id_internal = u.id 
+             WHERE r.status = 'PENDING'
+        `;
+
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`);
+        const [rows] = await pool.query(`
+            SELECT r.*, u.name 
+            ${baseFrom}
+            ORDER BY r.created_at DESC
+            LIMIT ? OFFSET ?
+        `, [limit, offset]);
+        res.json(response(rows, total));
     } catch (err) {
         res.status(500).json({ message: 'Database error' });
     }
@@ -99,15 +111,22 @@ router.post('/requests/customer-change', authenticateToken, asyncHandler(async (
 
 // List customer change requests (Admin)
 router.get('/requests/customer-change', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
-    const [rows] = await pool.query(`
-        SELECT r.*, s.name AS requester_name, c.name AS customer_name
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const baseFrom = `
         FROM sarga_customer_requests r
         JOIN sarga_staff s ON r.requester_id = s.id
         JOIN sarga_customers c ON r.customer_id = c.id
         WHERE r.status = 'PENDING'
+    `;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`);
+    const [rows] = await pool.query(`
+        SELECT r.*, s.name AS requester_name, c.name AS customer_name
+        ${baseFrom}
         ORDER BY r.created_at DESC
-    `);
-    res.json(rows);
+        LIMIT ? OFFSET ?
+    `, [limit, offset]);
+    res.json(response(rows, total));
 }));
 
 // Approve/Reject customer change requests (Admin)
@@ -176,14 +195,21 @@ router.post('/requests/customer-change/:id/review', authenticateToken, authorize
 
 // List attendance change requests (Admin)
 router.get('/requests/attendance', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
-    const [rows] = await pool.query(`
-        SELECT r.*, s.name AS staff_name
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const baseFrom = `
         FROM sarga_attendance_requests r
         JOIN sarga_staff s ON r.staff_id = s.id
         WHERE r.status = 'Pending'
+    `;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`);
+    const [rows] = await pool.query(`
+        SELECT r.*, s.name AS staff_name
+        ${baseFrom}
         ORDER BY r.created_at DESC
-    `);
-    res.json(rows);
+        LIMIT ? OFFSET ?
+    `, [limit, offset]);
+    res.json(response(rows, total));
 }));
 
 // Approve/Reject attendance change requests (Admin)
@@ -306,15 +332,23 @@ router.get('/requests/discount/my', authenticateToken, asyncHandler(async (req, 
 // List all pending discount requests (Admin sees all; Accountant sees only accountant_or_admin)
 router.get('/requests/discount', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
     const isAdmin = req.user.role === 'Admin';
-    const [rows] = await pool.query(`
-        SELECT r.*, s.name AS requester_name
+    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+
+    const baseFrom = `
         FROM sarga_discount_requests r
         JOIN sarga_staff s ON r.requester_id = s.id
         WHERE r.status = 'PENDING'
         ${!isAdmin ? "AND r.approval_level = 'accountant_or_admin'" : ''}
+    `;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`);
+    const [rows] = await pool.query(`
+        SELECT r.*, s.name AS requester_name
+        ${baseFrom}
         ORDER BY r.created_at DESC
-    `);
-    res.json(rows);
+        LIMIT ? OFFSET ?
+    `, [limit, offset]);
+    res.json(response(rows, total));
 }));
 
 // Approve/Reject discount request

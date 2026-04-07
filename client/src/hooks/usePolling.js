@@ -19,6 +19,7 @@ const usePolling = (callback, intervalMs = 30000, enabled = true) => {
 
     const start = useCallback(() => {
         if (intervalRef.current) clearInterval(intervalRef.current);
+        
         intervalRef.current = setInterval(() => {
             if (document.visibilityState === 'visible') {
                 savedCallback.current();

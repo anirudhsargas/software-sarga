@@ -2,9 +2,10 @@ const { z } = require('zod');
 
 // ---- Reusable primitives ----
 const mobile10 = z.string().regex(/^\d{10}$/, 'Must be exactly 10 digits');
-const positiveDecimal = z.preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().min(0).optional());
+const positiveDecimal = z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0, 'Amount cannot be negative').optional());
+const requiredPositiveNumber = z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0, 'Amount cannot be negative'));
 const requiredString = (label) => z.string().min(1, `${label} is required`).trim();
-const optionalPositiveInt = z.preprocess((v) => (v === '' || v === null || v === undefined ? null : Number(v)), z.number().int().positive().nullable());
+const optionalPositiveInt = z.preprocess((v) => (v === '' || v === null || v === undefined ? null : Number(v)), z.number().int().min(0).nullable());
 
 // ---- Auth ----
 const loginSchema = z.object({
@@ -12,11 +13,20 @@ const loginSchema = z.object({
     password: z.string().min(1, 'Password is required')
 });
 
+// Password validation regex - min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&^#()_+\-=\[\]{};':",./<>?\|`~])[A-Za-z\d@$!%*?&^#()_+\-=\[\]{};':",./<>?\|`~]{8,}$/;
+
 const changePasswordSchema = z.object({
     currentPassword: z.string().min(0, 'Current password is required for password change').optional().nullable(),
-    newPassword: z.string().min(8, 'Password must be at least 8 characters')
-        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-        .regex(/[0-9]/, 'Password must contain at least one number')
+    newPassword: z.string()
+        .min(8, 'Password must be at least 8 characters')
+        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter (A-Z)')
+        .regex(/[a-z]/, 'Password must contain at least one lowercase letter (a-z)')
+        .regex(/[0-9]/, 'Password must contain at least one number (0-9)')
+        .regex(/[@$!%*?&^#()_+\-=\[\]{};':",./<>?\|`~]/, 'Password must contain at least one special character (@$!%*?&^#()_+-=[]{};\'":.;<>,...)')
+        .refine(pwd => passwordRegex.test(pwd), {
+            message: 'Password does not meet complexity requirements'
+        })
 });
 
 // ---- Staff ----
@@ -42,8 +52,8 @@ const addPaymentSchema = z.object({
     branch_id: optionalPositiveInt,
     type: z.enum(['Vendor', 'Utility', 'Salary', 'Rent', 'Other']),
     payee_name: requiredString('Payee name'),
-    amount: z.preprocess(Number, z.number().positive('Amount must be greater than 0')),
-    payment_method: z.enum(['Cash', 'UPI', 'Cheque', 'Both', 'Account Transfer']).optional().default('Cash'),
+    amount: requiredPositiveNumber,
+    payment_method: z.enum(['Cash', 'UPI', 'Cheque', 'Both', 'Account Transfer', 'Bank Transfer', 'Other']).optional().default('Cash'),
     reference_number: z.string().optional().nullable().or(z.literal('')),
     description: z.string().optional().nullable().or(z.literal('')),
     payment_date: z.string().min(1, 'Payment date is required'),
@@ -62,7 +72,8 @@ const branchSchema = z.object({
     name: requiredString('Branch name'),
     address: z.string().optional().nullable().or(z.literal('')),
     phone: z.string().optional().nullable().or(z.literal('')),
-    upi_id: z.string().optional().nullable().or(z.literal(''))
+    upi_id: z.string().optional().nullable().or(z.literal('')),
+    short_name: z.string().max(10, 'Short name too long').optional().nullable().or(z.literal(''))
 });
 
 // ---- Vendors ----
@@ -125,6 +136,74 @@ const attendanceSchema = z.object({
     status: z.enum(['Present', 'Absent', 'Leave', 'Holiday'])
 });
 
+// ---- Office Expenses ----
+const officeExpenseSchema = z.object({
+    expense_type: requiredString('Expense type'),
+    vendor_name: z.string().optional().nullable(),
+    amount: requiredPositiveNumber,
+    payment_method: z.string().optional().default('Cash'),
+    reference_number: z.string().optional().nullable(),
+    description: z.string().optional().nullable(),
+    expense_date: z.string().optional().nullable(),
+    bill_number: z.string().optional().nullable()
+});
+
+// ---- Finance (EMI & Kuri) ----
+const emiMasterSchema = z.object({
+    emi_type: z.enum(['Loan', 'Vehicle', 'Machine', 'Personal', 'Business']),
+    institution_name: requiredString('Institution name'),
+    loan_amount: positiveDecimal,
+    monthly_emi: requiredPositiveNumber,
+    start_date: z.string().min(1, 'Start date is required'),
+    end_date: z.string().optional().nullable(),
+    due_day: z.preprocess(Number, z.number().int().min(1).max(31)).optional().default(5),
+    account_number: z.string().optional().nullable(),
+    branch_id: optionalPositiveInt,
+    description: z.string().optional().nullable(),
+    is_active: z.preprocess((v) => v === true || v === 'true' || v === 1, z.boolean().optional().default(true))
+});
+
+const emiPaymentSchema = z.object({
+    emi_id: optionalPositiveInt.refine(v => v !== null, { message: "EMI ID is required" }),
+    payment_date: z.string().optional().nullable(),
+    amount: requiredPositiveNumber,
+    payment_method: z.string().optional().nullable(),
+    reference_number: z.string().optional().nullable(),
+    notes: z.string().optional().nullable()
+});
+
+const kuriMasterSchema = z.object({
+    kuri_name: requiredString('Kuri name'),
+    organizer_name: z.string().optional().nullable(),
+    organizer_phone: z.string().optional().nullable(),
+    total_amount: positiveDecimal,
+    monthly_installment: requiredPositiveNumber,
+    start_date: z.string().min(1, 'Start date is required'),
+    end_date: z.string().optional().nullable(),
+    due_day: z.preprocess(Number, z.number().int().min(1).max(31)).optional().default(5),
+    prize_taken: z.preprocess((v) => v === true || v === 'true' || v === 1, z.boolean().optional().default(false)),
+    prize_amount: positiveDecimal,
+    prize_date: z.string().optional().nullable(),
+    branch_id: optionalPositiveInt,
+    description: z.string().optional().nullable(),
+    is_active: z.preprocess((v) => v === true || v === 'true' || v === 1, z.boolean().optional().default(true))
+});
+
+const kuriPaymentSchema = z.object({
+    kuri_id: optionalPositiveInt.refine(v => v !== null, { message: "Kuri ID is required" }),
+    payment_date: z.string().optional().nullable(),
+    amount: requiredPositiveNumber,
+    payment_method: z.string().optional().nullable(),
+    reference_number: z.string().optional().nullable(),
+    notes: z.string().optional().nullable()
+});
+
+const staffSalaryUpdateSchema = z.object({
+    salary_type: z.enum(['Monthly', 'Daily']).optional(),
+    base_salary: positiveDecimal.nullable(),
+    daily_rate: positiveDecimal.nullable()
+});
+
 // ---- Middleware factory ----
 const validate = (schema, property = 'body') => (req, res, next) => {
     try {
@@ -146,10 +225,14 @@ module.exports = {
     changePasswordSchema,
     addStaffSchema,
     addCustomerSchema,
-    addPaymentSchema,
-    branchSchema,
-    addVendorSchema,
-    addJobSchema,
     addInventorySchema,
-    attendanceSchema
+    attendanceSchema,
+    officeExpenseSchema,
+    emiMasterSchema,
+    emiPaymentSchema,
+    kuriMasterSchema,
+    kuriPaymentSchema,
+    staffSalaryUpdateSchema,
+    addJobSchema,
+    addPaymentSchema
 };

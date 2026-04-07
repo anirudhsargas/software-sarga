@@ -4,6 +4,7 @@ import { ArrowLeft, Briefcase, IndianRupee, User, Clock, AlertCircle, Loader2, C
 import auth from '../services/auth';
 import api from '../services/api';
 import { serverToday, serverThisMonth } from '../services/serverTime';
+import { useOptimistic } from '../hooks/useOptimistic';
 import './EmployeeDetail.css';
 
 const createIdempotencyKey = () => (typeof crypto !== 'undefined' && crypto.randomUUID
@@ -16,7 +17,7 @@ const EmployeeDetail = () => {
     const [employee, setEmployee] = useState(null);
     const [workHistory, setWorkHistory] = useState([]);
     const [salaryInfo, setSalaryInfo] = useState(null);
-    const [attendance, setAttendance] = useState([]);
+    const { data: attendance, setData: setAttendance, optimisticUpdate } = useOptimistic([]);
     // Track if attendance is already marked today
     const [attendanceMarkedToday, setAttendanceMarkedToday] = useState(false);
     const [salaryCalculation, setSalaryCalculation] = useState(null);
@@ -47,36 +48,57 @@ const EmployeeDetail = () => {
     const handleAttendanceSubmit = async (e) => {
         e.preventDefault();
         setAttendanceSubmitError('');
-        try {
-            // Only Admin can mark Holiday
-            if (attendanceForm.status === 'Holiday' && !['Admin'].includes(auth.getUser()?.role)) {
-                setAttendanceSubmitError('Only Admin can mark holidays.');
-                return;
-            }
-            // Require time for Present/Half Day
-            if ((attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day') && !attendanceForm.time) {
-                setAttendanceSubmitError('Please enter time for Present/Half Day.');
-                return;
-            }
-            // Only allowed roles can mark attendance
-            const allowedRoles = ['Admin', 'Accountant', 'Front Office', 'front office'];
-            if (!allowedRoles.includes(auth.getUser()?.role)) {
-                setAttendanceSubmitError('Only Admin/Accountant/Front Office can record attendance');
-                return;
-            }
-            const payload = {
-                attendance_date: serverToday(),
-                status: attendanceForm.status,
-                notes: attendanceForm.notes,
-                time: attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day' ? attendanceForm.time : undefined
-            };
-            await api.post(`/staff/${staffId}/attendance`, payload);
-            setShowAttendanceModal(false);
-            setAttendanceForm({ status: 'Present', time: '09:00', notes: '' });
-            fetchAttendanceData();
-        } catch (err) {
-            setAttendanceSubmitError(err.response?.data?.message || 'Failed to mark attendance');
+        
+        // Only Admin can mark Holiday
+        if (attendanceForm.status === 'Holiday' && !['Admin'].includes(auth.getUser()?.role)) {
+            setAttendanceSubmitError('Only Admin can mark holidays.');
+            return;
         }
+        // Require time for Present/Half Day
+        if ((attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day') && !attendanceForm.time) {
+            setAttendanceSubmitError('Please enter time for Present/Half Day.');
+            return;
+        }
+        // Only allowed roles can mark attendance
+        const allowedRoles = ['Admin', 'Accountant', 'Front Office', 'front office'];
+        if (!allowedRoles.includes(auth.getUser()?.role)) {
+            setAttendanceSubmitError('Only Admin/Accountant/Front Office can record attendance');
+            return;
+        }
+
+        const today = serverToday();
+        const newRecord = {
+            id: Date.now(), // temporary id
+            attendance_date: today,
+            status: attendanceForm.status,
+            notes: attendanceForm.notes,
+            time: attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day' ? attendanceForm.time : undefined,
+            _optimistic: true
+        };
+
+        optimisticUpdate({
+            updateFn: (prev) => {
+                // Remove existing today's record if any, and add new one
+                const filtered = prev.filter(a => a.attendance_date !== today);
+                return [newRecord, ...filtered];
+            },
+            serverFn: async () => {
+                const payload = {
+                    attendance_date: today,
+                    status: attendanceForm.status,
+                    notes: attendanceForm.notes,
+                    time: newRecord.time
+                };
+                await api.post(`/staff/${staffId}/attendance`, payload);
+                setShowAttendanceModal(false);
+                setAttendanceForm({ status: 'Present', time: '09:00', notes: '' });
+                fetchAttendanceData(); // Refresh to get real ID and update salary calc
+                return (prev) => prev.map(a => a.id === newRecord.id ? { ...a, _optimistic: false } : a);
+            },
+            rollbackFn: (prev) => prev.filter(a => a.id !== newRecord.id),
+            successMsg: 'Attendance marked',
+            errorMsg: 'Failed to mark attendance'
+        });
     };
     const [salaryForm, setSalaryForm] = useState({
         payment_amount: '',
@@ -100,7 +122,7 @@ const EmployeeDetail = () => {
                 api.get(`/staff/${staffId}/work-history`),
                 api.get(`/staff/${staffId}/salary-info`)
             ]);
-            setWorkHistory(workRes.data);
+            setWorkHistory(Array.isArray(workRes.data) ? workRes.data : (workRes.data?.data || []));
             setSalaryInfo(salaryRes.data);
             setEmployee(salaryRes.data.staff);
 
@@ -238,7 +260,7 @@ const EmployeeDetail = () => {
     if (!employee) {
         return (
             <div className="p-6">
-                <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-accent mb-6">
+                <button onClick={() => navigate('/dashboard/staff')} className="flex items-center gap-2 text-accent mb-6">
                     <ArrowLeft size={20} /> Back
                 </button>
                 {error ? (
@@ -256,7 +278,7 @@ const EmployeeDetail = () => {
     return (
         <div className="employee-detail">
             <div className="employee-detail__container">
-                <button onClick={() => navigate(-1)} className="employee-detail__back">
+                <button onClick={() => navigate('/dashboard/staff')} className="employee-detail__back">
                     <ArrowLeft size={18} /> Back to Staff
                 </button>
 
@@ -423,7 +445,7 @@ const EmployeeDetail = () => {
                                                     {attendanceSubmitError && <div style={{ color: 'var(--error)', margin: '8px 0', fontSize: 13 }}>{attendanceSubmitError}</div>}
                                                     <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
                                                         <button type="button" className="employee-detail__btn is-ghost" onClick={() => setShowAttendanceModal(false)} style={{ minWidth: 80 }}>Cancel</button>
-                                                        <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: '#000', minWidth: 80 }}>Save</button>
+                                                        <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: 'var(--text)', minWidth: 80 }}>Save</button>
                                                     </div>
                                                 </form>
                                             ) : (
@@ -494,7 +516,7 @@ const EmployeeDetail = () => {
                                                     {attendanceSubmitError && <div style={{ color: 'var(--error)', margin: '8px 0', fontSize: 13 }}>{attendanceSubmitError}</div>}
                                                     <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
                                                         <button type="button" className="employee-detail__btn is-ghost" onClick={() => setShowAttendanceModal(false)} style={{ minWidth: 80 }}>Cancel</button>
-                                                        <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: '#fff', minWidth: 80 }}>Request Change</button>
+                                                        <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: 'var(--on-accent)', minWidth: 80 }}>Request Change</button>
                                                     </div>
                                                 </form>
                                             )
@@ -538,7 +560,7 @@ const EmployeeDetail = () => {
                                                 {attendanceSubmitError && <div style={{ color: 'var(--error)', margin: '8px 0', fontSize: 13 }}>{attendanceSubmitError}</div>}
                                                 <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
                                                     <button type="button" className="employee-detail__btn is-ghost" onClick={() => setShowAttendanceModal(false)} style={{ minWidth: 80 }}>Cancel</button>
-                                                    <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: '#000', minWidth: 80 }}>Save</button>
+                                                    <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: 'var(--text)', minWidth: 80 }}>Save</button>
                                                 </div>
                                             </form>
                                         )}
@@ -547,19 +569,19 @@ const EmployeeDetail = () => {
 
                             )}
                             {attendanceError && (
-                                <div style={{ background: '#fee', padding: '12px', borderRadius: '4px', marginBottom: '16px', color: '#c33', fontSize: '13px' }}>
+                                <div style={{ background: 'var(--error-bg)', padding: '12px', borderRadius: '4px', marginBottom: '16px', color: 'var(--error)', fontSize: '13px' }}>
                                     {attendanceError}
                                 </div>
                             )}
 
                             {salaryCalculationError && (
-                                <div style={{ background: '#fee', padding: '12px', borderRadius: '4px', marginBottom: '16px', color: '#c33', fontSize: '13px' }}>
+                                <div style={{ background: 'var(--error-bg)', padding: '12px', borderRadius: '4px', marginBottom: '16px', color: 'var(--error)', fontSize: '13px' }}>
                                     {salaryCalculationError}
                                 </div>
                             )}
 
                             {!salaryCalculation && !salaryCalculationError ? (
-                                <div className="employee-detail__empty" style={{ background: '#f5f5f5', padding: '24px', borderRadius: '6px', textAlign: 'center' }}>
+                                <div className="employee-detail__empty" style={{ background: 'var(--surface-2)', padding: '24px', borderRadius: '6px', textAlign: 'center' }}>
                                     <Clock className="employee-detail__empty-icon" />
                                     <p>Loading attendance data for {currentMonth}...</p>
                                 </div>
@@ -585,7 +607,7 @@ const EmployeeDetail = () => {
                                             <div style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Holiday</div>
                                             <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>{salaryCalculation.attendance?.holiday || 0}</div>
                                         </div>
-                                        <div style={{ padding: 14, borderRadius: 10, background: 'linear-gradient(135deg, var(--success), var(--success))', color: '#fff' }}>
+                                        <div style={{ padding: 14, borderRadius: 10, background: 'linear-gradient(135deg, var(--success), var(--success))', color: 'var(--on-accent)' }}>
                                             <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.85 }}>Calculated Salary</div>
                                             <div style={{ fontSize: 22, fontWeight: 800 }}>₹{Number(salaryCalculation.calculation?.calculatedSalary || 0).toLocaleString('en-IN')}</div>
                                         </div>
@@ -598,7 +620,9 @@ const EmployeeDetail = () => {
                                         const daysInMonth = new Date(y, m, 0).getDate();
                                         const today = new Date();
                                         const attMap = {};
-                                        (attendance || []).forEach(a => { attMap[new Date(a.attendance_date).getDate()] = a.status; });
+                                        (attendance || []).forEach(a => { 
+                                            attMap[new Date(a.attendance_date).getDate()] = { status: a.status, optimistic: a._optimistic }; 
+                                        });
                                         const statusCfg = {
                                             Present: { color: 'var(--success)', bg: 'var(--success)18', label: 'P' },
                                             Absent: { color: 'var(--error)', bg: 'var(--error)18', label: 'A' },
@@ -610,7 +634,8 @@ const EmployeeDetail = () => {
                                         for (let i = 0; i < firstDay; i++) cells.push(null);
                                         for (let d = 1; d <= daysInMonth; d++) {
                                             const date = new Date(y, m - 1, d);
-                                            cells.push({ day: d, status: attMap[d] || null, isSunday: date.getDay() === 0, isToday: date.toDateString() === today.toDateString(), isFuture: date > today });
+                                            const entry = attMap[d];
+                                            cells.push({ day: d, status: entry?.status || null, optimistic: entry?.optimistic, isSunday: date.getDay() === 0, isToday: date.toDateString() === today.toDateString(), isFuture: date > today });
                                         }
                                         return (
                                             <div style={{ background: 'var(--surface, #fff)', borderRadius: 12, border: '1px solid var(--border)', padding: 16, marginBottom: 20 }}>
@@ -627,11 +652,13 @@ const EmployeeDetail = () => {
                                                             <div key={cell.day} style={{
                                                                 aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                                                                 borderRadius: 6, fontSize: 12, fontWeight: cell.isToday ? 800 : 500,
-                                                                background: cell.isToday ? 'linear-gradient(135deg, var(--accent), #818cf8)' : cfg?.bg || (cell.isSunday ? 'var(--error)10' : 'var(--bg, #ffffff08)'),
-                                                                color: cell.isToday ? '#fff' : cell.isFuture ? 'var(--muted)' : cfg?.color || (cell.isSunday ? 'var(--error)' : 'inherit'),
-                                                                border: cell.isToday ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                                                opacity: cell.isFuture ? 0.4 : 1
-                                                            }} title={cell.status ? `${cell.day}: ${cell.status}` : `${cell.day}`}>
+                                                                background: cell.isToday ? 'linear-gradient(135deg, var(--accent), #818cf8)' : (cell.optimistic ? 'var(--bg-2, #eeeeee80)' : cfg?.bg || (cell.isSunday ? 'var(--error)10' : 'var(--bg, #ffffff08)')),
+                                                                color: cell.isToday ? 'var(--on-accent)' : cell.isFuture ? 'var(--muted)' : (cell.optimistic ? 'var(--muted)' : cfg?.color || (cell.isSunday ? 'var(--error)' : 'inherit')),
+                                                                border: cell.isToday ? '2px solid var(--accent)' : (cell.optimistic ? '1px dashed var(--accent)' : '1px solid var(--border)'),
+                                                                opacity: cell.isFuture ? 0.4 : 1,
+                                                                position: 'relative'
+                                                            }} title={cell.status ? `${cell.day}: ${cell.status}${cell.optimistic ? ' (Updating...)' : ''}` : `${cell.day}`}>
+                                                                {cell.optimistic && <div style={{ position: 'absolute', top: 2, right: 2, width: 4, height: 4, borderRadius: '50%', background: 'var(--accent)' }} />}
                                                                 <span style={{ fontSize: 13, fontWeight: 600 }}>{cell.day}</span>
                                                                 {cfg && <span style={{ fontSize: 8, fontWeight: 700, marginTop: 1 }}>{cfg.label}</span>}
                                                                 {cell.isSunday && !cfg && !cell.isFuture && <span style={{ fontSize: 7, fontWeight: 600, marginTop: 1, opacity: 0.7 }}>OFF</span>}
@@ -642,7 +669,7 @@ const EmployeeDetail = () => {
                                                 <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
                                                     {Object.entries({ Present: 'var(--success)18', Absent: 'var(--error)18', 'Half Day': 'var(--warning)18', Holiday: 'var(--accent)18' }).map(([k, bg]) => (
                                                         <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
-                                                            <div style={{ width: 10, height: 10, borderRadius: 2, background: bg, border: '1px solid #00000012' }} />
+                                                            <div style={{ width: 10, height: 10, borderRadius: 2, background: bg, border: '1px solid var(--border-subtle)' }} />
                                                             <span style={{ color: 'var(--muted)' }}>{k}</span>
                                                         </div>
                                                     ))}
@@ -1015,7 +1042,7 @@ const EmployeeDetail = () => {
                                 }}
                                 style={{
                                     background: confirmDialog.type === 'confirm' ? 'var(--accent)' : 'var(--success)',
-                                    color: '#111827', // Dark text as requested
+                                    color: 'var(--text)', // Dark text as requested
                                     borderRadius: 12,
                                     height: 48,
                                     padding: '0 20px',

@@ -28,10 +28,16 @@ uploads/
 *.bak
 dev-scripts/
 
-# Vercel
-.vercel
+# ML model artifacts
+ml-service/models/
+
 
 # Development temp files
 *.tmp
 check_*.js
 test_*.js
+
+# CCTV Attendance — sensitive per-PC config and staff photos
+tools/config.json
+tools/images/
+tools/attendance_log.txt

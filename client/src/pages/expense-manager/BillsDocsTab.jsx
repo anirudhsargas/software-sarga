@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { FileText, Upload, Search, Eye, Trash2, Loader2, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../../services/api';
+import localDb from '../../services/localDb';
 import { fmtDate, today, fmt, DOCUMENT_TYPES } from './constants';
 import { imgUrl } from '../../services/api';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import useAuth from '../../hooks/useAuth';
 import SmartBillUpload from './SmartBillUpload';
 import FullBillModal from './FullBillModal';
 
@@ -12,8 +15,11 @@ const PAGE_SIZE = 50;
 
 const BillsDocsTab = ({ onError }) => {
   const { confirm } = useConfirm();
+  const { user } = useAuth();
+  const canDelete = user?.role === 'Admin' || user?.role === 'Accountant';
   const [docs, setDocs] = useState([]);
   const [filter, setFilter] = useState({ document_type: '', vendor_name: '' });
+  const [search, setSearch] = useState('');
   const [showUpload, setShowUpload] = useState(false);
   const [showSmartUpload, setShowSmartUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -23,8 +29,8 @@ const BillsDocsTab = ({ onError }) => {
 
   const fetchDocs = useCallback(async () => {
     try {
-      const r = await api.get('/bills-documents', { params: { document_type: filter.document_type || undefined, vendor_name: filter.vendor_name || undefined } });
-      setDocs(r.data); setPage(1);
+      const docs = await localDb.getBillsDocuments({ document_type: filter.document_type || undefined, vendor_name: filter.vendor_name || undefined });
+      setDocs(docs); setPage(1);
     } catch { }
   }, [filter]);
 
@@ -33,19 +39,23 @@ const BillsDocsTab = ({ onError }) => {
   const uploadDoc = async (e) => {
     e.preventDefault(); setUploading(true);
     try {
-      const fd = new FormData();
-      if (form.file) fd.append('file', form.file);
-      fd.append('document_type', form.document_type);
-      fd.append('related_tab', form.related_tab);
-      fd.append('vendor_name', form.vendor_name);
-      fd.append('bill_number', form.bill_number);
-      fd.append('bill_date', form.bill_date);
-      fd.append('amount', form.amount);
-      fd.append('description', form.description);
-      const url = form.file ? '/bills-documents/upload' : '/bills-documents';
-      await api.post(url, form.file ? fd : form, form.file ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined);
+      const file = form.file || null;
+      const docData = {
+        document_type: form.document_type,
+        related_tab: form.related_tab,
+        vendor_name: form.vendor_name,
+        bill_number: form.bill_number,
+        bill_date: form.bill_date,
+        amount: form.amount,
+        description: form.description,
+        // Store the actual file blob locally so it can be viewed offline
+        file_blob: file || undefined,
+        file_name: file?.name || undefined,
+        file_type: file?.type || undefined,
+      };
+      await localDb.saveBillDocument(docData);
       setShowUpload(false); setForm(defaultForm); fetchDocs();
-    } catch (err) { onError(err.response?.data?.message || 'Upload failed'); }
+    } catch (err) { onError('Local upload failed'); }
     finally { setUploading(false); }
   };
 
@@ -61,13 +71,26 @@ const BillsDocsTab = ({ onError }) => {
     const deleteInventoryToo = window.confirm('Also delete inventory entries added from this bill? Click OK for Yes, Cancel for No.');
 
     try {
-      await api.delete(`/bills-documents/${id}${deleteInventoryToo ? '?deleteInventory=1' : ''}`);
+      await localDb.deleteBillDocument(id);
       fetchDocs();
     } catch { }
   };
 
-  const totalPages = Math.ceil(docs.length / PAGE_SIZE);
-  const pagedDocs = docs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const debouncedSearch = useDebounce(search, 300);
+  const filteredDocs = useMemo(() => {
+    if (!debouncedSearch) return docs;
+    const s = debouncedSearch.toLowerCase();
+    return docs.filter(d =>
+      (d.document_type && d.document_type.toLowerCase().includes(s)) ||
+      (d.vendor_name && d.vendor_name.toLowerCase().includes(s)) ||
+      (d.bill_number && d.bill_number.toLowerCase().includes(s)) ||
+      (d.amount && String(d.amount).includes(s)) ||
+      (d.description && d.description.toLowerCase().includes(s))
+    );
+  }, [docs, debouncedSearch]);
+  const totalPages = Math.ceil(filteredDocs.length / PAGE_SIZE);
+  const pagedDocs = useMemo(() => filteredDocs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filteredDocs, page]);
+
 
   return (
     <div className="em-section">
@@ -88,38 +111,56 @@ const BillsDocsTab = ({ onError }) => {
           <option value="">All Types</option>
           {DOCUMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <div className="em-search-wrap"><Search className="em-search-icon" size={16} /><input className="em-input" placeholder="Search vendor..." value={filter.vendor_name} onChange={e => setFilter(p => ({ ...p, vendor_name: e.target.value }))} /></div>
+        <div className="em-search-wrap">
+          <Search className="em-search-icon" size={16} />
+          <input
+            className="em-input"
+            placeholder="Search bills & docs..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            style={{ maxWidth: 220 }}
+          />
+        </div>
       </div>
 
       {docs.length > 0 ? (
-        <>
-          {docs.length > PAGE_SIZE && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, docs.length)} of {docs.length}</span>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {filteredDocs.length > PAGE_SIZE && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '8px 0', flexShrink: 0 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredDocs.length)} of {filteredDocs.length}</span>
               <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
               <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
             </div>
           )}
-          <div className="em-table-wrap">
-          <table className="em-table">
-            <thead><tr><th>Date</th><th>Type</th><th>Vendor</th><th>Bill #</th><th>Amount</th><th>File</th><th>Actions</th></tr></thead>
-            <tbody>
-              {pagedDocs.map(d => (
-                <tr key={d.id}>
-                  <td>{fmtDate(d.bill_date)}</td><td><span className="em-type-badge em-type-badge--other">{d.document_type}</span></td><td>{d.vendor_name || '—'}</td><td>{d.bill_number || '—'}</td><td className="em-amount-cell">{d.amount ? `₹${fmt(d.amount)}` : '—'}</td>
-                  <td>{d.file_path ? <a href={imgUrl(d.file_path)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm"><Eye size={14} /> View</a> : '—'}</td>
-                  <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setFullBillDocId(d.id)}>
-                      <Eye size={14} /> Full Bill
-                    </button>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleDelete(d.id)}><Trash2 size={14} /></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="em-table-wrap" style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+            <table className="em-table">
+              <thead><tr><th style={{ width: 100 }}>Date</th><th style={{ width: 130 }}>Type</th><th>Vendor</th><th style={{ width: 100 }}>Bill #</th><th style={{ width: 110 }}>Amount</th><th style={{ width: 80 }}>File</th><th style={{ width: 150 }}>Actions</th></tr></thead>
+              <tbody>
+                {pagedDocs.map(d => (
+                  <tr key={d.id}>
+                    <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(d.bill_date)}</td>
+                    <td><span className="em-type-badge em-type-badge--other">{d.document_type}</span></td>
+                    <td style={{ wordBreak: 'break-word' }}>{d.vendor_name || '—'}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{d.bill_number || '—'}</td>
+                    <td className="em-amount-cell">{d.amount ? `₹${fmt(d.amount)}` : '—'}</td>
+                    <td>{d.file_path ? <a href={imgUrl(d.file_path)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm"><Eye size={14} /> View</a> : '—'}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setFullBillDocId(d.id)}><Eye size={14} /> Full Bill</button>
+                        {canDelete ? (
+                          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleDelete(d.id)} title="Delete document"><Trash2 size={14} /></button>
+                        ) : (
+                          <button className="btn btn-ghost btn-icon btn-sm" disabled title="Only Admin or Accountant can delete bills" style={{ opacity: 0.35, cursor: 'not-allowed' }}><Trash2 size={14} /></button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {pagedDocs.length === 0 && <div className="em-empty-text">No documents found</div>}
+          </div>
         </div>
-        </>
       ) : <div className="em-empty-text">No documents yet</div>}
 
       {/* Bill Upload Modal */}

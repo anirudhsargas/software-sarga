@@ -4,15 +4,15 @@ const customerPaymentSchema = z.object({
     customer_id: z.coerce.number().nullable().optional(),
     customer_name: z.string().min(1, "Customer name is required").max(100),
     customer_mobile: z.string().optional().nullable(),
-    bill_amount: z.coerce.number().optional().default(0),
+    bill_amount: z.coerce.number().min(0).optional().default(0),
     total_amount: z.coerce.number().min(0).max(10000000),
-    net_amount: z.coerce.number().optional().default(0),
-    sgst_amount: z.coerce.number().optional().default(0),
-    cgst_amount: z.coerce.number().optional().default(0),
+    net_amount: z.coerce.number().min(0).optional().default(0),
+    sgst_amount: z.coerce.number().min(0).optional().default(0),
+    cgst_amount: z.coerce.number().min(0).optional().default(0),
     advance_paid: z.coerce.number().min(0),
     payment_method: z.enum(['Cash', 'UPI', 'Cheque', 'Account Transfer', 'Both']),
-    cash_amount: z.coerce.number().optional().default(0),
-    upi_amount: z.coerce.number().optional().default(0),
+    cash_amount: z.coerce.number().min(0).optional().default(0),
+    upi_amount: z.coerce.number().min(0).optional().default(0),
     reference_number: z.string().optional().nullable(),
     description: z.string().optional().nullable(),
     discount_percent: z.coerce.number().min(0).max(100).optional().nullable().default(0),
@@ -33,7 +33,8 @@ const customerPaymentSchema = z.object({
         machine_id: z.coerce.number().optional().nullable()
     }).passthrough()).optional().default([]),
     job_ids: z.array(z.coerce.number()).optional().default([]),
-    auto_deliver: z.boolean().optional().default(false)
+    auto_deliver: z.boolean().optional().default(false),
+    coupon_code: z.string().optional().nullable()
 }).refine(data => {
     if (data.advance_paid > data.total_amount * 1.01) return false;
     return true;

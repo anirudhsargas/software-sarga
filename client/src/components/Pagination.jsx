@@ -1,84 +1,120 @@
 import React from 'react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import './Pagination.css';
 
-/**
- * Reusable pagination component.
- * Props:
- *   page      - current page (1-based)
- *   totalPages - total number of pages
- *   onPageChange(newPage) - callback when page changes
- *   limit     - (optional) current page size
- *   total     - (optional) total item count, displayed as info
- */
-export default function Pagination({ page, totalPages, onPageChange, total, limit }) {
-    if (!totalPages || totalPages <= 1) return null;
+const Pagination = ({ page, totalPages, total, limit = 20, onPageChange, loading }) => {
+  if (totalPages <= 1) return null;
 
+  const start = (page - 1) * limit + 1;
+  const end = Math.min(page * limit, total);
+
+  // Generate page numbers to show
+  const getPages = () => {
     const pages = [];
-    const maxVisible = 5;
-    let start = Math.max(1, page - Math.floor(maxVisible / 2));
-    let end = Math.min(totalPages, start + maxVisible - 1);
-    if (end - start + 1 < maxVisible) {
-        start = Math.max(1, end - maxVisible + 1);
+    const delta = 2; // Pages around current
+
+    for (let i = Math.max(1, page - delta); i <= Math.min(totalPages, page + delta); i++) {
+      pages.push(i);
     }
 
-    for (let i = start; i <= end; i++) {
-        pages.push(i);
+    // Add first page
+    if (pages[0] > 1) {
+      if (pages[0] > 2) pages.unshift('...');
+      pages.unshift(1);
     }
 
-    return (
-        <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: '6px', padding: '14px 0', flexWrap: 'wrap'
-        }}>
-            {total != null && (
-                <span style={{ marginRight: 12, fontSize: '0.82rem', color: 'var(--muted)' }}>
-                    {total} item{total !== 1 ? 's' : ''}
-                </span>
-            )}
-            <button
-                onClick={() => onPageChange(1)}
-                disabled={page === 1}
-                style={btnStyle(page === 1, false)}
-            >«</button>
-            <button
-                onClick={() => onPageChange(page - 1)}
-                disabled={page === 1}
-                style={btnStyle(page === 1, false)}
-            >‹</button>
-            {start > 1 && <span style={{ color: 'var(--muted)' }}>…</span>}
-            {pages.map(p => (
-                <button
-                    key={p}
-                    onClick={() => onPageChange(p)}
-                    style={btnStyle(false, p === page)}
-                >{p}</button>
-            ))}
-            {end < totalPages && <span style={{ color: 'var(--muted)' }}>…</span>}
-            <button
-                onClick={() => onPageChange(page + 1)}
-                disabled={page === totalPages}
-                style={btnStyle(page === totalPages, false)}
-            >›</button>
-            <button
-                onClick={() => onPageChange(totalPages)}
-                disabled={page === totalPages}
-                style={btnStyle(page === totalPages, false)}
-            >»</button>
-        </div>
-    );
-}
+    // Add last page
+    if (pages[pages.length - 1] < totalPages) {
+      if (pages[pages.length - 1] < totalPages - 1) pages.push('...');
+      pages.push(totalPages);
+    }
 
-function btnStyle(disabled, active) {
-    return {
-        padding: '5px 11px',
-        border: active ? '1.5px solid var(--accent)' : '1px solid var(--border)',
-        borderRadius: 8,
-        background: active ? 'var(--accent)' : 'var(--surface)',
-        color: active ? '#fff' : 'var(--text)',
-        fontWeight: active ? 700 : 500,
-        cursor: disabled ? 'default' : 'pointer',
-        opacity: disabled ? 0.35 : 1,
-        fontSize: '0.82rem',
-        minWidth: 32,
-        transition: 'all 0.15s ease',
-    };
-}
+    return pages;
+  };
+
+  return (
+    <div className="pagination">
+      {/* Record count */}
+      <span className="pagination__info">
+        Showing {start}–{end} of {total}
+      </span>
+
+      <div className="pagination__controls">
+        {/* First page */}
+        <button
+          className="pagination__btn"
+          onClick={() => onPageChange(1)}
+          disabled={page === 1 || loading}
+          title="First page"
+        >
+          <ChevronsLeft size={15} />
+        </button>
+
+        {/* Previous */}
+        <button
+          className="pagination__btn"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page === 1 || loading}
+          title="Previous page"
+        >
+          <ChevronLeft size={15} />
+        </button>
+
+        {/* Page numbers */}
+        {getPages().map((p, i) => (
+          p === '...'
+            ? <span key={`dots-${i}`} className="pagination__dots">···</span>
+            : <button
+                key={p}
+                className={`pagination__btn ${page === p ? 'pagination__btn--active' : ''}`}
+                onClick={() => onPageChange(p)}
+                disabled={loading}
+              >
+                {p}
+              </button>
+        ))}
+
+        {/* Next */}
+        <button
+          className="pagination__btn"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page === totalPages || loading}
+          title="Next page"
+        >
+          <ChevronRight size={15} />
+        </button>
+
+        {/* Last page */}
+        <button
+          className="pagination__btn"
+          onClick={() => onPageChange(totalPages)}
+          disabled={page === totalPages || loading}
+          title="Last page"
+        >
+          <ChevronsRight size={15} />
+        </button>
+      </div>
+
+      {/* Jump to page */}
+      <div className="pagination__jump">
+        <span className="pagination__jump-label">Go to</span>
+        <input
+          type="number"
+          min={1}
+          max={totalPages}
+          defaultValue={page}
+          className="pagination__jump-input"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const val = Math.max(1, Math.min(totalPages, Number(e.target.value)));
+              onPageChange(val);
+            }
+          }}
+        />
+        <span className="pagination__jump-label">of {totalPages}</span>
+      </div>
+    </div>
+  );
+};
+
+export default Pagination;
