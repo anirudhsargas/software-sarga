@@ -28,6 +28,8 @@ services:
         value: "G-5XD6YCERCC"
       - key: VITE_API_URL
         value: "https://sarga-backend-prod.onrender.com/api"
+      - key: JWT_SECRET
+        fromSecret: JWT_SECRET
       # Add production secrets (DB, JWT, third-party keys) as Render secrets instead
       # Example using a secret reference:
       # - key: DATABASE_URL
