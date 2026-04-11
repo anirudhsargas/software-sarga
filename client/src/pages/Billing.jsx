@@ -1760,7 +1760,7 @@ const Billing = () => {
                             </button>
                           ))}
                         </>
-                      }
+                      )}
                       {/* Regular customer matches */}
                       {customerMatches.length > 0 && (
                         <>

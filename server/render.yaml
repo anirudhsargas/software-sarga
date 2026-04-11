@@ -1,0 +1,34 @@
+# Render service configuration for the backend.
+# Update the fields below (envVars, build/start commands) to match your server setup.
+services:
+  - type: web
+    name: sarga-backend
+    env: node
+    branch: main
+    plan: starter
+    # Build/start commands assume the repository has a 'server' folder with package.json
+    buildCommand: cd server && npm ci
+    startCommand: cd server && npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_FIREBASE_API_KEY
+        value: "AIzaSyAqsXy2h5rG0FQ0Cvreu1AIHC_-NRPxrpg"
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        value: "sarga-prints.firebaseapp.com"
+      - key: VITE_FIREBASE_PROJECT_ID
+        value: "sarga-prints"
+      - key: VITE_FIREBASE_STORAGE_BUCKET
+        value: "sarga-prints.firebasestorage.app"
+      - key: VITE_FIREBASE_MESSAGING_SENDER_ID
+        value: "1033339625034"
+      - key: VITE_FIREBASE_APP_ID
+        value: "1:1033339625034:web:cbb9d1065edbcb7ef490b3"
+      - key: VITE_FIREBASE_MEASUREMENT_ID
+        value: "G-5XD6YCERCC"
+      - key: VITE_API_URL
+        value: "https://sarga-backend-prod.onrender.com/api"
+      # Add production secrets (DB, JWT, third-party keys) as Render secrets instead
+      # Example using a secret reference:
+      # - key: DATABASE_URL
+      #   fromSecret: database_url
