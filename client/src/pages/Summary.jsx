@@ -34,7 +34,7 @@ const Summary = () => {
         try {
             const response = await api.get('/branches');
             setBranches(response.data);
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch branches');
         }
     };
@@ -54,7 +54,7 @@ const Summary = () => {
             if (filters.branch_id) paramsOverall.append('branch_id', filters.branch_id);
             const responseOverall = await api.get(`/stats/dashboard?${paramsOverall.toString()}`);
             setStatsOverall(responseOverall.data);
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch dashboard stats');
         } finally {
             setLoading(false);

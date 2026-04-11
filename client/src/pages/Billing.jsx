@@ -25,6 +25,7 @@ const defaultUpsell = { open: false, suggestions: [], loading: false, baseProduc
 
 const customerTypes = ['Walk-in', 'Retail', 'Association', 'Offset'];
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
+const INTERNAL_CLIENT_TYPE = 'internal';
 
 const Billing = () => {
   const [branches, setBranches] = useState([]);
@@ -41,8 +42,9 @@ const Billing = () => {
   const [error, setError] = useState('');
   const [offlineMode, setOfflineMode] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState(null);
+  const [customerMatches, setCustomerMatches] = useState([]);
   const [customerSearching, setCustomerSearching] = useState(false);
-  const mobileSearchRef = useRef(null);
+  const customerSearchRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [hierarchy, setHierarchy] = useState([]);
   const [machines, setMachines] = useState([]);
@@ -54,7 +56,9 @@ const Billing = () => {
   const [qrInput, setQrInput] = useState('');
   const [orderLines, setOrderLines] = useState([]);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
-  const [quickEntry, setQuickEntry] = useState({ name: '', amount: '' });
+  const [showMachineDetails, setShowMachineDetails] = useState(false);
+  const [quickEntry, setQuickEntry] = useState({ name: '', amount: '', book_type: 'Laser' });
+  const [lineBookType, setLineBookType] = useState('Offset');
   const [showPostBillOptions, setShowPostBillOptions] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignJobs, setAssignJobs] = useState([]);
@@ -99,6 +103,10 @@ const Billing = () => {
   const [scannedPreview, setScannedPreview] = useState(null); // { item, unitPrice, mrp } for inventory preview
   const [scannedQty, setScannedQty] = useState(1);
 
+  // Internal billing state
+  const [internalClients, setInternalClients] = useState([]);
+  const isInternalBill = existingCustomer?.client_type === INTERNAL_CLIENT_TYPE;
+
   // Discount states
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountMode, setDiscountMode] = useState('amount'); // 'percent' | 'amount'
@@ -127,8 +135,21 @@ const Billing = () => {
     applied_extras: [],
     customPaperRate: 0,
     is_double_side: false,
-    machine_id: ''
+    machine_id: '',
+    waste_prints: 0,
+    proof_prints: 0,
+    count_to_machine: false,
+    colour: '',
+    numbering_from: '',
+    numbering_to: '',
+    special_instructions: '',
+    matter_text: '',
+    matter_file: null,
+    matter_preview: null
   });
+  const [showJobDetails, setShowJobDetails] = useState(false);
+  const matterFileRef = useRef(null);
+  const matterCameraRef = useRef(null);
 
   const resetBillingState = () => {
     setForm({
@@ -155,7 +176,17 @@ const Billing = () => {
       applied_extras: [],
       customPaperRate: 0,
       is_double_side: false,
-      machine_id: ''
+      machine_id: '',
+      waste_prints: 0,
+      proof_prints: 0,
+      count_to_machine: false,
+      colour: '',
+      numbering_from: '',
+      numbering_to: '',
+      special_instructions: '',
+      matter_text: '',
+      matter_file: null,
+      matter_preview: null
     });
     setPayment({
       selectedMethods: ['Cash'],
@@ -332,6 +363,22 @@ const Billing = () => {
     };
 
     fetchHierarchy();
+
+    // Load internal clients for the dropdown
+    const fetchInternalClients = async () => {
+      try {
+        const all = await localDb.getCustomers();
+        setInternalClients((all || []).filter(c => c.client_type === 'internal'));
+      } catch {
+        // Fallback: try server
+        try {
+          const res = await api.get('/customers', { params: { cross_branch: 1, limit: 100 } });
+          const list = res.data?.data || res.data || [];
+          setInternalClients(list.filter(c => c.client_type === 'internal'));
+        } catch { /* ignore – will just not show internal clients */ }
+      }
+    };
+    fetchInternalClients();
   }, []);
 
   useEffect(() => {
@@ -369,41 +416,61 @@ const Billing = () => {
   }, [location.state]);
 
   useEffect(() => {
-    if (form.mobile.length !== 10) {
-      setExistingCustomer(null);
+    const mobileQuery = (form.mobile || '').trim();
+    const nameQuery = (form.name || '').trim();
+    const searchQuery = mobileQuery || nameQuery;
+
+    if (!searchQuery || (mobileQuery.length === 0 && nameQuery.length < 2)) {
+      setCustomerMatches([]);
+      if (mobileQuery.length !== 10) setExistingCustomer(null);
+      if (customerSearchRef.current) clearTimeout(customerSearchRef.current);
       return;
     }
 
-    // Debounced server-side customer lookup
-    if (mobileSearchRef.current) clearTimeout(mobileSearchRef.current);
-    mobileSearchRef.current = setTimeout(async () => {
+    if (customerSearchRef.current) clearTimeout(customerSearchRef.current);
+    customerSearchRef.current = setTimeout(async () => {
       try {
         setCustomerSearching(true);
-        const results = await localDb.getCustomers({ search: form.mobile });
-        const match = results.find((c) => String(c.mobile) === form.mobile);
-        if (!match) {
-          setExistingCustomer(null);
+        const results = await localDb.getCustomers({ search: searchQuery });
+
+        if (mobileQuery.length === 10) {
+          const match = results.find((c) => String(c.mobile || '') === mobileQuery);
+          if (!match) {
+            setExistingCustomer(null);
+            setCustomerMatches([]);
+            return;
+          }
+          setExistingCustomer(match);
+          setCustomerMatches([]);
+          setForm((prev) => ({
+            ...prev,
+            name: match.name || prev.name,
+            type: match.type || prev.type,
+            email: match.email || prev.email,
+            address: match.address || prev.address,
+            gst: match.gst || prev.gst
+          }));
           return;
         }
-        setExistingCustomer(match);
-        setForm((prev) => ({
-          ...prev,
-          name: match.name || prev.name,
-          type: match.type || prev.type,
-          email: match.email || prev.email,
-          address: match.address || prev.address
-        }));
+
+        setExistingCustomer(null);
+        const normalized = nameQuery.toLowerCase();
+        const topMatches = results
+          .filter((c) => (c.name || '').toLowerCase().includes(normalized))
+          .slice(0, 6);
+        setCustomerMatches(topMatches);
       } catch (err) {
         console.error('Customer search failed:', err);
+        setCustomerMatches([]);
       } finally {
         setCustomerSearching(false);
       }
     }, 300);
 
     return () => {
-      if (mobileSearchRef.current) clearTimeout(mobileSearchRef.current);
+      if (customerSearchRef.current) clearTimeout(customerSearchRef.current);
     };
-  }, [form.mobile]);
+  }, [form.mobile, form.name]);
 
   // Warn user before refresh/close if there's unsaved billing data
   useEffect(() => {
@@ -439,11 +506,28 @@ const Billing = () => {
   const handleMobileChange = (value) => {
     const cleaned = value.replace(/\D/g, '').slice(0, 10);
     handleChange('mobile', cleaned);
+    if (cleaned.length > 0) {
+      setCustomerMatches([]);
+    }
     if (cleaned.length > 0 && cleaned.length !== 10) {
       setFieldErrors((prev) => ({ ...prev, mobile: 'Mobile must be exactly 10 digits' }));
     } else {
       setFieldErrors((prev) => { const { mobile, ...rest } = prev; return rest; });
     }
+  };
+
+  const handleSelectCustomer = (customer) => {
+    setExistingCustomer(customer);
+    setCustomerMatches([]);
+    setForm((prev) => ({
+      ...prev,
+      mobile: customer.mobile ? String(customer.mobile) : prev.mobile,
+      name: customer.name || prev.name,
+      type: customer.type || prev.type,
+      email: customer.email || '',
+      address: customer.address || '',
+      gst: customer.gst || ''
+    }));
   };
 
   const validateEmail = (email) => {
@@ -470,6 +554,7 @@ const Billing = () => {
   };
 
   const validatePayment = () => {
+    if (isInternalBill) return {}; // Internal bills require no payment
     const errors = {};
     if (payment.selectedMethods.length === 0) errors.paymentMethod = 'Select at least one payment method';
     if (advancePaid < 0) errors.advancePaid = 'Payment amount cannot be negative';
@@ -535,7 +620,8 @@ const Billing = () => {
       return;
     }
     for (const line of orderLines) {
-      if (!Number(line.quantity) || Number(line.quantity) <= 0) {
+      const isWasteOnly = (line.waste_prints > 0 || line.proof_prints > 0) && Number(line.total_amount) === 0;
+      if (!isWasteOnly && (!Number(line.quantity) || Number(line.quantity) <= 0)) {
         setError(`Invalid quantity for ${line.product_name}. Must be greater than 0.`);
         return;
       }
@@ -545,7 +631,8 @@ const Billing = () => {
       }
     }
 
-    if (totals.gross <= 0) {
+    const allWasteOnly = orderLines.length > 0 && orderLines.every(l => Number(l.total_amount) === 0 && (l.waste_prints > 0 || l.proof_prints > 0));
+    if (totals.gross <= 0 && !allWasteOnly && !isInternalBill) {
       setError('Bill total must be greater than zero. Please adjust items or discount.');
       return;
     }
@@ -557,7 +644,7 @@ const Billing = () => {
       return;
     }
 
-    if (isWalkIn && advancePaid < totals.gross * 0.99) {
+    if (!isInternalBill && isWalkIn && advancePaid < totals.gross * 0.99) {
       setError('Walk-in customers must make full payment before creating a bill.');
       setFieldErrors((prev) => ({ ...prev, advancePaid: 'Full payment required for walk-in customers' }));
       return;
@@ -596,31 +683,42 @@ const Billing = () => {
       if (transferAmount > 0) transferNotes.push(`Transfer ₹${transferAmount.toFixed(2)}`);
       const autoDescription = [methodNote, transferNotes.join(', ')].filter(Boolean).join('. ');
 
-      const isAutoDeliver = isWalkIn && advancePaid >= totals.gross * 0.99;
+      const isAutoDeliver = isWalkIn;
+
+      // Derive top-level book_type: if any quick-add line has Laser/Other, prefer it; default Offset
+      const BOOK_PRIORITY = { Other: 1, Laser: 2, Offset: 3 };
+      const billBookType = orderLines.reduce((best, line) => {
+        const bt = line.book_type || 'Offset';
+        return (BOOK_PRIORITY[bt] || 3) < (BOOK_PRIORITY[best] || 3) ? bt : best;
+      }, 'Offset');
 
       const billPayload = {
         customer_id: customer?.id || null,
         customer_name: customerName,
         customer_mobile: form.mobile || null,
         customer_type: form.type,
-        total_amount: totals.gross,
-        net_amount: totals.net,
-        sgst_amount: totals.sgst,
-        cgst_amount: totals.cgst,
-        discount_percent: totals.effectiveDiscount || null,
-        discount_amount: totals.discountAmount || null,
-        advance_paid: advancePaid,
-        payment_method: paymentMethod,
-        cash_amount: cashAmount,
-        upi_amount: upiAmount,
-        cheque_amount: chequeAmount,
-        account_transfer_amount: transferAmount,
+        total_amount: isInternalBill ? 0 : totals.gross,
+        net_amount: isInternalBill ? 0 : totals.net,
+        sgst_amount: isInternalBill ? 0 : totals.sgst,
+        cgst_amount: isInternalBill ? 0 : totals.cgst,
+        discount_percent: isInternalBill ? null : (totals.effectiveDiscount || null),
+        discount_amount: isInternalBill ? null : (totals.discountAmount || null),
+        advance_paid: isInternalBill ? 0 : advancePaid,
+        payment_method: isInternalBill ? 'Internal' : paymentMethod,
+        cash_amount: isInternalBill ? 0 : cashAmount,
+        upi_amount: isInternalBill ? 0 : upiAmount,
+        cheque_amount: isInternalBill ? 0 : chequeAmount,
+        account_transfer_amount: isInternalBill ? 0 : transferAmount,
         reference_number: payment.referenceNumber,
         description: payment.description || autoDescription,
         payment_date: payment.paymentDate,
+        book_type: billBookType,
+        is_internal: isInternalBill ? 1 : 0,
+        internal_department: isInternalBill ? (existingCustomer?.internal_branch || null) : null,
         order_lines: orderLines.map(line => ({
             ...line,
-            // Ensure product IDs are safe for localDb
+            matter_file: undefined,
+            matter_preview: undefined,
             product_id: line.product_id ? Number(line.product_id) : null,
             machine_id: line.machine_id ? Number(line.machine_id) : null
         })),
@@ -632,8 +730,11 @@ const Billing = () => {
         billPayload.branch_id = selectedBranchId;
       }
 
+      // Collect matter files per line index (File objects, not serializable)
+      const matterFiles = orderLines.map(line => line.matter_file || null);
+
       // Use localDb.createBill which returns local state and starts background sync
-      const result = await localDb.createBill(billPayload);
+      const result = await localDb.createBill(billPayload, matterFiles);
       const { payment: createdPayment = {}, jobs: createdJobs = [] } = result;
 
       const jobsForAssign = createdJobs.map((job, index) => {
@@ -646,7 +747,9 @@ const Billing = () => {
           quantity: orderLine.quantity,
           unit_price: orderLine.unit_price,
           total_amount: orderLine.total_amount,
-          description: orderLine.description
+          description: orderLine.description,
+          matter_preview: orderLine.matter_preview || null,
+          matter_file_name: orderLine.matter_file?.name || null
         };
       });
 
@@ -757,13 +860,17 @@ const Billing = () => {
       const paperRate = safeProduct.has_paper_rate ? Number(safeProduct.paper_rate) || 0 : 0;
 
       setSelectedProduct(safeProduct);
+      setShowMachineDetails(false);
       setJobData((prev) => ({
         ...prev,
         job_name: safeProduct.name,
         applied_extras: extras,
         customPaperRate: paperRate,
         is_double_side: false,
-        machine_id: ''
+        machine_id: '',
+        waste_prints: 0,
+        proof_prints: 0,
+        count_to_machine: false
       }));
       setExtraInputs(extras.map((e) => ({ purpose: e.purpose, amount: e.amount })));
       calculateDynamicPrice(safeProduct, jobData.quantity, extras, paperRate);
@@ -858,6 +965,8 @@ const Billing = () => {
     setSelectedProduct(null);
     setExtraInputs([]);
     setQrInput('');
+    setShowMachineDetails(false);
+    setShowJobDetails(false);
     setJobData({
       job_name: '',
       description: '',
@@ -869,7 +978,17 @@ const Billing = () => {
       applied_extras: [],
       customPaperRate: 0,
       is_double_side: false,
-      machine_id: ''
+      machine_id: '',
+      waste_prints: 0,
+      proof_prints: 0,
+      count_to_machine: false,
+      colour: '',
+      numbering_from: '',
+      numbering_to: '',
+      special_instructions: '',
+      matter_text: '',
+      matter_file: null,
+      matter_preview: null
     });
   };
 
@@ -930,6 +1049,19 @@ const Billing = () => {
       return;
     }
     setProductError('');
+    // Build structured description from job detail fields
+    const descParts = [];
+    if (jobData.colour?.trim()) descParts.push(`Colour: ${jobData.colour.trim()}`);
+    if (jobData.numbering_from?.toString().trim() || jobData.numbering_to?.toString().trim()) {
+      const from = jobData.numbering_from?.toString().trim() || '?';
+      const to = jobData.numbering_to?.toString().trim() || '?';
+      descParts.push(`Numbering: ${from} to ${to}`);
+    }
+    if (jobData.special_instructions?.trim()) descParts.push(jobData.special_instructions.trim());
+    if (jobData.matter_text?.trim()) descParts.push(`Matter: ${jobData.matter_text.trim()}`);
+    if (jobData.description?.trim() && !descParts.length) descParts.push(jobData.description.trim());
+    const builtDescription = descParts.join(' | ');
+
     const line = {
       id: `${selectedProduct.id}-${Date.now()}`,
       product_id: selectedProduct.id,
@@ -941,10 +1073,18 @@ const Billing = () => {
       applied_extras: extraInputs,
       customPaperRate: Number(jobData.customPaperRate) || 0,
       is_double_side: !!jobData.is_double_side,
-      description: jobData.description?.trim() || '',
+      description: builtDescription,
+      matter_file: jobData.matter_file || null,
+      matter_preview: jobData.matter_preview || null,
       category: selectedCategory?.name || '',
       subcategory: selectedSubcategory?.name || '',
-      machine_id: jobData.machine_id || null
+      machine_id: jobData.machine_id || null,
+      waste_prints: isMachineRequired ? (Number(jobData.waste_prints) || 0) : 0,
+      proof_prints: isMachineRequired ? (Number(jobData.proof_prints) || 0) : 0,
+      machine_print_count: isMachineRequired && jobData.count_to_machine
+        ? (Number(jobData.waste_prints) || 0) + (Number(jobData.proof_prints) || 0)
+        : null,
+      book_type: lineBookType
     };
     setOrderLines((prev) => [...prev, line]);
     resetOrderForm();
@@ -987,13 +1127,14 @@ const Billing = () => {
       customPaperRate: 0,
       is_double_side: false,
       description: name,
-      category: 'Quick Add',
+      category: selectedCategory?.name || 'Quick Add',
       subcategory: '',
       machine_id: null,
-      is_inventory_item: false
+      is_inventory_item: false,
+      book_type: quickEntry.book_type || 'Other'
     };
     setOrderLines((prev) => [...prev, line]);
-    setQuickEntry({ name: '', amount: '' });
+    setQuickEntry({ name: '', amount: '', book_type: quickEntry.book_type || lineBookType || 'Other' });
     toast.success(`Added: ${name} — ₹${amount.toFixed(2)}`);
   };
 
@@ -1115,8 +1256,15 @@ const Billing = () => {
     }
   };
 
+  const openDiscountRequestModal = () => {
+    if (totals.activePct <= 5) return;
+    if (discountRequest?.status === 'PENDING') return;
+    setShowDiscountModal(true);
+  };
+
   const handleChangeCustomer = () => {
     setExistingCustomer(null);
+    setCustomerMatches([]);
     setForm((prev) => ({
       ...prev,
       mobile: '',
@@ -1239,6 +1387,22 @@ const Billing = () => {
   };
 
   const selectedCategory = hierarchy.find((c) => String(c.id) === String(selectedCategoryId)) || hierarchy[0];
+
+  // Auto-derive Daily Book from category
+  const deriveBookType = (catName) => {
+    const upper = (catName || '').toUpperCase().trim();
+    if (upper === 'OFFSET') return 'Offset';
+    if (upper === 'LASER') return 'Laser';
+    return 'Other';
+  };
+
+  useEffect(() => {
+    if (selectedCategory?.name) {
+      const bt = deriveBookType(selectedCategory.name);
+      setLineBookType(bt);
+      setQuickEntry(prev => ({ ...prev, book_type: bt }));
+    }
+  }, [selectedCategory?.name]);
 
   const isMachineRequired = useMemo(() => {
     if (!selectedProduct) return false;
@@ -1413,15 +1577,33 @@ const Billing = () => {
           <div className="billing-card">
             <div className="billing-card__header">
               <h2 className="billing-card__title">Customer Details</h2>
-              {existingCustomer && (
+              {existingCustomer && !isInternalBill && (
                 <span className="billing-badge billing-badge--success">Returning Customer</span>
               )}
+              {isInternalBill && (
+                <span className="billing-badge" style={{ background: 'var(--accent-bg, rgba(99,102,241,0.12))', color: 'var(--accent, #6366f1)' }}>🏠 Internal</span>
+              )}
             </div>
+
+            {/* Internal billing banner */}
+            {isInternalBill && (
+              <div style={{
+                display: 'flex', gap: 10, alignItems: 'center', padding: '10px 14px',
+                background: 'var(--accent-bg, rgba(99,102,241,0.08))', borderLeft: '4px solid var(--accent, #6366f1)',
+                borderRadius: 6, marginBottom: 12, fontSize: 13, color: 'var(--accent, #6366f1)'
+              }}>
+                <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                <span><strong>Internal use</strong> — no payment collected. Department: <strong>{existingCustomer.internal_branch}</strong></span>
+              </div>
+            )}
 
             {existingCustomer ? (
               <div className="billing-customer-found">
                 <div className="billing-customer-found__info">
-                  <div className="billing-customer-found__name">{existingCustomer.name || 'Customer'}</div>
+                  <div className="billing-customer-found__name">
+                    {isInternalBill && <span style={{ marginRight: 6 }}>🏠</span>}
+                    {existingCustomer.name || 'Customer'}
+                  </div>
                   <div className="billing-customer-found__details">
                     {existingCustomer.mobile && <span>📱 {existingCustomer.mobile}</span>}
                     {existingCustomer.email && <span>✉ {existingCustomer.email}</span>}
@@ -1496,11 +1678,62 @@ const Billing = () => {
                   <input
                     className={`input-field ${fieldErrors.name ? 'input-field--error' : ''}`}
                     value={form.name}
-                    onChange={(e) => handleChange('name', e.target.value)}
+                    onChange={(e) => {
+                      handleChange('name', e.target.value);
+                      if (form.mobile.length !== 10) setExistingCustomer(null);
+                    }}
                     placeholder="Customer name"
                     maxLength={100}
                   />
                   {fieldErrors.name && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.name}</span>}
+                  {(customerMatches.length > 0 || (internalClients.length > 0 && !existingCustomer && (form.name || '').trim().length < 2 && !form.mobile)) && (
+                    <div className="panel mt-8" style={{ padding: 8, maxHeight: 280, overflowY: 'auto' }}>
+                      {/* Internal clients section */}
+                      {internalClients.length > 0 && !existingCustomer && (
+                        <>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '4px 8px', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--border, #e5e7eb)' }}>
+                            ── Internal ──
+                          </div>
+                          {internalClients.map((c) => (
+                            <button
+                              key={`int-${c.id}`}
+                              type="button"
+                              className="btn btn-ghost"
+                              style={{ width: '100%', justifyContent: 'space-between', marginBottom: 2 }}
+                              onClick={() => handleSelectCustomer(c)}
+                            >
+                              <span style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span>🏠</span> {c.name}
+                                <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8, background: 'var(--accent-bg, rgba(99,102,241,0.1))', color: 'var(--accent, #6366f1)', fontWeight: 600 }}>Internal</span>
+                              </span>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {/* Regular customer matches */}
+                      {customerMatches.length > 0 && (
+                        <>
+                          {internalClients.length > 0 && (
+                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '4px 8px', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--border, #e5e7eb)', marginTop: 4 }}>
+                              ── Customers ──
+                            </div>
+                          )}
+                          {customerMatches.map((c) => (
+                            <button
+                              key={c.id || `${c.mobile}-${c.name}`}
+                              type="button"
+                              className="btn btn-ghost"
+                              style={{ width: '100%', justifyContent: 'space-between', marginBottom: 2 }}
+                              onClick={() => handleSelectCustomer(c)}
+                            >
+                              <span style={{ textAlign: 'left' }}>{c.name || 'Customer'}</span>
+                              <span className="muted" style={{ fontSize: 12 }}>{c.mobile || 'No mobile'}</span>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Optional fields toggle */}
@@ -1758,6 +1991,18 @@ const Billing = () => {
                           onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }}
                         />
                       </div>
+                      <div style={{ flex: 1, minWidth: 110 }}>
+                        <label className="label" style={{ fontSize: 12 }}>Daily Book</label>
+                        <select
+                          className="input-field"
+                          value={quickEntry.book_type}
+                          onChange={e => setQuickEntry(prev => ({ ...prev, book_type: e.target.value }))}
+                        >
+                          <option value="Offset">Offset</option>
+                          <option value="Laser">Laser</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
                       <button type="button" className="btn btn-primary btn-sm" onClick={handleQuickAdd} style={{ whiteSpace: 'nowrap', marginBottom: 1 }}>
                         <Plus size={14} /> Add
                       </button>
@@ -1808,6 +2053,7 @@ const Billing = () => {
                     ))}
                   </select>
                 </div>
+
               </div>
 
               {/* AI Upsell Suggestions — shown after category selection */}
@@ -1932,6 +2178,283 @@ const Billing = () => {
                     )}
                   </div>
 
+                  {/* Machine Details accordion — waste / proof / count */}
+                  {isMachineRequired && (
+                    <div style={{ margin: '4px 0 2px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowMachineDetails(v => !v)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: showMachineDetails ? 'var(--accent, #6366f1)' : 'var(--muted)',
+                          fontSize: 12, fontWeight: 500, padding: '2px 0'
+                        }}
+                      >
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 14, height: 14, borderRadius: '50%',
+                          background: showMachineDetails ? 'var(--accent, #6366f1)' : 'var(--border)',
+                          color: showMachineDetails ? '#fff' : 'var(--muted)',
+                          fontSize: 10, transition: 'transform 0.15s',
+                          transform: showMachineDetails ? 'rotate(45deg)' : 'none'
+                        }}>+</span>
+                        {showMachineDetails ? 'Hide waste / proof / count' : 'Add waste, proof or count…'}
+                      </button>
+
+                      {showMachineDetails && (
+                        <div style={{
+                          marginTop: 10, padding: '12px 14px',
+                          background: 'var(--surface-2, #f8f8f8)',
+                          borderRadius: 8, border: '1px solid var(--border)',
+                          display: 'flex', flexDirection: 'column', gap: 10
+                        }}>
+                          {/* Waste + Proof on one row */}
+                          <div style={{ display: 'flex', gap: 12 }}>
+                            <div style={{ flex: 1 }}>
+                              <label className="label" style={{ fontSize: 12 }}>Waste prints</label>
+                              <input
+                                type="number" min="0" className="input-field"
+                                value={jobData.waste_prints}
+                                onChange={(e) => setJobData(prev => ({ ...prev, waste_prints: e.target.value }))}
+                                placeholder="0"
+                              />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="label" style={{ fontSize: 12 }}>Proof prints</label>
+                              <input
+                                type="number" min="0" className="input-field"
+                                value={jobData.proof_prints}
+                                onChange={(e) => setJobData(prev => ({ ...prev, proof_prints: e.target.value }))}
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Count checkbox */}
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', fontSize: 13 }}>
+                            <input
+                              type="checkbox"
+                              checked={!!jobData.count_to_machine}
+                              onChange={(e) => setJobData(prev => ({ ...prev, count_to_machine: e.target.checked }))}
+                            />
+                            <span style={{ color: 'var(--text)' }}>Add waste + proof to machine count</span>
+                          </label>
+                          {jobData.count_to_machine && (
+                            <div style={{ fontSize: 12, color: 'var(--muted)', paddingLeft: 22 }}>
+                              Machine count will increase by <strong>{(Number(jobData.waste_prints) || 0) + (Number(jobData.proof_prints) || 0)}</strong>
+                            </div>
+                          )}
+
+                          {/* Log waste/proof only at ₹0 */}
+                          {((Number(jobData.waste_prints) || 0) > 0 || (Number(jobData.proof_prints) || 0) > 0) && (
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ alignSelf: 'flex-start', fontSize: 12, marginTop: 4 }}
+                              onClick={() => {
+                                if (!selectedProduct) { setProductError('Select a product first.'); return; }
+                                const line = {
+                                  id: `waste-${selectedProduct.id}-${Date.now()}`,
+                                  product_id: selectedProduct.id,
+                                  product_name: selectedProduct.name,
+                                  calculation_type: selectedProduct.calculation_type,
+                                  quantity: 0,
+                                  unit_price: 0,
+                                  total_amount: 0,
+                                  applied_extras: [],
+                                  customPaperRate: 0,
+                                  is_double_side: false,
+                                  description: `Waste/Proof only`,
+                                  category: selectedCategory?.name || '',
+                                  subcategory: selectedSubcategory?.name || '',
+                                  machine_id: jobData.machine_id || null,
+                                  waste_prints: Number(jobData.waste_prints) || 0,
+                                  proof_prints: Number(jobData.proof_prints) || 0,
+                                  machine_print_count: jobData.count_to_machine
+                                    ? (Number(jobData.waste_prints) || 0) + (Number(jobData.proof_prints) || 0)
+                                    : null,
+                                  book_type: lineBookType
+                                };
+                                setOrderLines(prev => [...prev, line]);
+                                toast.success(`Logged: ${line.waste_prints} waste, ${line.proof_prints} proof — ₹0`);
+                                setShowMachineDetails(false);
+                                resetOrderForm();
+                              }}
+                            >
+                              + Log as waste/proof only (₹0)
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Job Details accordion — colour / numbering / instructions */}
+                  {selectedProduct && (
+                    <div style={{ margin: '4px 0 2px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowJobDetails(v => !v)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: showJobDetails ? 'var(--accent, #6366f1)' : 'var(--muted)',
+                          fontSize: 12, fontWeight: 500, padding: '2px 0'
+                        }}
+                      >
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 14, height: 14, borderRadius: '50%',
+                          background: showJobDetails ? 'var(--accent, #6366f1)' : 'var(--border)',
+                          color: showJobDetails ? '#fff' : 'var(--muted)',
+                          fontSize: 10, transition: 'transform 0.15s',
+                          transform: showJobDetails ? 'rotate(45deg)' : 'none'
+                        }}>+</span>
+                        {showJobDetails ? 'Hide job details' : 'Add colour, numbering, instructions…'}
+                      </button>
+
+                      {showJobDetails && (
+                        <div style={{
+                          marginTop: 10, padding: '12px 14px',
+                          background: 'var(--surface-2, #f8f8f8)',
+                          borderRadius: 8, border: '1px solid var(--border)',
+                          display: 'flex', flexDirection: 'column', gap: 10
+                        }}>
+                          {/* Colour */}
+                          <div>
+                            <label className="label" style={{ fontSize: 12 }}>Colour</label>
+                            <input
+                              type="text" className="input-field"
+                              value={jobData.colour}
+                              onChange={(e) => setJobData(prev => ({ ...prev, colour: e.target.value }))}
+                              placeholder="e.g. Red, Blue, CMYK, Black & White"
+                            />
+                          </div>
+                          {/* Numbering From-To on one row */}
+                          <div style={{ display: 'flex', gap: 12 }}>
+                            <div style={{ flex: 1 }}>
+                              <label className="label" style={{ fontSize: 12 }}>Numbering From</label>
+                              <input
+                                type="text" className="input-field"
+                                value={jobData.numbering_from}
+                                onChange={(e) => setJobData(prev => ({ ...prev, numbering_from: e.target.value }))}
+                                placeholder="e.g. 001"
+                              />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="label" style={{ fontSize: 12 }}>Numbering To</label>
+                              <input
+                                type="text" className="input-field"
+                                value={jobData.numbering_to}
+                                onChange={(e) => setJobData(prev => ({ ...prev, numbering_to: e.target.value }))}
+                                placeholder="e.g. 500"
+                              />
+                            </div>
+                          </div>
+                          {/* Special Instructions */}
+                          <div>
+                            <label className="label" style={{ fontSize: 12 }}>Special Instructions</label>
+                            <textarea
+                              className="input-field"
+                              value={jobData.special_instructions}
+                              onChange={(e) => setJobData(prev => ({ ...prev, special_instructions: e.target.value }))}
+                              placeholder="e.g. Use glossy paper, perforation needed, binding type…"
+                              rows={2}
+                              style={{ resize: 'vertical' }}
+                            />
+                          </div>
+
+                          {/* Matter — Text + Photo */}
+                          <div>
+                            <label className="label" style={{ fontSize: 12 }}>Matter (Content to Print)</label>
+                            <textarea
+                              className="input-field"
+                              value={jobData.matter_text}
+                              onChange={(e) => setJobData(prev => ({ ...prev, matter_text: e.target.value }))}
+                              placeholder="e.g. Wedding invitation text, visiting card details, banner content…"
+                              rows={2}
+                              style={{ resize: 'vertical', marginBottom: 8 }}
+                            />
+                            {/* Hidden file inputs */}
+                            <input
+                              ref={matterCameraRef}
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const preview = URL.createObjectURL(file);
+                                setJobData(prev => ({ ...prev, matter_file: file, matter_preview: preview }));
+                                e.target.value = '';
+                              }}
+                            />
+                            <input
+                              ref={matterFileRef}
+                              type="file"
+                              accept="image/*,.pdf"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+                                setJobData(prev => ({ ...prev, matter_file: file, matter_preview: preview }));
+                                e.target.value = '';
+                              }}
+                            />
+                            {/* Capture / Upload buttons */}
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
+                                onClick={() => matterCameraRef.current?.click()}
+                              >
+                                <Camera size={13} /> Capture Photo
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
+                                onClick={() => matterFileRef.current?.click()}
+                              >
+                                <Plus size={13} /> Upload File
+                              </button>
+                              {jobData.matter_file && (
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ fontSize: 12, color: 'var(--error)', display: 'flex', alignItems: 'center', gap: 4 }}
+                                  onClick={() => setJobData(prev => ({ ...prev, matter_file: null, matter_preview: null }))}
+                                >
+                                  <X size={13} /> Remove
+                                </button>
+                              )}
+                            </div>
+                            {/* Image Preview */}
+                            {jobData.matter_preview && (
+                              <div style={{ marginTop: 8 }}>
+                                <img
+                                  src={jobData.matter_preview}
+                                  alt="Matter preview"
+                                  style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 6, border: '1px solid var(--border)', objectFit: 'contain' }}
+                                />
+                              </div>
+                            )}
+                            {jobData.matter_file && !jobData.matter_preview && (
+                              <div style={{ marginTop: 6, fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <CheckCircle size={12} style={{ color: 'var(--success)' }} />
+                                {jobData.matter_file.name}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Total & Actions Row */}
                   <div className="billing-total-bar">
                     <div className="billing-total-amount">
@@ -1989,9 +2512,41 @@ const Billing = () => {
                     <div className="billing-item-row__info">
                       <div className="billing-item-row__name">{line.product_name}</div>
                       <div className="billing-item-row__meta">
-                        Qty {line.quantity} × ₹{Number(line.unit_price).toFixed(2)}
-                        {line.category && <span> · {line.category}</span>}
+                        {(line.waste_prints > 0 || line.proof_prints > 0) && Number(line.total_amount) === 0
+                          ? <>
+                              {line.waste_prints > 0 && <span>Waste: {line.waste_prints}</span>}
+                              {line.waste_prints > 0 && line.proof_prints > 0 && <span> · </span>}
+                              {line.proof_prints > 0 && <span>Proof: {line.proof_prints}</span>}
+                              {line.machine_print_count > 0 && <span> · Count +{line.machine_print_count}</span>}
+                              {line.category && <span> · {line.category}</span>}
+                            </>
+                          : <>
+                              Qty {line.quantity} × ₹{Number(line.unit_price).toFixed(2)}
+                              {line.category && <span> · {line.category}</span>}
+                              {line.waste_prints > 0 && <span> · Waste: {line.waste_prints}</span>}
+                              {line.proof_prints > 0 && <span> · Proof: {line.proof_prints}</span>}
+                            </>
+                        }
                       </div>
+                      {line.description && (
+                        <div style={{ fontSize: 11, color: 'var(--accent, #6366f1)', marginTop: 2, fontStyle: 'italic' }}>
+                          {line.description}
+                        </div>
+                      )}
+                      {line.matter_preview && (
+                        <img
+                          src={line.matter_preview}
+                          alt="Matter"
+                          style={{ marginTop: 4, maxWidth: 80, maxHeight: 60, borderRadius: 4, border: '1px solid var(--border)', objectFit: 'cover', cursor: 'pointer' }}
+                          onClick={() => window.open(line.matter_preview, '_blank')}
+                          title="Click to enlarge"
+                        />
+                      )}
+                      {line.matter_file && !line.matter_preview && (
+                        <div style={{ fontSize: 10, color: 'var(--success)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <CheckCircle size={10} /> {line.matter_file.name}
+                        </div>
+                      )}
                     </div>
                     <div className="billing-item-row__amount">₹{Number(line.total_amount).toFixed(2)}</div>
                     <button className="billing-item-row__remove" type="button" onClick={() => removeOrderLine(line.id)} title="Remove">
@@ -2050,8 +2605,9 @@ const Billing = () => {
                   </div>
                 </div>
 
-                {/* Discount */}
-                <div className="billing-discount-section" style={appliedCoupon ? { opacity: 0.5, pointerEvents: 'none' } : {}}>
+                {/* Discount + Coupon row */}
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                <div className="billing-discount-section" style={{ flex: '1 1 240px', ...(appliedCoupon ? { opacity: 0.5, pointerEvents: 'none' } : {}) }}>
                   <div className="row gap-sm items-center mb-8">
                     <label className="label" style={{ margin: 0 }}>Discount</label>
                     {appliedCoupon && <span className="text-xs muted" style={{ fontStyle: 'italic' }}>(Overridden by coupon)</span>}
@@ -2151,7 +2707,7 @@ const Billing = () => {
                 </div>
 
                 {/* Coupon Code */}
-                <div className="billing-discount-section" style={{ marginTop: '12px' }}>
+                <div className="billing-discount-section" style={{ flex: '1 1 240px' }}>
                   <div className="row gap-sm items-center mb-8">
                     <Tag size={14} style={{ color: 'var(--muted)' }} />
                     <label className="label" style={{ margin: 0 }}>Coupon Code</label>
@@ -2213,145 +2769,188 @@ const Billing = () => {
                     </div>
                   )}
                 </div>
+                </div>{/* end discount+coupon row */}
 
-                {/* Payment Methods */}
-                <div>
-                  <label className="label">Payment Method</label>
-                  <div className="billing-method-pills">
-                    {paymentMethods.map((method) => {
-                      const active = payment.selectedMethods.includes(method);
-                      return (
-                        <button
-                          key={method}
-                          type="button"
-                          className={`billing-method-pill ${active ? 'billing-method-pill--active' : ''}`}
-                          onClick={() => {
-                            setPayment((prev) => {
-                              const exists = prev.selectedMethods.includes(method);
-                              const selectedMethods = exists
-                                ? prev.selectedMethods.filter((m) => m !== method)
-                                : [...prev.selectedMethods, method];
-                              return { ...prev, selectedMethods };
-                            });
-                            setFieldErrors((prev) => { const { paymentMethod, ...rest } = prev; return rest; });
-                          }}
-                        >
-                          {method}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {fieldErrors.paymentMethod && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.paymentMethod}</span>}
-                </div>
-
-                {/* Amount inputs for selected methods */}
-                <div className="billing-form-grid billing-form-grid--2">
-                  {payment.selectedMethods.includes('Cash') && (
-                    <div>
-                      <label className="label">Cash Amount</label>
+                {/* Internal Bill: locked ₹0, no payment methods */}
+                {isInternalBill ? (
+                  <div>
+                    <label className="label">Amount</label>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                       <input
                         type="number"
                         className="input-field"
-                        min="0"
-                        value={payment.methodAmounts.Cash}
-                        onChange={(e) => setPayment((prev) => ({
-                          ...prev,
-                          methodAmounts: { ...prev.methodAmounts, Cash: e.target.value }
-                        }))}
+                        value={0}
+                        readOnly
+                        disabled
+                        style={{ background: 'var(--surface-2, #f3f4f6)', color: 'var(--muted)', cursor: 'not-allowed', paddingRight: 36 }}
                       />
+                      <span style={{ position: 'absolute', right: 10, fontSize: 16, color: 'var(--muted)' }}>🔒</span>
                     </div>
-                  )}
-                  {payment.selectedMethods.includes('UPI') && (
-                    <div>
-                      <label className="label">UPI Amount</label>
-                      <input
-                        type="number"
-                        className="input-field"
-                        min="0"
-                        value={payment.methodAmounts.UPI}
-                        onChange={(e) => setPayment((prev) => ({
-                          ...prev,
-                          methodAmounts: { ...prev.methodAmounts, UPI: e.target.value }
-                        }))}
-                      />
-                    </div>
-                  )}
-                  {payment.selectedMethods.includes('Cheque') && (
-                    <div>
-                      <label className="label">Cheque Amount</label>
-                      <input
-                        type="number"
-                        className="input-field"
-                        min="0"
-                        value={payment.methodAmounts.Cheque}
-                        onChange={(e) => setPayment((prev) => ({
-                          ...prev,
-                          methodAmounts: { ...prev.methodAmounts, Cheque: e.target.value }
-                        }))}
-                      />
-                    </div>
-                  )}
-                  {payment.selectedMethods.includes('Account Transfer') && (
-                    <div>
-                      <label className="label">Transfer Amount</label>
-                      <input
-                        type="number"
-                        className="input-field"
-                        min="0"
-                        value={payment.methodAmounts['Account Transfer']}
-                        onChange={(e) => setPayment((prev) => ({
-                          ...prev,
-                          methodAmounts: { ...prev.methodAmounts, 'Account Transfer': e.target.value }
-                        }))}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Ref & Notes for non-cash */}
-                {(payment.selectedMethods.some((m) => m !== 'Cash')) && (
-                  <div className="billing-form-grid billing-form-grid--2">
-                    <div>
-                      <label className="label">UTR / Ref No</label>
-                      <input
-                        className="input-field"
-                        value={payment.referenceNumber}
-                        onChange={(e) => setPayment((prev) => ({ ...prev, referenceNumber: e.target.value }))}
-                      />
-                      {fieldErrors.referenceNumber && (
-                        <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.referenceNumber}</span>
-                      )}
-                    </div>
-                    <div>
+                    <p style={{ fontSize: 12, color: 'var(--accent, #6366f1)', marginTop: 4 }}>
+                      Internal use — no payment collected
+                    </p>
+                    <div style={{ marginTop: 12 }}>
                       <label className="label">Purpose / Notes (optional)</label>
                       <input
                         className="input-field"
                         value={payment.description}
                         onChange={(e) => setPayment((prev) => ({ ...prev, description: e.target.value }))}
+                        placeholder="e.g. office prints, samples..."
                       />
                     </div>
                   </div>
-                )}
+                ) : (
+                  <>
+                    {/* Payment Methods */}
+                    <div>
+                      <label className="label">Payment Method</label>
+                      <div className="billing-method-pills">
+                        {paymentMethods.map((method) => {
+                          const active = payment.selectedMethods.includes(method);
+                          return (
+                            <button
+                              key={method}
+                              type="button"
+                              className={`billing-method-pill ${active ? 'billing-method-pill--active' : ''}`}
+                              onClick={() => {
+                                setPayment((prev) => {
+                                  const exists = prev.selectedMethods.includes(method);
+                                  const selectedMethods = exists
+                                    ? prev.selectedMethods.filter((m) => m !== method)
+                                    : [...prev.selectedMethods, method];
+                                  return { ...prev, selectedMethods };
+                                });
+                                setFieldErrors((prev) => { const { paymentMethod, ...rest } = prev; return rest; });
+                              }}
+                            >
+                              {method}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {fieldErrors.paymentMethod && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.paymentMethod}</span>}
+                    </div>
 
-                {/* Notes for cash only */}
-                {payment.selectedMethods.length === 1 && payment.selectedMethods[0] === 'Cash' && (
-                  <div>
-                    <label className="label">Purpose / Notes (optional)</label>
-                    <input
-                      className="input-field"
-                      value={payment.description}
-                      onChange={(e) => setPayment((prev) => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
+                    {/* Amount inputs for selected methods */}
+                    <div className="billing-form-grid billing-form-grid--2">
+                      {payment.selectedMethods.includes('Cash') && (
+                        <div>
+                          <label className="label">Cash Amount</label>
+                          <input
+                            type="number"
+                            className="input-field"
+                            min="0"
+                            value={payment.methodAmounts.Cash}
+                            onChange={(e) => setPayment((prev) => ({
+                              ...prev,
+                              methodAmounts: { ...prev.methodAmounts, Cash: e.target.value }
+                            }))}
+                          />
+                        </div>
+                      )}
+                      {payment.selectedMethods.includes('UPI') && (
+                        <div>
+                          <label className="label">UPI Amount</label>
+                          <input
+                            type="number"
+                            className="input-field"
+                            min="0"
+                            value={payment.methodAmounts.UPI}
+                            onChange={(e) => setPayment((prev) => ({
+                              ...prev,
+                              methodAmounts: { ...prev.methodAmounts, UPI: e.target.value }
+                            }))}
+                          />
+                        </div>
+                      )}
+                      {payment.selectedMethods.includes('Cheque') && (
+                        <div>
+                          <label className="label">Cheque Amount</label>
+                          <input
+                            type="number"
+                            className="input-field"
+                            min="0"
+                            value={payment.methodAmounts.Cheque}
+                            onChange={(e) => setPayment((prev) => ({
+                              ...prev,
+                              methodAmounts: { ...prev.methodAmounts, Cheque: e.target.value }
+                            }))}
+                          />
+                        </div>
+                      )}
+                      {payment.selectedMethods.includes('Account Transfer') && (
+                        <div>
+                          <label className="label">Transfer Amount</label>
+                          <input
+                            type="number"
+                            className="input-field"
+                            min="0"
+                            value={payment.methodAmounts['Account Transfer']}
+                            onChange={(e) => setPayment((prev) => ({
+                              ...prev,
+                              methodAmounts: { ...prev.methodAmounts, 'Account Transfer': e.target.value }
+                            }))}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ref & Notes for non-cash */}
+                    {(payment.selectedMethods.some((m) => m !== 'Cash')) && (
+                      <div className="billing-form-grid billing-form-grid--2">
+                        <div>
+                          <label className="label">UTR / Ref No</label>
+                          <input
+                            className="input-field"
+                            value={payment.referenceNumber}
+                            onChange={(e) => setPayment((prev) => ({ ...prev, referenceNumber: e.target.value }))}
+                          />
+                          {fieldErrors.referenceNumber && (
+                            <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.referenceNumber}</span>
+                          )}
+                        </div>
+                        <div>
+                          <label className="label">Purpose / Notes (optional)</label>
+                          <input
+                            className="input-field"
+                            value={payment.description}
+                            onChange={(e) => setPayment((prev) => ({ ...prev, description: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Notes for cash only */}
+                    {payment.selectedMethods.length === 1 && payment.selectedMethods[0] === 'Cash' && (
+                      <div>
+                        <label className="label">Purpose / Notes (optional)</label>
+                        <input
+                          className="input-field"
+                          value={payment.description}
+                          onChange={(e) => setPayment((prev) => ({ ...prev, description: e.target.value }))}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Error Display */}
                 {error && <div className="alert alert--error mb-12">{error}</div>}
 
-                {/* Create Bill Button */}
+                {/* Create Bill / Discount Request Actions */}
                 <div className="billing-create-bar">
+                  {!isInternalBill && totals.activePct > 5 && (!discountRequest || discountRequest.status === 'REJECTED') && (
+                    <button
+                      className="btn btn-ghost billing-create-secondary-btn"
+                      type="button"
+                      onClick={openDiscountRequestModal}
+                      disabled={!canProceed || saving || discountRequestLoading}
+                    >
+                      {discountRequestLoading ? 'Sending...' : 'Send Discount Request'}
+                    </button>
+                  )}
                   <button className="btn btn-primary billing-create-btn" type="button" onClick={handleAddOrder} disabled={!canProceed || saving}>
-                    {saving ? 'Creating Bill...' : totals.activePct > 5 && !discountRequest ? `Request Discount & Create Bill` : `Create Bill — ₹${totals.gross.toFixed(2)}`}
+                    {saving ? 'Creating Bill...' : isInternalBill ? 'Record Internal Use' : `Create Bill — ₹${totals.gross.toFixed(2)}`}
                   </button>
                 </div>
               </div>
@@ -2413,7 +3012,7 @@ const Billing = () => {
             </h2>
             <p className="muted" style={{ fontSize: '14px', marginBottom: '20px' }}>
               {lastOrderAutoDelivered
-                ? 'Fully paid walk-in order — automatically marked as Delivered.'
+                ? 'Walk-in order — automatically marked as Delivered.'
                 : 'Invoice has been recorded successfully.'}
             </p>
             {!lastOrderAutoDelivered && lastOrderCustomerType !== 'Walk-in' && (
@@ -2510,6 +3109,40 @@ const Billing = () => {
                       <div style={{ flex: 2 }}>
                         <div className="font-bold">{idx + 1}. {job.product_name || job.job_name || 'Job'}</div>
                         <div className="text-xs muted">Qty {job.quantity || 1} - Job #{job.job_number || job.id}</div>
+                        {job.description && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                            {job.description.split(' | ').map((part, i) => {
+                              const isColour = part.toLowerCase().startsWith('colour:') || part.toLowerCase().startsWith('color:');
+                              const isNumbering = part.toLowerCase().startsWith('numbering:');
+                              return (
+                                <span key={i} style={{
+                                  fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 500,
+                                  background: isColour ? '#fef3c7' : isNumbering ? '#dbeafe' : '#f3f4f6',
+                                  color: isColour ? '#92400e' : isNumbering ? '#1e40af' : '#374151',
+                                }}>
+                                  {isColour && '🎨 '}{isNumbering && '🔢 '}{part}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {job.matter_preview && (
+                          <div style={{ marginTop: 6 }}>
+                            <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 3 }}>Matter Photo:</div>
+                            <img
+                              src={job.matter_preview}
+                              alt="Matter"
+                              style={{ maxWidth: 120, maxHeight: 90, borderRadius: 4, border: '1px solid var(--border)', objectFit: 'cover', cursor: 'pointer' }}
+                              onClick={() => window.open(job.matter_preview, '_blank')}
+                              title="Click to enlarge"
+                            />
+                          </div>
+                        )}
+                        {job.matter_file_name && !job.matter_preview && (
+                          <div style={{ fontSize: 10, color: 'var(--success)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <CheckCircle size={10} /> {job.matter_file_name}
+                          </div>
+                        )}
                       </div>
                       <div style={{ flex: 3 }}>
                         <div className="row gap-sm wrap">

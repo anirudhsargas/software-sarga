@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Camera, Plus, X, Edit2, Trash2, Loader2, RefreshCw, Eye, EyeOff, Wifi, WifiOff, User, Upload, Image, Video, MonitorPlay, Network, KeyRound, UserCheck, ChevronRight, ExternalLink } from 'lucide-react';
 import api from '../services/api';
 import SecureImage from '../components/SecureImage';

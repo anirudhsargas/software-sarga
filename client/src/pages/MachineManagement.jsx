@@ -40,9 +40,10 @@ const MachineManagement = () => {
     });
     const [workForm, setWorkForm] = useState({
         customer_name: '', work_details: '', copies: '', payment_type: 'Cash',
-        cash_amount: '', upi_amount: '', credit_amount: '', total_amount: '', remarks: ''
+        cash_amount: '', upi_amount: '', credit_amount: '', total_amount: '', remarks: '',
+        waste_copies: '', proof_copies: ''
     });
-    const [readingForm, setReadingForm] = useState({ opening_count: '', closing_count: '', notes: '' });
+    const [readingForm, setReadingForm] = useState({ opening_count: '', closing_count: '', waste_prints: '', proof_prints: '', notes: '' });
     const [filterType, setFilterType] = useState('All');
     const [readingSaving, setReadingSaving] = useState(false);
     const [countRequests, setCountRequests] = useState([]);
@@ -172,6 +173,8 @@ const MachineManagement = () => {
                 setReadingForm({
                     opening_count: res.data.today_reading.opening_count?.toString() || '',
                     closing_count: res.data.today_reading.closing_count?.toString() || '',
+                    waste_prints: res.data.today_reading.waste_prints?.toString() || '',
+                    proof_prints: res.data.today_reading.proof_prints?.toString() || '',
                     notes: res.data.today_reading.notes || ''
                 });
             } else {
@@ -180,6 +183,8 @@ const MachineManagement = () => {
                 setReadingForm({
                     opening_count: expected != null ? expected.toString() : '',
                     closing_count: '',
+                    waste_prints: '',
+                    proof_prints: '',
                     notes: ''
                 });
             }
@@ -309,6 +314,8 @@ const MachineManagement = () => {
                 reading_date: today,
                 opening_count: readingForm.opening_count ? parseInt(readingForm.opening_count) : 0,
                 closing_count: readingForm.closing_count ? parseInt(readingForm.closing_count) : null,
+                waste_prints: readingForm.waste_prints ? parseInt(readingForm.waste_prints) : 0,
+                proof_prints: readingForm.proof_prints ? parseInt(readingForm.proof_prints) : 0,
                 notes: readingForm.notes || null
             });
             if (res.data.count_request_created) {
@@ -344,6 +351,8 @@ const MachineManagement = () => {
             await api.post(`/machines/${selectedMachine.id}/work`, {
                 ...workForm,
                 copies: parseInt(workForm.copies) || 0,
+                waste_copies: parseInt(workForm.waste_copies) || 0,
+                proof_copies: parseInt(workForm.proof_copies) || 0,
                 cash_amount: parseFloat(workForm.cash_amount) || 0,
                 upi_amount: parseFloat(workForm.upi_amount) || 0,
                 credit_amount: parseFloat(workForm.credit_amount) || 0,
@@ -351,7 +360,7 @@ const MachineManagement = () => {
                 work_date: today
             });
             setShowWorkModal(false);
-            setWorkForm({ customer_name: '', work_details: '', copies: '', payment_type: 'Cash', cash_amount: '', upi_amount: '', credit_amount: '', total_amount: '', remarks: '' });
+            setWorkForm({ customer_name: '', work_details: '', copies: '', payment_type: 'Cash', cash_amount: '', upi_amount: '', credit_amount: '', total_amount: '', remarks: '', waste_copies: '', proof_copies: '' });
             fetchMachineDetails(selectedMachine.id);
         } catch (e) { toast.error(e.response?.data?.error || 'Failed to add work'); }
         finally { setWorkSaving(false); }
@@ -431,7 +440,7 @@ const MachineManagement = () => {
                 ) : machineDetails ? (
                     <>
                         {/* Stats Cards */}
-                        <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                        <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
                             <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
                                 <div className="text-sm muted" style={{ marginBottom: 4 }}>Today Opening</div>
                                 <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono, monospace)' }}>
@@ -445,10 +454,32 @@ const MachineManagement = () => {
                                 </div>
                             </div>
                             <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
-                                <div className="text-sm muted" style={{ marginBottom: 4 }}>Today Copies</div>
+                                <div className="text-sm muted" style={{ marginBottom: 4 }}>Total Copies</div>
                                 <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--clr-primary)', fontFamily: 'var(--font-mono, monospace)' }}>
                                     {machineDetails.today_reading?.total_copies ? fmt(machineDetails.today_reading.total_copies) : '—'}
                                 </div>
+                            </div>
+                            <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
+                                <div className="text-sm muted" style={{ marginBottom: 4, color: '#dc2626' }}>Waste Prints</div>
+                                <div style={{ fontSize: 22, fontWeight: 700, color: '#dc2626', fontFamily: 'var(--font-mono, monospace)' }}>
+                                    {machineDetails.today_reading?.waste_prints != null ? fmt(machineDetails.today_reading.waste_prints) : '—'}
+                                </div>
+                                {machineDetails.today_reading?.total_copies > 0 && machineDetails.today_reading?.waste_prints != null && (
+                                    <div style={{ fontSize: 11, color: '#dc2626' }}>
+                                        {((machineDetails.today_reading.waste_prints / machineDetails.today_reading.total_copies) * 100).toFixed(1)}%
+                                    </div>
+                                )}
+                            </div>
+                            <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
+                                <div className="text-sm muted" style={{ marginBottom: 4, color: '#d97706' }}>Proof Prints</div>
+                                <div style={{ fontSize: 22, fontWeight: 700, color: '#d97706', fontFamily: 'var(--font-mono, monospace)' }}>
+                                    {machineDetails.today_reading?.proof_prints != null ? fmt(machineDetails.today_reading.proof_prints) : '—'}
+                                </div>
+                                {machineDetails.today_reading?.total_copies > 0 && machineDetails.today_reading?.proof_prints != null && (
+                                    <div style={{ fontSize: 11, color: '#d97706' }}>
+                                        {((machineDetails.today_reading.proof_prints / machineDetails.today_reading.total_copies) * 100).toFixed(1)}%
+                                    </div>
+                                )}
                             </div>
                             <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
                                 <div className="text-sm muted" style={{ marginBottom: 4 }}>Month Revenue</div>
@@ -501,7 +532,7 @@ const MachineManagement = () => {
                                 <Gauge size={16} style={{ verticalAlign: -3, marginRight: 6 }} />
                                 Today's Counter ({serverToday ? serverToday() : new Date().toISOString().split('T')[0]})
                             </h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr auto', gap: '16px', alignItems: 'flex-end' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 2fr auto', gap: '12px', alignItems: 'flex-end' }}>
                                 <div className="form-group" style={{ margin: 0 }}>
                                     <label className="form-label text-sm" style={{ fontWeight: 600, color: 'var(--clr-muted)' }}>Opening Count</label>
                                     <input type="number" className="input-field"
@@ -537,7 +568,39 @@ const MachineManagement = () => {
                                     {readingForm.closing_count !== '' && readingForm.opening_count !== '' &&
                                         parseInt(readingForm.closing_count) > parseInt(readingForm.opening_count) && (
                                         <div style={{ fontSize: 11, marginTop: 4, color: 'var(--clr-primary)', fontWeight: 600 }}>
-                                            +{(parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count)).toLocaleString('en-IN')} copies
+                                            Total: {(parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count)).toLocaleString('en-IN')}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label text-sm" style={{ fontWeight: 600, color: '#dc2626' }}>Waste Prints</label>
+                                    <input type="number" min="0" className="input-field"
+                                        value={readingForm.waste_prints}
+                                        onChange={e => setReadingForm({ ...readingForm, waste_prints: e.target.value })}
+                                        style={{ height: 42, fontFamily: 'var(--font-mono, monospace)', borderColor: readingForm.waste_prints ? '#dc2626' : undefined }}
+                                        placeholder="0"
+                                    />
+                                    {readingForm.waste_prints && readingForm.closing_count && readingForm.opening_count &&
+                                        parseInt(readingForm.closing_count) > parseInt(readingForm.opening_count) && (
+                                        <div style={{ fontSize: 11, marginTop: 4, color: '#dc2626' }}>
+                                            {((parseInt(readingForm.waste_prints) / (parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count))) * 100).toFixed(1)}% waste
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label text-sm" style={{ fontWeight: 600, color: '#d97706' }}>Proof Prints</label>
+                                    <input type="number" min="0" className="input-field"
+                                        value={readingForm.proof_prints}
+                                        onChange={e => setReadingForm({ ...readingForm, proof_prints: e.target.value })}
+                                        style={{ height: 42, fontFamily: 'var(--font-mono, monospace)', borderColor: readingForm.proof_prints ? '#d97706' : undefined }}
+                                        placeholder="0"
+                                    />
+                                    {readingForm.proof_prints && readingForm.closing_count && readingForm.opening_count &&
+                                        parseInt(readingForm.closing_count) > parseInt(readingForm.opening_count) && (
+                                        <div style={{ fontSize: 11, marginTop: 4, color: '#d97706' }}>
+                                            {((parseInt(readingForm.proof_prints) / (parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count))) * 100).toFixed(1)}% proof
                                         </div>
                                     )}
                                 </div>
@@ -553,10 +616,33 @@ const MachineManagement = () => {
                                 </div>
 
                                 <button className="btn btn-primary" onClick={handleSaveReading} disabled={readingSaving}
-                                    style={{ height: 42, padding: '0 24px', fontWeight: 600 }}>
-                                    {readingSaving ? <Loader2 className="animate-spin" size={18} /> : 'Save Reading'}
+                                    style={{ height: 42, padding: '0 20px', fontWeight: 600 }}>
+                                    {readingSaving ? <Loader2 className="animate-spin" size={18} /> : 'Save'}
                                 </button>
                             </div>
+                            {/* Good prints summary */}
+                            {readingForm.closing_count && readingForm.opening_count &&
+                                parseInt(readingForm.closing_count) > parseInt(readingForm.opening_count) && (
+                                <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                    {(() => {
+                                        const total = parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count);
+                                        const waste = parseInt(readingForm.waste_prints) || 0;
+                                        const proof = parseInt(readingForm.proof_prints) || 0;
+                                        const good = Math.max(0, total - waste - proof);
+                                        const overLimit = waste + proof > total;
+                                        return (
+                                            <>
+                                                <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
+                                                    ✓ Good: {good.toLocaleString('en-IN')} ({total > 0 ? ((good/total)*100).toFixed(1) : 0}%)
+                                                </span>
+                                                <span style={{ fontSize: 12, color: '#dc2626' }}>Waste: {waste.toLocaleString('en-IN')}</span>
+                                                <span style={{ fontSize: 12, color: '#d97706' }}>Proof: {proof.toLocaleString('en-IN')}</span>
+                                                {overLimit && <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 700 }}>⚠ Waste + Proof exceeds total!</span>}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            )}
                             {machineDetails.today_reading && !isAdmin && (
                                 <p className="text-sm muted" style={{ marginTop: 8 }}>
                                     Opening count is locked. Contact Admin for changes.
@@ -611,6 +697,8 @@ const MachineManagement = () => {
                                                 <th>Customer</th>
                                                 <th>Work Details</th>
                                                 <th>Copies</th>
+                                                <th style={{ color: '#dc2626' }}>Waste</th>
+                                                <th style={{ color: '#d97706' }}>Proof</th>
                                                 <th>Payment</th>
                                                 <th>Amount</th>
                                                 <th>Remarks</th>
@@ -619,12 +707,14 @@ const MachineManagement = () => {
                                         </thead>
                                         <tbody>
                                             {(!machineDetails.today_work || machineDetails.today_work.length === 0) ? (
-                                                <tr><td colSpan="7" className="text-center muted table-empty">No work entries today</td></tr>
+                                                <tr><td colSpan="9" className="text-center muted table-empty">No work entries today</td></tr>
                                             ) : machineDetails.today_work.map(w => (
                                                 <tr key={w.id}>
                                                     <td className="font-medium">{w.customer_name}</td>
                                                     <td className="text-sm">{w.work_details}</td>
                                                     <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{fmt(w.copies)}</td>
+                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#dc2626' }}>{w.waste_copies > 0 ? fmt(w.waste_copies) : '—'}</td>
+                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#d97706' }}>{w.proof_copies > 0 ? fmt(w.proof_copies) : '—'}</td>
                                                     <td><span className="badge badge--type-walk-in">{w.payment_type}</span></td>
                                                     <td className="font-medium" style={{ fontFamily: 'var(--font-mono, monospace)' }}>{fmtCur(w.total_amount)}</td>
                                                     <td className="text-sm muted">{w.remarks || '-'}</td>
@@ -661,34 +751,51 @@ const MachineManagement = () => {
                                                 <th>Opening</th>
                                                 <th>Closing</th>
                                                 <th>Total Copies</th>
+                                                <th style={{ color: '#16a34a' }}>Good</th>
+                                                <th style={{ color: '#dc2626' }}>Waste</th>
+                                                <th style={{ color: '#d97706' }}>Proof</th>
                                                 <th>Revenue</th>
                                                 <th>Work Entries</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {(!machineDetails.production_summary || machineDetails.production_summary.length === 0) ? (
-                                                <tr><td colSpan="6" className="text-center muted table-empty">No production data</td></tr>
-                                            ) : machineDetails.production_summary.map(p => (
+                                                <tr><td colSpan="9" className="text-center muted table-empty">No production data</td></tr>
+                                            ) : machineDetails.production_summary.map(p => {
+                                                const waste = p.waste_prints || 0;
+                                                const proof = p.proof_prints || 0;
+                                                const good = Math.max(0, (p.total_copies || 0) - waste - proof);
+                                                return (
                                                 <tr key={p.reading_date}>
                                                     <td className="font-medium">{new Date(p.reading_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</td>
                                                     <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{fmt(p.opening_count)}</td>
                                                     <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{p.closing_count != null ? fmt(p.closing_count) : '—'}</td>
                                                     <td style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 600, color: 'var(--clr-primary)' }}>{fmt(p.total_copies)}</td>
+                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#16a34a', fontWeight: 600 }}>{fmt(good)}</td>
+                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#dc2626' }}>
+                                                        {waste > 0 ? <>{fmt(waste)} <span style={{ fontSize: 10 }}>({p.total_copies > 0 ? ((waste/p.total_copies)*100).toFixed(1) : 0}%)</span></> : '—'}
+                                                    </td>
+                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#d97706' }}>
+                                                        {proof > 0 ? <>{fmt(proof)} <span style={{ fontSize: 10 }}>({p.total_copies > 0 ? ((proof/p.total_copies)*100).toFixed(1) : 0}%)</span></> : '—'}
+                                                    </td>
                                                     <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{fmtCur(p.day_revenue)}</td>
                                                     <td>{p.work_entries_count || 0}</td>
                                                 </tr>
-                                            ))}
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
                                 {/* Monthly Summary */}
                                 {machineDetails.monthly_stats && (
-                                    <div style={{ padding: 16, borderTop: '1px solid var(--clr-border)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                                    <div style={{ padding: 16, borderTop: '1px solid var(--clr-border)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
                                         <div><span className="text-sm muted">Month Revenue</span><br /><strong>{fmtCur(machineDetails.monthly_stats.total_revenue)}</strong></div>
                                         <div><span className="text-sm muted">Cash</span><br /><strong>{fmtCur(machineDetails.monthly_stats.total_cash)}</strong></div>
                                         <div><span className="text-sm muted">UPI</span><br /><strong>{fmtCur(machineDetails.monthly_stats.total_upi)}</strong></div>
                                         <div><span className="text-sm muted">Credit</span><br /><strong>{fmtCur(machineDetails.monthly_stats.total_credit)}</strong></div>
                                         <div><span className="text-sm muted">Total Copies</span><br /><strong>{fmt(machineDetails.monthly_stats.total_copies)}</strong></div>
+                                        <div><span className="text-sm muted" style={{ color: '#dc2626' }}>Waste Prints</span><br /><strong style={{ color: '#dc2626' }}>{fmt(machineDetails.monthly_stats.waste_prints || 0)}</strong></div>
+                                        <div><span className="text-sm muted" style={{ color: '#d97706' }}>Proof Prints</span><br /><strong style={{ color: '#d97706' }}>{fmt(machineDetails.monthly_stats.proof_prints || 0)}</strong></div>
                                         <div><span className="text-sm muted">Total Jobs</span><br /><strong>{fmt(machineDetails.monthly_stats.total_jobs)}</strong></div>
                                     </div>
                                 )}
@@ -784,23 +891,38 @@ const MachineManagement = () => {
                                                 <th>Opening</th>
                                                 <th>Closing</th>
                                                 <th>Total Copies</th>
+                                                <th style={{ color: '#16a34a' }}>Good</th>
+                                                <th style={{ color: '#dc2626' }}>Waste</th>
+                                                <th style={{ color: '#d97706' }}>Proof</th>
                                                 <th>Notes</th>
                                                 <th>Entered By</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {(!machineDetails.readings || machineDetails.readings.length === 0) ? (
-                                                <tr><td colSpan="6" className="text-center muted table-empty">No readings yet</td></tr>
-                                            ) : machineDetails.readings.map(r => (
+                                                <tr><td colSpan="9" className="text-center muted table-empty">No readings yet</td></tr>
+                                            ) : machineDetails.readings.map(r => {
+                                                const waste = r.waste_prints || 0;
+                                                const proof = r.proof_prints || 0;
+                                                const good = Math.max(0, (r.total_copies || 0) - waste - proof);
+                                                return (
                                                 <tr key={r.id}>
                                                     <td className="font-medium">{new Date(r.reading_date).toLocaleDateString('en-IN')}</td>
                                                     <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{fmt(r.opening_count)}</td>
                                                     <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{r.closing_count != null ? fmt(r.closing_count) : '—'}</td>
                                                     <td style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>{fmt(r.total_copies)}</td>
+                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#16a34a', fontWeight: 600 }}>{fmt(good)}</td>
+                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#dc2626' }}>
+                                                        {waste > 0 ? <>{fmt(waste)}{r.total_copies > 0 && <span style={{ fontSize: 10 }}> ({((waste/r.total_copies)*100).toFixed(1)}%)</span>}</> : '—'}
+                                                    </td>
+                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#d97706' }}>
+                                                        {proof > 0 ? <>{fmt(proof)}{r.total_copies > 0 && <span style={{ fontSize: 10 }}> ({((proof/r.total_copies)*100).toFixed(1)}%)</span>}</> : '—'}
+                                                    </td>
                                                     <td className="text-sm muted">{r.notes || '-'}</td>
                                                     <td className="text-sm">{r.created_by_name || '-'}</td>
                                                 </tr>
-                                            ))}
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -925,6 +1047,22 @@ const MachineManagement = () => {
                                             <input type="number" className="input-field" required min="0"
                                                 value={workForm.copies}
                                                 onChange={e => setWorkForm({ ...workForm, copies: e.target.value })} />
+                                        </div>
+                                        <div className="form-group" style={{ flex: 1 }}>
+                                            <label className="form-label" style={{ color: '#dc2626' }}>Waste Copies</label>
+                                            <input type="number" className="input-field" min="0"
+                                                value={workForm.waste_copies}
+                                                onChange={e => setWorkForm({ ...workForm, waste_copies: e.target.value })}
+                                                placeholder="0"
+                                                style={{ borderColor: workForm.waste_copies ? '#dc2626' : undefined }} />
+                                        </div>
+                                        <div className="form-group" style={{ flex: 1 }}>
+                                            <label className="form-label" style={{ color: '#d97706' }}>Proof Copies</label>
+                                            <input type="number" className="input-field" min="0"
+                                                value={workForm.proof_copies}
+                                                onChange={e => setWorkForm({ ...workForm, proof_copies: e.target.value })}
+                                                placeholder="0"
+                                                style={{ borderColor: workForm.proof_copies ? '#d97706' : undefined }} />
                                         </div>
                                         <div className="form-group" style={{ flex: 1 }}>
                                             <label className="form-label">Payment Type</label>

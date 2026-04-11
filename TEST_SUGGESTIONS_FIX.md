@@ -1,3 +1,6 @@
+> Master Context: [SARGA_WORK_CONTEXT.md](SARGA_WORK_CONTEXT.md)
+> Source of truth for project state, architecture, and workflow decisions.
+
 # Fix for Staff Suggestions Endpoint 500 Error
 
 ## Problem

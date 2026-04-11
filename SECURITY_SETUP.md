@@ -1,3 +1,6 @@
+> Master Context: [SARGA_WORK_CONTEXT.md](SARGA_WORK_CONTEXT.md)
+> Source of truth for project state, architecture, and workflow decisions.
+
 # Security Setup Guide
 
 This document outlines the security improvements made to the SARGA repository and steps to complete the migration.

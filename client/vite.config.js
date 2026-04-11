@@ -68,11 +68,6 @@ export default defineConfig({
           // Core (loads first)
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-ui': ['lucide-react'],
-          // Split heavy pages into separate chunks
-          'page-billing': ['./src/pages/Billing.jsx'],
-          'page-reports': ['./src/pages/SalesPrediction.jsx', './src/pages/AIMonitoring.jsx', './src/pages/OrderPredictions.jsx'],
-          'page-expense': ['./src/pages/ExpenseManager.jsx'],
-          'page-staff': ['./src/pages/StaffManagement.jsx', './src/pages/AttendanceSalary.jsx'],
           // Heavy libraries → separate chunks (lazy-loaded)
           'pdf-export': ['jspdf', 'jspdf-autotable'],
           'image-processing': ['react-easy-crop'],

@@ -12,7 +12,7 @@ export const useOTP = () => {
   // Start countdown timer
   const startCountdown = (seconds = 30) => {
     setCountdown(seconds);
-    // [REMOVED] interval polling for sync — now handled by syncWorker
+    const timer = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(timer);

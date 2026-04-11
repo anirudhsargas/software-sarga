@@ -10,6 +10,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import api from '../services/api';
 import auth from '../services/auth';
+import offlineDb from '../services/offlineDb';
 import { serverToday, serverNow } from '../services/serverTime';
 import toast from 'react-hot-toast';
 import { formatCurrencyDecimal } from '../constants';
@@ -21,6 +22,126 @@ const TABS = [
 ];
 
 const AUTO_REFRESH_INTERVAL = 30000;
+
+const normalizeBookType = (value) => {
+    if (value === 'Laser' || value === 'Other' || value === 'Offset') return value;
+    return 'Offset';
+};
+
+const normalizeReportDate = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') return value.slice(0, 10);
+    if (typeof value === 'number') return new Date(value).toISOString().slice(0, 10);
+    try {
+        return new Date(value).toISOString().slice(0, 10);
+    } catch {
+        return '';
+    }
+};
+
+const toPendingEntry = (bill, tab) => {
+    const lines = Array.isArray(bill.orderLines || bill.order_lines) ? (bill.orderLines || bill.order_lines) : [];
+    const method = bill.paymentMethod || bill.payment_method || 'Cash';
+    const cashAmt = Number(bill.cashAmount ?? bill.cash_amount ?? 0);
+    const upiAmt = Number(bill.upiAmount ?? bill.upi_amount ?? 0);
+    const advPaid = Number(bill.advancePaid ?? bill.advance_paid ?? bill.totalAmount ?? bill.total_amount ?? 0);
+    let cashIn = 0;
+    let upiIn = 0;
+    if (method === 'Both') {
+        cashIn = cashAmt;
+        upiIn = upiAmt;
+    } else if (method === 'UPI') {
+        upiIn = advPaid;
+    } else {
+        cashIn = advPaid;
+    }
+
+    const wastePrints = lines.reduce((sum, line) => sum + (Number(line.waste_prints) || 0), 0);
+    const proofPrints = lines.reduce((sum, line) => sum + (Number(line.proof_prints) || 0), 0);
+    const details = lines.map(line => line.product_name || line.job_name || line.description || '').filter(Boolean).join(', ');
+
+    return {
+        id: `local-bill-${bill.id}`,
+        type: tab === 'Laser' ? 'billing' : 'income',
+        description: bill.customer_name || bill.customerName || 'Walk-in',
+        details: details || bill.description || 'Pending local sync',
+        machine_name: tab === 'Laser' ? 'Pending sync' : undefined,
+        copies: 0,
+        payment_method: method,
+        cash_amount: cashIn,
+        upi_amount: upiIn,
+        total: advPaid,
+        time: bill.createdAt || bill.created_at || bill.paymentDate || bill.payment_date,
+        waste_prints: wastePrints,
+        proof_prints: proofPrints,
+        discount_percent: Number(bill.discountPercent ?? bill.discount_percent) || 0,
+        discount_amount: Number(bill.discountAmount ?? bill.discount_amount) || 0,
+        order_lines: lines.map(line => ({
+            name: line.product_name || line.job_name || line.description || 'Item',
+            qty: Number(line.quantity) || 1,
+            amount: Number(line.total_amount || 0),
+            waste_prints: Number(line.waste_prints) || 0,
+            proof_prints: Number(line.proof_prints) || 0
+        })),
+        is_local_pending: true
+    };
+};
+
+const mergePendingEntries = (tab, data, pendingEntries) => {
+    if (!pendingEntries.length) return data;
+
+    const totalCashIn = pendingEntries.reduce((sum, entry) => sum + (Number(entry.cash_amount) || 0), 0);
+    const totalUpiIn = pendingEntries.reduce((sum, entry) => sum + (Number(entry.upi_amount) || 0), 0);
+    const totalWastePrints = pendingEntries.reduce((sum, entry) => sum + (Number(entry.waste_prints) || 0), 0);
+    const totalProofPrints = pendingEntries.reduce((sum, entry) => sum + (Number(entry.proof_prints) || 0), 0);
+    const summary = { ...(data.summary || {}) };
+
+    summary.total_cash_in = (Number(summary.total_cash_in) || 0) + totalCashIn;
+    summary.total_upi_in = (Number(summary.total_upi_in) || 0) + totalUpiIn;
+    summary.waste_prints = (Number(summary.waste_prints) || 0) + totalWastePrints;
+    summary.proof_prints = (Number(summary.proof_prints) || 0) + totalProofPrints;
+    summary.entry_count = (Number(summary.entry_count) || 0) + pendingEntries.length;
+    summary.cash_closing = (Number(summary.cash_closing) || 0) + totalCashIn;
+
+    if (tab === 'Offset') {
+        summary.income_count = (Number(summary.income_count) || 0) + pendingEntries.length;
+    }
+
+    return {
+        ...data,
+        entries: [...pendingEntries, ...(data.entries || [])].sort((a, b) => new Date(b.time) - new Date(a.time)),
+        summary
+    };
+};
+
+const mergePendingLiveCounts = (liveCounts, pendingByTab) => {
+    const pendingOffset = pendingByTab.Offset || [];
+    const pendingLaser = pendingByTab.Laser || [];
+    const pendingOther = pendingByTab.Other || [];
+
+    return {
+        ...liveCounts,
+        offset: liveCounts?.offset ? {
+            ...liveCounts.offset,
+            income_count: (Number(liveCounts.offset.income_count) || 0) + pendingOffset.length,
+            total_collected: (Number(liveCounts.offset.total_collected) || 0) + pendingOffset.reduce((sum, entry) => sum + (Number(entry.total) || 0), 0),
+            total_cash_in: (Number(liveCounts.offset.total_cash_in) || 0) + pendingOffset.reduce((sum, entry) => sum + (Number(entry.cash_amount) || 0), 0),
+            total_upi_in: (Number(liveCounts.offset.total_upi_in) || 0) + pendingOffset.reduce((sum, entry) => sum + (Number(entry.upi_amount) || 0), 0)
+        } : liveCounts?.offset,
+        laser: liveCounts?.laser ? {
+            ...liveCounts.laser,
+            income_count: (Number(liveCounts.laser.income_count) || 0) + pendingLaser.length,
+            total_collected: (Number(liveCounts.laser.total_collected) || 0) + pendingLaser.reduce((sum, entry) => sum + (Number(entry.total) || 0), 0),
+            total_cash_in: (Number(liveCounts.laser.total_cash_in) || 0) + pendingLaser.reduce((sum, entry) => sum + (Number(entry.cash_amount) || 0), 0),
+            total_upi_in: (Number(liveCounts.laser.total_upi_in) || 0) + pendingLaser.reduce((sum, entry) => sum + (Number(entry.upi_amount) || 0), 0)
+        } : liveCounts?.laser,
+        other: liveCounts?.other ? {
+            ...liveCounts.other,
+            income_count: (Number(liveCounts.other.income_count) || 0) + pendingOther.length,
+            total_collected: (Number(liveCounts.other.total_collected) || 0) + pendingOther.reduce((sum, entry) => sum + (Number(entry.total) || 0), 0)
+        } : liveCounts?.other
+    };
+};
 
 const DailyReport = () => {
     const [activeTab, setActiveTab] = useState('Offset');
@@ -62,7 +183,7 @@ const DailyReport = () => {
 
     // Machine editing
     const [editingMachine, setEditingMachine] = useState(null);
-    const [machineReadingTemp, setMachineReadingTemp] = useState({ opening_count: '', closing_count: '' });
+    const [machineReadingTemp, setMachineReadingTemp] = useState({ opening_count: '', closing_count: '', waste_prints: '', proof_prints: '' });
 
     const [lastRefresh, setLastRefresh] = useState(null);
 
@@ -86,6 +207,20 @@ const DailyReport = () => {
         const d = new Date(dateStr + 'T00:00:00');
         return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     };
+
+    const getPendingEntriesForTab = useCallback(async (tab) => {
+        const bills = await offlineDb.getAllBills();
+        return bills
+            .filter(bill => (bill.status || bill.syncStatus) !== 'synced')
+            .filter(bill => normalizeReportDate(bill.paymentDate || bill.payment_date) === reportDate)
+            .filter(bill => normalizeBookType(bill.book_type || bill.bookType) === tab)
+            .filter(bill => {
+                if (!selectedBranch) return true;
+                const branchId = bill.branch_id || bill.branchId || null;
+                return branchId == null || Number(branchId) === Number(selectedBranch);
+            })
+            .map(bill => toPendingEntry(bill, tab));
+    }, [reportDate, selectedBranch]);
 
     const currentTabMeta = TABS.find(t => t.key === activeTab);
     const branchName = branches.find(b => b.id === selectedBranch)?.name || '';
@@ -251,7 +386,9 @@ const DailyReport = () => {
             await api.post(`/machines/${machineId}/readings`, {
                 reading_date: reportDate,
                 opening_count: enteredOpening,
-                closing_count: machineReadingTemp.closing_count !== '' ? parseInt(machineReadingTemp.closing_count) : null
+                closing_count: machineReadingTemp.closing_count !== '' ? parseInt(machineReadingTemp.closing_count) : null,
+                waste_prints: machineReadingTemp.waste_prints !== '' ? parseInt(machineReadingTemp.waste_prints) : 0,
+                proof_prints: machineReadingTemp.proof_prints !== '' ? parseInt(machineReadingTemp.proof_prints) : 0
             });
             setEditingMachine(null);
             loadTabData('Laser');
@@ -295,24 +432,37 @@ const DailyReport = () => {
         try {
             const endpoint = tab === 'Offset' ? '/daily-report/offset-live'
                 : tab === 'Laser' ? '/daily-report/laser-live' : '/daily-report/other-live';
-            const res = await api.get(endpoint, { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
-            if (tab === 'Offset') setOffsetData(res.data);
-            else if (tab === 'Laser') setLaserData(res.data);
-            else setOtherData(res.data);
+            const [res, pendingEntries] = await Promise.all([
+                api.get(endpoint, { params: { date: reportDate, branch_id: selectedBranch || branchParam } }),
+                getPendingEntriesForTab(tab)
+            ]);
+            const mergedData = mergePendingEntries(tab, res.data, pendingEntries);
+            if (tab === 'Offset') setOffsetData(mergedData);
+            else if (tab === 'Laser') setLaserData(mergedData);
+            else setOtherData(mergedData);
         } catch (err) {
             console.error(`Error fetching ${tab} data:`, err);
             setTabErrors(prev => ({ ...prev, [tab]: err.message || 'Failed to load' }));
         }
-    }, [reportDate, selectedBranch, branchParam]);
+    }, [reportDate, selectedBranch, branchParam, getPendingEntriesForTab]);
 
 
     const fetchLiveCounts = useCallback(async () => {
         try {
-            const res = await api.get('/daily-report/live-counts', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
-            setLiveCounts(res.data);
+            const [res, pendingOffset, pendingLaser, pendingOther] = await Promise.all([
+                api.get('/daily-report/live-counts', { params: { date: reportDate, branch_id: selectedBranch || branchParam } }),
+                getPendingEntriesForTab('Offset'),
+                getPendingEntriesForTab('Laser'),
+                getPendingEntriesForTab('Other')
+            ]);
+            setLiveCounts(mergePendingLiveCounts(res.data, {
+                Offset: pendingOffset,
+                Laser: pendingLaser,
+                Other: pendingOther
+            }));
             setLastRefresh(serverNow());
         } catch (err) { console.error('Error fetching live counts:', err); }
-    }, [reportDate, selectedBranch]);
+    }, [reportDate, selectedBranch, branchParam, getPendingEntriesForTab]);
 
     const loadAllData = useCallback(async (isInitial = false) => {
         if (isInitial) setInitialLoading(true);
@@ -579,8 +729,17 @@ const DailyReport = () => {
     const EntryTable = ({ entries, type = 'offset' }) => {
         const PAGE_SIZE = 50;
         const [page, setPage] = useState(1);
+        const [expandedIds, setExpandedIds] = useState(new Set());
         const totalPages = Math.ceil((entries?.length || 0) / PAGE_SIZE);
         const pagedEntries = (entries || []).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+        const toggleExpand = (id) => {
+            setExpandedIds(prev => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id); else next.add(id);
+                return next;
+            });
+        };
 
         if (!entries?.length) return (
             <div className="dr-empty">
@@ -593,6 +752,7 @@ const DailyReport = () => {
         );
 
         const isLaser = type === 'laser';
+        const colCount = isLaser ? 8 : 7;
 
         return (
             <div style={{ overflowX: 'auto', borderRadius: 12 }}>
@@ -615,6 +775,7 @@ const DailyReport = () => {
                                 ? <th style={{ textAlign: 'right', width: 70 }}>Copies</th>
                                 : <th style={{ width: 80 }}>Type</th>
                             }
+                            {isLaser && <th style={{ width: 80 }}>Type</th>}
                             <th style={{ width: 80 }}>Mode</th>
                             <th style={{ textAlign: 'right', width: 100 }}>Cash</th>
                             <th style={{ textAlign: 'right', width: 100 }}>UPI</th>
@@ -624,51 +785,110 @@ const DailyReport = () => {
                     <tbody>
                         {pagedEntries.map((entry, i) => {
                             const isExpense = entry.type === 'expense';
+                            const isInternal = !!entry.is_internal;
+                            const hasLines = entry.order_lines?.length > 1;
+                            const isExpanded = expandedIds.has(entry.id);
                             return (
-                                <tr key={`${type}-${entry.id}-${i}`}>
-                                    <td>
-                                        <span style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                                            <Clock size={10} /> {formatTime(entry.time)}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div style={{ fontWeight: 500 }}>{entry.description}</div>
-                                        {entry.details && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{entry.details}</div>}
-                                    </td>
-                                    {isLaser && (
+                                <React.Fragment key={`${type}-${entry.id}-${i}`}>
+                                    <tr style={hasLines ? { cursor: 'pointer' } : undefined} onClick={hasLines ? () => toggleExpand(entry.id) : undefined}>
                                         <td>
-                                            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--primary)' }}>
-                                                {entry.machine_name || '—'}
-                                            </div>
-                                        </td>
-                                    )}
-                                    {isLaser ? (
-                                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{entry.copies}</td>
-                                    ) : (
-                                        <td>
-                                            <span className={`badge ${isExpense ? 'badge--danger' : 'badge--success'}`} style={{ fontSize: 10, gap: 3 }}>
-                                                {isExpense
-                                                    ? <><ArrowDownRight size={10} /> Expense</>
-                                                    : <><ArrowUpRight size={10} /> Income</>
-                                                }
+                                            <span style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                                <Clock size={10} /> {formatTime(entry.time)}
                                             </span>
                                         </td>
-                                    )}
-                                    <td>
-                                        <span className="badge badge--default" style={{ fontSize: 10 }}>
-                                            {entry.payment_method || 'Cash'}
-                                        </span>
-                                    </td>
-                                    <td style={{ textAlign: 'right', color: isExpense ? 'var(--error)' : 'var(--success)', fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
-                                        {isExpense ? '-' : '+'}{formatCurrency(entry.cash_amount)}
-                                    </td>
-                                    <td style={{ textAlign: 'right', color: isExpense ? 'var(--error)' : 'var(--success)', fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
-                                        {isExpense ? '-' : '+'}{formatCurrency(entry.upi_amount)}
-                                    </td>
-                                    <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
-                                        {isExpense ? '-' : ''}{formatCurrency(entry.total)}
-                                    </td>
-                                </tr>
+                                        <td>
+                                            <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                {hasLines && (
+                                                    <ChevronRight size={14} style={{ flexShrink: 0, transition: 'transform 0.15s', transform: isExpanded ? 'rotate(90deg)' : 'none', color: 'var(--muted)' }} />
+                                                )}
+                                                {entry.description}
+                                                {hasLines && (
+                                                    <span className="badge badge--default" style={{ fontSize: 9, marginLeft: 4 }}>{entry.order_lines.length} items</span>
+                                                )}
+                                                {entry.is_local_pending && (
+                                                    <span className="badge badge--warning" style={{ fontSize: 9, marginLeft: 4 }}>Pending Sync</span>
+                                                )}
+                                            </div>
+                                            {!hasLines && entry.details && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{entry.details}</div>}
+                                            {(entry.waste_prints > 0 || entry.proof_prints > 0) && (
+                                                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, display: 'flex', gap: 8 }}>
+                                                    {entry.waste_prints > 0 && <span style={{ color: '#dc2626' }}>Waste: {entry.waste_prints}</span>}
+                                                    {entry.proof_prints > 0 && <span style={{ color: '#d97706' }}>Proof: {entry.proof_prints}</span>}
+                                                </div>
+                                            )}
+                                            {entry.discount_amount > 0 && (
+                                                <div style={{ fontSize: 11, color: '#059669', marginTop: 2 }}>
+                                                    Discount: {entry.discount_percent > 0 ? `${entry.discount_percent}%` : ''} (-{formatCurrency(entry.discount_amount)})
+                                                </div>
+                                            )}
+                                        </td>
+                                        {isLaser && (
+                                            <td>
+                                                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--primary)' }}>
+                                                    {entry.machine_name || '—'}
+                                                </div>
+                                            </td>
+                                        )}
+                                        {isLaser ? (
+                                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{entry.copies}</td>
+                                        ) : (
+                                            <td>
+                                                <span className={`badge ${isExpense ? 'badge--danger' : 'badge--success'}`} style={{ fontSize: 10, gap: 3 }}>
+                                                    {isExpense
+                                                        ? <><ArrowDownRight size={10} /> Expense</>
+                                                        : <><ArrowUpRight size={10} /> Income</>
+                                                    }
+                                                </span>
+                                            </td>
+                                        )}
+                                        {isLaser && (
+                                            <td>
+                                                {isInternal ? (
+                                                    <span className="badge" style={{ fontSize: 10, background: 'rgba(99,102,241,0.12)', color: '#6366f1' }}>🏠 Internal</span>
+                                                ) : (
+                                                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>—</span>
+                                                )}
+                                            </td>
+                                        )}
+                                        <td>
+                                            <span className="badge badge--default" style={{ fontSize: 10 }}>
+                                                {entry.payment_method || 'Cash'}
+                                            </span>
+                                        </td>
+                                        <td style={{ textAlign: 'right', color: isExpense ? 'var(--error)' : 'var(--success)', fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                                            {isExpense ? '-' : '+'}{formatCurrency(entry.cash_amount)}
+                                        </td>
+                                        <td style={{ textAlign: 'right', color: isExpense ? 'var(--error)' : 'var(--success)', fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                                            {isExpense ? '-' : '+'}{formatCurrency(entry.upi_amount)}
+                                        </td>
+                                        <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                                            {isExpense ? '-' : ''}{formatCurrency(entry.total)}
+                                        </td>
+                                    </tr>
+                                    {hasLines && isExpanded && entry.order_lines.map((line, li) => (
+                                        <tr key={`${entry.id}-line-${li}`} style={{ background: 'var(--surface-2, #f9fafb)' }}>
+                                            <td></td>
+                                            <td colSpan={isLaser ? 2 : 1} style={{ paddingLeft: 32, fontSize: 13, color: 'var(--text-secondary, var(--muted))' }}>
+                                                <span style={{ fontWeight: 500 }}>{line.name || 'Item'}</span>
+                                                {line.qty > 1 && <span style={{ color: 'var(--muted)', marginLeft: 6 }}>×{line.qty}</span>}
+                                                {(line.waste_prints > 0 || line.proof_prints > 0) && (
+                                                    <span style={{ marginLeft: 8, fontSize: 11 }}>
+                                                        {line.waste_prints > 0 && <span style={{ color: '#dc2626' }}>Waste:{line.waste_prints} </span>}
+                                                        {line.proof_prints > 0 && <span style={{ color: '#d97706' }}>Proof:{line.proof_prints}</span>}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            {isLaser && <td></td>}
+                                            {isLaser && <td></td>}
+                                            <td></td>
+                                            <td></td>
+                                            <td></td>
+                                            <td style={{ textAlign: 'right', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", color: 'var(--muted)' }}>
+                                                {formatCurrency(line.amount)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </React.Fragment>
                             );
                         })}
                     </tbody>
@@ -711,6 +931,36 @@ const DailyReport = () => {
                             <Hash size={12} style={{ display: 'inline', marginRight: 3 }} /> Total Copies
                         </span>
                         <span className="dr-summary-item__value">{formatNum(summary.total_copies)}</span>
+                    </div>
+                )}
+                {summary.waste_prints > 0 && (
+                    <div className="dr-summary-item">
+                        <span className="dr-summary-item__label" style={{ color: '#dc2626' }}>
+                            <Hash size={12} style={{ display: 'inline', marginRight: 3 }} /> Waste Prints
+                        </span>
+                        <span className="dr-summary-item__value" style={{ color: '#dc2626' }}>{formatNum(summary.waste_prints)}</span>
+                    </div>
+                )}
+                {summary.proof_prints > 0 && (
+                    <div className="dr-summary-item">
+                        <span className="dr-summary-item__label" style={{ color: '#d97706' }}>
+                            <Hash size={12} style={{ display: 'inline', marginRight: 3 }} /> Proof Prints
+                        </span>
+                        <span className="dr-summary-item__value" style={{ color: '#d97706' }}>{formatNum(summary.proof_prints)}</span>
+                    </div>
+                )}
+                {summary.internal_prints > 0 && (
+                    <div className="dr-summary-item">
+                        <span className="dr-summary-item__label" style={{ color: '#6366f1' }}>
+                            🏠 Internal Prints
+                        </span>
+                        <span className="dr-summary-item__value" style={{ color: '#6366f1' }}>{formatNum(summary.internal_prints)}</span>
+                    </div>
+                )}
+                {summary.internal_bill_count > 0 && (
+                    <div className="dr-summary-item">
+                        <span className="dr-summary-item__label" style={{ color: '#6366f1' }}>Internal Jobs</span>
+                        <span className="dr-summary-item__value" style={{ color: '#6366f1' }}>{summary.internal_bill_count}</span>
                     </div>
                 )}
                 <div className="dr-summary-closing">
@@ -812,6 +1062,24 @@ const DailyReport = () => {
                                                 autoFocus={m.has_reading && !isAdmin}
                                             />
                                         </div>
+                                        <div className="stack-xs">
+                                            <label style={{ fontSize: 11, fontWeight: 600, color: '#dc2626' }}>Waste</label>
+                                            <input type="number" className="input-field" min="0"
+                                                value={machineReadingTemp.waste_prints}
+                                                onChange={(e) => setMachineReadingTemp(prev => ({ ...prev, waste_prints: e.target.value }))}
+                                                style={{ width: 80, borderColor: machineReadingTemp.waste_prints ? '#dc2626' : undefined }}
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <div className="stack-xs">
+                                            <label style={{ fontSize: 11, fontWeight: 600, color: '#d97706' }}>Proof</label>
+                                            <input type="number" className="input-field" min="0"
+                                                value={machineReadingTemp.proof_prints}
+                                                onChange={(e) => setMachineReadingTemp(prev => ({ ...prev, proof_prints: e.target.value }))}
+                                                style={{ width: 80, borderColor: machineReadingTemp.proof_prints ? '#d97706' : undefined }}
+                                                placeholder="0"
+                                            />
+                                        </div>
                                         <button className="btn btn-primary btn-sm" onClick={() => saveMachineReading(m.id)}>
                                             <Check size={14} /> Save
                                         </button>
@@ -840,13 +1108,41 @@ const DailyReport = () => {
                                                 {formatNum(m.today_copies)}
                                             </div>
                                         </div>
+                                        {(m.waste_prints > 0 || m.proof_prints > 0) && (
+                                            <div className="dr-machine-stat" style={{ background: 'rgba(220,38,38,0.06)', padding: '8px 12px', borderRadius: 10 }}>
+                                                <div className="dr-machine-stat__label" style={{ color: '#dc2626' }}>Waste</div>
+                                                <div className="dr-machine-stat__value" style={{ color: '#dc2626', fontSize: 16 }}>
+                                                    {formatNum(m.waste_prints || 0)}
+                                                </div>
+                                                {m.billing_waste > 0 && (
+                                                    <div style={{ fontSize: 10, color: '#dc2626', opacity: 0.7, marginTop: 2 }}>
+                                                        incl. {formatNum(m.billing_waste)} from billing
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {(m.proof_prints > 0) && (
+                                            <div className="dr-machine-stat" style={{ background: 'rgba(217,119,6,0.06)', padding: '8px 12px', borderRadius: 10 }}>
+                                                <div className="dr-machine-stat__label" style={{ color: '#d97706' }}>Proof</div>
+                                                <div className="dr-machine-stat__value" style={{ color: '#d97706', fontSize: 16 }}>
+                                                    {formatNum(m.proof_prints || 0)}
+                                                </div>
+                                                {m.billing_proof > 0 && (
+                                                    <div style={{ fontSize: 10, color: '#d97706', opacity: 0.7, marginTop: 2 }}>
+                                                        incl. {formatNum(m.billing_proof)} from billing
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                         {canEditBalance && (
                                             <button className="btn btn-ghost btn-sm"
                                                 onClick={() => {
                                                     setEditingMachine(m.id);
                                                     setMachineReadingTemp({
                                                         opening_count: m.has_reading ? String(m.opening_count) : '',
-                                                        closing_count: m.closing_count !== null ? String(m.closing_count) : ''
+                                                        closing_count: m.closing_count !== null ? String(m.closing_count) : '',
+                                                        waste_prints: m.waste_prints != null ? String(m.waste_prints) : '',
+                                                        proof_prints: m.proof_prints != null ? String(m.proof_prints) : ''
                                                     });
                                                 }}
                                                 title={m.has_reading && !isAdmin ? 'Edit closing count (opening locked)' : 'Edit machine counts'}

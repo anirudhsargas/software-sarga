@@ -28,7 +28,7 @@ const AIMonitoring = () => {
             ]);
             setDashboard(dashRes.data);
             setAlerts(alertRes.data.alerts || []);
-        } catch (err) {
+        } catch {
             toast.error('Failed to load monitoring data');
         } finally { setLoading(false); }
     };

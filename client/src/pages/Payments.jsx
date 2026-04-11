@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { useLocation } from 'react-router-dom';
 import { Plus, X, Trash2, Filter, Receipt, Loader2, Calendar, User, CreditCard, ShoppingBag, ExternalLink, FileText, Search, PlusCircle, Building2 } from 'lucide-react';
@@ -459,6 +458,7 @@ const Payments = () => {
                 </div>
             </div>
 
+            <div className="panel panel--tight">
                 <div className="table-scroll">
                     <table className="table">
                         <thead>
@@ -474,111 +474,31 @@ const Payments = () => {
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                    </table>
-                    <VirtualPaymentsTable
-                        payments={filteredPayments}
-                        loading={loading}
-                        fetchPayeeStatement={fetchPayeeStatement}
-                        handleDelete={handleDelete}
-                    />
-                </div>
-
-                                                // Virtualized payments table body
-                                                const VirtualPaymentsTable = ({ payments, loading, fetchPayeeStatement, handleDelete }) => {
-                                                    const parentRef = useRef(null);
-                                                    const rowVirtualizer = useVirtualizer({
-                                                        count: payments.length,
-                                                        getScrollElement: () => parentRef.current,
-                                                        estimateSize: () => 56,
-                                                        overscan: 8,
-                                                    });
-                                                    if (loading && payments.length === 0) {
-                                                        return (
-                                                            <table className="table"><tbody><tr><td colSpan="9" className="text-center muted table-empty"><Loader2 className="animate-spin" /></td></tr></tbody></table>
-                                                        );
-                                                    }
-                                                    if (payments.length === 0) {
-                                                        return (
-                                                            <table className="table"><tbody><tr><td colSpan="9" className="text-center muted table-empty">No payment records found.</td></tr></tbody></table>
-                                                        );
-                                                    }
-                                                    return (
-                                                        <table className="table"><tbody ref={parentRef} style={{ display: 'block', height: 480, overflow: 'auto' }}>
-                                                            {rowVirtualizer.getVirtualItems().map(virtualRow => {
-                                                                const p = payments[virtualRow.index];
-                                                                return <PaymentRow key={p.id} payment={p} fetchPayeeStatement={fetchPayeeStatement} handleDelete={handleDelete} />;
-                                                            })}
-                                                        </tbody></table>
-                                                    );
-                                                };
-
-                                                // Memoized payment row
-                                                const PaymentRow = React.memo(({ payment: p, fetchPayeeStatement, handleDelete }) => (
-                                                    <tr
-                                                        key={p.id}
-                                                        onDoubleClick={p.vendor_id ? () => fetchPayeeStatement(p.vendor_id) : undefined}
-                                                        style={{ cursor: p.vendor_id ? 'pointer' : 'default' }}
-                                                        title={p.vendor_id ? 'Double-click to view statement' : ''}
-                                                    >
-                                                        <td className="text-sm">
-                                                            <div className="stack-sm">
-                                                                <div className="row gap-sm">
-                                                                    <Calendar size={14} className="muted" />
-                                                                    {new Date(p.payment_date).toLocaleDateString()}
-                                                                </div>
-                                                                <span className="text-xs muted">
-                                                                    {new Date(p.payment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                </span>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <div className="stack-sm">
-                                                                <span className="user-name">{p.payee_name}</span>
-                                                                <span className="text-xs muted">{p.description}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="text-sm">
-                                                            {p.vendor_name ? (
-                                                                <span className="badge badge--outline">{p.vendor_name}</span>
-                                                            ) : (
-                                                                <span className="muted">--</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="text-xs muted">
-                                                            {p.period_start ? (
-                                                                <div className="stack-xs">
-                                                                    <span>{new Date(p.period_start).toLocaleDateString()}</span>
-                                                                    <span>to {new Date(p.period_end).toLocaleDateString()}</span>
-                                                                </div>
-                                                            ) : '--'}
-                                                        </td>
-                                                        <td className="text-sm">{p.branch_name}</td>
-                                                        <td><span className="badge">{p.type}</span></td>
-                                                        <td className="text-sm muted">
-                                                            <div className="stack-sm">
-                                                                <div className="row gap-sm">
-                                                                    <CreditCard size={14} />
-                                                                    {p.payment_method}
-                                                                </div>
-                                                                {p.payment_method === 'Both' && (
-                                                                    <span className="text-xs muted">
-                                                                        Cash: ₹{Number(p.cash_amount || 0).toLocaleString()} | UPI: ₹{Number(p.upi_amount || 0).toLocaleString()}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="text-accent">₹{Number(p.amount).toLocaleString()}</td>
-                                                        <td>
-                                                            <button
-                                                                className="btn btn-ghost btn-danger"
-                                                                style={{ padding: '8px', minWidth: 'auto', border: 'none' }}
-                                                                onClick={() => handleDelete(p.id)}
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ));
+                        <tbody>
+                            {loading && filteredPayments.length === 0 ? (
+                                <tr>
+                                    <td colSpan="9" className="text-center muted table-empty">
+                                        <Loader2 className="animate-spin" />
+                                    </td>
+                                </tr>
+                            ) : filteredPayments.length === 0 ? (
+                                <tr>
+                                    <td colSpan="9" className="text-center muted table-empty">No payment records found.</td>
+                                </tr>
+                            ) : (
+                                filteredPayments.map((p) => (
+                                    <tr
+                                        key={p.id}
+                                        onDoubleClick={p.vendor_id ? () => fetchPayeeStatement(p.vendor_id) : undefined}
+                                        style={{ cursor: p.vendor_id ? 'pointer' : 'default' }}
+                                        title={p.vendor_id ? 'Double-click to view statement' : ''}
+                                    >
+                                        <td className="text-sm">
+                                            <div className="stack-sm">
+                                                <div className="row gap-sm">
+                                                    <Calendar size={14} className="muted" />
+                                                    {new Date(p.payment_date).toLocaleDateString()}
+                                                </div>
                                                 <span className="text-xs muted">
                                                     {new Date(p.payment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </span>

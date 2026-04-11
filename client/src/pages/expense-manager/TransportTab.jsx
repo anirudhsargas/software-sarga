@@ -39,7 +39,14 @@ const TransportTab = ({ onError }) => {
     setFormDirty(false);
   };
 
-  const fetchDashboard = useCallback(async () => { try { const r = await api.get('/transport-dashboard'); setDashboard(r.data); } catch { } }, []);
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const r = await api.get('/transport-dashboard');
+      setDashboard(r.data);
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to load transport dashboard');
+    }
+  }, [onError]);
   // Defensive: always set expenses as array
   const safeSetExpenses = (data) => {
     if (Array.isArray(data)) return setExpenses(data);
@@ -98,7 +105,13 @@ const TransportTab = ({ onError }) => {
       type: 'danger'
     });
     if (!isConfirmed) return;
-    try { await api.delete(`/transport-expenses/${id}`); fetchDashboard(); fetchExpenses(); } catch { }
+    try {
+      await api.delete(`/transport-expenses/${id}`);
+      fetchDashboard();
+      fetchExpenses();
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to delete transport expense');
+    }
   };
 
   const debouncedSearch = useDebounce(search, 300);

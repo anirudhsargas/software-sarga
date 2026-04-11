@@ -196,7 +196,7 @@ const ProductionTracker = () => {
 };
 
 /* ─── Job Card ─── */
-const JobCard = ({ job, stageColor, onNavigate }) => {
+const JobCard = ({ job, onNavigate }) => {
     const priColor = PRIORITY_COLORS[job.priority] || PRIORITY_COLORS.Medium;
 
     return (

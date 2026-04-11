@@ -2,18 +2,18 @@ import React from 'react';
 import { Loader2 } from 'lucide-react';
 import './SkeletonLoader.css';
 
-const SkeletonLoader = ({ type = 'cards', count = 6 }) => {
+const SkeletonLoader = ({ type = 'cards', count = 6, columns }) => {
+
+  // ── FrontOffice stat cards: icon (48×48 rounded square) + value + label ──
   if (type === 'cards') {
     return (
-      <div className="skeleton-grid skeleton-grid--cards">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="skeleton-card">
-            <div className="skeleton-card-content">
-              <div className="skeleton-card-icon"></div>
-              <div className="skeleton-card-text">
-                <div className="skeleton-box skeleton-card-title"></div>
-                <div className="skeleton-box skeleton-card-value"></div>
-              </div>
+      <div className="skeleton-fo-stats">
+        {Array.from({ length: count }).map((_, i) => (
+          <div key={i} className="skeleton-fo-card">
+            <div className="skeleton-fo-card__icon skeleton-box"></div>
+            <div className="skeleton-fo-card__body">
+              <div className="skeleton-box skeleton-fo-card__value"></div>
+              <div className="skeleton-box skeleton-fo-card__label"></div>
             </div>
           </div>
         ))}
@@ -21,57 +21,42 @@ const SkeletonLoader = ({ type = 'cards', count = 6 }) => {
     );
   }
 
+  // ── Jobs table: dynamic columns via `columns` prop ──
   if (type === 'table') {
-    const columnWidths = {
-      jobDetails: '180px',
-      customer: '140px',
-      branch: '100px',
-      status: '90px',
-      amount: '80px',
-      balance: '80px',
-      delivery: '100px',
-      actions: '60px'
-    };
+    const cols = columns || [
+      { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
+      { key: 'customer', header: 'Customer', width: '1.5fr', lines: 2 },
+      { key: 'branch', header: 'Branch', width: '1fr' },
+      { key: 'status', header: 'Status', width: '1fr', pill: true },
+      { key: 'production', header: 'Production', width: '1fr', lines: 2 },
+      { key: 'delivery', header: 'Delivery', width: '1fr' },
+      { key: 'actions', header: 'Actions', width: '0.8fr' }
+    ];
+
+    const gridCols = cols.map(c => c.width || '1fr').join(' ');
 
     return (
       <div className="skeleton-table-wrapper">
         <div className="skeleton-table">
-          <div className="skeleton-row skeleton-row--header" style={{
-            gridTemplateColumns: `${columnWidths.jobDetails} ${columnWidths.customer} ${columnWidths.branch} ${columnWidths.status} ${columnWidths.amount} ${columnWidths.balance} ${columnWidths.delivery} ${columnWidths.actions}`
-          }}>
-            {['Job Details', 'Customer', 'Branch', 'Status', 'Amount', 'Balance', 'Delivery', 'Actions'].map((col, i) => (
-              <div key={i} className="skeleton-cell skeleton-cell--header">{col}</div>
+          <div className="skeleton-row skeleton-row--header" style={{ gridTemplateColumns: gridCols }}>
+            {cols.map((col, i) => (
+              <div key={i} className="skeleton-cell skeleton-cell--header">{col.header}</div>
             ))}
           </div>
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="skeleton-row" style={{
-              gridTemplateColumns: `${columnWidths.jobDetails} ${columnWidths.customer} ${columnWidths.branch} ${columnWidths.status} ${columnWidths.amount} ${columnWidths.balance} ${columnWidths.delivery} ${columnWidths.actions}`
-            }}>
-              <div className="skeleton-cell skeleton-cell--job-details">
-                <div className="skeleton-box skeleton-box--line"></div>
-                <div className="skeleton-box skeleton-box--line"></div>
-              </div>
-              <div className="skeleton-cell">
-                <div className="skeleton-box skeleton-box--line"></div>
-              </div>
-              <div className="skeleton-cell">
-                <div className="skeleton-box skeleton-box--line"></div>
-              </div>
-              <div className="skeleton-cell">
-                <div className="skeleton-box skeleton-box--pill"></div>
-              </div>
-              <div className="skeleton-cell">
-                <div className="skeleton-box skeleton-box--line"></div>
-              </div>
-              <div className="skeleton-cell">
-                <div className="skeleton-box skeleton-box--line"></div>
-              </div>
-              <div className="skeleton-cell">
-                <div className="skeleton-box skeleton-box--line"></div>
-              </div>
-              <div className="skeleton-cell">
-                <div className="skeleton-box skeleton-box--line"></div>
-              </div>
+          {Array.from({ length: count }).map((_, i) => (
+            <div key={i} className="skeleton-row" style={{ gridTemplateColumns: gridCols }}>
+              {cols.map((col, ci) => (
+                <div key={ci} className={`skeleton-cell${col.lines === 2 ? ' skeleton-cell--stacked' : ''}`}>
+                  {col.pill ? (
+                    <div className="skeleton-box skeleton-box--pill"></div>
+                  ) : (
+                    <>
+                      <div className="skeleton-box skeleton-box--line"></div>
+                      {col.lines === 2 && <div className="skeleton-box skeleton-box--line skeleton-box--short"></div>}
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -83,6 +68,82 @@ const SkeletonLoader = ({ type = 'cards', count = 6 }) => {
     );
   }
 
+  // ── Customer list: avatar circle + name/badge + phone + actions ──
+  if (type === 'customer-list') {
+    return (
+      <div className="skeleton-customer-list">
+        {Array.from({ length: count }).map((_, i) => (
+          <div key={i} className="skeleton-customer-row">
+            <div className="skeleton-box skeleton-customer-avatar"></div>
+            <div className="skeleton-customer-info">
+              <div className="skeleton-customer-name-row">
+                <div className="skeleton-box skeleton-customer-name"></div>
+                <div className="skeleton-box skeleton-customer-badge"></div>
+              </div>
+              <div className="skeleton-box skeleton-customer-phone"></div>
+            </div>
+            <div className="skeleton-customer-actions">
+              <div className="skeleton-box skeleton-customer-btn"></div>
+              <div className="skeleton-customer-btn-row">
+                <div className="skeleton-box skeleton-customer-btn-sm"></div>
+                <div className="skeleton-box skeleton-customer-btn-sm"></div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // ── Attendance dashboard: 4 stat cards + calendar grid ──
+  if (type === 'attendance') {
+    return (
+      <div className="skeleton-attendance" style={{ maxWidth: 960, margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ marginBottom: 24 }}>
+          <div className="skeleton-box" style={{ height: 22, width: 200, marginBottom: 8 }}></div>
+          <div className="skeleton-box" style={{ height: 13, width: 280 }}></div>
+        </div>
+
+        {/* 4 Salary overview cards */}
+        <div className="skeleton-attendance-cards">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="skeleton-attendance-card">
+              <div className="skeleton-box" style={{ height: 11, width: 80, marginBottom: 6, opacity: 0.6 }}></div>
+              <div className="skeleton-box" style={{ height: 20, width: 60, marginBottom: 6 }}></div>
+              <div className="skeleton-box" style={{ height: 12, width: 100, opacity: 0.5 }}></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar */}
+        <div className="skeleton-calendar">
+          {/* Month nav */}
+          <div className="skeleton-calendar-nav">
+            <div className="skeleton-box" style={{ width: 32, height: 32, borderRadius: 6 }}></div>
+            <div className="skeleton-box" style={{ width: 140, height: 18 }}></div>
+            <div className="skeleton-box" style={{ width: 32, height: 32, borderRadius: 6 }}></div>
+          </div>
+          {/* Day headers */}
+          <div className="skeleton-calendar-grid" style={{ marginBottom: 4 }}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+              <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '4px 0', textTransform: 'uppercase' }}>{d}</div>
+            ))}
+          </div>
+          {/* Calendar cells — 5 weeks × 7 days */}
+          <div className="skeleton-calendar-grid">
+            {Array.from({ length: 35 }).map((_, i) => (
+              <div key={i} className="skeleton-calendar-cell">
+                <div className="skeleton-box" style={{ width: 16, height: 14 }}></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Form skeleton (kept for backwards compat) ──
   if (type === 'form') {
     return (
       <div className="skeleton-form">

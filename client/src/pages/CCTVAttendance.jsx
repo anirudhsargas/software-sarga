@@ -42,7 +42,15 @@ const CCTVAttendance = () => {
   const [manualBranch, setManualBranch] = useState(branch);
   const [manualEventType, setManualEventType] = useState('entry');
   const [manualTime, setManualTime] = useState('');
+  const [currentTimeOnOpen, setCurrentTimeOnOpen] = useState('');
   const [manualSaving, setManualSaving] = useState(false);
+
+  const getTimeDiffMinutes = () => {
+    if (!currentTimeOnOpen || !manualTime) return 0;
+    const [curH, curM] = currentTimeOnOpen.split(':').map(Number);
+    const [entH, entM] = manualTime.split(':').map(Number);
+    return Math.abs(curH * 60 + curM - (entH * 60 + entM));
+  };
 
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -83,7 +91,9 @@ const CCTVAttendance = () => {
     setManualBranch(branch);
     setManualEventType('entry');
     const now = new Date();
-    setManualTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+    const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    setManualTime(nowStr);
+    setCurrentTimeOnOpen(nowStr);
     setShowManual(true);
   };
 
@@ -180,6 +190,12 @@ const CCTVAttendance = () => {
               <div className="stat-label">Not Arrived (Alert)</div>
             </div>
           )}
+          {summary.discrepancy_count > 0 && (
+            <div className="stat-card" style={{ borderLeft: '3px solid #f59e0b', background: '#fff7e0' }}>
+              <div className="stat-value" style={{ color: '#b45309' }}>{summary.discrepancy_count}</div>
+              <div className="stat-label">Time Discrepancies</div>
+            </div>
+          )}
         </div>
       )}
 
@@ -232,17 +248,29 @@ const CCTVAttendance = () => {
                       </td>
                       <td>
                         {s.entry_time ? (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                             <Clock size={13} style={{ color: 'var(--muted)' }} />
                             {formatTime(s.entry_time)}
+                            {s.entry_discrepancy !== null && s.entry_discrepancy > 30 && (
+                              <span title={`Recorded ${s.entry_discrepancy} min after actual submission`}
+                                style={{ fontSize: 11, background: '#fff7e0', color: '#b45309', border: '1px solid #f59e0b', borderRadius: 4, padding: '1px 5px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                ⚠ {s.entry_discrepancy}m gap
+                              </span>
+                            )}
                           </span>
                         ) : '—'}
                       </td>
                       <td>
                         {s.exit_time ? (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                             <Clock size={13} style={{ color: 'var(--muted)' }} />
                             {formatTime(s.exit_time)}
+                            {s.exit_discrepancy !== null && s.exit_discrepancy > 30 && (
+                              <span title={`Recorded ${s.exit_discrepancy} min after actual submission`}
+                                style={{ fontSize: 11, background: '#fff7e0', color: '#b45309', border: '1px solid #f59e0b', borderRadius: 4, padding: '1px 5px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                ⚠ {s.exit_discrepancy}m gap
+                              </span>
+                            )}
                           </span>
                         ) : '—'}
                       </td>
@@ -316,13 +344,35 @@ const CCTVAttendance = () => {
               </div>
               <div>
                 <label className="label">Time</label>
-                <input
-                  type="time"
-                  className="input"
-                  value={manualTime}
-                  onChange={(e) => setManualTime(e.target.value)}
-                  required
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="time"
+                    className="input"
+                    value={manualTime}
+                    onChange={(e) => setManualTime(e.target.value)}
+                    required
+                  />
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                  Current time: <strong>{currentTimeOnOpen}</strong>
+                </div>
+                {getTimeDiffMinutes() > 30 && (
+                  <div style={{
+                    marginTop: 6,
+                    padding: '6px 10px',
+                    background: 'var(--warning-bg, #fff7e0)',
+                    border: '1px solid var(--warning, #f59e0b)',
+                    borderRadius: 6,
+                    fontSize: 12,
+                    color: 'var(--warning, #b45309)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}>
+                    ⚠ Entered time differs from current time by{' '}
+                    <strong>{getTimeDiffMinutes()} min</strong>. This will be flagged for admin review.
+                  </div>
+                )}
               </div>
               <div style={{ fontSize: 12, color: 'var(--muted)', padding: '4px 0' }}>
                 Source: <span className="badge">Manual</span>

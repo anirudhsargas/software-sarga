@@ -48,10 +48,10 @@ const Section = ({ title, icon: Icon, action, children }) => (
 );
 
 /* ─── Alert Card ─── */
-const AlertCard = ({ icon: Icon, color, bg, title, desc, onAction }) => (
+const AlertCard = ({ icon, color, bg, title, desc, onAction }) => (
   <div className="acc-alert" style={{ background: bg, borderColor: `${color}22` }}>
     <div className="acc-alert__icon-wrap" style={{ background: `${color}18` }}>
-      <Icon size={18} style={{ color }} />
+      {icon ? React.createElement(icon, { size: 18, style: { color } }) : null}
     </div>
     <div className="acc-alert__content">
       <div className="acc-alert__title" style={{ color }}>{title}</div>

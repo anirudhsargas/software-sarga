@@ -15,6 +15,8 @@ const CUSTOMER_COLUMNS = [
     'gst',
     'address',
     'branch_id',
+    'client_type',
+    'internal_branch',
     'created_at',
     'updated_at'
 ].join(', ');
@@ -61,7 +63,7 @@ router.get('/customers', authenticateToken, async (req, res) => {
         const baseFrom = `FROM sarga_customers WHERE 1=1 ${where}`;
 
         const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
-        const [rows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} ${baseFrom} ORDER BY name ASC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+        const [rows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} ${baseFrom} ORDER BY (client_type = 'internal') DESC, name ASC LIMIT ? OFFSET ?`, [...params, limit, offset]);
         
         res.json(response(rows, total));
     } catch (err) {

@@ -8,6 +8,13 @@ console.log('[DEBUG] addJobSchema imported:', !!addJobSchema);
 const { paginate } = require('../helpers/pagination');
 const { branchFilter } = require('../middleware/branchFilter');
 
+const normalizeBookTypeFromCategory = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'laser') return 'Laser';
+    if (normalized === 'other') return 'Other';
+    return 'Offset';
+};
+
 const JOB_LIST_COLUMNS = [
     'id',
     'customer_id',
@@ -46,12 +53,31 @@ const getHierarchyData = async () => {
         const [inventory] = await pool.query("SELECT i.*, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id");
         return { ...hierarchyCache.data, inventory };
     }
-    const [categories, subcategories, products, inventory] = await Promise.all([
+    const [categories, subcategories, products, inventory, slabs, extras] = await Promise.all([
         pool.query(`SELECT ${CATEGORY_COLUMNS} FROM sarga_product_categories`).then(r => r[0]),
         pool.query(`SELECT ${SUBCATEGORY_COLUMNS} FROM sarga_product_subcategories`).then(r => r[0]),
         pool.query(`SELECT ${PRODUCT_COLUMNS} FROM sarga_products`).then(r => r[0]),
-        pool.query("SELECT i.*, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id").then(r => r[0])
+        pool.query("SELECT i.*, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id").then(r => r[0]),
+        pool.query("SELECT * FROM sarga_product_slabs ORDER BY product_id, min_qty ASC").then(r => r[0]),
+        pool.query("SELECT * FROM sarga_product_extras_template").then(r => r[0])
     ]);
+
+    // Attach slabs and extras to their respective products for offline pricing
+    const slabsByProduct = {};
+    slabs.forEach(s => {
+        if (!slabsByProduct[s.product_id]) slabsByProduct[s.product_id] = [];
+        slabsByProduct[s.product_id].push(s);
+    });
+    const extrasByProduct = {};
+    extras.forEach(e => {
+        if (!extrasByProduct[e.product_id]) extrasByProduct[e.product_id] = [];
+        extrasByProduct[e.product_id].push(e);
+    });
+    products.forEach(p => {
+        p.slabs = slabsByProduct[p.id] || [];
+        p.extras = extrasByProduct[p.id] || [];
+    });
+
     hierarchyCache = { data: { categories, subcategories, products }, timestamp: now };
     return { categories, subcategories, products, inventory };
 };
@@ -144,15 +170,22 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
         const jobId = jobData.id || null;
         const reportDate = new Date().toISOString().split('T')[0];
 
-        // 1. Get or create daily report in a single query using UNIQUE KEY (machine_id, report_date)
-        //    INSERT ... SELECT gets branch_id from machines table; ON DUPLICATE returns existing id
-        const [reportResult] = await pool.query(
-            `INSERT INTO sarga_daily_report_machine (report_date, machine_id, branch_id, created_by)
-             SELECT ?, ?, branch_id, ? FROM sarga_machines WHERE id = ?
-             ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)`,
-            [reportDate, machineId, userId, machineId]
+        // 1. Get or create daily report (machine_id + report_date is unique)
+        const [[machineRow]] = await pool.query('SELECT branch_id FROM sarga_machines WHERE id = ?', [machineId]);
+        if (!machineRow) {
+            console.error(`[MachineSync] Machine ${machineId} not found`);
+            return;
+        }
+        await pool.query(
+            `INSERT IGNORE INTO sarga_daily_report_machine (report_date, machine_id, branch_id, created_by)
+             VALUES (?, ?, ?, ?)`,
+            [reportDate, machineId, machineRow.branch_id, userId]
         );
-        const reportId = reportResult.insertId;
+        const [[reportRow]] = await pool.query(
+            'SELECT id FROM sarga_daily_report_machine WHERE machine_id = ? AND report_date = ?',
+            [machineId, reportDate]
+        );
+        const reportId = reportRow ? reportRow.id : null;
         if (!reportId) {
             console.error(`[MachineSync] Could not get/create report for machine ${machineId}`);
             return;
@@ -183,10 +216,13 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
             paymentType = 'Both';
         }
 
+        const wasteAdd = parseInt(jobData.waste_prints) || 0;
+        const proofAdd = parseInt(jobData.proof_prints) || 0;
+
         if (existingEntryId) {
             await pool.query(
                 `UPDATE sarga_machine_work_entries SET
-                 customer_name = ?, work_details = ?, copies = ?, payment_type = ?, 
+                 customer_name = ?, work_details = ?, copies = ?, waste_copies = ?, proof_copies = ?, payment_type = ?, 
                  cash_amount = ?, upi_amount = ?, credit_amount = ?, total_amount = ?, 
                  remarks = ?
                  WHERE id = ?`,
@@ -194,6 +230,8 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
                     jobData.customer_name || 'Walk-in',
                     jobData.job_name || 'Job',
                     parseInt(jobData.quantity) || 0,
+                    wasteAdd,
+                    proofAdd,
                     paymentType,
                     cashAdd,
                     upiAdd,
@@ -206,14 +244,16 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
         } else {
             await pool.query(
                 `INSERT INTO sarga_machine_work_entries 
-                 (report_id, job_id, customer_name, work_details, copies, payment_type, cash_amount, upi_amount, credit_amount, total_amount, remarks)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 (report_id, job_id, customer_name, work_details, copies, waste_copies, proof_copies, payment_type, cash_amount, upi_amount, credit_amount, total_amount, remarks)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     reportId,
                     jobId,
                     jobData.customer_name || 'Walk-in',
                     jobData.job_name || 'Job',
                     parseInt(jobData.quantity) || 0,
+                    wasteAdd,
+                    proofAdd,
                     paymentType,
                     cashAdd,
                     upiAdd,
@@ -274,7 +314,7 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
         console.error('[MachineSync] Error syncing job to machine:', err.message);
     }
 };
-const JOB_LIST_COL_MINIMAL = 'j.id, j.job_number, j.job_name, j.status, j.total_amount, j.balance_amount, j.delivery_date, j.category, j.created_at, j.payment_status, j.used_sheets, j.required_sheets';
+const JOB_LIST_COL_MINIMAL = 'j.id, j.job_number, j.job_name, j.status, j.total_amount, j.balance_amount, j.delivery_date, j.category, j.created_at, j.payment_status, j.used_sheets, j.required_sheets, j.payment_id';
 
 // --- JOB ROUTES ---
 
@@ -507,8 +547,8 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
             try {
                 const [result] = await connection.query(
                     `INSERT INTO sarga_jobs
-                (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, machine_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, machine_id, waste_prints, proof_prints, machine_print_count)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         customer_id || null,
                         line.product_id || null,
@@ -526,7 +566,10 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                         JSON.stringify(line.applied_extras || []),
                         line.category || null,
                         line.subcategory || null,
-                        line.machine_id || null
+                        line.machine_id || null,
+                        Number(line.waste_prints) || 0,
+                        Number(line.proof_prints) || 0,
+                        line.machine_print_count != null ? (Number(line.machine_print_count) || null) : null
                     ]
                 );
 
@@ -541,7 +584,9 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                         advance_paid: 0,
                         balance_amount: total,
                         payment_status: 'Unpaid',
-                        customer_name: 'Walk-in'
+                        customer_name: 'Walk-in',
+                        waste_prints: Number(line.waste_prints) || 0,
+                        proof_prints: Number(line.proof_prints) || 0
                     }, line.machine_id, req.user.id);
                 }
 
@@ -633,10 +678,12 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
             else if (jobUpi > 0) jobPaymentMethod = 'UPI';
             else if (jobCash > 0) jobPaymentMethod = 'Cash';
 
-            await connection.query(`
+            const jobBookType = normalizeBookTypeFromCategory(category);
+
+            const [cpResult] = await connection.query(`
                 INSERT INTO sarga_customer_payments 
-                (customer_id, customer_name, customer_mobile, total_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, description, payment_date) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE())
+                (customer_id, customer_name, customer_mobile, total_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, description, payment_date, book_type) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?)
             `, [
                 customer_id || null,
                 cName,
@@ -645,11 +692,14 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
                 advance_paid,
                 balance_amount,
                 jobPaymentMethod,
-                jobCash || advance_paid,
+                jobCash,
                 jobUpi,
                 branch_id || null,
                 `Advance for Job ${job_number}`,
+                jobBookType,
             ]);
+            // Store payment reference on the job so it can be cleaned up on deletion
+            await connection.query('UPDATE sarga_jobs SET payment_id = ? WHERE id = ?', [cpResult.insertId, result.insertId]);
         }
 
         // 3. Audit log (inside transaction for consistency)
@@ -676,9 +726,12 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
                 const [[customer]] = await pool.query('SELECT name FROM sarga_customers WHERE id = ?', [customer_id]);
                 if (customer) customerName = customer.name;
             }
+            const jobCashForSync = Number(req.body.cash_amount) || 0;
+            const jobUpiForSync = Number(req.body.upi_amount) || 0;
             syncJobToMachineWorkEntry({
                 id: result.insertId, job_number, job_name, quantity, total_amount,
-                advance_paid, balance_amount, payment_status, customer_name: customerName
+                advance_paid, balance_amount, payment_status, customer_name: customerName,
+                cash_amount: jobCashForSync, upi_amount: jobUpiForSync
             }, machine_id, req.user.id).catch(err => console.error('Machine sync error:', err));
         }
 
@@ -1173,15 +1226,15 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
 
     // Status transition matrix — defines which statuses can move to which (C-06)
     const VALID_TRANSITIONS = {
-        'Pending': ['Processing', 'Designing', 'Printing', 'Production', 'Cancelled'],
-        'Processing': ['Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production', 'Approval Pending', 'Completed', 'Cancelled'],
-        'Designing': ['Processing', 'Printing', 'Approval Pending', 'Cancelled'],
-        'Printing': ['Cutting', 'Lamination', 'Binding', 'Completed', 'Cancelled'],
-        'Cutting': ['Lamination', 'Binding', 'Completed', 'Cancelled'],
-        'Lamination': ['Cutting', 'Binding', 'Completed', 'Cancelled'],
-        'Binding': ['Completed', 'Cancelled'],
-        'Production': ['Approval Pending', 'Completed', 'Cancelled'],
-        'Approval Pending': ['Completed', 'Cancelled', 'Processing', 'Designing'],
+        'Pending': ['Processing', 'Designing', 'Printing', 'Production', 'Completed', 'Delivered', 'Cancelled'],
+        'Processing': ['Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production', 'Approval Pending', 'Completed', 'Delivered', 'Cancelled'],
+        'Designing': ['Processing', 'Printing', 'Approval Pending', 'Completed', 'Delivered', 'Cancelled'],
+        'Printing': ['Cutting', 'Lamination', 'Binding', 'Completed', 'Delivered', 'Cancelled'],
+        'Cutting': ['Lamination', 'Binding', 'Completed', 'Delivered', 'Cancelled'],
+        'Lamination': ['Cutting', 'Binding', 'Completed', 'Delivered', 'Cancelled'],
+        'Binding': ['Completed', 'Delivered', 'Cancelled'],
+        'Production': ['Approval Pending', 'Completed', 'Delivered', 'Cancelled'],
+        'Approval Pending': ['Completed', 'Delivered', 'Cancelled', 'Processing', 'Designing'],
         'Completed': ['Delivered'],
         'Delivered': [],
         'Cancelled': ['Pending']
@@ -1304,37 +1357,66 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Delete Job
-router.delete('/jobs/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+// Delete Job (Admin only — cascades all associated data)
+router.delete('/jobs/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    const connection = await pool.getConnection();
     try {
         const jobId = Number(req.params.id);
         if (!Number.isFinite(jobId) || jobId <= 0) {
+            connection.release();
             return res.status(400).json({ message: 'Invalid job id' });
         }
 
-        // Check whether job has direct linked payment id
-        const [[job]] = await pool.query('SELECT payment_id FROM sarga_jobs WHERE id = ?', [jobId]);
+        await connection.beginTransaction();
+
+        const [[job]] = await connection.query('SELECT payment_id FROM sarga_jobs WHERE id = ? FOR UPDATE', [jobId]);
         if (!job) {
+            await connection.rollback();
+            connection.release();
             return res.status(404).json({ message: 'Job not found' });
         }
 
-        const directPaymentLinks = job.payment_id ? 1 : 0;
+        // 1. Delete design checks
+        await connection.query('DELETE FROM sarga_design_checks WHERE job_id = ?', [jobId]).catch(() => {});
 
-        // Check linked payments through JSON order_lines (legacy + current flow)
-        const [jsonPaymentLinksRows] = await pool.query(
-            "SELECT COUNT(*) as cnt FROM sarga_customer_payments WHERE JSON_CONTAINS(order_lines, JSON_OBJECT('job_id', CAST(? AS UNSIGNED)), '$')",
+        // 2. Delete proofs
+        await connection.query('DELETE FROM sarga_job_proofs WHERE job_id = ?', [jobId]).catch(() => {});
+
+        // 3. Delete status history
+        await connection.query('DELETE FROM sarga_job_status_history WHERE job_id = ?', [jobId]).catch(() => {});
+
+        // 4. Delete paper usage logs
+        await connection.query('DELETE FROM sarga_paper_usage_logs WHERE job_id = ?', [jobId]).catch(() => {});
+
+        // 5. Delete machine work entries
+        await connection.query('DELETE FROM sarga_machine_work_entries WHERE job_id = ?', [jobId]).catch(() => {});
+
+        // 6. Delete staff assignments
+        await connection.query('DELETE FROM sarga_job_staff_assignments WHERE job_id = ?', [jobId]).catch(() => {});
+
+        // 7. Delete customer payments that reference this job in order_lines JSON
+        await connection.query(
+            "DELETE FROM sarga_customer_payments WHERE JSON_CONTAINS(order_lines, JSON_OBJECT('job_id', CAST(? AS UNSIGNED)), '$')",
             [jobId]
-        ).catch(() => [[{ cnt: 0 }]]);
+        ).catch(() => {});
 
-        const linkedPaymentCount = Number(jsonPaymentLinksRows[0]?.cnt || 0) + directPaymentLinks;
-        if (linkedPaymentCount > 0) {
-            return res.status(409).json({ message: `Cannot delete: ${linkedPaymentCount} payment link(s) exist for this job. Remove linked payments first.` });
+        // 8. Delete direct linked payment record (advance payment created at job creation)
+        if (job.payment_id) {
+            await connection.query('DELETE FROM sarga_customer_payments WHERE id = ?', [job.payment_id]).catch(() => {});
+            await connection.query('DELETE FROM sarga_payments WHERE id = ?', [job.payment_id]).catch(() => {});
         }
 
-        await pool.query("DELETE FROM sarga_jobs WHERE id = ?", [jobId]);
-        auditLog(req.user.id, 'JOB_DELETE', `Deleted job ${jobId}`);
-        res.json({ message: 'Job deleted successfully' });
+        // 9. Delete the job itself
+        await connection.query('DELETE FROM sarga_jobs WHERE id = ?', [jobId]);
+
+        await connection.commit();
+        connection.release();
+
+        auditLog(req.user.id, 'JOB_DELETE', `Deleted job ${jobId} with all associated payments and records`);
+        res.json({ message: 'Job and all associated records deleted successfully' });
     } catch (err) {
+        await connection.rollback().catch(() => {});
+        connection.release();
         console.error('Delete job error:', err);
         res.status(500).json({ message: 'Database error' });
     }
@@ -1756,6 +1838,99 @@ router.delete('/jobs/:id/proofs/:proofId', authenticateToken, async (req, res) =
     }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// Matter image upload — works for walk-in jobs (no customer needed)
+// ═══════════════════════════════════════════════════════════════
+
+const matterDir = path.join(__dirname, '..', 'uploads', 'matter');
+if (!fs.existsSync(matterDir)) fs.mkdirSync(matterDir, { recursive: true });
+
+const MATTER_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.pdf']);
+
+const matterStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, matterDir),
+    filename: (req, file, cb) => {
+        const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+        const ext = path.extname(file.originalname).toLowerCase();
+        cb(null, `matter-${unique}${ext}`);
+    }
+});
+
+const uploadMatter = multer({
+    storage: matterStorage,
+    fileFilter: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (MATTER_EXTS.has(ext)) return cb(null, true);
+        cb(new Error('Invalid file type. Allowed: JPG, PNG, PDF, WEBP, GIF, BMP.'));
+    },
+    limits: { fileSize: 20 * 1024 * 1024 }
+});
+
+// POST /jobs/:id/matter — Upload matter image for a job (no customer required)
+router.post('/jobs/:id/matter', authenticateToken, (req, res, next) => {
+    uploadMatter.single('file')(req, res, (err) => {
+        if (err) return res.status(400).json({ message: err.message || 'File upload failed' });
+        next();
+    });
+}, async (req, res) => {
+    const jobId = Number(req.params.id);
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+    try {
+        const [jobRows] = await pool.query('SELECT id FROM sarga_jobs WHERE id = ?', [jobId]);
+        if (!jobRows.length) {
+            fs.unlink(req.file.path, () => {});
+            return res.status(404).json({ message: 'Job not found' });
+        }
+
+        const fileUrl = `/uploads/matter/${req.file.filename}`;
+        const [result] = await pool.query(
+            `INSERT INTO sarga_job_matter (job_id, file_url, original_name, file_size, notes, uploaded_by)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [jobId, fileUrl, req.file.originalname, req.file.size, req.body.notes || null, req.user.id || null]
+        );
+
+        auditLog(req.user.id, 'MATTER_UPLOAD', `Uploaded matter image for job ${jobId}`);
+        res.status(201).json({ id: result.insertId, file_url: fileUrl, message: 'Matter image uploaded' });
+    } catch (err) {
+        fs.unlink(req.file.path, () => {});
+        console.error('Matter upload error:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// GET /jobs/:id/matter — Get matter images for a job
+router.get('/jobs/:id/matter', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT m.*, s.name as uploaded_by_name
+             FROM sarga_job_matter m
+             LEFT JOIN sarga_staff s ON m.uploaded_by = s.id
+             WHERE m.job_id = ?
+             ORDER BY m.created_at DESC`,
+            [req.params.id]
+        );
+        res.json(rows);
+    } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE') return res.json([]);
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// DELETE /jobs/:id/matter/:matterId — Delete a matter image
+router.delete('/jobs/:id/matter/:matterId', authenticateToken, async (req, res) => {
+    try {
+        const [[matter]] = await pool.query('SELECT * FROM sarga_job_matter WHERE id = ? AND job_id = ?', [req.params.matterId, req.params.id]);
+        if (!matter) return res.status(404).json({ message: 'Not found' });
+
+        const filePath = path.join(__dirname, '..', matter.file_url.replace(/^\//, ''));
+        try { fs.unlinkSync(filePath); } catch {}
+        await pool.query('DELETE FROM sarga_job_matter WHERE id = ?', [matter.id]);
+        res.json({ message: 'Deleted' });
+    } catch (err) {
+        res.status(500).json({ message: 'Database error' });
+    }
+});
 
 
 module.exports = { router, syncJobToMachineWorkEntry, invalidateHierarchyCache };

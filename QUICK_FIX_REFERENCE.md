@@ -1,3 +1,6 @@
+> Master Context: [SARGA_WORK_CONTEXT.md](SARGA_WORK_CONTEXT.md)
+> Source of truth for project state, architecture, and workflow decisions.
+
 # Quick Fix Reference: Why Work/Payment Not Showing
 
 ## The Problem You Were Experiencing

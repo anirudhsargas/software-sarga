@@ -42,12 +42,24 @@ const PettyCashTab = ({ onError }) => {
     setFormDirty(false);
   };
 
-  const fetchDashboard = useCallback(async () => { try { const r = await api.get('/petty-cash-dashboard'); setDashboard(r.data); } catch { } }, []);
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const r = await api.get('/petty-cash-dashboard');
+      setDashboard(r.data);
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to load petty cash dashboard');
+    }
+  }, [onError]);
   const fetchLedger = useCallback(async () => {
     setLoading(true);
-    try { const r = await api.get('/petty-cash-ledger'); setLedger(r.data); } catch { }
+    try {
+      const r = await api.get('/petty-cash-ledger');
+      setLedger(r.data);
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to load petty cash ledger');
+    }
     finally { setLoading(false); }
-  }, []);
+  }, [onError]);
 
   useEffect(() => { fetchDashboard(); fetchLedger(); }, [fetchDashboard, fetchLedger]);
   useEffect(() => { setPage(1); }, [filterMonth]);
@@ -91,7 +103,13 @@ const PettyCashTab = ({ onError }) => {
       type: 'danger'
     });
     if (!isConfirmed) return;
-    try { await api.delete(`/petty-cash/${id}`); fetchDashboard(); fetchLedger(); } catch { }
+    try {
+      await api.delete(`/petty-cash/${id}`);
+      fetchDashboard();
+      fetchLedger();
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to delete daily cash entry');
+    }
   };
 
   // Filter ledger by month

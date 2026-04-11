@@ -654,7 +654,7 @@ router.get('/:id/readings', auth.authenticate, async (req, res) => {
 router.post('/:id/readings', auth.authenticate, async (req, res) => {
     try {
         const { id } = req.params;
-        const { reading_date, opening_count, closing_count, notes } = req.body;
+        const { reading_date, opening_count, closing_count, waste_prints, proof_prints, notes } = req.body;
         const isAdmin = req.user.role === 'Admin';
 
         if (!reading_date) {
@@ -692,13 +692,23 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
                         is_locked: true
                     });
                 }
-                // Allow closing_count updates by staff
+                // Allow closing_count / waste / proof updates by staff
                 const closeCount = closing_count !== undefined && closing_count !== null && closing_count !== ''
                     ? parseInt(closing_count) : null;
                 const totalCopies = closeCount !== null ? Math.max(0, closeCount - existing[0].opening_count) : 0;
+                const wastePrints = Math.max(0, parseInt(waste_prints) || 0);
+                const proofPrints = Math.max(0, parseInt(proof_prints) || 0);
+                if (closeCount !== null && wastePrints + proofPrints > totalCopies) {
+                    return res.status(400).json({ error: `Waste prints (${wastePrints}) + proof prints (${proofPrints}) cannot exceed total copies (${totalCopies})` });
+                }
                 await pool.query(
-                    `UPDATE sarga_machine_readings SET closing_count = ?, total_copies = ?, updated_by = ? WHERE id = ?`,
-                    [closeCount, totalCopies, req.user.id, existing[0].id]
+                    `UPDATE sarga_machine_readings SET closing_count = ?, total_copies = ?, waste_prints = ?, proof_prints = ?, notes = NULL, updated_by = ? WHERE id = ?`,
+                    [closeCount, totalCopies, wastePrints, proofPrints, req.user.id, existing[0].id]
+                );
+                // Sync waste/proof to daily report
+                await pool.query(
+                    `UPDATE sarga_daily_report_machine SET waste_prints = ?, proof_prints = ? WHERE machine_id = ? AND report_date = ?`,
+                    [wastePrints, proofPrints, id, reading_date]
                 );
                 const [saved] = await pool.query(
                     `SELECT mr.*, s.name as created_by_name FROM sarga_machine_readings mr LEFT JOIN sarga_staff s ON mr.created_by = s.id WHERE mr.id = ?`,
@@ -712,6 +722,11 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
         const closeCount = closing_count !== undefined && closing_count !== null && closing_count !== ''
             ? parseInt(closing_count) : null;
         const totalCopies = closeCount !== null ? Math.max(0, closeCount - openCount) : 0;
+        const wastePrints = Math.max(0, parseInt(waste_prints) || 0);
+        const proofPrints = Math.max(0, parseInt(proof_prints) || 0);
+        if (closeCount !== null && wastePrints + proofPrints > totalCopies) {
+            return res.status(400).json({ error: `Waste prints (${wastePrints}) + proof prints (${proofPrints}) cannot exceed total copies (${totalCopies})` });
+        }
 
         // ─── Mismatch detection and validation (non-admin only, new reading for the day) ───
         let countRequestCreated = false;
@@ -747,15 +762,22 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
         }
 
         await pool.query(
-            `INSERT INTO sarga_machine_readings (machine_id, reading_date, opening_count, closing_count, total_copies, notes, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO sarga_machine_readings (machine_id, reading_date, opening_count, closing_count, total_copies, waste_prints, proof_prints, notes, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 opening_count = VALUES(opening_count),
                 closing_count = VALUES(closing_count),
                 total_copies = VALUES(total_copies),
+                waste_prints = VALUES(waste_prints),
+                proof_prints = VALUES(proof_prints),
                 notes = VALUES(notes),
                 updated_by = VALUES(created_by)`,
-            [id, reading_date, openCount, closeCount, totalCopies, notes || null, req.user.id]
+            [id, reading_date, openCount, closeCount, totalCopies, wastePrints, proofPrints, notes || null, req.user.id]
+        );
+        // Sync waste/proof to daily report master
+        await pool.query(
+            `UPDATE sarga_daily_report_machine SET waste_prints = ?, proof_prints = ? WHERE machine_id = ? AND report_date = ?`,
+            [wastePrints, proofPrints, id, reading_date]
         );
 
         const [saved] = await pool.query(
@@ -766,7 +788,7 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
             [id, reading_date]
         );
 
-        auditLog(req.user.id, 'MACHINE_READING', `Machine #${id} reading for ${reading_date}: open=${openCount} close=${closeCount}`, { entity_type: 'machine_reading', entity_id: id });
+        auditLog(req.user.id, 'MACHINE_READING', `Machine #${id} reading for ${reading_date}: open=${openCount} close=${closeCount} waste=${wastePrints} proof=${proofPrints}`, { entity_type: 'machine_reading', entity_id: id });
         res.json({ ...saved[0], count_request_created: countRequestCreated });
     } catch (error) {
         console.error('Error saving machine reading:', error);
@@ -778,12 +800,18 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
 router.post('/:id/work', auth.authenticate, async (req, res) => {
     try {
         const { id } = req.params;
-        const { customer_name, work_details, copies, payment_type, cash_amount, upi_amount, credit_amount, total_amount, remarks, work_date } = req.body;
+        const { customer_name, work_details, copies, payment_type, cash_amount, upi_amount, credit_amount, total_amount, remarks, work_date, waste_copies, proof_copies } = req.body;
         const user = req.user;
         const reportDate = work_date || new Date().toISOString().split('T')[0];
 
         if (!customer_name || !work_details || copies === undefined) {
             return res.status(400).json({ error: 'Customer name, work details, and copies are required' });
+        }
+        const goodCopies = parseInt(copies) || 0;
+        const wasteCopies = Math.max(0, parseInt(waste_copies) || 0);
+        const proofCopies = Math.max(0, parseInt(proof_copies) || 0);
+        if (wasteCopies + proofCopies > goodCopies) {
+            return res.status(400).json({ error: `Waste copies (${wasteCopies}) + proof copies (${proofCopies}) cannot exceed total copies (${goodCopies})` });
         }
 
         // Non-admin/accountant: check assignment
@@ -821,21 +849,23 @@ router.post('/:id/work', auth.authenticate, async (req, res) => {
         // Insert work entry
         const [result] = await pool.query(
             `INSERT INTO sarga_machine_work_entries 
-             (report_id, customer_name, work_details, copies, payment_type, cash_amount, upi_amount, credit_amount, total_amount, remarks)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [reportId, customer_name, work_details, parseInt(copies) || 0, payment_type || 'Cash',
+             (report_id, customer_name, work_details, copies, waste_copies, proof_copies, payment_type, cash_amount, upi_amount, credit_amount, total_amount, remarks)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [reportId, customer_name, work_details, goodCopies, wasteCopies, proofCopies, payment_type || 'Cash',
                 parseFloat(cash_amount) || 0, parseFloat(upi_amount) || 0, parseFloat(credit_amount) || 0,
                 parseFloat(total_amount) || 0, remarks || null]
         );
 
-        // Update daily report totals
+        // Update daily report totals including waste/proof aggregation
         await pool.query(
             `UPDATE sarga_daily_report_machine SET
                 total_amount = (SELECT COALESCE(SUM(total_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
                 total_cash = (SELECT COALESCE(SUM(cash_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
-                total_credit = (SELECT COALESCE(SUM(credit_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?)
+                total_credit = (SELECT COALESCE(SUM(credit_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
+                waste_prints = (SELECT COALESCE(SUM(waste_copies), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
+                proof_prints = (SELECT COALESCE(SUM(proof_copies), 0) FROM sarga_machine_work_entries WHERE report_id = ?)
              WHERE id = ?`,
-            [reportId, reportId, reportId, reportId]
+            [reportId, reportId, reportId, reportId, reportId, reportId]
         );
 
         const [entry] = await pool.query(
@@ -932,6 +962,9 @@ router.get('/:id/production-summary', auth.authenticate, async (req, res) => {
                 mr.opening_count,
                 mr.closing_count,
                 mr.total_copies,
+                COALESCE(mr.waste_prints, 0) as waste_prints,
+                COALESCE(mr.proof_prints, 0) as proof_prints,
+                GREATEST(0, COALESCE(mr.total_copies, 0) - COALESCE(mr.waste_prints, 0) - COALESCE(mr.proof_prints, 0)) as good_prints,
                 COALESCE(drm.total_amount, 0) as day_revenue,
                 COALESCE(drm.total_cash, 0) as day_cash,
                 COALESCE(drm.total_credit, 0) as day_credit,
@@ -945,11 +978,14 @@ router.get('/:id/production-summary', auth.authenticate, async (req, res) => {
 
         const totals = summary.reduce((acc, row) => ({
             total_copies: acc.total_copies + (row.total_copies || 0),
+            waste_prints: acc.waste_prints + (row.waste_prints || 0),
+            proof_prints: acc.proof_prints + (row.proof_prints || 0),
+            good_prints: acc.good_prints + (row.good_prints || 0),
             total_revenue: acc.total_revenue + parseFloat(row.day_revenue || 0),
             total_cash: acc.total_cash + parseFloat(row.day_cash || 0),
             total_credit: acc.total_credit + parseFloat(row.day_credit || 0),
             total_work_entries: acc.total_work_entries + (row.work_count || 0)
-        }), { total_copies: 0, total_revenue: 0, total_cash: 0, total_credit: 0, total_work_entries: 0 });
+        }), { total_copies: 0, waste_prints: 0, proof_prints: 0, good_prints: 0, total_revenue: 0, total_cash: 0, total_credit: 0, total_work_entries: 0 });
 
         res.json({ daily: summary, totals });
     } catch (error) {

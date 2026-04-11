@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Home, Plus, Edit2, Trash2, IndianRupee, X } from 'lucide-react';
 import api from '../../services/api';
 import auth from '../../services/auth';
-import { fmt, today } from './constants';
+import { fmt } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
 
 const defaultRentForm = { property_name: '', location: '', owner_name: '', owner_mobile: '', monthly_rent: '', due_day: '1', advance_deposit: '', branch_id: '' };
@@ -23,8 +23,13 @@ const RentTab = ({ branches, onPayment, onError }) => {
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
 
   const fetchRentLocations = useCallback(async () => {
-    try { const r = await api.get('/rent-locations'); setRentLocations(r.data); } catch { }
-  }, []);
+    try {
+      const r = await api.get('/rent-locations');
+      setRentLocations(r.data);
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to load rent locations');
+    }
+  }, [onError]);
 
   useEffect(() => { fetchRentLocations(); }, [fetchRentLocations]);
 
@@ -45,7 +50,12 @@ const RentTab = ({ branches, onPayment, onError }) => {
       type: 'danger'
     });
     if (!isConfirmed) return;
-    try { await api.delete(`/rent-locations/${id}`); fetchRentLocations(); } catch { }
+    try {
+      await api.delete(`/rent-locations/${id}`);
+      fetchRentLocations();
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to remove rent location');
+    }
   };
 
   const openRequestForm = () => {

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { FileText, Upload, Search, Eye, Trash2, Loader2, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
-import api from '../../services/api';
 import localDb from '../../services/localDb';
 import { fmtDate, today, fmt, DOCUMENT_TYPES } from './constants';
 import { imgUrl } from '../../services/api';
@@ -31,7 +30,10 @@ const BillsDocsTab = ({ onError }) => {
     try {
       const docs = await localDb.getBillsDocuments({ document_type: filter.document_type || undefined, vendor_name: filter.vendor_name || undefined });
       setDocs(docs); setPage(1);
-    } catch { }
+    } catch {
+      setDocs([]);
+      setPage(1);
+    }
   }, [filter]);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
@@ -55,7 +57,9 @@ const BillsDocsTab = ({ onError }) => {
       };
       await localDb.saveBillDocument(docData);
       setShowUpload(false); setForm(defaultForm); fetchDocs();
-    } catch (err) { onError('Local upload failed'); }
+    } catch {
+      onError('Local upload failed');
+    }
     finally { setUploading(false); }
   };
 
@@ -68,12 +72,14 @@ const BillsDocsTab = ({ onError }) => {
     });
     if (!isConfirmed) return;
 
-    const deleteInventoryToo = window.confirm('Also delete inventory entries added from this bill? Click OK for Yes, Cancel for No.');
+    window.confirm('Also delete inventory entries added from this bill? Click OK for Yes, Cancel for No.');
 
     try {
       await localDb.deleteBillDocument(id);
       fetchDocs();
-    } catch { }
+    } catch {
+      onError('Failed to delete bill document');
+    }
   };
 
   const debouncedSearch = useDebounce(search, 300);

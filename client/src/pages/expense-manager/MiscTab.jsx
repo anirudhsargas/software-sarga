@@ -37,15 +37,24 @@ const MiscTab = ({ onError }) => {
     setFormDirty(false);
   };
 
-  const fetchDashboard = useCallback(async () => { try { const r = await api.get('/misc-dashboard'); setDashboard(r.data); } catch { } }, []);
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const r = await api.get('/misc-dashboard');
+      setDashboard(r.data);
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to load misc dashboard');
+    }
+  }, [onError]);
   const fetchExpenses = useCallback(async (pageNum = 1) => {
     try {
       const r = await api.get(`/misc-expenses?page=${pageNum}&limit=${PAGE_SIZE}`);
       setExpenses(r.data.data || []);
       setTotal(r.data.total || 0);
       setPage(pageNum);
-    } catch { }
-  }, []);
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to load misc expenses');
+    }
+  }, [onError]);
 
   useEffect(() => { fetchDashboard(); fetchExpenses(1); }, [fetchDashboard, fetchExpenses]);
 
@@ -88,7 +97,13 @@ const MiscTab = ({ onError }) => {
       type: 'danger'
     });
     if (!isConfirmed) return;
-    try { await api.delete(`/misc-expenses/${id}`); fetchDashboard(); fetchExpenses(page); } catch { }
+    try {
+      await api.delete(`/misc-expenses/${id}`);
+      fetchDashboard();
+      fetchExpenses(page);
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to delete misc expense');
+    }
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);

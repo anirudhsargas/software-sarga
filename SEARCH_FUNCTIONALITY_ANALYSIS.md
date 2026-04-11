@@ -1,3 +1,6 @@
+> Master Context: [SARGA_WORK_CONTEXT.md](SARGA_WORK_CONTEXT.md)
+> Source of truth for project state, architecture, and workflow decisions.
+
 # Search Functionality Analysis - Code Base Map
 
 ## Overview

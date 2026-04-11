@@ -14,7 +14,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
   const [error, setError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [linkedProduct, setLinkedProduct] = useState(null);
-  const [productSuggestions, setProductSuggestions] = useState([]);
+  const [, setProductSuggestions] = useState([]);
   const [editableItems, setEditableItems] = useState([]);
   const [hierarchyOptions, setHierarchyOptions] = useState([]);
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
@@ -419,7 +419,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
       
       // Auto-fill editable items with product library data
       if (response.data.length > 0) {
-        setEditableItems(prev => prev.map((item, idx) => {
+        setEditableItems(prev => prev.map((item) => {
           const matched = response.data.find(p => 
             String(item.item_name || '').toLowerCase().includes(String(p.name || '').toLowerCase())
             || String(p.name || '').toLowerCase().includes(String(item.item_name || '').toLowerCase())

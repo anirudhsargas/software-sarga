@@ -31,7 +31,10 @@ module.exports = (upload) => {
         }
 
         try {
-            const [users] = await pool.query("SELECT * FROM sarga_staff WHERE RIGHT(user_id, 10) = ?", [normalizedUserId]);
+            const [users] = await pool.query(
+                `SELECT s.*, b.short_name AS branch_short_name FROM sarga_staff s LEFT JOIN sarga_branches b ON b.id = s.branch_id WHERE RIGHT(s.user_id, 10) = ?`,
+                [normalizedUserId]
+            );
             const user = users[0];
             
             console.log(`[LOGIN] User query returned: ${users.length} user(s)`);
@@ -93,6 +96,7 @@ module.exports = (upload) => {
                     role: user.role,
                     name: user.name,
                     branch_id: user.branch_id || null,
+                    branch_short_name: user.branch_short_name || null,
                     image_url: user.image_url || null,
                     is_first_login: !!user.is_first_login
                 }

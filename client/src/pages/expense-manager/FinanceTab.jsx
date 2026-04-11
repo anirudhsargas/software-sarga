@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import auth from '../../services/auth';
-import { fmt, fmtDate, today, thisMonth } from './constants';
+import { fmt, fmtDate, today } from './constants';
 
 const defaultEmiForm = { institution_name: '', emi_type: 'Loan', loan_amount: '', monthly_emi: '', tenure_months: '', start_date: today(), due_day: '1', branch_id: '', remarks: '' };
 const defaultKuriForm = { kuri_name: '', organizer_name: '', organizer_phone: '', total_amount: '', monthly_installment: '', duration_months: '', start_date: today(), due_day: '1', branch_id: '', description: '' };
@@ -101,11 +101,13 @@ const FinanceTab = ({ branches, onError }) => {
     }
   }, [kuriLimit]);
   const fetchEmiDash = useCallback(async () => {
-    try { const r = await api.get('/emi-dashboard'); setEmiDash(r.data); } catch { }
-  }, []);
+    try { const r = await api.get('/emi-dashboard'); setEmiDash(r.data); }
+    catch (err) { if (onError) onError(err.response?.data?.message || 'Failed to load EMI dashboard'); }
+  }, [onError]);
   const fetchKuriDash = useCallback(async () => {
-    try { const r = await api.get('/kuri-dashboard'); setKuriDash(r.data); } catch { }
-  }, []);
+    try { const r = await api.get('/kuri-dashboard'); setKuriDash(r.data); }
+    catch (err) { if (onError) onError(err.response?.data?.message || 'Failed to load Kuri dashboard'); }
+  }, [onError]);
 
   useEffect(() => { fetchEmis(emiPage); fetchKuris(kuriPage); fetchEmiDash(); fetchKuriDash(); }, [fetchEmis, fetchKuris, fetchEmiDash, fetchKuriDash, emiPage, kuriPage]);
 

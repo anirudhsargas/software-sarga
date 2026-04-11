@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { Tag, Plus, X, Trash2, ToggleLeft, ToggleRight, Loader2, Edit3, CheckCircle, Clock, Infinity } from 'lucide-react';
+import { Tag, Plus, X, Trash2, ToggleLeft, ToggleRight, Loader2, Edit3, CheckCircle, Clock, Infinity as InfinityIcon } from 'lucide-react';
 
 const usageTypeLabels = { one_time: 'One-Time', limited: 'Limited', unlimited: 'Unlimited' };
 
@@ -26,7 +26,7 @@ const CouponManagement = () => {
       setLoading(true);
       const res = await api.get('/coupons');
       setCoupons(res.data || []);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load coupons');
     } finally {
       setLoading(false);
@@ -89,7 +89,7 @@ const CouponManagement = () => {
       });
       toast.success(coupon.is_active ? 'Coupon deactivated' : 'Coupon activated');
       fetchCoupons();
-    } catch (err) {
+    } catch {
       toast.error('Failed to update coupon');
     }
   };
@@ -100,7 +100,7 @@ const CouponManagement = () => {
       await api.delete(`/coupons/${coupon.id}`);
       toast.success('Coupon deactivated');
       fetchCoupons();
-    } catch (err) {
+    } catch {
       toast.error('Failed to deactivate coupon');
     }
   };
@@ -190,7 +190,7 @@ const CouponManagement = () => {
                 <div className="row gap-md items-center" style={{ marginTop: '10px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--muted)' }}>
                   {/* Usage type */}
                   <span className="row gap-xs items-center">
-                    {c.usage_type === 'unlimited' ? <Infinity size={13} /> : c.usage_type === 'one_time' ? <CheckCircle size={13} /> : <Clock size={13} />}
+                    {c.usage_type === 'unlimited' ? <InfinityIcon size={13} /> : c.usage_type === 'one_time' ? <CheckCircle size={13} /> : <Clock size={13} />}
                     {usageTypeLabels[c.usage_type] || 'Unlimited'}
                     {c.max_uses !== null && <span>({c.used_count}/{c.max_uses} used)</span>}
                     {c.max_uses === null && <span>({c.used_count} used)</span>}
@@ -281,7 +281,7 @@ const CouponManagement = () => {
                     >
                       {type === 'one_time' && <CheckCircle size={14} />}
                       {type === 'limited' && <Clock size={14} />}
-                      {type === 'unlimited' && <Infinity size={14} />}
+                      {type === 'unlimited' && <InfinityIcon size={14} />}
                       {usageTypeLabels[type]}
                     </button>
                   ))}

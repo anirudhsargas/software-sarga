@@ -1,3 +1,42 @@
+import axios from 'axios';
+
+// Centralized API URL for mobile/network access
+const getApiUrl = () => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+
+    // If we're on localhost, try to use the local port 5000
+    if (isLocal) {
+        return `http://localhost:5000/api/`;
+    }
+
+    if (envUrl) return envUrl.endsWith('/') ? envUrl : envUrl + '/';
+
+    // Fallback
+    return `${window.location.protocol}//${window.location.hostname}:5000/api/`;
+};
+
+export const API_URL = getApiUrl();
+
+export const FILE_BASE = API_URL.replace(/\/api\/?$/, '');
+
+/** Build a full image URL with auth token + ngrok bypass when needed */
+export const imgUrl = (path) => {
+    if (!path) return '';
+    const url = `${FILE_BASE}${path}`;
+    const token = localStorage.getItem('token');
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (FILE_BASE.includes('ngrok')) params.set('ngrok-skip-browser-warning', 'true');
+    const qs = params.toString();
+    return qs ? `${url}?${qs}` : url;
+};
+
+const api = axios.create({
+    baseURL: API_URL,
+    timeout: 30000
+});
+
 // --- Request Deduplication ---
 const pendingRequests = new Map();
 
@@ -25,44 +64,6 @@ export const cachedGet = async (url) => {
     cache.set(url, { data: response, time: Date.now() });
     return response;
 };
-import axios from 'axios';
-
-// Centralized API URL for mobile/network access
-const getApiUrl = () => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const envUrl = import.meta.env.VITE_API_BASE_URL;
-
-    // If we're on localhost, try to use the local port 5000
-    if (isLocal) {
-        return `http://localhost:5000/api/`;
-    }
-
-    if (envUrl) return envUrl;
-
-    // Fallback
-    return `${window.location.protocol}//${window.location.hostname}:5000/api/`;
-};
-
-export const API_URL = getApiUrl();
-
-export const FILE_BASE = API_URL.replace(/\/api\/?$/, '');
-
-/** Build a full image URL with auth token + ngrok bypass when needed */
-export const imgUrl = (path) => {
-    if (!path) return '';
-    const url = `${FILE_BASE}${path}`;
-    const token = localStorage.getItem('token');
-    const params = new URLSearchParams();
-    if (token) params.set('token', token);
-    if (FILE_BASE.includes('ngrok')) params.set('ngrok-skip-browser-warning', 'true');
-    const qs = params.toString();
-    return qs ? `${url}?${qs}` : url;
-};
-
-const api = axios.create({
-    baseURL: API_URL,
-    timeout: 30000
-});
 
 const createIdempotencyKey = (prefix = 'req') => (typeof crypto !== 'undefined' && crypto.randomUUID
     ? `${prefix}-${crypto.randomUUID()}`

@@ -33,7 +33,7 @@ const Branches = () => {
         try {
             const response = await api.get('/branches');
             setBranches(response.data);
-        } catch (err) {
+        } catch {
             setError('Failed to fetch branches');
         } finally {
             setLoading(false);
@@ -74,7 +74,7 @@ const Branches = () => {
             await api.delete(`/branches/${id}`);
             toast.success('Branch deleted successfully');
             fetchBranches();
-        } catch (err) {
+        } catch {
             setError('Failed to delete branch');
         }
     };

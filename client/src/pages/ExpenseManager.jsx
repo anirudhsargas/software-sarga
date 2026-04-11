@@ -6,10 +6,8 @@ import {
   Truck, HelpCircle, Users, FileText, BarChart3,
   Plus, X, Briefcase
 } from 'lucide-react';
-import api from '../services/api';
 import localDb from '../services/localDb';
 import './ExpenseManager.css';
-import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import toast from 'react-hot-toast';
 
@@ -25,8 +23,8 @@ import StaffExpensesTab from './expense-manager/StaffExpensesTab';
 import BillsDocsTab from './expense-manager/BillsDocsTab';
 import ReportsTab from './expense-manager/ReportsTab';
 import OfficeTab from './expense-manager/OfficeTab';
-import PaymentModal, { defaultPayForm } from './expense-manager/PaymentModal';
-import { today } from './expense-manager/constants';
+import PaymentModal from './expense-manager/PaymentModal';
+import { defaultPayForm } from './expense-manager/paymentDefaults';
 
 /* ══════════ Tab definitions ══════════ */
 const tabs = [
@@ -67,19 +65,31 @@ const ExpenseManager = () => {
 
   /* ── Shared fetchers ── */
   const fetchBranches = useCallback(async () => {
-    try { const data = await localDb.getBranches(); setBranches(data || []); } catch { }
+    try { const data = await localDb.getBranches(); setBranches(data || []); } catch (err) { void err; }
   }, []);
 
   const fetchVendors = useCallback(async () => {
-    try { const data = await localDb.getVendors(); setVendors(data || []); } catch { }
+    try { const data = await localDb.getVendors(); setVendors(data || []); } catch (err) { void err; }
   }, []);
 
   const fetchDashboardForUtilities = useCallback(async () => {
-    try { const data = await localDb.getExpenseDashboard(); setDashboard(data); } catch { }
+    try { const data = await localDb.getExpenseDashboard(); setDashboard(data); } catch (err) { void err; }
   }, []);
 
-  useEffect(() => { fetchBranches(); fetchVendors(); }, [fetchBranches, fetchVendors]);
-  useEffect(() => { if (activeTab === 'utilities') fetchDashboardForUtilities(); }, [activeTab, fetchDashboardForUtilities]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void fetchBranches();
+      void fetchVendors();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [fetchBranches, fetchVendors]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (activeTab === 'utilities') void fetchDashboardForUtilities();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [activeTab, fetchDashboardForUtilities]);
 
   /* ── Auto-refresh every 60s (pauses when tab hidden) ── */
   usePolling(() => setRefreshKey(k => k + 1), 60000);
@@ -97,7 +107,7 @@ const ExpenseManager = () => {
       setShowPayModal(false); setPayForm(defaultPayForm);
       setRefreshKey(k => k + 1); // trigger child refreshes
       toast.success('Payment recorded locally');
-    } catch (err) { setError('Payment failed locally'); }
+    } catch { setError('Payment failed locally'); }
   };
 
   /* ── Open payment modal with pre-fill ── */
@@ -107,11 +117,6 @@ const ExpenseManager = () => {
   };
 
   /* ── Refresh current tab ── */
-  const handleRefresh = () => {
-    setError('');
-    setRefreshKey(k => k + 1);
-  };
-
   /* ══════════ RENDER ══════════ */
   return (
     <div className="em-page">

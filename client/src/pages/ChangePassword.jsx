@@ -15,16 +15,13 @@ const ChangePassword = () => {
     const [success, setSuccess] = useState(false);
     const navigate = useNavigate();
 
-    const user = auth.getUser();
-    const isFirstLogin = user?.is_first_login;
-
     // Password complexity requirements
     const requirements = {
         minLength: newPassword.length >= 8,
         hasUppercase: /[A-Z]/.test(newPassword),
         hasLowercase: /[a-z]/.test(newPassword),
         hasNumber: /[0-9]/.test(newPassword),
-        hasSpecial: /[@$!%*?&^#()_+\-=\[\]{};':",./<>?\|`~]/.test(newPassword)
+        hasSpecial: /[^A-Za-z0-9]/.test(newPassword)
     };
 
     const allRequirementsMet = Object.values(requirements).every(val => val);

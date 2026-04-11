@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDebounce } from '../../hooks/useDebounce';
 import {
@@ -95,7 +95,7 @@ const VirtualTransactionTable = ({ rows, openFullBillFromTransaction }) => {
   );
 };
 
-const VendorsTab = ({ vendors: allVendors, onPayment, onRefreshVendors }) => {
+const VendorsTab = ({ onPayment, onRefreshVendors }) => {
   const { confirm } = useConfirm();
   const [expandedVendor, setExpandedVendor] = useState(null);
   const [searchInput, setSearchInput] = useState('');
@@ -107,7 +107,7 @@ const VendorsTab = ({ vendors: allVendors, onPayment, onRefreshVendors }) => {
   // Pagination state
   const [paginatedVendors, setPaginatedVendors] = useState([]);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const limit = 20;
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingVendors, setLoadingVendors] = useState(false);
@@ -141,7 +141,7 @@ const VendorsTab = ({ vendors: allVendors, onPayment, onRefreshVendors }) => {
   const [billError, setBillError] = useState('');
   const [billSuccess, setBillSuccess] = useState('');
   const [inventoryOptions, setInventoryOptions] = useState([]);
-  const [newItemsAdded, setNewItemsAdded] = useState([]);
+  const [, setNewItemsAdded] = useState([]);
 
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
@@ -217,7 +217,7 @@ const VendorsTab = ({ vendors: allVendors, onPayment, onRefreshVendors }) => {
       setShowForm(false);
       toast.success(editingVendor ? 'Vendor updated locally' : 'Vendor added locally');
       if (onRefreshVendors) onRefreshVendors();
-    } catch (err) {
+    } catch {
       setFormError('Failed to save vendor locally');
     } finally { setSaving(false); }
   };
@@ -235,7 +235,7 @@ const VendorsTab = ({ vendors: allVendors, onPayment, onRefreshVendors }) => {
       await localDb.deleteVendor(v.id);
       toast.success('Vendor deleted locally');
       if (onRefreshVendors) onRefreshVendors();
-    } catch (err) {
+    } catch {
       toast.error('Cannot delete this vendor locally');
     }
   };
@@ -263,7 +263,7 @@ const VendorsTab = ({ vendors: allVendors, onPayment, onRefreshVendors }) => {
       });
       setShowRequestForm(false);
       toast.success('Vendor request submitted locally');
-    } catch (err) {
+    } catch {
       setRequestError('Failed to submit request locally');
     } finally { setRequestSaving(false); }
   };
@@ -295,7 +295,7 @@ const VendorsTab = ({ vendors: allVendors, onPayment, onRefreshVendors }) => {
         if (selectedVendor) openVendorDetail(selectedVendor);
         if (onRefreshVendors) onRefreshVendors();
       }, 1000);
-    } catch (err) {
+    } catch {
       setPurchaseError('Failed to record purchase locally');
     } finally { setPurchaseSaving(false); }
   };
@@ -367,7 +367,7 @@ const VendorsTab = ({ vendors: allVendors, onPayment, onRefreshVendors }) => {
         if (selectedVendor) openVendorDetail(selectedVendor);
         if (onRefreshVendors) onRefreshVendors();
       }, 2000);
-    } catch (err) {
+    } catch {
       setBillError('Failed to record bill locally');
     } finally { setBillSaving(false); }
   };

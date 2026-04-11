@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users, Plus, IndianRupee, Loader2, ArrowLeft,
-  Calendar, CheckCircle, Clock, AlertTriangle,
+  Calendar, CheckCircle, AlertTriangle,
   X, User, CreditCard, Download
 } from 'lucide-react';
 import api from '../../services/api';
@@ -9,25 +9,18 @@ import { fmt, fmtDate, today, thisMonth } from './constants';
 
 const DEFAULT_PAY_FORM = { amount: '', payment_date: today(), payment_method: 'Cash', reference_number: '', notes: '', bonus: '0', deduction: '0' };
 const DEFAULT_BULK_FORM = { payment_method: 'Cash', payment_date: today(), reference_number: '', notes: '', bonus: '0', deduction: '0' };
-const createIdempotencyKey = () => (typeof crypto !== 'undefined' && crypto.randomUUID
-  ? `salary-${crypto.randomUUID()}`
-  : `salary-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 const StaffExpensesTab = ({ onPayment, onError }) => {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [salaryInfo, setSalaryInfo] = useState(null);
   const [loadingInfo, setLoadingInfo] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
-  const [payForm, setPayForm] = useState(DEFAULT_PAY_FORM);
+  const [, setPayForm] = useState(DEFAULT_PAY_FORM);
   const [month, setMonth] = useState(thisMonth());
-  const [payConfirming, setPayConfirming] = useState(false);
-  const [paySubmitting, setPaySubmitting] = useState(false);
   const [payDirty, setPayDirty] = useState(false);
   const [selectedStaffIds, setSelectedStaffIds] = useState([]);
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -35,17 +28,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
   const [bulkForm, setBulkForm] = useState(DEFAULT_BULK_FORM);
   const [bulkDirty, setBulkDirty] = useState(false);
 
-  const hasUnsavedChanges = (showPayModal && payDirty && !paySubmitting) || (showBulkModal && bulkDirty && !bulkSubmitting);
-
-  const closePayModal = (force = false) => {
-    if (!force && payDirty && !paySubmitting) {
-      const shouldClose = window.confirm('You have unsaved salary payment changes. Discard them?');
-      if (!shouldClose) return;
-    }
-    setShowPayModal(false);
-    setPayConfirming(false);
-    setPayDirty(false);
-  };
+  const hasUnsavedChanges = (showPayModal && payDirty) || (showBulkModal && bulkDirty && !bulkSubmitting);
 
   const closeBulkModal = (force = false) => {
     if (!force && bulkDirty && !bulkSubmitting) {
@@ -75,13 +58,9 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
       params.append('limit', limit);
       const r = await api.get(`/staff?${params.toString()}`);
       setStaffList(r.data.data || []);
-      setTotal(r.data.total || 0);
-      setTotalPages(r.data.totalPages || 1);
       setPage(r.data.page || 1);
     } catch {
       setStaffList([]);
-      setTotal(0);
-      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -98,8 +77,6 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
     } catch { setSalaryInfo(null); }
     finally { setLoadingInfo(false); }
   }, []);
-
-  const handleSalaryReview = (e) => { e.preventDefault(); setPayConfirming(true); };
 
   const toggleStaffSelection = (staffId) => {
     setSelectedStaffIds(prev => prev.includes(staffId)
@@ -131,35 +108,6 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Failed to download salary slip');
     }
-  };
-
-  const submitSalaryPayment = async (e) => {
-    e.preventDefault();
-    if (!selectedStaff) return;
-    setPaySubmitting(true);
-    try {
-      const idempotencyKey = createIdempotencyKey();
-      await api.post(`/staff/${selectedStaff.id}/pay-salary`, {
-        payment_month: `${month}-01`,
-        base_salary: Number(payForm.amount || 0),
-        payment_amount: Number(payForm.amount || 0),
-        payment_date: payForm.payment_date,
-        payment_method: payForm.payment_method,
-        reference_number: payForm.reference_number,
-        notes: payForm.notes,
-        bonus: Number(payForm.bonus || 0),
-        deduction: Number(payForm.deduction || 0),
-        idempotency_key: idempotencyKey
-      }, {
-        headers: { 'Idempotency-Key': idempotencyKey }
-      });
-      closePayModal(true);
-      setPayForm(DEFAULT_PAY_FORM);
-      openStaffSalary(selectedStaff);
-    } catch (err) {
-      if (onError) onError(err.response?.data?.message || 'Payment failed');
-    }
-    finally { setPaySubmitting(false); }
   };
 
   const submitBulkSalaryPayment = async (e) => {

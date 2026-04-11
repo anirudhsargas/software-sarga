@@ -6,6 +6,8 @@ const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 import auth from './services/auth';
 import { initServerTime } from './services/serverTime';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -96,6 +98,8 @@ function App() {
           <Suspense fallback={<div style={{padding:40}}><span>Loading...</span></div>}>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route
                 path="/dashboard/*"
                 element={

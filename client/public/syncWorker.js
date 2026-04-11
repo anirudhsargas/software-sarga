@@ -39,6 +39,18 @@ const putToStore = (db, storeName, data) => new Promise((resolve, reject) => {
   }
 });
 
+const clearStore = (db, storeName) => new Promise((resolve) => {
+  try {
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    store.clear();
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => resolve(false);
+  } catch {
+    resolve(false);
+  }
+});
+
 const deleteFromStore = (db, storeName, key) => new Promise((resolve) => {
   try {
     const tx = db.transaction(storeName, 'readwrite');
@@ -152,12 +164,13 @@ const downloadMasterData = async (db) => {
 
   for (const item of downloads) {
     try {
-      // Check if cache is fresh (less than 30 mins old)
+      // Check if cache is fresh — jobs use a shorter 2-min TTL so deletions reflect quickly
+      const cacheTTL = item.key === 'jobs' ? 2 * 60 * 1000 : 30 * 60 * 1000;
       const meta = await getAllFromStore(db, 'sync_meta');
       const lastSync = meta.find(m => m.id === item.key);
       const age = lastSync ? Date.now() - lastSync.time : Infinity;
 
-      if (age < 30 * 60 * 1000) {
+      if (age < cacheTTL) {
         results[item.key] = 'cached';
         continue;
       }
@@ -189,6 +202,10 @@ const downloadMasterData = async (db) => {
 
       const items = Array.isArray(data) ? data : (data.data || []);
       const tx_db = await openDB();
+      // For jobs, clear the local store first so deleted jobs don't persist
+      if (item.key === 'jobs') {
+        await clearStore(tx_db, item.store);
+      }
       for (const record of items) {
         await putToStore(tx_db, item.store, record);
       }

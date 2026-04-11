@@ -3,7 +3,6 @@ import usePolling from '../hooks/usePolling';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, Clock, Calendar, Search, RefreshCw, FileText, FileDown, Copy, AlertCircle, IndianRupee, Layers, Package, Phone, User, Building2, Shield, CheckCircle2, ChevronDown, Trash2, Upload, Eye, ThumbsUp, ThumbsDown, RotateCcw, MessageSquare, CreditCard, XCircle, Activity, Loader2, Users, Plus, Image } from 'lucide-react';
 import LoadingButton from '../components/LoadingButton';
-import SkeletonLoader from '../components/SkeletonLoader';
 import api, { imgUrl } from '../services/api';
 import localDb from '../services/localDb';
 import SecureImage from '../components/SecureImage';
@@ -187,6 +186,12 @@ const JobDetail = () => {
     const [uploadingDesign, setUploadingDesign] = useState(false);
     const designFileRef = React.useRef(null);
 
+    // Matter images state
+    const [matterImages, setMatterImages] = useState([]);
+    const [uploadingMatter, setUploadingMatter] = useState(false);
+    const matterUploadRef = React.useRef(null);
+    const matterCaptureRef = React.useRef(null);
+
     // Proof approval state
     const [proofs, setProofs] = useState([]);
     const [proofModal, setProofModal] = useState(false);
@@ -221,7 +226,49 @@ const JobDetail = () => {
                     waste_percent: req > 0 ? ((wasted / req) * 100).toFixed(1) : '0'
                 });
             } else {
-                setError('Job not found locally');
+                // Fallback: try server when not present in local IndexedDB
+                try {
+                    const resp = await api.get(`/jobs/${id}`);
+                    const srv = resp.data || {};
+                    if (srv && srv.job) {
+                        setData({
+                            job: srv.job,
+                            assignments: srv.assignments || [],
+                            paper_logs: srv.paper_logs || [],
+                            designs: srv.designs || [],
+                            proofs: srv.proofs || [],
+                            payments: srv.payments || [],
+                            statusHistory: srv.statusHistory || []
+                        });
+                        // Cache the server job locally for offline availability
+                        try {
+                            await localDb.cacheJob(srv.job);
+                            // also cache related details if helper exists
+                            if (srv.assignments || srv.paper_logs || srv.designs || srv.proofs) {
+                                if (typeof localDb.cacheJobDetails === 'function') {
+                                    try { await localDb.cacheJobDetails(srv.job.id, { assignments: srv.assignments, paper_logs: srv.paper_logs, designs: srv.designs, proofs: srv.proofs }); } catch(e) {}
+                                }
+                            }
+                        } catch (e) {
+                            // caching failure shouldn't block UI
+                        }
+                        setPaperLogs(srv.paper_logs || []);
+                        const req = srv.job?.required_sheets || 0;
+                        const used = (srv.paper_logs || []).reduce((sum, log) => sum + (log.sheets_used || 0), 0);
+                        const wasted = (srv.paper_logs || []).reduce((sum, log) => sum + (log.sheets_wasted || 0), 0);
+                        setPaperSummary({
+                            required_sheets: req,
+                            used_sheets: used + wasted,
+                            waste_sheets: wasted,
+                            waste_percent: req > 0 ? ((wasted / req) * 100).toFixed(1) : '0'
+                        });
+                    } else {
+                        setError('Job not found locally');
+                    }
+                } catch (e) {
+                    if (e?.response?.status === 404) setError('Job not found');
+                    else setError('Failed to load job details');
+                }
             }
         } catch (err) {
             console.error('Failed to load job details:', err);
@@ -277,6 +324,36 @@ const JobDetail = () => {
 
     const fetchDesigns = () => {
         api.get(`/jobs/${id}/designs`).then(res => setJobDesigns(res.data || [])).catch(() => { });
+    };
+
+    const fetchMatter = () => {
+        api.get(`/jobs/${id}/matter`).then(res => setMatterImages(res.data || [])).catch(() => { });
+    };
+
+    const handleUploadMatter = async (file, isCamera = false) => {
+        if (!file) return;
+        setUploadingMatter(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', file, file.name);
+            fd.append('notes', isCamera ? 'Captured on-site' : 'Uploaded');
+            await api.post(`/jobs/${id}/matter`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+            toast.success('Matter image uploaded');
+            fetchMatter();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Upload failed');
+        } finally {
+            setUploadingMatter(false);
+        }
+    };
+
+    const handleDeleteMatter = async (matterId) => {
+        if (!confirm('Delete this matter image?')) return;
+        try {
+            await api.delete(`/jobs/${id}/matter/${matterId}`);
+            toast.success('Deleted');
+            fetchMatter();
+        } catch { toast.error('Failed to delete'); }
     };
 
     const fetchProofs = () => {
@@ -395,6 +472,7 @@ const JobDetail = () => {
         fetchPaperLogs();
         fetchDesigns();
         fetchProofs();
+        fetchMatter();
 
         // Fetch branch UPI for invoice QR code
         api.get('/branches').then(res => {
@@ -853,10 +931,97 @@ const JobDetail = () => {
                         </div>
                         {job.description && (
                             <div style={{ marginTop: 20, padding: 16, background: 'var(--bg, #f9fafb)', borderRadius: 10, border: '1px solid var(--border)' }}>
-                                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Description / Notes</div>
-                                <div style={{ fontSize: '14px', lineHeight: 1.5 }}>{job.description}</div>
+                                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Job Details / Notes</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
+                                    {job.description.split(' | ').map((part, i) => {
+                                        const isTagged = part.includes(':');
+                                        const [label, ...rest] = isTagged ? part.split(':') : ['', part];
+                                        const value = isTagged ? rest.join(':').trim() : part;
+                                        const tagLabel = isTagged ? label.trim() : '';
+                                        const isColour = tagLabel.toLowerCase() === 'colour' || tagLabel.toLowerCase() === 'color';
+                                        const isNumbering = tagLabel.toLowerCase() === 'numbering';
+                                        return (
+                                            <span key={i} style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                padding: '4px 10px', borderRadius: 6, fontSize: 13, fontWeight: 500,
+                                                background: isColour ? '#fef3c7' : isNumbering ? '#dbeafe' : 'var(--surface-2, #f3f4f6)',
+                                                color: isColour ? '#92400e' : isNumbering ? '#1e40af' : 'var(--text)',
+                                                border: `1px solid ${isColour ? '#fcd34d' : isNumbering ? '#93c5fd' : 'var(--border)'}`
+                                            }}>
+                                                {isColour && <span style={{ fontSize: 14 }}>🎨</span>}
+                                                {isNumbering && <span style={{ fontSize: 14 }}>🔢</span>}
+                                                {tagLabel && <strong style={{ marginRight: 2 }}>{tagLabel}:</strong>}
+                                                {value}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
+
+                        {/* Matter Images */}
+                        <div style={{ marginTop: 20, padding: 16, background: 'var(--bg, #f9fafb)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Matter ({matterImages.length})
+                                </div>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                    {/* Hidden inputs */}
+                                    <input ref={matterCaptureRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                                        onChange={(e) => { handleUploadMatter(e.target.files?.[0], true); e.target.value = ''; }} />
+                                    <input ref={matterUploadRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }}
+                                        onChange={(e) => { handleUploadMatter(e.target.files?.[0], false); e.target.value = ''; }} />
+                                    <button className="btn btn-ghost btn-sm"
+                                        style={{ fontSize: 11, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 3 }}
+                                        disabled={uploadingMatter}
+                                        onClick={() => matterCaptureRef.current?.click()}>
+                                        {uploadingMatter ? <Loader2 size={11} className="animate-spin" /> : <Image size={11} />} Capture
+                                    </button>
+                                    <button className="btn btn-ghost btn-sm"
+                                        style={{ fontSize: 11, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 3 }}
+                                        disabled={uploadingMatter}
+                                        onClick={() => matterUploadRef.current?.click()}>
+                                        <Upload size={11} /> Upload
+                                    </button>
+                                </div>
+                            </div>
+                            {matterImages.length === 0 ? (
+                                <div style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>
+                                    No matter images yet. Capture or upload to help staff understand the print content.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                                    {matterImages.map((m) => {
+                                        const isImg = /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(m.file_url);
+                                        return (
+                                            <div key={m.id} style={{ position: 'relative' }}>
+                                                {isImg ? (
+                                                    <img
+                                                        src={imgUrl(m.file_url)}
+                                                        alt="Matter"
+                                                        style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer' }}
+                                                        onClick={() => window.open(imgUrl(m.file_url), '_blank')}
+                                                        title={m.original_name}
+                                                    />
+                                                ) : (
+                                                    <a href={imgUrl(m.file_url)} target="_blank" rel="noopener noreferrer"
+                                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 100, height: 100, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)', flexDirection: 'column', gap: 4, textDecoration: 'none', color: 'var(--text)' }}>
+                                                        <Image size={24} style={{ color: 'var(--muted)' }} />
+                                                        <span style={{ fontSize: 10, textAlign: 'center', padding: '0 4px' }}>{m.original_name?.slice(0, 15)}</span>
+                                                    </a>
+                                                )}
+                                                {!isFrontOffice && (
+                                                    <button onClick={() => handleDeleteMatter(m.id)}
+                                                        style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                        title="Delete">×</button>
+                                                )}
+                                                {m.notes && <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 2, maxWidth: 100 }}>{m.notes}</div>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </Section>
 
                     {/* Workforce Tracking */}

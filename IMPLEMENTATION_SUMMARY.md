@@ -1,3 +1,6 @@
+> Master Context: [SARGA_WORK_CONTEXT.md](SARGA_WORK_CONTEXT.md)
+> Source of truth for project state, architecture, and workflow decisions.
+
 # IMPLEMENTATION SUMMARY: Payment Flow Fix
 
 ## Issue Fixed

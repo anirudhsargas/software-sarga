@@ -7,19 +7,8 @@ import {
     Receipt, Printer, MessageSquare, RefreshCw, ChevronRight, ChevronLeft, Loader2,
     Wallet, Users, Package, Eye, CreditCard, X, Edit3, Check, ChevronDown, ChevronUp, List, LayoutGrid, Monitor
 } from 'lucide-react';
-import api, { deduplicatedGet } from '../services/api';
+import api from '../services/api';
 import { whatsappUrl, dueCollectionMessage, paymentReminderMessage } from '../utils/whatsapp';
-// --- IndexedDB cache helpers (pseudo, replace with your localDb or idb logic) ---
-async function getCachedDashboard() {
-    try {
-        return await localDb.getFrontOfficeDashboard();
-    } catch { return null; }
-}
-async function cacheDashboard(data) {
-    try {
-        await localDb.setFrontOfficeDashboard(data);
-    } catch {}
-}
 import localDb from '../services/localDb';
 import auth from '../services/auth';
 import toast from 'react-hot-toast';
@@ -46,7 +35,6 @@ const FrontOffice = () => {
     const [searchLoading, setSearchLoading] = useState(false);
     const [showSearchResults, setShowSearchResults] = useState(false);
     const [activeTab, setActiveTab] = useState('queue');
-    const [refreshing, setRefreshing] = useState(false);
     const searchRef = useRef(null);
     const searchTimeout = useRef(null);
 
@@ -99,9 +87,7 @@ const FrontOffice = () => {
     const [promptBalances, setPromptBalances] = useState({ Offset: '', Laser: '', Other: '' });
     const [promptMachines, setPromptMachines] = useState([]);
     const [savingPrompt, setSavingPrompt] = useState(false);
-    const [promptDone, setPromptDone] = useState(false);
     const [prevClosing, setPrevClosing] = useState({ Offset: 0, Laser: 0, Other: 0 });
-    const [myBooks, setMyBooks] = useState(null); // null = loading, [] = not assigned to any
 
     const [expandedCustomers, setExpandedCustomers] = useState(new Set());
     const [editingWorkName, setEditingWorkName] = useState(null); // job id being edited
@@ -113,19 +99,15 @@ const FrontOffice = () => {
     // ─── Data Fetch ──────────────────────────────────────────────
     // --- Optimized Dashboard Loader: cache-first, then background refresh ---
     const loadDashboard = useCallback(async () => {
-        // Show cached data immediately
-        const cached = await getCachedDashboard();
-        if (cached) {
-            setData(cached);
-            setLoading(false); // Remove loading state instantly
-        }
-        // Then fetch fresh data in background
+        // Fetch fresh data
         try {
             const fresh = await api.get('/front-office/dashboard');
             setData(fresh.data);
-            await cacheDashboard(fresh.data); // Update cache
+            setError('');
         } catch (err) {
-            // Already showing cached data, no error needed
+            setError(err.response?.data?.message || 'Failed to load dashboard');
+        } finally {
+            setLoading(false);
         }
     }, []);
 
@@ -137,7 +119,8 @@ const FrontOffice = () => {
         try {
             const res = await api.get('/front-office/attendance-reminder');
             setAttendanceReminder(res.data || null);
-        } catch (_) {
+        } catch (err) {
+            void err;
             setAttendanceReminder(null);
         }
     }, [user?.role]);
@@ -161,8 +144,7 @@ const FrontOffice = () => {
                 try {
                     const booksRes = await api.get('/machines/my-books');
                     assignedBooks = booksRes.data || [];
-                } catch { assignedBooks = []; }
-                setMyBooks(assignedBooks);
+                } catch (err) { void err; assignedBooks = []; }
 
                 const res = await api.get('/daily-report/opening-balance', { params: { date: today } });
                 const balances = res.data.balances || res.data;
@@ -179,18 +161,17 @@ const FrontOffice = () => {
                     const laserRes = await api.get('/daily-report/laser-live', { params: { date: today } });
                     myMachines = laserRes.data.machines || [];
                     myMachines.forEach(m => { machineHasReading[m.id] = !!m.has_reading; });
-                } catch { }
+                } catch (err) { void err; }
 
                 // Fetch previous closing for pre-filling counter values
                 let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
                 try {
                     const prevRes = await api.get('/daily-report/previous-closing', { params: { date: today } });
                     prevData = prevRes.data;
-                } catch { }
+                } catch (err) { void err; }
 
                 // Machines that don't yet have a reading today
                 const unenteredMachines = myMachines.filter(m => !machineHasReading[m.id]);
-                const allMachinesEntered = myMachines.length === 0 || unenteredMachines.length === 0;
 
                 const needsBalances = relevantBooks.length > 0 && !anyEntered && !anyLocked;
                 const needsMachines = unenteredMachines.length > 0;
@@ -267,7 +248,6 @@ const FrontOffice = () => {
 
             toast.success('Opening values saved!');
             setShowOpeningPrompt(false);
-            setPromptDone(true);
         } catch (err) {
             console.error('Save opening prompt error:', err);
             toast.error(err.response?.data?.error || 'Failed to save opening values');
@@ -280,12 +260,13 @@ const FrontOffice = () => {
     const fetchCompleted = useCallback(async (pg) => {
         setCompletedLoading(true);
         try {
-            const res = await localDb.getDeliveredJobs(pg, PAGE_SIZE);
-            setCompletedJobs(res.data || []);
-            setCompletedTotal(res.total || 0);
-            setCompletedTotalPages(res.totalPages || 1);
+            const res = await api.get(`front-office/completed?page=${pg}&limit=${PAGE_SIZE}`);
+            const d = res.data;
+            setCompletedJobs(d.data || []);
+            setCompletedTotal(d.total || 0);
+            setCompletedTotalPages(d.totalPages || 1);
         } catch {
-            toast.error('Failed to load completed work from local storage');
+            toast.error('Failed to load completed work');
         } finally {
             setCompletedLoading(false);
         }
@@ -300,11 +281,12 @@ const FrontOffice = () => {
     const fetchActiveJobs = useCallback(async (pg) => {
         setActiveLoading(true);
         try {
-            const res = await localDb.getActiveJobs(pg, PAGE_SIZE);
-            setActiveJobs(res.data || []);
-            setActiveTotal(res.total || 0);
-            setActiveTotalPages(res.totalPages || 1);
-        } catch { /* fallback handles it */ }
+            const res = await api.get(`front-office/active-jobs?page=${pg}&limit=${PAGE_SIZE}`);
+            const d = res.data;
+            setActiveJobs(d.data || []);
+            setActiveTotal(d.total || 0);
+            setActiveTotalPages(d.totalPages || 1);
+        } catch { toast.error('Failed to load active jobs'); }
         finally { setActiveLoading(false); }
     }, []);
 
@@ -316,11 +298,12 @@ const FrontOffice = () => {
     const fetchDueCustomers = useCallback(async (pg) => {
         setDueLoading(true);
         try {
-            const res = await localDb.getDueCustomers(pg, PAGE_SIZE);
-            setDueCustomers(res.data || []);
-            setDueTotal(res.total || 0);
-            setDueTotalPages(res.totalPages || 1);
-        } catch { /* fallback */ }
+            const res = await api.get(`front-office/due-customers?page=${pg}&limit=${PAGE_SIZE}`);
+            const d = res.data;
+            setDueCustomers(d.data || []);
+            setDueTotal(d.total || 0);
+            setDueTotalPages(d.totalPages || 1);
+        } catch { toast.error('Failed to load due customers'); }
         finally { setDueLoading(false); }
     }, []);
 
@@ -332,11 +315,12 @@ const FrontOffice = () => {
     const fetchOverdueJobs = useCallback(async (pg) => {
         setOverdueLoading(true);
         try {
-            const res = await localDb.getOverdueJobs(pg, PAGE_SIZE);
-            setOverdueJobs(res.data || []);
-            setOverdueTotal(res.total || 0);
-            setOverdueTotalPages(res.totalPages || 1);
-        } catch { /* fallback */ }
+            const res = await api.get(`front-office/overdue-jobs?page=${pg}&limit=${PAGE_SIZE}`);
+            const d = res.data;
+            setOverdueJobs(d.data || []);
+            setOverdueTotal(d.total || 0);
+            setOverdueTotalPages(d.totalPages || 1);
+        } catch { toast.error('Failed to load overdue jobs'); }
         finally { setOverdueLoading(false); }
     }, []);
 
@@ -348,11 +332,12 @@ const FrontOffice = () => {
     const fetchRecentPayments = useCallback(async (pg) => {
         setPaymentsLoading(true);
         try {
-            const res = await localDb.getRecentPayments(pg, PAGE_SIZE);
-            setRecentPayments(res.data || []);
-            setPaymentsTotal(res.total || 0);
-            setPaymentsTotalPages(res.totalPages || 1);
-        } catch { /* fallback */ }
+            const res = await api.get(`front-office/recent-payments?page=${pg}&limit=${PAGE_SIZE}`);
+            const d = res.data;
+            setRecentPayments(d.data || []);
+            setPaymentsTotal(d.total || 0);
+            setPaymentsTotalPages(d.totalPages || 1);
+        } catch { toast.error('Failed to load recent payments'); }
         finally { setPaymentsLoading(false); }
     }, []);
 
@@ -364,10 +349,11 @@ const FrontOffice = () => {
     const fetchDeliveredJobs = useCallback(async (pg) => {
         setDeliveredLoading(true);
         try {
-            const res = await localDb.getDeliveredJobs(pg, PAGE_SIZE);
-            setDeliveredJobs(res.data || []);
-            setDeliveredTotal(res.total || 0);
-            setDeliveredTotalPages(res.totalPages || 1);
+            const res = await api.get(`front-office/delivered?page=${pg}&limit=${PAGE_SIZE}`);
+            const d = res.data;
+            setDeliveredJobs(d.data || []);
+            setDeliveredTotal(d.total || 0);
+            setDeliveredTotalPages(d.totalPages || 1);
         } catch { toast.error('Failed to load delivered jobs'); }
         finally { setDeliveredLoading(false); }
     }, []);
@@ -393,8 +379,8 @@ const FrontOffice = () => {
             }
             const group = map.get(key);
             group.jobs.push(job);
-            group.total_amount += job.total_amount;
-            group.total_balance += job.balance;
+            group.total_amount += Number(job.total_amount || 0);
+            group.total_balance += Number(job.balance_amount || 0);
         });
         return Array.from(map.values()).sort((a, b) => b.jobs.length - a.jobs.length);
     }, [completedJobs]);
@@ -502,7 +488,7 @@ const FrontOffice = () => {
     }, [navigate]);
 
     // ─── Helpers ─────────────────────────────────────────────────
-    const fmt = (v) => typeof v === 'number' ? `₹${v.toLocaleString('en-IN')}` : '—';
+    const fmt = (v) => { const n = Number(v); return (v !== null && v !== undefined && v !== '' && !isNaN(n)) ? `₹${n.toLocaleString('en-IN')}` : '—'; };
     const fmtDate = (d) => {
         if (!d) return '—';
         return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
@@ -524,11 +510,6 @@ const FrontOffice = () => {
         return map[status] || '';
     };
 
-    const getPaymentBadge = (status) => {
-        const map = { Paid: 'badge--success', Partial: 'badge--warning', Unpaid: 'badge--error' };
-        return map[status] || '';
-    };
-
     const matchesCategory = (categoryValue) => {
         if (!categoryFilter) return true;
         const cat = String(categoryValue || '').trim().toUpperCase();
@@ -547,7 +528,7 @@ const FrontOffice = () => {
 
     // ─── Render ──────────────────────────────────────────────────
     if (loading) {
-        return <SkeletonLoader type="cards" count={4} />;
+        return <SkeletonLoader type="cards" count={6} />;
     }
 
     // --- Virtualize job list (install @tanstack/react-virtual and use for job tables) ---
@@ -758,13 +739,13 @@ const FrontOffice = () => {
             </div>
 
             {/* ──── Category Filter Row ──── */}
-            <div style={{ display: 'flex', gap: 8, padding: '16px 0', marginBottom: 20, fontSize: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text)', minWidth: 'fit-content', fontSize: '13px', marginRight: 8 }}>Filter by Type:</span>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button onClick={() => setCategoryFilter('')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === '' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === '' ? '#000' : '#888', border: categoryFilter === '' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === '' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>All</button>
-                    <button onClick={() => setCategoryFilter('OFFSET')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'OFFSET' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'OFFSET' ? '#000' : '#888', border: categoryFilter === 'OFFSET' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'OFFSET' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Offset</button>
-                    <button onClick={() => setCategoryFilter('LASER')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'LASER' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'LASER' ? '#000' : '#888', border: categoryFilter === 'LASER' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'LASER' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Laser</button>
-                    <button onClick={() => setCategoryFilter('OTHER')} style={{ padding: '8px 18px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', background: categoryFilter === 'OTHER' ? 'var(--accent)' : 'var(--surface)', color: categoryFilter === 'OTHER' ? '#000' : '#888', border: categoryFilter === 'OTHER' ? '2px solid var(--accent)' : '2px solid #555', borderRadius: 20, transition: 'all 0.3s ease', whiteSpace: 'nowrap', boxShadow: categoryFilter === 'OTHER' ? '0 2px 8px rgba(0,0,0,0.2)' : 'none' }}>Others</button>
+            <div className="fo-category-filter">
+                <span className="fo-category-filter__label">Filter by Type:</span>
+                <div className="fo-category-filter__chips">
+                    <button onClick={() => setCategoryFilter('')} className={`fo-category-chip ${categoryFilter === '' ? 'fo-category-chip--active' : ''}`}>All</button>
+                    <button onClick={() => setCategoryFilter('OFFSET')} className={`fo-category-chip ${categoryFilter === 'OFFSET' ? 'fo-category-chip--active' : ''}`}>Offset</button>
+                    <button onClick={() => setCategoryFilter('LASER')} className={`fo-category-chip ${categoryFilter === 'LASER' ? 'fo-category-chip--active' : ''}`}>Laser</button>
+                    <button onClick={() => setCategoryFilter('OTHER')} className={`fo-category-chip ${categoryFilter === 'OTHER' ? 'fo-category-chip--active' : ''}`}>Others</button>
                 </div>
             </div>
 
@@ -813,7 +794,7 @@ const FrontOffice = () => {
                                                 const due = daysUntil(job.delivery_date);
                                                 const overdue = due !== null && due < 0;
                                                 const dueToday = due === 0;
-                                                const balance = job.balance < 1 ? 0 : job.balance;
+                                                const balance = Number(job.balance_amount || 0);
                                                 return (
                                                     <tr
                                                         key={job.id}
@@ -1014,7 +995,7 @@ const FrontOffice = () => {
                                         <tbody>
                                             {filteredOverdue.map(job => {
                                                 const days = Math.abs(daysUntil(job.delivery_date));
-                                                const balance = job.balance < 1 ? 0 : job.balance;
+                                                const balance = Number(job.balance_amount || 0);
                                                 return (
                                                     <tr key={job.id} className="fo-row--overdue">
                                                         <td>
@@ -1151,7 +1132,7 @@ const FrontOffice = () => {
                                                     </td>
                                                     <td><span className={`fo-badge ${getStatusBadge(job.status)}`}>{job.status}</span></td>
                                                     <td className="fo-amount">{fmt(job.total_amount)}</td>
-                                                    <td>{job.balance > 0 ? <span className="fo-due-amount">{fmt(job.balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
+                                                    <td>{Number(job.balance_amount) > 0 ? <span className="fo-due-amount">{fmt(Number(job.balance_amount))}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
                                                     <td>{fmtDate(job.updated_at || job.delivery_date)}</td>
                                                     <td>
                                                         <button className="btn btn-ghost btn-icon btn-sm" aria-label="View job details" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View">
@@ -1335,8 +1316,8 @@ const FrontOffice = () => {
                                                         </div>
                                                     </td>
                                                     <td className="fo-amount">{fmt(job.total_amount)}</td>
-                                                    <td>{job.balance > 0 ? <span className="fo-due-amount">{fmt(job.balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
-                                                    <td>{fmtDate(job.delivery_date)}</td>
+                                                    <td>{Number(job.balance_amount) > 0 ? <span className="fo-due-amount">{fmt(Number(job.balance_amount))}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
+                                                    <td>{fmtDate(job.delivery_date || job.updated_at)}</td>
                                                     <td>
                                                         <button className="btn btn-ghost btn-icon btn-sm" aria-label="View job details" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View">
                                                             <Eye size={16} />
@@ -1445,7 +1426,7 @@ const FrontOffice = () => {
                         </div>
 
                         <div className="row gap-sm justify-end" style={{ marginTop: 20 }}>
-                            <button className="btn btn-ghost" onClick={() => { setShowOpeningPrompt(false); setPromptDone(true); }}>
+                            <button className="btn btn-ghost" onClick={() => { setShowOpeningPrompt(false); }}>
                                 Skip for now
                             </button>
                             <button className="btn btn-primary" onClick={handleSavePrompt} disabled={savingPrompt}>

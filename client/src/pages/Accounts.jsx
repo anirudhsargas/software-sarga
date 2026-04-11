@@ -682,7 +682,7 @@ const GSTReportTab = ({ branchId }) => {
 };
 
 /* ─────────────────────── Bills & Documents Tab ─────────────────────── */
-const BillsDocsTab = ({ branchId }) => {
+const BillsDocsTab = () => {
     const { confirm } = useConfirm();
     const [docs, setDocs] = useState([]);
     const [loading, setLoading] = useState(true);

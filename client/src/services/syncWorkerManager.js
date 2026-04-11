@@ -1,5 +1,3 @@
-import api from './api';
-
 class SyncWorkerManager {
   constructor() {
     this.worker = null;

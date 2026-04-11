@@ -1,6 +1,7 @@
 const { createWorker } = require('tesseract.js');
 const { fromPath } = require('pdf2pic');
-const { PDFParse } = require('pdf-parse');
+let PDFParse;
+try { PDFParse = require('pdf-parse'); } catch (e) { PDFParse = null; }
 const fs = require('fs').promises;
 const path = require('path');
 

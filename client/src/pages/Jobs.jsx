@@ -73,6 +73,7 @@ const Jobs = () => {
         message: ''
     });
     const [creditRequesting, setCreditRequesting] = useState(false);
+    const [expandedPayments, setExpandedPayments] = useState(new Set());
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -190,13 +191,16 @@ const Jobs = () => {
             updateFn: (prev) => prev.map(j => 
                 j.id === job.id ? { ...j, status: newStatus, _updating: true } : j
             ),
-            serverFn: () => localDb.updateJobStatus(job.id, newStatus),
+            serverFn: async () => {
+                await api.put(`/jobs/${job.id}`, { status: newStatus });
+            },
             rollbackFn: () => fetchJobs(page),
             successMsg: `Job status updated to ${newStatus}`,
             errorMsg: 'Failed to update job status'
         });
         
-        setJobs(prev => prev.map(j => j.id === job.id ? { ...j, _updating: false } : j));
+        // Re-fetch so server-side tab filtering removes the job from the current tab
+        fetchJobs(page);
     };
 
     const closeDeliveryDueModal = () => {
@@ -253,10 +257,10 @@ const Jobs = () => {
 
     const handleDeleteJob = async (e, jobId) => {
         e.stopPropagation();
-        if (!window.confirm('Delete this job permanently? This cannot be undone.')) return;
+        if (!window.confirm('Delete this job permanently?\n\nThis will also delete all associated payments, proofs, staff assignments, and other linked records.\n\nThis cannot be undone.')) return;
         try {
             await api.delete(`/jobs/${jobId}`);
-            toast.success('Job deleted');
+            toast.success('Job and all associated records deleted');
             fetchJobs(page);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to delete job');
@@ -392,10 +396,24 @@ const Jobs = () => {
                                 }
 
                                 if (loading && jobs.length === 0) {
+                                    const cols = [
+                                      { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
+                                      { key: 'customer', header: 'Customer', width: '1.5fr', lines: 2 },
+                                      { key: 'branch', header: 'Branch', width: '1fr' },
+                                      { key: 'status', header: 'Status', width: '1fr', pill: true },
+                                      ...(sortByPriority ? [{ key: 'priority', header: 'Priority', width: '0.8fr', pill: true }] : []),
+                                      { key: 'production', header: 'Production', width: '1fr', lines: 2 },
+                                      ...(isFinancialsVisible ? [
+                                        { key: 'amount', header: 'Amount', width: '0.8fr' },
+                                        { key: 'balance', header: 'Balance', width: '0.8fr' }
+                                      ] : []),
+                                      { key: 'delivery', header: 'Delivery', width: '1fr' },
+                                      { key: 'actions', header: 'Actions', width: '0.8fr' }
+                                    ];
                                     return (
                                         <tr>
-                                            <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
-                                                <SkeletonLoader type="table" count={6} />
+                                            <td colSpan={cols.length} style={{ textAlign: 'center', padding: '20px' }}>
+                                                <SkeletonLoader type="table" count={6} columns={cols} />
                                             </td>
                                         </tr>
                                     );
@@ -409,119 +427,223 @@ const Jobs = () => {
                                         </tr>
                                     );
                                 }
-                                return displayJobs.map((j) => (
-                                    <tr key={j.id} onDoubleClick={() => navigate(`/dashboard/jobs/${j.id}`)} style={{ cursor: 'pointer' }}>
-                                        <td>
-                                            <div className="stack-xs">
-                                                <span className="font-bold text-sm">{j.job_number}</span>
-                                                <span className="text-sm">{j.job_name}</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className="stack-xs">
-                                                <span className="text-sm font-medium">{j.customer_name}</span>
-                                                <span className="text-xs muted">+91 {j.customer_mobile}</span>
-                                            </div>
-                                        </td>
-                                        <td className="text-sm">
-                                            {j.branch_name || 'Main'}
-                                        </td>
-                                        <td>
-                                            {['Admin', 'Front Office', 'front office'].includes(userRole) ? (
-                                                <select
-                                                    className={`badge ${getStatusColor(j.status)}`}
-                                                    style={{ border: 'none', cursor: 'pointer', outline: 'none' }}
-                                                    value={j.status}
-                                                    onChange={(e) => handleUpdateStatus(j, e.target.value)}
-                                                >
-                                                    {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                                                </select>
-                                            ) : (
-                                                <span className={`badge ${getStatusColor(j.status)}`}>{j.status}</span>
-                                            )}
-                                            {j._updating && <Loader2 size={12} className="animate-spin ml-4 inline-block" style={{ verticalAlign: 'middle' }} />}
-                                        </td>
-                                        {sortByPriority && (
+                                // Group jobs by payment_id (null = standalone)
+                                const groupMap = new Map(); // payment_id -> [jobs]
+                                const standalones = [];
+                                displayJobs.forEach(j => {
+                                    if (j.payment_id) {
+                                        if (!groupMap.has(j.payment_id)) groupMap.set(j.payment_id, []);
+                                        groupMap.get(j.payment_id).push(j);
+                                    } else {
+                                        standalones.push(j);
+                                    }
+                                });
+                                // Build ordered render list: preserve original order, show group once at first occurrence
+                                const seen = new Set();
+                                const renderList = []; // [{type:'single',job} | {type:'group',paymentId,jobs}]
+                                displayJobs.forEach(j => {
+                                    if (!j.payment_id) {
+                                        renderList.push({ type: 'single', job: j });
+                                    } else if (!seen.has(j.payment_id)) {
+                                        seen.add(j.payment_id);
+                                        const grpJobs = groupMap.get(j.payment_id);
+                                        if (grpJobs.length === 1) {
+                                            renderList.push({ type: 'single', job: grpJobs[0] });
+                                        } else {
+                                            renderList.push({ type: 'group', paymentId: j.payment_id, jobs: grpJobs });
+                                        }
+                                    }
+                                });
+
+                                const renderJobRow = (j, opts = {}) => {
+                                    const { isSubRow = false, isSummaryRow = false, groupJobs = null } = opts;
+                                    const totalCols = 6 + (sortByPriority ? 1 : 0) + (isFinancialsVisible ? 2 : 0);
+                                    return (
+                                        <tr
+                                            key={j.id}
+                                            onDoubleClick={() => !isSummaryRow && navigate(`/dashboard/jobs/${j.id}`)}
+                                            style={{
+                                                cursor: 'pointer',
+                                                ...(isSubRow ? { background: 'var(--surface2, rgba(255,255,255,0.03))' } : {}),
+                                            }}
+                                        >
                                             <td>
-                                                <UrgencyBadge urgency={j._urgency || 'medium'} />
+                                                <div className="stack-xs" style={isSubRow ? { paddingLeft: 18, borderLeft: '3px solid var(--border)' } : {}}>
+                                                    {isSummaryRow ? (
+                                                        <>
+                                                            <div className="row items-center gap-xs">
+                                                                <button
+                                                                    className="btn btn-ghost"
+                                                                    style={{ padding: '2px 4px', minWidth: 0 }}
+                                                                    title={expandedPayments.has(j.payment_id) ? 'Collapse' : 'Expand'}
+                                                                    onClick={e => {
+                                                                        e.stopPropagation();
+                                                                        setExpandedPayments(prev => {
+                                                                            const next = new Set(prev);
+                                                                            next.has(j.payment_id) ? next.delete(j.payment_id) : next.add(j.payment_id);
+                                                                            return next;
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <ChevronDown size={14} style={{ transform: expandedPayments.has(j.payment_id) ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+                                                                </button>
+                                                                <span className="font-bold text-sm">{groupJobs.map(g => g.job_number).join(', ')}</span>
+                                                            </div>
+                                                            <span className="text-xs muted">{groupJobs.length} jobs · single bill</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <span className="font-bold text-sm">{j.job_number}</span>
+                                                            <span className="text-sm">{j.job_name}</span>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </td>
-                                        )}
-                                        <td>
-                                            {Number(j.used_sheets) > 0 ? (() => {
-                                                const req = Number(j.required_sheets) || 0;
-                                                const used = Number(j.used_sheets) || 0;
-                                                const waste = req > 0 ? Math.max(0, used - req) : 0;
-                                                const pct = req > 0 ? ((waste / req) * 100).toFixed(0) : null;
-                                                const color = pct === null ? 'var(--muted)' : Number(pct) <= 3 ? 'var(--success)' : Number(pct) <= 8 ? 'var(--warning)' : 'var(--error)';
-                                                return (
+                                            <td>
+                                                <div className="stack-xs">
+                                                    <span className="text-sm font-medium">{j.customer_name}</span>
+                                                    <span className="text-xs muted">+91 {j.customer_mobile}</span>
+                                                </div>
+                                            </td>
+                                            <td className="text-sm">
+                                                {j.branch_name || 'Main'}
+                                            </td>
+                                            <td>
+                                                {isSummaryRow ? (
                                                     <div className="stack-xs">
-                                                        <span style={{ fontSize: '11px', fontWeight: 600, color }}>
-                                                            {used} / {req} sheets
-                                                        </span>
-                                                        {pct !== null && (
-                                                            <span style={{ fontSize: '10px', color: 'var(--muted)' }}>
-                                                                {pct}% waste
+                                                        {[...new Set(groupJobs.map(g => g.status))].map(s => (
+                                                            <span key={s} className={`badge ${getStatusColor(s)}`} style={{ fontSize: 10 }}>{s}</span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        {['Admin', 'Front Office', 'front office'].includes(userRole) ? (
+                                                            <select
+                                                                className={`badge ${getStatusColor(j.status)}`}
+                                                                style={{ border: 'none', cursor: 'pointer', outline: 'none' }}
+                                                                value={j.status}
+                                                                onChange={(e) => handleUpdateStatus(j, e.target.value)}
+                                                            >
+                                                                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                                            </select>
+                                                        ) : (
+                                                            <span className={`badge ${getStatusColor(j.status)}`}>{j.status}</span>
+                                                        )}
+                                                        {j._updating && <Loader2 size={12} className="animate-spin ml-4 inline-block" style={{ verticalAlign: 'middle' }} />}
+                                                    </>
+                                                )}
+                                            </td>
+                                            {sortByPriority && (
+                                                <td>
+                                                    <UrgencyBadge urgency={j._urgency || 'medium'} />
+                                                </td>
+                                            )}
+                                            <td>
+                                                {Number(j.used_sheets) > 0 ? (() => {
+                                                    const req = Number(j.required_sheets) || 0;
+                                                    const used = Number(j.used_sheets) || 0;
+                                                    const waste = req > 0 ? Math.max(0, used - req) : 0;
+                                                    const pct = req > 0 ? ((waste / req) * 100).toFixed(0) : null;
+                                                    const color = pct === null ? 'var(--muted)' : Number(pct) <= 3 ? 'var(--success)' : Number(pct) <= 8 ? 'var(--warning)' : 'var(--error)';
+                                                    return (
+                                                        <div className="stack-xs">
+                                                            <span style={{ fontSize: '11px', fontWeight: 600, color }}>
+                                                                {used} / {req} sheets
                                                             </span>
+                                                            {pct !== null && (
+                                                                <span style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                                                                    {pct}% waste
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })() : (
+                                                    <span className="muted text-xs">—</span>
+                                                )}
+                                            </td>
+                                            {isFinancialsVisible && (
+                                                <td>
+                                                    <div className="row items-center gap-xs text-sm">
+                                                        <IndianRupee size={12} />
+                                                        {isSummaryRow
+                                                            ? groupJobs.reduce((s, g) => s + (Number(g.total_amount) || 0), 0).toFixed(2)
+                                                            : j.total_amount}
+                                                    </div>
+                                                </td>
+                                            )}
+                                            {isFinancialsVisible && (
+                                                <td>
+                                                    {isSummaryRow ? (() => {
+                                                        const bal = groupJobs.reduce((s, g) => s + (Number(g.balance_amount) || 0), 0);
+                                                        return (
+                                                            <div className={`row items-center gap-xs text-sm font-bold ${bal > 0 ? 'text-danger' : 'text-success'}`}>
+                                                                <IndianRupee size={12} />{bal.toFixed(2)}
+                                                            </div>
+                                                        );
+                                                    })() : (
+                                                        <div className={`row items-center gap-xs text-sm font-bold ${j.balance_amount > 0 ? 'text-danger' : 'text-success'}`}>
+                                                            <IndianRupee size={12} />
+                                                            {j.balance_amount}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            )}
+                                            <td className="text-sm muted">
+                                                {j.delivery_date ? new Date(j.delivery_date).toLocaleDateString() : 'Not Set'}
+                                            </td>
+                                            <td>
+                                                {isSummaryRow ? (
+                                                    <span className="text-xs muted">expand ↑↓</span>
+                                                ) : (
+                                                    <div className="row gap-sm">
+                                                        <button
+                                                            className="btn btn-ghost btn-danger"
+                                                            style={{ padding: '6px' }}
+                                                            title="View Details"
+                                                            onClick={() => navigate(`/dashboard/jobs/${j.id}`)}
+                                                        >
+                                                            <FileText size={16} />
+                                                        </button>
+                                                        {['Admin', 'Front Office', 'front office'].includes(userRole) && (
+                                                            <button
+                                                                className="btn btn-ghost"
+                                                                style={{ padding: '6px', color: 'var(--accent)' }}
+                                                                title="Repeat Order"
+                                                                onClick={(e) => { e.stopPropagation(); handleRepeatOrder(j.id); }}
+                                                            >
+                                                                <RotateCcw size={16} />
+                                                            </button>
+                                                        )}
+                                                        {['Admin', 'Accountant'].includes(userRole) && (
+                                                            <button
+                                                                className="btn btn-ghost"
+                                                                style={{ padding: '6px', color: 'var(--error)' }}
+                                                                title="Delete Job"
+                                                                onClick={(e) => handleDeleteJob(e, j.id)}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
                                                         )}
                                                     </div>
-                                                );
-                                            })() : (
-                                                <span className="muted text-xs">—</span>
-                                            )}
-                                        </td>
-                                        {isFinancialsVisible && (
-                                            <td>
-                                                <div className="row items-center gap-xs text-sm">
-                                                    <IndianRupee size={12} />
-                                                    {j.total_amount}
-                                                </div>
-                                            </td>
-                                        )}
-                                        {isFinancialsVisible && (
-                                            <td>
-                                                <div className={`row items-center gap-xs text-sm font-bold ${j.balance_amount > 0 ? 'text-danger' : 'text-success'}`}>
-                                                    <IndianRupee size={12} />
-                                                    {j.balance_amount}
-                                                </div>
-                                            </td>
-                                        )}
-                                        <td className="text-sm muted">
-                                            {j.delivery_date ? new Date(j.delivery_date).toLocaleDateString() : 'Not Set'}
-                                        </td>
-                                        <td>
-                                            <div className="row gap-sm">
-                                                <button
-                                                    className="btn btn-ghost btn-danger"
-                                                    style={{ padding: '6px' }}
-                                                    title="View Details"
-                                                    onClick={() => navigate(`/dashboard/jobs/${j.id}`)}
-                                                >
-                                                    <FileText size={16} />
-                                                </button>
-                                                {['Admin', 'Front Office', 'front office'].includes(userRole) && (
-                                                    <button
-                                                        className="btn btn-ghost"
-                                                        style={{ padding: '6px', color: 'var(--accent)' }}
-                                                        title="Repeat Order"
-                                                        onClick={(e) => { e.stopPropagation(); handleRepeatOrder(j.id); }}
-                                                    >
-                                                        <RotateCcw size={16} />
-                                                    </button>
                                                 )}
-                                                {['Admin', 'Accountant'].includes(userRole) && (
-                                                    <button
-                                                        className="btn btn-ghost"
-                                                        style={{ padding: '6px', color: 'var(--error)' }}
-                                                        title="Delete Job"
-                                                        onClick={(e) => handleDeleteJob(e, j.id)}
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ));
+                                            </td>
+                                        </tr>
+                                    );
+                                };
+
+                                return renderList.flatMap(item => {
+                                    if (item.type === 'single') {
+                                        return [renderJobRow(item.job)];
+                                    }
+                                    // Group: summary row + optional sub-rows
+                                    const rep = item.jobs[0];
+                                    const isExpanded = expandedPayments.has(item.paymentId);
+                                    const rows = [renderJobRow(rep, { isSummaryRow: true, groupJobs: item.jobs })];
+                                    if (isExpanded) {
+                                        item.jobs.forEach(gj => rows.push(renderJobRow(gj, { isSubRow: true })));
+                                    }
+                                    return rows;
+                                });
                             })()}
                         </tbody>
                     </table>

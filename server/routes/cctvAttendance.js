@@ -162,7 +162,8 @@ router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Ac
 
     // Get attendance records for the day
     let attQuery = `
-      SELECT ca.staff_id, ca.event_type, ca.source, ca.timestamp
+      SELECT ca.staff_id, ca.event_type, ca.source, ca.timestamp, ca.created_at,
+             ABS(TIMESTAMPDIFF(MINUTE, ca.timestamp, ca.created_at)) AS discrepancy_minutes
       FROM sarga_cctv_attendance ca
       WHERE ca.date = ?
     `;
@@ -215,6 +216,8 @@ router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Ac
         exit_time: exitEvent ? exitEvent.timestamp : null,
         entry_source: entryEvent ? entryEvent.source : null,
         exit_source: exitEvent ? exitEvent.source : null,
+        entry_discrepancy: (entryEvent && entryEvent.source === 'manual') ? (entryEvent.discrepancy_minutes || 0) : null,
+        exit_discrepancy: (exitEvent && exitEvent.source === 'manual') ? (exitEvent.discrepancy_minutes || 0) : null,
         status,
         absent_alert: absentAlert,
         event_count: events.length,
@@ -225,6 +228,10 @@ router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Ac
     const present = summary.filter(s => s.status === 'present' || s.status === 'left' || s.status === 'left_early').length;
     const absent = summary.filter(s => s.status === 'absent').length;
     const alertCount = summary.filter(s => s.absent_alert).length;
+    const discrepancyCount = summary.filter(s =>
+      (s.entry_discrepancy !== null && s.entry_discrepancy > 30) ||
+      (s.exit_discrepancy !== null && s.exit_discrepancy > 30)
+    ).length;
 
     res.json({
       date: targetDate,
@@ -233,6 +240,7 @@ router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Ac
       present,
       absent,
       alert_count: alertCount,
+      discrepancy_count: discrepancyCount,
       staff: summary,
     });
   } catch (err) {

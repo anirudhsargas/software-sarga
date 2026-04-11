@@ -125,9 +125,12 @@ const Login = () => {
                         </div>
                     </div>
 
-                    <div className="checkbox-row">
-                        <input type="checkbox" id="remember" />
-                        <label htmlFor="remember">Remember Me</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="checkbox-row">
+                            <input type="checkbox" id="remember" />
+                            <label htmlFor="remember">Remember Me</label>
+                        </div>
+                        <a href="/forgot-password" style={{ fontSize: 13, color: 'var(--primary, #6366f1)', textDecoration: 'none' }}>Forgot Password?</a>
                     </div>
 
                     <button

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, Eye, TrendingUp, TrendingDown, DollarSign, BarChart3, Clock, ShoppingCart, Image as ImageIcon, ArrowLeftRight, Bell } from 'lucide-react';
 import api from '../services/api';
 import auth from '../services/auth';
@@ -134,7 +134,7 @@ const Inventory = () => {
             setItems(res.data.data || []);
             setTotal(res.data.total || 0);
             setTotalPages(res.data.totalPages || 1);
-        } catch (err) {
+        } catch {
             setError('Failed to fetch inventory');
         } finally {
             setLoading(false);
@@ -159,7 +159,7 @@ const Inventory = () => {
         try {
             const res = await api.get('/stock-requests');
             setStockRequests(res.data || []);
-        } catch (err) {
+        } catch {
             toast.error('Failed to load stock requests');
         } finally {
             setStockRequestsLoading(false);
@@ -178,7 +178,7 @@ const Inventory = () => {
             const qtys = {};
             res.data.branches.forEach(b => { qtys[b.id] = ''; });
             setBranchRequestQtys(qtys);
-        } catch (err) {
+        } catch {
             toast.error('Failed to load branch stock info');
         } finally {
             setBranchAvailabilityLoading(false);
@@ -497,7 +497,7 @@ const Inventory = () => {
         try {
             const res = await api.get(`/inventory/${itemId}`);
             setDetailItem(res.data);
-        } catch (err) {
+        } catch {
             toast.error('Failed to load item details');
             setShowDetailModal(false);
         } finally {
@@ -1821,7 +1821,6 @@ const Inventory = () => {
                         ) : null}
                     </div>
                 </div>
-            )}
             )}
 
             {/* Stock Request Modal */}

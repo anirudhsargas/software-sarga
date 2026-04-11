@@ -388,6 +388,9 @@ const initDb = async () => {
         subcategory_id INT NOT NULL,
         name VARCHAR(150) NOT NULL,
         product_code VARCHAR(80),
+        company_name VARCHAR(100) DEFAULT NULL,
+        company_code VARCHAR(10) DEFAULT NULL,
+        size VARCHAR(30) DEFAULT NULL,
         calculation_type ENUM('Normal', 'Slab', 'Range') DEFAULT 'Normal',
         description TEXT,
         image_url VARCHAR(255),
@@ -410,6 +413,28 @@ const initDb = async () => {
       );
     } catch (err) {
       // Column already exists, ignore
+      if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
+    // Ensure company metadata columns exist (for existing tables)
+    try {
+      await connection.query(
+        'ALTER TABLE sarga_products ADD COLUMN company_name VARCHAR(100) DEFAULT NULL'
+      );
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
+    try {
+      await connection.query(
+        'ALTER TABLE sarga_products ADD COLUMN company_code VARCHAR(10) DEFAULT NULL'
+      );
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
+    try {
+      await connection.query(
+        'ALTER TABLE sarga_products ADD COLUMN size VARCHAR(30) DEFAULT NULL'
+      );
+    } catch (err) {
       if (err.code !== 'ER_DUP_FIELDNAME') throw err;
     }
     // Ensure is_active column exists (for existing tables)
@@ -907,7 +932,10 @@ const initDb = async () => {
       { name: 'category', type: 'VARCHAR(100)' },
       { name: 'subcategory', type: 'VARCHAR(100)' },
       { name: 'machine_id', type: 'INT' },
-      { name: 'payment_id', type: 'INT DEFAULT NULL' }
+      { name: 'payment_id', type: 'INT DEFAULT NULL' },
+      { name: 'waste_prints', type: 'INT NOT NULL DEFAULT 0' },
+      { name: 'proof_prints', type: 'INT NOT NULL DEFAULT 0' },
+      { name: 'machine_print_count', type: 'INT DEFAULT NULL' }
     ];
 
     for (const col of jobsCols) {
@@ -924,6 +952,22 @@ const initDb = async () => {
         FOREIGN KEY (machine_id) REFERENCES sarga_machines(id) ON DELETE SET NULL
       `);
     } catch (err) { }
+
+    // ─── Job Matter Images (attached at billing time, no customer required) ──
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_job_matter (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        job_id INT NOT NULL,
+        file_url VARCHAR(500) NOT NULL,
+        original_name VARCHAR(300),
+        file_size INT DEFAULT 0,
+        notes TEXT,
+        uploaded_by INT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (job_id) REFERENCES sarga_jobs(id) ON DELETE CASCADE,
+        FOREIGN KEY (uploaded_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
+      )
+    `);
 
     // Ensure columns exist in sarga_customer_payments
     const payCols = [
@@ -960,6 +1004,41 @@ const initDb = async () => {
 
     // Add coupon_code column to customer_payments
     try { await connection.query("ALTER TABLE sarga_customer_payments ADD COLUMN coupon_code VARCHAR(50) DEFAULT NULL"); } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+
+    // Add book_type column to customer_payments (Offset = default, Laser for laser/photocopy bills)
+    try { await connection.query("ALTER TABLE sarga_customer_payments ADD COLUMN book_type VARCHAR(20) DEFAULT 'Offset'"); } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+
+    // ── Internal billing columns ──
+    // customer_type on sarga_customers: 'customer' (default) or 'internal'
+    try { await connection.query("ALTER TABLE sarga_customers ADD COLUMN client_type VARCHAR(20) DEFAULT 'customer'"); } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+    // internal_branch stores which department an internal client belongs to
+    try { await connection.query("ALTER TABLE sarga_customers ADD COLUMN internal_branch VARCHAR(50) DEFAULT NULL"); } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+
+    // Pre-seed internal clients (if not already present)
+    const internalClients = [
+      { name: 'Sarga Offset',  branch: 'offset' },
+      { name: 'Sarga Digital', branch: 'digital' },
+      { name: 'Sarga Admin',   branch: 'admin' }
+    ];
+    for (const ic of internalClients) {
+      const [existing] = await connection.query(
+        "SELECT id FROM sarga_customers WHERE client_type = 'internal' AND internal_branch = ?", [ic.branch]
+      );
+      if (existing.length === 0) {
+        // Use a deterministic fake mobile so UNIQUE constraint is satisfied
+        const fakeMobile = `99999${ic.branch.padEnd(5, '0').slice(0, 5)}`;
+        try {
+          await connection.query(
+            "INSERT INTO sarga_customers (mobile, name, type, client_type, internal_branch, branch_id) VALUES (?, ?, 'Walk-in', 'internal', ?, NULL)",
+            [fakeMobile, ic.name, ic.branch]
+          );
+        } catch (err) { if (err.code !== 'ER_DUP_ENTRY') throw err; }
+      }
+    }
+
+    // is_internal + internal_department columns on sarga_customer_payments
+    try { await connection.query("ALTER TABLE sarga_customer_payments ADD COLUMN is_internal TINYINT(1) DEFAULT 0"); } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+    try { await connection.query("ALTER TABLE sarga_customer_payments ADD COLUMN internal_department VARCHAR(50) DEFAULT NULL"); } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
 
     // Coupons Table
     await connection.query(`
@@ -1569,6 +1648,16 @@ const initDb = async () => {
       }
     }
 
+    // Add 'Half Day' to attendance status enum if missing
+    try {
+      await connection.query(`
+        ALTER TABLE sarga_staff_attendance
+        MODIFY COLUMN status ENUM('Present','Absent','Leave','Holiday','Half Day') DEFAULT 'Present'
+      `);
+    } catch (err) {
+      console.error('Error adding Half Day enum:', err);
+    }
+
     console.log("Three Books System tables created successfully.");
 
     // Job Status History and new Cost fields
@@ -1919,6 +2008,18 @@ const initDb = async () => {
     try { await connection.query('ALTER TABLE sarga_machines ADD COLUMN mpr_username VARCHAR(100) DEFAULT NULL'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
     try { await connection.query('ALTER TABLE sarga_machines ADD COLUMN mpr_password VARCHAR(255) DEFAULT NULL'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
 
+    // Waste & Proof print columns on machine_readings (upgrade-safe)
+    try { await connection.query('ALTER TABLE sarga_machine_readings ADD COLUMN waste_prints INT NOT NULL DEFAULT 0'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_machine_readings ADD COLUMN proof_prints INT NOT NULL DEFAULT 0'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+
+    // Waste & Proof print columns on daily_report_machine (upgrade-safe)
+    try { await connection.query('ALTER TABLE sarga_daily_report_machine ADD COLUMN waste_prints INT NOT NULL DEFAULT 0'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_daily_report_machine ADD COLUMN proof_prints INT NOT NULL DEFAULT 0'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+
+    // Waste & Proof copies per work entry (upgrade-safe)
+    try { await connection.query('ALTER TABLE sarga_machine_work_entries ADD COLUMN waste_copies INT NOT NULL DEFAULT 0'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_machine_work_entries ADD COLUMN proof_copies INT NOT NULL DEFAULT 0'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+
     // CCTV Cameras Table — stores camera IP, credentials, branch mapping
     await connection.query(`
       CREATE TABLE IF NOT EXISTS sarga_cctv_cameras (
@@ -1968,6 +2069,71 @@ const initDb = async () => {
     `);
     await safeIndex('idx_cctv_att_staff_date', 'CREATE INDEX idx_cctv_att_staff_date ON sarga_cctv_attendance (staff_id, date)');
     await safeIndex('idx_cctv_att_branch_date', 'CREATE INDEX idx_cctv_att_branch_date ON sarga_cctv_attendance (branch, date)');
+
+    // ===== SCHEDULE / SHIFT MANAGEMENT =====
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_staff_schedules (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        staff_id INT NOT NULL,
+        schedule_name VARCHAR(100) NOT NULL DEFAULT 'General Shift',
+        shift_start TIME NOT NULL DEFAULT '09:00:00',
+        shift_end TIME NOT NULL DEFAULT '18:00:00',
+        break_minutes INT NOT NULL DEFAULT 60,
+        working_days VARCHAR(20) NOT NULL DEFAULT '1,2,3,4,5,6',
+        effective_from DATE NOT NULL,
+        effective_to DATE DEFAULT NULL,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_by INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
+      )
+    `);
+    await safeIndex('idx_sched_staff', 'CREATE INDEX idx_sched_staff ON sarga_staff_schedules (staff_id, is_active)');
+    await safeIndex('idx_sched_dates', 'CREATE INDEX idx_sched_dates ON sarga_staff_schedules (effective_from, effective_to)');
+
+    // ===== LATE TIME TRACKING =====
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_staff_latetime (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        staff_id INT NOT NULL,
+        attendance_date DATE NOT NULL,
+        scheduled_start TIME NOT NULL,
+        actual_start TIME NOT NULL,
+        late_minutes INT NOT NULL DEFAULT 0,
+        reason TEXT,
+        excused TINYINT(1) NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE,
+        UNIQUE KEY unique_late (staff_id, attendance_date)
+      )
+    `);
+    await safeIndex('idx_late_staff_date', 'CREATE INDEX idx_late_staff_date ON sarga_staff_latetime (staff_id, attendance_date)');
+    await safeIndex('idx_late_date', 'CREATE INDEX idx_late_date ON sarga_staff_latetime (attendance_date)');
+
+    // ===== OVERTIME TRACKING =====
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_staff_overtime (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        staff_id INT NOT NULL,
+        overtime_date DATE NOT NULL,
+        scheduled_end TIME NOT NULL,
+        actual_end TIME NOT NULL,
+        overtime_minutes INT NOT NULL DEFAULT 0,
+        overtime_type ENUM('Weekday', 'Weekend', 'Holiday') NOT NULL DEFAULT 'Weekday',
+        approved TINYINT(1) NOT NULL DEFAULT 0,
+        approved_by INT,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE,
+        FOREIGN KEY (approved_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
+        UNIQUE KEY unique_overtime (staff_id, overtime_date)
+      )
+    `);
+    await safeIndex('idx_ot_staff_date', 'CREATE INDEX idx_ot_staff_date ON sarga_staff_overtime (staff_id, overtime_date)');
+    await safeIndex('idx_ot_date', 'CREATE INDEX idx_ot_date ON sarga_staff_overtime (overtime_date)');
+    await safeIndex('idx_ot_approved', 'CREATE INDEX idx_ot_approved ON sarga_staff_overtime (approved)');
 
     console.log('Database initialized successfully');
   } catch (err) {

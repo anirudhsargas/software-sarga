@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import {
   Calendar, CreditCard, Receipt, Loader2, Plus, Wallet,
   User, Phone, Hash, FileText, IndianRupee, CheckCircle2, Clock,
@@ -16,7 +16,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './CustomerPayments.css';
 import toast from 'react-hot-toast';
-import { GST_RATE, formatCurrencyDecimal } from '../constants';
+import { GST_RATE } from '../constants';
 import { Tag } from 'lucide-react';
 import offlineDb from '../services/offlineDb';
 import { useOnlineStatus } from '../hooks/useOffline';
@@ -25,12 +25,10 @@ const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
 
 const CustomerPayments = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const isOnline = useOnlineStatus();
   const canVerify = ['Admin', 'Accountant'].includes(user?.role);
   const [loading, setLoading] = useState(false);
-  const [offlineMode, setOfflineMode] = useState(false);
   const [verifyFilter, setVerifyFilter] = useState('all');
   const [payments, setPayments] = useState([]);
   const [error, setError] = useState('');
@@ -46,6 +44,7 @@ const CustomerPayments = () => {
   const [confirming, setConfirming] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [filterPendingOnly, setFilterPendingOnly] = useState(true);
   const customerDropdownRef = React.useRef(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [currentReceiptData, setCurrentReceiptData] = useState(null);
@@ -63,8 +62,6 @@ const CustomerPayments = () => {
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [discountReason, setDiscountReason] = useState('');
   const [discountRequestLoading, setDiscountRequestLoading] = useState(false);
-
-  const formatCurrency = formatCurrencyDecimal;
 
   const [formData, setFormData] = useState({
     customer_id: null,
@@ -95,7 +92,7 @@ const CustomerPayments = () => {
           draft = JSON.parse(stored);
           sessionStorage.removeItem('billingPaymentDraft');
         }
-      } catch (storageError) {
+      } catch {
         draft = null;
       }
     }
@@ -284,7 +281,7 @@ const CustomerPayments = () => {
         setPayments(result.data || []);
         setPaymentsTotal(result.total || 0);
         setPaymentsTotalPages(result.totalPages || 1);
-      } catch (localErr) {
+      } catch {
         setError('Failed to fetch customer payments (offline fallback also failed)');
       }
     } finally {
@@ -316,7 +313,7 @@ const CustomerPayments = () => {
     try {
       const data = await localDb.getCustomers();
       setCustomers(data || []);
-    } catch (err) {
+    } catch {
       setError('Failed to fetch customers from local storage');
     }
   };
@@ -336,20 +333,24 @@ const CustomerPayments = () => {
       } else {
         setSelectedJobId(null);
       }
-    } catch (err) {
+    } catch {
       setCustomerJobs([]);
       setSelectedJobId(null);
     }
   };
 
   const filteredCustomers = useMemo(() => {
-    if (!customerSearch.trim()) return customers;
+    let list = customers;
+    if (filterPendingOnly) {
+      list = list.filter((c) => Number(c.due_amount) > 0);
+    }
+    if (!customerSearch.trim()) return list;
     const q = customerSearch.toLowerCase();
-    return customers.filter((c) =>
+    return list.filter((c) =>
       (c.name || '').toLowerCase().includes(q) ||
       (c.mobile || '').includes(q)
     );
-  }, [customers, customerSearch]);
+  }, [customers, customerSearch, filterPendingOnly]);
 
   const handleCustomerSelect = (customerId) => {
     const selected = customers.find((c) => String(c.id) === String(customerId));
@@ -806,6 +807,14 @@ const CustomerPayments = () => {
                     </button>
                   )}
                 </div>
+                <label className="cp-filter-toggle">
+                  <input
+                    type="checkbox"
+                    checked={filterPendingOnly}
+                    onChange={(e) => { setFilterPendingOnly(e.target.checked); setShowCustomerDropdown(true); }}
+                  />
+                  Only show customers with pending balance
+                </label>
                 {showCustomerDropdown && (
                   <div className="cp-dropdown">
                     {filteredCustomers.length === 0 ? (
@@ -1408,8 +1417,17 @@ const CustomerPayments = () => {
                 </tr>
               ) : (
                 filteredPayments.map((p) => {
-                  const bal = Number(p.balance_amount);
-                  const vStatus = p.payment_method === 'Cash' ? 'N/A' : (p.verification_status || 'Pending');
+                  const paid = isNaN(Number(p.advance_paid)) ? 0 : Number(p.advance_paid);
+                  const bal = isNaN(Number(p.balance_amount)) ? 0 : Number(p.balance_amount);
+                  const isCash = p.payment_method === 'Cash';
+                  const vStatus = isCash ? 'N/A' : (p.verification_status || 'Pending');
+                  const methodColor = {
+                    Cash: '#10b981',
+                    UPI: '#6366f1',
+                    Cheque: '#f59e0b',
+                    'Account Transfer': '#3b82f6',
+                    Both: '#8b5cf6',
+                  }[p.payment_method] || 'var(--text-muted)';
                   return (
                     <tr key={p.id}>
                       <td className="text-sm">
@@ -1425,8 +1443,8 @@ const CustomerPayments = () => {
                         </div>
                       </td>
                       <td>
-                        <span className="cp-method-tag">
-                          <Receipt size={12} /> {p.payment_method}
+                        <span className="cp-method-tag" style={{ color: methodColor, borderColor: methodColor + '33', border: '1px solid' }}>
+                          <Receipt size={12} /> {p.payment_method || '—'}
                         </span>
                       </td>
                       <td>
@@ -1446,13 +1464,13 @@ const CustomerPayments = () => {
                           </span>
                         )}
                       </td>
-                      <td className="cp-table-amount">₹{Number(p.total_amount).toFixed(2)}</td>
-                      <td className="cp-table-amount cp-text-success">₹{Number(p.advance_paid).toFixed(2)}</td>
+                      <td className="cp-table-amount">₹{(isNaN(Number(p.total_amount)) ? 0 : Number(p.total_amount)).toFixed(2)}</td>
+                      <td className="cp-table-amount cp-text-success">₹{paid.toFixed(2)}</td>
                       <td className={`cp-table-amount ${bal > 0 ? 'cp-text-error' : 'cp-text-success'}`}>
                         ₹{bal.toFixed(2)}
                       </td>
                       <td className="text-right" style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                        {canVerify && vStatus === 'Pending' && (
+                        {canVerify && !isCash && vStatus === 'Pending' && (
                           <>
                             <button
                               className="btn btn-ghost btn-xs"

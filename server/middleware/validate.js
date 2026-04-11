@@ -133,7 +133,10 @@ const addInventorySchema = z.object({
 const attendanceSchema = z.object({
     attendance_date: z.string().min(1, 'Date is required').regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
         .refine((d) => new Date(d) <= new Date(), { message: 'Attendance date cannot be in the future' }),
-    status: z.enum(['Present', 'Absent', 'Leave', 'Holiday'])
+    status: z.enum(['Present', 'Absent', 'Leave', 'Holiday', 'Half Day']),
+    notes: z.string().optional().nullable(),
+    time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Time must be HH:MM or HH:MM:SS').optional().nullable().or(z.literal('')).transform(v => v === '' ? null : v),
+    gone_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Gone time must be HH:MM or HH:MM:SS').optional().nullable().or(z.literal('')).transform(v => v === '' ? null : v)
 });
 
 // ---- Office Expenses ----

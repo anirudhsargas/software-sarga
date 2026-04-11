@@ -7,6 +7,13 @@ const { paginate } = require('../helpers/pagination');
 const { validate } = require('../middleware/validate');
 const { customerPaymentSchema } = require('../schemas/paymentSchemas');
 
+const normalizeBookType = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'laser') return 'Laser';
+    if (normalized === 'other') return 'Other';
+    return 'Offset';
+};
+
 const CUSTOMER_PAYMENT_LIST_COLUMNS = [
     'id',
     'customer_id',
@@ -32,7 +39,9 @@ const CUSTOMER_PAYMENT_LIST_COLUMNS = [
     'verification_status',
     'verified_by',
     'verified_at',
-    'verification_note'
+    'verification_note',
+    'is_internal',
+    'internal_department'
 ].join(', ');
 
 // --- CUSTOMER PAYMENT ROUTES ---
@@ -74,7 +83,7 @@ router.get('/customer-payments', authenticateToken, async (req, res) => {
         const total = countRows && countRows[0] ? countRows[0].total : 0;
         
         const [rows] = await pool.query(
-            `SELECT id, customer_id, customer_name, total_amount, payment_date, created_at ${baseFrom} ORDER BY payment_date DESC, created_at DESC LIMIT ? OFFSET ?`,
+            `SELECT id, customer_id, customer_name, customer_mobile, total_amount, advance_paid, balance_amount, payment_method, verification_status, reference_number, description, payment_date, created_at, is_internal, internal_department ${baseFrom} ORDER BY payment_date DESC, created_at DESC LIMIT ? OFFSET ?`,
             [...params, limit, offset]
         );
 
@@ -95,6 +104,7 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
         customer_name,
         customer_mobile,
         total_amount,
+        bill_amount: req_bill_amount,
         net_amount,
         sgst_amount,
         cgst_amount,
@@ -112,7 +122,10 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
         order_lines,
         job_ids,
         auto_deliver,
-        coupon_code
+        coupon_code,
+        book_type,
+        is_internal: req_is_internal,
+        internal_department: req_internal_dept
     } = req.body;
     const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
 
@@ -124,6 +137,7 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
     }
 
     const total = Number(total_amount) || 0;
+    const billTotal = Number(req_bill_amount) || total; // original pre-discount amount; falls back to total
     const advance = Number(advance_paid) || 0;
     const cash = Number(cash_amount) || 0;
     const upi = Number(upi_amount) || 0;
@@ -148,7 +162,10 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
     
     // At least one method must have a positive amount
     const totalPaidViaMethods = [cash, upi, cheque, transfer].reduce((sum, amount) => sum + (Number(amount) || 0), 0);
-    if (totalPaidViaMethods <= 0) {
+    const isInternal = req_is_internal ? 1 : 0;
+    const internalDept = isInternal ? (req_internal_dept || null) : null;
+
+    if (!isInternal && totalPaidViaMethods <= 0) {
         return res.status(400).json({ message: 'At least one payment method must have an amount greater than 0.' });
     }
 
@@ -198,17 +215,19 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
             }
         }
 
+        const bookType = normalizeBookType(book_type);
+
         let paymentId;
         try {
             const [result] = await connection.query(
                 `INSERT INTO sarga_customer_payments
-                (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, discount_percent, discount_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, cheque_amount, account_transfer_amount, branch_id, reference_number, description, payment_date, order_lines, idempotency_key, coupon_code)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, discount_percent, discount_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, cheque_amount, account_transfer_amount, branch_id, reference_number, description, payment_date, order_lines, idempotency_key, coupon_code, book_type, is_internal, internal_department)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     resolvedCustomerId,
                     String(customer_name).trim(),
                     customer_mobile || null,
-                    total,
+                    billTotal,
                     total,
                     Number(net_amount) || 0,
                     Number(sgst_amount) || 0,
@@ -217,7 +236,7 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                     Number(discount_amount) || 0,
                     advance,
                     balance,
-                    payment_method || 'Cash',
+                    isInternal ? 'Internal' : (payment_method || 'Cash'),
                     cash,
                     upi,
                     cheque,
@@ -228,7 +247,10 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                     payment_date,
                     JSON.stringify(order_lines || []),
                     idempotencyKey,
-                    resolvedCouponCode
+                    resolvedCouponCode,
+                    bookType,
+                    isInternal,
+                    internalDept
                 ]
             );
             paymentId = result.insertId;
@@ -242,7 +264,7 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                         resolvedCustomerId,
                         String(customer_name).trim(),
                         customer_mobile || null,
-                        total,
+                        billTotal,
                         total,
                         Number(net_amount) || 0,
                         Number(sgst_amount) || 0,
@@ -293,8 +315,8 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                 try {
                     await connection.query(
                         `INSERT INTO sarga_jobs
-                        (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                        (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, waste_prints, proof_prints)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                         , [
                             resolvedCustomerId,
                             line.product_id || null,
@@ -311,7 +333,9 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                             null,
                             JSON.stringify(line.applied_extras || []),
                             line.category || null,
-                            line.subcategory || null
+                            line.subcategory || null,
+                            Number(line.waste_prints) || 0,
+                            Number(line.proof_prints) || 0
                         ]
                     );
                 } catch (err) {
@@ -359,20 +383,29 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                 jobIds
             );
 
+            // If discount applied, compute ratio to scale each job's effective total
+            const discountRatio = billTotal > 0 && billTotal > total ? total / billTotal : 1;
+
             // Filter to only unpaid jobs and distribute by remaining balance
             const unpaidJobs = jobs.filter(job => {
-                const bal = Number(job.total_amount) - (Number(job.advance_paid) || 0);
+                const jt = Number(job.total_amount) || 0;
+                const effJT = Math.round(jt * discountRatio * 100) / 100;
+                const bal = effJT - (Number(job.advance_paid) || 0);
                 return bal > 0;
             });
             const totalBalance = unpaidJobs.reduce((sum, job) => {
-                return sum + (Number(job.total_amount) - (Number(job.advance_paid) || 0));
+                const jt = Number(job.total_amount) || 0;
+                const effJT = Math.round(jt * discountRatio * 100) / 100;
+                return sum + (effJT - (Number(job.advance_paid) || 0));
             }, 0);
             let allocated = 0;
 
             for (let i = 0; i < unpaidJobs.length; i += 1) {
                 const job = unpaidJobs[i];
                 const jobTotal = Number(job.total_amount) || 0;
-                const jobBalance = jobTotal - (Number(job.advance_paid) || 0);
+                // Effective job total after discount applied proportionally
+                const effectiveJobTotal = Math.round(jobTotal * discountRatio * 100) / 100;
+                const jobBalance = effectiveJobTotal - (Number(job.advance_paid) || 0);
                 let jobAdvance = 0;
 
                 if (totalBalance > 0) {
@@ -389,15 +422,15 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                 jobAdvance = Math.min(jobAdvance, jobBalance);
 
                 const currentAdvance = Number(job.advance_paid) || 0;
-                const nextAdvance = Math.min(jobTotal, currentAdvance + jobAdvance);
-                const nextBalance = jobTotal - nextAdvance;
+                const nextAdvance = Math.min(effectiveJobTotal, currentAdvance + jobAdvance);
+                const nextBalance = effectiveJobTotal - nextAdvance;
                 // Treat balance < 1 as fully paid (rounding dust)
                 const effectiveBalance = nextBalance < 1 ? 0 : nextBalance;
-                const effectiveAdvance = effectiveBalance === 0 ? jobTotal : nextAdvance;
+                const effectiveAdvance = effectiveBalance === 0 ? effectiveJobTotal : nextAdvance;
                 const nextStatus = effectiveBalance === 0 ? 'Paid' : (effectiveAdvance > 0 ? 'Partial' : 'Unpaid');
 
-                // If auto_deliver and fully paid, also mark job as Delivered
-                if (auto_deliver && nextStatus === 'Paid') {
+                // If auto_deliver (walk-in), mark job as Delivered on payment
+                if (auto_deliver) {
                     await connection.query(
                         "UPDATE sarga_jobs SET advance_paid = ?, balance_amount = ?, payment_status = ?, status = 'Delivered' WHERE id = ?",
                         [effectiveAdvance, effectiveBalance, nextStatus, job.id]
@@ -425,8 +458,8 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                             job_number: job.job_number,
                             job_name: job.job_name,
                             quantity: job.quantity,
-                            total_amount: jobTotal,
-                            advance_paid: effectiveAdvance * cashRatio,
+                            total_amount: effectiveAdvance,
+                            advance_paid: effectiveAdvance,
                             cash_amount: effectiveAdvance * cashRatio,
                             upi_amount: effectiveAdvance * upiRatio,
                             balance_amount: effectiveBalance,
@@ -436,6 +469,18 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                     } catch (syncErr) {
                         console.error(`[MachineSync] Trigger failed for job ${job.id}:`, syncErr);
                     }
+                }
+            }
+
+            // If auto_deliver, also mark any remaining jobs (e.g. zero-total) as Delivered
+            if (auto_deliver) {
+                const processedIds = unpaidJobs.map(j => j.id);
+                const remainingJobs = jobs.filter(j => !processedIds.includes(j.id));
+                for (const job of remainingJobs) {
+                    await connection.query(
+                        "UPDATE sarga_jobs SET status = 'Delivered' WHERE id = ? AND status != 'Delivered'",
+                        [job.id]
+                    );
                 }
             }
         }

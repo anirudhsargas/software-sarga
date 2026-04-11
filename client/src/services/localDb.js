@@ -40,6 +40,63 @@ import api from './api';
 const generateLocalId = (prefix = 'LOCAL') =>
     `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+const normalizeCustomerMobile = (mobile) => String(mobile || '').replace(/\D/g, '');
+
+const isTemporaryCustomerId = (id) => typeof id === 'string' && id.startsWith('CUST-');
+
+const customerRecordRank = (customer) => {
+    let rank = 0;
+    if (customer?.syncStatus === 'synced') rank += 4;
+    if (customer?.serverId != null) rank += 3;
+    if (!isTemporaryCustomerId(customer?.id)) rank += 2;
+    if (customer?.updated_at || customer?.updatedAt) rank += 1;
+    return rank;
+};
+
+function dedupeCustomers(customers = []) {
+    const byKey = new Map();
+
+    customers.forEach((customer, index) => {
+        if (!customer) return;
+
+        const mobileKey = normalizeCustomerMobile(customer.mobile);
+        const serverKey = customer.serverId != null ? `server:${customer.serverId}` : null;
+        const idKey = customer.id != null ? `id:${customer.id}` : null;
+        const fallbackKey = `name:${String(customer.name || '').trim().toLowerCase()}|type:${String(customer.type || '').trim().toLowerCase()}`;
+        const key = mobileKey ? `mobile:${mobileKey}` : (serverKey || idKey || fallbackKey);
+
+        const existing = byKey.get(key);
+        if (!existing) {
+            byKey.set(key, { customer, index });
+            return;
+        }
+
+        const currentRank = customerRecordRank(customer);
+        const existingRank = customerRecordRank(existing.customer);
+        if (currentRank > existingRank || (currentRank === existingRank && index > existing.index)) {
+            byKey.set(key, { customer, index });
+        }
+    });
+
+    return Array.from(byKey.values())
+        .sort((a, b) => a.index - b.index)
+        .map((entry) => entry.customer);
+}
+
+async function removeDuplicateCustomerCopies(primaryId, mobile, serverId) {
+    const allCustomers = await offlineDb.getAll('customers');
+    const normalizedMobile = normalizeCustomerMobile(mobile);
+
+    const duplicates = allCustomers.filter((customer) => {
+        if (!customer) return false;
+        if (String(customer.id) === String(primaryId)) return false;
+        if (serverId != null && String(customer.serverId ?? customer.id) === String(serverId)) return true;
+        return normalizedMobile && normalizeCustomerMobile(customer.mobile) === normalizedMobile;
+    });
+
+    await Promise.all(duplicates.map((customer) => offlineDb.delete('customers', customer.id)));
+}
+
 /** Check if we're online */
 const isOnline = () => navigator.onLine;
 
@@ -187,7 +244,7 @@ export async function getDeliveredJobs(page = 1, limit = 50) {
 }
 
 export async function searchCustomersLocal(query) {
-    const customers = await offlineDb.getAll('customers');
+    const customers = dedupeCustomers(await offlineDb.getAll('customers'));
     const q = query.toLowerCase();
     return customers.filter(c => 
         c.name.toLowerCase().includes(q) || 
@@ -358,7 +415,7 @@ export async function deleteInventoryItem(id) {
     // Queue deletion for sync
 }
 
-export async function consumeInventory(id, quantity, notes) {
+export async function consumeInventory(id, quantity) {
     const item = await offlineDb.getById('inventory', id);
     if (!item) throw new Error('Item not found');
     const newQty = Number(item.quantity) - Number(quantity);
@@ -366,7 +423,7 @@ export async function consumeInventory(id, quantity, notes) {
     // Record transaction in a local logs table if needed
 }
 
-export async function restockInventory(id, quantity, cost, notes) {
+export async function restockInventory(id, quantity, cost) {
     const item = await offlineDb.getById('inventory', id);
     if (!item) throw new Error('Item not found');
     const newQty = Number(item.quantity) + Number(quantity);
@@ -389,12 +446,10 @@ export async function getExpenseDashboard(filters = {}) {
     const expenses = await offlineDb.getAll('expenses');
     const allPayments = await offlineDb.getAll('payments');
     const vendors = await offlineDb.getAll('vendors');
-    const jobs = await offlineDb.getAll('jobs');
 
     const month = filters.month || new Date().toISOString().slice(0, 7); // YYYY-MM
     const currentMonthExpenses = expenses.filter(e => e.date && e.date.startsWith(month));
     const currentMonthPayments = allPayments.filter(p => (p.payment_date || p.created_at).startsWith(month));
-    const currentMonthJobs = jobs.filter(j => j.created_at && j.created_at.startsWith(month));
 
     // Aggregate by category
     const categoryTotals = currentMonthExpenses.reduce((acc, exp) => {
@@ -402,7 +457,6 @@ export async function getExpenseDashboard(filters = {}) {
         return acc;
     }, {});
 
-    const totalSpent = currentMonthPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
     const revenueCollected = currentMonthPayments
         .filter(p => p.type === 'Customer')
         .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -468,7 +522,7 @@ export async function getExpensesByCategory(category) {
 /**
  * Get salary calculation (stub for now, needs cached data)
  */
-export async function getStaffSalaryCalculation(staffId, month) {
+export async function getStaffSalaryCalculation() {
     // This usually needs complex server logic. 
     // We should cache the latest calculation in a 'salary_cache' store.
     // For now, return empty or cached.
@@ -487,7 +541,7 @@ export async function getProductHierarchy() {
  * Supports optional text search across name/mobile.
  */
 export async function getCustomers(filters = '') {
-    const all = await offlineDb.getCachedCustomers();
+    const all = dedupeCustomers(await offlineDb.getCachedCustomers());
     if (!filters) return all;
 
     // Handle old string-only query for compatibility
@@ -705,6 +759,20 @@ export async function getJobDetails(id) {
 }
 
 /**
+ * Cache (save) a job into local IndexedDB.
+ * Used to persist server-fetched jobs so they become available offline.
+ */
+export async function cacheJob(job) {
+    try {
+        // ensure numeric id
+        const j = { ...job, id: Number(job.id) };
+        await offlineDb.putJob(j);
+    } catch (err) {
+        console.warn('[localDb] cacheJob failed:', err);
+    }
+}
+
+/**
  * Get all payments from IndexedDB, with optional filtering and pagination.
  */
 export async function getPayments(filters = {}) {
@@ -798,7 +866,7 @@ export async function getExpenses(filters = {}) {
  * Create a bill — saves to IndexedDB immediately, tries server in background.
  * Returns the saved bill data (don't wait for server).
  */
-export async function createBill(billData) {
+export async function createBill(billData, matterFiles = []) {
     const localId = generateLocalId('BILL');
     const record = {
         ...billData,
@@ -812,13 +880,32 @@ export async function createBill(billData) {
     // 2. Try server in background (non-blocking)
     tryServer(async () => {
         // Create jobs first
+        const lines = billData.orderLines || billData.order_lines || [];
         let createdJobs = [];
-        if (billData.orderLines?.length > 0) {
+        if (lines.length > 0) {
             const jobRes = await api.post('jobs/bulk', {
                 customer_id: billData.customerId || billData.customer_id || null,
-                order_lines: billData.orderLines || billData.order_lines,
+                order_lines: lines,
             });
             createdJobs = jobRes.data?.jobs || [];
+        }
+
+        // Upload matter files for each job (non-blocking, best-effort)
+        if (matterFiles && matterFiles.length > 0) {
+            for (let i = 0; i < matterFiles.length; i++) {
+                const matterFile = matterFiles[i];
+                const job = createdJobs[i];
+                if (!matterFile || !job?.id) continue;
+                try {
+                    const fd = new FormData();
+                    fd.append('file', matterFile, matterFile.name);
+                    fd.append('notes', 'Attached at billing');
+                    await api.post(`jobs/${job.id}/matter`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                } catch (err) {
+                    console.warn(`Matter file upload failed for job ${job?.id}:`, err.message);
+                    // Non-fatal: don't block bill completion
+                }
+            }
         }
 
         // Create payment
@@ -826,13 +913,13 @@ export async function createBill(billData) {
             customer_id: billData.customerId || billData.customer_id || null,
             customer_name: billData.customerName || billData.customer_name,
             customer_mobile: billData.customerMobile || billData.customer_mobile || null,
-            total_amount: billData.totalAmount || billData.total_amount,
-            net_amount: billData.netAmount || billData.net_amount,
-            sgst_amount: billData.sgstAmount || billData.sgst_amount,
-            cgst_amount: billData.cgstAmount || billData.cgst_amount,
+            total_amount: billData.totalAmount != null ? billData.totalAmount : (billData.total_amount != null ? billData.total_amount : 0),
+            net_amount: billData.netAmount != null ? billData.netAmount : (billData.net_amount != null ? billData.net_amount : 0),
+            sgst_amount: billData.sgstAmount != null ? billData.sgstAmount : (billData.sgst_amount != null ? billData.sgst_amount : 0),
+            cgst_amount: billData.cgstAmount != null ? billData.cgstAmount : (billData.cgst_amount != null ? billData.cgst_amount : 0),
             discount_percent: billData.discountPercent || billData.discount_percent || null,
             discount_amount: billData.discountAmount || billData.discount_amount || null,
-            advance_paid: billData.advancePaid || billData.advance_paid,
+            advance_paid: billData.advancePaid != null ? billData.advancePaid : (billData.advance_paid != null ? billData.advance_paid : 0),
             payment_method: billData.paymentMethod || billData.payment_method,
             cash_amount: billData.cashAmount || billData.cash_amount || 0,
             upi_amount: billData.upiAmount || billData.upi_amount || 0,
@@ -841,8 +928,12 @@ export async function createBill(billData) {
             reference_number: billData.referenceNumber || billData.reference_number || null,
             description: billData.description || `Offline bill synced (ref: ${localId})`,
             payment_date: billData.paymentDate || billData.payment_date,
-            order_lines: billData.orderLines || billData.order_lines || [],
+            book_type: billData.book_type || billData.bookType || 'Laser',
+            order_lines: lines,
             job_ids: createdJobs.map(j => j.id),
+            auto_deliver: billData.auto_deliver || billData.autoDeliver || false,
+            is_internal: billData.is_internal || 0,
+            internal_department: billData.internal_department || null,
         });
 
         // Mark as synced
@@ -853,7 +944,8 @@ export async function createBill(billData) {
     const syntheticPayment = {
         id: idbKey,
         invoice_number: localId.replace('BILL-', 'INV-'),
-        local: true
+        local: true,
+        syncStatus: 'pending'
     };
     const syntheticJobs = (billData.orderLines || billData.order_lines || []).map((line, i) => ({
         id: `${localId}-JOB-${i}`,
@@ -945,6 +1037,7 @@ export async function createPayment(paymentData) {
             discount_percent: paymentData.discount_percent || null,
             discount_amount: paymentData.discount_amount || null,
             advance_paid: paymentData.advance_paid,
+            payment_method: paymentData.payment_method || 'Cash',
             cash_amount: paymentData.cash_amount || 0,
             upi_amount: paymentData.upi_amount || 0,
             cheque_amount: paymentData.cheque_amount || 0,
@@ -952,8 +1045,10 @@ export async function createPayment(paymentData) {
             reference_number: paymentData.reference_number || null,
             description: paymentData.description || `Offline payment synced (ref: ${localId})`,
             payment_date: paymentData.payment_date,
+            book_type: paymentData.book_type || 'Offset',
             order_lines: paymentData.order_lines || [],
             job_ids: paymentData.job_ids || [],
+            auto_deliver: paymentData.auto_deliver || false,
         });
 
         await offlineDb.updatePaymentStatus(idbKey, 'synced');
@@ -1068,23 +1163,59 @@ export async function createExpense(expenseData) {
  * Returns the local customer record immediately.
  */
 export async function createCustomer(customerData) {
-    const localId = generateLocalId('CUST');
+    const normalizedMobile = normalizeCustomerMobile(customerData.mobile);
+    const allCustomers = await offlineDb.getAll('customers');
+    const existingMatch = allCustomers.find((customer) => {
+        if (!customer) return false;
+        if (customerData.id != null && String(customer.id) === String(customerData.id)) return true;
+        if (customerData.serverId != null && String(customer.serverId ?? customer.id) === String(customerData.serverId)) return true;
+        return normalizedMobile && normalizeCustomerMobile(customer.mobile) === normalizedMobile;
+    });
+
+    const existingServerId = customerData.serverId ?? existingMatch?.serverId ?? (!isTemporaryCustomerId(customerData.id) ? customerData.id : null) ?? (!isTemporaryCustomerId(existingMatch?.id) ? existingMatch?.id : null);
+    const localId = existingMatch?.id ?? (customerData.id && isTemporaryCustomerId(customerData.id) ? customerData.id : generateLocalId('CUST'));
     const record = {
+        ...existingMatch,
         ...customerData,
-        id: localId, // Temporary local ID
+        id: localId,
+        mobile: normalizedMobile,
+        serverId: existingServerId ?? null,
         syncStatus: 'pending',
         cachedAt: Date.now(),
     };
 
-    // Add to local customers store
     await offlineDb.putRecord('customers', record);
+    await removeDuplicateCustomerCopies(record.id, normalizedMobile, existingServerId);
 
     tryServer(async () => {
-        const res = await api.post('customers', customerData);
-        if (res.data?.id) {
-            // Replace local record with server ID
-            const updatedRecord = { ...record, id: res.data.id, serverId: res.data.id, syncStatus: 'synced' };
+        const payload = {
+            mobile: normalizedMobile,
+            name: customerData.name,
+            type: customerData.type,
+            email: customerData.email,
+            gst: customerData.gst,
+            address: customerData.address
+        };
+
+        if (existingServerId != null) {
+            await api.put(`customers/${existingServerId}`, payload);
+            const updatedRecord = { ...record, ...payload, id: existingServerId, serverId: existingServerId, syncStatus: 'synced' };
             await offlineDb.putRecord('customers', updatedRecord);
+            if (String(record.id) !== String(existingServerId)) {
+                await offlineDb.delete('customers', record.id);
+            }
+            await removeDuplicateCustomerCopies(updatedRecord.id, normalizedMobile, existingServerId);
+            return;
+        }
+
+        const res = await api.post('customers', payload);
+        if (res.data?.id) {
+            const updatedRecord = { ...record, ...payload, id: res.data.id, serverId: res.data.id, syncStatus: 'synced' };
+            await offlineDb.putRecord('customers', updatedRecord);
+            if (String(record.id) !== String(res.data.id)) {
+                await offlineDb.delete('customers', record.id);
+            }
+            await removeDuplicateCustomerCopies(updatedRecord.id, normalizedMobile, res.data.id);
         }
     });
 

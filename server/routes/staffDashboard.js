@@ -4,6 +4,7 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { validate, attendanceSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
+const { autoRecordLateAndOvertime } = require('./scheduleManagement');
 const PDFDocument = require('pdfkit');
 const rateLimit = require('express-rate-limit');
 
@@ -33,10 +34,12 @@ async function calculateSalaryForMonth(staffId, staff, yearMonth) {
     if (staff.salary_type === 'Monthly') {
         const perDayRate = Number(staff.base_salary || 0) / 26;
         const unpaidLeave = Number(leaves.unpaid_leaves_used || 0);
-        const daysWorked = Math.max(0, 26 - unpaidLeave);
+        const halfDays = attendance.filter(a => a.status === 'Half Day').length;
+        const daysWorked = Math.max(0, 26 - unpaidLeave - (halfDays * 0.5));
         return {
             calculatedSalary: Number((perDayRate * daysWorked).toFixed(2)),
             presentDays: attendance.filter(a => a.status === 'Present').length,
+            halfDays,
             unpaidLeaves: unpaidLeave,
             paidLeaves: Number(leaves.paid_leaves_used || 0),
             totalEntries: attendance.length
@@ -44,9 +47,11 @@ async function calculateSalaryForMonth(staffId, staff, yearMonth) {
     }
 
     const presentDays = attendance.filter(a => a.status === 'Present').length;
+    const halfDays = attendance.filter(a => a.status === 'Half Day').length;
     return {
-        calculatedSalary: Number((presentDays * Number(staff.daily_rate || 0)).toFixed(2)),
+        calculatedSalary: Number(((presentDays + halfDays * 0.5) * Number(staff.daily_rate || 0)).toFixed(2)),
         presentDays,
+        halfDays,
         unpaidLeaves: Number(leaves.unpaid_leaves_used || 0),
         paidLeaves: Number(leaves.paid_leaves_used || 0),
         totalEntries: attendance.length
@@ -74,6 +79,7 @@ router.get('/:id/work-history', authenticateToken, async (req, res) => {
                 j.id,
                 j.job_number,
                 j.job_name,
+                j.description,
                 j.quantity,
                 j.unit_price,
                 j.total_amount,
@@ -115,7 +121,7 @@ router.get('/:id/salary-info', authenticateToken, async (req, res) => {
 
         // Get staff details and salary settings
         const [staff] = await pool.query(`
-            SELECT id, name, role, user_id, salary_type, base_salary, daily_rate
+            SELECT id, name, role, user_id, salary_type, base_salary, daily_rate, image_url
             FROM sarga_staff WHERE id = ?
         `, [id]);
 
@@ -544,7 +550,14 @@ router.get('/:id/salary-slip/:year_month', authenticateToken, async (req, res) =
 // Regular attendance marking: Present, Absent, Half Day only
 router.post('/:id/attendance', authenticateToken, validate(attendanceSchema), async (req, res) => {
     const { id } = req.params;
-    const { attendance_date, status, notes } = req.body;
+    const { attendance_date, status, notes, time, gone_time } = req.body;
+    // Auto-capture current server time if not provided by client
+    const in_time = time
+        ? (time.length === 5 ? time + ':00' : time)
+        : (['Present', 'Half Day'].includes(status) ? new Date().toTimeString().slice(0, 8) : null);
+    const out_time = gone_time
+        ? (gone_time.length === 5 ? gone_time + ':00' : gone_time)
+        : null;
 
     // Authorization
     const allowedRoles = ["Admin", "Accountant", "Front Office", "front office"];
@@ -591,12 +604,19 @@ router.post('/:id/attendance', authenticateToken, validate(attendanceSchema), as
         // Insert or update attendance (only Admin can update)
         await pool.query(`
             INSERT INTO sarga_staff_attendance 
-            (staff_id, attendance_date, status, notes, created_by)
-            VALUES (?, ?, ?, ?, ?)
+            (staff_id, attendance_date, status, notes, in_time, out_time, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE 
             status = VALUES(status), 
-            notes = VALUES(notes)
-        `, [id, attendance_date, status, notes, req.user.id]);
+            notes = VALUES(notes),
+            in_time = COALESCE(in_time, VALUES(in_time)),
+            out_time = COALESCE(VALUES(out_time), out_time)
+        `, [id, attendance_date, status, notes, in_time, out_time, req.user.id]);
+
+        // Auto-calculate late time and overtime based on schedule
+        if (['Present', 'Half Day'].includes(status) && (in_time || out_time)) {
+            autoRecordLateAndOvertime(id, attendance_date, in_time, out_time);
+        }
 
         auditLog(req.user.id, 'ATTENDANCE_RECORD', `Recorded attendance for staff ${id} on ${attendance_date}: ${status}`);
         res.json({ message: 'Attendance recorded successfully' });
@@ -687,15 +707,17 @@ router.get('/:id/attendance/:year_month', authenticateToken, async (req, res) =>
         // Calculate summary
         const present = rows.filter(r => r.status === 'Present').length;
         const absent = rows.filter(r => r.status === 'Absent').length;
+        const halfDay = rows.filter(r => r.status === 'Half Day').length;
         const leave = rows.filter(r => r.status === 'Leave').length;
         const holiday = rows.filter(r => r.status === 'Holiday').length;
-        const workingDays = present + absent + leave;
+        const workingDays = present + absent + halfDay + leave;
 
         res.json({
             attendance: rows,
             summary: {
                 present,
                 absent,
+                halfDay,
                 leave,
                 holiday,
                 workingDays,
@@ -821,6 +843,21 @@ router.get('/:id/salary-calculation/:year_month', authenticateToken, async (req,
             };
         }
 
+        // Get late time and overtime data for the month
+        const [lateRecords] = await pool.query(`
+            SELECT * FROM sarga_staff_latetime
+            WHERE staff_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
+        `, [id, year_month]);
+
+        const [overtimeRecords] = await pool.query(`
+            SELECT * FROM sarga_staff_overtime
+            WHERE staff_id = ? AND DATE_FORMAT(overtime_date, '%Y-%m') = ?
+        `, [id, year_month]);
+
+        const totalLateMinutes = lateRecords.reduce((sum, r) => sum + (r.late_minutes || 0), 0);
+        const totalOTMinutes = overtimeRecords.reduce((sum, r) => sum + (r.overtime_minutes || 0), 0);
+        const approvedOTMinutes = overtimeRecords.filter(r => r.approved).reduce((sum, r) => sum + (r.overtime_minutes || 0), 0);
+
         res.json({
             staffType: staff.salary_type,
             attendance: {
@@ -831,7 +868,19 @@ router.get('/:id/salary-calculation/:year_month', authenticateToken, async (req,
                 holiday: attendance.filter(a => a.status === 'Holiday').length
             },
             leaves: leaves,
-            calculation: details
+            calculation: details,
+            latetime: {
+                count: lateRecords.length,
+                totalMinutes: totalLateMinutes,
+                excusedCount: lateRecords.filter(r => r.excused).length
+            },
+            overtime: {
+                count: overtimeRecords.length,
+                totalMinutes: totalOTMinutes,
+                totalHours: parseFloat((totalOTMinutes / 60).toFixed(1)),
+                approvedMinutes: approvedOTMinutes,
+                approvedHours: parseFloat((approvedOTMinutes / 60).toFixed(1))
+            }
         });
     } catch (err) {
         console.error('Salary calculation error:', err);

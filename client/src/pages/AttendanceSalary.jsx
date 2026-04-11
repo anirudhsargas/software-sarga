@@ -50,7 +50,7 @@ const AttendanceSalary = () => {
       
       setSalaryCalc(calcData || null);
       setSalaryInfo(null); // Will be filled from master data if available
-    } catch (err) {
+    } catch {
       setError('Failed to load data from local storage');
     } finally {
       setLoading(false);
@@ -76,7 +76,13 @@ const AttendanceSalary = () => {
     const daysInMonth = new Date(y, m, 0).getDate();
     const today = new Date();
     const attMap = {};
-    attendance.forEach(a => { attMap[new Date(a.attendance_date).getDate()] = a.status; });
+    attendance.forEach(a => {
+      const dateStr = typeof a.attendance_date === 'string' 
+        ? a.attendance_date.slice(0, 10) 
+        : new Date(a.attendance_date).toISOString().slice(0, 10);
+      const day = parseInt(dateStr.split('-')[2], 10);
+      attMap[day] = a.status;
+    });
     const days = [];
     for (let i = 0; i < firstDay; i++) days.push(null);
     for (let d = 1; d <= daysInMonth; d++) {
@@ -101,13 +107,13 @@ const AttendanceSalary = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch {
       setError('Failed to download salary slip');
     }
   };
 
   if (loading) {
-    return <SkeletonLoader type="form" count={3} />;
+    return <SkeletonLoader type="attendance" />;
   }
 
   return (

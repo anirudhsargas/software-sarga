@@ -66,13 +66,14 @@ router.get('/offset/sync-data', auth.authenticate, async (req, res) => {
             ? (req.query.branch_id || null)
             : user.branch_id;
 
-        // 1) Customer Payments (billing) for the day — these are INCOME work entries
+        // 1) Customer Payments (billing) for the day — Offset book only
         const [customerPayments] = await pool.query(
             `SELECT cp.id, cp.customer_name, cp.total_amount, cp.advance_paid,
                     cp.payment_method, cp.cash_amount, cp.upi_amount,
                     cp.description, cp.reference_number, cp.order_lines
              FROM sarga_customer_payments cp
              WHERE DATE(cp.payment_date) = ? AND cp.branch_id = ?
+               AND COALESCE(cp.book_type, 'Offset') = 'Offset'
              ORDER BY cp.created_at ASC`,
             [date, branchId]
         );

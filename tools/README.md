@@ -1,3 +1,6 @@
+> Master Context: [../SARGA_WORK_CONTEXT.md](../SARGA_WORK_CONTEXT.md)
+> Source of truth for project state, architecture, and workflow decisions.
+
 # Sarga CCTV Attendance — Tools Folder
 # =====================================
 # Place this folder on each designer PC.

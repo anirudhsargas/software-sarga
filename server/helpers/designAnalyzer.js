@@ -7,7 +7,8 @@
  * - Image quality estimation
  */
 const sharp = require('sharp');
-const pdfParse = require('pdf-parse');
+let pdfParse;
+try { pdfParse = require('pdf-parse'); } catch (e) { pdfParse = null; }
 const fs = require('fs');
 const path = require('path');
 
@@ -131,6 +132,10 @@ async function analyzePDF(filePath) {
     const info = {};
 
     try {
+        if (!pdfParse) {
+            issues.push({ type: 'warning', message: 'PDF analysis unavailable (pdf-parse not loaded)' });
+            return { issues, info };
+        }
         const dataBuffer = await fs.promises.readFile(filePath);
         const pdfData = await pdfParse(dataBuffer);
 

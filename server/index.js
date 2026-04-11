@@ -1,3 +1,8 @@
+// Polyfill browser APIs required by pdf-parse in Node.js environment
+if (typeof globalThis.DOMMatrix === 'undefined') globalThis.DOMMatrix = class DOMMatrix { constructor() {} };
+if (typeof globalThis.ImageData === 'undefined') globalThis.ImageData = class ImageData { constructor(w, h) { this.width = w; this.height = h; } };
+if (typeof globalThis.Path2D === 'undefined') globalThis.Path2D = class Path2D { constructor() {} };
+
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
@@ -269,6 +274,7 @@ app.use('/api', require('./routes/customerDesigns'));
 app.use('/api', require('./routes/requests'));
 app.use('/api/staff', require('./routes/staff')(upload, removeUploadFile));
 app.use('/api/staff', require('./routes/staffDashboard'));
+app.use('/api/schedules', require('./routes/scheduleManagement'));
 app.use('/api', require('./routes/jobs').router);
 app.use('/api', require('./routes/products')(upload, removeUploadFile));
 app.use('/api', require('./routes/inventory'));
@@ -334,6 +340,11 @@ app.use('/api/cctv', require('./routes/cctvAttendance'));
 
 // CCTV Camera & Face Data Management
 app.use('/api/cctv', require('./routes/cctvCameras')(upload, removeUploadFile));
+
+// Quotes, Invoice Features & Password Reset
+app.use('/api', require('./routes/quotes'));
+app.use('/api', require('./routes/invoiceFeatures'));
+app.use('/api', require('./routes/passwordReset'));
 
 // Health check with DB ping (must be before the error handler)
 app.get('/api/ping', async (req, res) => {

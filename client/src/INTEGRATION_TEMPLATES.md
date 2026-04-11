@@ -1,3 +1,6 @@
+> Master Context: [../../SARGA_WORK_CONTEXT.md](../../SARGA_WORK_CONTEXT.md)
+> Source of truth for project state, architecture, and workflow decisions.
+
 # Quick Integration Templates
 
 Copy these templates into each page file and adapt to your existing structure.

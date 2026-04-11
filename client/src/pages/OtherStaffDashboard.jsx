@@ -10,7 +10,7 @@ const OtherStaffDashboard = () => {
   const navigate = useNavigate();
   const user = auth.getUser();
   const staffId = user?.id;
-  const { isOnline, lastSyncTime } = useOfflineSync();
+  const { isOnline } = useOfflineSync();
   const [loading, setLoading] = useState(true);
   const [workHistory, setWorkHistory] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -19,7 +19,6 @@ const OtherStaffDashboard = () => {
   const [selectedType, setSelectedType] = useState('All');
   const [selectedPriority, setSelectedPriority] = useState('All');
   const [activeTab, setActiveTab] = useState('active');
-  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
 
   const fetchDashboard = useCallback(async () => {
     if (!staffId) return;
@@ -407,6 +406,24 @@ const OtherStaffDashboard = () => {
                   <div style={{ fontSize: 12, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
                     {job.job_name}
                   </div>
+                  {job.description && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                      {job.description.split(' | ').map((part, i) => {
+                        const isColour = part.toLowerCase().startsWith('colour:') || part.toLowerCase().startsWith('color:');
+                        const isNumbering = part.toLowerCase().startsWith('numbering:');
+                        return (
+                          <span key={i} style={{
+                            fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 500,
+                            background: isColour ? '#fef3c7' : isNumbering ? '#dbeafe' : '#f3f4f6',
+                            color: isColour ? '#92400e' : isNumbering ? '#1e40af' : '#374151',
+                            border: `1px solid ${isColour ? '#fcd34d' : isNumbering ? '#93c5fd' : '#e5e7eb'}`
+                          }}>
+                            {isColour && '🎨 '}{isNumbering && '🔢 '}{part}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Customer */}

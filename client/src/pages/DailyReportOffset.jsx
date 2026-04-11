@@ -687,6 +687,85 @@ const DailyReportOffset = () => {
                 </div>
             </div>
 
+            {/* Staff Attendance */}
+            <div className="panel">
+                <div className="panel-header">
+                    <h3 className="panel-title">Staff Attendance</h3>
+                </div>
+
+                {staff.length === 0 ? (
+                    <p className="text-center muted" style={{ padding: '20px' }}>
+                        Loading staff...
+                    </p>
+                ) : (
+                    <div className="stack-sm">
+                        {staff.filter(s => s.is_active !== 0 && s.role !== 'Admin').map((s) => {
+                            const att = staffAttendance.find(a => a.staff_id === s.id);
+                            return (
+                                <div key={s.id} className="row gap-md items-center" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                                    <div style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{s.name}</div>
+                                    <div style={{ fontSize: 12, color: 'var(--muted)', width: 100 }}>{s.role}</div>
+                                    <select
+                                        className="input-field"
+                                        style={{ width: '140px' }}
+                                        value={att?.status || ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setStaffAttendance(prev => {
+                                                const existing = prev.findIndex(a => a.staff_id === s.id);
+                                                if (existing >= 0) {
+                                                    const updated = [...prev];
+                                                    updated[existing] = { ...updated[existing], status: val };
+                                                    return updated;
+                                                }
+                                                return [...prev, { staff_id: s.id, status: val, in_time: null, out_time: null, notes: '' }];
+                                            });
+                                        }}
+                                        disabled={isFinalized}
+                                    >
+                                        <option value="">-- Select --</option>
+                                        <option value="Present">Present</option>
+                                        <option value="Absent">Absent</option>
+                                        <option value="Half Day">Half Day</option>
+                                        <option value="Holiday">Holiday</option>
+                                    </select>
+                                    {(att?.status === 'Present' || att?.status === 'Half Day') && (
+                                        <>
+                                            <input
+                                                type="time"
+                                                className="input-field"
+                                                style={{ width: '120px' }}
+                                                value={att?.in_time || ''}
+                                                onChange={(e) => {
+                                                    setStaffAttendance(prev => prev.map(a =>
+                                                        a.staff_id === s.id ? { ...a, in_time: e.target.value } : a
+                                                    ));
+                                                }}
+                                                disabled={isFinalized}
+                                                placeholder="In"
+                                            />
+                                            <input
+                                                type="time"
+                                                className="input-field"
+                                                style={{ width: '120px' }}
+                                                value={att?.out_time || ''}
+                                                onChange={(e) => {
+                                                    setStaffAttendance(prev => prev.map(a =>
+                                                        a.staff_id === s.id ? { ...a, out_time: e.target.value } : a
+                                                    ));
+                                                }}
+                                                disabled={isFinalized}
+                                                placeholder="Out"
+                                            />
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
             {/* Summary */}
 
             <div className="panel" style={{ backgroundColor: 'var(--surface-2)' }}> 

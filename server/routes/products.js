@@ -432,7 +432,7 @@ module.exports = (upload, removeUploadFile) => {
 
             const { has_paper_rate, paper_rate, has_double_side_rate } = req.body;
             const [prodResult] = await connection.query(
-                "INSERT INTO sarga_products (subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO sarga_products (subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [subcategory_id, String(name).trim(), product_code || null, company_name || null, company_code || null, size || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 ? 1 : 0, nextPos, inventory_item_id || null, isPhysicalProduct ? 1 : 0]
             );
             const productId = prodResult.insertId;
@@ -481,7 +481,9 @@ module.exports = (upload, removeUploadFile) => {
         } catch (err) {
             await connection.rollback();
             console.error('Add product error:', err);
-            res.status(500).json({ message: 'Database error' });
+            const isProd = process.env.NODE_ENV === 'production';
+            const friendlyMessage = err?.sqlMessage || err?.message || 'Database error';
+            res.status(500).json({ message: isProd ? 'Database error' : friendlyMessage });
         } finally {
             connection.release();
         }

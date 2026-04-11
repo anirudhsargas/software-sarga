@@ -3,7 +3,7 @@ import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2,
-    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag
+    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
@@ -57,6 +57,11 @@ const Reports = React.lazy(() => import('./Reports'));
 const CouponManagement = React.lazy(() => import('./CouponManagement'));
 const CCTVAttendance = React.lazy(() => import('./CCTVAttendance'));
 const CCTVManagement = React.lazy(() => import('./CCTVManagement'));
+const ScheduleManagement = React.lazy(() => import('./ScheduleManagement'));
+const InternalUsageReport = React.lazy(() => import('./InternalUsageReport'));
+const Quotes = React.lazy(() => import('./Quotes'));
+const SettingsPage = React.lazy(() => import('./SettingsPage'));
+const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
 const PageLoader = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: '8px', color: 'var(--text-muted, var(--muted))' }}>
         <Loader2 size={20} className="animate-spin" /> Loading...
@@ -78,6 +83,7 @@ const Dashboard = () => {
         const timer = setTimeout(() => setIsNavigating(false), 300);
         return () => clearTimeout(timer);
     }, [location.pathname]);
+    const [showProfilePanel, setShowProfilePanel] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [profileName, setProfileName] = useState('');
     const [profileImage, setProfileImage] = useState(null);
@@ -135,12 +141,13 @@ const Dashboard = () => {
         { name: 'Coupons', icon: Tag, path: '/dashboard/coupons', roles: ['Admin'], group: 'manage' },
         { name: 'CCTV Attendance', icon: Camera, path: '/dashboard/cctv-attendance', roles: ['Admin', 'Accountant'], group: 'manage' },
         { name: 'CCTV Management', icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'manage' },
-        { name: 'Attendance & Salary', icon: Receipt, path: '/dashboard/attendance-salary', roles: ['Designer', 'Printer', 'Front Office', 'Other Staff'], group: 'finance' },
+        { name: 'Schedules & Time', icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'manage' },
         // Finance & Reports
         { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Admin', 'Front Office', 'Accountant'], group: 'finance' },
         { name: 'Payment Verification', icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'finance' },
         { name: 'Accounts & GST', icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
         { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office', 'Admin', 'Accountant'], group: 'business' },
+        { name: 'Internal Usage Report', icon: BookOpen, path: '/dashboard/internal-usage-report', roles: ['Admin', 'Accountant'], group: 'business' },
         // AI Features
         { name: 'Design Check', icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
         { name: 'Sales Prediction', icon: TrendingUp, path: '/dashboard/sales-prediction', roles: ['Admin', 'Accountant'], group: 'business' },
@@ -148,6 +155,10 @@ const Dashboard = () => {
         // Role-specific dashboards
         { name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'business' },
         { name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'business' },
+        // ERP Features
+        { name: 'Quotes & Estimates', icon: Receipt, path: '/dashboard/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
+        { name: 'Recurring Invoices', icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'finance' },
+        { name: 'Settings', icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'manage' },
     ];
 
     const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role));
@@ -484,7 +495,7 @@ const Dashboard = () => {
                 </nav>
 
                 <div className="sidebar-footer">
-                    <div className="user-profile" onClick={() => setShowProfileModal(true)} role="button" tabIndex={0}>
+                    <div className="user-profile" onClick={() => setShowProfilePanel(true)} role="button" tabIndex={0}>
                         <div className="user-avatar">
                             {user?.image_url ? (
                                 <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
@@ -521,7 +532,7 @@ const Dashboard = () => {
                                 {anomalyCount > 99 ? '99+' : anomalyCount}
                             </span>
                         )}
-                        <div className="user-avatar avatar-sm" onClick={() => setShowProfileModal(true)}>
+                        <div className="user-avatar avatar-sm" onClick={() => setShowProfilePanel(true)}>
                             {user?.image_url ? (
                                 <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
                             ) : (
@@ -563,6 +574,7 @@ const Dashboard = () => {
                             <Route path="expenses" element={<ExpenseManager />} />
                             <Route path="machines" element={<MachineManagement />} />
                             <Route path="daily-report" element={<DailyReport />} />
+                            <Route path="internal-usage-report" element={<InternalUsageReport />} />
                             <Route path="attendance-salary" element={<AttendanceSalary />} />
                             <Route path="ai-monitoring" element={<RequiresConnection feature="AI Monitoring"><AIMonitoring /></RequiresConnection>} />
                             <Route path="design-check" element={<RequiresConnection feature="Design Checker"><DesignChecker /></RequiresConnection>} />
@@ -577,14 +589,60 @@ const Dashboard = () => {
                             <Route path="coupons" element={<CouponManagement />} />
                             <Route path="cctv-attendance" element={<CCTVAttendance />} />
                             <Route path="cctv-management" element={<CCTVManagement />} />
+                            <Route path="schedules" element={<ScheduleManagement />} />
                             <Route path="other-staff-dashboard" element={<OtherStaffDashboard />} />
                             <Route path="printer-dashboard" element={<PrinterDashboard />} />
               <Route path="designer-dashboard" element={<DesignerDashboard />} />
+                            <Route path="quotes" element={<Quotes />} />
+                            <Route path="recurring-invoices" element={<RecurringInvoices />} />
+                            <Route path="settings" element={<SettingsPage />} />
                             <Route path="*" element={<NotFound />} />
                         </Routes>
                     </Suspense>
                 </div>
             </main>
+
+            {showProfilePanel && (
+                <div className="modal-backdrop" style={{ zIndex: 1003 }}>
+                    <div className="modal" style={{ maxWidth: '660px', width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: 0 }}>
+                        {/* Profile Header */}
+                        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, background: 'var(--surface, #1e1e2e)', zIndex: 1 }}>
+                            <div className="user-avatar" style={{ width: 64, height: 64, borderRadius: 16, fontSize: 24, flexShrink: 0 }}>
+                                {user?.image_url ? (
+                                    <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
+                                ) : (
+                                    user?.name ? user.name[0].toUpperCase() : 'U'
+                                )}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 20, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || 'User'}</div>
+                                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{user?.role || 'Guest'}</div>
+                            </div>
+                            <button
+                                className="btn btn-primary btn-sm"
+                                style={{ flexShrink: 0 }}
+                                onClick={() => { setShowProfilePanel(false); setShowProfileModal(true); }}
+                            >
+                                Edit Profile
+                            </button>
+                            <button className="modal-close" style={{ position: 'static', margin: 0 }} aria-label="Close profile panel" onClick={() => setShowProfilePanel(false)} title="Close"><X size={20} /></button>
+                        </div>
+                        {/* Attendance & Salary for staff roles */}
+                        {['Designer', 'Printer', 'Front Office', 'Other Staff'].includes(user?.role) && (
+                            <div style={{ padding: '20px 16px' }}>
+                                <Suspense fallback={<PageLoader />}>
+                                    <AttendanceSalary />
+                                </Suspense>
+                            </div>
+                        )}
+                        {!['Designer', 'Printer', 'Front Office', 'Other Staff'].includes(user?.role) && (
+                            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>
+                                Click <strong>Edit Profile</strong> to update your name or photo.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {showProfileModal && (
                 <div className="modal-backdrop">

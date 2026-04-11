@@ -284,7 +284,7 @@ export async function generateInvoicePDF(billData) {
     doc.setFontSize(6.5);
     doc.setTextColor(...accent);
     doc.text('SCAN TO PAY', margin + qrSize / 2, y + qrSize + 3, { align: 'center' });
-  } catch (err) {
+  } catch {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(...textMuted);

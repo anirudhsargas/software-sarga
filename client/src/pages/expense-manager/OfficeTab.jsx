@@ -39,7 +39,14 @@ const OfficeTab = ({ onError }) => {
     setFormDirty(false);
   };
 
-  const fetchDashboard = useCallback(async () => { try { const r = await api.get('/office-dashboard'); setDashboard(r.data); } catch { } }, []);
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const r = await api.get('/office-dashboard');
+      setDashboard(r.data);
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to load office dashboard');
+    }
+  }, [onError]);
   const fetchExpenses = useCallback(async (pageNum = 1) => {
     setLoadingExpenses(true);
     try {
@@ -101,7 +108,13 @@ const OfficeTab = ({ onError }) => {
       type: 'danger'
     });
     if (!isConfirmed) return;
-    try { await api.delete(`/office-expenses/${id}`); fetchDashboard(); fetchExpenses(); } catch { }
+    try {
+      await api.delete(`/office-expenses/${id}`);
+      fetchDashboard();
+      fetchExpenses();
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Failed to delete office expense');
+    }
   };
 
 

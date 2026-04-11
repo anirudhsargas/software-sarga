@@ -452,7 +452,7 @@ const Customers = () => {
 
             <div className="card p-0 overflow-hidden shadow-sm">
                 {loading && customers.length === 0 ? (
-                    <SkeletonLoader type="table" count={8} />
+                    <SkeletonLoader type="customer-list" count={8} />
                 ) : error && customers.length === 0 ? (
                     <ServerError onRetry={fetchCustomers} message={error} />
                 ) : customers.length === 0 ? (

@@ -240,37 +240,105 @@ router.get('/previous-closing', auth.authenticate, async (req, res) => {
 
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
+        // Calculate previous date using simple string math to avoid timezone issues
+        const [year, month, day] = date.split('-').map(Number);
+        const prevDate = new Date(year, month - 1, day - 1);
+        const previousDateStr = prevDate.getFullYear() + '-' + 
+                                String(prevDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                                String(prevDate.getDate()).padStart(2, '0');
+
         // Offset: stored closing balance from sarga_daily_report_offset
         const [prevOffset] = await pool.query(
             `SELECT closing_balance FROM sarga_daily_report_offset
-             WHERE report_date < ? AND branch_id = ?
+             WHERE LEFT(report_date, 10) < ? AND branch_id = ?
              ORDER BY report_date DESC LIMIT 1`,
             [date, branchId]
         );
 
-        // Laser & Other: get last recorded opening balances before today
-        // (closing is computed on-the-fly so we carry forward last opening as reference)
-        const [prevOthers] = await pool.query(
-            `SELECT book_type,
-                    cash_opening AS prev_balance
+        // Laser opening balance for yesterday
+        const [laserOpeningRows] = await pool.query(
+            `SELECT cash_opening
              FROM sarga_daily_opening_balances
-             WHERE report_date < ? AND branch_id = ? AND book_type IN ('Laser','Other')
-             ORDER BY report_date DESC`,
-            [date, branchId]
+             WHERE LEFT(report_date, 10) = ? AND branch_id = ? AND book_type = 'Laser'
+             LIMIT 1`,
+            [previousDateStr, branchId]
         );
 
-        const prevMap = {};
-        // Only keep the most recent per book_type
-        for (const row of prevOthers) {
-            if (!prevMap[row.book_type]) prevMap[row.book_type] = Number(row.prev_balance);
-        }
+        // Laser cash-in: exactly replicates laser-live totalCashIn logic
+        // Part A — MWE cash: manual entries + auto-synced entries whose job has payment_id
+        //   (auto-synced entries without payment_id are ignored, matching laser-live)
+        const [[laserMweCash]] = await pool.query(
+            `SELECT COALESCE(SUM(mwe.cash_amount), 0) AS total_cash
+             FROM sarga_machine_work_entries mwe
+             JOIN sarga_daily_report_machine drm ON mwe.report_id = drm.id
+             LEFT JOIN sarga_jobs j ON mwe.job_id = j.id
+             WHERE LEFT(drm.report_date, 10) = ? AND drm.branch_id = ?
+               AND (
+                 (mwe.remarks IS NULL OR mwe.remarks NOT LIKE 'Auto-synced from Job%')
+                 OR (mwe.remarks LIKE 'Auto-synced from Job%' AND j.payment_id IS NOT NULL)
+               )`,
+            [previousDateStr, branchId]
+        );
+
+        // Part B — Laser customer_payments NOT already represented by a bill-grouped MWE
+        //   matches laser-live: billingEntries = laserPayments.filter(!coveredPaymentIds)
+        const [[laserCpCash]] = await pool.query(
+            `SELECT COALESCE(SUM(
+                CASE
+                    WHEN payment_method = 'Both' THEN COALESCE(cash_amount, 0)
+                    WHEN payment_method = 'UPI'  THEN 0
+                    ELSE COALESCE(advance_paid, 0)
+                END
+            ), 0) AS total_cash
+             FROM sarga_customer_payments
+             WHERE LEFT(payment_date, 10) = ? AND branch_id = ? AND book_type = 'Laser'
+               AND id NOT IN (
+                   SELECT DISTINCT j.payment_id
+                   FROM sarga_machine_work_entries mwe
+                   JOIN sarga_daily_report_machine drm ON mwe.report_id = drm.id
+                   JOIN sarga_jobs j ON mwe.job_id = j.id
+                   WHERE LEFT(drm.report_date, 10) = ? AND drm.branch_id = ?
+                     AND mwe.remarks LIKE 'Auto-synced from Job%'
+                     AND j.payment_id IS NOT NULL
+               )`,
+            [previousDateStr, branchId, previousDateStr, branchId]
+        );
+
+        // Other opening balance for yesterday
+        const [otherOpeningRows] = await pool.query(
+            `SELECT cash_opening
+             FROM sarga_daily_opening_balances
+             WHERE LEFT(report_date, 10) = ? AND branch_id = ? AND book_type = 'Other'
+             LIMIT 1`,
+            [previousDateStr, branchId]
+        );
+
+        // Other cash-in for yesterday (billing payments tagged as Other)
+        const [[otherIncome]] = await pool.query(
+            `SELECT COALESCE(SUM(
+                CASE
+                    WHEN payment_method = 'Both' THEN COALESCE(cash_amount, 0)
+                    WHEN payment_method = 'UPI'  THEN 0
+                    ELSE COALESCE(advance_paid, 0)
+                END
+            ), 0) AS total_cash
+             FROM sarga_customer_payments
+             WHERE DATE(payment_date) = ? AND branch_id = ? AND book_type = 'Other'`,
+            [previousDateStr, branchId]
+        );
+
+        const laserOpening = laserOpeningRows.length > 0 ? Number(laserOpeningRows[0].cash_opening) : 0;
+        const otherOpening = otherOpeningRows.length > 0 ? Number(otherOpeningRows[0].cash_opening) : 0;
+        // closing = opening + Part A (MWE cash) + Part B (uncovered billing CP cash)
+        const laserClosing = laserOpening + Number(laserMweCash.total_cash || 0) + Number(laserCpCash.total_cash || 0);
+        const otherClosing = otherOpening + Number(otherIncome.total_cash || 0);
 
         // Machines: last closing_count before today
         const [prevMachines] = await pool.query(
             `SELECT mr.machine_id, mr.closing_count
              FROM sarga_machine_readings mr
              JOIN sarga_machines m ON mr.machine_id = m.id
-             WHERE mr.reading_date < ? AND m.branch_id = ? AND mr.closing_count IS NOT NULL
+             WHERE LEFT(mr.reading_date, 10) < ? AND m.branch_id = ? AND mr.closing_count IS NOT NULL
              ORDER BY mr.reading_date DESC`,
             [date, branchId]
         );
@@ -287,7 +355,7 @@ router.get('/previous-closing', auth.authenticate, async (req, res) => {
             `SELECT mr.machine_id, mr.opening_count
              FROM sarga_machine_readings mr
              JOIN sarga_machines m ON mr.machine_id = m.id
-             WHERE mr.reading_date = ? AND m.branch_id = ?`,
+             WHERE LEFT(mr.reading_date, 10) = ? AND m.branch_id = ?`,
             [date, branchId]
         );
         const todayMachineReadings = {}; // { [machine_id]: opening_count }
@@ -297,8 +365,8 @@ router.get('/previous-closing', auth.authenticate, async (req, res) => {
 
         res.json({
             Offset: prevOffset.length > 0 ? Number(prevOffset[0].closing_balance) : 0,
-            Laser: prevMap['Laser'] ?? 0,
-            Other: prevMap['Other'] ?? 0,
+            Laser: laserClosing,
+            Other: otherClosing,
             machines: machineMap,          // { [machine_id]: last_closing_count } — previous day
             todayMachineReadings           // { [machine_id]: opening_count }     — today already saved
         });
@@ -316,14 +384,18 @@ router.get('/offset-live', auth.authenticate, async (req, res) => {
 
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
-        // 1. Customer Payments (income/work entries)
+        // 1. Customer Payments (income/work entries) — Offset book only
         const [customerPayments] = await pool.query(
             `SELECT cp.id, cp.customer_name, cp.total_amount, cp.advance_paid,
                     cp.payment_method, cp.cash_amount, cp.upi_amount,
                     cp.description, cp.reference_number, cp.order_lines,
-                    cp.created_at
+                    cp.created_at,
+                    COALESCE(cp.discount_percent, 0) as discount_percent,
+                    COALESCE(cp.discount_amount, 0) as discount_amount,
+                    cp.bill_amount
              FROM sarga_customer_payments cp
              WHERE DATE(cp.payment_date) = ? AND cp.branch_id = ?
+               AND COALESCE(cp.book_type, 'Offset') = 'Offset'
              ORDER BY cp.created_at DESC`,
             [date, branchId]
         );
@@ -339,8 +411,28 @@ router.get('/offset-live', auth.authenticate, async (req, res) => {
             [date, branchId]
         );
 
+        // 2b. Fetch jobs linked to these payments (for grouping when order_lines is empty)
+        let linkedJobsByPayment = {};
+        if (customerPayments.length > 0) {
+            const cpIds = customerPayments.map(cp => cp.id);
+            const [linkedJobs] = await pool.query(
+                `SELECT j.payment_id, j.job_name, j.quantity, j.total_amount,
+                        COALESCE(j.waste_prints, 0) as waste_prints,
+                        COALESCE(j.proof_prints, 0) as proof_prints
+                 FROM sarga_jobs j
+                 WHERE j.payment_id IN (${cpIds.map(() => '?').join(',')})
+                 ORDER BY j.id ASC`,
+                cpIds
+            );
+            for (const j of linkedJobs) {
+                if (!linkedJobsByPayment[j.payment_id]) linkedJobsByPayment[j.payment_id] = [];
+                linkedJobsByPayment[j.payment_id].push(j);
+            }
+        }
+
         // 3. Calculate totals
         let totalCashIn = 0, totalUpiIn = 0, totalCashOut = 0, totalUpiOut = 0;
+        let totalWastePrints = 0, totalProofPrints = 0;
 
         const workEntries = customerPayments.map(cp => {
             const cashAmt = Number(cp.cash_amount || 0);
@@ -361,17 +453,51 @@ router.get('/offset-live', auth.authenticate, async (req, res) => {
             totalCashIn += cashIn;
             totalUpiIn += upiIn;
 
+            const parsedLines = (() => { try { return JSON.parse(cp.order_lines || '[]'); } catch { return []; } })();
+
+            // If order_lines is empty (paid via CustomerPayments directly), use linked jobs
+            const jobLines = linkedJobsByPayment[cp.id] || [];
+            const lines = parsedLines.length > 0 ? parsedLines : jobLines.map(j => ({
+                product_name: j.job_name,
+                quantity: j.quantity,
+                total_amount: j.total_amount,
+                waste_prints: j.waste_prints,
+                proof_prints: j.proof_prints
+            }));
+
+            const details = lines.map(l => l.product_name || l.job_name || '').filter(Boolean).join(', ');
+
+            // Aggregate waste/proof from order_lines
+            const billWaste = lines.reduce((s, l) => s + (Number(l.waste_prints) || 0), 0);
+            const billProof = lines.reduce((s, l) => s + (Number(l.proof_prints) || 0), 0);
+            totalWastePrints += billWaste;
+            totalProofPrints += billProof;
+
+            const discountPct = Number(cp.discount_percent) || 0;
+            const discountAmt = Number(cp.discount_amount) || 0;
+
             return {
                 id: cp.id,
                 type: 'income',
                 description: cp.customer_name,
-                details: cp.description || '',
+                details: details || cp.description || '',
                 payment_method: method,
                 cash_amount: cashIn,
                 upi_amount: upiIn,
                 total: advPaid,
                 reference: cp.reference_number,
-                time: cp.created_at
+                time: cp.created_at,
+                waste_prints: billWaste,
+                proof_prints: billProof,
+                discount_percent: discountPct,
+                discount_amount: discountAmt,
+                order_lines: lines.map(l => ({
+                    name: l.product_name || l.job_name || '',
+                    qty: l.quantity || 1,
+                    amount: Number(l.total_amount || 0),
+                    waste_prints: Number(l.waste_prints) || 0,
+                    proof_prints: Number(l.proof_prints) || 0
+                }))
             };
         });
 
@@ -428,6 +554,8 @@ router.get('/offset-live', auth.authenticate, async (req, res) => {
                 total_upi_in: totalUpiIn,
                 total_cash_out: totalCashOut,
                 total_upi_out: totalUpiOut,
+                waste_prints: totalWastePrints,
+                proof_prints: totalProofPrints,
                 cash_closing: cashClosing,
                 entry_count: workEntries.length + expenseEntries.length,
                 income_count: workEntries.length,
@@ -480,7 +608,8 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
         let readings = [];
         if (machineIds.length > 0) {
             const [readingRows] = await pool.query(
-                `SELECT mr.machine_id, mr.opening_count, mr.closing_count, mr.total_copies
+                `SELECT mr.machine_id, mr.opening_count, mr.closing_count, mr.total_copies,
+                        COALESCE(mr.waste_prints, 0) as waste_prints, COALESCE(mr.proof_prints, 0) as proof_prints
                  FROM sarga_machine_readings mr
                  WHERE mr.reading_date = ? AND mr.machine_id IN (${machineIds.map(() => '?').join(',')})`,
                 [date, ...machineIds]
@@ -500,12 +629,15 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
                 opening_count: reading ? Number(reading.opening_count) : 0,
                 closing_count: reading ? (reading.closing_count !== null ? Number(reading.closing_count) : null) : null,
                 today_copies: reading ? Number(reading.total_copies || 0) : 0,
+                waste_prints: reading ? Number(reading.waste_prints || 0) : 0,
+                proof_prints: reading ? Number(reading.proof_prints || 0) : 0,
                 has_reading: !!reading
             };
         });
 
         // 3. Get machine work entries for today
         let workEntries = [];
+        const coveredPaymentIds = new Set();
         if (machineIds.length > 0) {
             const [reports] = await pool.query(
                 `SELECT drm.id as report_id, drm.machine_id
@@ -516,38 +648,202 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
             const reportIds = reports.map(r => r.report_id);
             if (reportIds.length > 0) {
                 const [entries] = await pool.query(
-                    `SELECT mwe.*, drm.machine_id, m.machine_name
+                    `SELECT mwe.*, drm.machine_id, m.machine_name,
+                            j.payment_id
                      FROM sarga_machine_work_entries mwe
                      JOIN sarga_daily_report_machine drm ON mwe.report_id = drm.id
                      JOIN sarga_machines m ON drm.machine_id = m.id
+                     LEFT JOIN sarga_jobs j ON mwe.job_id = j.id
                      WHERE mwe.report_id IN (${reportIds.map(() => '?').join(',')})
                      ORDER BY mwe.id DESC`,
                     [...reportIds]
                 );
-                workEntries = entries.map(e => ({
-                    id: e.id,
-                    machine_id: e.machine_id,
-                    machine_name: e.machine_name,
-                    type: 'income',
-                    description: e.customer_name,
-                    details: e.work_details,
-                    copies: Number(e.copies || 0),
-                    payment_method: e.payment_type,
-                    cash_amount: Number(e.cash_amount || 0),
-                    upi_amount: Number(e.upi_amount || 0),
-                    total: Number(e.total_amount || 0),
-                    time: e.entry_time
-                }));
+
+                // Group auto-synced entries by payment_id (bill), keep manual entries as-is
+                const billGroups = {};  // payment_id → [entries]
+                const manualEntries = [];
+
+                entries.forEach(e => {
+                    const isAutoSynced = e.remarks && e.remarks.startsWith('Auto-synced from Job');
+                    if (isAutoSynced && e.payment_id) {
+                        if (!billGroups[e.payment_id]) billGroups[e.payment_id] = [];
+                        billGroups[e.payment_id].push(e);
+                    } else if (isAutoSynced && !e.payment_id) {
+                        // Ignore orphan auto-synced rows until they are linked to a payment.
+                    } else {
+                        manualEntries.push(e);
+                    }
+                });
+
+                // Convert manual entries as before
+                manualEntries.forEach(e => {
+                    const eCash = Number(e.cash_amount || 0);
+                    const eUpi = Number(e.upi_amount || 0);
+                    const eCollected = eCash + eUpi;
+                    // Use collected amount (cash+upi) when payment was made; otherwise show job total
+                    const eTotal = eCollected > 0 ? eCollected : Number(e.total_amount || 0);
+                    workEntries.push({
+                        id: e.id,
+                        machine_id: e.machine_id,
+                        machine_name: e.machine_name,
+                        type: 'income',
+                        description: e.customer_name,
+                        details: e.work_details,
+                        copies: Number(e.copies || 0),
+                        payment_method: e.payment_type,
+                        cash_amount: eCash,
+                        upi_amount: eUpi,
+                        total: eTotal,
+                        time: e.entry_time
+                    });
+                });
+
+                // Convert grouped bill entries into single rows with order_lines
+                for (const [paymentId, group] of Object.entries(billGroups)) {
+                    coveredPaymentIds.add(Number(paymentId));
+                    const first = group[0];
+                    const totalCash = group.reduce((s, e) => s + Number(e.cash_amount || 0), 0);
+                    const totalUpi = group.reduce((s, e) => s + Number(e.upi_amount || 0), 0);
+                    const totalAmt = group.reduce((s, e) => s + Number(e.total_amount || 0), 0);
+                    const totalCopies = group.reduce((s, e) => s + Number(e.copies || 0), 0);
+                    const machineNames = [...new Set(group.map(e => e.machine_name))].join(', ');
+
+                    workEntries.push({
+                        id: `bill-${paymentId}`,
+                        machine_id: first.machine_id,
+                        machine_name: machineNames,
+                        type: 'income',
+                        description: first.customer_name,
+                        details: group.map(e => e.work_details).filter(Boolean).join(', '),
+                        copies: totalCopies,
+                        payment_method: first.payment_type,
+                        cash_amount: totalCash,
+                        upi_amount: totalUpi,
+                        total: totalCash + totalUpi,
+                        time: first.entry_time,
+                        order_lines: group.map(e => ({
+                            name: e.work_details || 'Item',
+                            qty: Number(e.copies || 1),
+                            amount: Number(e.total_amount || 0)
+                        }))
+                    });
+                }
             }
         }
 
-        // 4. Calculate totals
+        // 4. Billing payments tagged as Laser (from customer_payments)
+        const [laserPayments] = await pool.query(
+            `SELECT cp.id, cp.customer_name, cp.advance_paid, cp.payment_method,
+                    cp.cash_amount, cp.upi_amount, cp.description, cp.reference_number,
+                    cp.created_at, cp.order_lines,
+                    COALESCE(cp.discount_percent, 0) as discount_percent,
+                    COALESCE(cp.discount_amount, 0) as discount_amount,
+                    COALESCE(cp.is_internal, 0) as is_internal,
+                    cp.internal_department
+             FROM sarga_customer_payments cp
+             WHERE DATE(cp.payment_date) = ? AND cp.branch_id = ? AND cp.book_type = 'Laser'
+             ORDER BY cp.created_at DESC`,
+            [date, branchId]
+        );
+
+        const billingEntries = laserPayments.filter(cp => !coveredPaymentIds.has(Number(cp.id))).map(cp => {
+            const cashAmt = Number(cp.cash_amount || 0);
+            const upiAmt = Number(cp.upi_amount || 0);
+            const advPaid = Number(cp.advance_paid || 0);
+            const method = cp.payment_method || 'Cash';
+            let cashIn = 0, upiIn = 0;
+            if (method === 'Both') { cashIn = cashAmt; upiIn = upiAmt; }
+            else if (method === 'UPI') { upiIn = advPaid; }
+            else { cashIn = advPaid; }
+            const lines = (() => { try { return JSON.parse(cp.order_lines || '[]'); } catch { return []; } })();
+            const details = lines.map(l => l.product_name || l.job_name || '').filter(Boolean).join(', ');
+            // Aggregate waste/proof from order_lines
+            const billWaste = lines.reduce((s, l) => s + (Number(l.waste_prints) || 0), 0);
+            const billProof = lines.reduce((s, l) => s + (Number(l.proof_prints) || 0), 0);
+            return {
+                id: `cp-${cp.id}`,
+                type: 'billing',
+                description: cp.customer_name,
+                details: details || cp.description || '',
+                copies: 0,
+                payment_method: method,
+                cash_amount: cashIn,
+                upi_amount: upiIn,
+                total: advPaid,
+                time: cp.created_at,
+                waste_prints: billWaste,
+                proof_prints: billProof,
+                discount_percent: Number(cp.discount_percent) || 0,
+                discount_amount: Number(cp.discount_amount) || 0,
+                is_internal: Number(cp.is_internal) || 0,
+                internal_department: cp.internal_department || null,
+                order_lines: lines.map(l => ({
+                    name: l.product_name || l.job_name || '',
+                    qty: l.quantity || 1,
+                    amount: Number(l.total_amount || 0),
+                    waste_prints: Number(l.waste_prints) || 0,
+                    proof_prints: Number(l.proof_prints) || 0
+                }))
+            };
+        });
+
+        // 5. Calculate totals (machine work entries + billing entries)
         let totalCashIn = 0, totalUpiIn = 0, totalCopies = 0;
+        let totalWastePrints = 0, totalProofPrints = 0;
+        let internalPrints = 0, internalBillCount = 0;
         workEntries.forEach(e => {
             totalCashIn += e.cash_amount;
             totalUpiIn += e.upi_amount;
             totalCopies += e.copies;
         });
+        billingEntries.forEach(e => {
+            if (!e.is_internal) {
+                totalCashIn += e.cash_amount;
+                totalUpiIn += e.upi_amount;
+            }
+            totalWastePrints += (e.waste_prints || 0);
+            totalProofPrints += (e.proof_prints || 0);
+            if (e.is_internal) {
+                // Sum prints from order_lines quantities for internal bills
+                const linePrints = (e.order_lines || []).reduce((s, l) => s + (Number(l.qty) || 0), 0);
+                internalPrints += linePrints || e.copies || 0;
+                internalBillCount++;
+            }
+        });
+        // Aggregate waste/proof from machineData (per-reading totals)
+        machineData.forEach(m => {
+            totalWastePrints += m.waste_prints || 0;
+            totalProofPrints += m.proof_prints || 0;
+        });
+
+        // Also add waste/proof logged from billing jobs for today
+        if (machineIds.length > 0) {
+            const [jobWaste] = await pool.query(
+                `SELECT machine_id,
+                        COALESCE(SUM(waste_prints), 0) AS billing_waste,
+                        COALESCE(SUM(proof_prints), 0) AS billing_proof
+                 FROM sarga_jobs
+                 WHERE DATE(created_at) = ?
+                   AND machine_id IN (${machineIds.map(() => '?').join(',')})
+                   AND (waste_prints > 0 OR proof_prints > 0)
+                 GROUP BY machine_id`,
+                [date, ...machineIds]
+            );
+            jobWaste.forEach(row => {
+                const bw = Number(row.billing_waste) || 0;
+                const bp = Number(row.billing_proof) || 0;
+                totalWastePrints += bw;
+                totalProofPrints += bp;
+                // Merge into the corresponding machineData entry so the card shows combined
+                const m = machineData.find(m => m.id === row.machine_id);
+                if (m) {
+                    m.waste_prints = (m.waste_prints || 0) + bw;
+                    m.proof_prints = (m.proof_prints || 0) + bp;
+                    m.billing_waste = bw;
+                    m.billing_proof = bp;
+                }
+            });
+        }
 
         // 5. Opening balance
         const [openingRows] = await pool.query(
@@ -561,15 +857,19 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
 
         res.json({
             machines: machineData,
-            entries: workEntries,
+            entries: [...workEntries, ...billingEntries].sort((a, b) => new Date(b.time) - new Date(a.time)),
             summary: {
                 cash_opening: cashOpening,
                 total_cash_in: totalCashIn,
                 total_upi_in: totalUpiIn,
                 total_copies: totalCopies,
+                waste_prints: totalWastePrints,
+                proof_prints: totalProofPrints,
                 cash_closing: cashClosing,
                 machine_count: machines.length,
-                entry_count: workEntries.length
+                entry_count: workEntries.length + billingEntries.length,
+                internal_prints: internalPrints,
+                internal_bill_count: internalBillCount
             }
         });
     } catch (error) {
@@ -586,35 +886,84 @@ router.get('/other-live', auth.authenticate, async (req, res) => {
 
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
-        // For "Other" tab, show jobs with category 'Other'
-        const [otherJobs] = await pool.query(
-            `SELECT j.id, j.job_number, j.job_name, j.description, j.total_amount,
-                                        j.advance_paid, j.balance_amount, j.payment_status, j.status,
-                                        COALESCE(c.name, 'Walk-in') as customer_name,
-                                        j.created_at
-                         FROM sarga_jobs j
-                         LEFT JOIN sarga_customers c ON j.customer_id = c.id
-                         WHERE DATE(j.created_at) = ? AND j.branch_id = ?
-                             AND j.category = 'Other'
-                         ORDER BY j.created_at DESC`,
+        // Billing payments tagged as Other (from customer_payments)
+        const [otherPayments] = await pool.query(
+            `SELECT cp.id, cp.customer_name, cp.advance_paid, cp.payment_method,
+                    cp.cash_amount, cp.upi_amount, cp.description, cp.order_lines, cp.created_at,
+                    COALESCE(cp.discount_percent, 0) as discount_percent,
+                    COALESCE(cp.discount_amount, 0) as discount_amount
+             FROM sarga_customer_payments cp
+             WHERE DATE(cp.payment_date) = ? AND cp.branch_id = ? AND cp.book_type = 'Other'
+             ORDER BY cp.created_at DESC`,
             [date, branchId]
         );
 
+        // Fetch jobs linked to these payments (for grouping when order_lines is empty)
+        let linkedJobsByPaymentOther = {};
+        if (otherPayments.length > 0) {
+            const cpIds = otherPayments.map(cp => cp.id);
+            const [linkedJobs] = await pool.query(
+                `SELECT j.payment_id, j.job_name, j.quantity, j.total_amount,
+                        COALESCE(j.waste_prints, 0) as waste_prints,
+                        COALESCE(j.proof_prints, 0) as proof_prints
+                 FROM sarga_jobs j
+                 WHERE j.payment_id IN (${cpIds.map(() => '?').join(',')})
+                 ORDER BY j.id ASC`,
+                cpIds
+            );
+            for (const j of linkedJobs) {
+                if (!linkedJobsByPaymentOther[j.payment_id]) linkedJobsByPaymentOther[j.payment_id] = [];
+                linkedJobsByPaymentOther[j.payment_id].push(j);
+            }
+        }
+
         // Calculate totals
         let totalCashIn = 0, totalUpiIn = 0;
-        const entries = otherJobs.map(j => {
-            const total = Number(j.advance_paid || 0);
-            totalCashIn += total; // Default to cash for simplicity
+        let totalWastePrints = 0, totalProofPrints = 0;
+        const entries = otherPayments.map(cp => {
+            const cashAmt = Number(cp.cash_amount || 0);
+            const upiAmt = Number(cp.upi_amount || 0);
+            const advPaid = Number(cp.advance_paid || 0);
+            const method = cp.payment_method || 'Cash';
+            let cashIn = 0, upiIn = 0;
+            if (method === 'Both') { cashIn = cashAmt; upiIn = upiAmt; }
+            else if (method === 'UPI') { upiIn = advPaid; }
+            else { cashIn = advPaid; }
+            totalCashIn += cashIn;
+            totalUpiIn += upiIn;
+
+            const parsedLines = (() => { try { return JSON.parse(cp.order_lines || '[]'); } catch { return []; } })();
+            const jobLines = linkedJobsByPaymentOther[cp.id] || [];
+            const lines = parsedLines.length > 0 ? parsedLines : jobLines.map(j => ({
+                product_name: j.job_name,
+                quantity: j.quantity,
+                total_amount: j.total_amount,
+                waste_prints: j.waste_prints,
+                proof_prints: j.proof_prints
+            }));
+
+            const details = lines.map(l => l.product_name || l.job_name || '').filter(Boolean).join(', ');
+            const billWaste = lines.reduce((s, l) => s + (Number(l.waste_prints) || 0), 0);
+            const billProof = lines.reduce((s, l) => s + (Number(l.proof_prints) || 0), 0);
+            totalWastePrints += billWaste;
+            totalProofPrints += billProof;
+            const discountPct = Number(cp.discount_percent) || 0;
+            const discountAmt = Number(cp.discount_amount) || 0;
             return {
-                id: j.id,
+                id: `cp-${cp.id}`,
                 type: 'income',
-                description: `${j.job_number} - ${j.customer_name}`,
-                details: j.job_name || j.description || '',
-                payment_method: j.payment_status === 'Paid' ? 'Cash' : 'Partial',
-                cash_amount: total,
-                upi_amount: 0,
-                total: total,
-                time: j.created_at
+                description: cp.customer_name,
+                details: details || cp.description || '',
+                payment_method: method,
+                cash_amount: cashIn,
+                upi_amount: upiIn,
+                total: advPaid,
+                time: cp.created_at,
+                waste_prints: billWaste,
+                proof_prints: billProof,
+                discount_percent: discountPct,
+                discount_amount: discountAmt,
+                order_lines: lines.map(l => ({ name: l.product_name || l.job_name || '', qty: l.quantity || 1, amount: Number(l.total_amount || 0), waste_prints: Number(l.waste_prints) || 0, proof_prints: Number(l.proof_prints) || 0 }))
             };
         });
 
@@ -636,6 +985,8 @@ router.get('/other-live', auth.authenticate, async (req, res) => {
                 total_upi_in: totalUpiIn,
                 total_cash_out: 0,
                 total_upi_out: 0,
+                waste_prints: totalWastePrints,
+                proof_prints: totalProofPrints,
                 cash_closing: cashClosing,
                 entry_count: entries.length
             }
@@ -643,6 +994,88 @@ router.get('/other-live', auth.authenticate, async (req, res) => {
     } catch (error) {
         console.error('Error fetching other live data:', error);
         res.status(500).json({ error: 'Failed to fetch other data' });
+    }
+});
+
+// ==================== INTERNAL USAGE REPORT ====================
+router.get('/internal-usage', auth.authenticate, async (req, res) => {
+    try {
+        const { from, to, department } = req.query;
+        const branchId = getBranchId(req.user, req.query.branch_id);
+
+        if (!from || !to) return res.status(400).json({ error: 'from and to dates are required' });
+
+        let where = 'WHERE cp.is_internal = 1 AND DATE(cp.payment_date) BETWEEN ? AND ? AND cp.branch_id = ?';
+        const params = [from, to, branchId];
+        if (department && department !== 'all') {
+            where += ' AND cp.internal_department = ?';
+            params.push(department);
+        }
+
+        // All internal bills
+        const [bills] = await pool.query(
+            `SELECT cp.id, cp.customer_name, cp.internal_department, cp.description,
+                    cp.order_lines, cp.payment_date, cp.created_at,
+                    s.name as added_by
+             FROM sarga_customer_payments cp
+             LEFT JOIN sarga_staff s ON cp.verified_by = s.id
+             ${where}
+             ORDER BY cp.payment_date DESC, cp.created_at DESC`,
+            params
+        );
+
+        // Parse order_lines for sheets/prints
+        const rows = bills.map(b => {
+            let lines = [];
+            try { lines = JSON.parse(b.order_lines || '[]'); } catch {}
+            const totalPrints = lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+            const totalSheets = lines.reduce((s, l) => s + (Number(l.sheets) || 0), 0);
+            return {
+                id: b.id,
+                date: b.payment_date,
+                department: b.internal_department,
+                customer_name: b.customer_name,
+                description: b.description || lines.map(l => l.product_name || l.job_name || '').filter(Boolean).join(', '),
+                sheets: totalSheets,
+                prints: totalPrints,
+                added_by: b.added_by || '—',
+                created_at: b.created_at
+            };
+        });
+
+        // Summary per department
+        const deptSummary = {};
+        rows.forEach(r => {
+            const dept = r.department || 'unknown';
+            if (!deptSummary[dept]) deptSummary[dept] = { prints: 0, jobs: 0 };
+            deptSummary[dept].prints += r.prints;
+            deptSummary[dept].jobs += 1;
+        });
+
+        // Monthly trend (last 6 months)
+        const [trend] = await pool.query(
+            `SELECT DATE_FORMAT(cp.payment_date, '%Y-%m') as month,
+                    cp.internal_department as department,
+                    COUNT(*) as jobs,
+                    SUM(
+                      (SELECT COALESCE(SUM(
+                        CAST(JSON_EXTRACT(j.value, '$.quantity') AS UNSIGNED)
+                      ), 0)
+                      FROM JSON_TABLE(cp.order_lines, '$[*]' COLUMNS (value JSON PATH '$')) j)
+                    ) as prints
+             FROM sarga_customer_payments cp
+             WHERE cp.is_internal = 1
+               AND cp.branch_id = ?
+               AND cp.payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+             GROUP BY month, department
+             ORDER BY month ASC`,
+            [branchId]
+        );
+
+        res.json({ bills: rows, summary: deptSummary, trend });
+    } catch (error) {
+        console.error('Error fetching internal usage:', error);
+        res.status(500).json({ error: 'Failed to fetch internal usage data' });
     }
 });
 
@@ -657,7 +1090,8 @@ router.get('/live-counts', auth.authenticate, async (req, res) => {
         // Offset count
         const [[offsetCount]] = await pool.query(
             `SELECT COUNT(*) as count FROM sarga_customer_payments
-             WHERE DATE(payment_date) = ? AND branch_id = ?`,
+             WHERE DATE(payment_date) = ? AND branch_id = ?
+               AND COALESCE(book_type, 'Offset') = 'Offset'`,
             [date, branchId]
         );
 
@@ -667,7 +1101,8 @@ router.get('/live-counts', auth.authenticate, async (req, res) => {
                     COALESCE(SUM(upi_amount), 0) as total_upi,
                     COALESCE(SUM(advance_paid), 0) as total_collected
              FROM sarga_customer_payments
-             WHERE DATE(payment_date) = ? AND branch_id = ?`,
+             WHERE DATE(payment_date) = ? AND branch_id = ?
+               AND COALESCE(book_type, 'Offset') = 'Offset'`,
             [date, branchId]
         );
 
@@ -696,24 +1131,52 @@ router.get('/live-counts', auth.authenticate, async (req, res) => {
             [date, branchId]
         );
 
-        // 4. Laser income counts (from machine work entries)
+        // 4. Laser income counts (from machine work entries, grouped by payment_id like laser-live)
         const [[laserIncome]] = await pool.query(
-            `SELECT COUNT(*) as count,
-                    COALESCE(SUM(mwe.total_amount), 0) as total_amount,
-                    COALESCE(SUM(mwe.cash_amount), 0) as total_cash,
-                    COALESCE(SUM(mwe.upi_amount), 0) as total_upi
+            `SELECT
+                -- Count distinct bills (grouped by payment_id) + manual entries (no payment_id)
+                (SELECT COUNT(DISTINCT COALESCE(j.payment_id, mwe.id))
+                 FROM sarga_machine_work_entries mwe
+                 JOIN sarga_daily_report_machine drm2 ON mwe.report_id = drm2.id
+                 LEFT JOIN sarga_jobs j ON mwe.job_id = j.id
+                                 WHERE drm2.report_date = ? AND drm2.branch_id = ?
+                                     AND NOT (mwe.remarks LIKE 'Auto-synced from Job%' AND j.payment_id IS NULL)) as count,
+                COALESCE(SUM(mwe.total_amount), 0) as total_amount,
+                COALESCE(SUM(mwe.cash_amount), 0) as total_cash,
+                COALESCE(SUM(mwe.upi_amount), 0) as total_upi
              FROM sarga_machine_work_entries mwe
              JOIN sarga_daily_report_machine drm ON mwe.report_id = drm.id
-             WHERE drm.report_date = ? AND drm.branch_id = ?`,
-            [date, branchId]
+                         LEFT JOIN sarga_jobs j ON mwe.job_id = j.id
+                         WHERE drm.report_date = ? AND drm.branch_id = ?
+                             AND NOT (mwe.remarks LIKE 'Auto-synced from Job%' AND j.payment_id IS NULL)`,
+            [date, branchId, date, branchId]
         );
 
-        // 5. Other income counts (from jobs with category 'Other')
+        // 4b. Laser billing payments (customer_payments with book_type = 'Laser')
+        //     Only count those NOT already covered by machine work entries above
+        const [[laserBilling]] = await pool.query(
+            `SELECT COUNT(*) as count,
+                    COALESCE(SUM(cash_amount), 0) as total_cash,
+                    COALESCE(SUM(upi_amount), 0) as total_upi
+             FROM sarga_customer_payments cp
+             WHERE DATE(payment_date) = ? AND branch_id = ? AND book_type = 'Laser'
+               AND id NOT IN (
+                   SELECT DISTINCT j.payment_id
+                   FROM sarga_machine_work_entries mwe
+                   JOIN sarga_daily_report_machine drm ON mwe.report_id = drm.id
+                   LEFT JOIN sarga_jobs j ON mwe.job_id = j.id
+                   WHERE drm.report_date = ? AND drm.branch_id = ?
+                     AND j.payment_id IS NOT NULL
+               )`,
+            [date, branchId, date, branchId]
+        );
+
+        // 5. Other income counts (from customer_payments with book_type = 'Other')
         const [[otherIncome]] = await pool.query(
             `SELECT COUNT(*) as count,
                     COALESCE(SUM(advance_paid), 0) as total_collected
-             FROM sarga_jobs
-             WHERE DATE(created_at) = ? AND branch_id = ? AND category = 'Other'`,
+             FROM sarga_customer_payments
+             WHERE DATE(payment_date) = ? AND branch_id = ? AND book_type = 'Other'`,
             [date, branchId]
         );
 
@@ -729,10 +1192,10 @@ router.get('/live-counts', auth.authenticate, async (req, res) => {
             laser: {
                 machine_count: machineCount.count,
                 total_copies: Number(machineCopies.total),
-                income_count: laserIncome.count,
-                total_collected: Number(laserIncome.total_cash) + Number(laserIncome.total_upi),
-                total_cash_in: Number(laserIncome.total_cash),
-                total_upi_in: Number(laserIncome.total_upi)
+                income_count: Number(laserIncome.count) + Number(laserBilling.count),
+                total_collected: Number(laserIncome.total_cash) + Number(laserIncome.total_upi) + Number(laserBilling.total_cash) + Number(laserBilling.total_upi),
+                total_cash_in: Number(laserIncome.total_cash) + Number(laserBilling.total_cash),
+                total_upi_in: Number(laserIncome.total_upi) + Number(laserBilling.total_upi)
             },
             other: {
                 income_count: otherIncome.count,

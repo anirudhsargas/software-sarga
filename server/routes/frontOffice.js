@@ -105,6 +105,57 @@ router.get('/front-office/attendance-reminder', authenticateToken, async (req, r
     }
 });
 
+// ─── FRONT OFFICE: MARK ATTENDANCE (batch or single) ─────────────────────
+router.post('/front-office/attendance', authenticateToken, async (req, res) => {
+    try {
+        const allowedRoles = ['Admin', 'Accountant', 'Front Office', 'front office'];
+        if (!allowedRoles.includes(req.user.role)) {
+            return res.status(403).json({ message: 'Only Admin/Accountant/Front Office can record attendance' });
+        }
+
+        const { staff_id, status, notes, time, gone_time, attendance_date } = req.body;
+        if (!staff_id || !status) {
+            return res.status(400).json({ message: 'staff_id and status are required' });
+        }
+
+        const validStatus = ['Present', 'Absent', 'Half Day'];
+        if (!validStatus.includes(status)) {
+            return res.status(400).json({ message: 'Invalid status. Only Present, Absent, Half Day allowed.' });
+        }
+
+        const date = attendance_date || new Date().toISOString().split('T')[0];
+
+        // Prevent future dates
+        const today = new Date().toISOString().split('T')[0];
+        if (date > today) {
+            return res.status(400).json({ message: 'Cannot mark attendance for future dates.' });
+        }
+
+        const in_time = time
+            ? (time.length === 5 ? time + ':00' : time)
+            : (['Present', 'Half Day'].includes(status) ? new Date().toTimeString().slice(0, 8) : null);
+        const out_time = gone_time
+            ? (gone_time.length === 5 ? gone_time + ':00' : gone_time)
+            : null;
+
+        await pool.query(`
+            INSERT INTO sarga_staff_attendance 
+            (staff_id, attendance_date, status, notes, in_time, out_time, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE 
+            status = VALUES(status), 
+            notes = VALUES(notes),
+            in_time = COALESCE(VALUES(in_time), in_time),
+            out_time = COALESCE(VALUES(out_time), out_time)
+        `, [staff_id, date, status, notes || null, in_time, out_time, req.user.id]);
+
+        res.json({ message: 'Attendance recorded successfully' });
+    } catch (err) {
+        console.error('[FrontOffice] Attendance error:', err);
+        res.status(500).json({ message: 'Failed to record attendance' });
+    }
+});
+
 const { paginate } = require('../helpers/pagination');
 
 // ─── FRONT OFFICE DASHBOARD ─────────────────────────────────────────
@@ -118,101 +169,117 @@ router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
 
         // Limit dashboard queries to last 90 days for performance
         const recentWhere = ` AND j.created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)`;
-
-        // 1. Quick Stats ──────────────────
-        const [[todayOrders]] = await pool.query(
-            `SELECT COUNT(*) as count FROM sarga_jobs j WHERE DATE(j.created_at) = ? ${branchWhere}`,
-            [today, ...branchParams]
-        );
-        const [[inProgress]] = await pool.query(
-            `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') ${branchWhere}`,
-            branchParams
-        );
-        const [[readyPickup]] = await pool.query(
-            `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status = 'Completed' ${branchWhere}`,
-            branchParams
-        );
-        const [[totalDue]] = await pool.query(
-            `SELECT COALESCE(SUM(j.balance_amount), 0) as amount FROM sarga_jobs j WHERE j.status != 'Cancelled' ${branchWhere}`,
-            branchParams
-        );
         const payBranchWhere = branchId ? ' AND p.branch_id = ?' : '';
-        const [[todayCollections]] = await pool.query(
-            `SELECT COALESCE(SUM(p.advance_paid), 0) as amount FROM sarga_customer_payments p WHERE DATE(p.payment_date) = ? ${payBranchWhere}`,
-            [today, ...(branchId ? [branchId] : [])]
-        );
-        const [[deliveredToday]] = await pool.query(
-            `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status = 'Delivered' AND DATE(j.updated_at) = ? ${branchWhere}`,
-            [today, ...branchParams]
-        );
-
-        // 2. Active Jobs Queue (last 90 days, only needed fields)
-        const [activeJobs] = await pool.query(
-            `SELECT j.id, j.job_number, j.job_name, j.status, j.total_amount, j.balance_amount, j.delivery_date, COALESCE(c.name, 'Walk-in') as customer_name
-             FROM sarga_jobs j
-             LEFT JOIN sarga_customers c ON j.customer_id = c.id
-             WHERE j.status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') ${branchWhere} ${recentWhere}
-             ORDER BY
-                CASE j.status
-                    WHEN 'Processing' THEN 1
-                    WHEN 'Designing' THEN 2
-                    WHEN 'Printing' THEN 3
-                    WHEN 'Pending' THEN 4
-                    ELSE 5
-                END,
-                j.delivery_date ASC, j.created_at DESC
-             LIMIT 50`,
-            branchParams
-        );
-
-        // 3. Overdue Jobs (delivery_date passed, not delivered) ────
-        const [overdueJobs] = await pool.query(
-            `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid,
-                    j.status, j.delivery_date, j.created_at, j.category,
-                    COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
-             FROM sarga_jobs j
-             LEFT JOIN sarga_customers c ON j.customer_id = c.id
-             WHERE j.delivery_date < ? AND j.status NOT IN ('Delivered', 'Cancelled') ${branchWhere}
-             ORDER BY j.delivery_date ASC
-             LIMIT 20`,
-            [today, ...branchParams]
-        );
-
-        // 4. Due Collection ── Customers with due balances ─────────
         const custBranchWhere = branchId ? ' AND j.branch_id = ?' : '';
-        const [dueCustomers] = await pool.query(
-            `SELECT c.id, c.name, c.mobile,
-                    COUNT(j.id) as job_count,
-                    SUM(j.total_amount) as total_billed,
-                    SUM(j.advance_paid) as total_paid,
-                    SUM(CASE WHEN (j.total_amount - j.advance_paid) >= 1 THEN (j.total_amount - j.advance_paid) ELSE 0 END) as due_amount
-             FROM sarga_customers c
-             INNER JOIN sarga_jobs j ON j.customer_id = c.id AND j.status != 'Cancelled'
-             WHERE 1=1 ${custBranchWhere}
-             GROUP BY c.id
-             HAVING due_amount >= 1
-             ORDER BY due_amount DESC
-             LIMIT 30`,
-            branchId ? [branchId] : []
-        );
 
-        // 5. Recent Payments (today + yesterday) ──────────────────
-        const [recentPayments] = await pool.query(
-            `SELECT p.id, p.advance_paid as amount, p.payment_method, p.payment_date, p.created_at,
-                    COALESCE(c.name, 'Walk-in') as customer_name
-             FROM sarga_customer_payments p
-             LEFT JOIN sarga_customers c ON p.customer_id = c.id
-             WHERE p.payment_date >= DATE_SUB(?, INTERVAL 1 DAY) ${payBranchWhere}
-             ORDER BY p.created_at DESC
-             LIMIT 15`,
-            [today, ...(branchId ? [branchId] : [])]
-        );
+        // Run all queries in parallel for maximum performance
+        const [
+            [[todayOrders]],
+            [[inProgress]],
+            [[readyPickup]],
+            [[totalDue]],
+            [[todayCollections]],
+            [[deliveredToday]],
+            [activeJobs],
+            [overdueJobs],
+            [dueCustomers],
+            [recentPayments],
+            [statusCounts],
+        ] = await Promise.all([
+            // 1. Today's orders
+            pool.query(
+                `SELECT COUNT(*) as count FROM sarga_jobs j WHERE DATE(j.created_at) = ? ${branchWhere}`,
+                [today, ...branchParams]
+            ),
+            // 2. In-progress jobs
+            pool.query(
+                `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') ${branchWhere}`,
+                branchParams
+            ),
+            // 3. Ready for pickup
+            pool.query(
+                `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status = 'Completed' ${branchWhere}`,
+                branchParams
+            ),
+            // 4. Total due amount
+            pool.query(
+                `SELECT COALESCE(SUM(j.balance_amount), 0) as amount FROM sarga_jobs j WHERE j.status != 'Cancelled' ${branchWhere}`,
+                branchParams
+            ),
+            // 5. Today's collections
+            pool.query(
+                `SELECT COALESCE(SUM(p.advance_paid), 0) as amount FROM sarga_customer_payments p WHERE DATE(p.payment_date) = ? ${payBranchWhere}`,
+                [today, ...(branchId ? [branchId] : [])]
+            ),
+            // 6. Delivered today
+            pool.query(
+                `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status = 'Delivered' AND DATE(j.updated_at) = ? ${branchWhere}`,
+                [today, ...branchParams]
+            ),
+            // 7. Active Jobs Queue (last 90 days, only needed fields)
+            pool.query(
+                `SELECT j.id, j.job_number, j.job_name, j.status, j.total_amount, j.balance_amount, j.delivery_date, COALESCE(c.name, 'Walk-in') as customer_name
+                 FROM sarga_jobs j
+                 LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                 WHERE j.status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') ${branchWhere} ${recentWhere}
+                 ORDER BY
+                    CASE j.status
+                        WHEN 'Processing' THEN 1
+                        WHEN 'Designing' THEN 2
+                        WHEN 'Printing' THEN 3
+                        WHEN 'Pending' THEN 4
+                        ELSE 5
+                    END,
+                    j.delivery_date ASC, j.created_at DESC
+                 LIMIT 50`,
+                branchParams
+            ),
+            // 8. Overdue Jobs (delivery_date passed, not delivered)
+            pool.query(
+                `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid,
+                        j.status, j.delivery_date, j.created_at, j.category,
+                        COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
+                 FROM sarga_jobs j
+                 LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                 WHERE j.delivery_date < ? AND j.status NOT IN ('Delivered', 'Cancelled') ${branchWhere}
+                 ORDER BY j.delivery_date ASC
+                 LIMIT 20`,
+                [today, ...branchParams]
+            ),
+            // 9. Due Collection — customers with outstanding balances (last 6 months)
+            pool.query(
+                `SELECT c.id, c.name, c.mobile,
+                        COUNT(j.id) as job_count,
+                        SUM(j.total_amount) as total_billed,
+                        SUM(j.advance_paid) as total_paid,
+                        SUM(CASE WHEN (j.total_amount - j.advance_paid) >= 1 THEN (j.total_amount - j.advance_paid) ELSE 0 END) as due_amount
+                 FROM sarga_customers c
+                 INNER JOIN sarga_jobs j ON j.customer_id = c.id AND j.status != 'Cancelled'
+                 WHERE j.created_at > DATE_SUB(NOW(), INTERVAL 6 MONTH) ${custBranchWhere}
+                 GROUP BY c.id
+                 HAVING due_amount >= 1
+                 ORDER BY due_amount DESC
+                 LIMIT 30`,
+                branchId ? [branchId] : []
+            ),
+            // 10. Recent Payments (today + yesterday)
+            pool.query(
+                `SELECT p.id, p.advance_paid as amount, p.payment_method, p.payment_date, p.created_at,
+                        COALESCE(c.name, 'Walk-in') as customer_name
+                 FROM sarga_customer_payments p
+                 LEFT JOIN sarga_customers c ON p.customer_id = c.id
+                 WHERE p.payment_date >= DATE_SUB(?, INTERVAL 1 DAY) ${payBranchWhere}
+                 ORDER BY p.created_at DESC
+                 LIMIT 15`,
+                [today, ...(branchId ? [branchId] : [])]
+            ),
+            // 11. Status breakdown
+            pool.query(
+                `SELECT j.status, COUNT(*) as count FROM sarga_jobs j WHERE j.status != 'Cancelled' ${branchWhere} GROUP BY j.status`,
+                branchParams
+            ),
+        ]);
 
-        // 6. Status breakdown ─────────────────────────────────────
-        const [statusCounts] = await pool.query(
-            `SELECT j.status, COUNT(*) as count FROM sarga_jobs j WHERE j.status != 'Cancelled' ${branchWhere} GROUP BY j.status`,
-            branchParams
-        );
         const statusMap = {};
         statusCounts.forEach(r => statusMap[r.status] = r.count);
 
@@ -429,7 +496,7 @@ router.get('/front-office/delivered', authenticateToken, async (req, res) => {
              LIMIT ? OFFSET ?`,
             [...branchParams, limit, offset]
         );
-        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total));
+        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.balance_amount), 0), delivery_date: j.delivery_date || j.updated_at })), total));
     } catch (err) {
         console.error('Delivered jobs error:', err);
         res.status(500).json({ message: 'Failed to load delivered jobs' });

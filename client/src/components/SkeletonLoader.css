@@ -17,68 +17,59 @@
   100% { background-position: 0% 50%; }
 }
 
-.skeleton-grid {
+/* ═══ FrontOffice stat cards skeleton ═══ */
+.skeleton-fo-stats {
   display: grid;
-  gap: 16px;
-  width: 100%;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  padding: 0;
+  margin-bottom: 24px;
 }
 
-.skeleton-grid--cards {
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+.skeleton-fo-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   padding: 16px;
-}
-
-.skeleton-card {
-  height: 80px;
-  border: 1px solid var(--border, #e0e0e0);
-  border-radius: 8px;
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  border-radius: var(--radius, 8px);
   background: var(--surface, #ffffff);
+  border: 1.5px solid var(--border, #e0e0e0);
+  min-height: 70px;
 }
 
-.skeleton-card-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-}
-
-.skeleton-card-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(
-    90deg,
-    var(--surface, #f5f5f5) 0%,
-    var(--border, #e0e0e0) 40%,
-    var(--surface, #f5f5f5) 80%
-  );
-  background-size: 300% 100%;
-  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+.skeleton-fo-card__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   flex-shrink: 0;
 }
 
-.skeleton-card-text {
+.skeleton-fo-card__body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   flex: 1;
+  min-width: 0;
 }
 
-.skeleton-card-title {
-  height: 12px;
-  width: 80%;
+.skeleton-fo-card__value {
+  height: 22px;
+  width: 50%;
 }
 
-.skeleton-card-value {
-  height: 14px;
-  width: 60%;
+.skeleton-fo-card__label {
+  height: 11px;
+  width: 75%;
 }
 
-/* Table Skeleton */
+@media (max-width: 1100px) {
+  .skeleton-fo-stats { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 600px) {
+  .skeleton-fo-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ═══ Table skeleton ═══ */
 .skeleton-table-wrapper {
   display: flex;
   flex-direction: column;
@@ -101,7 +92,7 @@
   padding: 12px;
   border-bottom: 1px solid var(--border, #e5e7eb);
   align-items: center;
-  height: 48px;
+  min-height: 48px;
 }
 
 .skeleton-row:last-child {
@@ -127,6 +118,13 @@
   overflow: hidden;
 }
 
+.skeleton-cell--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  justify-content: center;
+}
+
 .skeleton-cell--header {
   height: auto;
   background: none;
@@ -136,17 +134,14 @@
   color: var(--text-secondary, #6b7280);
 }
 
-.skeleton-cell--job-details {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  justify-content: center;
-}
-
 .skeleton-box--line {
   height: 12px;
   width: 100%;
   border-radius: 4px;
+}
+
+.skeleton-box--short {
+  width: 60%;
 }
 
 .skeleton-box--pill {
@@ -170,15 +165,136 @@
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-/* Form Skeleton */
+/* ═══ Customer list skeleton ═══ */
+.skeleton-customer-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-customer-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border, #e0e0e0);
+}
+
+.skeleton-customer-row:last-child {
+  border-bottom: none;
+}
+
+.skeleton-customer-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-customer-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-customer-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skeleton-customer-name {
+  height: 14px;
+  width: 120px;
+}
+
+.skeleton-customer-badge {
+  height: 16px;
+  width: 50px;
+  border-radius: 8px;
+}
+
+.skeleton-customer-phone {
+  height: 12px;
+  width: 140px;
+}
+
+.skeleton-customer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.skeleton-customer-btn {
+  height: 30px;
+  width: 60px;
+  border-radius: 6px;
+}
+
+.skeleton-customer-btn-row {
+  display: flex;
+  gap: 5px;
+}
+
+.skeleton-customer-btn-sm {
+  height: 30px;
+  width: 34px;
+  border-radius: 6px;
+}
+
+/* ═══ Attendance / Salary dashboard skeleton ═══ */
+.skeleton-attendance-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.skeleton-attendance-card {
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #e0e0e0);
+}
+
+.skeleton-calendar {
+  background: var(--surface, #ffffff);
+  border-radius: 12px;
+  border: 1px solid var(--border, #e0e0e0);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.skeleton-calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.skeleton-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.skeleton-calendar-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e0e0e0);
+  background: var(--surface, #ffffff);
+}
+
+/* ═══ Form skeleton ═══ */
 .skeleton-form {
   display: flex;
   flex-direction: column;
@@ -246,7 +362,7 @@
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   .skeleton-box,
-  .skeleton-card-icon,
+  .skeleton-fo-card__icon,
   .skeleton-label,
   .skeleton-input,
   .skeleton-button {
@@ -258,7 +374,11 @@
     --header-bg: #111827;
   }
 
-  .skeleton-card {
+  .skeleton-fo-card,
+  .skeleton-customer-row,
+  .skeleton-attendance-card,
+  .skeleton-calendar,
+  .skeleton-calendar-cell {
     --border: #374151;
     background: #1f2937;
   }

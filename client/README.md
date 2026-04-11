@@ -1,3 +1,6 @@
+> Master Context: [../SARGA_WORK_CONTEXT.md](../SARGA_WORK_CONTEXT.md)
+> Source of truth for project state, architecture, and workflow decisions.
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
