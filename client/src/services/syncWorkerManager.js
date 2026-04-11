@@ -15,7 +15,8 @@ class SyncWorkerManager {
       return;
     }
 
-    this.worker = new Worker('/syncWorker.js');
+    // Load the versioned worker to ensure clients pick up updates
+    this.worker = new Worker('/syncWorker.v2.js');
 
     // Handle messages from worker
     this.worker.onmessage = (event) => {
@@ -29,13 +30,27 @@ class SyncWorkerManager {
     };
 
     // Send config to worker
-    const token = localStorage.getItem('token') ||
-                  sessionStorage.getItem('token') || '';
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+
+    // Resolve API base URL with fallbacks so production clients still work
+    // even when build-time env var is not present (e.g. missing Vercel env).
+    let apiBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+    if (!apiBaseUrl) {
+      // Known production backend fallback for hosted app
+      const host = window.location.hostname || '';
+      if (host.includes('software-sarga.vercel.app') || host.includes('software-sarga')) {
+        apiBaseUrl = 'https://sarga-backend-prod.fly.dev/api';
+      } else {
+        // Default to same origin /api as last resort (useful for local preview)
+        apiBaseUrl = window.location.origin + '/api';
+      }
+      console.warn('[SyncWorkerManager] VITE_API_URL missing; using fallback:', apiBaseUrl);
+    }
 
     this.worker.postMessage({
       type: 'INIT',
       payload: {
-        apiBaseUrl: import.meta.env.VITE_API_URL || '',
+        apiBaseUrl,
         token,
         dbName: 'sarga-offline'
       }
