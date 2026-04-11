@@ -1,5 +1,4 @@
 const Imap = require('imap');
-const { simpleParser } = require('mailparser');
 const { pool } = require('../database');
 
 const FROM_ADDRESS = 'hdfcbankbillpay@billdesk.in';
@@ -183,23 +182,33 @@ async function runBillParser() {
 
           f.on('message', (msg, seqno) => {
             let uid = null;
-            msg.once('attributes', (attrs) => { uid = attrs.uid; });
+            let envelope = null;
+            msg.once('attributes', (attrs) => { uid = attrs.uid; envelope = attrs.envelope; });
 
             msg.on('body', (stream) => {
-              simpleParser(stream).then(async (parsed) => {
-                report.processed += 1;
+              // Read raw stream into string and perform simple parsing
+              const chunks = [];
+              stream.on('data', (chunk) => chunks.push(chunk));
+              stream.on('end', async () => {
                 try {
+                  const raw = Buffer.concat(chunks).toString('utf8');
+                  // Attempt to get subject from envelope, fallback to raw headers
+                  const subject = (envelope && envelope.subject) ? String(envelope.subject) : ((raw.match(/^Subject:\s*(.+)$/mi) || [])[1] || '');
+                  // Strip headers (up to first blank line) to get body
+                  const bodyMatch = raw.split(/\r?\n\r?\n/);
+                  const body = bodyMatch.length > 1 ? bodyMatch.slice(1).join('\n\n') : raw;
+                  // Remove simple HTML tags if present
+                  const text = body.replace(/<[^>]+>/g, ' ');
+                  const parsed = { subject, text };
+                  report.processed += 1;
                   const res = await processParsedEmail(parsed, uid, imap);
                   if (res && res.inserted) report.inserted += 1;
                   if (res && res.skipped) report.skipped += 1;
                 } catch (err) {
-                  console.error('Processing email failed:', err.message);
+                  console.error('Failed to parse/process raw email:', err.message);
                   report.errors.push(err.message);
+                  if (imap && uid) try { imap.addFlags(uid, '\\Seen', () => {}); } catch (e) {}
                 }
-              }).catch(err => {
-                console.error('Failed to parse email body:', err.message);
-                report.errors.push(err.message);
-                if (imap && uid) try { imap.addFlags(uid, '\\Seen', () => {}); } catch (e) {}
               });
             });
 
