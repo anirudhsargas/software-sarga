@@ -1317,6 +1317,11 @@ const initDb = async () => {
       )
     `);
 
+    // Add book_type to machines (Offset/Laser/Other) if missing
+    try {
+      await connection.query("ALTER TABLE sarga_machines ADD COLUMN book_type ENUM('Offset','Laser','Other') DEFAULT NULL");
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+
     // Machine Daily Readings Table
     await connection.query(`
       CREATE TABLE IF NOT EXISTS sarga_machine_readings (
@@ -1457,6 +1462,7 @@ const initDb = async () => {
         report_date DATE NOT NULL,
         machine_id INT NOT NULL,
         branch_id INT NOT NULL,
+        book_type ENUM('Offset','Laser','Other') DEFAULT NULL,
         opening_count INT NOT NULL DEFAULT 0,
         closing_count INT DEFAULT NULL,
         total_copies INT DEFAULT 0,
@@ -1478,6 +1484,11 @@ const initDb = async () => {
         UNIQUE KEY unique_machine_date (machine_id, report_date)
       )
     `);
+
+    // Ensure daily_report_machine has book_type column (upgrade-safe)
+    try {
+      await connection.query("ALTER TABLE sarga_daily_report_machine ADD COLUMN book_type ENUM('Offset','Laser','Other') DEFAULT NULL");
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
 
     // Machine Work Entries
     await connection.query(`
@@ -1511,6 +1522,23 @@ const initDb = async () => {
         FOREIGN KEY (report_id) REFERENCES sarga_daily_report_machine(id) ON DELETE CASCADE
       )
     `);
+
+    // Internal transfers between books (Offset / Laser / Other)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_internal_transfers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        branch_id INT NOT NULL,
+        from_book_type ENUM('Offset','Laser','Other') NOT NULL,
+        to_book_type ENUM('Offset','Laser','Other') NOT NULL,
+        amount DECIMAL(12,2) NOT NULL,
+        note TEXT,
+        created_by INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
+      )
+    `);
+    try { await connection.query("CREATE INDEX idx_internal_transfers_branch_date ON sarga_internal_transfers (branch_id, created_at)"); } catch (e) { if (e.code !== 'ER_DUP_KEYNAME') throw e; }
 
     // Credit Customer Master
     await connection.query(`

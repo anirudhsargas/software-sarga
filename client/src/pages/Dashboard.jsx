@@ -59,6 +59,7 @@ const CCTVAttendance = React.lazy(() => import('./CCTVAttendance'));
 const CCTVManagement = React.lazy(() => import('./CCTVManagement'));
 const ScheduleManagement = React.lazy(() => import('./ScheduleManagement'));
 const InternalUsageReport = React.lazy(() => import('./InternalUsageReport'));
+const InternalTransfers = React.lazy(() => import('./InternalTransfers'));
 const Quotes = React.lazy(() => import('./Quotes'));
 const SettingsPage = React.lazy(() => import('./SettingsPage'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
@@ -148,6 +149,7 @@ const Dashboard = () => {
         { name: 'Accounts & GST', icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
         { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office', 'Admin', 'Accountant'], group: 'business' },
         { name: 'Internal Usage Report', icon: BookOpen, path: '/dashboard/internal-usage-report', roles: ['Admin', 'Accountant'], group: 'business' },
+        { name: 'Internal Transfers', icon: BookOpen, path: '/dashboard/internal-transfers', roles: ['Admin', 'Accountant', 'Front Office'], group: 'finance' },
         // AI Features
         { name: 'Design Check', icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
         { name: 'Sales Prediction', icon: TrendingUp, path: '/dashboard/sales-prediction', roles: ['Admin', 'Accountant'], group: 'business' },
@@ -575,6 +577,7 @@ const Dashboard = () => {
                             <Route path="machines" element={<MachineManagement />} />
                             <Route path="daily-report" element={<DailyReport />} />
                             <Route path="internal-usage-report" element={<InternalUsageReport />} />
+                            <Route path="internal-transfers" element={<InternalTransfers />} />
                             <Route path="attendance-salary" element={<AttendanceSalary />} />
                             <Route path="ai-monitoring" element={<RequiresConnection feature="AI Monitoring"><AIMonitoring /></RequiresConnection>} />
                             <Route path="design-check" element={<RequiresConnection feature="Design Checker"><DesignChecker /></RequiresConnection>} />

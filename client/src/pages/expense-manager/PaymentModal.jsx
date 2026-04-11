@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, AlertTriangle, CheckCircle } from 'lucide-react';
 import { fmt } from './constants';
 import auth from '../../services/auth';
+import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) => {
   const [confirming, setConfirming] = useState(false);
@@ -11,7 +13,70 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
 
-  const canSubmit = form.amount && Number(form.amount) > 0 && form.payee_name;
+  const [assignedBooks, setAssignedBooks] = useState([]);
+  const [bookBalances, setBookBalances] = useState({ Offset: null, Laser: null, Other: null });
+  const [loadingBalances, setLoadingBalances] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferForm, setTransferForm] = useState({ from_book_type: '', to_book_type: '', amount: '', note: '' });
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get('/machines/my-books');
+        if (!mounted) return;
+        const books = res.data || [];
+        setAssignedBooks(books);
+        // If form doesn't already have a book_type, prefill with the first assigned book
+        if ((!form.book_type || form.book_type === '') && books.length > 0) {
+          setForm(p => ({ ...p, book_type: books[0] }));
+        }
+      } catch (err) {
+        if (!mounted) return;
+        setAssignedBooks([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // Fetch live balances for Offset/Laser/Other for the payment date (includes today's transfers/payments)
+  useEffect(() => {
+    let mounted = true;
+    const fetchBalances = async () => {
+      setLoadingBalances(true);
+      try {
+        const date = form.payment_date || (new Date()).toISOString().slice(0, 10);
+        const params = (id) => id ? `?date=${encodeURIComponent(date)}&branch_id=${encodeURIComponent(id)}` : `?date=${encodeURIComponent(date)}`;
+        const branchParam = form.branch_id || '';
+        const calls = [
+          api.get(`/daily-report/offset-live${params(branchParam)}`),
+          api.get(`/daily-report/laser-live${params(branchParam)}`),
+          api.get(`/daily-report/other-live${params(branchParam)}`)
+        ];
+        const [off, las, oth] = await Promise.all(calls);
+        if (!mounted) return;
+        const offBal = off.data?.summary?.cash_closing ?? null;
+        const lasBal = las.data?.summary?.cash_closing ?? null;
+        const othBal = oth.data?.summary?.cash_closing ?? null;
+        setBookBalances({ Offset: offBal, Laser: lasBal, Other: othBal });
+      } catch (err) {
+        if (!mounted) return;
+        setBookBalances({ Offset: null, Laser: null, Other: null });
+      } finally {
+        if (mounted) setLoadingBalances(false);
+      }
+    };
+    fetchBalances();
+    return () => { mounted = false; };
+  }, [form.branch_id, form.payment_date]);
+
+  const bookOptions = (assignedBooks && assignedBooks.length > 0) ? assignedBooks : ['Offset', 'Laser', 'Other'];
+
+  const selectedBookBalance = form.book_type ? bookBalances[form.book_type] : null;
+  const amountNumber = Number(form.amount) || 0;
+  const amountWithinBalance = selectedBookBalance == null || amountNumber <= Number(selectedBookBalance) + 0.0001;
+  const canSubmit = form.amount && amountNumber > 0 && form.payee_name && form.book_type && amountWithinBalance;
 
   // Auto-validate "Both" split
   const bothValid = form.payment_method !== 'Both' || (
@@ -23,6 +88,10 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
     setError('');
     if (!bothValid) {
       setError('Cash + UPI must equal total amount');
+      return;
+    }
+    if (!amountWithinBalance) {
+      setError('Amount exceeds available balance for the selected book');
       return;
     }
     setConfirming(true);
@@ -74,6 +143,35 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                   </select>
                 </div>
 
+                <div className="em-form-group">
+                  <label htmlFor="book_type">Daily Book</label>
+                  <select id="book_type" name="book_type" className="em-input" value={form.book_type || ''} onChange={e => setForm(p => ({ ...p, book_type: e.target.value }))}>
+                    <option value="">Select Book</option>
+                    {(bookOptions || []).map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                  {assignedBooks.length === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>No assigned book found — showing all options.</div>
+                  )}
+                </div>
+
+                <div className="em-form-group em-form-group--full" style={{ paddingTop: 6 }}>
+                  <label style={{ display: 'block', marginBottom: 6 }}>Available Balances</label>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {['Offset', 'Laser', 'Other'].map(b => (
+                      <div key={b} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ fontSize: 13, color: 'var(--muted)' }}>{b}:</div>
+                        <div style={{ fontWeight: 700 }}>{loadingBalances ? '—' : `₹${fmt(bookBalances[b] ?? 0)}`}</div>
+                        {(isAdmin || assignedBooks.length === 0 || assignedBooks.includes(b)) && (
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
+                            setShowTransfer(true);
+                            setTransferForm({ from_book_type: b, to_book_type: (['Offset','Laser','Other'].find(x => x !== b) || ''), amount: '', note: '' });
+                          }}>Transfer</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 {form.type === 'Vendor' && (vendors || []).length > 0 && (
                   <div className="em-form-group">
                     <label htmlFor="vendor_id">Vendor</label>
@@ -118,6 +216,14 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                   {isPartial && (
                     <div style={{ fontSize: 12, color: 'var(--warning)', marginTop: 4 }}>
                       Remaining after this: ₹{fmt(billTotal - payAmount)}
+                    </div>
+                  )}
+                  {!amountWithinBalance && (
+                    <div style={{ fontSize: 13, color: 'var(--error)', marginTop: 6 }}>
+                      Amount exceeds available balance for {form.book_type || 'the selected book'}.
+                      {form.book_type && selectedBookBalance != null && (
+                        <span> Available: ₹{fmt(selectedBookBalance)}</span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -184,6 +290,10 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                     <span className="em-confirm-summary__label">Category</span>
                     <span className="em-confirm-summary__value">{form.type}</span>
                   </div>
+                  <div className="em-confirm-summary__row">
+                    <span className="em-confirm-summary__label">Daily Book</span>
+                    <span className="em-confirm-summary__value">{form.book_type || '—'}</span>
+                  </div>
                   {isPartial && (
                     <div className="em-confirm-summary__row">
                       <span className="em-confirm-summary__label">Bill Total</span>
@@ -237,8 +347,84 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
               <button type="button" className="btn btn-ghost" onClick={() => setConfirming(false)}>← Back to Edit</button>
               <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Processing...' : 'Confirm Payment'}</button>
             </div>
-          </form>
+            </form>
         )}
+
+          {/* Inline Transfer Form */}
+          {showTransfer && (
+            <div style={{ padding: 16, borderTop: '1px solid var(--border)' }}>
+              <h3 style={{ margin: '0 0 8px 0' }}>Quick Internal Transfer</h3>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setTransferSubmitting(true);
+                try {
+                  const body = {
+                    from_book_type: transferForm.from_book_type,
+                    to_book_type: transferForm.to_book_type,
+                    amount: Number(transferForm.amount),
+                    note: transferForm.note || null,
+                    branch_id: form.branch_id || undefined
+                  };
+                  if (!body.from_book_type || !body.to_book_type || !body.amount || body.amount <= 0) {
+                    toast.error('Please provide a valid transfer');
+                    setTransferSubmitting(false);
+                    return;
+                  }
+                  const fromBal = bookBalances[body.from_book_type];
+                  if (fromBal != null && body.amount > Number(fromBal)) {
+                    toast.error('Transfer amount exceeds available balance');
+                    setTransferSubmitting(false);
+                    return;
+                  }
+                  await api.post('/internal-transfers', body);
+                  toast.success('Transfer created');
+                  setShowTransfer(false);
+                  // refresh balances
+                  const date = form.payment_date || (new Date()).toISOString().slice(0, 10);
+                  const params = (id) => id ? `?date=${encodeURIComponent(date)}&branch_id=${encodeURIComponent(id)}` : `?date=${encodeURIComponent(date)}`;
+                  const branchParam = form.branch_id || '';
+                  const [off, las, oth] = await Promise.all([
+                    api.get(`/daily-report/offset-live${params(branchParam)}`),
+                    api.get(`/daily-report/laser-live${params(branchParam)}`),
+                    api.get(`/daily-report/other-live${params(branchParam)}`)
+                  ]);
+                  setBookBalances({ Offset: off.data?.summary?.cash_closing ?? null, Laser: las.data?.summary?.cash_closing ?? null, Other: oth.data?.summary?.cash_closing ?? null });
+                } catch (err) {
+                  toast.error(err.response?.data?.error || 'Transfer failed');
+                } finally { setTransferSubmitting(false); }
+              }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ minWidth: 140 }}>
+                    <label className="label">From</label>
+                    <select className="input-field" value={transferForm.from_book_type} onChange={e => setTransferForm(f => ({ ...f, from_book_type: e.target.value }))}>
+                      {['Offset','Laser','Other'].map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                    {transferForm.from_book_type && bookBalances[transferForm.from_book_type] != null && (
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>Available: ₹{fmt(bookBalances[transferForm.from_book_type])}</div>
+                    )}
+                  </div>
+                  <div style={{ minWidth: 140 }}>
+                    <label className="label">To</label>
+                    <select className="input-field" value={transferForm.to_book_type} onChange={e => setTransferForm(f => ({ ...f, to_book_type: e.target.value }))}>
+                      {['Offset','Laser','Other'].filter(b => b !== transferForm.from_book_type).map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ minWidth: 120 }}>
+                    <label className="label">Amount (₹)</label>
+                    <input type="number" min="0" step="0.01" className="input-field" value={transferForm.amount} onChange={e => setTransferForm(f => ({ ...f, amount: e.target.value }))} placeholder="0.00" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <label className="label">Note</label>
+                    <input className="input-field" value={transferForm.note} onChange={e => setTransferForm(f => ({ ...f, note: e.target.value }))} placeholder="Optional note" />
+                  </div>
+                </div>
+                <div style={{ marginTop: 10, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => setShowTransfer(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={transferSubmitting}>{transferSubmitting ? 'Saving...' : 'Transfer'}</button>
+                </div>
+              </form>
+            </div>
+          )}
       </div>
     </div>
   );

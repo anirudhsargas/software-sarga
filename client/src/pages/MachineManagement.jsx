@@ -36,7 +36,8 @@ const MachineManagement = () => {
     const [formData, setFormData] = useState({
         machine_name: '', machine_type: 'Offset', counter_type: 'Manual',
         branch_id: '', location: '', ip_address: '', is_active: true,
-        snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: ''
+        snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: '',
+        book_type: 'Offset'
     });
     const [workForm, setWorkForm] = useState({
         customer_name: '', work_details: '', copies: '', payment_type: 'Cash',
@@ -224,7 +225,8 @@ const MachineManagement = () => {
             snmp_community: machine.snmp_community || 'public',
             mpr_requires_login: !!(machine.mpr_username),
             mpr_username: machine.mpr_username || '',
-            mpr_password: machine.mpr_password || ''
+            mpr_password: machine.mpr_password || '',
+            book_type: machine.book_type || 'Offset'
         });
         setShowModal(true);
     };
@@ -269,7 +271,7 @@ const MachineManagement = () => {
     };
 
     const resetForm = () => {
-        setFormData({ machine_name: '', machine_type: 'Offset', counter_type: 'Manual', branch_id: '', location: '', ip_address: '', is_active: true, snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: '' });
+        setFormData({ machine_name: '', machine_type: 'Offset', counter_type: 'Manual', branch_id: '', location: '', ip_address: '', is_active: true, snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: '', book_type: 'Offset' });
         setEditingMachine(null);
     };
 
@@ -445,6 +447,16 @@ const MachineManagement = () => {
                                 <div className="text-sm muted" style={{ marginBottom: 4 }}>Today Opening</div>
                                 <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono, monospace)' }}>
                                     {machineDetails.today_reading ? fmt(machineDetails.today_reading.opening_count) : '—'}
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Daily Book</label>
+                                    <select className="input-field"
+                                        value={formData.book_type}
+                                        onChange={e => setFormData({ ...formData, book_type: e.target.value })}>
+                                        {BOOK_TYPES.map(bt => (
+                                            <option key={bt.key} value={bt.key}>{bt.label}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
                             <div className="panel" style={{ padding: 16, textAlign: 'center' }}>

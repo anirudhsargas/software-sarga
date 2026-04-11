@@ -5,7 +5,7 @@ import localDb from '../services/localDb';
 import SecureImage from '../components/SecureImage';
 import auth from '../services/auth';
 import { serverToday } from '../services/serverTime';
-import { Camera, Download, Printer, Scissors, WifiOff, Plus, Minus, AlertCircle, Tag, X, CheckCircle, Loader2 } from 'lucide-react';
+import { Camera, Download, Printer, Scissors, WifiOff, Plus, Minus, AlertCircle, Tag, X, CheckCircle, Loader2, Building2 } from 'lucide-react';
 import ScannerModal from '../components/ScannerModal';
 import PaperOptimizer from '../components/PaperOptimizer';
 import { calculateProductPrice } from '../utils/pricing';
@@ -105,6 +105,9 @@ const Billing = () => {
 
   // Internal billing state
   const [internalClients, setInternalClients] = useState([]);
+  const [showInternalPanel, setShowInternalPanel] = useState(false);
+  const [internalPanelLoading, setInternalPanelLoading] = useState(false);
+  const [internalPanelData, setInternalPanelData] = useState([]);
   const isInternalBill = existingCustomer?.client_type === INTERNAL_CLIENT_TYPE;
 
   // Discount states
@@ -381,6 +384,30 @@ const Billing = () => {
     fetchInternalClients();
   }, []);
 
+  const fetchInternalPanelData = async (daysBack = 7) => {
+    try {
+      setInternalPanelLoading(true);
+      const to = new Date();
+      const from = new Date();
+      from.setDate(to.getDate() - daysBack);
+      const toStr = to.toISOString().split('T')[0];
+      const fromStr = from.toISOString().split('T')[0];
+      const res = await api.get('/daily-report/internal-usage', { params: { from: fromStr, to: toStr } });
+      const bills = res.data?.bills || [];
+      setInternalPanelData(bills);
+    } catch (err) {
+      console.error('Failed to load internal transactions for panel:', err);
+      setInternalPanelData([]);
+    } finally {
+      setInternalPanelLoading(false);
+    }
+  };
+
+  const toggleInternalPanel = () => {
+    if (!showInternalPanel) fetchInternalPanelData();
+    setShowInternalPanel(v => !v);
+  };
+
   useEffect(() => {
     if (!hierarchy.length) return;
     if (!selectedCategoryId) {
@@ -434,7 +461,11 @@ const Billing = () => {
         const results = await localDb.getCustomers({ search: searchQuery });
 
         if (mobileQuery.length === 10) {
-          const match = results.find((c) => String(c.mobile || '') === mobileQuery);
+          let match = results.find((c) => String(c.mobile || '') === mobileQuery);
+          if (!match) {
+            // include internal clients in mobile lookup
+            match = internalClients.find((c) => String(c.mobile || '') === mobileQuery);
+          }
           if (!match) {
             setExistingCustomer(null);
             setCustomerMatches([]);
@@ -470,7 +501,20 @@ const Billing = () => {
     return () => {
       if (customerSearchRef.current) clearTimeout(customerSearchRef.current);
     };
-  }, [form.mobile, form.name]);
+  }, [form.mobile, form.name, internalClients]);
+
+  const internalMatches = useMemo(() => {
+    const mobileQuery = (form.mobile || '').trim();
+    const nameQuery = (form.name || '').trim().toLowerCase();
+    if (!mobileQuery && nameQuery.length < 1) return internalClients.slice(0, 6);
+    return internalClients
+      .filter((c) => {
+        if (mobileQuery && String(c.mobile || '').includes(mobileQuery)) return true;
+        if (nameQuery && (c.name || '').toLowerCase().includes(nameQuery)) return true;
+        return false;
+      })
+      .slice(0, 6);
+  }, [internalClients, form.mobile, form.name]);
 
   // Warn user before refresh/close if there's unsaved billing data
   useEffect(() => {
@@ -1527,6 +1571,13 @@ const Billing = () => {
                 <Download size={14} style={{ animation: offlineSyncing ? 'spin 1s linear infinite' : 'none' }} />
                 {offlineSyncing ? 'Downloading...' : 'Download for Offline'}
               </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+                  onClick={toggleInternalPanel}
+                >
+                  <Building2 size={14} /> Internal Txns
+                </button>
               {offlineLastSync && (
                 <span style={{ fontSize: 11, color: 'var(--muted)' }}>
                   Last synced: {offlineLastSync.toLocaleTimeString()}
@@ -1686,15 +1737,15 @@ const Billing = () => {
                     maxLength={100}
                   />
                   {fieldErrors.name && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.name}</span>}
-                  {(customerMatches.length > 0 || (internalClients.length > 0 && !existingCustomer && (form.name || '').trim().length < 2 && !form.mobile)) && (
+                  {(!existingCustomer && (customerMatches.length > 0 || internalMatches.length > 0)) && (
                     <div className="panel mt-8" style={{ padding: 8, maxHeight: 280, overflowY: 'auto' }}>
                       {/* Internal clients section */}
-                      {internalClients.length > 0 && !existingCustomer && (
+                      {internalMatches.length > 0 && !existingCustomer && (
                         <>
                           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '4px 8px', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--border, #e5e7eb)' }}>
                             ── Internal ──
                           </div>
-                          {internalClients.map((c) => (
+                          {internalMatches.map((c) => (
                             <button
                               key={`int-${c.id}`}
                               type="button"
@@ -1709,7 +1760,7 @@ const Billing = () => {
                             </button>
                           ))}
                         </>
-                      )}
+                      }
                       {/* Regular customer matches */}
                       {customerMatches.length > 0 && (
                         <>
@@ -3284,6 +3335,44 @@ const Billing = () => {
         </div>
       )
       }
+    {/* Internal Transactions Side Panel */}
+    {showInternalPanel && (
+      <div style={{ position: 'fixed', right: 20, top: 80, width: 380, height: 'calc(100% - 100px)', background: 'var(--surface, #fff)', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)', borderLeft: '1px solid var(--border)', zIndex: 1200, overflowY: 'auto', borderRadius: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottom: '1px solid var(--border)' }}>
+          <div style={{ fontWeight: 700 }}>Internal Transactions</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => fetchInternalPanelData(7)}>Last 7d</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => fetchInternalPanelData(30)}>30d</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowInternalPanel(false)}><X size={14} /></button>
+          </div>
+        </div>
+        <div style={{ padding: 12 }}>
+          {internalPanelLoading ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}><Loader2 className="animate-spin" size={18} /></div>
+          ) : internalPanelData.length === 0 ? (
+            <div className="muted" style={{ textAlign: 'center', padding: 20 }}>No internal transactions found for the selected period.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {internalPanelData.slice(0, 30).map((b) => (
+                <div key={b.id} style={{ padding: 8, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{b.customer_name || 'Internal'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{b.date ? new Date(b.date).toLocaleDateString() : ''}</div>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{b.description}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                    <div style={{ fontSize: 12 }}><strong>{b.prints || '—'}</strong> prints</div>
+                    <div style={{ fontSize: 12 }}><strong>{b.sheets || '—'}</strong> sheets</div>
+                    <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)' }}>{b.added_by || '—'}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
     </>
   );
 };

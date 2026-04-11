@@ -686,8 +686,26 @@ export async function getCustomerDashboard(customerId) {
 
     if (!customer) return null;
 
-    // Sort jobs by creation date
-    const jobs = (allJobs || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    // Include pending offline bills as synthetic jobs so newly created orders show up immediately
+    const pendingBills = await offlineDb.getAllBills();
+    const billsForCustomer = (pendingBills || []).filter(b => {
+        const cid = b.customerId != null ? Number(b.customerId) : (b.customer_id != null ? Number(b.customer_id) : null);
+        return cid === id;
+    });
+    const billsAsJobs = (billsForCustomer || []).filter(b => (b.status || b.syncStatus) !== 'synced').map(b => ({
+        id: b.offlineInvoiceRef || `local-bill-${b.id}`,
+        customer_name: b.customerName || b.customer_name || 'Walk-in',
+        customer_id: b.customerId || b.customer_id || id,
+        status: 'Pending',
+        total_amount: b.totalAmount || b.total_amount || 0,
+        advance_paid: b.advancePaid || b.advance_paid || 0,
+        created_at: (b.createdAt ? new Date(b.createdAt).toISOString() : new Date().toISOString()),
+        orderLines: b.orderLines || b.order_lines || [],
+        _isLocal: true,
+        syncStatus: b.syncStatus || 'pending',
+    }));
+
+    const jobs = [...billsAsJobs, ...(allJobs || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     // Fetch assignments for all these jobs
     const assignmentPromises = jobs.map(j => offlineDb.getAssignmentsByJob(j.id));

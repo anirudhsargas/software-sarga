@@ -288,6 +288,7 @@ app.use('/api', require('./routes/stockRequests'));
 
 // Three Books System Routes
 app.use('/api/machines', require('./routes/machines'));
+app.use('/api/internal-transfers', require('./routes/internalTransfers'));
 app.use('/api/daily-reports', require('./routes/dailyReports'));
 app.use('/api/daily-report', require('./routes/dailyReportUnified'));
 app.use('/api', require('./routes/backup'));

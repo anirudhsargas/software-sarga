@@ -579,7 +579,7 @@ const FrontOffice = () => {
                                     Attendance pending for {attendanceReminder.missing_count} staff
                                 </div>
                                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                                    Shop timing is 9 to 6. Please add attendance before {attendanceReminder.reminder_until} AM.
+                                    Shop timing is 9 to 8. Please add attendance before 11 AM.
                                 </div>
                             </div>
                         </div>

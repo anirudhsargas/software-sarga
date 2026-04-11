@@ -329,9 +329,19 @@ router.get('/previous-closing', auth.authenticate, async (req, res) => {
 
         const laserOpening = laserOpeningRows.length > 0 ? Number(laserOpeningRows[0].cash_opening) : 0;
         const otherOpening = otherOpeningRows.length > 0 ? Number(otherOpeningRows[0].cash_opening) : 0;
-        // closing = opening + Part A (MWE cash) + Part B (uncovered billing CP cash)
-        const laserClosing = laserOpening + Number(laserMweCash.total_cash || 0) + Number(laserCpCash.total_cash || 0);
-        const otherClosing = otherOpening + Number(otherIncome.total_cash || 0);
+        // Include internal transfers for previous date (incoming increases, outgoing decreases)
+        const [prevTransfers] = await pool.query(
+            `SELECT * FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
+            [previousDateStr, branchId]
+        );
+        const laserTransferIn = prevTransfers.reduce((s, t) => s + (t.to_book_type === 'Laser' ? Number(t.amount || 0) : 0), 0);
+        const laserTransferOut = prevTransfers.reduce((s, t) => s + (t.from_book_type === 'Laser' ? Number(t.amount || 0) : 0), 0);
+        const otherTransferIn = prevTransfers.reduce((s, t) => s + (t.to_book_type === 'Other' ? Number(t.amount || 0) : 0), 0);
+        const otherTransferOut = prevTransfers.reduce((s, t) => s + (t.from_book_type === 'Other' ? Number(t.amount || 0) : 0), 0);
+
+        // closing = opening + Part A (MWE cash) + Part B (uncovered billing CP cash) + transfers_in - transfers_out
+        const laserClosing = laserOpening + Number(laserMweCash.total_cash || 0) + Number(laserCpCash.total_cash || 0) + laserTransferIn - laserTransferOut;
+        const otherClosing = otherOpening + Number(otherIncome.total_cash || 0) + otherTransferIn - otherTransferOut;
 
         // Machines: last closing_count before today
         const [prevMachines] = await pool.query(
@@ -534,20 +544,61 @@ router.get('/offset-live', auth.authenticate, async (req, res) => {
             };
         });
 
-        // 4. Opening balance
+        // 4. Internal transfers for this date (affect totals)
+        const [transfers] = await pool.query(
+            `SELECT * FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
+            [date, branchId]
+        );
+        const transferEntries = (transfers || []).map(t => {
+            const amt = Number(t.amount || 0);
+            if (t.from_book_type === 'Offset') {
+                // Outgoing transfer from Offset
+                totalCashOut += amt;
+                return {
+                    id: `transfer-${t.id}`,
+                    type: 'expense',
+                    description: `Transfer to ${t.to_book_type}`,
+                    details: t.note || '',
+                    payment_method: 'Transfer',
+                    cash_amount: amt,
+                    upi_amount: 0,
+                    total: amt,
+                    time: t.created_at
+                };
+            } else if (t.to_book_type === 'Offset') {
+                // Incoming transfer to Offset
+                totalCashIn += amt;
+                return {
+                    id: `transfer-${t.id}`,
+                    type: 'income',
+                    description: `Transfer from ${t.from_book_type}`,
+                    details: t.note || '',
+                    payment_method: 'Transfer',
+                    cash_amount: amt,
+                    upi_amount: 0,
+                    total: amt,
+                    time: t.created_at
+                };
+            }
+            return null;
+        }).filter(Boolean);
+
+        // 5. Opening balance
         const [openingRows] = await pool.query(
             `SELECT cash_opening FROM sarga_daily_opening_balances
              WHERE report_date = ? AND branch_id = ? AND book_type = 'Offset'`,
             [date, branchId]
         );
         const cashOpening = openingRows.length > 0 ? Number(openingRows[0].cash_opening) : 0;
-
         const cashClosing = cashOpening + totalCashIn - totalCashOut;
 
+        const allEntries = [...workEntries, ...transferEntries, ...expenseEntries].sort((a, b) => new Date(b.time) - new Date(a.time));
+        const entryCount = allEntries.length;
+        const incomeCount = workEntries.length + transferEntries.filter(e => e.type === 'income').length;
+        const expenseCount = expenseEntries.length + transferEntries.filter(e => e.type === 'expense').length;
+
         res.json({
-            entries: [...workEntries, ...expenseEntries].sort((a, b) =>
-                new Date(b.time) - new Date(a.time)
-            ),
+            entries: allEntries,
             summary: {
                 cash_opening: cashOpening,
                 total_cash_in: totalCashIn,
@@ -557,9 +608,9 @@ router.get('/offset-live', auth.authenticate, async (req, res) => {
                 waste_prints: totalWastePrints,
                 proof_prints: totalProofPrints,
                 cash_closing: cashClosing,
-                entry_count: workEntries.length + expenseEntries.length,
-                income_count: workEntries.length,
-                expense_count: expenseEntries.length
+                entry_count: entryCount,
+                income_count: incomeCount,
+                expense_count: expenseCount
             }
         });
     } catch (error) {
@@ -789,6 +840,7 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
 
         // 5. Calculate totals (machine work entries + billing entries)
         let totalCashIn = 0, totalUpiIn = 0, totalCopies = 0;
+        let totalCashOut = 0, totalUpiOut = 0;
         let totalWastePrints = 0, totalProofPrints = 0;
         let internalPrints = 0, internalBillCount = 0;
         workEntries.forEach(e => {
@@ -845,29 +897,77 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
             });
         }
 
-        // 5. Opening balance
+        // 5. Internal transfers for this date (affect totals)
+        const [transfers] = await pool.query(
+            `SELECT * FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
+            [date, branchId]
+        );
+        const transferEntries = (transfers || []).map(t => {
+            const amt = Number(t.amount || 0);
+            if (t.from_book_type === 'Laser') {
+                totalCashOut += amt;
+                return {
+                    id: `transfer-${t.id}`,
+                    type: 'expense',
+                    machine_id: null,
+                    machine_name: null,
+                    description: `Transfer to ${t.to_book_type}`,
+                    details: t.note || '',
+                    copies: 0,
+                    payment_method: 'Transfer',
+                    cash_amount: amt,
+                    upi_amount: 0,
+                    total: amt,
+                    time: t.created_at
+                };
+            } else if (t.to_book_type === 'Laser') {
+                totalCashIn += amt;
+                return {
+                    id: `transfer-${t.id}`,
+                    type: 'income',
+                    machine_id: null,
+                    machine_name: null,
+                    description: `Transfer from ${t.from_book_type}`,
+                    details: t.note || '',
+                    copies: 0,
+                    payment_method: 'Transfer',
+                    cash_amount: amt,
+                    upi_amount: 0,
+                    total: amt,
+                    time: t.created_at
+                };
+            }
+            return null;
+        }).filter(Boolean);
+
+        // 6. Opening balance
         const [openingRows] = await pool.query(
             `SELECT cash_opening FROM sarga_daily_opening_balances
              WHERE report_date = ? AND branch_id = ? AND book_type = 'Laser'`,
             [date, branchId]
         );
         const cashOpening = openingRows.length > 0 ? Number(openingRows[0].cash_opening) : 0;
+        const cashClosing = cashOpening + totalCashIn - totalCashOut;
 
-        const cashClosing = cashOpening + totalCashIn;
+        const allEntries = [...workEntries, ...billingEntries, ...transferEntries].sort((a, b) => new Date(b.time) - new Date(a.time));
+        const entryCount = allEntries.length;
+        const incomeCount = workEntries.length + billingEntries.length + transferEntries.filter(e => e.type === 'income').length;
 
         res.json({
             machines: machineData,
-            entries: [...workEntries, ...billingEntries].sort((a, b) => new Date(b.time) - new Date(a.time)),
+            entries: allEntries,
             summary: {
                 cash_opening: cashOpening,
                 total_cash_in: totalCashIn,
                 total_upi_in: totalUpiIn,
+                total_cash_out: totalCashOut,
+                total_upi_out: totalUpiOut,
                 total_copies: totalCopies,
                 waste_prints: totalWastePrints,
                 proof_prints: totalProofPrints,
                 cash_closing: cashClosing,
                 machine_count: machines.length,
-                entry_count: workEntries.length + billingEntries.length,
+                entry_count: entryCount,
                 internal_prints: internalPrints,
                 internal_bill_count: internalBillCount
             }
@@ -967,6 +1067,45 @@ router.get('/other-live', auth.authenticate, async (req, res) => {
             };
         });
 
+        // Internal transfers affecting Other book
+        const [transfers] = await pool.query(
+            `SELECT * FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
+            [date, branchId]
+        );
+        let totalCashOut = 0, totalUpiOut = 0;
+        const transferEntries = (transfers || []).map(t => {
+            const amt = Number(t.amount || 0);
+            if (t.from_book_type === 'Other') {
+                totalCashOut += amt;
+                return {
+                    id: `transfer-${t.id}`,
+                    type: 'expense',
+                    description: `Transfer to ${t.to_book_type}`,
+                    details: t.note || '',
+                    payment_method: 'Transfer',
+                    cash_amount: amt,
+                    upi_amount: 0,
+                    total: amt,
+                    time: t.created_at
+                };
+            } else if (t.to_book_type === 'Other') {
+                // incoming
+                totalCashIn += amt;
+                return {
+                    id: `transfer-${t.id}`,
+                    type: 'income',
+                    description: `Transfer from ${t.from_book_type}`,
+                    details: t.note || '',
+                    payment_method: 'Transfer',
+                    cash_amount: amt,
+                    upi_amount: 0,
+                    total: amt,
+                    time: t.created_at
+                };
+            }
+            return null;
+        }).filter(Boolean);
+
         // Opening balance
         const [openingRows] = await pool.query(
             `SELECT cash_opening FROM sarga_daily_opening_balances
@@ -975,20 +1114,22 @@ router.get('/other-live', auth.authenticate, async (req, res) => {
         );
         const cashOpening = openingRows.length > 0 ? Number(openingRows[0].cash_opening) : 0;
 
-        const cashClosing = cashOpening + totalCashIn;
+        const cashClosing = cashOpening + totalCashIn - totalCashOut;
+
+        const allEntries = [...entries, ...transferEntries].sort((a, b) => new Date(b.time) - new Date(a.time));
 
         res.json({
-            entries,
+            entries: allEntries,
             summary: {
                 cash_opening: cashOpening,
                 total_cash_in: totalCashIn,
                 total_upi_in: totalUpiIn,
-                total_cash_out: 0,
-                total_upi_out: 0,
+                total_cash_out: totalCashOut,
+                total_upi_out: totalUpiOut,
                 waste_prints: totalWastePrints,
                 proof_prints: totalProofPrints,
                 cash_closing: cashClosing,
-                entry_count: entries.length
+                entry_count: allEntries.length
             }
         });
     } catch (error) {

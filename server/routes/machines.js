@@ -417,17 +417,17 @@ router.get('/:id', auth.authenticate, async (req, res) => {
 // ==================== CREATE MACHINE (ADMIN ONLY) ====================
 router.post('/', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
     try {
-        const { machine_name, machine_type, counter_type, branch_id, location, ip_address, snmp_community, mpr_username, mpr_password } = req.body;
+        const { machine_name, machine_type, counter_type, branch_id, location, ip_address, snmp_community, mpr_username, mpr_password, book_type } = req.body;
 
         if (!machine_name || !machine_type || !branch_id) {
             return res.status(400).json({ error: 'Machine name, type, and branch are required' });
         }
 
         const [result] = await pool.query(
-            `INSERT INTO sarga_machines (machine_name, machine_type, counter_type, branch_id, location, ip_address, snmp_community, mpr_username, mpr_password)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO sarga_machines (machine_name, machine_type, counter_type, branch_id, location, ip_address, snmp_community, mpr_username, mpr_password, book_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [machine_name, machine_type, counter_type || 'Manual', branch_id, location, ip_address || null,
-             snmp_community || 'public', mpr_username || null, mpr_password || null]
+             snmp_community || 'public', mpr_username || null, mpr_password || null, book_type || null]
         );
 
         const [machines] = await pool.query(
@@ -450,8 +450,7 @@ router.post('/', auth.authenticate, auth.requireRole(['Admin']), async (req, res
 router.put('/:id', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
     try {
         const { id } = req.params;
-        const { machine_name, machine_type, counter_type, branch_id, location, ip_address, is_active, snmp_community, mpr_username, mpr_password } = req.body;
-
+        const { machine_name, machine_type, counter_type, branch_id, location, ip_address, is_active, snmp_community, mpr_username, mpr_password, book_type } = req.body;
         const [existing] = await pool.query('SELECT id FROM sarga_machines WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ error: 'Machine not found' });
@@ -469,6 +468,7 @@ router.put('/:id', auth.authenticate, auth.requireRole(['Admin']), async (req, r
         if (snmp_community !== undefined) { updates.push('snmp_community = ?'); params.push(snmp_community || 'public'); }
         if (mpr_username !== undefined) { updates.push('mpr_username = ?'); params.push(mpr_username || null); }
         if (mpr_password !== undefined) { updates.push('mpr_password = ?'); params.push(mpr_password || null); }
+        if (book_type !== undefined) { updates.push('book_type = ?'); params.push(book_type || null); }
         if (is_active !== undefined) { updates.push('is_active = ?'); params.push(is_active ? 1 : 0); }
 
         if (updates.length === 0) {
@@ -835,13 +835,14 @@ router.post('/:id/work', auth.authenticate, async (req, res) => {
         if (existingReport.length > 0) {
             reportId = existingReport[0].id;
         } else {
-            const [machineInfo] = await pool.query('SELECT branch_id FROM sarga_machines WHERE id = ?', [id]);
+            const [machineInfo] = await pool.query('SELECT branch_id, book_type FROM sarga_machines WHERE id = ?', [id]);
             const branchId = machineInfo[0].branch_id;
+            const machineBookType = machineInfo[0].book_type || null;
 
             const [result] = await pool.query(
-                `INSERT INTO sarga_daily_report_machine (report_date, machine_id, branch_id, created_by)
-                 VALUES (?, ?, ?, ?)`,
-                [reportDate, id, branchId, user.id]
+                `INSERT INTO sarga_daily_report_machine (report_date, machine_id, branch_id, book_type, created_by)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [reportDate, id, branchId, machineBookType, user.id]
             );
             reportId = result.insertId;
         }

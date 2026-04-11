@@ -598,6 +598,19 @@ const JobDetail = () => {
         }
     };
 
+    // Navigate back safely: prefer history back, fallback to Jobs list
+    const handleBackClick = () => {
+        try {
+            if (window.history && window.history.length > 1) {
+                navigate(-1);
+            } else {
+                navigate('/dashboard/jobs');
+            }
+        } catch (e) {
+            navigate('/dashboard/jobs');
+        }
+    };
+
     if (loading) {
         return (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 12 }}>
@@ -610,7 +623,7 @@ const JobDetail = () => {
     if (error || !data) {
         return (
             <div style={{ padding: 24 }}>
-                <button onClick={() => navigate('/dashboard/jobs')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent, var(--accent))', marginBottom: 16 }}>
+                <button onClick={() => handleBackClick()} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent, var(--accent))', marginBottom: 16 }}>
                     <ArrowLeft size={18} /> Back
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--error)', padding: 16, background: 'var(--error-bg)', borderRadius: 8 }}>
@@ -639,7 +652,7 @@ const JobDetail = () => {
             <div className="job-detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
                 <div>
                     <button
-                        onClick={() => navigate('/dashboard/jobs')}
+                        onClick={() => handleBackClick()}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted, var(--muted))', marginBottom: 8, padding: 0 }}
                     >
                         <ArrowLeft size={16} /> Back to Jobs
