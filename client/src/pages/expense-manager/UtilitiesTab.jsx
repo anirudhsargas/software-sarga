@@ -37,6 +37,12 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
   const [billSaving, setBillSaving] = useState(false);
   const [billError, setBillError] = useState('');
   const [billSuccess, setBillSuccess] = useState('');
+  const [multipleConsumers, setMultipleConsumers] = useState(false);
+  const [billEntries, setBillEntries] = useState([]);
+
+  const [fetchingEmail, setFetchingEmail] = useState(false);
+  const [fetchReport, setFetchReport] = useState(null);
+  const [showFetchReport, setShowFetchReport] = useState(false);
 
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
@@ -138,11 +144,53 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
     setBillError('');
     setBillSuccess('');
     setShowBillForm(true);
+    setMultipleConsumers(false);
+    setBillEntries([{ connection_id: '', amount: '', bill_number: '' }]);
   };
 
   /* ── Submit Bill ── */
   const handleBillSubmit = async (e) => {
     e.preventDefault();
+    // Multiple electricity consumer entries
+    if (multipleConsumers && billForm.utility_type === 'Electricity') {
+      if (!billEntries || billEntries.length === 0) { setBillError('Please add at least one consumer entry'); return; }
+      for (const entry of billEntries) {
+        if (!entry.connection_id || !entry.amount || Number(entry.amount) <= 0) { setBillError('Each entry must have connection ID and a positive amount'); return; }
+      }
+      setBillSaving(true); setBillError(''); setBillSuccess('');
+      try {
+        const promises = billEntries.map(entry => {
+          const payload = {
+            utility_type: billForm.utility_type,
+            amount: entry.amount,
+            bill_number: entry.bill_number || billForm.bill_number || undefined,
+            bill_date: billForm.bill_date,
+            description: billForm.description,
+            connection_id: entry.connection_id
+          };
+          return api.post('/utility-bills', payload);
+        });
+        const results = await Promise.allSettled(promises);
+        const successCount = results.filter(r => r.status === 'fulfilled').length;
+        const failCount = results.filter(r => r.status === 'rejected').length;
+        if (successCount > 0) {
+          setBillSuccess(`${successCount} bills recorded${failCount ? `; ${failCount} failed` : ''}`);
+          setTimeout(() => {
+            setShowBillForm(false);
+            if (selectedUtility) openUtilityDetail(selectedUtility);
+            if (onRefresh) onRefresh();
+            setBillEntries([{ connection_id: '', amount: '', bill_number: '' }]);
+            setMultipleConsumers(false);
+          }, 800);
+        } else {
+          setBillError('Failed to record any bills');
+        }
+      } catch (err) {
+        setBillError(err.response?.data?.message || 'Failed to record bills');
+      } finally { setBillSaving(false); }
+      return;
+    }
+
     if (!billForm.amount || Number(billForm.amount) <= 0) { setBillError('Amount is required'); return; }
     setBillSaving(true); setBillError(''); setBillSuccess('');
     try {
@@ -156,6 +204,23 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
     } catch (err) {
       setBillError(err.response?.data?.message || 'Failed to record bill');
     } finally { setBillSaving(false); }
+  };
+
+  const addBillEntry = () => setBillEntries(p => [...p, { connection_id: '', amount: '', bill_number: '' }]);
+  const updateBillEntry = (idx, field, value) => setBillEntries(p => p.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+  const removeBillEntry = (idx) => setBillEntries(p => p.filter((_, i) => i !== idx));
+
+  const fetchBillsFromEmail = async () => {
+    setFetchingEmail(true);
+    try {
+      const r = await api.post('/utility-bills/fetch-from-email');
+      setFetchReport(r.data);
+      setShowFetchReport(true);
+      toast.success(r.data?.message || 'Fetched bills from email');
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to fetch bills from email');
+    } finally { setFetchingEmail(false); }
   };
 
   /* ── Open Utility Detail Dashboard ── */
@@ -309,9 +374,14 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
       <div className="em-filter-row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div className="em-section-title"><Zap size={18} /> Utility Payments</div>
         {isAdmin ? (
-          <button className="btn btn-primary btn-sm" onClick={() => setShowAddType(true)}>
-            <PlusCircle size={15} /> Add Utility Type
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-sm" onClick={fetchBillsFromEmail} disabled={fetchingEmail}>
+              {fetchingEmail ? <Loader2 className="spin" size={14} /> : <FileText size={14} />} {fetchingEmail ? 'Fetching...' : 'Fetch Bills from Email'}
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => setShowAddType(true)}>
+              <PlusCircle size={15} /> Add Utility Type
+            </button>
+          </div>
         ) : (
           <button className="btn btn-primary btn-sm" onClick={openRequestType}>
             <PlusCircle size={15} /> Request Utility Type
@@ -406,6 +476,24 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
         </div>
       )}
 
+      {/* ── Fetch From Email Report Modal ── */}
+      {showFetchReport && (
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowFetchReport(false); }}>
+          <div className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
+            <div className="em-modal__header">
+              <h2>Fetch Bills From Email</h2>
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowFetchReport(false)}><X size={18} /></button>
+            </div>
+            <div className="em-modal__body">
+              <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{JSON.stringify(fetchReport, null, 2)}</pre>
+            </div>
+            <div className="em-modal__footer">
+              <button className="btn btn-primary" onClick={() => setShowFetchReport(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Request Utility Type Modal (Front Office) ── */}
       {showRequestType && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowRequestType(false); }}>
@@ -448,22 +536,75 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                 {billError && <div className="em-alert em-alert--danger">{billError}</div>}
                 {billSuccess && <div className="em-alert em-alert--success">{billSuccess}</div>}
                 <div className="em-form-grid">
-                  <div className="em-form-group">
-                    <label>Amount (₹) *</label>
-                    <input className="em-input" type="number" step="0.01" min="0" required value={billForm.amount} onChange={e => setBillForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter bill amount" />
-                  </div>
-                  <div className="em-form-group">
-                    <label>Bill Number</label>
-                    <input className="em-input" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. ELEC-2026-001" />
-                  </div>
-                  <div className="em-form-group">
-                    <label>Bill Date</label>
-                    <input className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
-                  </div>
-                  <div className="em-form-group">
-                    <label>Connection ID / Account No.</label>
-                    <input className="em-input" value={billForm.connection_id} onChange={e => setBillForm(p => ({ ...p, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" />
-                  </div>
+                  {billForm.utility_type === 'Electricity' ? (
+                    <>
+                      <div className="em-form-group em-form-group--full">
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input type="checkbox" checked={multipleConsumers} onChange={e => setMultipleConsumers(e.target.checked)} />
+                          Record multiple consumer numbers
+                        </label>
+                      </div>
+
+                      {!multipleConsumers && (
+                        <div className="em-form-group">
+                          <label>Amount (₹) *</label>
+                          <input className="em-input" type="number" step="0.01" min="0" required value={billForm.amount} onChange={e => setBillForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter bill amount" />
+                        </div>
+                      )}
+
+                      <div className="em-form-group">
+                        <label>Bill Number</label>
+                        <input className="em-input" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. ELEC-2026-001" />
+                      </div>
+
+                      <div className="em-form-group">
+                        <label>Bill Date</label>
+                        <input className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
+                      </div>
+
+                      {multipleConsumers ? (
+                        <div className="em-form-group em-form-group--full">
+                          <label>Consumers</label>
+                          {billEntries.map((entry, idx) => (
+                            <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                              <input className="em-input" placeholder="Connection ID" value={entry.connection_id} onChange={e => updateBillEntry(idx, 'connection_id', e.target.value)} />
+                              <input className="em-input" placeholder="Amount (₹)" type="number" step="0.01" min="0" value={entry.amount} onChange={e => updateBillEntry(idx, 'amount', e.target.value)} />
+                              <input className="em-input" placeholder="Bill Number (optional)" value={entry.bill_number} onChange={e => updateBillEntry(idx, 'bill_number', e.target.value)} />
+                              <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => removeBillEntry(idx)} title="Remove"><Trash2 size={14} /></button>
+                            </div>
+                          ))}
+                          <div>
+                            <button type="button" className="btn btn-sm" onClick={addBillEntry}><Plus size={14} /> Add Consumer</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="em-form-group">
+                          <label>Connection ID / Account No.</label>
+                          <input className="em-input" value={billForm.connection_id} onChange={e => setBillForm(p => ({ ...p, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="em-form-group">
+                        <label>Amount (₹) *</label>
+                        <input className="em-input" type="number" step="0.01" min="0" required value={billForm.amount} onChange={e => setBillForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter bill amount" />
+                      </div>
+                      <div className="em-form-group">
+                        <label>Bill Number</label>
+                        <input className="em-input" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. ELEC-2026-001" />
+                      </div>
+                      <div className="em-form-group">
+                        <label>Bill Date</label>
+                        <input className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
+                      </div>
+                      <div className="em-form-group">
+                        <label>Connection ID / Account No.</label>
+                        <input className="em-input" value={billForm.connection_id} onChange={e => setBillForm(p => ({ ...p, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" />
+                      </div>
+                    </>
+                  )}
+
                   <div className="em-form-group em-form-group--full">
                     <label>Description</label>
                     <textarea className="em-input" rows={3} value={billForm.description} onChange={e => setBillForm(p => ({ ...p, description: e.target.value }))} placeholder="Bill details, period, meter reading etc." />

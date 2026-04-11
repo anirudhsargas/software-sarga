@@ -21,7 +21,7 @@ router.get('/search', authenticateToken, async (req, res) => {
       // ── Customers: search by name, mobile, email ──
       pool.query(
         `SELECT id, name, mobile, email, customer_type,
-                (SELECT COUNT(*) FROM sarga_new_jobs WHERE customer_id = c.id) AS job_count
+                (SELECT COUNT(*) FROM sarga_jobs WHERE customer_id = c.id) AS job_count
          FROM sarga_customers c
          WHERE name LIKE ? OR mobile LIKE ? OR email LIKE ?
          ORDER BY name ASC
@@ -35,7 +35,7 @@ router.get('/search', authenticateToken, async (req, res) => {
                 j.total_amount, j.created_at,
                 c.name AS customer_name, c.mobile AS customer_mobile,
                 p.name AS product_name
-         FROM sarga_new_jobs j
+         FROM sarga_jobs j
          LEFT JOIN sarga_customers c ON j.customer_id = c.id
          LEFT JOIN sarga_products p ON j.product_id = p.id
          WHERE j.job_number LIKE ? OR j.job_name LIKE ?

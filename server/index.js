@@ -282,6 +282,7 @@ app.use('/api', require('./routes/frontOffice'));
 app.use('/api', require('./routes/expenses'));
 app.use('/api', require('./routes/finance'));
 app.use('/api', require('./routes/expenses-extended'));
+app.use('/api', require('./routes/utilityEmail'));
 app.use('/api', require('./routes/coupons'));
 app.use('/api/stock-verification', require('./routes/stockVerification'));
 app.use('/api', require('./routes/stockRequests'));
@@ -289,6 +290,7 @@ app.use('/api', require('./routes/stockRequests'));
 // Three Books System Routes
 app.use('/api/machines', require('./routes/machines'));
 app.use('/api/internal-transfers', require('./routes/internalTransfers'));
+app.use('/api/admin/internal-books', require('./routes/internalBooks'));
 app.use('/api/daily-reports', require('./routes/dailyReports'));
 app.use('/api/daily-report', require('./routes/dailyReportUnified'));
 app.use('/api', require('./routes/backup'));
@@ -430,6 +432,14 @@ if (process.env.NODE_ENV !== 'test') {
                 console.log('[Cron] Seasonal analysis scheduled monthly (1st at 6:00 AM)');
             } catch (e) {
                 console.warn('[Warning] Seasonal cron not loaded:', e.message);
+            }
+
+            // Bill email parser cron — daily at 9:00 AM
+            try {
+                const { scheduleDaily } = require('./services/billScheduler');
+                scheduleDaily();
+            } catch (e) {
+                console.warn('[Warning] Bill email parser not loaded:', e.message);
             }
         });
     }).catch(err => {

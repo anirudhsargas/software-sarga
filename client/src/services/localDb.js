@@ -657,6 +657,7 @@ export async function getJobs(filters = {}) {
         const q = filters.search.toLowerCase();
         jobs = jobs.filter(j =>
             (j.customer_name && j.customer_name.toLowerCase().includes(q)) ||
+            (j.customer_mobile && j.customer_mobile.includes(q)) ||
             (j.product_name && j.product_name.toLowerCase().includes(q)) ||
             (j.description && j.description.toLowerCase().includes(q)) ||
             String(j.id).includes(q)

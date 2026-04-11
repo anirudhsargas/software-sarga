@@ -25,7 +25,6 @@ const defaultUpsell = { open: false, suggestions: [], loading: false, baseProduc
 
 const customerTypes = ['Walk-in', 'Retail', 'Association', 'Offset'];
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
-const INTERNAL_CLIENT_TYPE = 'internal';
 
 const Billing = () => {
   const [branches, setBranches] = useState([]);
@@ -103,12 +102,8 @@ const Billing = () => {
   const [scannedPreview, setScannedPreview] = useState(null); // { item, unitPrice, mrp } for inventory preview
   const [scannedQty, setScannedQty] = useState(1);
 
-  // Internal billing state
-  const [internalClients, setInternalClients] = useState([]);
-  const [showInternalPanel, setShowInternalPanel] = useState(false);
-  const [internalPanelLoading, setInternalPanelLoading] = useState(false);
-  const [internalPanelData, setInternalPanelData] = useState([]);
-  const isInternalBill = existingCustomer?.client_type === INTERNAL_CLIENT_TYPE;
+  // Internal billing is handled under the new Internal > Billing page
+  const isInternalBill = false;
 
   // Discount states
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -367,46 +362,9 @@ const Billing = () => {
 
     fetchHierarchy();
 
-    // Load internal clients for the dropdown
-    const fetchInternalClients = async () => {
-      try {
-        const all = await localDb.getCustomers();
-        setInternalClients((all || []).filter(c => c.client_type === 'internal'));
-      } catch {
-        // Fallback: try server
-        try {
-          const res = await api.get('/customers', { params: { cross_branch: 1, limit: 100 } });
-          const list = res.data?.data || res.data || [];
-          setInternalClients(list.filter(c => c.client_type === 'internal'));
-        } catch { /* ignore – will just not show internal clients */ }
-      }
-    };
-    fetchInternalClients();
+    // Internal clients are handled under Internal > Billing; not loaded here.
   }, []);
 
-  const fetchInternalPanelData = async (daysBack = 7) => {
-    try {
-      setInternalPanelLoading(true);
-      const to = new Date();
-      const from = new Date();
-      from.setDate(to.getDate() - daysBack);
-      const toStr = to.toISOString().split('T')[0];
-      const fromStr = from.toISOString().split('T')[0];
-      const res = await api.get('/daily-report/internal-usage', { params: { from: fromStr, to: toStr } });
-      const bills = res.data?.bills || [];
-      setInternalPanelData(bills);
-    } catch (err) {
-      console.error('Failed to load internal transactions for panel:', err);
-      setInternalPanelData([]);
-    } finally {
-      setInternalPanelLoading(false);
-    }
-  };
-
-  const toggleInternalPanel = () => {
-    if (!showInternalPanel) fetchInternalPanelData();
-    setShowInternalPanel(v => !v);
-  };
 
   useEffect(() => {
     if (!hierarchy.length) return;
@@ -461,11 +419,7 @@ const Billing = () => {
         const results = await localDb.getCustomers({ search: searchQuery });
 
         if (mobileQuery.length === 10) {
-          let match = results.find((c) => String(c.mobile || '') === mobileQuery);
-          if (!match) {
-            // include internal clients in mobile lookup
-            match = internalClients.find((c) => String(c.mobile || '') === mobileQuery);
-          }
+          const match = results.find((c) => String(c.mobile || '') === mobileQuery);
           if (!match) {
             setExistingCustomer(null);
             setCustomerMatches([]);
@@ -501,20 +455,7 @@ const Billing = () => {
     return () => {
       if (customerSearchRef.current) clearTimeout(customerSearchRef.current);
     };
-  }, [form.mobile, form.name, internalClients]);
-
-  const internalMatches = useMemo(() => {
-    const mobileQuery = (form.mobile || '').trim();
-    const nameQuery = (form.name || '').trim().toLowerCase();
-    if (!mobileQuery && nameQuery.length < 1) return internalClients.slice(0, 6);
-    return internalClients
-      .filter((c) => {
-        if (mobileQuery && String(c.mobile || '').includes(mobileQuery)) return true;
-        if (nameQuery && (c.name || '').toLowerCase().includes(nameQuery)) return true;
-        return false;
-      })
-      .slice(0, 6);
-  }, [internalClients, form.mobile, form.name]);
+  }, [form.mobile, form.name]);
 
   // Warn user before refresh/close if there's unsaved billing data
   useEffect(() => {
@@ -1737,52 +1678,23 @@ const Billing = () => {
                     maxLength={100}
                   />
                   {fieldErrors.name && <span className="text-xs" style={{ color: 'var(--clr-error, var(--error))' }}>{fieldErrors.name}</span>}
-                  {(!existingCustomer && (customerMatches.length > 0 || internalMatches.length > 0)) && (
+                  {!existingCustomer && customerMatches.length > 0 && (
                     <div className="panel mt-8" style={{ padding: 8, maxHeight: 280, overflowY: 'auto' }}>
-                      {/* Internal clients section */}
-                      {internalMatches.length > 0 && !existingCustomer && (
-                        <>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '4px 8px', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--border, #e5e7eb)' }}>
-                            ── Internal ──
-                          </div>
-                          {internalMatches.map((c) => (
-                            <button
-                              key={`int-${c.id}`}
-                              type="button"
-                              className="btn btn-ghost"
-                              style={{ width: '100%', justifyContent: 'space-between', marginBottom: 2 }}
-                              onClick={() => handleSelectCustomer(c)}
-                            >
-                              <span style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span>🏠</span> {c.name}
-                                <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8, background: 'var(--accent-bg, rgba(99,102,241,0.1))', color: 'var(--accent, #6366f1)', fontWeight: 600 }}>Internal</span>
-                              </span>
-                            </button>
-                          ))}
-                        </>
-                      )}
-                      {/* Regular customer matches */}
-                      {customerMatches.length > 0 && (
-                        <>
-                          {internalClients.length > 0 && (
-                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '4px 8px', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--border, #e5e7eb)', marginTop: 4 }}>
-                              ── Customers ──
-                            </div>
-                          )}
-                          {customerMatches.map((c) => (
-                            <button
-                              key={c.id || `${c.mobile}-${c.name}`}
-                              type="button"
-                              className="btn btn-ghost"
-                              style={{ width: '100%', justifyContent: 'space-between', marginBottom: 2 }}
-                              onClick={() => handleSelectCustomer(c)}
-                            >
-                              <span style={{ textAlign: 'left' }}>{c.name || 'Customer'}</span>
-                              <span className="muted" style={{ fontSize: 12 }}>{c.mobile || 'No mobile'}</span>
-                            </button>
-                          ))}
-                        </>
-                      )}
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '4px 8px', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--border, #e5e7eb)', marginTop: 4 }}>
+                        ── Customers ──
+                      </div>
+                      {customerMatches.map((c) => (
+                        <button
+                          key={c.id || `${c.mobile}-${c.name}`}
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ width: '100%', justifyContent: 'space-between', marginBottom: 2 }}
+                          onClick={() => handleSelectCustomer(c)}
+                        >
+                          <span style={{ textAlign: 'left' }}>{c.name || 'Customer'}</span>
+                          <span className="muted" style={{ fontSize: 12 }}>{c.mobile || 'No mobile'}</span>
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -3335,43 +3247,7 @@ const Billing = () => {
         </div>
       )
       }
-    {/* Internal Transactions Side Panel */}
-    {showInternalPanel && (
-      <div style={{ position: 'fixed', right: 20, top: 80, width: 380, height: 'calc(100% - 100px)', background: 'var(--surface, #fff)', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)', borderLeft: '1px solid var(--border)', zIndex: 1200, overflowY: 'auto', borderRadius: 8 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontWeight: 700 }}>Internal Transactions</div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => fetchInternalPanelData(7)}>Last 7d</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => fetchInternalPanelData(30)}>30d</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setShowInternalPanel(false)}><X size={14} /></button>
-          </div>
-        </div>
-        <div style={{ padding: 12 }}>
-          {internalPanelLoading ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}><Loader2 className="animate-spin" size={18} /></div>
-          ) : internalPanelData.length === 0 ? (
-            <div className="muted" style={{ textAlign: 'center', padding: 20 }}>No internal transactions found for the selected period.</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {internalPanelData.slice(0, 30).map((b) => (
-                <div key={b.id} style={{ padding: 8, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{b.customer_name || 'Internal'}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{b.date ? new Date(b.date).toLocaleDateString() : ''}</div>
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{b.description}</div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                    <div style={{ fontSize: 12 }}><strong>{b.prints || '—'}</strong> prints</div>
-                    <div style={{ fontSize: 12 }}><strong>{b.sheets || '—'}</strong> sheets</div>
-                    <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)' }}>{b.added_by || '—'}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    )}
+    
 
     </>
   );

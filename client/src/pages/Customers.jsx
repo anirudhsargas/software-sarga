@@ -101,12 +101,15 @@ const Customers = () => {
             if (typeFilter) params.append('type', typeFilter);
             const res = await api.get(`/customers?${params.toString()}`);
             if (res.data?.data && res.data?.total !== undefined) {
-                setCustomers(res.data.data);
-                setTotal(res.data.total);
-                setTotalPages(res.data.totalPages || Math.ceil(res.data.total / LIMIT));
+                // Exclude internal clients from the customers list in the UI
+                const filtered = (res.data.data || []).filter(c => c.client_type !== 'internal');
+                setCustomers(filtered);
+                setTotal(filtered.length);
+                setTotalPages(Math.ceil(filtered.length / LIMIT) || 1);
             } else if (Array.isArray(res.data)) {
-                setCustomers(res.data);
-                setTotal(res.data.length);
+                const filtered = res.data.filter(c => c.client_type !== 'internal');
+                setCustomers(filtered);
+                setTotal(filtered.length);
                 setTotalPages(1);
             } else {
                 setCustomers([]);
