@@ -64,21 +64,61 @@ const deleteFromStore = (db, storeName, key) => new Promise((resolve) => {
 });
 
 // ── API fetch inside worker ──
+const normalizeAndJoinUrl = (base, url) => {
+  if (!base) return url;
+  // If the URL is already absolute, return as-is
+  if (/^https?:\/\//i.test(url)) return url;
+
+  // Avoid duplicate '/api' segments (base may include '/api' and urls also start with '/api')
+  let path = url;
+  if (base.includes('/api') && path.startsWith('/api')) {
+    path = path.replace(/^\/api/, '');
+  }
+
+  if (base.endsWith('/') && path.startsWith('/')) return base.slice(0, -1) + path;
+  if (!base.endsWith('/') && !path.startsWith('/')) return base + '/' + path;
+  return base + path;
+};
+
 const workerFetch = async (url, options = {}) => {
   const baseUrl = self.API_BASE_URL || '';
   const token = self.AUTH_TOKEN || '';
 
-  const response = await fetch(`${baseUrl}${url}`, {
+  const fullUrl = normalizeAndJoinUrl(baseUrl, url);
+
+  // Build headers: include Authorization always, and only set Content-Type
+  // when sending a body or a non-GET method (avoids causing unnecessary CORS preflights).
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    ...options.headers
+  };
+
+  const method = (options.method || 'GET').toUpperCase();
+  if (options.body || method !== 'GET') {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await fetch(fullUrl, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...options.headers
-    }
+    headers
   });
 
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
+
+  // Some endpoints (or CORS preflight responses) return 204 No Content.
+  // Attempt to read the body safely: if there's no content, return null.
+  if (response.status === 204) return null;
+
+  // Read as text first to handle empty-body cases or non-JSON responses.
+  const text = await response.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    // Fallback: return raw text if it's not JSON
+    return text;
+  }
 };
 
 // ── Upload pending bills ──
