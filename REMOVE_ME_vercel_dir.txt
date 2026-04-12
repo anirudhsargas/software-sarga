@@ -1,0 +1,1 @@
+Placeholder: .vercel directory and all Vercel-related files have been removed as requested.

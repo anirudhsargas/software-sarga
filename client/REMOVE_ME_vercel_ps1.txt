@@ -1,0 +1,1 @@
+Placeholder: deploy.ps1 Vercel logic has been removed as requested (client folder check).
