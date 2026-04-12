@@ -119,7 +119,7 @@ app.use(compression());
 // CORS
 const allowedOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
-    : ['http://localhost:5173', 'http://localhost:3000'];
+    : ['http://localhost:5173', 'http://localhost:3000', 'https://software-sarga.vercel.app'];
 
 app.use(cors({
     origin: (origin, callback) => {
@@ -136,6 +136,10 @@ app.use(cors({
         }
         // Allow ngrok tunnels (for development/testing)
         if (/^https:\/\/[a-zA-Z0-9-]+\.ngrok(-free)?\.(app|dev)$/.test(origin)) {
+            return callback(null, true);
+        }
+        // Allow Vercel preview/main domains (any subdomain under vercel.app)
+        if (/^https?:\/\/([a-zA-Z0-9-]+\.)*vercel\.app(:\d+)?$/.test(origin)) {
             return callback(null, true);
         }
         callback(new Error(`CORS: origin '${origin}' not allowed`));
