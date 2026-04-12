@@ -13,6 +13,8 @@ client/node_modules/
 dist/
 build/
 *.log
+.vercel
+.vercel/
 
 # IDE
 .vscode/
