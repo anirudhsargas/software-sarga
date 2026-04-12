@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getUserBranchId, auditLog } = require('../helpers');
+const { getUserBranchId, auditLog, getTodayDate } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -21,7 +21,7 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
         const bp = branchIds ? [branchIds] : [];
 
         // Date range for the month (calculate correct last day)
-        const m = month || new Date().toISOString().slice(0, 7);
+        const m = month || getTodayDate().slice(0, 7);
         const [yr, mn] = m.split('-').map(Number);
         const lastDay = new Date(yr, mn, 0).getDate();
         const startDate = `${m}-01`;
@@ -133,10 +133,13 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
         );
         const utilityPayable = Number(allTimeUtilityBills.total) - Number(allTimeUtilityPayments.total);
 
-        // 7. Recent payments (last 15)
+        // 7. Recent payments (last 15) — include vendor and branch info
         const [recentPayments] = await pool.query(
-            `SELECT p.id, p.type, p.payee_name, p.amount, p.payment_method, p.payment_date, p.description
+            `SELECT p.id, p.type, p.payee_name, p.amount, p.payment_method, p.payment_date, p.description,
+                    p.branch_id, b.name as branch_name, p.vendor_id, v.name as vendor_name
              FROM sarga_payments p
+             LEFT JOIN sarga_branches b ON p.branch_id = b.id
+             LEFT JOIN sarga_vendors v ON p.vendor_id = v.id
              WHERE 1=1 ${bw}
              ORDER BY p.payment_date DESC, p.created_at DESC
              LIMIT 15`,
@@ -174,7 +177,7 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
         );
 
         // 11. Due alerts
-        const today = new Date().toISOString().slice(0, 10);
+        const today = getTodayDate();
         const currentMonth = new Date().getMonth() + 1;
         const currentYear = new Date().getFullYear();
 
@@ -266,8 +269,17 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
                 total_payable: Math.max(utilityPayable, 0)
             },
             recent_payments: recentPayments.map(p => ({
-                ...p,
-                amount: Number(p.amount)
+                id: p.id,
+                type: p.type,
+                payee_name: p.payee_name,
+                amount: Number(p.amount),
+                payment_method: p.payment_method,
+                payment_date: p.payment_date,
+                description: p.description,
+                branch_id: p.branch_id,
+                branch_name: p.branch_name || null,
+                vendor_id: p.vendor_id,
+                vendor_name: p.vendor_name || null
             })),
             monthly_trend: monthlyTrend.map(t => ({
                 month: t.month,
@@ -320,6 +332,18 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
                 [startDate, endDate]
             );
 
+                        // Vendor payments breakdown per branch (for Admin/Accountant view)
+                        const [vendorPaymentsByBranch] = await pool.query(
+                                `SELECT p.vendor_id, COALESCE(v.name, p.payee_name) as vendor_name, p.branch_id, COALESCE(b.name, '') as branch_name, COALESCE(SUM(p.amount), 0) as total_paid
+                                 FROM sarga_payments p
+                                 LEFT JOIN sarga_vendors v ON v.id = p.vendor_id
+                                 LEFT JOIN sarga_branches b ON b.id = p.branch_id
+                                 WHERE p.type = 'Vendor' AND p.payment_date >= ? AND p.payment_date <= ? ${branchIds ? ' AND p.branch_id IN (?)' : ''}
+                                 GROUP BY p.vendor_id, p.branch_id, v.name, b.name
+                                 ORDER BY total_paid DESC`,
+                                [startDate, endDate, ...(branchIds ? [branchIds] : [])]
+                        );
+
             const revenueMap = {};
             branchRevenue.forEach(r => {
                 revenueMap[r.branch_id] = {
@@ -343,6 +367,14 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
                     profit: rev.revenue - Number(b.total)
                 };
             });
+            // Attach vendor payments broken down by branch
+            responseData.vendor_payments_by_branch = vendorPaymentsByBranch.map(v => ({
+                vendor_id: v.vendor_id,
+                vendor_name: v.vendor_name,
+                branch_id: v.branch_id,
+                branch_name: v.branch_name,
+                total_paid: Number(v.total_paid)
+            }));
         }
 
         res.json(responseData);
@@ -361,7 +393,7 @@ router.get('/rent-locations', authenticateToken, async (req, res) => {
             ? req.user.branch_id
             : req.query.branch_id || null;
 
-        let query = 'SELECT * FROM sarga_rent_locations WHERE is_active = 1';
+        let query = 'SELECT id, property_name, location, owner_name, owner_mobile, monthly_rent, due_day, advance_deposit, branch_id FROM sarga_rent_locations WHERE is_active = 1';
         const params = [];
 
         if (branchId) {
@@ -469,7 +501,7 @@ router.get('/vendor-requests', authenticateToken, async (req, res) => {
 
         const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
         const [rows] = await pool.query(`
-            SELECT vr.*, 
+            SELECT vr.id, vr.request_type, vr.name, vr.contact_person, vr.phone, vr.address, vr.gstin, vr.branch_id, vr.requested_by, vr.status, vr.request_reason, vr.rejection_reason, vr.created_at,
                    req.name as requested_by_name, req.role as requester_role,
                    rev.name as reviewed_by_name,
                    b.name as branch_name
@@ -525,7 +557,7 @@ router.put('/vendor-requests/:id/review', authenticateToken, authorizeRoles('Adm
         }
 
         const [[request]] = await pool.query(
-            'SELECT * FROM sarga_vendor_requests WHERE id = ?',
+            'SELECT id, status, request_type, name, contact_person, phone, address, gstin, branch_id FROM sarga_vendor_requests WHERE id = ?',
             [id]
         );
 
@@ -591,7 +623,7 @@ router.get('/payment-suggestions', authenticateToken, authorizeRoles('Admin', 'A
         const { min_occurrences = 3 } = req.query;
 
         const [suggestions] = await pool.query(
-            `SELECT * FROM sarga_payment_suggestions 
+            `SELECT id, payee_name, payment_category, occurrence_count, total_amount_paid, last_payment_date FROM sarga_payment_suggestions 
              WHERE occurrence_count >= ? 
                AND suggested_as_vendor = 0 
                AND suggestion_dismissed = 0

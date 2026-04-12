@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { getTodayDate } = require('../helpers');
 
 // Branch value whitelist
 const VALID_BRANCHES = ['perambra', 'meppayur_main', 'meppayur_room'];
@@ -33,10 +34,15 @@ router.post('/attendance', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Staff member not found' });
     }
 
-    const eventTimestamp = timestamp || new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const eventTimestamp = timestamp || (getTodayDate() + ' ' + new Date().toTimeString().slice(0, 8));
+    const eventDate = eventTimestamp.slice(0, 10);
+    const today = getTodayDate();
+
+    if (eventDate > today) {
+      return res.status(400).json({ message: 'Attendance cannot be recorded for future dates' });
+    }
 
     // Duplicate prevention: check min gap (60 min) for same staff on same day
-    const eventDate = eventTimestamp.slice(0, 10);
     const [recent] = await pool.query(
       `SELECT id, timestamp FROM sarga_cctv_attendance 
        WHERE staff_id = ? AND date = ? 
@@ -71,7 +77,7 @@ router.post('/attendance', authenticateToken, async (req, res) => {
 // ─── GET /attendance/today?branch= — today's full attendance for one branch ─
 router.get('/attendance/today', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   const { branch, date } = req.query;
-  const targetDate = date || new Date().toISOString().slice(0, 10);
+  const targetDate = date || getTodayDate();
 
   if (branch && !VALID_BRANCHES.includes(branch)) {
     return res.status(400).json({ message: `Invalid branch. Must be one of: ${VALID_BRANCHES.join(', ')}` });
@@ -137,7 +143,7 @@ router.get('/attendance/staff/:id', authenticateToken, async (req, res) => {
 // ─── GET /attendance/summary?branch=&date= — day summary with flags ─────────
 router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   const { branch, date } = req.query;
-  const targetDate = date || new Date().toISOString().slice(0, 10);
+  const targetDate = date || getTodayDate();
 
   try {
     // Get all active staff for the branch
@@ -185,7 +191,7 @@ router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Ac
     }
 
     const now = new Date();
-    const isToday = targetDate === now.toISOString().slice(0, 10);
+      const isToday = targetDate === getTodayDate();
     const alertHour = 10; // 10 AM cutoff
 
     const summary = allStaff.map(staff => {

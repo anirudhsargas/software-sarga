@@ -51,6 +51,7 @@ const MachineManagement = () => {
     const [countRequestWorking, setCountRequestWorking] = useState(false);
     const [liveCount, setLiveCount] = useState(null);
     const [liveCountLoading, setLiveCountLoading] = useState(false);
+    const [selectedBranch, setSelectedBranch] = useState('All');
 
     // Book assignments (Offset / Laser / Other)
     const [bookAssignments, setBookAssignments] = useState({ Offset: [], Laser: [], Other: [] });
@@ -75,7 +76,7 @@ const MachineManagement = () => {
             fetchStaff();
             fetchBookAssignments();
         }
-    }, []);
+    }, [selectedBranch]);
 
     const fetchBranches = async () => {
         try {
@@ -94,8 +95,19 @@ const MachineManagement = () => {
     const fetchMachines = async () => {
         try {
             setLoading(true);
-            const userBranchId = auth.getUser()?.branch_id;
-            const res = await api.get('/machines', { params: { branch_id: userBranchId } });
+            const user = auth.getUser();
+            const isAdminUser = user?.role === 'Admin' || user?.role === 'Accountant';
+            
+            const params = {};
+            if (isAdminUser) {
+                if (selectedBranch !== 'All') {
+                    params.branch_id = selectedBranch;
+                }
+            } else {
+                params.branch_id = user?.branch_id;
+            }
+
+            const res = await api.get('/machines', { params });
             setMachines(res.data);
         } catch (e) { console.error('Error fetching machines:', e); }
         finally { setLoading(false); }
@@ -1225,21 +1237,42 @@ const MachineManagement = () => {
                 </div>
             ) : (
                 <>
-                    {/* Machine Type Filter */}
-                    <div className="row items-center gap-md" style={{ marginBottom: 14 }}>
-                        <span className="text-sm font-medium muted">Type:</span>
-                        <div className="row gap-xs">
-                            {['All', 'Offset', 'Laser', 'Others'].map(type => (
-                                <button
-                                    key={type}
-                                    className={`btn btn-sm ${filterType === type ? 'btn-primary' : 'btn-ghost'}`}
-                                    onClick={() => setFilterType(type)}
-                                    style={{ borderRadius: 20, padding: '4px 16px', fontSize: 13 }}
-                                >
-                                    {type}
-                                </button>
-                            ))}
+                    {/* Filter Bar */}
+                    <div className="row items-center gap-md" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
+                        {/* Machine Type Filter */}
+                        <div className="row items-center gap-sm">
+                            <span className="text-sm font-medium muted">Type:</span>
+                            <div className="row gap-xs">
+                                {['All', 'Offset', 'Laser', 'Others'].map(type => (
+                                    <button
+                                        key={type}
+                                        className={`btn btn-sm ${filterType === type ? 'btn-primary' : 'btn-ghost'}`}
+                                        onClick={() => setFilterType(type)}
+                                        style={{ borderRadius: 20, padding: '4px 16px', fontSize: 13 }}
+                                    >
+                                        {type}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
+
+                        {/* Branch Filter (Admin only) */}
+                        {isAdmin && (
+                            <div className="row items-center gap-sm" style={{ marginLeft: 'auto' }}>
+                                <span className="text-sm font-medium muted">Branch:</span>
+                                <select 
+                                    className="input-field" 
+                                    style={{ width: 180, height: 32, padding: '0 8px', fontSize: 13, borderRadius: 8 }}
+                                    value={selectedBranch}
+                                    onChange={e => setSelectedBranch(e.target.value)}
+                                >
+                                    <option value="All">All Branches</option>
+                                    {branches.map(b => (
+                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>

@@ -23,7 +23,7 @@ router.get('/opening-balance', auth.authenticate, async (req, res) => {
 
         if (book_type) {
             const [rows] = await pool.query(
-                `SELECT * FROM sarga_daily_opening_balances
+                `SELECT cash_opening, is_locked FROM sarga_daily_opening_balances
                  WHERE report_date = ? AND branch_id = ? AND book_type = ?`,
                 [date, branchId, book_type]
             );
@@ -33,7 +33,7 @@ router.get('/opening-balance', auth.authenticate, async (req, res) => {
 
         // Get all 3 book types with lock status
         const [rows] = await pool.query(
-            `SELECT * FROM sarga_daily_opening_balances
+            `SELECT book_type, cash_opening, is_locked FROM sarga_daily_opening_balances
              WHERE report_date = ? AND branch_id = ?`,
             [date, branchId]
         );
@@ -187,7 +187,7 @@ router.post('/change-requests/:id/review', auth.authenticate, async (req, res) =
         const { action } = req.body;
         const requestId = req.params.id;
 
-        const [requests] = await pool.query('SELECT * FROM sarga_opening_change_requests WHERE id = ?', [requestId]);
+        const [requests] = await pool.query('SELECT id, status, request_type, requested_value, requester_id, report_date, branch_id, book_type, machine_id FROM sarga_opening_change_requests WHERE id = ?', [requestId]);
         const request = requests[0];
         if (!request) return res.status(404).json({ error: 'Request not found' });
         if (request.status !== 'Pending') return res.status(400).json({ error: 'Request already reviewed' });
@@ -331,7 +331,7 @@ router.get('/previous-closing', auth.authenticate, async (req, res) => {
         const otherOpening = otherOpeningRows.length > 0 ? Number(otherOpeningRows[0].cash_opening) : 0;
         // Include internal transfers for previous date (incoming increases, outgoing decreases)
         const [prevTransfers] = await pool.query(
-            `SELECT * FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
+            `SELECT amount, to_book_type, from_book_type FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
             [previousDateStr, branchId]
         );
         const laserTransferIn = prevTransfers.reduce((s, t) => s + (t.to_book_type === 'Laser' ? Number(t.amount || 0) : 0), 0);
@@ -546,7 +546,7 @@ router.get('/offset-live', auth.authenticate, async (req, res) => {
 
         // 4. Internal transfers for this date (affect totals)
         const [transfers] = await pool.query(
-            `SELECT * FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
+            `SELECT id, amount, from_book_type, to_book_type, note, created_at FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
             [date, branchId]
         );
         const transferEntries = (transfers || []).map(t => {
@@ -899,7 +899,7 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
 
         // 5. Internal transfers for this date (affect totals)
         const [transfers] = await pool.query(
-            `SELECT * FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
+            `SELECT id, amount, from_book_type, to_book_type, note, created_at FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
             [date, branchId]
         );
         const transferEntries = (transfers || []).map(t => {
@@ -1069,7 +1069,7 @@ router.get('/other-live', auth.authenticate, async (req, res) => {
 
         // Internal transfers affecting Other book
         const [transfers] = await pool.query(
-            `SELECT * FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
+            `SELECT id, amount, from_book_type, to_book_type, note, created_at FROM sarga_internal_transfers WHERE DATE(created_at) = ? AND branch_id = ?`,
             [date, branchId]
         );
         let totalCashOut = 0, totalUpiOut = 0;

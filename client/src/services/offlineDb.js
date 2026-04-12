@@ -315,14 +315,14 @@ const cachePricing = (r) => bulkCache('pricing', r);
 const getCachedPricing = () => getAll('pricing');
 const cacheJobs = (j) => bulkCache('jobs', j);
 const getCachedJobs = () => getAll('jobs');
-const getJobById = (id) => getById('jobs', id);
+const getJobById = (id) => getById('jobs', isNaN(id) || typeof id === 'string' && (id.startsWith('LOCAL') || id.startsWith('CUST')) ? id : Number(id));
 const putJob = (job) => putRecord('jobs', job);
 const cachePayments = (p) => bulkCache('payments', p);
 const getCachedPayments = () => getAll('payments');
-const getPaymentsByCustomer = (id) => getAllByIndex('payments', 'customer_id', Number(id));
+const getPaymentsByCustomer = (id) => getAllByIndex('payments', 'customer_id', isNaN(id) || typeof id === 'string' && id.startsWith('CUST') ? id : Number(id));
 const cacheAssignments = (a) => bulkCache('assignments', a);
 const getCachedAssignments = () => getAll('assignments');
-const getAssignmentsByStaff = (id) => getAllByIndex('assignments', 'staff_id', Number(id));
+const getAssignmentsByStaff = (id) => getAllByIndex('assignments', 'staff_id', isNaN(id) ? id : Number(id));
 
 // ── KV Cache ──
 async function cacheData(key, data) {
@@ -466,10 +466,10 @@ async function getMeta(key) {
         req.onerror = () => reject(req.error);
     });
 }
-const getAssignmentsByJob = (id) => getAllByIndex('assignments', 'job_id', Number(id));
-const getPaperLogsByJob = (id) => getAllByIndex('paper_logs', 'job_id', Number(id));
-const getDesignsByJob = (id) => getAllByIndex('designs', 'job_id', Number(id));
-const getProofsByJob = (id) => getAllByIndex('proofs', 'job_id', Number(id));
+const getAssignmentsByJob = (id) => getAllByIndex('assignments', 'job_id', isNaN(id) || typeof id === 'string' && id.startsWith('LOCAL') ? id : Number(id));
+const getPaperLogsByJob = (id) => getAllByIndex('paper_logs', 'job_id', isNaN(id) || typeof id === 'string' && id.startsWith('LOCAL') ? id : Number(id));
+const getDesignsByJob = (id) => getAllByIndex('designs', 'job_id', isNaN(id) || typeof id === 'string' && id.startsWith('LOCAL') ? id : Number(id));
+const getProofsByJob = (id) => getAllByIndex('proofs', 'job_id', isNaN(id) || typeof id === 'string' && id.startsWith('LOCAL') ? id : Number(id));
 async function cacheJobDetails(id, details) {
     const { assignments, paper_logs, designs, proofs } = details;
     if (assignments) await bulkCache('assignments', assignments.map(a => ({ ...a, job_id: Number(id) })));

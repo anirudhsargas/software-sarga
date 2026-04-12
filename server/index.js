@@ -13,6 +13,7 @@ const fs = require('fs');
 const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 const { initDb, pool } = require('./database');
+const { getTodayDate } = require('./helpers');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
@@ -256,10 +257,11 @@ const asyncHandler = (fn) => (req, res, next) => {
 // Server time endpoint (tamper-proof date/time for clients)
 app.get('/api/server-time', asyncHandler((req, res) => {
     const now = new Date();
+    const today = getTodayDate();
     res.json({
         iso: now.toISOString(),
-        date: now.toISOString().split('T')[0],
-        month: now.toISOString().slice(0, 7),
+        date: today,
+        month: today.slice(0, 7),
         timestamp: now.getTime()
     });
 }));
@@ -290,6 +292,7 @@ app.use('/api', require('./routes/stockRequests'));
 // Three Books System Routes
 app.use('/api/machines', require('./routes/machines'));
 app.use('/api/internal-transfers', require('./routes/internalTransfers'));
+app.use('/api/internal-transactions', require('./routes/internalTransactions'));
 app.use('/api/admin/internal-books', require('./routes/internalBooks'));
 app.use('/api/daily-reports', require('./routes/dailyReports'));
 app.use('/api/daily-report', require('./routes/dailyReportUnified'));

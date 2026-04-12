@@ -233,6 +233,11 @@ const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
 };
 
+const getTodayDate = () => {
+    // Returns YYYY-MM-DD in local time
+    return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+};
+
 module.exports = {
     normalizeMobile,
     auditLog,
@@ -245,6 +250,7 @@ module.exports = {
     getUserBranchId,
     hasPendingCustomerBalance,
     bumpUsageForUser,
-    asyncHandler
+    asyncHandler,
+    getTodayDate
 };
 

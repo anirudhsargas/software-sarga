@@ -131,7 +131,7 @@ export async function getProductList() {
  * Get all jobs for a specific customer
  */
 export async function getCustomerJobs(customerId) {
-    const id = Number(customerId);
+    const id = isNaN(customerId) ? customerId : Number(customerId);
     const jobs = await offlineDb.getAllByIndex('jobs', 'customer_id', id);
     return (jobs || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
@@ -177,7 +177,7 @@ export async function getFrontOfficeDashboard() {
  */
 export async function getStaffWorkHistory(staffId) {
     try {
-        const sId = Number(staffId);
+        const sId = isNaN(staffId) ? staffId : Number(staffId);
         // Get all assignments for this staff
         const assignments = await offlineDb.getAllByIndex('assignments', 'staff_id', sId).catch(() => []);
         
@@ -671,27 +671,48 @@ export async function getJobs(filters = {}) {
  * Get a single job by ID from IndexedDB.
  */
 export async function getJobById(id) {
-    return offlineDb.getJobById(Number(id));
+    const jId = isNaN(id) ? id : Number(id);
+    return offlineDb.getJobById(jId);
 }
 
 /**
  * Get consolidated customer dashboard
  */
 export async function getCustomerDashboard(customerId) {
-    const id = Number(customerId);
-    const [customer, allJobs, payments] = await Promise.all([
+    // Determine if we're dealing with a numeric server ID or a temporary local string ID
+    const isTemp = isTemporaryCustomerId(customerId);
+    const id = isTemp ? customerId : Number(customerId);
+    const [customer, allJobsRaw, allPaymentsRaw] = await Promise.all([
         offlineDb.getById('customers', id),
-        offlineDb.getAllByIndex('jobs', 'customer_id', id),
-        offlineDb.getPaymentsByCustomer(id)
+        offlineDb.getAll('jobs'),
+        offlineDb.getAll('payments')
     ]);
+
+    const normMobile = customer?.mobile ? String(customer.mobile).replace(/\D/g, '').slice(-10) : null;
+    const normName = customer?.name ? String(customer.name).trim().toLowerCase() : null;
+
+    const allJobs = (allJobsRaw || []).filter(j => {
+        if (j.customer_id != null && String(j.customer_id) === String(id)) return true;
+        if (normMobile && j.customer_mobile && String(j.customer_mobile).replace(/\D/g, '').slice(-10) === normMobile) return true;
+        if (normName && j.customer_name && String(j.customer_name).trim().toLowerCase() === normName) return true;
+        return false;
+    });
+
+    const payments = (allPaymentsRaw || []).filter(p => {
+        if (p.customer_id != null && String(p.customer_id) === String(id)) return true;
+        if (normMobile && p.customer_mobile && String(p.customer_mobile).replace(/\D/g, '').slice(-10) === normMobile) return true;
+        if (normName && p.customer_name && String(p.customer_name).trim().toLowerCase() === normName) return true;
+        return false;
+    });
 
     if (!customer) return null;
 
     // Include pending offline bills as synthetic jobs so newly created orders show up immediately
     const pendingBills = await offlineDb.getAllBills();
     const billsForCustomer = (pendingBills || []).filter(b => {
-        const cid = b.customerId != null ? Number(b.customerId) : (b.customer_id != null ? Number(b.customer_id) : null);
-        return cid === id;
+        const cid = b.customerId != null ? b.customerId : (b.customer_id != null ? b.customer_id : null);
+        // Compare values by converting both to strings to avoid type mismatch issues (string vs number)
+        return String(cid) === String(id);
     });
     const billsAsJobs = (billsForCustomer || []).filter(b => (b.status || b.syncStatus) !== 'synced').map(b => ({
         id: b.offlineInvoiceRef || `local-bill-${b.id}`,
@@ -754,7 +775,7 @@ export async function getCustomerDashboard(customerId) {
  * Get full job details (job + assignments + logs + designs + proofs)
  */
 export async function getJobDetails(id) {
-    const jobId = Number(id);
+    const jobId = isNaN(id) ? id : Number(id);
     const [job, assignments, paperLogs, designs, proofs] = await Promise.all([
         offlineDb.getJobById(jobId),
         offlineDb.getAssignmentsByJob(jobId),
@@ -907,6 +928,31 @@ export async function createBill(billData, matterFiles = []) {
                 order_lines: lines,
             });
             createdJobs = jobRes.data?.jobs || [];
+        }
+
+        // If any order lines included a paper_consume instruction, attempt to call consume endpoint
+        if (createdJobs && createdJobs.length > 0) {
+            try {
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const job = createdJobs[i];
+                    if (!line || !job) continue;
+                    if (line.paper_consume && Array.isArray(line.paper_consume.items) && line.paper_consume.items.length > 0) {
+                        try {
+                            await api.post(`/jobs/${job.id}/consume-paper`, {
+                                items: line.paper_consume.items,
+                                stage: 'optimizer-apply',
+                                notes: 'Auto-consume from optimizer at billing'
+                            });
+                        } catch (consumeErr) {
+                            console.warn(`[localDb] Auto-consume failed for job ${job.id}:`, consumeErr?.message || consumeErr);
+                        }
+                    }
+                }
+            } catch (e) {
+                // non-fatal: do not block bill sync on consume errors
+                console.warn('[localDb] Auto-consume loop failed:', e?.message || e);
+            }
         }
 
         // Upload matter files for each job (non-blocking, best-effort)
@@ -1080,7 +1126,7 @@ export async function createPayment(paymentData) {
  * Update job status — saves to IndexedDB first, tries server in background.
  */
 export async function updateJobStatus(jobId, status, extraData = {}) {
-    const id = Number(jobId);
+    const id = isNaN(jobId) ? jobId : Number(jobId);
     // Update local job record
     const job = await offlineDb.getJobById(id);
     if (job) {
@@ -1105,7 +1151,7 @@ export async function updateJobStatus(jobId, status, extraData = {}) {
  * Update assignment status.
  */
 export async function markAssignmentStatus(assignmentId, status) {
-    const id = Number(assignmentId);
+    const id = isNaN(assignmentId) ? assignmentId : Number(assignmentId);
     const assignment = await offlineDb.getById('assignments', id);
     if (assignment) {
         assignment.status = status;
@@ -1123,7 +1169,7 @@ export async function markAssignmentStatus(assignmentId, status) {
  * Log paper usage.
  */
 export async function logPaperUsage(jobId, logData) {
-    const id = Number(jobId);
+    const id = isNaN(jobId) ? jobId : Number(jobId);
     const record = { ...logData, job_id: id, createdAt: Date.now(), syncStatus: 'pending' };
     const localId = await offlineDb.addRecord('paper_logs', record);
 

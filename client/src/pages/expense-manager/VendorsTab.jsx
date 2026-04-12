@@ -143,6 +143,11 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
   const [inventoryOptions, setInventoryOptions] = useState([]);
   const [, setNewItemsAdded] = useState([]);
 
+  // Vendor items (aggregated) + selection for reorder/download
+  const [vendorItems, setVendorItems] = useState([]);
+  const [selectedItemIds, setSelectedItemIds] = useState(new Set());
+  const [selectAll, setSelectAll] = useState(false);
+
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
 
@@ -181,6 +186,15 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
       // const ledger = await api.get(`/vendors/${v.id}/statement`);
       // setVendorLedger(ledger.data);
       setVendorLedger({ rows: [], payments: [], purchases: [] });
+      // fetch aggregated items purchased from this vendor
+      try {
+        const ir = await api.get(`/vendors/${v.id}/items`);
+        setVendorItems(ir.data.items || []);
+        setSelectedItemIds(new Set());
+        setSelectAll(false);
+      } catch (e) {
+        setVendorItems([]);
+      }
     } catch {
       setVendorLedger({ rows: [], payments: [], purchases: [] });
     } finally {
@@ -372,6 +386,82 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
     } finally { setBillSaving(false); }
   };
 
+  /* ── Vendor items helpers (selection, download, whatsapp, reorder) ── */
+  const toggleSelectItem = (inventoryId) => {
+    setSelectedItemIds(prev => {
+      const s = new Set(prev);
+      if (s.has(inventoryId)) s.delete(inventoryId); else s.add(inventoryId);
+      setSelectAll(s.size === vendorItems.length && vendorItems.length > 0);
+      return s;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!selectAll) {
+      setSelectedItemIds(new Set(vendorItems.map(i => i.inventory_id)));
+      setSelectAll(true);
+    } else {
+      setSelectedItemIds(new Set());
+      setSelectAll(false);
+    }
+  };
+
+  const downloadSelected = () => {
+    const items = vendorItems.filter(i => selectedItemIds.has(i.inventory_id));
+    if (!items.length) { toast.error('Select items to download'); return; }
+    const lines = [`Purchase List — ${selectedVendor?.name || ''}`, ''];
+    items.forEach(it => {
+      lines.push(`${it.item_name || ''} ${it.sku ? `(${it.sku})` : ''} x ${it.total_purchased || 0} @ ${it.last_unit_cost != null ? '₹' + it.last_unit_cost : '—'}`);
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `purchase-list-${selectedVendor?.id || 'vendor'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success('Download started');
+  };
+
+  const sendWhatsApp = () => {
+    const items = vendorItems.filter(i => selectedItemIds.has(i.inventory_id));
+    if (!items.length) { toast.error('Select items to send'); return; }
+    let text = `Purchase list for ${selectedVendor?.name || ''}\n\n`;
+    items.forEach(it => {
+      text += `- ${it.item_name || ''} ${it.sku ? `(${it.sku})` : ''} x ${it.total_purchased || 0} @ ${it.last_unit_cost != null ? '₹' + it.last_unit_cost : ''}\n`;
+    });
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  const orderSelected = async (sameQty = false) => {
+    const items = vendorItems.filter(i => selectedItemIds.has(i.inventory_id));
+    if (!items.length) { toast.error('Select items to order'); return; }
+    const mapped = items.map(it => ({
+      inventory_item_id: Number(it.inventory_id),
+      item_name: it.item_name,
+      quantity: Number(sameQty ? (it.total_purchased || 1) : (it.total_purchased || 1)),
+      unit_cost: Number(it.last_unit_cost || 0),
+      total_cost: Number((it.last_unit_cost || 0) * (it.total_purchased || 1))
+    }));
+    try {
+      const inv = await localDb.getInventory();
+      setInventoryOptions(inv.data || []);
+    } catch (e) {
+      setInventoryOptions([]);
+    }
+    setBillForm({ vendor_id: selectedVendor.id, bill_number: '', bill_date: serverToday() });
+    setBillItems(mapped.map(m => ({ inventory_item_id: m.inventory_item_id, item_name: m.item_name, quantity: m.quantity, unit_cost: m.unit_cost, total_cost: m.total_cost })));
+    setShowBillForm(true);
+  };
+
+  const viewLastBill = (billId) => {
+    if (!billId) { toast.error('No bill available'); return; }
+    setFullBillState({ open: true, vendorBillId: billId });
+  };
+
 
 
   /* ── Vendor Detail Dashboard ── */
@@ -465,6 +555,66 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
             <div className="em-empty-inline">
               <FileText size={32} strokeWidth={1} />
               <p>No transactions found for this vendor</p>
+            </div>
+          )}
+        </div>
+        {/* Items Purchased From Vendor */}
+        <div className="em-card">
+          <div className="em-card__title"><Package size={16} /> Items Purchased</div>
+          {vendorItems.length === 0 ? (
+            <div className="em-empty-inline">
+              <Package size={32} strokeWidth={1} />
+              <p>No purchase item history for this vendor</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <label style={{ cursor: 'pointer' }}><input type="checkbox" checked={selectAll} onChange={toggleSelectAll} /> Select all</label>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={downloadSelected}><FileText size={14} /> Download</button>
+                  <button className="btn btn-ghost btn-sm" onClick={sendWhatsApp}>WhatsApp</button>
+                  <button className="btn btn-primary btn-sm" onClick={() => orderSelected(false)}>Order Same Qty</button>
+                  <button className="btn btn-sm" style={{ background: 'var(--info, #2563eb)', color: 'var(--on-accent)' }} onClick={() => orderSelected(true)}>Order & Edit</button>
+                </div>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table className="em-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 36 }}></th>
+                      <th>Item</th>
+                      <th>SKU</th>
+                      <th style={{ textAlign: 'right' }}>Total Purchased</th>
+                      <th style={{ textAlign: 'right' }}>Last Unit Cost</th>
+                      <th>Last Purchase</th>
+                      <th style={{ textAlign: 'center', width: 140 }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vendorItems.map(it => (
+                      <tr key={it.inventory_id}>
+                        <td style={{ textAlign: 'center' }}>
+                          <input type="checkbox" checked={selectedItemIds.has(it.inventory_id)} onChange={() => toggleSelectItem(it.inventory_id)} />
+                        </td>
+                        <td>{it.item_name}</td>
+                        <td>{it.sku || '—'}</td>
+                        <td style={{ textAlign: 'right' }}>{it.total_purchased || 0}</td>
+                        <td style={{ textAlign: 'right' }}>{it.last_unit_cost != null ? `₹${Number(it.last_unit_cost).toFixed(2)}` : '—'}</td>
+                        <td>{it.last_bill_date ? fmtDate(it.last_bill_date) : '—'}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                            <button className="btn btn-ghost btn-sm" onClick={() => viewLastBill(it.last_bill_id)} title="View last bill"><FileText size={14} /></button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedItemIds(prev => new Set(prev).add(it.inventory_id)); orderSelected(true); }} title="Order this item">Order</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

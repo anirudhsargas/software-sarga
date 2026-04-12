@@ -5,7 +5,7 @@ import localDb from '../services/localDb';
 import SecureImage from '../components/SecureImage';
 import auth from '../services/auth';
 import { serverToday } from '../services/serverTime';
-import { Camera, Download, Printer, Scissors, WifiOff, Plus, Minus, AlertCircle, Tag, X, CheckCircle, Loader2, Building2 } from 'lucide-react';
+import { Camera, Download, Printer, Scissors, WifiOff, Plus, Minus, AlertCircle, Tag, X, CheckCircle, Loader2 } from 'lucide-react';
 import ScannerModal from '../components/ScannerModal';
 import PaperOptimizer from '../components/PaperOptimizer';
 import { calculateProductPrice } from '../utils/pricing';
@@ -14,7 +14,6 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import UpsellSuggestions from '../components/UpsellSuggestions';
 import { GST_RATE } from '../constants';
-import { forcePrefetchBillingData } from '../services/offlineSync';
 import offlineDb from '../services/offlineDb';
 import { useOnlineStatus } from '../hooks/useOffline';
 import { syncManager } from '../services/syncWorkerManager';
@@ -33,8 +32,6 @@ const Billing = () => {
   const isFrontOffice = auth.getUser()?.role === 'Front Office';
   const { confirm } = useConfirm();
   const isOnline = useOnlineStatus();
-  const [offlineSyncing, setOfflineSyncing] = useState(false);
-  const [offlineLastSync, setOfflineLastSync] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -102,8 +99,6 @@ const Billing = () => {
   const [scannedPreview, setScannedPreview] = useState(null); // { item, unitPrice, mrp } for inventory preview
   const [scannedQty, setScannedQty] = useState(1);
 
-  // Internal billing is handled under the new Internal > Billing page
-  const isInternalBill = false;
 
   // Discount states
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -539,7 +534,6 @@ const Billing = () => {
   };
 
   const validatePayment = () => {
-    if (isInternalBill) return {}; // Internal bills require no payment
     const errors = {};
     if (payment.selectedMethods.length === 0) errors.paymentMethod = 'Select at least one payment method';
     if (advancePaid < 0) errors.advancePaid = 'Payment amount cannot be negative';
@@ -617,7 +611,7 @@ const Billing = () => {
     }
 
     const allWasteOnly = orderLines.length > 0 && orderLines.every(l => Number(l.total_amount) === 0 && (l.waste_prints > 0 || l.proof_prints > 0));
-    if (totals.gross <= 0 && !allWasteOnly && !isInternalBill) {
+    if (totals.gross <= 0 && !allWasteOnly) {
       setError('Bill total must be greater than zero. Please adjust items or discount.');
       return;
     }
@@ -629,7 +623,7 @@ const Billing = () => {
       return;
     }
 
-    if (!isInternalBill && isWalkIn && advancePaid < totals.gross * 0.99) {
+    if (isWalkIn && advancePaid < totals.gross * 0.99) {
       setError('Walk-in customers must make full payment before creating a bill.');
       setFieldErrors((prev) => ({ ...prev, advancePaid: 'Full payment required for walk-in customers' }));
       return;
@@ -682,24 +676,24 @@ const Billing = () => {
         customer_name: customerName,
         customer_mobile: form.mobile || null,
         customer_type: form.type,
-        total_amount: isInternalBill ? 0 : totals.gross,
-        net_amount: isInternalBill ? 0 : totals.net,
-        sgst_amount: isInternalBill ? 0 : totals.sgst,
-        cgst_amount: isInternalBill ? 0 : totals.cgst,
-        discount_percent: isInternalBill ? null : (totals.effectiveDiscount || null),
-        discount_amount: isInternalBill ? null : (totals.discountAmount || null),
-        advance_paid: isInternalBill ? 0 : advancePaid,
-        payment_method: isInternalBill ? 'Internal' : paymentMethod,
-        cash_amount: isInternalBill ? 0 : cashAmount,
-        upi_amount: isInternalBill ? 0 : upiAmount,
-        cheque_amount: isInternalBill ? 0 : chequeAmount,
-        account_transfer_amount: isInternalBill ? 0 : transferAmount,
+        total_amount: totals.gross,
+        net_amount: totals.net,
+        sgst_amount: totals.sgst,
+        cgst_amount: totals.cgst,
+        discount_percent: (totals.effectiveDiscount || null),
+        discount_amount: (totals.discountAmount || null),
+        advance_paid: advancePaid,
+        payment_method: paymentMethod,
+        cash_amount: cashAmount,
+        upi_amount: upiAmount,
+        cheque_amount: chequeAmount,
+        account_transfer_amount: transferAmount,
         reference_number: payment.referenceNumber,
         description: payment.description || autoDescription,
         payment_date: payment.paymentDate,
         book_type: billBookType,
-        is_internal: isInternalBill ? 1 : 0,
-        internal_department: isInternalBill ? (existingCustomer?.internal_branch || null) : null,
+        is_internal: 0,
+        internal_department: null,
         order_lines: orderLines.map(line => ({
             ...line,
             matter_file: undefined,
@@ -1069,6 +1063,7 @@ const Billing = () => {
       machine_print_count: isMachineRequired && jobData.count_to_machine
         ? (Number(jobData.waste_prints) || 0) + (Number(jobData.proof_prints) || 0)
         : null,
+      paper_consume: jobData.paper_consume || null,
       book_type: lineBookType
     };
     setOrderLines((prev) => [...prev, line]);
@@ -1490,42 +1485,6 @@ const Billing = () => {
                 : 'Offline — bills will sync when internet returns.'}
             </p>
           </div>
-          {isOnline && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-              <button
-                className="btn btn-ghost btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
-                disabled={offlineSyncing}
-                onClick={async () => {
-                  setOfflineSyncing(true);
-                  try {
-                    await forcePrefetchBillingData();
-                    setOfflineLastSync(new Date());
-                    toast.success('Product & rate data downloaded for offline use');
-                  } catch {
-                    toast.error('Download failed. Check your connection.');
-                  } finally {
-                    setOfflineSyncing(false);
-                  }
-                }}
-              >
-                <Download size={14} style={{ animation: offlineSyncing ? 'spin 1s linear infinite' : 'none' }} />
-                {offlineSyncing ? 'Downloading...' : 'Download for Offline'}
-              </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
-                  onClick={toggleInternalPanel}
-                >
-                  <Building2 size={14} /> Internal Txns
-                </button>
-              {offlineLastSync && (
-                <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                  Last synced: {offlineLastSync.toLocaleTimeString()}
-                </span>
-              )}
-            </div>
-          )}
         </div>
 
         {loading && <div className="muted">Loading products...</div>}
@@ -1569,31 +1528,15 @@ const Billing = () => {
           <div className="billing-card">
             <div className="billing-card__header">
               <h2 className="billing-card__title">Customer Details</h2>
-              {existingCustomer && !isInternalBill && (
+              {existingCustomer && (
                 <span className="billing-badge billing-badge--success">Returning Customer</span>
               )}
-              {isInternalBill && (
-                <span className="billing-badge" style={{ background: 'var(--accent-bg, rgba(99,102,241,0.12))', color: 'var(--accent, #6366f1)' }}>🏠 Internal</span>
-              )}
             </div>
-
-            {/* Internal billing banner */}
-            {isInternalBill && (
-              <div style={{
-                display: 'flex', gap: 10, alignItems: 'center', padding: '10px 14px',
-                background: 'var(--accent-bg, rgba(99,102,241,0.08))', borderLeft: '4px solid var(--accent, #6366f1)',
-                borderRadius: 6, marginBottom: 12, fontSize: 13, color: 'var(--accent, #6366f1)'
-              }}>
-                <AlertCircle size={16} style={{ flexShrink: 0 }} />
-                <span><strong>Internal use</strong> — no payment collected. Department: <strong>{existingCustomer.internal_branch}</strong></span>
-              </div>
-            )}
 
             {existingCustomer ? (
               <div className="billing-customer-found">
                 <div className="billing-customer-found__info">
                   <div className="billing-customer-found__name">
-                    {isInternalBill && <span style={{ marginRight: 6 }}>🏠</span>}
                     {existingCustomer.name || 'Customer'}
                   </div>
                   <div className="billing-customer-found__details">
@@ -1912,7 +1855,21 @@ const Billing = () => {
                 isOpen={showPaperOptimizer}
                 onClose={() => setShowPaperOptimizer(false)}
                 onApply={(data) => {
-                  setJobData((prev) => ({ ...prev, quantity: data.sheetsNeeded }));
+                  setJobData((prev) => ({
+                    ...prev,
+                    quantity: data.sheetsNeeded,
+                    paper_consume: {
+                      items: [
+                        {
+                          required_sheets: data.sheetsNeeded,
+                          child_size_code: data.itemSize || null,
+                          paper_size: data.sheetSize || null,
+                          paper_category: lineBookType || selectedProduct?.book_type || prev.book_type || null
+                        }
+                      ]
+                    }
+                  }));
+
                   calculateDynamicPrice(selectedProduct, data.sheetsNeeded, extraInputs, jobData.customPaperRate);
                   toast.success(`${data.breakdown}`);
                 }}

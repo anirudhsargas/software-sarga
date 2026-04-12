@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getUserBranchId, hasPendingCustomerBalance, bumpUsageForUser, auditLog, auditFieldChanges, getNextInvoiceNumber, normalizeMobile, asyncHandler } = require('../helpers');
+const { getUserBranchId, hasPendingCustomerBalance, bumpUsageForUser, auditLog, auditFieldChanges, getNextInvoiceNumber, normalizeMobile, asyncHandler, getTodayDate } = require('../helpers');
 const { branchFilter } = require('../middleware/branchFilter');
 const { paginate } = require('../helpers/pagination');
 const { validate } = require('../middleware/validate');
@@ -207,7 +207,7 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                 const coupon = couponRows[0];
                 const isValid = coupon.is_active
                     && (coupon.max_uses === null || coupon.used_count < coupon.max_uses)
-                    && (!coupon.expiry_date || new Date(coupon.expiry_date) >= new Date(new Date().toISOString().split('T')[0]));
+                    && (!coupon.expiry_date || new Date(coupon.expiry_date) >= new Date(getTodayDate()));
                 if (isValid) {
                     resolvedCouponCode = cleanCoupon;
                     await connection.query('UPDATE sarga_coupons SET used_count = used_count + 1 WHERE id = ?', [coupon.id]);
@@ -747,10 +747,8 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
             dateParams.push(endDate);
         }
 
-        const today = new Date().toISOString().split('T')[0];
-        const monthStart = new Date();
-        monthStart.setDate(1);
-        const monthStartStr = monthStart.toISOString().split('T')[0];
+        const today = getTodayDate();
+        const monthStartStr = today.slice(0, 8) + '01';
 
         // 1. Job Stats (Respecting Filters)
         const [[jobStats]] = await pool.query(`
@@ -855,27 +853,57 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
         // 8. Low Stock Alerts
         let lowStockItems = [];
         try {
-            const [lowStock] = await pool.query(`
-                SELECT id, name, sku, category, quantity, reorder_level
-                FROM sarga_inventory
-                WHERE quantity <= GREATEST(reorder_level, 1)
-                ORDER BY quantity ASC
-                LIMIT 10
-            `);
+            let lowStockQuery, lowStockParams;
+            if (branchIds) {
+                lowStockQuery = `
+                    SELECT i.id, i.name, i.sku, i.category, bs.quantity, i.reorder_level
+                    FROM sarga_inventory i
+                    JOIN sarga_branch_stock bs ON i.id = bs.inventory_item_id
+                    WHERE bs.branch_id IN (?) AND bs.quantity <= GREATEST(i.reorder_level, 1)
+                    ORDER BY bs.quantity ASC LIMIT 15
+                `;
+                lowStockParams = [branchIds];
+            } else {
+                lowStockQuery = `
+                    SELECT id, name, sku, category, quantity, reorder_level
+                    FROM sarga_inventory
+                    WHERE quantity <= GREATEST(reorder_level, 1)
+                    ORDER BY quantity ASC LIMIT 15
+                `;
+                lowStockParams = [];
+            }
+            const [lowStock] = await pool.query(lowStockQuery, lowStockParams);
             lowStockItems = lowStock;
         } catch { /* ignore if table missing */ }
 
         // 9. Inventory Summary
         let inventorySummary = {};
         try {
-            const [[invStats]] = await pool.query(`
-                SELECT 
-                    COUNT(*) as total_items,
-                    SUM(quantity) as total_quantity,
-                    SUM(quantity * cost_price) as total_value,
-                    COUNT(CASE WHEN quantity <= GREATEST(reorder_level, 1) THEN 1 END) as low_stock_count
-                FROM sarga_inventory
-            `);
+            let invQuery, invParams;
+            if (branchIds) {
+                invQuery = `
+                    SELECT 
+                        COUNT(*) as total_items,
+                        SUM(bs.quantity) as total_quantity,
+                        SUM(bs.quantity * i.cost_price) as total_value,
+                        SUM(CASE WHEN bs.quantity <= GREATEST(i.reorder_level, 1) THEN 1 ELSE 0 END) as low_stock_count
+                    FROM sarga_inventory i
+                    JOIN sarga_branch_stock bs ON i.id = bs.inventory_item_id
+                    WHERE bs.branch_id IN (?)
+                `;
+                invParams = [branchIds];
+            } else {
+                invQuery = `
+                    SELECT 
+                        COUNT(*) as total_items,
+                        SUM(quantity) as total_quantity,
+                        SUM(quantity * cost_price) as total_value,
+                        SUM(CASE WHEN quantity <= GREATEST(reorder_level, 1) THEN 1 ELSE 0 END) as low_stock_count
+                    FROM sarga_inventory
+                `;
+                invParams = [];
+            }
+            const [[invStats]] = await pool.query(invQuery, invParams);
             inventorySummary = invStats;
         } catch { /* ignore */ }
 
@@ -901,8 +929,9 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
                 FROM sarga_job_assignments ja
                 JOIN sarga_staff s ON ja.staff_id = s.id
                 WHERE DATE(ja.created_at) >= ?
+                ${branchIds ? 'AND s.branch_id IN (?)' : ''}
                 GROUP BY ja.staff_id ORDER BY jobs_handled DESC LIMIT 5
-            `, [monthStartStr]);
+            `, branchIds ? [monthStartStr, branchIds] : [monthStartStr]);
             staffProductivity = staffStats;
         } catch { /* ignore */ }
 
@@ -988,8 +1017,14 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
             kuri_total: 0
         };
         try {
-            const [[emiStats]] = await pool.query("SELECT SUM(monthly_emi) as total FROM sarga_emi_master WHERE is_active = 1");
-            const [[kuriStats]] = await pool.query("SELECT SUM(monthly_installment) as total FROM sarga_kuri_master WHERE is_active = 1");
+            const [[emiStats]] = await pool.query(
+                `SELECT SUM(monthly_emi) as total FROM sarga_emi_master WHERE is_active = 1 ${branchIds ? 'AND branch_id IN (?)' : ''}`,
+                branchIds ? [branchIds] : []
+            );
+            const [[kuriStats]] = await pool.query(
+                `SELECT SUM(monthly_installment) as total FROM sarga_kuri_master WHERE is_active = 1 ${branchIds ? 'AND branch_id IN (?)' : ''}`,
+                branchIds ? [branchIds] : []
+            );
             financial_roadmap.emi_total = Number(emiStats.total) || 0;
             financial_roadmap.kuri_total = Number(kuriStats.total) || 0;
             financial_roadmap.total_monthly_commitment = financial_roadmap.emi_total + financial_roadmap.kuri_total;
@@ -998,7 +1033,13 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
         // 15. Monitoring Stats (Fraud Alerts)
         let monitoring_stats = { active_alerts: 0 };
         try {
-            const [[alertStats]] = await pool.query("SELECT COUNT(*) as count FROM sarga_fraud_alerts WHERE status = 'ACTIVE'");
+            const [[alertStats]] = await pool.query(`
+                SELECT COUNT(*) as count 
+                FROM sarga_fraud_alerts fa
+                ${branchIds ? 'JOIN sarga_staff s ON fa.staff_id = s.id' : ''}
+                WHERE fa.status = 'ACTIVE'
+                ${branchIds ? 'AND s.branch_id IN (?)' : ''}
+            `, branchIds ? [branchIds] : []);
             monitoring_stats.active_alerts = alertStats.count || 0;
         } catch (err) { /* ignore */ }
 

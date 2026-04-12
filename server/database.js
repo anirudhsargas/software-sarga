@@ -1732,6 +1732,22 @@ const initDb = async () => {
       )
     `);
 
+    // Paper cut mapping: parent sheet -> child size mapping (e.g., double to dummy cuts)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_paper_cut_map (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        parent_inventory_item_id INT NOT NULL,
+        child_size_code VARCHAR(100) NOT NULL,
+        pieces_per_parent INT NOT NULL DEFAULT 1,
+        loss_pct DECIMAL(5,2) DEFAULT 0,
+        min_waste INT DEFAULT 0,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_parent_child (parent_inventory_item_id, child_size_code),
+        FOREIGN KEY (parent_inventory_item_id) REFERENCES sarga_inventory(id) ON DELETE CASCADE
+      )
+    `);
+
     // ─── Customer Design History ─────────────────────────────────
     await connection.query(`
       CREATE TABLE IF NOT EXISTS sarga_customer_designs (

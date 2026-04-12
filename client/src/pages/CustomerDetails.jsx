@@ -383,6 +383,40 @@ const CustomerDetails = () => {
                     <div className="cd-order-left">
                       <span className="cd-order-number">#{job.job_number || job.id}</span>
                       <span className="cd-order-name">{job.job_name}</span>
+                      {/* Compact Tags for Customer Dashboard */}
+                      {job.description && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                          {job.description.split(' | ').filter(p => p && p.trim()).map((part, i) => {
+                            const isTagged = part.includes(':');
+                            const [label, ...rest] = isTagged ? part.split(':') : ['', part];
+                            const value = isTagged ? rest.join(':').trim() : part.trim();
+                            const tagLabel = isTagged ? label.trim().toLowerCase() : '';
+                            
+                            const isColour = tagLabel === 'colour' || tagLabel === 'color';
+                            const isNumbering = tagLabel === 'numbering' || tagLabel.includes('from') || tagLabel.includes('to');
+                            const isMatter = tagLabel === 'matter';
+                            
+                            return (
+                              <span key={i} style={{
+                                fontSize: '8px',
+                                padding: '1px 4px',
+                                borderRadius: '3px',
+                                background: isColour ? 'rgba(146, 64, 14, 0.08)' : isNumbering ? 'rgba(30, 64, 175, 0.08)' : isMatter ? 'rgba(124, 58, 237, 0.08)' : 'rgba(108, 117, 125, 0.08)',
+                                color: isColour ? '#92400e' : isNumbering ? '#1e40af' : isMatter ? '#7c3aed' : '#6c757d',
+                                border: `1px solid ${isColour ? 'rgba(146, 64, 14, 0.2)' : isNumbering ? 'rgba(30, 64, 175, 0.2)' : isMatter ? 'rgba(124, 58, 237, 0.2)' : 'rgba(108, 117, 125, 0.15)'}`,
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {isColour && '🎨 '}
+                                {isNumbering && '🔢 '}
+                                {isMatter && '📝 '}
+                                {tagLabel && value}
+                                {!tagLabel && value}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                     <div className="cd-order-right">
                       <span className={`cd-status cd-status--${(job.status || 'pending').toLowerCase()}`}>
@@ -445,6 +479,41 @@ const CustomerDetails = () => {
                       <span className="cd-order-name">{job.job_name}</span>
                       <span className="cd-order-amount">{fmtCurrency(job.total_amount)}</span>
                     </div>
+                    
+                    {/* Compact Tags for Customer Dashboard */}
+                    {job.description && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4, marginBottom: 8 }}>
+                        {job.description.split(' | ').filter(p => p && p.trim()).map((part, i) => {
+                          const isTagged = part.includes(':');
+                          const [label, ...rest] = isTagged ? part.split(':') : ['', part];
+                          const value = isTagged ? rest.join(':').trim() : part.trim();
+                          const tagLabel = isTagged ? label.trim().toLowerCase() : '';
+                          
+                          const isColour = tagLabel === 'colour' || tagLabel === 'color';
+                          const isNumbering = tagLabel === 'numbering' || tagLabel.includes('from') || tagLabel.includes('to');
+                          const isMatter = tagLabel === 'matter';
+                          
+                          return (
+                            <span key={i} style={{
+                              fontSize: '9px',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              background: isColour ? 'rgba(146, 64, 14, 0.08)' : isNumbering ? 'rgba(30, 64, 175, 0.08)' : isMatter ? 'rgba(124, 58, 237, 0.08)' : 'rgba(108, 117, 125, 0.08)',
+                              color: isColour ? '#92400e' : isNumbering ? '#1e40af' : isMatter ? '#7c3aed' : '#6c757d',
+                              border: `1px solid ${isColour ? 'rgba(146, 64, 14, 0.2)' : isNumbering ? 'rgba(30, 64, 175, 0.2)' : isMatter ? 'rgba(124, 58, 237, 0.2)' : 'rgba(108, 117, 125, 0.15)'}`,
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {isColour && '🎨 '}
+                              {isNumbering && '🔢 '}
+                              {isMatter && '📝 '}
+                              {tagLabel && <span style={{ textTransform: 'capitalize' }}>{tagLabel}: </span>}
+                              {value}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                     <div className="cd-progress">
                       {STATUS_STEPS.map((step, i) => (
                         <div key={step} className={`cd-progress-step ${i <= stepIdx ? 'cd-progress-step--done' : ''} ${i === stepIdx ? 'cd-progress-step--current' : ''}`}>

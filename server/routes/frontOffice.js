@@ -7,6 +7,7 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const { branchFilter } = require('../middleware/branchFilter');
+const { getTodayDate } = require('../helpers');
 
 // ─── FRONT OFFICE ATTENDANCE REMINDER (9:00 AM to 10:00 AM) ───────────────
 router.get('/front-office/attendance-reminder', authenticateToken, async (req, res) => {
@@ -22,7 +23,7 @@ router.get('/front-office/attendance-reminder', authenticateToken, async (req, r
                 missing_count: 0,
                 marked_count: 0,
                 total_staff: 0,
-                attendance_date: new Date().toISOString().split('T')[0],
+                attendance_date: getTodayDate(),
                 reminder_until: '10:00'
             });
         }
@@ -35,7 +36,7 @@ router.get('/front-office/attendance-reminder', authenticateToken, async (req, r
         const windowEnd = 10 * 60;    // 10:00
         const inWindow = minutesNow >= windowStart && minutesNow < windowEnd;
 
-        const today = now.toISOString().split('T')[0];
+        const today = getTodayDate();
 
         // Count active branch staff who should have attendance marked.
         let rows;
@@ -123,10 +124,10 @@ router.post('/front-office/attendance', authenticateToken, async (req, res) => {
             return res.status(400).json({ message: 'Invalid status. Only Present, Absent, Half Day allowed.' });
         }
 
-        const date = attendance_date || new Date().toISOString().split('T')[0];
+        const date = attendance_date || getTodayDate();
 
         // Prevent future dates
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayDate();
         if (date > today) {
             return res.status(400).json({ message: 'Cannot mark attendance for future dates.' });
         }
@@ -165,7 +166,7 @@ router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
 
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayDate();
 
         // Limit dashboard queries to last 90 days for performance
         const recentWhere = ` AND j.created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)`;
@@ -394,7 +395,7 @@ router.get('/front-office/overdue-jobs', authenticateToken, async (req, res) => 
         const { branchId } = await branchFilter(req);
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayDate();
         const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const [[{ total }]] = await pool.query(

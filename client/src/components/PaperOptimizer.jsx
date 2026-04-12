@@ -297,6 +297,14 @@ const PaperOptimizer = ({ isOpen, onClose, onApply }) => {
                         wastePercent: result.wastePercent,
                         summary: result.summary,
                         breakdown: result.breakdown,
+                        sheetSize,
+                        itemSize,
+                        itemCount,
+                        sheetW: result.sheetW,
+                        sheetH: result.sheetH,
+                        itemW: result.itemW,
+                        itemH: result.itemH,
+                        doubleSide,
                       });
                       onClose();
                     }}

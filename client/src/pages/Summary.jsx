@@ -7,7 +7,6 @@ import { formatCurrency as formatCurrencyShared } from '../constants';
 import OrderForecastWidget from '../components/OrderForecastWidget';
 
 const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
-const SalesPrediction = React.lazy(() => import('./SalesPrediction'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 
 const Summary = () => {
@@ -122,10 +121,9 @@ const Summary = () => {
                 borderRadius: '12px', background: 'var(--bg-2)', overflowX: 'auto'
             }}>
                 {[
-                    { id: 'overview', label: 'Summary Overview', icon: <BarChart3 size={15} /> },
-                    { id: 'ai-monitoring', label: 'AI Fraud Monitoring', icon: <ShieldAlert size={15} /> },
-                    { id: 'sales-prediction', label: 'Sales Prediction', icon: <TrendingUp size={15} /> },
-                    { id: 'order-predictions', label: 'Order Predictions', icon: <Sparkles size={15} /> }
+                    { id: 'overview', label: 'Summary Overview', icon: < BarChart3 size={15} /> },
+                    { id: 'ai-monitoring', label: 'AI Fraud Monitoring', icon: < ShieldAlert size={15} /> },
+                    { id: 'order-predictions', label: 'Order Predictions', icon: < Sparkles size={15} /> }
                 ].map(t => (
                     <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
                         display: 'flex', alignItems: 'center', gap: '6px',
@@ -501,7 +499,7 @@ const Summary = () => {
                     )}
 
                     {/* ─── Section 7: Order Forecast ─── */}
-                    <OrderForecastWidget />
+                    <OrderForecastWidget branchId={filters.branch_id} />
                 </>
             )}
 
@@ -511,11 +509,6 @@ const Summary = () => {
                 </Suspense>
             )}
 
-            {activeTab === 'sales-prediction' && (
-                <Suspense fallback={<div className="flex items-center justify-center p-40"><Loader2 className="animate-spin text-accent" size={32} /></div>}>
-                    <SalesPrediction />
-                </Suspense>
-            )}
 
             {activeTab === 'order-predictions' && (
                 <Suspense fallback={<div className="flex items-center justify-center p-40"><Loader2 className="animate-spin text-accent" size={32} /></div>}>

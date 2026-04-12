@@ -51,7 +51,7 @@ router.post('/requests/id-change/:id/review', authenticateToken, authorizeRoles(
     await connection.beginTransaction();
 
     try {
-        const [requests] = await connection.query("SELECT * FROM sarga_id_requests WHERE id = ?", [requestId]);
+        const [requests] = await connection.query("SELECT id, user_id_internal, old_user_id, new_user_id, status FROM sarga_id_requests WHERE id = ?", [requestId]);
         const request = requests[0];
 
         if (!request) {
@@ -138,7 +138,7 @@ router.post('/requests/customer-change/:id/review', authenticateToken, authorize
     await connection.beginTransaction();
 
     try {
-        const [requests] = await connection.query("SELECT * FROM sarga_customer_requests WHERE id = ?", [requestId]);
+        const [requests] = await connection.query("SELECT id, customer_id, action, payload, status FROM sarga_customer_requests WHERE id = ?", [requestId]);
         const request = requests[0];
         if (!request) {
             await connection.rollback();
@@ -225,7 +225,7 @@ router.post('/requests/attendance/:id/review', authenticateToken, authorizeRoles
     await connection.beginTransaction();
 
     try {
-        const [requests] = await connection.query("SELECT * FROM sarga_attendance_requests WHERE id = ?", [requestId]);
+        const [requests] = await connection.query("SELECT id, staff_id, attendance_date, requested_status, requested_notes, requested_time, status FROM sarga_attendance_requests WHERE id = ?", [requestId]);
         const request = requests[0];
 
         if (!request) {
@@ -323,7 +323,7 @@ router.post('/requests/discount', authenticateToken, asyncHandler(async (req, re
 // Get current user's most recent discount request (any staff)
 router.get('/requests/discount/my', authenticateToken, asyncHandler(async (req, res) => {
     const [rows] = await pool.query(
-        "SELECT * FROM sarga_discount_requests WHERE requester_id = ? ORDER BY created_at DESC LIMIT 1",
+        "SELECT id, discount_percent, total_amount, status, created_at FROM sarga_discount_requests WHERE requester_id = ? ORDER BY created_at DESC LIMIT 1",
         [req.user.id]
     );
     res.json(rows[0] || null);
@@ -359,7 +359,7 @@ router.post('/requests/discount/:id/review', authenticateToken, authorizeRoles('
     if (!['APPROVE', 'REJECT'].includes(action)) {
         return res.status(400).json({ message: 'Invalid action' });
     }
-    const [requests] = await pool.query("SELECT * FROM sarga_discount_requests WHERE id = ?", [requestId]);
+    const [requests] = await pool.query("SELECT id, approval_level, status, discount_percent, total_amount, customer_name FROM sarga_discount_requests WHERE id = ?", [requestId]);
     if (!requests[0]) return res.status(404).json({ message: 'Request not found' });
 
     // Accountant can only act on accountant_or_admin level requests

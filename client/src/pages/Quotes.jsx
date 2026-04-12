@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FileText, Plus, Edit2, Trash2, Send, ArrowRight, Search, X, ChevronDown, Loader2 } from 'lucide-react';
+import { FileText, Plus, Edit2, Trash2, Send, ArrowRight, Search, X, ChevronDown, Loader2, UserSquare, Package, Clock } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -118,6 +118,22 @@ export default function Quotes() {
 
     return (
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <style>{`
+                .quote-item-card {
+                    display: grid !important;
+                    grid-template-columns: repeat(4, 1fr) !important;
+                    gap: 12px !important;
+                }
+                @media (max-width: 600px) {
+                    .quote-item-card {
+                        grid-template-columns: repeat(2, 1fr) !important;
+                    }
+                    .quote-item-card > div:nth-child(1),
+                    .quote-item-card > div:nth-child(2) {
+                        grid-column: span 2 !important;
+                    }
+                }
+            `}</style>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}><FileText size={22} /> Quotes & Estimates</h2>
                 <button style={btnStyle()} onClick={() => { setForm(emptyForm()); setEditing(null); setShowForm(true); }}><Plus size={16} /> New Quote</button>
@@ -176,70 +192,129 @@ export default function Quotes() {
             {/* Create/Edit Modal */}
             {showForm && (
                 <div className="modal-backdrop" style={{ zIndex: 1003 }} onClick={() => setShowForm(false)}>
-                    <div className="modal" style={{ maxWidth: 800, width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: 24 }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                            <h3 style={{ margin: 0 }}>{editing ? 'Edit Quote' : 'New Quote'}</h3>
-                            <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
+                    <div className="modal" style={{ maxWidth: 800, width: '95%', maxHeight: '92vh', overflowY: 'auto', padding: 0, borderRadius: 16, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
+                            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{editing ? 'Edit Quote' : 'Create New Quote'}</h3>
+                            <button onClick={() => setShowForm(false)} style={{ background: 'var(--bg-3)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
                         </div>
 
-                        {/* Customer Selection */}
-                        <div style={{ marginBottom: 16 }}>
-                            <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, display: 'block' }}>Customer</label>
-                            <select value={form.customer_id} onChange={e => { const c = customers.find(c => c.id === Number(e.target.value)); if (c) selectCustomer(c); }}
-                                style={inputStyle}>
-                                <option value="">Select or type below</option>
-                                {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.mobile})</option>)}
-                            </select>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                            <div><label style={{ fontSize: 13, fontWeight: 600 }}>Name *</label><input value={form.customer_name} onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} style={inputStyle} /></div>
-                            <div><label style={{ fontSize: 13, fontWeight: 600 }}>Mobile</label><input value={form.customer_mobile} onChange={e => setForm(f => ({ ...f, customer_mobile: e.target.value }))} style={inputStyle} /></div>
-                            <div><label style={{ fontSize: 13, fontWeight: 600 }}>Email</label><input value={form.customer_email} onChange={e => setForm(f => ({ ...f, customer_email: e.target.value }))} style={inputStyle} /></div>
-                            <div><label style={{ fontSize: 13, fontWeight: 600 }}>GST</label><input value={form.customer_gst} onChange={e => setForm(f => ({ ...f, customer_gst: e.target.value }))} style={inputStyle} /></div>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
-                            <div><label style={{ fontSize: 13, fontWeight: 600 }}>Date</label><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStyle} /></div>
-                            <div><label style={{ fontSize: 13, fontWeight: 600 }}>Valid Until</label><input type="date" value={form.valid_until} onChange={e => setForm(f => ({ ...f, valid_until: e.target.value }))} style={inputStyle} /></div>
-                            <div><label style={{ fontSize: 13, fontWeight: 600 }}>Discount %</label><input type="number" value={form.discount_percent} onChange={e => setForm(f => ({ ...f, discount_percent: Number(e.target.value) }))} style={inputStyle} /></div>
-                            <div><label style={{ fontSize: 13, fontWeight: 600 }}>Tax %</label><input type="number" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: Number(e.target.value) }))} style={inputStyle} /></div>
-                        </div>
-
-                        {/* Items */}
-                        <div style={{ marginBottom: 16 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                <label style={{ fontSize: 14, fontWeight: 600 }}>Items</label>
-                                <button onClick={addItem} style={btnStyle('#374151')}><Plus size={14} /> Add Item</button>
-                            </div>
-                            {form.items.map((item, i) => (
-                                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, marginBottom: 8 }}>
-                                    <input placeholder="Item name *" value={item.item_name} onChange={e => updateItem(i, 'item_name', e.target.value)} style={inputStyle} />
-                                    <input placeholder="Desc" value={item.description} onChange={e => updateItem(i, 'description', e.target.value)} style={inputStyle} />
-                                    <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateItem(i, 'quantity', Number(e.target.value))} style={inputStyle} />
-                                    <input type="number" placeholder="Price" value={item.unit_price} onChange={e => updateItem(i, 'unit_price', Number(e.target.value))} style={inputStyle} />
-                                    <button onClick={() => removeItem(i)} style={{ ...btnStyle('#ef4444'), padding: '8px' }}><Trash2 size={14} /></button>
+                        <div style={{ padding: '24px' }}>
+                            {/* Customer Section */}
+                            <div style={{ marginBottom: 24 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, color: 'var(--primary)' }}>
+                                    <UserSquare size={18} />
+                                    <span style={{ fontWeight: 600, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer Information</span>
                                 </div>
-                            ))}
+                                
+                                <div style={{ marginBottom: 16 }}>
+                                    <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block', color: 'var(--text-muted)' }}>Quick Select Existing Customer</label>
+                                    <select value={form.customer_id} onChange={e => { const c = customers.find(c => c.id === Number(e.target.value)); if (c) selectCustomer(c); }}
+                                        style={{ ...inputStyle, height: 42 }}>
+                                        <option value="">Select or type manually below</option>
+                                        {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.mobile})</option>)}
+                                    </select>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                                    <div><label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' }}>Customer Name *</label><input placeholder="Enter name" value={form.customer_name} onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} style={{ ...inputStyle, height: 42 }} /></div>
+                                    <div><label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' }}>Mobile Number</label><input placeholder="Enter mobile" value={form.customer_mobile} onChange={e => setForm(f => ({ ...f, customer_mobile: e.target.value }))} style={{ ...inputStyle, height: 42 }} /></div>
+                                    <div><label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' }}>Email Address</label><input placeholder="Enter email" value={form.customer_email} onChange={e => setForm(f => ({ ...f, customer_email: e.target.value }))} style={{ ...inputStyle, height: 42 }} /></div>
+                                    <div><label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' }}>GST Number</label><input placeholder="GSTIN (Optional)" value={form.customer_gst} onChange={e => setForm(f => ({ ...f, customer_gst: e.target.value }))} style={{ ...inputStyle, height: 42 }} /></div>
+                                </div>
+                            </div>
+
+                            {/* Quote Details */}
+                            <div style={{ marginBottom: 24, padding: '20px', background: 'var(--bg-2)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, color: 'var(--primary)' }}>
+                                    <Clock size={18} />
+                                    <span style={{ fontWeight: 600, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quote Details</span>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
+                                    <div><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block' }}>Quote Date</label><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={{ ...inputStyle, height: 40 }} /></div>
+                                    <div><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block' }}>Valid Until</label><input type="date" value={form.valid_until} onChange={e => setForm(f => ({ ...f, valid_until: e.target.value }))} style={{ ...inputStyle, height: 40 }} /></div>
+                                    <div><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block' }}>Discount %</label><input type="number" value={form.discount_percent} onChange={e => setForm(f => ({ ...f, discount_percent: Number(e.target.value) }))} style={{ ...inputStyle, height: 40 }} /></div>
+                                    <div><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block' }}>Tax Rate %</label><input type="number" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: Number(e.target.value) }))} style={{ ...inputStyle, height: 40 }} /></div>
+                                </div>
+                            </div>
+
+                            {/* Items Section */}
+                            <div style={{ marginBottom: 24 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)' }}>
+                                        <Package size={18} />
+                                        <span style={{ fontWeight: 600, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Items & Pricing</span>
+                                    </div>
+                                    <button onClick={addItem} style={{ ...btnStyle('var(--primary)'), padding: '6px 12px', fontSize: 13 }}><Plus size={14} /> Add Item</button>
+                                </div>
+                                
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    {form.items.map((item, i) => (
+                                        <div key={i} className="quote-item-card" style={{ 
+                                            padding: 16, 
+                                            borderRadius: 12, 
+                                            border: '1px solid var(--border)', 
+                                            background: 'var(--surface)',
+                                            position: 'relative',
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(4, 1fr)',
+                                            gap: 12
+                                        }}>
+                                            <div style={{ gridColumn: 'span 4' }}>
+                                                <input placeholder="Item name *" value={item.item_name} onChange={e => updateItem(i, 'item_name', e.target.value)} style={{ ...inputStyle, fontWeight: 600 }} />
+                                            </div>
+                                            <div style={{ gridColumn: 'span 4' }}>
+                                                <input placeholder="Description (Optional)" value={item.description} onChange={e => updateItem(i, 'description', e.target.value)} style={{ ...inputStyle, fontSize: 13 }} />
+                                            </div>
+                                            <div style={{ gridColumn: 'span 2' }}>
+                                                <label style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-muted)' }}>Quantity</label>
+                                                <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateItem(i, 'quantity', Number(e.target.value))} style={inputStyle} />
+                                            </div>
+                                            <div style={{ gridColumn: 'span 1' }}>
+                                                <label style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-muted)' }}>Unit Price</label>
+                                                <input type="number" placeholder="Price" value={item.unit_price} onChange={e => updateItem(i, 'unit_price', Number(e.target.value))} style={inputStyle} />
+                                            </div>
+                                            <div style={{ gridColumn: 'span 1', display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}>
+                                                <button onClick={() => removeItem(i)} style={{ background: 'var(--error-bg)', color: 'var(--error)', border: 'none', borderRadius: 8, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Summary & Notes */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, alignItems: 'start' }}>
+                                <div>
+                                    <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: 'block' }}>Notes / Terms & Conditions</label>
+                                    <textarea placeholder="Any specific requirements or validity notes..." value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={4} style={{ ...inputStyle, resize: 'none' }} />
+                                </div>
+                                <div style={{ background: 'var(--primary)', color: 'var(--on-accent)', borderRadius: 16, padding: 20, boxShadow: '0 8px 24px rgba(99, 102, 241, 0.2)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, opacity: 0.9 }}>
+                                        <span style={{ fontSize: 13 }}>Subtotal</span>
+                                        <span style={{ fontWeight: 600 }}>₹{subtotal.toLocaleString('en-IN')}</span>
+                                    </div>
+                                    {form.discount_percent > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, color: '#fecaca' }}>
+                                            <span style={{ fontSize: 13 }}>Discount ({form.discount_percent}%)</span>
+                                            <span style={{ fontWeight: 600 }}>-₹{discountAmt.toLocaleString('en-IN')}</span>
+                                        </div>
+                                    )}
+                                    {form.tax_rate > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, opacity: 0.9 }}>
+                                            <span style={{ fontSize: 13 }}>Tax ({form.tax_rate}%)</span>
+                                            <span style={{ fontWeight: 600 }}>₹{taxAmt.toLocaleString('en-IN')}</span>
+                                        </div>
+                                    )}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 22, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 12 }}>
+                                        <span>Total</span>
+                                        <span>₹{total.toLocaleString('en-IN')}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Totals */}
-                        <div style={{ background: 'var(--bg, #111)', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
-                            {form.discount_percent > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: '#ef4444' }}><span>Discount ({form.discount_percent}%)</span><span>-₹{discountAmt.toLocaleString('en-IN')}</span></div>}
-                            {form.tax_rate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span>Tax ({form.tax_rate}%)</span><span>₹{taxAmt.toLocaleString('en-IN')}</span></div>}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 18, borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 8 }}><span>Total</span><span>₹{total.toLocaleString('en-IN')}</span></div>
-                        </div>
-
-                        {/* Notes */}
-                        <div style={{ marginBottom: 16 }}>
-                            <label style={{ fontSize: 13, fontWeight: 600 }}>Notes</label>
-                            <textarea value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={inputStyle} />
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                            <button onClick={() => setShowForm(false)} style={btnStyle('#374151')}>Cancel</button>
-                            <button onClick={handleSave} style={btnStyle()}>{editing ? 'Update' : 'Create'} Quote</button>
+                        <div style={{ padding: '20px 24px', background: 'var(--surface-lowest)', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, justifyContent: 'flex-end', position: 'sticky', bottom: 0 }}>
+                            <button onClick={() => setShowForm(false)} style={{ ...btnStyle('transparent'), color: 'var(--text-muted)', fontWeight: 500 }}>Cancel</button>
+                            <button onClick={handleSave} style={{ ...btnStyle('var(--primary)'), padding: '10px 24px', fontWeight: 600, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>{editing ? 'Update Quotation' : 'Create Quotation'}</button>
                         </div>
                     </div>
                 </div>

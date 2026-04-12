@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog } = require('../helpers');
+const { auditLog, getTodayDate } = require('../helpers');
 const { validate, addVendorSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
 
@@ -61,7 +61,6 @@ function vendorMatchKey(name = '') {
 // List Vendors / Payees
 router.get('/vendors', authenticateToken, async (req, res) => {
     const { type } = req.query;
-    const { role, branch_id } = req.user;
     try {
         const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
@@ -74,11 +73,9 @@ router.get('/vendors', authenticateToken, async (req, res) => {
             params.push(type);
         }
 
-        // Branch-wise visibility
-        if (!['Admin', 'Accountant'].includes(role)) {
-            conditions.push("(branch_id IS NULL OR branch_id = ?)");
-            params.push(branch_id);
-        }
+        // All vendors are universally visible so they don't need to be defined per branch
+        // Front Office and Admin users alike can select any vendor
+        // (Bills and Payments are still correctly tied to the branch where the action happens)
 
         const where = conditions.length > 0 ? " WHERE " + conditions.join(" AND ") : "";
         
@@ -153,7 +150,7 @@ router.post('/vendor-purchases', authenticateToken, authorizeRoles('Admin', 'Acc
     try {
         const [result] = await pool.query(
             "INSERT INTO sarga_vendor_bills (vendor_id, branch_id, bill_number, bill_date, total_amount, description) VALUES (?, ?, ?, ?, ?, ?)",
-            [vendor_id, finalBranchId, bill_number || null, bill_date || new Date().toISOString().split('T')[0], Number(amount), description || null]
+            [vendor_id, finalBranchId, bill_number || null, bill_date || getTodayDate(), Number(amount), description || null]
         );
 
         // SYNC WITH GLOBAL PAYMENTS TABLE
@@ -404,6 +401,79 @@ router.get('/vendors/:id/statement', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('Statement error:', err);
         res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Aggregated items purchased from a vendor
+router.get('/vendors/:id/items', authenticateToken, async (req, res) => {
+    const vendorId = req.params.id;
+    try {
+        // Branch visibility: non-admin/accountant users only see their branch
+        let branchClause = '';
+        const params = [];
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+            branchClause = ' AND b.branch_id = ?';
+            params.push(req.user.branch_id);
+        } else if (req.query.branch_id) {
+            branchClause = ' AND b.branch_id = ?';
+            params.push(req.query.branch_id);
+        }
+
+        // Aggregate quantities and fetch last purchase info per inventory item
+        const sql = `
+            SELECT i.inventory_item_id as inventory_id, IFNULL(inv.name, '') as item_name, IFNULL(inv.sku, '') as sku,
+                   SUM(i.quantity) as total_purchased,
+                   (
+                     SELECT ib.unit_cost FROM sarga_vendor_bill_items ib
+                     JOIN sarga_vendor_bills bb ON ib.bill_id = bb.id
+                     WHERE ib.inventory_item_id = i.inventory_item_id AND bb.vendor_id = ? ${branchClause}
+                     ORDER BY bb.bill_date DESC, ib.id DESC LIMIT 1
+                   ) as last_unit_cost,
+                   (
+                     SELECT bb.bill_date FROM sarga_vendor_bill_items ib2
+                     JOIN sarga_vendor_bills bb ON ib2.bill_id = bb.id
+                     WHERE ib2.inventory_item_id = i.inventory_item_id AND bb.vendor_id = ? ${branchClause}
+                     ORDER BY bb.bill_date DESC, ib2.id DESC LIMIT 1
+                   ) as last_bill_date,
+                   (
+                     SELECT bb.id FROM sarga_vendor_bill_items ib3
+                     JOIN sarga_vendor_bills bb ON ib3.bill_id = bb.id
+                     WHERE ib3.inventory_item_id = i.inventory_item_id AND bb.vendor_id = ? ${branchClause}
+                     ORDER BY bb.bill_date DESC, ib3.id DESC LIMIT 1
+                   ) as last_bill_id
+            FROM sarga_vendor_bill_items i
+            JOIN sarga_vendor_bills b ON i.bill_id = b.id
+            LEFT JOIN sarga_inventory inv ON inv.id = i.inventory_item_id
+            WHERE b.vendor_id = ? ${branchClause}
+            GROUP BY i.inventory_item_id
+            ORDER BY last_bill_date DESC, total_purchased DESC
+        `;
+
+        // params order: for each subquery vendorId + optional branch, then vendorId + optional branch, then vendorId + optional branch, then main vendorId + optional branch
+        const allParams = [vendorId];
+        if (branchClause) allParams.push(...params);
+        allParams.push(vendorId);
+        if (branchClause) allParams.push(...params);
+        allParams.push(vendorId);
+        if (branchClause) allParams.push(...params);
+        allParams.push(vendorId);
+        if (branchClause) allParams.push(...params);
+
+        const [rows] = await pool.query(sql, allParams);
+        const mapped = rows.map(r => ({
+            inventory_id: r.inventory_id,
+            item_name: r.item_name,
+            sku: r.sku,
+            total_purchased: Number(r.total_purchased || 0),
+            last_unit_cost: r.last_unit_cost != null ? Number(r.last_unit_cost) : null,
+            last_bill_date: r.last_bill_date || null,
+            last_bill_id: r.last_bill_id || null
+        }));
+
+        res.json({ items: mapped });
+    } catch (err) {
+        console.error('Vendor items error:', err);
+        res.status(500).json({ message: 'Failed to fetch vendor items' });
     }
 });
 

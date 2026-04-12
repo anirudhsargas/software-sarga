@@ -32,7 +32,7 @@ module.exports = (upload) => {
 
         try {
             const [users] = await pool.query(
-                `SELECT s.*, b.short_name AS branch_short_name FROM sarga_staff s LEFT JOIN sarga_branches b ON b.id = s.branch_id WHERE RIGHT(s.user_id, 10) = ?`,
+                `SELECT s.id, s.user_id, s.name, s.role, s.password, s.branch_id, s.is_first_login, s.image_url, b.short_name AS branch_short_name FROM sarga_staff s LEFT JOIN sarga_branches b ON b.id = s.branch_id WHERE RIGHT(s.user_id, 10) = ?`,
                 [normalizedUserId]
             );
             const user = users[0];

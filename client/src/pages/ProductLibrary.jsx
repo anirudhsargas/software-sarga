@@ -222,6 +222,17 @@ const ProductLibrary = () => {
         return [c, p, s].filter(Boolean).join('-');
     };
 
+    const getImageId = (url) => {
+        if (!url) return null;
+        try {
+            const parts = String(url).split('/');
+            const last = parts[parts.length - 1] || url;
+            return String(last).split('?')[0];
+        } catch (e) {
+            return url;
+        }
+    };
+
     // Debounced unique company code fetcher
     const codeTimerRef = useRef(null);
     const fetchUniqueCode = useCallback((companyName, currentProduct) => {
@@ -883,6 +894,11 @@ const ProductLibrary = () => {
                                         <div className="product-card__meta">
                                             {cat.subcategories?.length || 0} Sub-categories
                                         </div>
+                                        {cat.image_url && (
+                                            <div style={{ marginTop: 6 }}>
+                                                <span className="muted text-xs" style={{ fontFamily: 'monospace' }}>{getImageId(cat.image_url)}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </SortableItem>
                             ))}
@@ -899,12 +915,17 @@ const ProductLibrary = () => {
                                 {!loadingPendingImageRequests && pendingImageRequests.length > 0 && pendingImageRequests.slice(0, 6).map((req) => (
                                     <div key={req.id} className="row gap-md items-center" style={{ alignItems: 'center' }}>
                                         <div style={{ minWidth: 46 }}>
-                                            {req.proposed_image_url ? (
-                                                <SecureImage src={req.proposed_image_url} alt={req.product_name} className="thumb-img" />
-                                            ) : (
-                                                <div className="thumb-img" style={{ display: 'grid', placeItems: 'center' }}><Package size={14} /></div>
-                                            )}
-                                        </div>
+                                                    {req.proposed_image_url ? (
+                                                        <>
+                                                            <SecureImage src={req.proposed_image_url} alt={req.product_name} className="thumb-img" />
+                                                            <div style={{ marginTop: 6 }}>
+                                                                <span className="muted text-xs" style={{ fontFamily: 'monospace', display: 'block', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>{getImageId(req.proposed_image_url)}</span>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="thumb-img" style={{ display: 'grid', placeItems: 'center' }}><Package size={14} /></div>
+                                                    )}
+                                                </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontWeight: 600 }}>{req.product_name || `Product #${req.product_id}`}</div>
                                             <div className="muted text-xs">Requested by {req.requested_by_name || `Staff #${req.requested_by}`}</div>

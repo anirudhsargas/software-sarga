@@ -529,6 +529,37 @@ const JobDetail = () => {
             updateFn: (prev) => ({ ...prev, job: { ...prev.job, status: newStatus }, _updating: true }),
             serverFn: async () => {
                 await localDb.updateJobStatus(id, newStatus);
+
+                // Auto-log paper usage when a job is marked Completed/Delivered
+                try {
+                    if (newStatus === 'Completed' || newStatus === 'Delivered') {
+                        // Fetch latest local job record
+                        const jobRec = await localDb.getJobById(id);
+                        if (jobRec) {
+                            const required = Number(jobRec.required_sheets || 0);
+                            const used = Number(jobRec.used_sheets || 0);
+                            // Only auto-log the remaining required sheets (avoid double-logging)
+                            const toLog = Math.max(0, required - used);
+                            if (toLog > 0) {
+                                const paperSize = jobRec.paper_size || jobRec.size || null;
+                                try {
+                                    await localDb.logPaperUsage(id, {
+                                        stage: 'auto-complete',
+                                        paper_size: paperSize,
+                                        sheets_used: toLog,
+                                        sheets_wasted: 0,
+                                        notes: 'Auto-logged on job completion'
+                                    });
+                                } catch (logErr) {
+                                    console.warn('Auto paper log failed:', logErr);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Auto-log paper check failed:', e);
+                }
+
                 return (prev) => ({ ...prev, _updating: false });
             },
             rollbackFn: (prev) => ({ ...prev, _updating: false }),
@@ -946,25 +977,29 @@ const JobDetail = () => {
                             <div style={{ marginTop: 20, padding: 16, background: 'var(--bg, #f9fafb)', borderRadius: 10, border: '1px solid var(--border)' }}>
                                 <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Job Details / Notes</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
-                                    {job.description.split(' | ').map((part, i) => {
+                                    {job.description.split(' | ').filter(p => p && p.trim()).map((part, i) => {
                                         const isTagged = part.includes(':');
                                         const [label, ...rest] = isTagged ? part.split(':') : ['', part];
-                                        const value = isTagged ? rest.join(':').trim() : part;
-                                        const tagLabel = isTagged ? label.trim() : '';
-                                        const isColour = tagLabel.toLowerCase() === 'colour' || tagLabel.toLowerCase() === 'color';
-                                        const isNumbering = tagLabel.toLowerCase() === 'numbering';
+                                        const value = isTagged ? rest.join(':').trim() : part.trim();
+                                        const tagLabel = isTagged ? label.trim().toLowerCase() : '';
+                                        
+                                        const isColour = tagLabel === 'colour' || tagLabel === 'color';
+                                        const isNumbering = tagLabel === 'numbering' || tagLabel.includes('from') || tagLabel.includes('to');
+                                        const isMatter = tagLabel === 'matter';
+                                        
                                         return (
                                             <span key={i} style={{
                                                 display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                padding: '4px 10px', borderRadius: 6, fontSize: 13, fontWeight: 500,
-                                                background: isColour ? '#fef3c7' : isNumbering ? '#dbeafe' : 'var(--surface-2, #f3f4f6)',
-                                                color: isColour ? '#92400e' : isNumbering ? '#1e40af' : 'var(--text)',
-                                                border: `1px solid ${isColour ? '#fcd34d' : isNumbering ? '#93c5fd' : 'var(--border)'}`
+                                                padding: '4px 10px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+                                                background: isColour ? 'rgba(146, 64, 14, 0.1)' : isNumbering ? 'rgba(30, 64, 175, 0.1)' : isMatter ? 'rgba(124, 58, 237, 0.1)' : 'var(--surface-2, rgba(108, 117, 125, 0.1))',
+                                                color: isColour ? '#d97706' : isNumbering ? '#3b82f6' : isMatter ? '#8b5cf6' : 'var(--text)',
+                                                border: `1px solid ${isColour ? 'rgba(217, 119, 6, 0.3)' : isNumbering ? 'rgba(59, 130, 246, 0.3)' : isMatter ? 'rgba(139, 92, 246, 0.3)' : 'var(--border)'}`
                                             }}>
-                                                {isColour && <span style={{ fontSize: 14 }}>🎨</span>}
-                                                {isNumbering && <span style={{ fontSize: 14 }}>🔢</span>}
-                                                {tagLabel && <strong style={{ marginRight: 2 }}>{tagLabel}:</strong>}
-                                                {value}
+                                                {isColour && <span style={{ fontSize: 15 }}>🎨</span>}
+                                                {isNumbering && <span style={{ fontSize: 15 }}>🔢</span>}
+                                                {isMatter && <span style={{ fontSize: 15 }}>📝</span>}
+                                                {tagLabel && <strong style={{ marginRight: 2, color: 'inherit', textTransform: 'capitalize' }}>{tagLabel}:</strong>}
+                                                <span style={{ color: 'var(--text)', fontWeight: 500 }}>{value}</span>
                                             </span>
                                         );
                                     })}

@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog, auditFieldChanges, getUsageMap, sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser, generateJobNumber } = require('../helpers');
+const { auditLog, auditFieldChanges, getUsageMap, sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser, generateJobNumber, getTodayDate } = require('../helpers');
 const { analyzeDesign } = require('../helpers/designAnalyzer');
 const { validate, addJobSchema } = require('../middleware/validate');
 console.log('[DEBUG] addJobSchema imported:', !!addJobSchema);
@@ -50,16 +50,16 @@ let hierarchyCache = { data: null, timestamp: 0 };
 const getHierarchyData = async () => {
     const now = Date.now();
     if (hierarchyCache.data && (now - hierarchyCache.timestamp) < HIERARCHY_CACHE_TTL) {
-        const [inventory] = await pool.query("SELECT i.*, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id");
+        const [inventory] = await pool.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id");
         return { ...hierarchyCache.data, inventory };
     }
     const [categories, subcategories, products, inventory, slabs, extras] = await Promise.all([
         pool.query(`SELECT ${CATEGORY_COLUMNS} FROM sarga_product_categories`).then(r => r[0]),
         pool.query(`SELECT ${SUBCATEGORY_COLUMNS} FROM sarga_product_subcategories`).then(r => r[0]),
         pool.query(`SELECT ${PRODUCT_COLUMNS} FROM sarga_products`).then(r => r[0]),
-        pool.query("SELECT i.*, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id").then(r => r[0]),
-        pool.query("SELECT * FROM sarga_product_slabs ORDER BY product_id, min_qty ASC").then(r => r[0]),
-        pool.query("SELECT * FROM sarga_product_extras_template").then(r => r[0])
+        pool.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id").then(r => r[0]),
+        pool.query("SELECT id, product_id, min_qty, max_qty, unit_rate, base_value, double_side_unit_rate FROM sarga_product_slabs ORDER BY product_id, min_qty ASC").then(r => r[0]),
+        pool.query("SELECT id, product_id, extra_name, unit_rate, is_active FROM sarga_product_extras_template").then(r => r[0])
     ]);
 
     // Attach slabs and extras to their respective products for offline pricing
@@ -168,7 +168,7 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
 
     try {
         const jobId = jobData.id || null;
-        const reportDate = new Date().toISOString().split('T')[0];
+        const reportDate = getTodayDate();
 
         // 1. Get or create daily report (machine_id + report_date is unique)
         const [[machineRow]] = await pool.query('SELECT branch_id FROM sarga_machines WHERE id = ?', [machineId]);
@@ -925,7 +925,7 @@ router.get('/jobs/assignments/all', authenticateToken, async (req, res) => {
         }
 
         const [rows] = await pool.query(`
-            SELECT jsa.* 
+            SELECT jsa.id, jsa.job_id, jsa.staff_id, jsa.role, jsa.assigned_date, jsa.status, jsa.notes 
             FROM sarga_job_staff_assignments jsa
             INNER JOIN sarga_jobs j ON jsa.job_id = j.id
             ${where}
@@ -1551,6 +1551,60 @@ router.post('/jobs/:id/paper-logs', authenticateToken, async (req, res) => {
             [Number(agg.total_used) || 0, jobId]
         );
 
+        // Attempt to auto-decrement matching paper inventory (branch-aware)
+        try {
+            const [[jobRow]] = await pool.query('SELECT branch_id FROM sarga_jobs WHERE id = ?', [jobId]);
+            const branchId = jobRow ? jobRow.branch_id : null;
+            const search = String(paper_size || '').trim();
+            const sizeMatch = (search.match(/(\d+)/) || []);
+            const sizeCode = sizeMatch[1] || null;
+
+            const [invRows] = await pool.query(
+                `SELECT id, quantity FROM sarga_inventory WHERE (size_code = ? OR REPLACE(UPPER(sku), ' ', '') = REPLACE(UPPER(?), ' ', '') OR name LIKE ?) AND (LOWER(category) LIKE '%laser%' OR LOWER(category) LIKE '%offset%') LIMIT 1`,
+                [sizeCode || search, search, `%${search}%`]
+            );
+
+            if (invRows && invRows.length) {
+                const invId = invRows[0].id;
+                const qtyToConsume = used; // sheets used
+
+                if (branchId) {
+                    // Try to consume from branch stock first
+                    const [bs] = await pool.query('SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ? FOR UPDATE', [invId, branchId]);
+                    if (bs && bs.length) {
+                        const avail = Number(bs[0].quantity || 0);
+                        if (avail <= 0) {
+                            // Nothing to deduct at branch level — fallback to global inventory
+                            await pool.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
+                        } else if (avail >= qtyToConsume) {
+                            await pool.query('UPDATE sarga_branch_stock SET quantity = quantity - ? WHERE inventory_item_id = ? AND branch_id = ?', [qtyToConsume, invId, branchId]);
+                        } else {
+                            // Partial: zero out branch and deduct remainder from global
+                            const remainder = qtyToConsume - avail;
+                            await pool.query('UPDATE sarga_branch_stock SET quantity = 0 WHERE inventory_item_id = ? AND branch_id = ?', [invId, branchId]);
+                            await pool.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [remainder, invId]);
+                        }
+                    } else {
+                        // No branch row — consume from global inventory
+                        await pool.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
+                    }
+                } else {
+                    // No branch context — consume from global inventory
+                    await pool.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
+                }
+
+                // Record consumption in inventory consumption table for audit
+                try {
+                    await pool.query('INSERT INTO sarga_inventory_consumption (inventory_item_id, quantity_consumed, consumed_by_user_id, notes) VALUES (?, ?, ?, ?)', [invId, qtyToConsume, req.user.id, `Paper usage for job ${jobId} (stage: ${stage || 'unknown'})`]);
+                    auditLog(req.user.id, 'INVENTORY_CONSUME', `Auto-consumed ${qtyToConsume} of inventory ${invId} for job ${jobId}`);
+                } catch (consErr) {
+                    console.warn('Failed to insert inventory consumption record (non-blocking):', consErr.message || consErr);
+                }
+            }
+        } catch (invErr) {
+            console.warn('Auto-decrement inventory for paper failed (non-blocking):', invErr.message || invErr);
+        }
+
         auditLog(req.user.id, 'PAPER_LOG', `Paper log for job ${jobId}: ${stage} - ${used} used, ${wasted} wasted`);
         res.status(201).json({ id: result.insertId, message: 'Paper usage logged' });
     } catch (err) {
@@ -1576,6 +1630,223 @@ router.delete('/jobs/:jobId/paper-logs/:logId', authenticateToken, async (req, r
         res.json({ message: 'Paper log deleted' });
     } catch (err) {
         res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// --- Consume paper for a job (supports cutting parent sheets into child sizes) ---
+const calculateDefaultWaste = (required) => {
+    const qty = Number(required) || 0;
+    if (qty <= 0) return 0;
+    if (qty < 500) return Math.max(Math.ceil(qty * 0.05), 20);
+    if (qty < 2000) return Math.max(Math.ceil(qty * 0.03), 30);
+    return Math.max(Math.ceil(qty * 0.02), 50);
+};
+
+const calculateParentNeeded = (requiredChild, piecesPerParent, lossPct, minWaste) => {
+    const req = Number(requiredChild) || 0;
+    const pieces = Math.max(1, Number(piecesPerParent) || 1);
+    let waste = 0;
+    if (lossPct !== null && lossPct !== undefined && !Number.isNaN(Number(lossPct))) {
+        waste = Math.max(Math.ceil(req * (Number(lossPct) / 100)), Number(minWaste) || 0);
+    } else {
+        waste = calculateDefaultWaste(req);
+    }
+    const totalChild = req + waste;
+    const parentNeeded = Math.ceil(totalChild / pieces);
+    return { waste_child: waste, total_child: totalChild, parent_needed: parentNeeded };
+};
+
+router.post('/jobs/:id/consume-paper', authenticateToken, async (req, res) => {
+    const jobId = req.params.id;
+    const { items, stage, notes } = req.body; // items: [{ inventory_item_id?, required_sheets, cut_from_parent_id?, paper_size?, pieces_per_parent?, loss_pct?, min_waste? }]
+
+    if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ message: 'No items provided' });
+
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [[jobRow]] = await conn.query('SELECT branch_id FROM sarga_jobs WHERE id = ?', [jobId]);
+        const branchId = jobRow ? jobRow.branch_id : null;
+
+        const results = [];
+        for (const it of items) {
+            const required = Math.max(0, Math.round(Number(it.required_sheets) || 0));
+            if (required <= 0) {
+                results.push({ error: 'invalid_required', message: 'required_sheets must be > 0', item: it });
+                continue;
+            }
+
+            // Prepare child size and optional parent identification. Support category-based lookup when parent not explicitly provided.
+            const childSize = it.paper_size || it.child_size_code || '';
+            let parentId = it.cut_from_parent_id || it.parent_inventory_item_id || null;
+            let mapping = null;
+
+            // If no explicit parent provided, but caller supplied a paper_category + childSize, try to find a mapping or a candidate parent in that category
+            if (!parentId && it.paper_category && childSize) {
+                try {
+                    const [mapRows] = await conn.query(
+                        'SELECT pcm.*, i.name as parent_name, i.id as parent_inventory_item_id FROM sarga_paper_cut_map pcm LEFT JOIN sarga_inventory i ON i.id = pcm.parent_inventory_item_id WHERE LOWER(pcm.child_size_code) = LOWER(?) AND LOWER(COALESCE(i.category, \'\')) = LOWER(?) LIMIT 1',
+                        [childSize, String(it.paper_category).trim()]
+                    );
+                    if (mapRows && mapRows.length) {
+                        mapping = mapRows[0];
+                        parentId = mapping.parent_inventory_item_id;
+                    } else {
+                        // no mapping; pick the most-stocked parent in that category as a fallback
+                        const [cands] = await conn.query('SELECT id, name, category, size_code FROM sarga_inventory WHERE LOWER(COALESCE(category, \'\')) = LOWER(?) ORDER BY quantity DESC LIMIT 1', [String(it.paper_category).trim()]);
+                        if (cands && cands.length) parentId = cands[0].id;
+                    }
+                } catch (e) {
+                    console.warn('Category-based parent lookup failed (non-blocking):', e.message || e);
+                }
+            }
+
+            // If a parent sheet is specified (cut from parent)
+            if (parentId) {
+                // If we don't already have a mapping from the category lookup, try to fetch mapping for this parent+child pair
+                if (!mapping) {
+                    try {
+                        const [maps] = await conn.query('SELECT * FROM sarga_paper_cut_map WHERE parent_inventory_item_id = ? AND child_size_code = ? LIMIT 1', [parentId, childSize]);
+                        mapping = maps && maps.length ? maps[0] : null;
+                    } catch (e) {
+                        // ignore missing table
+                    }
+                }
+
+                const pieces = it.pieces_per_parent || (mapping ? mapping.pieces_per_parent : 1);
+                const lossPct = it.loss_pct !== undefined ? Number(it.loss_pct) : (mapping ? Number(mapping.loss_pct) : null);
+                const minWaste = it.min_waste !== undefined ? Number(it.min_waste) : (mapping ? Number(mapping.min_waste) : 0);
+
+                const { waste_child, total_child, parent_needed } = calculateParentNeeded(required, pieces, lossPct, minWaste);
+
+                // Attempt to deduct parent_needed (branch first, then global)
+                let consumedFromBranch = 0;
+                let consumedFromGlobal = 0;
+                let shortage = 0;
+
+                if (branchId) {
+                    const [bs] = await conn.query('SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ? FOR UPDATE', [parentId, branchId]);
+                    if (bs && bs.length) {
+                        const avail = Number(bs[0].quantity || 0);
+                        if (avail >= parent_needed) {
+                            await conn.query('UPDATE sarga_branch_stock SET quantity = quantity - ? WHERE inventory_item_id = ? AND branch_id = ?', [parent_needed, parentId, branchId]);
+                            consumedFromBranch = parent_needed;
+                        } else if (avail > 0) {
+                            const remainder = parent_needed - avail;
+                            await conn.query('UPDATE sarga_branch_stock SET quantity = 0 WHERE inventory_item_id = ? AND branch_id = ?', [parentId, branchId]);
+                            await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [remainder, parentId]);
+                            consumedFromBranch = avail;
+                            consumedFromGlobal = remainder;
+                        } else {
+                            // no branch stock
+                            await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [parent_needed, parentId]);
+                            consumedFromGlobal = parent_needed;
+                        }
+                    } else {
+                        // no branch row
+                        await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [parent_needed, parentId]);
+                        consumedFromGlobal = parent_needed;
+                    }
+                } else {
+                    // No branch context — consume from global inventory
+                    await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [parent_needed, parentId]);
+                    consumedFromGlobal = parent_needed;
+                }
+
+                // Read remaining global quantity
+                const [[afterInv]] = await conn.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [parentId]);
+                const remaining = afterInv ? Number(afterInv.quantity || 0) : 0;
+
+                // Record consumption for audit
+                try {
+                    await conn.query('INSERT INTO sarga_inventory_consumption (inventory_item_id, quantity_consumed, consumed_by_user_id, notes) VALUES (?, ?, ?, ?)', [parentId, parent_needed, req.user.id, `Paper consumption for job ${jobId} (cut ${childSize})`]);
+                } catch (consErr) {
+                    console.warn('Failed to insert inventory consumption (non-blocking):', consErr.message || consErr);
+                }
+
+                // Log paper usage (as produced child sheets)
+                try {
+                    await conn.query('INSERT INTO sarga_paper_usage_logs (job_id, stage, paper_size, sheets_used, sheets_wasted, notes, logged_by) VALUES (?, ?, ?, ?, ?, ?, ?)', [jobId, stage || 'consume', childSize || null, required, waste_child, notes || `Cut from parent ${parentId}`, req.user.id]);
+                } catch (logErr) {
+                    console.warn('Failed to insert paper usage log (non-blocking):', logErr.message || logErr);
+                }
+
+                results.push({
+                    parent_inventory_id: parentId,
+                    parent_needed,
+                    produced_child: parent_needed * pieces,
+                    required_child: required,
+                    waste_child,
+                    consumedFromBranch,
+                    consumedFromGlobal,
+                    remaining_stock: remaining
+                });
+            } else if (it.inventory_item_id) {
+                // Direct child inventory consumption
+                const invId = it.inventory_item_id;
+                const waste = it.loss_pct !== undefined ? Math.max(Math.ceil(required * (Number(it.loss_pct) / 100)), Number(it.min_waste) || 0) : calculateDefaultWaste(required);
+                const qtyToConsume = required + waste;
+
+                // Branch-aware deduction
+                let consumedFromBranch = 0;
+                let consumedFromGlobal = 0;
+
+                if (branchId) {
+                    const [bs] = await conn.query('SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ? FOR UPDATE', [invId, branchId]);
+                    if (bs && bs.length) {
+                        const avail = Number(bs[0].quantity || 0);
+                        if (avail >= qtyToConsume) {
+                            await conn.query('UPDATE sarga_branch_stock SET quantity = quantity - ? WHERE inventory_item_id = ? AND branch_id = ?', [qtyToConsume, invId, branchId]);
+                            consumedFromBranch = qtyToConsume;
+                        } else if (avail > 0) {
+                            const remainder = qtyToConsume - avail;
+                            await conn.query('UPDATE sarga_branch_stock SET quantity = 0 WHERE inventory_item_id = ? AND branch_id = ?', [invId, branchId]);
+                            await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [remainder, invId]);
+                            consumedFromBranch = avail;
+                            consumedFromGlobal = remainder;
+                        } else {
+                            await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
+                            consumedFromGlobal = qtyToConsume;
+                        }
+                    } else {
+                        await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
+                        consumedFromGlobal = qtyToConsume;
+                    }
+                } else {
+                    await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
+                    consumedFromGlobal = qtyToConsume;
+                }
+
+                // Read remaining
+                const [[afterInv]] = await conn.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [invId]);
+                const remaining = afterInv ? Number(afterInv.quantity || 0) : 0;
+
+                try {
+                    await conn.query('INSERT INTO sarga_inventory_consumption (inventory_item_id, quantity_consumed, consumed_by_user_id, notes) VALUES (?, ?, ?, ?)', [invId, qtyToConsume, req.user.id, `Direct paper consumption for job ${jobId}`]);
+                } catch (consErr) {
+                    console.warn('Failed to insert inventory consumption (non-blocking):', consErr.message || consErr);
+                }
+
+                try {
+                    await conn.query('INSERT INTO sarga_paper_usage_logs (job_id, stage, paper_size, sheets_used, sheets_wasted, notes, logged_by) VALUES (?, ?, ?, ?, ?, ?, ?)', [jobId, stage || 'consume', it.paper_size || null, required, waste, notes || 'Direct consume', req.user.id]);
+                } catch (logErr) {
+                    console.warn('Failed to insert paper usage log (non-blocking):', logErr.message || logErr);
+                }
+
+                results.push({ inventory_item_id: invId, required, waste, qty_consumed: qtyToConsume, consumedFromBranch, consumedFromGlobal, remaining_stock: remaining });
+            } else {
+                results.push({ error: 'invalid_item', message: 'No inventory identifier provided', item: it });
+            }
+        }
+
+        await conn.commit();
+        res.json({ results });
+    } catch (err) {
+        await conn.rollback().catch(() => {});
+        console.error('Consume paper error:', err);
+        res.status(500).json({ message: 'Failed to consume paper' });
+    } finally {
+        conn.release();
     }
 });
 

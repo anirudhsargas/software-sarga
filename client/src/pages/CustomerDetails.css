@@ -115,22 +115,30 @@
   animation: cd-rotate 0.7s linear infinite;
 }
 
-/* ── Profile Card (gradient hero like employee detail) ── */
 .cd-profile {
   display: flex;
   align-items: flex-start;
   gap: 18px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #fff;
+  background: var(--surface);
+  color: var(--text);
   border-radius: 22px;
   padding: 28px;
-  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
   animation: cd-lift 0.35s ease;
 }
 
-.dark .cd-profile {
-  color: #121314;
+.cd-profile::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--accent);
 }
 
 @keyframes cd-lift {
@@ -148,8 +156,8 @@
   font-weight: 700;
   font-size: 1.2rem;
   color: var(--accent);
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   flex-shrink: 0;
 }
 .cd-profile-info {
@@ -180,12 +188,14 @@
   letter-spacing: 0.08em;
 }
 .cd-badge--type {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 .cd-badge--star {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  background: rgba(179, 107, 0, 0.15);
+  color: var(--warning);
+  border: 1px solid rgba(179, 107, 0, 0.3);
 }
 .cd-profile-details {
   display: flex;

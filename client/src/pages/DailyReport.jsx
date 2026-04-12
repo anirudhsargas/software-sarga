@@ -4,7 +4,7 @@ import {
     BookOpen, Printer, Package, RefreshCw, TrendingUp, TrendingDown,
     Monitor, Hash, Building2, Check, Edit3, Lock, Send, FileText,
     Calendar, Clock, ArrowUpRight, ArrowDownRight, X, Wallet, CreditCard,
-    IndianRupee, ChevronRight, ChevronLeft, BarChart3
+    IndianRupee, ChevronRight, ChevronLeft, BarChart3, Users
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -18,7 +18,8 @@ import { formatCurrencyDecimal } from '../constants';
 const TABS = [
     { key: 'Offset', label: 'Offset', icon: BookOpen, color: 'var(--accent)', bg: 'rgba(37,99,235,0.08)' },
     { key: 'Laser', label: 'Laser', icon: Printer, color: 'var(--accent)', bg: 'rgba(124,58,237,0.08)' },
-    { key: 'Other', label: 'Other', icon: Package, color: 'var(--success)', bg: 'rgba(5,150,105,0.08)' }
+    { key: 'Other', label: 'Other', icon: Package, color: 'var(--success)', bg: 'rgba(5,150,105,0.08)' },
+    { key: 'Attendance', label: 'Attendance', icon: Users, color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' }
 ];
 
 const AUTO_REFRESH_INTERVAL = 30000;
@@ -178,6 +179,8 @@ const DailyReport = () => {
     const [laserData, setLaserData] = useState({ machines: [], entries: [], summary: {} });
     const [otherData, setOtherData] = useState({ entries: [], summary: {} });
     const [liveCounts, setLiveCounts] = useState(null);
+    const [attendanceData, setAttendanceData] = useState(null);
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
     const [tabErrors, setTabErrors] = useState({ Offset: null, Laser: null, Other: null });
 
 
@@ -426,8 +429,11 @@ const DailyReport = () => {
         } finally { setSubmittingRequest(false); }
     };
 
-    // ─── Fetch Tab Data ─────────────────────────────────────────
     const loadTabData = useCallback(async (tab) => {
+        if (tab === 'Attendance') {
+            fetchAttendanceData();
+            return;
+        }
         setTabErrors(prev => ({ ...prev, [tab]: null }));
         try {
             const endpoint = tab === 'Offset' ? '/daily-report/offset-live'
@@ -444,7 +450,34 @@ const DailyReport = () => {
             console.error(`Error fetching ${tab} data:`, err);
             setTabErrors(prev => ({ ...prev, [tab]: err.message || 'Failed to load' }));
         }
-    }, [reportDate, selectedBranch, branchParam, getPendingEntriesForTab]);
+    }, [reportDate, selectedBranch, branchParam, getPendingEntriesForTab, fetchAttendanceData]);
+    
+    // ─── Fetch Attendance Data ──────────────────────────────────
+    const fetchAttendanceData = useCallback(async () => {
+        setAttendanceLoading(true);
+        try {
+            const branch = branches.find(b => b.id === selectedBranch);
+            let branchQuery = null;
+            if (branch) {
+                const name = branch.name.toLowerCase();
+                // Map to the internal branch slugs used by CCTV system
+                if (name.includes('perambra')) branchQuery = 'perambra';
+                else if (name.includes('meppayur')) branchQuery = 'meppayur_main';
+            }
+            
+            const res = await api.get('/cctv/attendance/summary', { 
+                params: { 
+                    date: reportDate,
+                    branch: branchQuery
+                } 
+            });
+            setAttendanceData(res.data);
+        } catch (err) {
+            console.error('Error fetching attendance summary:', err);
+        } finally {
+            setAttendanceLoading(false);
+        }
+    }, [reportDate, selectedBranch, branches]);
 
 
     const fetchLiveCounts = useCallback(async () => {
@@ -474,7 +507,8 @@ const DailyReport = () => {
                 loadTabData('Offset'),
                 loadTabData('Laser'),
                 loadTabData('Other'),
-                fetchLiveCounts()
+                fetchLiveCounts(),
+                fetchAttendanceData()
             ]);
         }
         finally {
@@ -502,7 +536,8 @@ const DailyReport = () => {
         loadTabData('Offset');
         loadTabData('Laser');
         loadTabData('Other');
-    }, [fetchLiveCounts, loadTabData]), AUTO_REFRESH_INTERVAL, pollingEnabled);
+        fetchAttendanceData();
+    }, [fetchLiveCounts, loadTabData, fetchAttendanceData]), AUTO_REFRESH_INTERVAL, pollingEnabled);
 
     const manualRefresh = () => { loadAllData(); };
 
@@ -659,6 +694,108 @@ const DailyReport = () => {
             console.error('PDF Generation failed:', error);
             toast.error('PDF Generation failed. Error: ' + error.message);
         }
+    };
+
+    const AttendanceView = () => {
+        if (attendanceLoading && !attendanceData) {
+            return (
+                <div className="dr-empty">
+                    <RefreshCw className="animate-spin" size={24} />
+                    <p>Loading attendance data...</p>
+                </div>
+            );
+        }
+
+        if (!attendanceData || !attendanceData.staff) {
+            return (
+                <div className="dr-empty">
+                    <Users size={24} />
+                    <p>No attendance records found for this date/branch</p>
+                </div>
+            );
+        }
+
+        const STATUS_CLASSES = {
+            present: 'badge badge--ok',
+            absent: 'badge badge--danger',
+            left: 'badge badge--info',
+            left_early: 'badge badge--warning'
+        };
+
+        const { staff, total_staff, present, absent, alert_count, discrepancy_count } = attendanceData;
+
+        return (
+            <div className="stack-md">
+                {/* Stats Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                    <div className="stat-card">
+                        <div className="stat-value">{present} / {total_staff}</div>
+                        <div className="stat-label">Staff Present</div>
+                    </div>
+                    {alert_count > 0 && (
+                        <div className="stat-card" style={{ borderLeft: '3px solid var(--warning)' }}>
+                            <div className="stat-value" style={{ color: 'var(--warning)' }}>{alert_count}</div>
+                            <div className="stat-label">Not Arrived (Alert)</div>
+                        </div>
+                    )}
+                    {discrepancy_count > 0 && (
+                        <div className="stat-card" style={{ borderLeft: '3px solid #f59e0b' }}>
+                            <div className="stat-value" style={{ color: '#b45309' }}>{discrepancy_count}</div>
+                            <div className="stat-label">Time Flags</div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Staff Table */}
+                <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--surface-3)', background: 'var(--surface)' }}>
+                    <table className="data-table">
+                        <thead>
+                            <tr>
+                                <th>Staff Name</th>
+                                <th>Entry</th>
+                                <th>Exit</th>
+                                <th>Status</th>
+                                <th style={{ textAlign: 'right' }}>Logs</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {staff.map(s => (
+                                <tr key={s.staff_id} style={s.absent_alert ? { background: 'rgba(255,0,0,0.04)' } : undefined}>
+                                    <td>
+                                        <div style={{ fontWeight: 500 }}>{s.name}</div>
+                                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>{s.branch_name}</div>
+                                    </td>
+                                    <td>
+                                        {s.entry_time ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <Clock size={12} style={{ color: 'var(--muted)' }} />
+                                                {formatTime(s.entry_time)}
+                                            </div>
+                                        ) : '—'}
+                                    </td>
+                                    <td>
+                                        {s.exit_time ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <Clock size={12} style={{ color: 'var(--muted)' }} />
+                                                {formatTime(s.exit_time)}
+                                            </div>
+                                        ) : '—'}
+                                    </td>
+                                    <td>
+                                        <span className={STATUS_CLASSES[s.status] || 'badge'}>
+                                            {s.status.replace('_', ' ')}
+                                        </span>
+                                    </td>
+                                    <td style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 12 }}>
+                                        {s.event_count}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
     };
 
     // ═══════════════════ SUB-COMPONENTS ═══════════════════
@@ -1462,6 +1599,11 @@ const DailyReport = () => {
                                     {liveCounts.other.income_count}
                                 </span>
                             )}
+                            {tab.key === 'Attendance' && attendanceData && (
+                                <span className="dr-tab__badge" style={{ background: isActive ? `${tab.color}15` : 'var(--accent-soft)', color: isActive ? tab.color : 'var(--muted)' }}>
+                                    {attendanceData.present}
+                                </span>
+                            )}
                         </button>
                     );
                 })}
@@ -1478,6 +1620,7 @@ const DailyReport = () => {
                     {activeTab === 'Offset' && <OffsetTab />}
                     {activeTab === 'Laser' && <LaserTab />}
                     {activeTab === 'Other' && <OtherTab />}
+                    {activeTab === 'Attendance' && <AttendanceView />}
                 </>
             )}
 

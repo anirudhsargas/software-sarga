@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog } = require('../helpers');
+const { auditLog, getTodayDate } = require('../helpers');
 const { validate, attendanceSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
 const { autoRecordLateAndOvertime } = require('./scheduleManagement');
@@ -156,9 +156,10 @@ router.get('/:id/salary-info', authenticateToken, async (req, res) => {
         const now = new Date();
         const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const [currentSalary] = await pool.query(`
-            SELECT * FROM sarga_staff_salary
+            SELECT id, base_salary, net_salary, payment_month, bonus, deduction, status 
+            FROM sarga_staff_salary
             WHERE staff_id = ? AND payment_month = ?
-        `, [id, currentMonth.toISOString().split('T')[0]]);
+        `, [id, getTodayDate().slice(0, 8) + '01']);
 
         // Recent salary payment transactions
         const [payments] = await pool.query(`
@@ -672,6 +673,12 @@ router.post('/:id/attendance-change-request', authenticateToken, async (req, res
         return res.status(400).json({ message: 'Attendance date and requested status are required' });
     }
 
+    // Prevent future dates
+    const today = getTodayDate();
+    if (attendance_date > today) {
+        return res.status(400).json({ message: 'Cannot request attendance change for future dates.' });
+    }
+
     try {
         await pool.query(`
             INSERT INTO sarga_attendance_requests 
@@ -698,7 +705,8 @@ router.get('/:id/attendance/:year_month', authenticateToken, async (req, res) =>
         }
 
         const [rows] = await pool.query(`
-            SELECT * FROM sarga_staff_attendance
+            SELECT id, attendance_date, status, notes, in_time, out_time
+            FROM sarga_staff_attendance
             WHERE staff_id = ?
             AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
                 ORDER BY attendance_date ASC
@@ -788,14 +796,14 @@ router.get('/:id/salary-calculation/:year_month', authenticateToken, async (req,
 
         // Get attendance for the month
         const [attendance] = await pool.query(`
-            SELECT * FROM sarga_staff_attendance
+            SELECT status FROM sarga_staff_attendance
             WHERE staff_id = ? 
             AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
         `, [id, year_month]);
 
         // Get leave balance
         const [leaveBalance] = await pool.query(`
-            SELECT * FROM sarga_staff_leave_balance
+            SELECT paid_leaves_used, unpaid_leaves_used FROM sarga_staff_leave_balance
             WHERE staff_id = ? AND \`year_month\` = ?
         `, [id, year_month]);
 
@@ -845,12 +853,12 @@ router.get('/:id/salary-calculation/:year_month', authenticateToken, async (req,
 
         // Get late time and overtime data for the month
         const [lateRecords] = await pool.query(`
-            SELECT * FROM sarga_staff_latetime
+            SELECT late_minutes, excused FROM sarga_staff_latetime
             WHERE staff_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
         `, [id, year_month]);
 
         const [overtimeRecords] = await pool.query(`
-            SELECT * FROM sarga_staff_overtime
+            SELECT overtime_minutes, approved FROM sarga_staff_overtime
             WHERE staff_id = ? AND DATE_FORMAT(overtime_date, '%Y-%m') = ?
         `, [id, year_month]);
 

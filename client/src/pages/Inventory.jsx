@@ -5,6 +5,7 @@ import auth from '../services/auth';
 import localDb from '../services/localDb';
 import Pagination from '../components/Pagination';
 import SecureImage from '../components/SecureImage';
+import PaperSidePanel from '../components/PaperSidePanel';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import SmartBillUpload from './expense-manager/SmartBillUpload';
@@ -78,6 +79,7 @@ const Inventory = () => {
     const [branchAvailabilityLoading, setBranchAvailabilityLoading] = useState(false);
     const [branchRequestQtys, setBranchRequestQtys] = useState({}); // { branchId: qty string }
     const [showStockRequestsPanel, setShowStockRequestsPanel] = useState(false);
+    const [showPaperPanel, setShowPaperPanel] = useState(false);
     const [stockRequests, setStockRequests] = useState([]);
     const [stockRequestsLoading, setStockRequestsLoading] = useState(false);
     const [stockRequestSaving, setStockRequestSaving] = useState(false);
@@ -272,6 +274,17 @@ const Inventory = () => {
         model_name: item.model_name || '',
         size_code: item.size_code || ''
     });
+
+    const getImageId = (url) => {
+        if (!url) return null;
+        try {
+            const parts = String(url).split('/');
+            const last = parts[parts.length - 1] || url;
+            return String(last).split('?')[0];
+        } catch (e) {
+            return url;
+        }
+    };
 
     const handleAddItem = async (e) => {
         e.preventDefault();
@@ -543,6 +556,10 @@ const Inventory = () => {
                             <span>Print New Item Labels</span>
                         </button>
                     )}
+                    <button className="btn btn-ghost" onClick={() => setShowPaperPanel(true)}>
+                        <Package size={18} />
+                        <span>Paper Panel</span>
+                    </button>
                     {selectedIds.length > 0 && (
                         <button className="btn btn-ghost" onClick={handlePrintLabels}>
                             <Printer size={18} />
@@ -704,7 +721,12 @@ const Inventory = () => {
                                                         {item.linked_product_id ? <Link size={14} className="text-primary" /> : <Package size={16} />}
                                                     </div>
                                                 )}
-                                                <span className="user-name">{item.name}</span>
+                                                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                                    <span className="user-name">{item.name}</span>
+                                                    {item.product_image_url && (
+                                                        <span className="muted text-xs" style={{ fontFamily: 'monospace', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{getImageId(item.product_image_url)}</span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.sku || '-'}</td>
@@ -1541,6 +1563,8 @@ const Inventory = () => {
                 />
             )}
 
+            <PaperSidePanel open={showPaperPanel} onClose={() => setShowPaperPanel(false)} />
+
             {/* Product Detail Dashboard Modal */}
             {showDetailModal && (
                 <div className="modal-backdrop" onClick={() => { setShowDetailModal(false); setDetailItem(null); }}>
@@ -1559,8 +1583,13 @@ const Inventory = () => {
                                 {/* Header with image */}
                                 <div className="row gap-lg items-start mb-24">
                                     {detailItem.product_image_url ? (
-                                        <div style={{ width: 120, height: 120, borderRadius: 12, overflow: 'hidden', flexShrink: 0, border: '2px solid var(--border)', background: 'var(--surface-alt)' }}>
-                                            <SecureImage src={detailItem.product_image_url} alt={detailItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 120, flexShrink: 0 }}>
+                                            <div style={{ width: 120, height: 120, borderRadius: 12, overflow: 'hidden', border: '2px solid var(--border)', background: 'var(--surface-alt)' }}>
+                                                <SecureImage src={detailItem.product_image_url} alt={detailItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            </div>
+                                            <div style={{ marginTop: 8 }}>
+                                                <span className="muted text-xs" style={{ fontFamily: 'monospace', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>{getImageId(detailItem.product_image_url)}</span>
+                                            </div>
                                         </div>
                                     ) : (
                                         <div style={{ width: 120, height: 120, borderRadius: 12, flexShrink: 0, border: '2px dashed var(--border)', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

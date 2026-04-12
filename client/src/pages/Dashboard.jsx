@@ -3,7 +3,7 @@ import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2,
-    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock
+    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
@@ -16,6 +16,7 @@ import { useLocation } from 'react-router-dom';
 import ProgressBar from '../components/ProgressBar';
 import AnomalyPanel from '../components/AnomalyPanel';
 import InsightsPanel from '../components/InsightsPanel';
+import useTranslation from '../hooks/useTranslation';
 
 // Lazy-loaded pages — each becomes a separate chunk
 const StaffManagement = React.lazy(() => import('./StaffManagement'));
@@ -43,7 +44,6 @@ const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
 const DesignChecker = React.lazy(() => import('./DesignChecker'));
 const PaperLayoutGenerator = React.lazy(() => import('./PaperLayoutGenerator'));
 const JobPriority = React.lazy(() => import('./JobPriority'));
-const SalesPrediction = React.lazy(() => import('./SalesPrediction'));
 const Accounts = React.lazy(() => import('./Accounts'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 const ProductionTracker = React.lazy(() => import('./ProductionTracker'));
@@ -53,14 +53,14 @@ const StockPlanning = React.lazy(() => import('./StockPlanning'));
 const OtherStaffDashboard = React.lazy(() => import('./OtherStaffDashboard'));
 const PrinterDashboard = React.lazy(() => import('./PrinterDashboard'));
 const DesignerDashboard = React.lazy(() => import('./DesignerDashboard'));
-const Reports = React.lazy(() => import('./Reports'));
 const CouponManagement = React.lazy(() => import('./CouponManagement'));
 const CCTVAttendance = React.lazy(() => import('./CCTVAttendance'));
 const CCTVManagement = React.lazy(() => import('./CCTVManagement'));
 const ScheduleManagement = React.lazy(() => import('./ScheduleManagement'));
-const InternalUsageReport = React.lazy(() => import('./InternalUsageReport'));
-const InternalTransfers = React.lazy(() => import('./InternalTransfers'));
 const InternalBilling = React.lazy(() => import('./InternalBilling'));
+const InternalTransactions = React.lazy(() => import('./InternalTransactions'));
+const StockTransfer = React.lazy(() => import('./StockTransfer'));
+const PaperManagement = React.lazy(() => import('./PaperManagement'));
 const Quotes = React.lazy(() => import('./Quotes'));
 const SettingsPage = React.lazy(() => import('./SettingsPage'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
@@ -98,6 +98,19 @@ const Dashboard = () => {
     const [inventoryScanLoading, setInventoryScanLoading] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
     const [anomalyCount, setAnomalyCount] = useState(0);
+    const [companyInfo, setCompanyInfo] = useState({ name: 'SARGA', logo: null });
+
+    const fetchCompanyInfo = useCallback(async () => {
+        try {
+            const { data } = await api.get('/company-settings');
+            if (data?.company_name) {
+                setCompanyInfo({
+                    name: data.company_name.toUpperCase(),
+                    logo: data.company_logo_url
+                });
+            }
+        } catch (err) { /* ignore */ }
+    }, []);
 
     const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
     const closeSidebar = () => setSidebarOpen(false);
@@ -115,54 +128,55 @@ const Dashboard = () => {
         return () => window.removeEventListener('resize', syncSidebarForViewport);
     }, []);
 
+    const { t } = useTranslation();
+
     const menuItems = [
         // Main dashboards
-        { name: 'Summary', icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
-        { name: 'Front Office', icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
-        { name: 'Dashboard', icon: Grid, path: '/dashboard', roles: ['Accountant', 'Other Staff'] },
+        { name: t('summary', 'Summary'), icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
+        { name: t('front_office', 'Front Office'), icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
+        { name: t('dashboard', 'Dashboard'), icon: Grid, path: '/dashboard', roles: ['Accountant', 'Other Staff'] },
         // Business operations
-        { name: 'Customers', icon: UserSquare, path: '/dashboard/customers', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
-        { name: 'Billing', icon: Receipt, path: '/dashboard/billing', roles: ['Front Office'], group: 'business' },
-        { name: 'Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Front Office'] },
-        { name: 'Jobs & Orders', icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Accountant'], group: 'business' },
-        { name: 'Customer Payments', icon: Receipt, path: '/dashboard/customer-payments', roles: ['Admin', 'Front Office'], group: 'business' },
+        { name: t('customers', 'Customers'), icon: UserSquare, path: '/dashboard/customers', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
+        { name: t('billing', 'Billing'), icon: Receipt, path: '/dashboard/billing', roles: ['Front Office'], group: 'business' },
+        { name: t('orders', 'Orders'), icon: ClipboardList, path: '/dashboard/jobs', roles: ['Front Office'] },
+        { name: t('jobs_orders', 'Jobs & Orders'), icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Accountant'], group: 'business' },
+        { name: t('customer_payments', 'Customer Payments'), icon: Receipt, path: '/dashboard/customer-payments', roles: ['Admin', 'Front Office'], group: 'business' },
         // Inventory & Operations
-        { name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
-        { name: 'Stock Verification', icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'operations' },
-        { name: 'Stock Planning', icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
-        { name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'operations' },
-        { name: 'Plate Management', icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'operations' },
-        { name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'operations' },
-        { name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'operations' },
-        { name: 'Production Tracker', icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'operations' },
+        { name: t('inventory', 'Inventory'), icon: Box, path: '/dashboard/inventory', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
+        { name: t('paper_management', 'Paper Management'), icon: FileText, path: '/dashboard/paper-management', roles: ['Admin', 'Front Office', 'Accountant', 'Designer'], group: 'operations' },
+        { name: t('stock_verification', 'Stock Verification'), icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'operations' },
+        { name: t('stock_planning', 'Stock Planning'), icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
+        { name: t('product_library', 'Product Library'), icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'operations' },
+        { name: t('plate_management', 'Plate Management'), icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'operations' },
+        { name: t('machine_management', 'Machine Management'), icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'operations' },
+        { name: t('paper_layout', 'Paper Layout'), icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'operations' },
+        { name: t('production_tracker', 'Production Tracker'), icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'operations' },
         // Staff & HR
-        { name: 'Staff', icon: Users, path: '/dashboard/staff', roles: ['Front Office'], group: 'manage' },
-        { name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Admin', 'Accountant'], group: 'manage' },
-        { name: 'Branches', icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'manage' },
-        { name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin', 'Accountant'], group: 'manage' },
-        { name: 'Coupons', icon: Tag, path: '/dashboard/coupons', roles: ['Admin'], group: 'manage' },
-        { name: 'CCTV Attendance', icon: Camera, path: '/dashboard/cctv-attendance', roles: ['Admin', 'Accountant'], group: 'manage' },
-        { name: 'CCTV Management', icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'manage' },
-        { name: 'Schedules & Time', icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'manage' },
+        { name: t('staff', 'Staff'), icon: Users, path: '/dashboard/staff', roles: ['Front Office'], group: 'manage' },
+        { name: t('staff_management', 'Staff Management'), icon: Users, path: '/dashboard/staff', roles: ['Admin', 'Accountant'], group: 'manage' },
+        { name: t('branches', 'Branches'), icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'manage' },
+        { name: t('requests', 'Requests'), icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin', 'Accountant'], group: 'manage' },
+        { name: t('coupons', 'Coupons'), icon: Tag, path: '/dashboard/coupons', roles: ['Admin'], group: 'manage' },
+        { name: t('cctv_attendance', 'CCTV Attendance'), icon: Camera, path: '/dashboard/cctv-attendance', roles: ['Admin', 'Accountant'], group: 'manage' },
+        { name: t('cctv_management', 'CCTV Management'), icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'manage' },
+        { name: t('schedules_time', 'Schedules & Time'), icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'manage' },
         // Finance & Reports
-        { name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Admin', 'Front Office', 'Accountant'], group: 'finance' },
-        { name: 'Payment Verification', icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'finance' },
-        { name: 'Accounts & GST', icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
-        { name: 'Daily Report', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office', 'Admin', 'Accountant'], group: 'business' },
-        { name: 'Internal Usage Report', icon: BookOpen, path: '/dashboard/internal-usage-report', roles: ['Admin', 'Accountant'], group: 'business' },
-        { name: 'Payment', icon: BookOpen, path: '/dashboard/internal-transfers', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
-        { name: 'Billing', icon: Receipt, path: '/dashboard/internal-billing', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
+        { name: t('expense_manager', 'Expense Manager'), icon: Receipt, path: '/dashboard/expenses', roles: ['Admin', 'Front Office', 'Accountant'], group: 'finance' },
+        { name: t('payment_verification', 'Payment Verification'), icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'finance' },
+        { name: t('accounts_gst', 'Accounts & GST'), icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
+        { name: t('daily_report', 'Daily Report'), icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office', 'Admin', 'Accountant'], group: 'business' },
+        { name: t('internal_transactions', 'Internal Transactions'), icon: BookOpen, path: '/dashboard/internal-transactions', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
+        { name: t('stock_transfer', 'Stock Transfer'), icon: Package, path: '/dashboard/stock-transfer', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
+        { name: t('internal_billing', 'Internal Billing'), icon: Receipt, path: '/dashboard/internal-billing', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
         // AI Features
-        { name: 'Design Check', icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
-        { name: 'Sales Prediction', icon: TrendingUp, path: '/dashboard/sales-prediction', roles: ['Admin', 'Accountant'], group: 'business' },
-        { name: 'Seasonal Reports', icon: TrendingUp, path: '/dashboard/reports', roles: ['Admin', 'Accountant'], group: 'business' },
+        { name: t('design_check', 'Design Check'), icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
         // Role-specific dashboards
-        { name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'business' },
-        { name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'business' },
+        { name: t('assigned_jobs', 'Assigned Jobs'), icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'business' },
+        { name: t('assigned_jobs', 'Assigned Jobs'), icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'business' },
         // ERP Features
-        { name: 'Quotes & Estimates', icon: Receipt, path: '/dashboard/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
-        { name: 'Recurring Invoices', icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'finance' },
-        { name: 'Settings', icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'manage' },
+        { name: t('quotes_estimates', 'Quotes & Estimates'), icon: Receipt, path: '/dashboard/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
+        { name: t('recurring_invoices', 'Recurring Invoices'), icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'finance' },
+        { name: t('settings', 'Settings'), icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'manage' },
     ];
 
     const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role));
@@ -334,6 +348,13 @@ const Dashboard = () => {
         return () => { cancelled = true; clearInterval(interval); };
     }, [user?.role]);
 
+    // Fetch and listen for company settings updates
+    useEffect(() => {
+        fetchCompanyInfo();
+        window.addEventListener('companySettingsUpdated', fetchCompanyInfo);
+        return () => window.removeEventListener('companySettingsUpdated', fetchCompanyInfo);
+    }, [fetchCompanyInfo]);
+
     const handleProfileSave = async (e) => {
         e.preventDefault();
         setProfileSaving(true);
@@ -412,8 +433,12 @@ const Dashboard = () => {
             <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''} ${sidebarOpen ? 'sidebar--open' : ''}`}>
                 <div className="sidebar-header">
                     <div className="row gap-sm items-center">
-                        <img src="/icons/icon-192.png" alt="Sarga" className="logo-img" />
-                        <span className="logo-text">SARGA</span>
+                        {companyInfo.logo ? (
+                           <img src={companyInfo.logo} alt={companyInfo.name} className="logo-img" />
+                        ) : (
+                           <img src="/icons/icon-192.png" alt="Sarga" className="logo-img" />
+                        )}
+                        <span className="logo-text">{companyInfo.name}</span>
                     </div>
                     <button
                         className="sidebar-toggle"
@@ -526,7 +551,7 @@ const Dashboard = () => {
                     <button className="icon-button" aria-label="Open navigation menu" onClick={toggleSidebar}>
                         <Grid size={20} />
                     </button>
-                    <div className="logo-text">SARGA</div>
+                    <div className="logo-text">{companyInfo.name}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         {anomalyCount > 0 && ['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
                             <span style={{
@@ -579,20 +604,18 @@ const Dashboard = () => {
                             <Route path="expenses" element={<ExpenseManager />} />
                             <Route path="machines" element={<MachineManagement />} />
                             <Route path="daily-report" element={<DailyReport />} />
-                            <Route path="internal-usage-report" element={<InternalUsageReport />} />
-                            <Route path="internal-transfers" element={<InternalTransfers />} />
+                            <Route path="internal-transactions" element={<InternalTransactions />} />
                             <Route path="internal-billing" element={<InternalBilling />} />
+                            <Route path="stock-transfer" element={<StockTransfer />} />
                             <Route path="attendance-salary" element={<AttendanceSalary />} />
                             <Route path="ai-monitoring" element={<RequiresConnection feature="AI Monitoring"><AIMonitoring /></RequiresConnection>} />
                             <Route path="design-check" element={<RequiresConnection feature="Design Checker"><DesignChecker /></RequiresConnection>} />
                             <Route path="paper-layout" element={<RequiresConnection feature="Paper Layout Generator"><PaperLayoutGenerator /></RequiresConnection>} />
                             <Route path="job-priority" element={<JobPriority />} />
-                            <Route path="sales-prediction" element={<RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection>} />
                             <Route path="accounts" element={<RequiresConnection feature="Accounts & GST"><Accounts /></RequiresConnection>} />
                             <Route path="plates" element={<PlateManagement />} />
                             <Route path="order-predictions" element={<RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection>} />
                             <Route path="production-tracker" element={<RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection>} />
-                            <Route path="reports" element={<RequiresConnection feature="Seasonal Reports"><Reports /></RequiresConnection>} />
                             <Route path="coupons" element={<CouponManagement />} />
                             <Route path="cctv-attendance" element={<CCTVAttendance />} />
                             <Route path="cctv-management" element={<CCTVManagement />} />
@@ -601,6 +624,7 @@ const Dashboard = () => {
                             <Route path="printer-dashboard" element={<PrinterDashboard />} />
               <Route path="designer-dashboard" element={<DesignerDashboard />} />
                             <Route path="quotes" element={<Quotes />} />
+                            <Route path="paper-management" element={<PaperManagement />} />
                             <Route path="recurring-invoices" element={<RecurringInvoices />} />
                             <Route path="settings" element={<SettingsPage />} />
                             <Route path="*" element={<NotFound />} />

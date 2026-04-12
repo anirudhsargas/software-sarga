@@ -43,6 +43,13 @@ router.get('/customers', authenticateToken, async (req, res) => {
         let where = '';
         const params = [];
 
+        // By default, hide internal customers from the general customers list.
+        // Pass `include_internal=1` from the client when internal customers are required (e.g., Internal Billing page).
+        const includeInternal = req.query.include_internal === '1' || req.query.include_internal === 'true';
+        if (!includeInternal) {
+            where += " AND COALESCE(client_type, '') != 'internal'";
+        }
+
         // cross_branch=1 allows all roles to search across branches (used by CustomerPayments page)
         const crossBranch = req.query.cross_branch === '1';
         if (!crossBranch) {
@@ -178,7 +185,7 @@ router.get('/customers/:id/dashboard', authenticateToken, async (req, res) => {
 
         // 2. All jobs for this customer
         const [jobs] = await pool.query(`
-            SELECT j.*, b.name as branch_name
+            SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.status, j.created_at, b.name as branch_name
             FROM sarga_jobs j
             LEFT JOIN sarga_branches b ON j.branch_id = b.id
             WHERE j.customer_id = ?

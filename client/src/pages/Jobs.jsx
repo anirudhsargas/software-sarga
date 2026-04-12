@@ -493,8 +493,65 @@ const Jobs = () => {
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <span className="font-bold text-sm">{j.job_number}</span>
-                                                            <span className="text-sm">{j.job_name}</span>
+                                                            <div className="row items-center gap-xs">
+                                                                <span className="font-bold text-sm">{j.job_number}</span>
+                                                                <span className="text-xs muted" style={{ opacity: 0.7 }}>• {j.product_name || 'Service'}</span>
+                                                            </div>
+                                                            <span className="text-sm font-medium">{j.job_name}</span>
+                                                            
+                                                            {/* Extra Tags for Dashboard List */}
+                                                            {j.description && (
+                                                                <div className="row wrap gap-xs mt-4" style={{ marginTop: 4 }}>
+                                                                    {j.description.split(' | ').filter(p => p && p.trim()).map((part, i) => {
+                                                                        const isTagged = part.includes(':');
+                                                                        const [label, ...rest] = isTagged ? part.split(':') : ['', part];
+                                                                        const value = isTagged ? rest.join(':').trim() : part.trim();
+                                                                        const tagLabel = isTagged ? label.trim().toLowerCase() : '';
+                                                                        
+                                                                        // Color coding for common tags
+                                                                        const isColour = tagLabel === 'colour' || tagLabel === 'color';
+                                                                        const isNumbering = tagLabel === 'numbering' || tagLabel.includes('from') || tagLabel.includes('to');
+                                                                        const isMatter = tagLabel === 'matter';
+                                                                        
+                                                                        return (
+                                                                            <span key={i} style={{
+                                                                                fontSize: '10px',
+                                                                                padding: '1px 6px',
+                                                                                borderRadius: '4px',
+                                                                                background: isColour ? 'rgba(146, 64, 14, 0.1)' : isNumbering ? 'rgba(30, 64, 175, 0.1)' : isMatter ? 'rgba(124, 58, 237, 0.1)' : 'rgba(108, 117, 125, 0.1)',
+                                                                                color: isColour ? '#92400e' : isNumbering ? '#1e40af' : isMatter ? '#7c3aed' : 'var(--text-muted)',
+                                                                                border: `1px solid ${isColour ? 'rgba(146, 64, 14, 0.2)' : isNumbering ? 'rgba(30, 64, 175, 0.2)' : isMatter ? 'rgba(124, 58, 237, 0.2)' : 'rgba(108, 117, 125, 0.2)'}`,
+                                                                                fontWeight: 600,
+                                                                                maxWidth: '120px',
+                                                                                overflow: 'hidden',
+                                                                                textOverflow: 'ellipsis',
+                                                                                whiteSpace: 'nowrap'
+                                                                            }}>
+                                                                                {isColour && '🎨 '}
+                                                                                {isNumbering && '🔢 '}
+                                                                                {isMatter && '📝 '}
+                                                                                {tagLabel && <span style={{ textTransform: 'capitalize' }}>{tagLabel}: </span>}
+                                                                                {value}
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                    
+                                                                    {/* Applied Extras Badge count */}
+                                                                    {(() => {
+                                                                        try {
+                                                                            const extras = typeof j.applied_extras === 'string' ? JSON.parse(j.applied_extras) : j.applied_extras;
+                                                                            if (Array.isArray(extras) && extras.length > 0) {
+                                                                                return (
+                                                                                    <span style={{ fontSize: '9px', color: 'var(--accent)', fontWeight: 700, background: 'var(--accent-soft)', padding: '1px 4px', borderRadius: '4px' }}>
+                                                                                        +{extras.length} Extras
+                                                                                    </span>
+                                                                                );
+                                                                            }
+                                                                        } catch(e) {}
+                                                                        return null;
+                                                                    })()}
+                                                                </div>
+                                                            )}
                                                         </>
                                                     )}
                                                 </div>

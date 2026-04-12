@@ -274,6 +274,102 @@ router.get('/inventory/:id/branch-availability', authenticateToken, async (req, 
     }
 });
 
+    // --- Paper cut mappings (parent sheet -> child size mapping) ---
+    router.get('/inventory/paper-cut-maps', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+        try {
+            const parentId = req.query.parent_id ? Number(req.query.parent_id) : null;
+            const categoryFilter = req.query.category ? String(req.query.category).trim() : null;
+            let rows;
+
+            if (parentId) {
+                [rows] = await pool.query('SELECT * FROM sarga_paper_cut_map WHERE parent_inventory_item_id = ? ORDER BY created_at DESC', [parentId]);
+            } else if (categoryFilter) {
+                // Return mappings where the parent inventory item belongs to the requested category
+                [rows] = await pool.query(
+                    `SELECT pcm.*, i.name as parent_name, i.category as parent_category
+                     FROM sarga_paper_cut_map pcm
+                     LEFT JOIN sarga_inventory i ON i.id = pcm.parent_inventory_item_id
+                     WHERE LOWER(COALESCE(i.category, '')) = LOWER(?)
+                     ORDER BY pcm.created_at DESC`,
+                    [categoryFilter]
+                );
+            } else {
+                [rows] = await pool.query('SELECT pcm.*, i.name as parent_name, i.category as parent_category FROM sarga_paper_cut_map pcm LEFT JOIN sarga_inventory i ON i.id = pcm.parent_inventory_item_id ORDER BY pcm.created_at DESC');
+            }
+            res.json(rows);
+        } catch (err) {
+            console.error('Cut map fetch error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    router.post('/inventory/paper-cut-maps', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        try {
+            const { parent_inventory_item_id, child_size_code, pieces_per_parent, loss_pct, min_waste, notes } = req.body;
+            if (!parent_inventory_item_id || !child_size_code || !pieces_per_parent) {
+                return res.status(400).json({ message: 'Missing required fields' });
+            }
+
+            const [result] = await pool.query(
+                `INSERT INTO sarga_paper_cut_map (parent_inventory_item_id, child_size_code, pieces_per_parent, loss_pct, min_waste, notes)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE pieces_per_parent = VALUES(pieces_per_parent), loss_pct = VALUES(loss_pct), min_waste = VALUES(min_waste), notes = VALUES(notes)`,
+                [parent_inventory_item_id, String(child_size_code).trim(), Number(pieces_per_parent), Number(loss_pct) || 0, Number(min_waste) || 0, notes || null]
+            );
+
+            res.json({ id: result.insertId || null, message: 'Mapping saved' });
+        } catch (err) {
+            console.error('Cut map save error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    router.delete('/inventory/paper-cut-maps/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        try {
+            await pool.query('DELETE FROM sarga_paper_cut_map WHERE id = ?', [req.params.id]);
+            res.json({ message: 'Deleted' });
+        } catch (err) {
+            console.error('Cut map delete error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // --- Admin: paper types list and bulk mapping ---
+    router.get('/inventory/paper-types', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+        try {
+            // Gather distinct categories from inventory and product subcategories
+            const [invCats] = await pool.query("SELECT DISTINCT COALESCE(category, '') AS type FROM sarga_inventory WHERE category IS NOT NULL AND category != ''");
+            const [subcats] = await pool.query("SELECT DISTINCT name AS type FROM sarga_product_subcategories WHERE name IS NOT NULL AND name != ''");
+
+            const set = new Set();
+            invCats.forEach(r => set.add(r.type));
+            subcats.forEach(r => set.add(r.type));
+
+            const types = Array.from(set).filter(Boolean).sort();
+            res.json({ types });
+        } catch (err) {
+            console.error('Paper types fetch error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    router.post('/inventory/paper-map', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        try {
+            const { inventory_ids, paper_type } = req.body;
+            if (!Array.isArray(inventory_ids) || inventory_ids.length === 0) return res.status(400).json({ message: 'No inventory ids provided' });
+
+            // Bulk update category on inventory items (serves as paper-type mapping)
+            await pool.query('UPDATE sarga_inventory SET category = ? WHERE id IN (?)', [paper_type || null, inventory_ids]);
+
+            try { auditLog(req.user.id, 'INVENTORY_PAPER_MAP', `Mapped ${inventory_ids.length} item(s) to ${paper_type}`, { entity_type: 'inventory', entity_ids: inventory_ids }); } catch (e) { }
+
+            res.json({ message: 'Mapped successfully' });
+        } catch (err) {
+            console.error('Paper map error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
 // Lookup inventory item by SKU — used by billing QR scan and sidebar scanner
 router.get('/inventory/by-sku/:sku', authenticateToken, async (req, res) => {
     try {
@@ -916,6 +1012,75 @@ router.delete('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Acco
         res.json({ message: 'Inventory item deleted' });
     } catch (err) {
         res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Instant Stock Transfer (Branch to Branch)
+router.post('/inventory/transfer', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+    const { inventory_item_id, from_branch_id, to_branch_id, quantity, notes } = req.body;
+
+    if (!inventory_item_id || !from_branch_id || !to_branch_id || !quantity) {
+        return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const qty = parseFloat(quantity);
+    if (isNaN(qty) || qty <= 0) {
+        return res.status(400).json({ message: 'Invalid quantity' });
+    }
+
+    if (String(from_branch_id) === String(to_branch_id)) {
+        return res.status(400).json({ message: 'Source and destination branches must be different' });
+    }
+
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+        // 1. Check source stock
+        const [sourceStock] = await connection.query(
+            'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ? FOR UPDATE',
+            [inventory_item_id, from_branch_id]
+        );
+
+        const available = sourceStock.length ? Number(sourceStock[0].quantity) : 0;
+        if (available < qty) {
+            await connection.rollback();
+            return res.status(400).json({ message: `Insufficient stock at source branch. Available: ${available}` });
+        }
+
+        // 2. Deduct from source
+        await connection.query(
+            'UPDATE sarga_branch_stock SET quantity = quantity - ? WHERE inventory_item_id = ? AND branch_id = ?',
+            [qty, inventory_item_id, from_branch_id]
+        );
+
+        // 3. Add to destination
+        await connection.query(
+            `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity) 
+             VALUES (?, ?, ?) 
+             ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
+            [inventory_item_id, to_branch_id, qty, qty]
+        );
+
+        // 4. Log transfer (inserting into sarga_stock_requests as a 'Completed' transfer for unified reporting)
+        await connection.query(
+            `INSERT INTO sarga_stock_requests (inventory_item_id, from_branch_id, to_branch_id, quantity, status, notes, created_by, resolved_by, resolved_at, sent_by, sent_at, received_by, received_at)
+             VALUES (?, ?, ?, ?, 'Received', ?, ?, ?, NOW(), ?, NOW(), ?, NOW())`,
+            [inventory_item_id, to_branch_id, from_branch_id, qty, notes || 'Instant Transfer', req.user.id, req.user.id, req.user.id, req.user.id]
+        );
+
+        await connection.commit();
+        
+        const [item] = await pool.query('SELECT name FROM sarga_inventory WHERE id = ?', [inventory_item_id]);
+        auditLog(req.user.id, 'STOCK_TRANSFER_INSTANT', `Instant transfer of ${qty}x ${item[0]?.name || '#' + inventory_item_id} from branch #${from_branch_id} to branch #${to_branch_id}`);
+        
+        res.json({ success: true, message: 'Stock transferred successfully' });
+    } catch (err) {
+        await connection.rollback();
+        console.error('Stock transfer error:', err);
+        res.status(500).json({ message: 'Internal server error during transfer' });
+    } finally {
+        connection.release();
     }
 });
 

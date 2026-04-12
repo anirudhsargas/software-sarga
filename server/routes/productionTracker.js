@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { asyncHandler } = require('../helpers');
+const { asyncHandler, getTodayDate } = require('../helpers');
 const { branchFilter } = require('../middleware/branchFilter');
 
 // Stage ordering for the production pipeline
@@ -70,7 +70,7 @@ router.get('/', authenticateToken,
 
     // Compute time-in-stage and overdue flag
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = getTodayDate();
 
     const enriched = jobs.map(j => {
       const stageEntered = j.stage_entered_at ? new Date(j.stage_entered_at) : new Date(j.updated_at || j.created_at);

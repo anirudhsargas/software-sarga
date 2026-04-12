@@ -180,11 +180,12 @@ router.get('/', auth.authenticate, async (req, res) => {
             query += ` WHERE 1=1 AND m.branch_id = ?`;
             params.push(user.branch_id);
         } else {
-            // Admin/Accountant: default to their own branch unless explicitly specified
+            // Admin/Accountant: if branch_id is provided, filter by it. Otherwise, return all machines.
             query += ` WHERE 1=1`;
-            const effectiveBranchId = branch_id || user.branch_id;
-            query += ` AND m.branch_id = ?`;
-            params.push(effectiveBranchId);
+            if (branch_id) {
+                query += ` AND m.branch_id = ?`;
+                params.push(branch_id);
+            }
         }
 
         // Filter by active status

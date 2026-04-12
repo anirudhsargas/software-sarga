@@ -8,23 +8,30 @@ const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 
 const BAR_COLOR = 'var(--primary, #6366f1)';
 const PEAK_COLOR = '#f59e0b';
 
-const OrderForecastWidget = () => {
+const OrderForecastWidget = ({ branchId }) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
 
     useEffect(() => {
         (async () => {
+            setLoading(true);
             try {
-                const res = await api.get('/ai/order-forecast', { params: { branch: 'all', horizon: 7 } });
+                const res = await api.get('/ai/order-forecast', { 
+                    params: { 
+                        branch: branchId || 'all', 
+                        horizon: 7 
+                    } 
+                });
                 setData(res.data);
+                setError(false);
             } catch {
                 setError(true);
             } finally {
                 setLoading(false);
             }
         })();
-    }, []);
+    }, [branchId]);
 
     if (loading) return <SkeletonLoader />;
     if (error || !data) return null;
