@@ -1,1 +1,0 @@
-const i=.18,t=(i,t=!0)=>{const a=Number(i||0).toLocaleString("en-IN",{maximumFractionDigits:0});return t?`₹${a}`:a},a=(i,t=2)=>`₹${Number(i||0).toLocaleString("en-IN",{minimumFractionDigits:t,maximumFractionDigits:t})}`;export{i as G,a,t as f};
