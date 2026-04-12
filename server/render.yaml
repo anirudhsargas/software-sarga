@@ -28,6 +28,8 @@ services:
         value: "G-5XD6YCERCC"
       - key: VITE_API_URL
         value: "https://sarga-backend-prod.onrender.com/api"
+      - key: CORS_ORIGIN
+        value: "https://software-sarga.vercel.app"
       - key: JWT_SECRET
         fromSecret: JWT_SECRET
       # Add production secrets (DB, JWT, third-party keys) as Render secrets instead
