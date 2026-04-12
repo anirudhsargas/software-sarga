@@ -8,6 +8,7 @@ const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const StaffSettingsPage = lazy(() => import('./pages/StaffSettingsPage'));
 import auth from './services/auth';
 import { initServerTime } from './services/serverTime';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -105,6 +106,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/staff-settings"
+                element={
+                  <ProtectedRoute roles={['Other Staff', 'Designer', 'Printer', 'Front Office', 'Accountant']}>
+                    <StaffSettingsPage />
                   </ProtectedRoute>
                 }
               />

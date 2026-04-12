@@ -143,6 +143,7 @@ const Billing = () => {
   const [showJobDetails, setShowJobDetails] = useState(false);
   const matterFileRef = useRef(null);
   const matterCameraRef = useRef(null);
+  const paymentTimerRef = useRef(null);
 
   const resetBillingState = () => {
     setForm({
@@ -2009,7 +2010,7 @@ const Billing = () => {
                   <div className="billing-product-spotlight">
                     <div className="row items-center justify-between" style={{ marginBottom: 4 }}>
                       <span className="billing-product-name">{selectedProduct.name}</span>
-                      <span className="billing-product-unit">₹{jobData.unit_price.toFixed(2)} <span className="muted" style={{ fontSize: 11, fontWeight: 400 }}>/ unit</span></span>
+                      <span className="billing-product-unit">₹{jobData.unit_price.toFixed(2).replace(/\.00$/, '')} <span className="muted" style={{ fontSize: 11, fontWeight: 400 }}>/ unit</span></span>
                     </div>
                     <div className="billing-product-type">{selectedProduct.calculation_type}</div>
                   </div>
@@ -2376,20 +2377,12 @@ const Billing = () => {
                   )}
 
                   {/* Total & Actions Row */}
-                  <div className="billing-total-bar">
-                    <div className="billing-total-amount">
-                      Total <span>₹{jobData.total_amount.toFixed(2)}</span>
+                  <div className="billing-total-bar" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+                    <div className="billing-total-amount" style={{ flex: 1, minWidth: 120 }}>
+                      Total <span>₹{jobData.total_amount.toFixed(2).replace(/\.00$/, '')}</span>
                     </div>
-                    <div className="row gap-sm">
-                      <button
-                        className="btn btn-ghost billing-paper-calc-btn"
-                        type="button"
-                        title="Paper Size Optimizer"
-                        onClick={() => setShowPaperOptimizer(true)}
-                      >
-                        <Scissors size={14} /> Paper Calc
-                      </button>
-                      <button className="btn btn-primary billing-add-btn" type="button" onClick={handleAddLineItem}>
+                    <div className="row gap-sm" style={{ flexShrink: 0 }}>
+                      <button className="btn btn-primary billing-add-btn" type="button" onClick={handleAddLineItem} style={{ whiteSpace: 'nowrap' }}>
                         <Plus size={16} /> Add to Bill
                       </button>
                     </div>
@@ -2441,7 +2434,7 @@ const Billing = () => {
                               {line.category && <span> · {line.category}</span>}
                             </>
                           : <>
-                              Qty {line.quantity} × ₹{Number(line.unit_price).toFixed(2)}
+                              Qty {line.quantity} × ₹{Number(line.unit_price).toFixed(2).replace(/\.00$/, '')}
                               {line.category && <span> · {line.category}</span>}
                               {line.waste_prints > 0 && <span> · Waste: {line.waste_prints}</span>}
                               {line.proof_prints > 0 && <span> · Proof: {line.proof_prints}</span>}
@@ -2468,7 +2461,7 @@ const Billing = () => {
                         </div>
                       )}
                     </div>
-                    <div className="billing-item-row__amount">₹{Number(line.total_amount).toFixed(2)}</div>
+                    <div className="billing-item-row__amount">₹{Number(line.total_amount).toFixed(2).replace(/\.00$/, '')}</div>
                     <button className="billing-item-row__remove" type="button" onClick={() => removeOrderLine(line.id)} title="Remove">
                       ×
                     </button>
@@ -2479,25 +2472,25 @@ const Billing = () => {
               <div className="billing-totals">
                 <div className="billing-totals__row">
                   <div className="muted">Subtotal (excl. GST)</div>
-                  <div>₹{totals.net.toFixed(2)}</div>
+                  <div>₹{totals.net.toFixed(2).replace(/\.00$/, '')}</div>
                 </div>
                 <div className="billing-totals__row">
                   <div className="muted">SGST (9%)</div>
-                  <div>₹{totals.sgst.toFixed(2)}</div>
+                  <div>₹{totals.sgst.toFixed(2).replace(/\.00$/, '')}</div>
                 </div>
                 <div className="billing-totals__row">
                   <div className="muted">CGST (9%)</div>
-                  <div>₹{totals.cgst.toFixed(2)}</div>
+                  <div>₹{totals.cgst.toFixed(2).replace(/\.00$/, '')}</div>
                 </div>
                 {totals.effectiveDiscount > 0 && (
                   <div className="billing-totals__row" style={{ color: 'var(--clr-success, #22c55e)' }}>
                     <div>Discount ({totals.effectiveDiscount}%)</div>
-                    <div>-₹{totals.discountAmount.toFixed(2)}</div>
+                    <div>-₹{totals.discountAmount.toFixed(2).replace(/\.00$/, '')}</div>
                   </div>
                 )}
                 <div className="billing-totals__row billing-totals__grand">
                   <div className="font-bold">Grand Total</div>
-                  <div className="font-bold" style={{ fontSize: '18px' }}>₹{totals.gross.toFixed(2)}</div>
+                  <div className="font-bold" style={{ fontSize: '18px' }}>₹{totals.gross.toFixed(2).replace(/\.00$/, '')}</div>
                 </div>
               </div>
             </div>
@@ -2732,13 +2725,34 @@ const Billing = () => {
                               key={method}
                               type="button"
                               className={`billing-method-pill ${active ? 'billing-method-pill--active' : ''}`}
-                              onClick={() => {
+                              onClick={(e) => {
+                                clearTimeout(paymentTimerRef.current);
+                                if (e.detail === 2) return; // Handled by onDoubleClick
+                                paymentTimerRef.current = setTimeout(() => {
+                                  setPayment((prev) => ({ ...prev, selectedMethods: [method] }));
+                                  setFieldErrors((prev) => { const { paymentMethod, ...rest } = prev; return rest; });
+                                }, 200);
+                              }}
+                              onDoubleClick={() => {
+                                clearTimeout(paymentTimerRef.current);
                                 setPayment((prev) => {
                                   const exists = prev.selectedMethods.includes(method);
                                   const selectedMethods = exists
                                     ? prev.selectedMethods.filter((m) => m !== method)
                                     : [...prev.selectedMethods, method];
-                                  return { ...prev, selectedMethods };
+                                  return { ...prev, selectedMethods: selectedMethods.length ? selectedMethods : ['Cash'] };
+                                });
+                                setFieldErrors((prev) => { const { paymentMethod, ...rest } = prev; return rest; });
+                              }}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                clearTimeout(paymentTimerRef.current);
+                                setPayment((prev) => {
+                                  const exists = prev.selectedMethods.includes(method);
+                                  const selectedMethods = exists
+                                    ? prev.selectedMethods.filter((m) => m !== method)
+                                    : [...prev.selectedMethods, method];
+                                  return { ...prev, selectedMethods: selectedMethods.length ? selectedMethods : ['Cash'] };
                                 });
                                 setFieldErrors((prev) => { const { paymentMethod, ...rest } = prev; return rest; });
                               }}

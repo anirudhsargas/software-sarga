@@ -933,7 +933,7 @@ const JobDetail = () => {
             </div>
 
             <div className="job-detail-main-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: 24, alignItems: 'start' }}>
-                <div className="stack-lg">
+                <div className="stack-lg" style={{ minWidth: 0 }}>
                     {/* Main Info */}
                     <Section title="Order Overview" icon={FileText}>
                         <div className="job-detail-info-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
@@ -993,7 +993,8 @@ const JobDetail = () => {
                                                 padding: '4px 10px', borderRadius: 6, fontSize: 13, fontWeight: 600,
                                                 background: isColour ? 'rgba(146, 64, 14, 0.1)' : isNumbering ? 'rgba(30, 64, 175, 0.1)' : isMatter ? 'rgba(124, 58, 237, 0.1)' : 'var(--surface-2, rgba(108, 117, 125, 0.1))',
                                                 color: isColour ? '#d97706' : isNumbering ? '#3b82f6' : isMatter ? '#8b5cf6' : 'var(--text)',
-                                                border: `1px solid ${isColour ? 'rgba(217, 119, 6, 0.3)' : isNumbering ? 'rgba(59, 130, 246, 0.3)' : isMatter ? 'rgba(139, 92, 246, 0.3)' : 'var(--border)'}`
+                                                border: `1px solid ${isColour ? 'rgba(217, 119, 6, 0.3)' : isNumbering ? 'rgba(59, 130, 246, 0.3)' : isMatter ? 'rgba(139, 92, 246, 0.3)' : 'var(--border)'}`,
+                                                overflowWrap: 'anywhere'
                                             }}>
                                                 {isColour && <span style={{ fontSize: 15 }}>🎨</span>}
                                                 {isNumbering && <span style={{ fontSize: 15 }}>🔢</span>}
@@ -1436,7 +1437,7 @@ const JobDetail = () => {
                 </div>
 
                 {/* Sidebar: Timeline */}
-                <div className="stack-md">
+                <div className="stack-md" style={{ minWidth: 0 }}>
                     <Section title="Activity Logs" icon={Activity}>
                         <div style={{ position: 'relative', paddingLeft: 20 }}>
                             <div style={{ position: 'absolute', left: 4, top: 10, bottom: 10, width: 2, background: 'var(--border)' }} />

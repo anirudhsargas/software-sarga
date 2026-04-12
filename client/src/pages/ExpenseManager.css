@@ -3130,6 +3130,13 @@ select.em-input {
 
     .em-staff-card {
         padding: 14px;
+        flex-wrap: wrap;
+    }
+
+    .em-staff-card__actions {
+        width: 100%;
+        margin-top: 4px;
+        justify-content: flex-end;
     }
 
     .em-kpi-card {

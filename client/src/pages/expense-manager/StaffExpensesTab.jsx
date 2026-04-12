@@ -171,16 +171,18 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{staff.name}</h2>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{staff.role} · {staff.salary_type === 'daily' ? `₹${fmt(staff.daily_rate)}/day` : `₹${fmt(staff.base_salary)}/month`}</span>
               </div>
-              <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => downloadSalarySlip(staff.id, month)}>
-                <Download size={14} /> Salary Slip
-              </button>
-              <button className="btn btn-primary btn-sm" onClick={() => {
-                setPayForm(p => ({ ...p, amount: String(staff.base_salary || staff.daily_rate * 26 || '') }));
-                setPayDirty(false);
-                setShowPayModal(true);
-              }}>
-                <IndianRupee size={14} /> Pay Salary
-              </button>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => downloadSalarySlip(staff.id, month)}>
+                  <Download size={14} /> Salary Slip
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={() => {
+                  setPayForm(p => ({ ...p, amount: String(staff.base_salary || staff.daily_rate * 26 || '') }));
+                  setPayDirty(false);
+                  setShowPayModal(true);
+                }}>
+                  <IndianRupee size={14} /> Pay Salary
+                </button>
+              </div>
             </div>
 
             {/* Salary KPIs */}

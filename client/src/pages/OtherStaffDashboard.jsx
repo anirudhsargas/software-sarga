@@ -284,7 +284,7 @@ const OtherStaffDashboard = () => {
               style={{
                 padding: '8px 16px',
                 background: selectedType === type ? 'var(--accent)' : 'var(--bg-secondary)',
-                color: selectedType === type ? '#000' : 'var(--text-primary)',
+                color: selectedType === type ? 'var(--on-accent, #fff)' : 'var(--text-primary)',
                 border: selectedType === type ? '1px solid var(--accent)' : '1px solid var(--border)',
                 borderRadius: '20px',
                 fontSize: '13px',
@@ -321,7 +321,7 @@ const OtherStaffDashboard = () => {
               style={{
                 padding: '8px 16px',
                 background: selectedPriority === priority ? 'var(--accent)' : 'var(--bg-secondary)',
-                color: selectedPriority === priority ? '#000' : 'var(--text-primary)',
+                color: selectedPriority === priority ? 'var(--on-accent, #fff)' : 'var(--text-primary)',
                 border: selectedPriority === priority ? '1px solid var(--accent)' : '1px solid var(--border)',
                 borderRadius: '20px',
                 fontSize: '13px',

@@ -133,8 +133,8 @@ const AttendanceSalary = () => {
       {error && <ServerError onRetry={fetchData} lastUpdated={null} message={error} />}
 
       {/* Salary Overview Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
-        <div style={{ padding: 16, borderRadius: 12, background: 'linear-gradient(135deg, var(--accent) 0%, #818cf8 100%)', color: '#fff' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 24 }}>
+        <div style={{ padding: 14, borderRadius: 12, background: 'linear-gradient(135deg, var(--accent) 0%, #818cf8 100%)', color: '#fff' }}>
           <div style={{ fontSize: 11, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Salary Type</div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{salaryInfo?.staff?.salary_type || 'Not Set'}</div>
           <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
@@ -143,7 +143,7 @@ const AttendanceSalary = () => {
           </div>
         </div>
 
-        <div style={{ padding: 16, borderRadius: 12, background: 'linear-gradient(135deg, var(--success) 0%, var(--success) 100%)', color: '#fff' }}>
+        <div style={{ padding: 14, borderRadius: 12, background: 'linear-gradient(135deg, var(--success) 0%, var(--success) 100%)', color: '#fff' }}>
           <div style={{ fontSize: 11, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>This Month Salary</div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>
             {salaryCalc?.calculation?.calculatedSalary != null ? fmt(salaryCalc.calculation.calculatedSalary) : '—'}
@@ -154,13 +154,13 @@ const AttendanceSalary = () => {
           </div>
         </div>
 
-        <div style={{ padding: 16, borderRadius: 12, background: 'var(--success)18', border: '1px solid var(--success)30' }}>
+        <div style={{ padding: 14, borderRadius: 12, background: 'var(--success)18', border: '1px solid var(--success)30' }}>
           <div style={{ fontSize: 11, color: 'var(--success)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>Days Present</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--success)' }}>{summary?.present || 0}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{halfDays > 0 ? `+ ${halfDays} half days` : 'this month'}</div>
         </div>
 
-        <div style={{ padding: 16, borderRadius: 12, background: 'var(--error)18', border: '1px solid var(--error)30' }}>
+        <div style={{ padding: 14, borderRadius: 12, background: 'var(--error)18', border: '1px solid var(--error)30' }}>
           <div style={{ fontSize: 11, color: 'var(--error)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>Absent</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--error)' }}>{(summary?.absent || 0) + (summary?.leave || 0)}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{summary?.holiday > 0 ? `${summary.holiday} holidays` : 'this month'}</div>
@@ -168,7 +168,7 @@ const AttendanceSalary = () => {
       </div>
 
       {/* Month Navigator + Calendar */}
-      <div style={{ background: 'var(--surface, #1e1e2e)', borderRadius: 12, border: '1px solid var(--border)', padding: 20, marginBottom: 24 }}>
+      <div style={{ background: 'var(--surface, #1e1e2e)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 10px', marginBottom: 24, overflow: 'hidden' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <button className="btn btn-ghost" onClick={() => changeMonth(-1)} style={{ padding: '6px 10px' }}><ChevronLeft size={18} /></button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -179,21 +179,21 @@ const AttendanceSalary = () => {
         </div>
 
         {/* Day headers */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
             <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: d === 'Sun' ? 'var(--error)' : 'var(--muted)', padding: '4px 0', textTransform: 'uppercase' }}>{d}</div>
           ))}
         </div>
 
         {/* Calendar grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
           {calendarDays.map((cell, idx) => {
             if (!cell) return <div key={`empty-${idx}`} />;
             const config = cell.status ? statusConfig[cell.status] : null;
             return (
               <div key={cell.day} style={{
                 aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                borderRadius: 8, fontSize: 13, fontWeight: cell.isToday ? 800 : 500,
+                borderRadius: 6, fontSize: 13, fontWeight: cell.isToday ? 800 : 500,
                 background: cell.isToday ? 'linear-gradient(135deg, var(--accent), #818cf8)'
                   : config?.bg || (cell.isSunday ? 'var(--error)10' : 'var(--bg, #ffffff08)'),
                 color: cell.isToday ? '#fff' : cell.isFuture ? 'var(--muted)' : config?.color || (cell.isSunday ? 'var(--error)' : 'inherit'),

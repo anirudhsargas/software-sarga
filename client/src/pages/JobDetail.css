@@ -13,13 +13,13 @@
     /* Main 2-col grid -> single column */
     .job-detail-main-grid {
         display: grid !important;
-        grid-template-columns: 1fr !important;
+        grid-template-columns: minmax(0, 1fr) !important;
         gap: 16px !important;
     }
     /* Info grid inside Order Overview -> single column */
     .job-detail-info-grid {
         display: grid !important;
-        grid-template-columns: 1fr !important;
+        grid-template-columns: minmax(0, 1fr) !important;
         gap: 4px !important;
     }
     /* Header stacks vertically */

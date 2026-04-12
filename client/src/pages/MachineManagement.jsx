@@ -1248,7 +1248,7 @@ const MachineManagement = () => {
                                         key={type}
                                         className={`btn btn-sm ${filterType === type ? 'btn-primary' : 'btn-ghost'}`}
                                         onClick={() => setFilterType(type)}
-                                        style={{ borderRadius: 20, padding: '4px 16px', fontSize: 13 }}
+                                        style={{ borderRadius: 20, padding: '4px 16px', fontSize: 13, color: filterType === type ? 'var(--on-accent, #fff)' : undefined }}
                                     >
                                         {type}
                                     </button>

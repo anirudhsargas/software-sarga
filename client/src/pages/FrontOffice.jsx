@@ -754,13 +754,13 @@ const FrontOffice = () => {
                 {/* Active Jobs Queue */}
                 {activeTab === 'queue' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'flex-end', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
-                            <div className="row gap-sm items-center">
-                                {activeTotal > 0 && (
-                                    <span className="muted" style={{ fontSize: 13 }}>
-                                        {((activePage - 1) * PAGE_SIZE) + 1}–{Math.min(activePage * PAGE_SIZE, activeTotal)} of {activeTotal.toLocaleString()}
-                                    </span>
-                                )}
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
+                            {activeTotal > 0 && (
+                                <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                                    {((activePage - 1) * PAGE_SIZE) + 1}–{Math.min(activePage * PAGE_SIZE, activeTotal)} of {activeTotal.toLocaleString()}
+                                </span>
+                            )}
+                            <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setActivePage(p => Math.max(1, p - 1))} disabled={activePage <= 1 || activeLoading} title="Previous page"><ChevronLeft size={16} /></button>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setActivePage(p => Math.min(activeTotalPages, p + 1))} disabled={activePage >= activeTotalPages || activeLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchActiveJobs(activePage)} disabled={activeLoading}>
@@ -862,13 +862,13 @@ const FrontOffice = () => {
                 {/* Due Collection */}
                 {activeTab === 'dues' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'flex-end', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
-                            <div className="row gap-sm items-center">
-                                {dueTotal > 0 && (
-                                    <span className="muted" style={{ fontSize: 13 }}>
-                                        {((duePage - 1) * PAGE_SIZE) + 1}–{Math.min(duePage * PAGE_SIZE, dueTotal)} of {dueTotal.toLocaleString()}
-                                    </span>
-                                )}
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
+                            {dueTotal > 0 && (
+                                <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                                    {((duePage - 1) * PAGE_SIZE) + 1}–{Math.min(duePage * PAGE_SIZE, dueTotal)} of {dueTotal.toLocaleString()}
+                                </span>
+                            )}
+                            <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setDuePage(p => Math.max(1, p - 1))} disabled={duePage <= 1 || dueLoading} title="Previous page"><ChevronLeft size={16} /></button>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setDuePage(p => Math.min(dueTotalPages, p + 1))} disabled={duePage >= dueTotalPages || dueLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchDueCustomers(duePage)} disabled={dueLoading}>
@@ -957,13 +957,13 @@ const FrontOffice = () => {
                 {/* Overdue Jobs */}
                 {activeTab === 'overdue' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'flex-end', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
-                            <div className="row gap-sm items-center">
-                                {overdueTotal > 0 && (
-                                    <span className="muted" style={{ fontSize: 13 }}>
-                                        {((overduePage - 1) * PAGE_SIZE) + 1}–{Math.min(overduePage * PAGE_SIZE, overdueTotal)} of {overdueTotal.toLocaleString()}
-                                    </span>
-                                )}
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
+                            {overdueTotal > 0 && (
+                                <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                                    {((overduePage - 1) * PAGE_SIZE) + 1}–{Math.min(overduePage * PAGE_SIZE, overdueTotal)} of {overdueTotal.toLocaleString()}
+                                </span>
+                            )}
+                            <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setOverduePage(p => Math.max(1, p - 1))} disabled={overduePage <= 1 || overdueLoading} title="Previous page"><ChevronLeft size={16} /></button>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setOverduePage(p => Math.min(overdueTotalPages, p + 1))} disabled={overduePage >= overdueTotalPages || overdueLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchOverdueJobs(overduePage)} disabled={overdueLoading}>
@@ -1065,33 +1065,35 @@ const FrontOffice = () => {
                                     <List size={14} /> List
                                 </button>
                             </div>
-                            <div className="row gap-sm items-center">
+                            <div className="row gap-sm items-center" style={{ flexWrap: 'wrap' }}>
                                 {completedTotal > 0 && (
-                                    <span className="muted" style={{ fontSize: 13 }}>
+                                    <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
                                         {((completedPage - 1) * PAGE_SIZE) + 1}–{Math.min(completedPage * PAGE_SIZE, completedTotal)} of {completedTotal.toLocaleString()}
                                     </span>
                                 )}
-                                <button
-                                    className="btn btn-ghost btn-icon btn-sm"
-                                    aria-label="Previous page"
-                                    onClick={() => setCompletedPage(p => Math.max(1, p - 1))}
-                                    disabled={completedPage <= 1 || completedLoading}
-                                    title="Previous page"
-                                >
-                                    <ChevronLeft size={16} />
-                                </button>
-                                <button
-                                    className="btn btn-ghost btn-icon btn-sm"
-                                    aria-label="Next page"
-                                    onClick={() => setCompletedPage(p => Math.min(completedTotalPages, p + 1))}
-                                    disabled={completedPage >= completedTotalPages || completedLoading}
-                                    title="Next page"
-                                >
-                                    <ChevronRight size={16} />
-                                </button>
-                                <button className="btn btn-ghost btn-sm" onClick={() => fetchCompleted(completedPage)} disabled={completedLoading}>
-                                    {completedLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
-                                </button>
+                                <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
+                                    <button
+                                        className="btn btn-ghost btn-icon btn-sm"
+                                        aria-label="Previous page"
+                                        onClick={() => setCompletedPage(p => Math.max(1, p - 1))}
+                                        disabled={completedPage <= 1 || completedLoading}
+                                        title="Previous page"
+                                    >
+                                        <ChevronLeft size={16} />
+                                    </button>
+                                    <button
+                                        className="btn btn-ghost btn-icon btn-sm"
+                                        aria-label="Next page"
+                                        onClick={() => setCompletedPage(p => Math.min(completedTotalPages, p + 1))}
+                                        disabled={completedPage >= completedTotalPages || completedLoading}
+                                        title="Next page"
+                                    >
+                                        <ChevronRight size={16} />
+                                    </button>
+                                    <button className="btn btn-ghost btn-sm" onClick={() => fetchCompleted(completedPage)} disabled={completedLoading}>
+                                        {completedLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -1227,13 +1229,13 @@ const FrontOffice = () => {
                 {/* Recent Payments */}
                 {activeTab === 'payments' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'flex-end', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
-                            <div className="row gap-sm items-center">
-                                {paymentsTotal > 0 && (
-                                    <span className="muted" style={{ fontSize: 13 }}>
-                                        {((paymentsPage - 1) * PAGE_SIZE) + 1}–{Math.min(paymentsPage * PAGE_SIZE, paymentsTotal)} of {paymentsTotal.toLocaleString()}
-                                    </span>
-                                )}
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
+                            {paymentsTotal > 0 && (
+                                <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                                    {((paymentsPage - 1) * PAGE_SIZE) + 1}–{Math.min(paymentsPage * PAGE_SIZE, paymentsTotal)} of {paymentsTotal.toLocaleString()}
+                                </span>
+                            )}
+                            <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage <= 1 || paymentsLoading} title="Previous page"><ChevronLeft size={16} /></button>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))} disabled={paymentsPage >= paymentsTotalPages || paymentsLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchRecentPayments(paymentsPage)} disabled={paymentsLoading}>
@@ -1267,13 +1269,13 @@ const FrontOffice = () => {
                 {/* Delivered Jobs */}
                 {activeTab === 'delivered' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'flex-end', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
-                            <div className="row gap-sm items-center">
-                                {deliveredTotal > 0 && (
-                                    <span className="muted" style={{ fontSize: 13 }}>
-                                        {((deliveredPage - 1) * PAGE_SIZE) + 1}–{Math.min(deliveredPage * PAGE_SIZE, deliveredTotal)} of {deliveredTotal.toLocaleString()}
-                                    </span>
-                                )}
+                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
+                            {deliveredTotal > 0 && (
+                                <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                                    {((deliveredPage - 1) * PAGE_SIZE) + 1}–{Math.min(deliveredPage * PAGE_SIZE, deliveredTotal)} of {deliveredTotal.toLocaleString()}
+                                </span>
+                            )}
+                            <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setDeliveredPage(p => Math.max(1, p - 1))} disabled={deliveredPage <= 1 || deliveredLoading} title="Previous page"><ChevronLeft size={16} /></button>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setDeliveredPage(p => Math.min(deliveredTotalPages, p + 1))} disabled={deliveredPage >= deliveredTotalPages || deliveredLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchDeliveredJobs(deliveredPage)} disabled={deliveredLoading}>
