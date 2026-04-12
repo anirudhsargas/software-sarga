@@ -10,7 +10,13 @@ const getApiUrl = () => {
         return `http://localhost:5000/api/`;
     }
 
-    if (envUrl) return envUrl.endsWith('/') ? envUrl : envUrl + '/';
+    if (envUrl) {
+        let url = envUrl.endsWith('/') ? envUrl : envUrl + '/';
+        if (!url.endsWith('api/')) {
+            url += 'api/';
+        }
+        return url;
+    }
 
     // Fallback
     return `${window.location.protocol}//${window.location.hostname}:5000/api/`;
