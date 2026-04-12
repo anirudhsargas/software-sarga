@@ -6,7 +6,7 @@ $envVars = @{
     "VITE_FIREBASE_MESSAGING_SENDER_ID" = "1033339625034"
     "VITE_FIREBASE_APP_ID" = "1:1033339625034:web:cbb9d1065edbcb7ef490b3"
     "VITE_FIREBASE_MEASUREMENT_ID" = "G-5XD6YCERCC"
-    "VITE_API_URL" = "https://sarga-backend-prod.onrender.com/api"
+    "VITE_API_URL" = "https://software-sarga-2.onrender.com/api"
 }
 
 foreach ($kv in $envVars.GetEnumerator()) {
