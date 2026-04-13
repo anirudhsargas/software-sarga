@@ -429,29 +429,6 @@ const DailyReport = () => {
         } finally { setSubmittingRequest(false); }
     };
 
-    const loadTabData = useCallback(async (tab) => {
-        if (tab === 'Attendance') {
-            fetchAttendanceData();
-            return;
-        }
-        setTabErrors(prev => ({ ...prev, [tab]: null }));
-        try {
-            const endpoint = tab === 'Offset' ? '/daily-report/offset-live'
-                : tab === 'Laser' ? '/daily-report/laser-live' : '/daily-report/other-live';
-            const [res, pendingEntries] = await Promise.all([
-                api.get(endpoint, { params: { date: reportDate, branch_id: selectedBranch || branchParam } }),
-                getPendingEntriesForTab(tab)
-            ]);
-            const mergedData = mergePendingEntries(tab, res.data, pendingEntries);
-            if (tab === 'Offset') setOffsetData(mergedData);
-            else if (tab === 'Laser') setLaserData(mergedData);
-            else setOtherData(mergedData);
-        } catch (err) {
-            console.error(`Error fetching ${tab} data:`, err);
-            setTabErrors(prev => ({ ...prev, [tab]: err.message || 'Failed to load' }));
-        }
-    }, [reportDate, selectedBranch, branchParam, getPendingEntriesForTab, fetchAttendanceData]);
-    
     // ─── Fetch Attendance Data ──────────────────────────────────
     const fetchAttendanceData = useCallback(async () => {
         setAttendanceLoading(true);
@@ -478,6 +455,29 @@ const DailyReport = () => {
             setAttendanceLoading(false);
         }
     }, [reportDate, selectedBranch, branches]);
+
+    const loadTabData = useCallback(async (tab) => {
+        if (tab === 'Attendance') {
+            fetchAttendanceData();
+            return;
+        }
+        setTabErrors(prev => ({ ...prev, [tab]: null }));
+        try {
+            const endpoint = tab === 'Offset' ? '/daily-report/offset-live'
+                : tab === 'Laser' ? '/daily-report/laser-live' : '/daily-report/other-live';
+            const [res, pendingEntries] = await Promise.all([
+                api.get(endpoint, { params: { date: reportDate, branch_id: selectedBranch || branchParam } }),
+                getPendingEntriesForTab(tab)
+            ]);
+            const mergedData = mergePendingEntries(tab, res.data, pendingEntries);
+            if (tab === 'Offset') setOffsetData(mergedData);
+            else if (tab === 'Laser') setLaserData(mergedData);
+            else setOtherData(mergedData);
+        } catch (err) {
+            console.error(`Error fetching ${tab} data:`, err);
+            setTabErrors(prev => ({ ...prev, [tab]: err.message || 'Failed to load' }));
+        }
+    }, [reportDate, selectedBranch, branchParam, getPendingEntriesForTab, fetchAttendanceData]);
 
 
     const fetchLiveCounts = useCallback(async () => {

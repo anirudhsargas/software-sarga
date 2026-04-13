@@ -313,7 +313,7 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                 const jobNumber = `J-${Date.now().toString().slice(-8)}-${i + 1}`;
 
                 try {
-                    await connection.query(
+                    const [jobInsert] = await connection.query(
                         `INSERT INTO sarga_jobs
                         (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, waste_prints, proof_prints)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -338,9 +338,10 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                             Number(line.proof_prints) || 0
                         ]
                     );
+                    if (jobInsert && jobInsert.insertId) line.job_id = jobInsert.insertId;
                 } catch (err) {
                     if (err.code === 'ER_BAD_FIELD_ERROR' || err.code === 'ER_NO_SUCH_TABLE') {
-                        await connection.query(
+                        const [jobInsert] = await connection.query(
                             `INSERT INTO sarga_jobs
                             (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -361,6 +362,7 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                                 JSON.stringify(line.applied_extras || [])
                             ]
                         );
+                        if (jobInsert && jobInsert.insertId) line.job_id = jobInsert.insertId;
                     } else {
                         throw err;
                     }
