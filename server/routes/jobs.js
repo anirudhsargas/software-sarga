@@ -321,7 +321,12 @@ const JOB_LIST_COL_MINIMAL = 'j.id, j.job_number, j.job_name, j.status, j.total_
 // List All Jobs (with Customer details)
 router.get('/jobs', authenticateToken, async (req, res) => {
     try {
-        const { search, status, branch_id: qBranch, category, tab } = req.query;
+        const search = String(req.query.search || '').trim();
+        const status = String(req.query.status || '').trim();
+        const qBranch = String(req.query.branch_id || '').trim();
+        const category = String(req.query.category || '').trim();
+        const tab = String(req.query.tab || 'active').trim().toLowerCase();
+        const userRole = String(req.user.role || '').trim();
         const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
         const { branchId } = await branchFilter(req);
 
@@ -329,7 +334,8 @@ router.get('/jobs', authenticateToken, async (req, res) => {
         const params = [];
 
         // For non-admin/non-accountant/non-front-office staff, include their personal assignment status
-        const isStaff = !['Admin', 'Front Office', 'front office', 'Accountant'].includes(req.user.role);
+        const normalizedRole = userRole.toLowerCase();
+        const isStaff = !['admin', 'accountant', 'front office', 'frontoffice'].includes(normalizedRole);
         let myStatusSelect = '';
         const myStatusParams = [];
         if (isStaff) {
@@ -352,7 +358,7 @@ router.get('/jobs', authenticateToken, async (req, res) => {
             }
         } else {
             // Admin / Accountant / Front Office
-            if (!['Admin', 'Accountant'].includes(req.user.role)) {
+            if (!['admin', 'accountant'].includes(normalizedRole)) {
                 // Front Office: default to their branch
                 if (branchId && !qBranch) {
                     where += ' AND j.branch_id = ?';
