@@ -112,9 +112,9 @@ export default function Quotes() {
         } catch (err) { toast.error(err.response?.data?.message || 'Failed to send'); }
     };
 
-    const cardStyle = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, marginBottom: 16 };
-    const btnStyle = (bg = '#6366f1') => ({ background: bg, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14 });
-    const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--input-bg, var(--surface))', color: 'var(--text)', fontSize: 14 };
+    const cardStyle = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 24, marginBottom: 20, boxShadow: '0 12px 32px rgba(15, 23, 42, 0.05)' };
+    const btnStyle = (bg = '#6366f1') => ({ background: bg, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, minHeight: 42 });
+    const inputStyle = { width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--input-bg, var(--surface))', color: 'var(--text)', fontSize: 14, minHeight: 42, boxSizing: 'border-box' };
 
     return (
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -124,13 +124,21 @@ export default function Quotes() {
                     grid-template-columns: repeat(4, 1fr) !important;
                     gap: 12px !important;
                 }
-                @media (max-width: 600px) {
+                @media (max-width: 960px) {
                     .quote-item-card {
                         grid-template-columns: repeat(2, 1fr) !important;
                     }
                     .quote-item-card > div:nth-child(1),
                     .quote-item-card > div:nth-child(2) {
                         grid-column: span 2 !important;
+                    }
+                }
+                @media (max-width: 640px) {
+                    .quote-item-card {
+                        grid-template-columns: repeat(1, 1fr) !important;
+                    }
+                    .quote-item-card > div {
+                        grid-column: span 1 !important;
                     }
                 }
             `}</style>
@@ -159,20 +167,20 @@ export default function Quotes() {
                         <div style={{ ...cardStyle, textAlign: 'center', color: 'var(--text-muted)' }}>No quotes found. Create your first quote!</div>
                     ) : (Array.isArray(quotes) ? quotes : []).map(q => (
                         <div key={q.id} style={cardStyle}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-                                <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+                                <div style={{ minWidth: 0, flex: '1 1 320px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                                         <strong style={{ fontSize: 16 }}>{q.quote_number}</strong>
-                                        <span style={{ background: statusColors[q.status] || '#666', color: '#fff', padding: '2px 10px', borderRadius: 12, fontSize: 12 }}>
+                                        <span style={{ background: statusColors[q.status] || '#666', color: '#fff', padding: '4px 12px', borderRadius: 14, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                                             {q.status}
                                         </span>
                                     </div>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>{q.customer_name} {q.customer_mobile ? `• ${q.customer_mobile}` : ''}</div>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>Date: {q.date?.slice(0, 10)} {q.valid_until ? `• Valid until: ${q.valid_until?.slice(0, 10)}` : ''}</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.5, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.customer_name} {q.customer_mobile ? `• ${q.customer_mobile}` : ''}</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 6 }}>{q.date?.slice(0, 10)} {q.valid_until ? `• Valid until: ${q.valid_until?.slice(0, 10)}` : ''}</div>
                                 </div>
-                                <div style={{ textAlign: 'right' }}>
+                                <div style={{ textAlign: 'right', minWidth: 180, flex: '0 0 auto' }}>
                                     <div style={{ fontSize: 20, fontWeight: 700 }}>₹{Number(q.total || 0).toLocaleString('en-IN')}</div>
-                                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                                         {q.status !== 'converted' && (
                                             <>
                                                 <button onClick={() => handleEdit(q.id)} style={btnStyle('#374151')} title="Edit"><Edit2 size={14} /></button>
@@ -192,13 +200,13 @@ export default function Quotes() {
             {/* Create/Edit Modal */}
             {showForm && (
                 <div className="modal-backdrop" style={{ zIndex: 1003 }} onClick={() => setShowForm(false)}>
-                    <div className="modal" style={{ maxWidth: 800, width: '95%', maxHeight: '92vh', overflowY: 'auto', padding: 0, borderRadius: 16, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
+                    <div className="modal" style={{ maxWidth: 900, width: '100%', maxHeight: '92vh', overflowX: 'hidden', padding: 0, borderRadius: 18, display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(15, 23, 42, 0.18)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ padding: '22px 26px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                             <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{editing ? 'Edit Quote' : 'Create New Quote'}</h3>
                             <button onClick={() => setShowForm(false)} style={{ background: 'var(--bg-3)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
                         </div>
 
-                        <div style={{ padding: '24px' }}>
+                        <div style={{ padding: '24px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
                             {/* Customer Section */}
                             <div style={{ marginBottom: 24 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, color: 'var(--primary)' }}>
@@ -215,7 +223,7 @@ export default function Quotes() {
                                     </select>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
                                     <div><label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' }}>Customer Name *</label><input placeholder="Enter name" value={form.customer_name} onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} style={{ ...inputStyle, height: 42 }} /></div>
                                     <div><label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' }}>Mobile Number</label><input placeholder="Enter mobile" value={form.customer_mobile} onChange={e => setForm(f => ({ ...f, customer_mobile: e.target.value }))} style={{ ...inputStyle, height: 42 }} /></div>
                                     <div><label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' }}>Email Address</label><input placeholder="Enter email" value={form.customer_email} onChange={e => setForm(f => ({ ...f, customer_email: e.target.value }))} style={{ ...inputStyle, height: 42 }} /></div>
@@ -229,7 +237,7 @@ export default function Quotes() {
                                     <Clock size={18} />
                                     <span style={{ fontWeight: 600, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quote Details</span>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
                                     <div><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block' }}>Quote Date</label><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={{ ...inputStyle, height: 40 }} /></div>
                                     <div><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block' }}>Valid Until</label><input type="date" value={form.valid_until} onChange={e => setForm(f => ({ ...f, valid_until: e.target.value }))} style={{ ...inputStyle, height: 40 }} /></div>
                                     <div><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block' }}>Discount %</label><input type="number" value={form.discount_percent} onChange={e => setForm(f => ({ ...f, discount_percent: Number(e.target.value) }))} style={{ ...inputStyle, height: 40 }} /></div>
@@ -250,14 +258,14 @@ export default function Quotes() {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                     {form.items.map((item, i) => (
                                         <div key={i} className="quote-item-card" style={{ 
-                                            padding: 16, 
-                                            borderRadius: 12, 
+                                            padding: 18, 
+                                            borderRadius: 16, 
                                             border: '1px solid var(--border)', 
                                             background: 'var(--surface)',
                                             position: 'relative',
                                             display: 'grid',
-                                            gridTemplateColumns: 'repeat(4, 1fr)',
-                                            gap: 12
+                                            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                                            gap: 14
                                         }}>
                                             <div style={{ gridColumn: 'span 4' }}>
                                                 <input placeholder="Item name *" value={item.item_name} onChange={e => updateItem(i, 'item_name', e.target.value)} style={{ ...inputStyle, fontWeight: 600 }} />
@@ -282,7 +290,7 @@ export default function Quotes() {
                             </div>
 
                             {/* Summary & Notes */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, alignItems: 'start' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24, alignItems: 'start' }}>
                                 <div>
                                     <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: 'block' }}>Notes / Terms & Conditions</label>
                                     <textarea placeholder="Any specific requirements or validity notes..." value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={4} style={{ ...inputStyle, resize: 'none' }} />
@@ -312,7 +320,7 @@ export default function Quotes() {
                             </div>
                         </div>
 
-                        <div style={{ padding: '20px 24px', background: 'var(--surface-lowest)', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, justifyContent: 'flex-end', position: 'sticky', bottom: 0 }}>
+                        <div style={{ padding: '20px 24px', background: 'var(--surface-lowest)', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
                             <button onClick={() => setShowForm(false)} style={{ ...btnStyle('transparent'), color: 'var(--text-muted)', fontWeight: 500 }}>Cancel</button>
                             <button onClick={handleSave} style={{ ...btnStyle('var(--primary)'), padding: '10px 24px', fontWeight: 600, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>{editing ? 'Update Quotation' : 'Create Quotation'}</button>
                         </div>

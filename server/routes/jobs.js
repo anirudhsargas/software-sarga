@@ -59,7 +59,7 @@ const getHierarchyData = async () => {
         pool.query(`SELECT ${PRODUCT_COLUMNS} FROM sarga_products`).then(r => r[0]),
         pool.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id").then(r => r[0]),
         pool.query("SELECT id, product_id, min_qty, max_qty, unit_rate, base_value, double_side_unit_rate FROM sarga_product_slabs ORDER BY product_id, min_qty ASC").then(r => r[0]),
-        pool.query("SELECT id, product_id, extra_name, unit_rate, is_active FROM sarga_product_extras_template").then(r => r[0])
+        pool.query("SELECT id, product_id, purpose AS extra_name, amount AS unit_rate, 1 as is_active FROM sarga_product_extras_template").then(r => r[0])
     ]);
 
     // Attach slabs and extras to their respective products for offline pricing

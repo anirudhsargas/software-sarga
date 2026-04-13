@@ -181,6 +181,7 @@ const DailyReport = () => {
     const [liveCounts, setLiveCounts] = useState(null);
     const [attendanceData, setAttendanceData] = useState(null);
     const [attendanceLoading, setAttendanceLoading] = useState(false);
+    const [creditTransactions, setCreditTransactions] = useState([]);
     const [tabErrors, setTabErrors] = useState({ Offset: null, Laser: null, Other: null });
 
 
@@ -497,6 +498,29 @@ const DailyReport = () => {
         } catch (err) { console.error('Error fetching live counts:', err); }
     }, [reportDate, selectedBranch, branchParam, getPendingEntriesForTab]);
 
+    // ─── Fetch Credit Transactions (Offset report details) ─────────
+    const fetchCreditTransactions = useCallback(async () => {
+        try {
+            const res = await api.get('/daily-reports/offset', { params: { start_date: reportDate, end_date: reportDate, branch_id: selectedBranch || branchParam } });
+            const list = res.data || [];
+            if (Array.isArray(list) && list.length > 0) {
+                const report = list[0];
+                try {
+                    const detail = await api.get(`/daily-reports/offset/${report.id}`);
+                    setCreditTransactions(detail.data.credit_transactions || []);
+                } catch (err) {
+                    console.error('Error fetching offset report details:', err);
+                    setCreditTransactions([]);
+                }
+            } else {
+                setCreditTransactions([]);
+            }
+        } catch (err) {
+            console.error('Error fetching credit transactions:', err);
+            setCreditTransactions([]);
+        }
+    }, [reportDate, selectedBranch, branchParam]);
+
     const loadAllData = useCallback(async (isInitial = false) => {
         if (isInitial) setInitialLoading(true);
         else setLoading(true);
@@ -507,6 +531,7 @@ const DailyReport = () => {
                 loadTabData('Offset'),
                 loadTabData('Laser'),
                 loadTabData('Other'),
+                fetchCreditTransactions(),
                 fetchLiveCounts(),
                 fetchAttendanceData()
             ]);
@@ -515,7 +540,7 @@ const DailyReport = () => {
             setLoading(false);
             setInitialLoading(false);
         }
-    }, [fetchOpeningBalances, loadTabData, fetchLiveCounts]);
+    }, [fetchOpeningBalances, loadTabData, fetchLiveCounts, fetchCreditTransactions]);
 
     useEffect(() => {
         if (canViewAllBranches && !selectedBranch) return;
@@ -536,10 +561,20 @@ const DailyReport = () => {
         loadTabData('Offset');
         loadTabData('Laser');
         loadTabData('Other');
+        fetchCreditTransactions();
         fetchAttendanceData();
-    }, [fetchLiveCounts, loadTabData, fetchAttendanceData]), AUTO_REFRESH_INTERVAL, pollingEnabled);
+    }, [fetchLiveCounts, loadTabData, fetchAttendanceData, fetchCreditTransactions]), AUTO_REFRESH_INTERVAL, pollingEnabled);
 
     const manualRefresh = () => { loadAllData(); };
+
+    // Credit totals for today's quick view
+    const creditTotals = (creditTransactions || []).reduce((acc, t) => {
+        if (!t) return acc;
+        const typ = String(t.transaction_type || '').toLowerCase();
+        if (typ.includes('in')) acc.in += Number(t.amount || 0);
+        else acc.out += Number(t.amount || 0);
+        return acc;
+    }, { in: 0, out: 0 });
 
     // ─── PDF Export ─────────────────────────────────────────────
     const generatePDF = () => {
@@ -565,6 +600,9 @@ const DailyReport = () => {
                 doc.text(`${displayBranch}  |  ${dateStr}`, margin, 30);
                 doc.setFontSize(8);
                 doc.text(`Generated: ${serverNow().toLocaleString('en-IN')}`, pageW - margin, 30, { align: 'right' });
+                doc.setDrawColor(255, 255, 255);
+                doc.setLineWidth(0.5);
+                doc.line(margin, 38, pageW - margin, 38);
             };
 
             const sectionHeader = (title, color, yPos) => {
@@ -679,14 +717,102 @@ const DailyReport = () => {
                 currentY = kvRow('CASH CLOSING BALANCE', formatCurrency(summary.cash_closing || 0), currentY, { color: color });
             });
 
+            // Attendance & Credit summary page
+            doc.addPage();
+            renderHeader();
+            let summaryY = 44;
+
+            const rawAttendanceStaff = attendanceData?.staff || [];
+            const attendanceStaff = isFrontOffice
+                ? rawAttendanceStaff.filter(s => {
+                    if (s == null) return false;
+                    if (s.branch_id !== undefined && s.branch_id !== null) return String(s.branch_id) === String(user?.branch_id);
+                    if (s.branch_name && branches && user?.branch_id) {
+                        const myBranch = branches.find(b => String(b.id) === String(user.branch_id));
+                        if (myBranch && myBranch.name) return String(s.branch_name).toLowerCase().includes(String(myBranch.name).toLowerCase());
+                    }
+                    return false;
+                })
+                : rawAttendanceStaff;
+
+            const attendancePresent = attendanceStaff.filter(s => s && (s.entry_time || s.status === 'present' || s.status === 'Present')).length;
+            const attendanceAbsent = Math.max(0, attendanceStaff.length - attendancePresent);
+
+            summaryY = sectionHeader('Attendance Summary', [245, 158, 11], summaryY);
+            summaryY = kvRow('Total staff tracked', String(attendanceStaff.length), summaryY);
+            summaryY = kvRow('Present today', String(attendancePresent), summaryY, { color: [34, 197, 94] });
+            summaryY = kvRow('Absent / missing', String(attendanceAbsent), summaryY, { color: [220, 38, 38] });
+            summaryY = kvRow('Alerts', String(attendanceData?.alert_count || 0), summaryY, { color: [249, 115, 22] });
+            summaryY = kvRow('Discrepancies', String(attendanceData?.discrepancy_count || 0), summaryY, { color: [168, 85, 247] });
+
+            if (attendanceStaff.length > 0) {
+                const attendanceRows = attendanceStaff.slice(0, 10).map(s => [
+                    s.name || s.staff_name || '—',
+                    String(s.status || '').replace(/^(present|Present)$/i, 'Present').replace(/^(absent|Absent)$/i, 'Absent'),
+                    s.entry_time || s.exit_time || '—',
+                    s.branch_name || '—'
+                ]);
+
+                autoTable(doc, {
+                    startY: summaryY,
+                    head: [['Staff', 'Status', 'Time', 'Branch']],
+                    body: attendanceRows,
+                    margin: { left: margin, right: margin },
+                    styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
+                    headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+                    alternateRowStyles: { fillColor: [248, 248, 248] },
+                    columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: 28 }, 2: { cellWidth: 28 }, 3: { cellWidth: 38 } }
+                });
+                summaryY = doc.lastAutoTable.finalY + 6;
+            } else {
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text('No attendance records available for the selected date/branch.', margin + 2, summaryY);
+                summaryY += 8;
+            }
+
+            if (summaryY > 260) { doc.addPage(); renderHeader(); summaryY = 44; }
+
+            summaryY = sectionHeader('Credit Summary', [16, 185, 129], summaryY);
+            summaryY = kvRow('Credit In', formatCurrency(creditTotals.in), summaryY, { color: [34, 197, 94] });
+            summaryY = kvRow('Credit Out', formatCurrency(creditTotals.out), summaryY, { color: [220, 38, 38] });
+            summaryY = kvRow('Net credit', formatCurrency((creditTotals.in || 0) - (creditTotals.out || 0)), summaryY, { color: [30, 64, 175] });
+
+            if (creditTransactions.length > 0) {
+                const creditRows = creditTransactions.slice(0, 10).map(t => [
+                    t.transaction_type || t.type || 'Credit',
+                    t.customer_name || t.customer || '—',
+                    formatCurrency(t.amount),
+                    t.reference_number || t.invoice_number || t.invoice_no || '—'
+                ]);
+
+                autoTable(doc, {
+                    startY: summaryY,
+                    head: [['Type', 'Customer', 'Amount', 'Reference']],
+                    body: creditRows,
+                    margin: { left: margin, right: margin },
+                    styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
+                    headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+                    alternateRowStyles: { fillColor: [248, 248, 248] },
+                    columnStyles: { 0: { cellWidth: 32 }, 1: { cellWidth: 52 }, 2: { halign: 'right', cellWidth: 28 }, 3: { cellWidth: 43 } }
+                });
+                summaryY = doc.lastAutoTable.finalY + 6;
+            } else {
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text('No credit transactions recorded for the selected date/branch.', margin + 2, summaryY);
+                summaryY += 8;
+            }
+
             // Footer (Page Numbers)
             const totalPages = doc.internal.getNumberOfPages();
             for (let i = 1; i <= totalPages; i++) {
                 doc.setPage(i);
                 doc.setFontSize(7);
                 doc.setTextColor(160, 160, 160);
+                doc.text(`${displayBranch} • ${dateStr}`, margin, doc.internal.pageSize.getHeight() - 8);
                 doc.text(`Page ${i} of ${totalPages}`, pageW / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' });
-                doc.text('SARGA — Confidential', margin, doc.internal.pageSize.getHeight() - 8);
+                doc.text('Print Preview', pageW - margin, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
             }
 
             doc.save(`Daily-Report_${displayBranch}_${reportDate}.pdf`);
@@ -722,7 +848,25 @@ const DailyReport = () => {
             left_early: 'badge badge--warning'
         };
 
-        const { staff, total_staff, present, absent, alert_count, discrepancy_count } = attendanceData;
+        const { staff: rawStaff = [], alert_count = 0, discrepancy_count = 0 } = attendanceData;
+
+        // If user is Front Office, restrict visible staff to their branch only
+        const myBranchId = user?.branch_id;
+        const staff = isFrontOffice
+            ? (rawStaff || []).filter(s => {
+                if (s == null) return false;
+                if (s.branch_id !== undefined && s.branch_id !== null) return String(s.branch_id) === String(myBranchId);
+                if (s.branch_name && branches && myBranchId) {
+                    const myBranch = branches.find(b => String(b.id) === String(myBranchId));
+                    if (myBranch && myBranch.name) return String(s.branch_name).toLowerCase().includes(String(myBranch.name).toLowerCase());
+                }
+                return false;
+            })
+            : (rawStaff || []);
+
+        const total_staff = staff.length;
+        const present = staff.filter(s => s && (s.entry_time || s.status === 'present' || s.status === 'Present')).length;
+        const absent = Math.max(0, total_staff - present);
 
         return (
             <div className="stack-md">
@@ -1608,6 +1752,49 @@ const DailyReport = () => {
                     );
                 })}
             </div>
+
+            {/* Credits Today quick view */}
+            {!initialLoading && (
+                <div className="panel" style={{ marginBottom: 12 }}>
+                    <div className="panel-header" style={{ justifyContent: 'space-between' }}>
+                        <h3 className="panel-title">Today's Credits</h3>
+                        <div className="row gap-sm">
+                            <button className="btn btn-ghost btn-sm" onClick={() => { setActiveTab('Offset'); }}>
+                                View Offset Book
+                            </button>
+                            <button className="btn btn-ghost btn-sm" onClick={manualRefresh}>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div className="row gap-lg" style={{ flexWrap: 'wrap' }}>
+                        <div className="stack-xs">
+                            <span className="text-sm muted">Credit Out</span>
+                            <span className="text-lg font-medium text-warning">₹{creditTotals.out.toFixed(2)}</span>
+                        </div>
+                        <div className="stack-xs">
+                            <span className="text-sm muted">Credit In</span>
+                            <span className="text-lg font-medium text-success">₹{creditTotals.in.toFixed(2)}</span>
+                        </div>
+                        <div style={{ flexBasis: '100%' }} />
+                        <div style={{ flex: 1 }}>
+                            {creditTransactions.length === 0 ? (
+                                <p className="text-sm muted">No credit transactions for this date.</p>
+                            ) : (
+                                <ul style={{ margin: 0, paddingLeft: 16 }}>
+                                    {creditTransactions.slice(0, 5).map((t, i) => (
+                                        <li key={i} style={{ marginBottom: 6 }}>
+                                            <strong style={{ display: 'inline-block', width: 120 }}>{t.transaction_type}</strong>
+                                            {t.customer_name} — ₹{Number(t.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            {t.remarks ? <span style={{ marginLeft: 8, color: 'var(--muted)', fontSize: 12 }}>({t.remarks})</span> : null}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Content */}
             {initialLoading ? (

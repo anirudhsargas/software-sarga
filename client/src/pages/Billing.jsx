@@ -98,6 +98,19 @@ const Billing = () => {
   const [branchUpiId, setBranchUpiId] = useState('');
   const [scannedPreview, setScannedPreview] = useState(null); // { item, unitPrice, mrp } for inventory preview
   const [scannedQty, setScannedQty] = useState(1);
+  // Derived flag: determines if page is in "internal billing" mode
+  const isInternalBill = useMemo(() => {
+    try {
+      if (location?.state?.isInternalBill) return true;
+      const path = String(location?.pathname || '').toLowerCase();
+      if (path.includes('internal')) return true;
+      if (String(form?.type || '').toLowerCase().includes('internal')) return true;
+      if (existingCustomer?.client_type === 'internal') return true;
+    } catch (e) {
+      // defensive - default to false
+    }
+    return false;
+  }, [location, form.type, existingCustomer]);
 
 
   // Discount states
