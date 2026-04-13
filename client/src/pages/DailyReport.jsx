@@ -822,6 +822,74 @@ const DailyReport = () => {
         }
     };
 
+    const CreditList = ({ bookKey, credits = [], liveEntries = [] }) => {
+        const derived = (liveEntries || []).filter(e => {
+            const total = Number(e.total || 0);
+            const paid = Number(e.cash_amount || 0) + Number(e.upi_amount || 0);
+            return total > 0 && paid === 0;
+        });
+
+        const mappedPersisted = (credits || []).map((t, i) => ({
+            id: t.id || `c-${i}`,
+            type: t.transaction_type || t.type || 'Credit',
+            customer: t.customer_name || t.customer || t.description || '—',
+            details: t.remarks || t.details || '',
+            amount: Number(t.amount || 0),
+            reference: t.reference_number || t.reference || ''
+        }));
+
+        const mappedLive = derived.map((e, i) => ({
+            id: e.id || `l-${i}`,
+            type: 'Credit (Live)',
+            customer: e.description || e.customer_name || '—',
+            details: e.details || '',
+            amount: Number(e.total || 0),
+            reference: e.reference || ''
+        }));
+
+        const all = [...mappedPersisted, ...mappedLive];
+        const total = all.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+
+        return (
+            <div className="panel">
+                <h3 className="panel-title" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <IndianRupee size={16} /> Credits
+                    <span className="badge" style={{ fontSize: 10, marginLeft: 4 }}>{all.length}</span>
+                    <span style={{ marginLeft: 'auto', fontWeight: 700 }}>{formatCurrency(total)}</span>
+                </h3>
+
+                {all.length === 0 ? (
+                    <div style={{ padding: '12px 6px', color: 'var(--muted)' }}>No credit transactions for this book/date.</div>
+                ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Customer / Desc</th>
+                                    <th>Details</th>
+                                    <th style={{ textAlign: 'right' }}>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {all.slice(0, 50).map(c => (
+                                    <tr key={c.id}>
+                                        <td style={{ width: 140 }}>{c.type}</td>
+                                        <td>
+                                            <div style={{ fontWeight: 600 }}>{c.customer}</div>
+                                        </td>
+                                        <td style={{ color: 'var(--muted)', fontSize: 13 }}>{c.details || c.reference}</td>
+                                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(c.amount)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const AttendanceView = () => {
         if (attendanceLoading && !attendanceData) {
             return (
@@ -889,6 +957,8 @@ const DailyReport = () => {
                         </div>
                     )}
                 </div>
+
+                <CreditList bookKey="All" credits={creditTransactions} liveEntries={[...(offsetData.entries||[]), ...(laserData.entries||[]), ...(otherData.entries||[])]} />
 
                 {/* Staff Table */}
                 <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--surface-3)', background: 'var(--surface)' }}>
@@ -1473,6 +1543,7 @@ const DailyReport = () => {
                 </h3>
                 <EntryTable entries={offsetData.entries} type="offset" />
             </div>
+            <CreditList bookKey="Offset" credits={creditTransactions} liveEntries={offsetData.entries} />
             <SummaryPanel summary={offsetData.summary || {}} tabKey="Offset" />
         </div>
     );
@@ -1497,6 +1568,7 @@ const DailyReport = () => {
                 </h3>
                 <EntryTable entries={laserData.entries} type="laser" />
             </div>
+            <CreditList bookKey="Laser" credits={[]} liveEntries={laserData.entries} />
             <SummaryPanel summary={laserData.summary || {}} tabKey="Laser" />
         </div>
     );
@@ -1515,6 +1587,7 @@ const DailyReport = () => {
                 </p>
                 <EntryTable entries={otherData.entries} type="other" />
             </div>
+            <CreditList bookKey="Other" credits={[]} liveEntries={otherData.entries} />
             <SummaryPanel summary={otherData.summary || {}} tabKey="Other" />
         </div>
     );
