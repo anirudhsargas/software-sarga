@@ -377,7 +377,12 @@ router.get('/jobs', authenticateToken, async (req, res) => {
                 where += ' AND j.delivery_date < NOW() AND j.status NOT IN ("Delivered", "Cancelled")';
             } else if (tab === 'payments') {
                 where += ' AND j.payment_status = "Paid"';
-            } else if (!search && !status) {
+            }
+
+            if (!search && !status && ['completed', 'delivered', 'due', 'overdue', 'payments'].includes(tab)) {
+                // Restrict heavy historical tabs to recent jobs for performance
+                where += ' AND j.created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)';
+            } else if (!search && !status && !['active', 'completed', 'delivered', 'due', 'overdue', 'payments'].includes(tab)) {
                 // Default dashboard query for Admins: last 90 days only
                 where += ' AND j.created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)';
             }

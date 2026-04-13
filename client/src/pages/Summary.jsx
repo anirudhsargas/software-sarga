@@ -46,13 +46,17 @@ const Summary = () => {
             const today = new Date().toISOString().split('T')[0];
             paramsToday.append('startDate', today);
             paramsToday.append('endDate', today);
-            const responseToday = await api.get(`/stats/dashboard?${paramsToday.toString()}`);
-            setStatsToday(responseToday.data);
 
             const paramsOverall = new URLSearchParams();
             if (filters.branch_id) paramsOverall.append('branch_id', filters.branch_id);
-            const responseOverall = await api.get(`/stats/dashboard?${paramsOverall.toString()}`);
-            setStatsOverall(responseOverall.data);
+
+            const [todayRes, overallRes] = await Promise.all([
+                api.get(`/stats/dashboard?${paramsToday.toString()}`),
+                api.get(`/stats/dashboard?${paramsOverall.toString()}`),
+            ]);
+
+            setStatsToday(todayRes.data);
+            setStatsOverall(overallRes.data);
         } catch {
             console.error('Failed to fetch dashboard stats');
         } finally {

@@ -12,7 +12,7 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 const ML_URL = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5001';
-const ML_TIMEOUT = 60_000; // LSTM training can take a while
+const ML_TIMEOUT = 20_000; // shorten timeout so page load remains responsive
 const CACHE_TTL_HOURS = 6;
 
 function cacheKey(branch, horizon) {
@@ -124,7 +124,13 @@ router.get('/',
                 }
             } catch (_) { /* ignore */ }
 
-            res.status(502).json({ error: 'Order forecast service unavailable' });
+            return res.json({
+                predictions: [],
+                peak_day_this_week: null,
+                model_type: 'unavailable',
+                model_accuracy: null,
+                error: 'Order forecast service unavailable',
+            });
         }
     }
 );
