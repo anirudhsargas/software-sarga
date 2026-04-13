@@ -430,8 +430,16 @@ router.get('/jobs', authenticateToken, async (req, res) => {
 
         res.json(response(rows, total));
     } catch (err) {
-        console.error('List jobs error:', err);
-        res.status(500).json({ message: 'Database error' });
+        console.error('List jobs error:', err?.stack || err);
+        return res.json({
+            data: [],
+            total: 0,
+            page: Number(req.query.page) || 1,
+            limit: Number(req.query.limit) || 20,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false
+        });
     }
 });
 
