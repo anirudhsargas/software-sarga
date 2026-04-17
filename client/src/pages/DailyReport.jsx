@@ -14,6 +14,7 @@ import offlineDb from '../services/offlineDb';
 import { serverToday, serverNow } from '../services/serverTime';
 import toast from 'react-hot-toast';
 import { formatCurrencyDecimal } from '../constants';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const TABS = [
     { key: 'Offset', label: 'Offset', icon: BookOpen, color: 'var(--accent)', bg: 'rgba(37,99,235,0.08)' },
@@ -172,7 +173,7 @@ const DailyReport = () => {
     const [savingPrompt, setSavingPrompt] = useState(false);
     const [promptDone, setPromptDone] = useState(false);
     const [prevClosing, setPrevClosing] = useState({ Offset: 0, Laser: 0, Other: 0 });
-    const [myBooks, setMyBooks] = useState([]);
+    const [_myBooks, setMyBooks] = useState([]);
 
     // Tab data
     const [offsetData, setOffsetData] = useState({ entries: [], summary: {} });
@@ -273,14 +274,14 @@ const DailyReport = () => {
                     const laserRes = await api.get('/daily-report/laser-live', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
                     myMachines = laserRes.data.machines || [];
                     myMachines.forEach(m => { machineHasReading[m.id] = !!m.has_reading; });
-                } catch { }
+                } catch { /* ignore */ }
 
                 if (!promptDone) {
                     let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
                     try {
                         const prevRes = await api.get('/daily-report/previous-closing', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
                         prevData = prevRes.data;
-                    } catch { }
+                    } catch { /* ignore */ }
 
                     const unenteredMachines = myMachines.filter(m => !machineHasReading[m.id]);
 
@@ -627,7 +628,7 @@ const DailyReport = () => {
                     const cleanValue = String(value).replace('₹', 'Rs. ');
                     doc.text(cleanValue, pageW - margin - 2, yPos, { align: 'right' });
                     return yPos + 5.5;
-                } catch (err) {
+                } catch {
                     return yPos + 5.5;
                 }
             };
@@ -853,7 +854,7 @@ const DailyReport = () => {
         return (
             <div className="panel">
                 <h3 className="panel-title" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <IndianRupee size={16} /> Credits
+                    <IndianRupee size={16} /> Credits{bookKey ? ' — ' + bookKey : ''}
                     <span className="badge" style={{ fontSize: 10, marginLeft: 4 }}>{all.length}</span>
                     <span style={{ marginLeft: 'auto', fontWeight: 700 }}>{formatCurrency(total)}</span>
                 </h3>
@@ -891,7 +892,7 @@ const DailyReport = () => {
     };
 
     const AttendanceView = () => {
-        if (attendanceLoading && !attendanceData) {
+        if ((attendanceLoading || initialLoading) && !attendanceData) {
             return (
                 <div className="dr-empty">
                     <RefreshCw className="animate-spin" size={24} />
@@ -922,18 +923,31 @@ const DailyReport = () => {
         const myBranchId = user?.branch_id;
         const staff = isFrontOffice
             ? (rawStaff || []).filter(s => {
-                if (s == null) return false;
-                if (s.branch_id !== undefined && s.branch_id !== null) return String(s.branch_id) === String(myBranchId);
+                if (!s) return false;
+                if (s.branch_id !== undefined && s.branch_id !== null) {
+                    return String(s.branch_id) === String(myBranchId);
+                }
                 if (s.branch_name && branches && myBranchId) {
                     const myBranch = branches.find(b => String(b.id) === String(myBranchId));
-                    if (myBranch && myBranch.name) return String(s.branch_name).toLowerCase().includes(String(myBranch.name).toLowerCase());
+                    if (myBranch && myBranch.name) {
+                        const branchName = String(myBranch.name).toLowerCase();
+                        const sBranch = String(s.branch_name).toLowerCase();
+                        if (sBranch.includes(branchName) || branchName.includes(sBranch)) return true;
+                    }
                 }
+                // If branch information is missing or cannot be matched, show the record
+                // to avoid hiding staff who were marked present but lack branch metadata.
+                if (!s.branch_name) return true;
                 return false;
             })
             : (rawStaff || []);
 
         const total_staff = staff.length;
-        const present = staff.filter(s => s && (s.entry_time || s.status === 'present' || s.status === 'Present')).length;
+        const present = staff.filter(s => {
+            if (!s) return false;
+            const status = String(s.status || '').toLowerCase();
+            return Boolean(s.entry_time) || status === 'present';
+        }).length;
         const absent = Math.max(0, total_staff - present);
 
         return (
@@ -943,6 +957,10 @@ const DailyReport = () => {
                     <div className="stat-card">
                         <div className="stat-value">{present} / {total_staff}</div>
                         <div className="stat-label">Staff Present</div>
+                    </div>
+                    <div className="stat-card">
+                        <div className="stat-value">{absent}</div>
+                        <div className="stat-label">Staff Absent</div>
                     </div>
                     {alert_count > 0 && (
                         <div className="stat-card" style={{ borderLeft: '3px solid var(--warning)' }}>
@@ -958,8 +976,6 @@ const DailyReport = () => {
                     )}
                 </div>
 
-                <CreditList bookKey="All" credits={creditTransactions} liveEntries={[...(offsetData.entries||[]), ...(laserData.entries||[]), ...(otherData.entries||[])]} />
-
                 {/* Staff Table */}
                 <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--surface-3)', background: 'var(--surface)' }}>
                     <table className="data-table">
@@ -973,38 +989,42 @@ const DailyReport = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {staff.map(s => (
-                                <tr key={s.staff_id} style={s.absent_alert ? { background: 'rgba(255,0,0,0.04)' } : undefined}>
-                                    <td>
-                                        <div style={{ fontWeight: 500 }}>{s.name}</div>
-                                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>{s.branch_name}</div>
-                                    </td>
-                                    <td>
-                                        {s.entry_time ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                <Clock size={12} style={{ color: 'var(--muted)' }} />
-                                                {formatTime(s.entry_time)}
-                                            </div>
-                                        ) : '—'}
-                                    </td>
-                                    <td>
-                                        {s.exit_time ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                <Clock size={12} style={{ color: 'var(--muted)' }} />
-                                                {formatTime(s.exit_time)}
-                                            </div>
-                                        ) : '—'}
-                                    </td>
-                                    <td>
-                                        <span className={STATUS_CLASSES[s.status] || 'badge'}>
-                                            {s.status.replace('_', ' ')}
-                                        </span>
-                                    </td>
-                                    <td style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 12 }}>
-                                        {s.event_count}
-                                    </td>
-                                </tr>
-                            ))}
+                            {staff.map(s => {
+                                const statusKey = String(s.status || '').toLowerCase();
+                                const rowKey = s.staff_id || s.id || s.name || Math.random();
+                                return (
+                                    <tr key={rowKey} style={s?.absent_alert ? { background: 'rgba(255,0,0,0.04)' } : undefined}>
+                                        <td>
+                                            <div style={{ fontWeight: 500 }}>{s.name}</div>
+                                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{s.branch_name}</div>
+                                        </td>
+                                        <td>
+                                            {s.entry_time ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                    <Clock size={12} style={{ color: 'var(--muted)' }} />
+                                                    {formatTime(s.entry_time)}
+                                                </div>
+                                            ) : '—'}
+                                        </td>
+                                        <td>
+                                            {s.exit_time ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                    <Clock size={12} style={{ color: 'var(--muted)' }} />
+                                                    {formatTime(s.exit_time)}
+                                                </div>
+                                            ) : '—'}
+                                        </td>
+                                        <td>
+                                            <span className={STATUS_CLASSES[statusKey] || 'badge'}>
+                                                {(s.status || '').replace('_', ' ')}
+                                            </span>
+                                        </td>
+                                        <td style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 12 }}>
+                                            {s.event_count}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -1092,18 +1112,22 @@ const DailyReport = () => {
             });
         };
 
-        if (!entries?.length) return (
-            <div className="dr-empty">
-                <div className="dr-empty__icon"><FileText size={22} /></div>
-                <p style={{ fontWeight: 500, marginBottom: 4 }}>No entries yet</p>
-                <p style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    {type === 'laser' ? 'Laser work entries will appear here' : 'Data auto-syncs from billing & expenses'}
-                </p>
-            </div>
-        );
+        if (!entries?.length) {
+                if (initialLoading) {
+                    return <SkeletonLoader type="table" count={6} />;
+                }
+                return (
+                    <div className="dr-empty">
+                        <div className="dr-empty__icon"><FileText size={22} /></div>
+                        <p style={{ fontWeight: 500, marginBottom: 4 }}>No entries yet</p>
+                        <p style={{ fontSize: 12, color: 'var(--muted)' }}>
+                            {type === 'laser' ? 'Laser work entries will appear here' : 'Data auto-syncs from billing & expenses'}
+                        </p>
+                    </div>
+                );
+            }
 
         const isLaser = type === 'laser';
-        const colCount = isLaser ? 8 : 7;
 
         return (
             <div style={{ overflowX: 'auto', borderRadius: 12 }}>
@@ -1339,7 +1363,7 @@ const DailyReport = () => {
     );
 
     const MachineSection = () => {
-        if (loading && !laserData.machines?.length) {
+        if ((loading || initialLoading) && !laserData.machines?.length) {
             return (
                 <div className="panel" style={{ textAlign: 'center', padding: '30px 0' }}>
                     <RefreshCw size={24} className="spin" style={{ color: 'var(--primary)', marginBottom: 10, opacity: 0.5 }} />
@@ -1827,62 +1851,61 @@ const DailyReport = () => {
             </div>
 
             {/* Credits Today quick view */}
-            {!initialLoading && (
-                <div className="panel" style={{ marginBottom: 12 }}>
-                    <div className="panel-header" style={{ justifyContent: 'space-between' }}>
-                        <h3 className="panel-title">Today's Credits</h3>
-                        <div className="row gap-sm">
-                            <button className="btn btn-ghost btn-sm" onClick={() => { setActiveTab('Offset'); }}>
-                                View Offset Book
-                            </button>
-                            <button className="btn btn-ghost btn-sm" onClick={manualRefresh}>
-                                Refresh
-                            </button>
-                        </div>
-                    </div>
-                    <div className="row gap-lg" style={{ flexWrap: 'wrap' }}>
-                        <div className="stack-xs">
-                            <span className="text-sm muted">Credit Out</span>
-                            <span className="text-lg font-medium text-warning">₹{creditTotals.out.toFixed(2)}</span>
-                        </div>
-                        <div className="stack-xs">
-                            <span className="text-sm muted">Credit In</span>
-                            <span className="text-lg font-medium text-success">₹{creditTotals.in.toFixed(2)}</span>
-                        </div>
-                        <div style={{ flexBasis: '100%' }} />
-                        <div style={{ flex: 1 }}>
-                            {creditTransactions.length === 0 ? (
-                                <p className="text-sm muted">No credit transactions for this date.</p>
-                            ) : (
-                                <ul style={{ margin: 0, paddingLeft: 16 }}>
-                                    {creditTransactions.slice(0, 5).map((t, i) => (
-                                        <li key={i} style={{ marginBottom: 6 }}>
-                                            <strong style={{ display: 'inline-block', width: 120 }}>{t.transaction_type}</strong>
-                                            {t.customer_name} — ₹{Number(t.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            {t.remarks ? <span style={{ marginLeft: 8, color: 'var(--muted)', fontSize: 12 }}>({t.remarks})</span> : null}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
+            <div className="panel" style={{ marginBottom: 12 }}>
+                <div className="panel-header" style={{ justifyContent: 'space-between' }}>
+                    <h3 className="panel-title">Today's Credits</h3>
+                    <div className="row gap-sm">
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setActiveTab('Offset'); }}>
+                            View Offset Book
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={manualRefresh}>
+                            Refresh
+                        </button>
                     </div>
                 </div>
-            )}
+                <div className="row gap-lg" style={{ flexWrap: 'wrap' }}>
+                    {initialLoading ? (
+                        <div style={{ width: '100%' }}>
+                            <SkeletonLoader type="cards" count={3} />
+                        </div>
+                    ) : (
+                        <>
+                            <div className="stack-xs">
+                                <span className="text-sm muted">Credit Out</span>
+                                <span className="text-lg font-medium text-warning">₹{creditTotals.out.toFixed(2)}</span>
+                            </div>
+                            <div className="stack-xs">
+                                <span className="text-sm muted">Credit In</span>
+                                <span className="text-lg font-medium text-success">₹{creditTotals.in.toFixed(2)}</span>
+                            </div>
+                            <div style={{ flexBasis: '100%' }} />
+                            <div style={{ flex: 1 }}>
+                                {creditTransactions.length === 0 ? (
+                                    <p className="text-sm muted">No credit transactions for this date.</p>
+                                ) : (
+                                    <ul style={{ margin: 0, paddingLeft: 16 }}>
+                                        {creditTransactions.slice(0, 5).map((t, i) => (
+                                            <li key={i} style={{ marginBottom: 6 }}>
+                                                <strong style={{ display: 'inline-block', width: 120 }}>{t.transaction_type}</strong>
+                                                {t.customer_name} — ₹{Number(t.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                {t.remarks ? <span style={{ marginLeft: 8, color: 'var(--muted)', fontSize: 12 }}>({t.remarks})</span> : null}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
 
             {/* Content */}
-            {initialLoading ? (
-                <div style={{ textAlign: 'center', padding: 60 }}>
-                    <RefreshCw size={28} className="spin" style={{ color: currentTabMeta.color }} />
-                    <p style={{ marginTop: 10, color: 'var(--muted)', fontSize: 13 }}>Loading report...</p>
-                </div>
-            ) : (
-                <>
-                    {activeTab === 'Offset' && <OffsetTab />}
-                    {activeTab === 'Laser' && <LaserTab />}
-                    {activeTab === 'Other' && <OtherTab />}
-                    {activeTab === 'Attendance' && <AttendanceView />}
-                </>
-            )}
+            <>
+                {activeTab === 'Offset' && <OffsetTab />}
+                {activeTab === 'Laser' && <LaserTab />}
+                {activeTab === 'Other' && <OtherTab />}
+                {activeTab === 'Attendance' && <AttendanceView />}
+            </>
 
             <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--muted)', padding: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <RefreshCw size={10} /> Auto-refreshes every 30s

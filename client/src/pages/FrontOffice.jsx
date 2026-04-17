@@ -527,9 +527,8 @@ const FrontOffice = () => {
     const completedCount = Number(status_counts?.Completed || 0);
 
     // ─── Render ──────────────────────────────────────────────────
-    if (loading) {
-        return <SkeletonLoader type="cards" count={6} />;
-    }
+    // Don't block the entire page while loading dashboard values.
+    // Render the layout immediately and show skeletons only for stats.
 
     // --- Virtualize job list (install @tanstack/react-virtual and use for job tables) ---
     // Example:
@@ -672,48 +671,54 @@ const FrontOffice = () => {
 
             {/* ──── Stats Cards ──── */}
             <div className="fo-stats-grid">
-                <div className="fo-stat-card fo-stat-card--blue">
-                    <div className="fo-stat-card__icon"><ShoppingBag size={22} /></div>
-                    <div className="fo-stat-card__body">
-                        <span className="fo-stat-card__value">{stats?.today_orders ?? 0}</span>
-                        <span className="fo-stat-card__label">Today's Orders</span>
+                {loading ? (
+                    <SkeletonLoader type="cards" count={6} />
+                ) : (
+                    <>
+                    <div className="fo-stat-card fo-stat-card--blue">
+                        <div className="fo-stat-card__icon"><ShoppingBag size={22} /></div>
+                        <div className="fo-stat-card__body">
+                            <span className="fo-stat-card__value">{stats?.today_orders ?? 0}</span>
+                            <span className="fo-stat-card__label">Today's Orders</span>
+                        </div>
                     </div>
-                </div>
-                <div className="fo-stat-card fo-stat-card--amber">
-                    <div className="fo-stat-card__icon"><Clock size={22} /></div>
-                    <div className="fo-stat-card__body">
-                        <span className="fo-stat-card__value">{stats?.in_progress ?? 0}</span>
-                        <span className="fo-stat-card__label">In Progress</span>
+                    <div className="fo-stat-card fo-stat-card--amber">
+                        <div className="fo-stat-card__icon"><Clock size={22} /></div>
+                        <div className="fo-stat-card__body">
+                            <span className="fo-stat-card__value">{stats?.in_progress ?? 0}</span>
+                            <span className="fo-stat-card__label">In Progress</span>
+                        </div>
                     </div>
-                </div>
-                <div className="fo-stat-card fo-stat-card--green">
-                    <div className="fo-stat-card__icon"><CheckCircle2 size={22} /></div>
-                    <div className="fo-stat-card__body">
-                        <span className="fo-stat-card__value">{stats?.ready_pickup ?? 0}</span>
-                        <span className="fo-stat-card__label">Ready for Pickup</span>
+                    <div className="fo-stat-card fo-stat-card--green">
+                        <div className="fo-stat-card__icon"><CheckCircle2 size={22} /></div>
+                        <div className="fo-stat-card__body">
+                            <span className="fo-stat-card__value">{stats?.ready_pickup ?? 0}</span>
+                            <span className="fo-stat-card__label">Ready for Pickup</span>
+                        </div>
                     </div>
-                </div>
-                <div className="fo-stat-card fo-stat-card--red">
-                    <div className="fo-stat-card__icon"><IndianRupee size={22} /></div>
-                    <div className="fo-stat-card__body">
-                        <span className="fo-stat-card__value">{fmt(stats?.total_due)}</span>
-                        <span className="fo-stat-card__label">Total Due</span>
+                    <div className="fo-stat-card fo-stat-card--red">
+                        <div className="fo-stat-card__icon"><IndianRupee size={22} /></div>
+                        <div className="fo-stat-card__body">
+                            <span className="fo-stat-card__value">{fmt(stats?.total_due)}</span>
+                            <span className="fo-stat-card__label">Total Due</span>
+                        </div>
                     </div>
-                </div>
-                <div className="fo-stat-card fo-stat-card--teal">
-                    <div className="fo-stat-card__icon"><TrendingUp size={22} /></div>
-                    <div className="fo-stat-card__body">
-                        <span className="fo-stat-card__value">{fmt(stats?.today_collections)}</span>
-                        <span className="fo-stat-card__label">Today's Collection</span>
+                    <div className="fo-stat-card fo-stat-card--teal">
+                        <div className="fo-stat-card__icon"><TrendingUp size={22} /></div>
+                        <div className="fo-stat-card__body">
+                            <span className="fo-stat-card__value">{fmt(stats?.today_collections)}</span>
+                            <span className="fo-stat-card__label">Today's Collection</span>
+                        </div>
                     </div>
-                </div>
-                <div className="fo-stat-card fo-stat-card--purple">
-                    <div className="fo-stat-card__icon"><Truck size={22} /></div>
-                    <div className="fo-stat-card__body">
-                        <span className="fo-stat-card__value">{stats?.delivered_today ?? 0}</span>
-                        <span className="fo-stat-card__label">Delivered Today</span>
+                    <div className="fo-stat-card fo-stat-card--purple">
+                        <div className="fo-stat-card__icon"><Truck size={22} /></div>
+                        <div className="fo-stat-card__body">
+                            <span className="fo-stat-card__value">{stats?.delivered_today ?? 0}</span>
+                            <span className="fo-stat-card__label">Delivered Today</span>
+                        </div>
                     </div>
-                </div>
+                    </>
+                )}
             </div>
 
             {/* ──── Tab Switcher ──── */}

@@ -70,6 +70,15 @@ const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosi
         handleFetchComparisonHistory();
     }, [machineId]);
 
+    // Auto-fill manual opening count when machine IP and meter reading are available
+    useEffect(() => {
+        if (isOnline && (manualOpeningCount === '' || manualOpeningCount == null)) {
+            try {
+                setManualOpeningCount(String(totalCount));
+            } catch (e) {}
+        }
+    }, [isOnline, totalCount]);
+
     const isOnline = meterData && !meterData.error && meterData.total_prints !== null;
     const totalCount = isOnline ? meterData.total_prints : null;
     const fetchedTime = meterData?.fetched_at ? new Date(meterData.fetched_at) : null;
@@ -202,6 +211,26 @@ const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosi
                             onChange={(e) => setManualOpeningCount(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleVerifyCount()}
                         />
+
+                        <div className="flex items-center gap-2 mt-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (isOnline && totalCount != null) {
+                                        setManualOpeningCount(String(totalCount));
+                                    } else {
+                                        toast.error('Machine reading not available');
+                                    }
+                                }}
+                                disabled={!isOnline}
+                                className="btn btn-ghost btn-sm"
+                            >
+                                Use machine count
+                            </button>
+                            {isOnline && (
+                                <span className="text-sm text-base-content/60">Auto-filled from {machineIpAddress}</span>
+                            )}
+                        </div>
 
                         <button
                             onClick={handleVerifyCount}

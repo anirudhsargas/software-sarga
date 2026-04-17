@@ -375,3 +375,42 @@ The changes:
 - ❌ Don't affect other components
 - ✅ Are isolated to these 2 components
 
+---
+
+## File 4: `client/src/pages/DailyReport.jsx`
+
+### Change 4.1: Remove Credits panel from Attendance view
+```diff
+// BEFORE
+<CreditList bookKey="All" credits={creditTransactions} liveEntries={[...(offsetData.entries||[]), ...(laserData.entries||[]), ...(otherData.entries||[])]} />
+
+// AFTER
+// Credits panel removed from Attendance view to keep Attendance focused on staff presence
+```
+
+### Change 4.2: Robust branch and status handling
+- Use case-insensitive checks for `status` (treat 'Present' and 'present' the same).
+- Fallback to showing staff entries when branch metadata is missing to avoid hiding marked attendance.
+
+## File 5: `client/src/pages/Billing.jsx`
+
+### Change 5.1: Preserve local job ids and persist local assignments
+- Use string `jobKey = String(job.id)` for UI state keys so local synthetic IDs are not coerced away.
+- Split assignments into numeric `job_id`s (sent to server) and local assignments (persisted into `offlineDb.assignments` with `syncStatus: 'pending'`).
+
+---
+
+## Verification Notes
+
+- Run the client linter/build to validate (suggested):
+
+```powershell
+cd "d:\software sarga\client"
+npm run lint
+```
+
+- Manual checks:
+  - Open Daily Report → Attendance: Credits panel should be absent and staff marked present should appear.
+  - Create a local bill and assign staff in Billing: assignment should persist (visible or stored for sync).
+
+

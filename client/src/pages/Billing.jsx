@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import api, { imgUrl } from '../services/api';
+import { useLocation } from 'react-router-dom';
+import api from '../services/api';
 import localDb from '../services/localDb';
 import SecureImage from '../components/SecureImage';
 import auth from '../services/auth';
@@ -33,10 +33,9 @@ const Billing = () => {
   const { confirm } = useConfirm();
   const isOnline = useOnlineStatus();
   const location = useLocation();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [offlineMode, setOfflineMode] = useState(false);
+  const [offlineMode, _setOfflineMode] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState(null);
   const [customerMatches, setCustomerMatches] = useState([]);
   const [customerSearching, setCustomerSearching] = useState(false);
@@ -106,7 +105,7 @@ const Billing = () => {
       if (path.includes('internal')) return true;
       if (String(form?.type || '').toLowerCase().includes('internal')) return true;
       if (existingCustomer?.client_type === 'internal') return true;
-    } catch (e) {
+    } catch {
       // defensive - default to false
     }
     return false;
@@ -506,7 +505,7 @@ const Billing = () => {
     if (cleaned.length > 0 && cleaned.length !== 10) {
       setFieldErrors((prev) => ({ ...prev, mobile: 'Mobile must be exactly 10 digits' }));
     } else {
-      setFieldErrors((prev) => { const { mobile, ...rest } = prev; return rest; });
+      setFieldErrors((prev) => { const { mobile: _mobile, ...rest } = prev; return rest; });
     }
   };
 
@@ -881,6 +880,7 @@ const Billing = () => {
       const res = await api.get(`/products/${prod.id}`);
       applyProductSelection(res.data);
     } catch (err) {
+      console.error('Product details fetch failed:', err);
       // Graceful fallback when details endpoint fails but product exists in cache/list.
       applyProductSelection(prod);
       setProductError('Using cached product details (offline/unstable network)');
@@ -1118,17 +1118,31 @@ const Billing = () => {
       unit_price: amount,
       total_amount: amount,
       applied_extras: [],
-      customPaperRate: 0,
-      is_double_side: false,
-      description: name,
+      customPaperRate: Number(jobData.customPaperRate) || 0,
+      is_double_side: !!jobData.is_double_side,
+      description: jobData.special_instructions ? `${name} — ${jobData.special_instructions}` : name,
       category: selectedCategory?.name || 'Quick Add',
       subcategory: '',
-      machine_id: null,
-      is_inventory_item: false,
-      book_type: quickEntry.book_type || 'Other'
+      machine_id: jobData.machine_id || null,
+      waste_prints: Number(jobData.waste_prints) || 0,
+      proof_prints: Number(jobData.proof_prints) || 0,
+      machine_print_count: jobData.count_to_machine
+        ? (Number(jobData.waste_prints) || 0) + (Number(jobData.proof_prints) || 0)
+        : null,
+      book_type: quickEntry.book_type || lineBookType || 'Other',
+      colour: jobData.colour || '',
+      numbering_from: jobData.numbering_from || '',
+      numbering_to: jobData.numbering_to || '',
+      special_instructions: jobData.special_instructions || '',
+      matter_text: jobData.matter_text || '',
+      matter_preview: jobData.matter_preview || null,
+      matter_file: jobData.matter_file || null,
+      is_inventory_item: false
     };
     setOrderLines((prev) => [...prev, line]);
     setQuickEntry({ name: '', amount: '', book_type: quickEntry.book_type || lineBookType || 'Other' });
+    // Clear the order form (including job details) after adding quick-add line
+    resetOrderForm();
     toast.success(`Added: ${name} — ₹${amount.toFixed(2)}`);
   };
 
@@ -1269,7 +1283,7 @@ const Billing = () => {
     }));
   };
 
-  const handleSaveDraft = () => {
+  const _handleSaveDraft = () => {
     const draft = {
       customer: form,
       orders: orderLines,
@@ -1290,27 +1304,24 @@ const Billing = () => {
       const assignments = [];
 
       assignJobs.forEach((job) => {
-        const jobId = Number(job.id);
-        if (!Number.isFinite(jobId)) {
-          console.warn(`Invalid job ID: ${job.id}`);
-          return;
-        }
+        const jobKey = String(job.id);
+        const jobIdNum = Number(job.id);
 
-        const roles = assignRoles[jobId] || [];
-        console.log(`Job ${jobId}: roles=${JSON.stringify(roles)}, selections=${JSON.stringify(assignSelections[jobId])}`);
+        const roles = assignRoles[jobKey] || [];
+        console.log(`Job ${jobKey}: roles=${JSON.stringify(roles)}, selections=${JSON.stringify(assignSelections[jobKey])}`);
 
         roles.forEach((role) => {
-          const staffIdValue = assignSelections?.[jobId]?.[role];
+          const staffIdValue = assignSelections?.[jobKey]?.[role];
           console.log(`  Role ${role}: rawValue=${staffIdValue}, type=${typeof staffIdValue}`);
 
           // Handle role-based assignment (All [Role])
           if (staffIdValue === 'role') {
             assignments.push({
-              job_id: jobId,
+              job_id: Number.isFinite(jobIdNum) ? jobIdNum : jobKey,
               staff_id: 'role',
               role
             });
-            console.log(`✓ Added role-based assignment: job=${jobId}, role=${role} (all staff with this role)`);
+            console.log(`✓ Added role-based assignment: job=${jobKey}, role=${role} (all staff with this role)`);
             return;
           }
 
@@ -1318,16 +1329,16 @@ const Billing = () => {
           console.log(`  Role ${role}: converted staffId=${staffId}, isFinite=${Number.isFinite(staffId)}`);
 
           if (!Number.isFinite(staffId) || staffId <= 0) {
-            console.warn(`Skipping invalid staff: jobId=${jobId}, role=${role}, value=${staffIdValue}, converted=${staffId}`);
+            console.warn(`Skipping invalid staff: jobKey=${jobKey}, role=${role}, value=${staffIdValue}, converted=${staffId}`);
             return;
           }
 
           assignments.push({
-            job_id: jobId,
+            job_id: Number.isFinite(jobIdNum) ? jobIdNum : jobKey,
             staff_id: staffId,
             role
           });
-          console.log(`✓ Added assignment: job=${jobId}, staff=${staffId}, role=${role}`);
+          console.log(`✓ Added assignment: job=${jobKey}, staff=${staffId}, role=${role}`);
         });
       });
 
@@ -1368,7 +1379,41 @@ const Billing = () => {
         return;
       }
 
-      await api.post('/jobs/assignments/bulk', { assignments });
+      // Split assignments into those with numeric job IDs (can be sent to server)
+      const remoteAssignments = assignments.filter(a => Number.isFinite(Number(a.job_id)));
+      const localAssignments = assignments.filter(a => !Number.isFinite(Number(a.job_id)));
+
+      // Try to send numeric assignments to server if online
+      if (remoteAssignments.length > 0 && navigator.onLine) {
+        try {
+          await api.post('/jobs/assignments/bulk', { assignments: remoteAssignments });
+        } catch (postErr) {
+          console.error('Assignment post failed:', postErr);
+          // If posting fails, persist all assignments locally as pending
+          const toSave = [...remoteAssignments, ...localAssignments];
+          await Promise.all(toSave.map(a => {
+            const recId = `ASSIGN-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+            const rec = { id: recId, job_id: a.job_id, staff_id: a.staff_id, role: a.role, syncStatus: 'pending', created_at: new Date().toISOString() };
+            return offlineDb.putRecord('assignments', rec);
+          }));
+          toast.success('Assignments saved locally and will sync when online.');
+          setShowAssignModal(false);
+          setAssignJobs([]);
+          setAssignSelections({});
+          setAssignLoading(false);
+          return;
+        }
+      }
+
+      // Persist any local-only assignments
+      if (localAssignments.length > 0) {
+        await Promise.all(localAssignments.map(a => {
+          const recId = `ASSIGN-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+          const rec = { id: recId, job_id: a.job_id, staff_id: a.staff_id, role: a.role, syncStatus: 'pending', created_at: new Date().toISOString() };
+          return offlineDb.putRecord('assignments', rec);
+        }));
+        toast.success('Assignments saved locally and will sync when online.');
+      }
 
       setShowAssignModal(false);
       setAssignJobs([]);
@@ -1706,7 +1751,7 @@ const Billing = () => {
                           if (e.target.value && !validateEmail(e.target.value)) {
                             setFieldErrors((prev) => ({ ...prev, email: 'Invalid email format' }));
                           } else {
-                            setFieldErrors((prev) => { const { email, ...rest } = prev; return rest; });
+                            setFieldErrors((prev) => { const { email: _email, ...rest } = prev; return rest; });
                           }
                         }}
                         placeholder="Email"
@@ -1740,7 +1785,7 @@ const Billing = () => {
                               if (val && !validateGST(val)) {
                                 setFieldErrors((prev) => ({ ...prev, gst: 'Invalid GST format' }));
                               } else {
-                                setFieldErrors((prev) => { const { gst, ...rest } = prev; return rest; });
+                                setFieldErrors((prev) => { const { gst: _gst, ...rest } = prev; return rest; });
                               }
                             }}
                             placeholder="e.g. 29ABCDE1234F1Z5"
@@ -2225,7 +2270,7 @@ const Billing = () => {
                   )}
 
                   {/* Job Details accordion — colour / numbering / instructions */}
-                  {selectedProduct && (
+                  {(selectedProduct || showQuickEntry) && (
                     <div style={{ margin: '4px 0 2px' }}>
                       <button
                         type="button"
@@ -2743,7 +2788,7 @@ const Billing = () => {
                                 if (e.detail === 2) return; // Handled by onDoubleClick
                                 paymentTimerRef.current = setTimeout(() => {
                                   setPayment((prev) => ({ ...prev, selectedMethods: [method] }));
-                                  setFieldErrors((prev) => { const { paymentMethod, ...rest } = prev; return rest; });
+                                  setFieldErrors((prev) => { const { paymentMethod: _paymentMethod, ...rest } = prev; return rest; });
                                 }, 200);
                               }}
                               onDoubleClick={() => {
@@ -2755,7 +2800,7 @@ const Billing = () => {
                                     : [...prev.selectedMethods, method];
                                   return { ...prev, selectedMethods: selectedMethods.length ? selectedMethods : ['Cash'] };
                                 });
-                                setFieldErrors((prev) => { const { paymentMethod, ...rest } = prev; return rest; });
+                                setFieldErrors((prev) => { const { paymentMethod: _paymentMethod, ...rest } = prev; return rest; });
                               }}
                               onContextMenu={(e) => {
                                 e.preventDefault();
@@ -2767,7 +2812,7 @@ const Billing = () => {
                                     : [...prev.selectedMethods, method];
                                   return { ...prev, selectedMethods: selectedMethods.length ? selectedMethods : ['Cash'] };
                                 });
-                                setFieldErrors((prev) => { const { paymentMethod, ...rest } = prev; return rest; });
+                                setFieldErrors((prev) => { const { paymentMethod: _paymentMethod, ...rest } = prev; return rest; });
                               }}
                             >
                               {method}
@@ -3047,12 +3092,12 @@ const Billing = () => {
             {assignJobs.length > 0 && (
               <div className="stack-md">
                 {assignJobs.map((job, idx) => {
-                  const jobId = Number(job.id);
+                  const jobKey = String(job.id);
                   const roleOptions = ['Designer', 'Printer', 'Other Staff'];
-                  const jobRoles = assignRoles[jobId] || [];
-                  const jobSelections = assignSelections[jobId] || {};
+                  const jobRoles = assignRoles[jobKey] || [];
+                  const jobSelections = assignSelections[jobKey] || {};
                   return (
-                    <div key={jobId} className="row gap-md items-center" style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+                    <div key={jobKey} className="row gap-md items-center" style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
                       <div style={{ flex: 2 }}>
                         <div className="font-bold">{idx + 1}. {job.product_name || job.job_name || 'Job'}</div>
                         <div className="text-xs muted">Qty {job.quantity || 1} - Job #{job.job_number || job.id}</div>
@@ -3107,15 +3152,15 @@ const Billing = () => {
                                     : [...jobRoles, role];
                                   setAssignRoles((prev) => ({
                                     ...prev,
-                                    [jobId]: nextRoles
+                                    [jobKey]: nextRoles
                                   }));
 
                                   if (active) {
                                     setAssignSelections((prev) => {
                                       const next = { ...prev };
-                                      const jobSel = { ...(next[jobId] || {}) };
+                                      const jobSel = { ...(next[jobKey] || {}) };
                                       delete jobSel[role];
-                                      next[jobId] = jobSel;
+                                      next[jobKey] = jobSel;
                                       return next;
                                     });
                                     return;
@@ -3137,7 +3182,7 @@ const Billing = () => {
                                   if (staffId && Number.isFinite(Number(staffId))) {
                                     setAssignSelections((prev) => ({
                                       ...prev,
-                                      [jobId]: { ...(prev[jobId] || {}), [role]: Number(staffId) }
+                                      [jobKey]: { ...(prev[jobKey] || {}), [role]: Number(staffId) }
                                     }));
                                   }
                                 }}
@@ -3154,14 +3199,14 @@ const Billing = () => {
                               const roleStaff = staffOptions.filter((staff) => staff.role === role);
                               if (roleStaff.length === 0) {
                                 return (
-                                  <div key={`${jobId}-${role}`} className="row gap-md items-center">
+                                  <div key={`${jobKey}-${role}`} className="row gap-md items-center">
                                     <div style={{ minWidth: '120px' }} className="text-sm">{role}</div>
                                     <div className="text-xs muted">No staff available for this role</div>
                                   </div>
                                 );
                               }
                               return (
-                                <div key={`${jobId}-${role}`} className="row gap-md items-center">
+                                <div key={`${jobKey}-${role}`} className="row gap-md items-center">
                                   <div style={{ minWidth: '120px' }} className="text-sm">{role}</div>
                                   <select
                                     className="input-field"
@@ -3170,7 +3215,7 @@ const Billing = () => {
                                       const value = e.target.value;
                                       setAssignSelections((prev) => ({
                                         ...prev,
-                                        [jobId]: { ...(prev[jobId] || {}), [role]: value === 'role' ? 'role' : (value ? Number(value) : null) }
+                                        [jobKey]: { ...(prev[jobKey] || {}), [role]: value === 'role' ? 'role' : (value ? Number(value) : null) }
                                       }));
                                     }}
                                     disabled={assignLoading}
