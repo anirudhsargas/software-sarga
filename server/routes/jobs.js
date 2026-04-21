@@ -610,6 +610,26 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                 }
 
                 created.push({ id: result.insertId, job_number: jobNumber });
+                // Reserve inventory for linked product (prevent double-booking of same stock)
+                if (line.product_id) {
+                    try {
+                        const [[prodRow]] = await connection.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? FOR UPDATE', [line.product_id]);
+                        const invId = prodRow ? prodRow.inventory_item_id : null;
+                        const qty = Number(line.quantity) || 1;
+                        if (invId) {
+                            const [[invRow]] = await connection.query('SELECT quantity, COALESCE(reserved_quantity, 0) AS reserved FROM sarga_inventory WHERE id = ? FOR UPDATE', [invId]);
+                            const available = (invRow ? Number(invRow.quantity || 0) : 0) - Number(invRow?.reserved || 0);
+                            if (available < qty) {
+                                throw new Error(`Insufficient stock to reserve for product ${line.product_name || line.product_id}`);
+                            }
+                            await connection.query('UPDATE sarga_inventory SET reserved_quantity = COALESCE(reserved_quantity,0) + ? WHERE id = ?', [qty, invId]);
+                        }
+                    } catch (reserveErr) {
+                        console.error('Reserve failed (bulk jobs):', reserveErr.message || reserveErr);
+                        await connection.rollback();
+                        return res.status(409).json({ message: reserveErr.message || 'Insufficient stock' });
+                    }
+                }
             } catch (err) {
                 console.error("BULK INSERT ERROR:", err.message);
                 if (err.code === 'ER_BAD_FIELD_ERROR' || err.code === 'ER_NO_SUCH_TABLE') {
@@ -727,6 +747,28 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
              VALUES (?, ?, ?, ?, ?, ?)`,
             [req.user.id, 'JOB_CREATE', `Created job ${job_number} for customer ${customer_id || 'walk-in'}`, 'job', result.insertId, req.ip]
         );
+
+        // Reserve inventory for linked product (prevent double-booking of same stock)
+        try {
+            if (product_id) {
+                const [[prodRow]] = await connection.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? FOR UPDATE', [product_id]);
+                const invId = prodRow ? prodRow.inventory_item_id : null;
+                const qty = Number(quantity) || 1;
+                if (invId) {
+                    const [[invRow]] = await connection.query('SELECT quantity, COALESCE(reserved_quantity,0) AS reserved FROM sarga_inventory WHERE id = ? FOR UPDATE', [invId]);
+                    const available = (invRow ? Number(invRow.quantity || 0) : 0) - Number(invRow?.reserved || 0);
+                    if (available < qty) {
+                        await connection.rollback();
+                        return res.status(409).json({ message: 'Insufficient stock to reserve for this job' });
+                    }
+                    await connection.query('UPDATE sarga_inventory SET reserved_quantity = COALESCE(reserved_quantity,0) + ? WHERE id = ?', [qty, invId]);
+                }
+            }
+        } catch (reserveErr) {
+            console.error('Reserve failed (single job):', reserveErr.message || reserveErr);
+            await connection.rollback();
+            return res.status(500).json({ message: reserveErr.message || 'Failed to reserve stock' });
+        }
 
         // COMMIT — all-or-nothing
         await connection.commit();
@@ -1356,6 +1398,19 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
 
         // Log status change if status is updated
         if (updates.status !== undefined) {
+            // If job is being Cancelled, release any reserved inventory for its product
+            try {
+                if (updates.status === 'Cancelled' && currentJob.status !== 'Cancelled' && currentJob.product_id) {
+                    const [[prodRow]] = await pool.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? LIMIT 1', [currentJob.product_id]);
+                    const invId = prodRow ? prodRow.inventory_item_id : null;
+                    const qtyToRelease = Number(currentJob.quantity) || 0;
+                    if (invId && qtyToRelease > 0) {
+                        await pool.query('UPDATE sarga_inventory SET reserved_quantity = GREATEST(COALESCE(reserved_quantity,0) - ?, 0) WHERE id = ?', [qtyToRelease, invId]);
+                    }
+                }
+            } catch (relErr) {
+                console.error('Failed to release reserved inventory on cancel:', relErr.message || relErr);
+            }
             await pool.query(
                 `INSERT INTO sarga_job_status_history (job_id, status, staff_id) VALUES (?, ?, ?)`,
                 [id, updates.status, req.user.id]
@@ -1388,7 +1443,7 @@ router.delete('/jobs/:id', authenticateToken, authorizeRoles('Admin'), async (re
 
         await connection.beginTransaction();
 
-        const [[job]] = await connection.query('SELECT payment_id FROM sarga_jobs WHERE id = ? FOR UPDATE', [jobId]);
+        const [[job]] = await connection.query('SELECT id, product_id, quantity, payment_id FROM sarga_jobs WHERE id = ? FOR UPDATE', [jobId]);
         if (!job) {
             await connection.rollback();
             connection.release();
@@ -1423,6 +1478,20 @@ router.delete('/jobs/:id', authenticateToken, authorizeRoles('Admin'), async (re
         if (job.payment_id) {
             await connection.query('DELETE FROM sarga_customer_payments WHERE id = ?', [job.payment_id]).catch(() => {});
             await connection.query('DELETE FROM sarga_payments WHERE id = ?', [job.payment_id]).catch(() => {});
+        }
+
+        // Release reserved stock for linked inventory (if any)
+        if (job.product_id) {
+            try {
+                const [[prodRow]] = await connection.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? LIMIT 1', [job.product_id]);
+                const invId = prodRow ? prodRow.inventory_item_id : null;
+                const qty = Number(job.quantity) || 0;
+                if (invId && qty > 0) {
+                    await connection.query('UPDATE sarga_inventory SET reserved_quantity = GREATEST(COALESCE(reserved_quantity,0) - ?, 0) WHERE id = ?', [qty, invId]);
+                }
+            } catch (releaseErr) {
+                console.warn('Failed to release reserved stock on job delete (non-blocking):', releaseErr.message || releaseErr);
+            }
         }
 
         // 9. Delete the job itself

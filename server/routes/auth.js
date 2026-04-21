@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles, JWT_SECRET } = require('../middleware/auth');
-const { normalizeMobile, auditLog } = require('../helpers');
+const { normalizeMobileWithCountry, auditLog } = require('../helpers');
 const { validate, loginSchema, changePasswordSchema } = require('../middleware/validate');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -21,22 +21,24 @@ module.exports = (upload) => {
     // Login
     router.post('/auth/login', authLimiter, validate(loginSchema), async (req, res) => {
         const { user_id, password } = req.body;
-        const normalizedUserId = normalizeMobile(user_id);
-        
-        console.log(`[LOGIN] Attempt: user_id=${user_id}, normalized=${normalizedUserId}`);
+        const normalizedUserId = normalizeMobileWithCountry(user_id, req.body?.countryCode); // may return E.164 or fallback last-10
+        const digits = String(user_id || '').replace(/\D/g, '');
+        const last10 = digits.slice(-10);
 
-        if (normalizedUserId.length !== 10) {
-            console.log(`[LOGIN] ❌ Invalid format: ${normalizedUserId}`);
+        console.log(`[LOGIN] Attempt: user_id=${user_id}, normalized=${normalizedUserId}, last10=${last10}`);
+
+        if (!normalizedUserId && last10.length !== 10) {
+            console.log(`[LOGIN] ❌ Invalid format: ${user_id}`);
             return res.status(400).json({ message: 'Invalid user ID format' });
         }
 
         try {
             const [users] = await pool.query(
-                `SELECT s.id, s.user_id, s.name, s.role, s.password, s.branch_id, s.is_first_login, s.image_url, b.short_name AS branch_short_name FROM sarga_staff s LEFT JOIN sarga_branches b ON b.id = s.branch_id WHERE RIGHT(s.user_id, 10) = ?`,
-                [normalizedUserId]
+                `SELECT s.id, s.user_id, s.name, s.role, s.password, s.branch_id, s.is_first_login, s.image_url, b.short_name AS branch_short_name FROM sarga_staff s LEFT JOIN sarga_branches b ON b.id = s.branch_id WHERE (s.user_id = ? OR RIGHT(s.user_id, 10) = ?) LIMIT 1`,
+                [normalizedUserId || last10, last10]
             );
             const user = users[0];
-            
+
             console.log(`[LOGIN] User query returned: ${users.length} user(s)`);
             if (user) {
                 console.log(`[LOGIN] Found user: ID=${user.id}, Name=${user.name}, HasPassword=${!!user.password}, FirstLogin=${user.is_first_login}`);
@@ -52,22 +54,45 @@ module.exports = (upload) => {
 
             if (!validPassword && user.is_first_login) {
                 console.log(`[LOGIN] Password didn't match, trying fallback checks (first_login=true)`);
-                const normalizedPassword = normalizeMobile(password);
-                console.log(`[LOGIN] Normalized password: "${normalizedPassword}" (length=${normalizedPassword.length})`);
-                
-                if (normalizedPassword.length === 10) {
-                    validPassword = await bcrypt.compare(normalizedPassword, user.password);
-                    console.log(`[LOGIN] Normalized password bcrypt result: ${validPassword}`);
+                const normalizedPassword = normalizeMobileWithCountry(password, req.body?.countryCode);
+                console.log(`[LOGIN] Normalized password: "${normalizedPassword}"`);
+
+                if (normalizedPassword) {
+                    try {
+                        if (String(normalizedPassword).startsWith('+')) {
+                            // If we have an E.164 normalized password, try that first
+                            if (await bcrypt.compare(normalizedPassword, user.password)) {
+                                validPassword = true;
+                            }
+                            // Also try legacy last-10 digits from the raw password
+                            const pDigits = String(password).replace(/\D/g, '').slice(-10);
+                            if (!validPassword && pDigits && pDigits.length === 10) {
+                                if (await bcrypt.compare(pDigits, user.password)) validPassword = true;
+                            }
+                        } else {
+                            // Normalized password is digits-only fallback
+                            if (await bcrypt.compare(normalizedPassword, user.password)) validPassword = true;
+                            // Try +91/91 variants for 10-digit numbers
+                            if (!validPassword && /^\d{10}$/.test(normalizedPassword)) {
+                                const candidates = [`+91${normalizedPassword}`, `91${normalizedPassword}`];
+                                for (const candidate of candidates) {
+                                    if (await bcrypt.compare(candidate, user.password)) {
+                                        validPassword = true; break;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('Password fallback checks failed:', err && err.message);
+                    }
                 }
 
+                // Legacy final-resort: if the provided password is raw 10 digits, try +91/91 prefixes
                 if (!validPassword && /^\d{10}$/.test(password)) {
                     const candidates = [`+91${password}`, `91${password}`];
-                    console.log(`[LOGIN] Trying +91 prefixes...`);
                     for (const candidate of candidates) {
                         if (await bcrypt.compare(candidate, user.password)) {
-                            validPassword = true;
-                            console.log(`[LOGIN] ✅ Matched with candidate: ${candidate}`);
-                            break;
+                            validPassword = true; break;
                         }
                     }
                 }

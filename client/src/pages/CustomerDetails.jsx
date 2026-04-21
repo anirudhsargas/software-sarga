@@ -11,7 +11,11 @@ import {
 import api from '../services/api';
 import localDb from '../services/localDb';
 import toast from 'react-hot-toast';
+import Pagination from '../components/Pagination';
+import { useOnlineStatus } from '../hooks/useOffline';
 import { whatsappUrl, paymentReminderMessage, dueCollectionMessage } from '../utils/whatsapp';
+import { formatForDisplay, telHref } from '../utils/phone';
+import Skeleton, { SkeletonText, SkeletonAvatar, SkeletonTitle, SkeletonKpi } from '../components/Skeleton';
 
 import './CustomerDetails.css';
 
@@ -94,6 +98,9 @@ const CustomerDetails = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [expandedJob, setExpandedJob] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsLimit, setPaymentsLimit] = useState(10);
+  const isOnline = useOnlineStatus();
 
   // Design history state
   const [designs, setDesigns] = useState([]);
@@ -112,7 +119,19 @@ const CustomerDetails = () => {
     try {
       if (!silent) setLoading(true);
       else setRefreshing(true);
-      const dashboardData = await localDb.getCustomerDashboard(id);
+      let dashboardData = null;
+      if (isOnline) {
+        try {
+          const res = await api.get(`/customers/${id}/dashboard`, { params: { page: paymentsPage, limit: paymentsLimit } });
+          dashboardData = res.data;
+        } catch (err) {
+          console.warn('[CustomerDetails] Server dashboard fetch failed, falling back to local', err && err.message);
+          dashboardData = await localDb.getCustomerDashboard(id);
+        }
+      } else {
+        dashboardData = await localDb.getCustomerDashboard(id);
+      }
+
       if (dashboardData) {
         setData(dashboardData);
         setError('');
@@ -128,10 +147,11 @@ const CustomerDetails = () => {
     }
   };
 
-  useEffect(() => { fetchDashboard(); }, [id]);
+  useEffect(() => { fetchDashboard(); }, [id, isOnline, paymentsPage, paymentsLimit]);
   useEffect(() => {
     if (location.state?.fromPayment) fetchDashboard(true);
   }, [location.state]);
+
 
   // Fetch designs when tab switches to designs
   const fetchDesigns = async () => {
@@ -250,16 +270,25 @@ const CustomerDetails = () => {
   };
 
   /* ───── loading / error ───── */
-  if (loading) return (
-    <div className="cd-loading">
-      <div className="cd-spinner" />
-      <span>Loading dashboard...</span>
-    </div>
-  );
   if (error) return <div className="alert alert--error">{error}</div>;
-  if (!data) return <div className="alert alert--error">Customer not found.</div>;
 
-  const { customer, summary, payments, reorderItems } = data;
+  // Render skeleton placeholders while `data` loads. Provide safe defaults
+  // so the page shell can render immediately and individual sections
+  // replace themselves when the data becomes available.
+  const customer = data?.customer || {};
+  const summary = data?.summary || { totalOrders: 0, totalSpent: 0, pendingOrders: 0, processingOrders: 0, completedOrders: 0, cancelledOrders: 0, lastOrderDate: null };
+  const payments = data?.payments || { outstandingBalance: 0 };
+  const paymentRecords = payments.records || [];
+  const paymentsTotal = payments.total || paymentRecords.length || 0;
+  const paymentsTotalPages = Math.max(1, Math.ceil(paymentsTotal / (paymentsLimit || 1)));
+  const paginatedPayments = payments.total ? paymentRecords : paymentRecords.slice((paymentsPage - 1) * paymentsLimit, paymentsPage * paymentsLimit);
+  // Reset payments page when customer or online state changes
+  useEffect(() => {
+    setPaymentsPage(1);
+  }, [id, isOnline]);
+  const reorderItems = data?.reorderItems || [];
+  const customerDisplayPhone = formatForDisplay(customer?.mobile);
+  const customerTelHref = telHref(customer?.mobile);
   const initials = (customer.name || '??').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
   /* ═══════ RENDER ═══════ */
@@ -282,30 +311,58 @@ const CustomerDetails = () => {
 
       {/* ── PROFILE CARD ── */}
       <div className="cd-profile">
-        <div className="cd-avatar">{initials}</div>
+        <div className="cd-avatar">{loading ? <SkeletonAvatar /> : initials}</div>
         <div className="cd-profile-info">
-          <h2 className="cd-profile-name">{customer.name}</h2>
+          <h2 className="cd-profile-name">{loading ? <SkeletonTitle width={180} /> : customer.name}</h2>
           <div className="cd-profile-badges">
-            <span className="cd-badge cd-badge--type">{customer.type || 'Walk-in'}</span>
-            {summary.totalOrders > 10 && <span className="cd-badge cd-badge--star"><Star size={10} /> Loyal</span>}
+            {loading ? (
+              <>
+                <span className="cd-badge" style={{ padding: 6 }}><SkeletonText width={70} height={16} /></span>
+                <span style={{ marginLeft: 8 }}><SkeletonText width={60} height={16} /></span>
+              </>
+            ) : (
+              <>
+                <span className="cd-badge cd-badge--type">{customer.type || 'Walk-in'}</span>
+                {summary.totalOrders > 10 && <span className="cd-badge cd-badge--star"><Star size={10} /> Loyal</span>}
+              </>
+            )}
           </div>
           <div className="cd-profile-details">
-            {customer.mobile && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <Phone size={13} /> <a href={`tel:+91${customer.mobile}`} style={{ color: 'inherit', textDecoration: 'none' }}>+91 {customer.mobile}</a>
-                <a href={`tel:+91${customer.mobile}`} style={{ color: 'var(--success)', textDecoration: 'none', fontWeight: 600, fontSize: 12 }} title="Call">📞</a>
-                <WhatsAppBtn mobile={customer.mobile} customerName={customer.name} outstanding={payments.outstandingBalance} orderCount={summary.totalOrders - summary.completedOrders - summary.cancelledOrders} />
-              </span>
+            {loading ? (
+              <>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><SkeletonText width={120} /></span>
+                <span><SkeletonText width={150} /></span>
+                <span><SkeletonText width={130} /></span>
+              </>
+            ) : (
+              <>
+                {customer.mobile && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Phone size={13} /> <a href={customerTelHref} style={{ color: 'inherit', textDecoration: 'none' }}>{customerDisplayPhone}</a>
+                    <a href={customerTelHref} style={{ color: 'var(--success)', textDecoration: 'none', fontWeight: 600, fontSize: 12 }} title="Call">📞</a>
+                    <WhatsAppBtn mobile={customer.mobile} customerName={customer.name} outstanding={payments.outstandingBalance} orderCount={summary.totalOrders - summary.completedOrders - summary.cancelledOrders} />
+                  </span>
+                )}
+                {customer.email && <span><Mail size={13} /> {customer.email}</span>}
+                {customer.address && <span><MapPin size={13} /> {customer.address}</span>}
+                {customer.gst && <span><Hash size={13} /> GST: {customer.gst}</span>}
+                {customer.branch_name && <span><Building2 size={13} /> {customer.branch_name}</span>}
+              </>
             )}
-            {customer.email && <span><Mail size={13} /> {customer.email}</span>}
-            {customer.address && <span><MapPin size={13} /> {customer.address}</span>}
-            {customer.gst && <span><Hash size={13} /> GST: {customer.gst}</span>}
-            {customer.branch_name && <span><Building2 size={13} /> {customer.branch_name}</span>}
           </div>
         </div>
         <div className="cd-profile-meta">
-          <span className="cd-meta-item">Customer since {fmtDate(customer.created_at)}</span>
-          {summary.lastOrderDate && <span className="cd-meta-item">Last order {ago(summary.lastOrderDate)}</span>}
+          {loading ? (
+            <>
+              <span className="cd-meta-item"><SkeletonText width={110} /></span>
+              <span className="cd-meta-item"><SkeletonText width={90} /></span>
+            </>
+          ) : (
+            <>
+              <span className="cd-meta-item">Customer since {fmtDate(customer.created_at)}</span>
+              {summary.lastOrderDate && <span className="cd-meta-item">Last order {ago(summary.lastOrderDate)}</span>}
+            </>
+          )}
         </div>
       </div>
 
@@ -313,32 +370,32 @@ const CustomerDetails = () => {
       <div className="cd-kpis">
         <div className="cd-kpi">
           <div className="cd-kpi-icon-wrap"><Package size={18} /></div>
-          <div className="cd-kpi-value">{summary.totalOrders}</div>
+          <div className="cd-kpi-value">{loading ? <SkeletonKpi /> : summary.totalOrders}</div>
           <div className="cd-kpi-label">Total Orders</div>
         </div>
         <div className="cd-kpi">
           <div className="cd-kpi-icon-wrap cd-kpi-icon-wrap--success"><IndianRupee size={18} /></div>
-          <div className="cd-kpi-value">{fmtCurrency(summary.totalSpent)}</div>
+          <div className="cd-kpi-value">{loading ? <SkeletonKpi /> : fmtCurrency(summary.totalSpent)}</div>
           <div className="cd-kpi-label">Total Spent</div>
         </div>
         <div className="cd-kpi">
           <div className="cd-kpi-icon-wrap cd-kpi-icon-wrap--warning"><Clock size={18} /></div>
-          <div className="cd-kpi-value">{summary.pendingOrders + summary.processingOrders}</div>
+          <div className="cd-kpi-value">{loading ? <SkeletonKpi /> : summary.pendingOrders + summary.processingOrders}</div>
           <div className="cd-kpi-label">In Progress</div>
         </div>
         <div className="cd-kpi">
           <div className="cd-kpi-icon-wrap cd-kpi-icon-wrap--success"><CheckCircle2 size={18} /></div>
-          <div className="cd-kpi-value">{summary.completedOrders}</div>
+          <div className="cd-kpi-value">{loading ? <SkeletonKpi /> : summary.completedOrders}</div>
           <div className="cd-kpi-label">Completed</div>
         </div>
         <div className="cd-kpi">
           <div className="cd-kpi-icon-wrap cd-kpi-icon-wrap--error"><AlertTriangle size={18} /></div>
-          <div className="cd-kpi-value">{fmtCurrency(payments.outstandingBalance)}</div>
+          <div className="cd-kpi-value">{loading ? <SkeletonKpi /> : fmtCurrency(payments.outstandingBalance)}</div>
           <div className="cd-kpi-label">Outstanding</div>
         </div>
         <div className="cd-kpi">
           <div className="cd-kpi-icon-wrap cd-kpi-icon-wrap--error"><XCircle size={18} /></div>
-          <div className="cd-kpi-value">{summary.cancelledOrders}</div>
+          <div className="cd-kpi-value">{loading ? <SkeletonKpi /> : summary.cancelledOrders}</div>
           <div className="cd-kpi-label">Cancelled</div>
         </div>
       </div>
@@ -598,10 +655,10 @@ const CustomerDetails = () => {
                 </tr>
               </thead>
               <tbody>
-                {(payments.records || []).length === 0 ? (
+                {paginatedPayments.length === 0 ? (
                   <tr><td colSpan="5" className="text-center muted">No payment records</td></tr>
                 ) : (
-                  payments.records.map(p => (
+                  paginatedPayments.map(p => (
                     <tr key={p.id}>
                       <td>{fmtDate(p.payment_date)}</td>
                       <td><Receipt size={13} className="muted" /> {p.payment_method}</td>
@@ -614,6 +671,18 @@ const CustomerDetails = () => {
               </tbody>
             </table>
           </div>
+          {paymentsTotal > paymentsLimit && (
+            <div style={{ marginTop: 12 }}>
+              <Pagination
+                page={paymentsPage}
+                totalPages={paymentsTotalPages}
+                total={paymentsTotal}
+                limit={paymentsLimit}
+                onPageChange={(p) => setPaymentsPage(p)}
+                loading={refreshing}
+              />
+            </div>
+          )}
         </div>
       )}
 

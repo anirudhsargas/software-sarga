@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getUserBranchId, hasPendingCustomerBalance, bumpUsageForUser, auditLog, auditFieldChanges, getNextInvoiceNumber, normalizeMobile, asyncHandler, getTodayDate } = require('../helpers');
+const { getUserBranchId, hasPendingCustomerBalance, bumpUsageForUser, auditLog, auditFieldChanges, getNextInvoiceNumber, normalizeMobileWithCountry, asyncHandler, getTodayDate } = require('../helpers');
+const { attachNormalizedMobile } = require('../middleware/phone');
 const { branchFilter } = require('../middleware/branchFilter');
 const { paginate } = require('../helpers/pagination');
 const { validate } = require('../middleware/validate');
@@ -98,7 +99,7 @@ router.get('/customer-payments', authenticateToken, async (req, res) => {
 });
 
 // Add Customer Payment
-router.post('/customer-payments', authenticateToken, validate(customerPaymentSchema), asyncHandler(async (req, res) => {
+router.post('/customer-payments', authenticateToken, validate(customerPaymentSchema), attachNormalizedMobile('customer_mobile', 'customer_country_code'), asyncHandler(async (req, res) => {
     const {
         customer_id,
         customer_name,
@@ -187,7 +188,7 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
         let resolvedCustomerId = customer_id || null;
 
         if (!resolvedCustomerId && customer_mobile) {
-            const normalizedMobile = normalizeMobile(customer_mobile);
+            const normalizedMobile = normalizeMobileWithCountry(customer_mobile, req.body?.customer_country_code);
             if (normalizedMobile.length === 10) {
                 // Search across all branches — a customer can pay at any branch
                 const [rows] = await connection.query(
@@ -367,6 +368,27 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
                         throw err;
                     }
                 }
+                // Reserve inventory for linked product (prevent double-booking)
+                if (line.job_id && line.product_id) {
+                    try {
+                        const [[prodRow]] = await connection.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? FOR UPDATE', [line.product_id]);
+                        const invId = prodRow ? prodRow.inventory_item_id : null;
+                        const qty = Number(line.quantity) || 1;
+                        if (invId) {
+                            const [[invRow]] = await connection.query('SELECT quantity, COALESCE(reserved_quantity,0) AS reserved FROM sarga_inventory WHERE id = ? FOR UPDATE', [invId]);
+                            const available = (invRow ? Number(invRow.quantity || 0) : 0) - Number(invRow?.reserved || 0);
+                            if (available < qty) {
+                                await connection.rollback();
+                                return res.status(409).json({ message: `Insufficient stock to reserve for item ${line.product_name || line.product_id}` });
+                            }
+                            await connection.query('UPDATE sarga_inventory SET reserved_quantity = COALESCE(reserved_quantity,0) + ? WHERE id = ?', [qty, invId]);
+                        }
+                    } catch (reserveErr) {
+                        console.error('Reserve failed (payment job create):', reserveErr.message || reserveErr);
+                        await connection.rollback();
+                        return res.status(409).json({ message: reserveErr.message || 'Insufficient stock' });
+                    }
+                }
             }
         }
 
@@ -523,14 +545,14 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
             console.error('[Invoice] Sequence error:', invErr.message);
         }
 
-        // ─── Deduct inventory stock for inventory items in order ───
+        // ─── Deduct inventory stock for inventory items in order and consume any reservation ───
         if (Array.isArray(order_lines)) {
             for (const line of order_lines) {
                 if (line.is_inventory_item && line.inventory_item_id) {
                     const qty = Number(line.quantity) || 1;
                     await connection.query(
-                        "UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?",
-                        [qty, line.inventory_item_id]
+                        "UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0), reserved_quantity = GREATEST(COALESCE(reserved_quantity,0) - ?, 0) WHERE id = ?",
+                        [qty, qty, line.inventory_item_id]
                     );
                 }
             }

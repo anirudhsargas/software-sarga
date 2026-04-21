@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import localDb from '../services/localDb';
 import auth from '../services/auth';
-import { Calendar, IndianRupee, CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, Sun, Download } from 'lucide-react';
+import { Calendar, IndianRupee, CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, Sun, Download, User } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
+import SecureImage from '../components/SecureImage';
 
 const statusConfig = {
   Present: { color: 'var(--success)', bg: 'var(--success)18', label: 'P' },
@@ -50,6 +51,17 @@ const AttendanceSalary = () => {
       
       setSalaryCalc(calcData || null);
       setSalaryInfo(null); // Will be filled from master data if available
+
+      // Try to fetch master staff info (online) to get profile image and authoritative salaryInfo
+      try {
+        const resp = await api.get(`/staff/${staffId}/salary-info`);
+        setSalaryInfo(resp.data);
+      } catch (err) {
+        // fallback to stored user info if available
+        const stored = auth.getUser();
+        if (stored) setSalaryInfo({ staff: stored });
+        else setSalaryInfo(null);
+      }
     } catch {
       setError('Failed to load data from local storage');
     } finally {
@@ -120,9 +132,20 @@ const AttendanceSalary = () => {
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
         <div className="row items-center" style={{ justifyContent: 'space-between', gap: 12 }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Attendance & Salary</h1>
-            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0' }}>View your attendance records and salary details</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {(salaryInfo?.staff?.image_url || user?.image_url) ? (
+              <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                <SecureImage src={salaryInfo?.staff?.image_url || user?.image_url} alt={salaryInfo?.staff?.name || user?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            ) : (
+              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+                <User size={28} />
+              </div>
+            )}
+            <div>
+              <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Attendance & Salary</h1>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0' }}>View your attendance records and salary details</p>
+            </div>
           </div>
           <button className="btn btn-primary btn-sm" onClick={downloadSalarySlip}>
             <Download size={14} /> Download Salary Slip

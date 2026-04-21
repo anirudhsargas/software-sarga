@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { normalizeToE164 } from '../utils/phone';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -34,10 +35,15 @@ export const setupRecaptcha = (elementId) => {
 
 // Send OTP to phone number
 export const sendOTP = async (phoneNumber) => {
-  // phoneNumber must be in format: +919876543210
-  const formattedPhone = phoneNumber.startsWith('+91')
-    ? phoneNumber
-    : `+91${phoneNumber}`;
+  // Normalize to E.164 where possible. If a plain 10-digit number is provided,
+  // we assume India (+91) for now. Prefer full international input like +1....
+  let formattedPhone = normalizeToE164(phoneNumber);
+  if (!formattedPhone) {
+    throw new Error('Invalid phone number');
+  }
+
+  // Ensure leading + for Firebase
+  if (!formattedPhone.startsWith('+')) formattedPhone = `+${formattedPhone}`;
 
   const recaptcha = setupRecaptcha('recaptcha-container');
   const confirmation = await signInWithPhoneNumber(auth, formattedPhone, recaptcha);

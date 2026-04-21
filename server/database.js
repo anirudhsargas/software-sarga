@@ -577,6 +577,21 @@ const initDb = async () => {
       )
     `);
 
+    // Utility Connections (store known consumer/connection numbers per branch + utility)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_utility_connections (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        branch_id INT NOT NULL,
+        utility_type VARCHAR(150) NOT NULL,
+        connection_id VARCHAR(100) NOT NULL,
+        label VARCHAR(200),
+        is_active TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE,
+        UNIQUE KEY uniq_utility_connection (branch_id, utility_type, connection_id)
+      )
+    `);
+
     // Payments Table
     await connection.query(`
       CREATE TABLE IF NOT EXISTS sarga_payments (

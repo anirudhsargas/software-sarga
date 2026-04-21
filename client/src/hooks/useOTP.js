@@ -24,8 +24,9 @@ export const useOTP = () => {
   };
 
   const handleSendOTP = async (phoneNumber) => {
-    if (!phoneNumber || phoneNumber.length !== 10) {
-      setError('Enter valid 10-digit mobile number');
+    // Accept E.164 (+...) or 10-digit local numbers (assumed IN)
+    if (!phoneNumber) {
+      setError('Enter a valid mobile number');
       return false;
     }
 
@@ -37,7 +38,7 @@ export const useOTP = () => {
       await sendOTP(phoneNumber);
       setStep('sent');
       startCountdown(30);
-      toast.success(`OTP sent to +91 ${phoneNumber}`);
+        toast.success(`OTP sent to ${phoneNumber}`);
       return true;
     } catch (err) {
       setStep('error');

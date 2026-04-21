@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, CheckCircle, Smartphone, Banknote, FileText, Building2 } from 'lucide-react';
 import './ReceiptModal.css';
+import { normalizeToE164 } from '../utils/phone';
 
 const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
     React.useEffect(() => {
@@ -101,7 +102,7 @@ const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
                     <div className="receipt-section">
                         <p className="receipt-label">Customer Details</p>
                         <p className="receipt-customer-name">{customer_name}</p>
-                        {customer_mobile && <p className="receipt-customer-mobile">+91 {customer_mobile}</p>}
+                        {customer_mobile && <p className="receipt-customer-mobile">{normalizeToE164(customer_mobile) || customer_mobile}</p>}
                     </div>
 
                     {/* Payment Breakdown */}

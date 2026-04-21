@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Landmark, Repeat, Plus, Edit2, X, Loader2,
   IndianRupee, Calendar, TrendingUp, AlertTriangle,
@@ -45,6 +45,7 @@ const FinanceTab = ({ branches, onError }) => {
   const [kuriForm, setKuriForm] = useState(defaultKuriForm);
   const [selectedKuri, setSelectedKuri] = useState(null);
   const [kuriDetail, setKuriDetail] = useState(null);
+  const kuriBgRef = useRef(null);
 
   // Kuri request (front office)
   const [showKuriRequest, setShowKuriRequest] = useState(false);
@@ -88,6 +89,7 @@ const FinanceTab = ({ branches, onError }) => {
       params.append('limit', kuriLimit);
       params.append('is_active', 1);
       const r = await api.get(`/kuri-master?${params.toString()}`);
+      console.debug('fetchKuris', { pageNum, total: r.data.total, rows: (r.data.data || []).length });
       setKuris(r.data.data || []);
       setKuriTotal(r.data.total || 0);
       setKuriTotalPages(r.data.totalPages || 1);
@@ -110,6 +112,24 @@ const FinanceTab = ({ branches, onError }) => {
   }, [onError]);
 
   useEffect(() => { fetchEmis(emiPage); fetchKuris(kuriPage); fetchEmiDash(); fetchKuriDash(); }, [fetchEmis, fetchKuris, fetchEmiDash, fetchKuriDash, emiPage, kuriPage]);
+
+  // Mobile-only parallax for Kuri view
+  useEffect(() => {
+    const handleScroll = () => {
+      if (subTab !== 'kuri' || typeof window === 'undefined' || window.innerWidth > 768) {
+        if (kuriBgRef.current) kuriBgRef.current.style.transform = 'translateY(0)';
+        return;
+      }
+      const scrolled = window.scrollY || 0;
+      const speed = 0.25; // adjust parallax strength
+      if (kuriBgRef.current) {
+        kuriBgRef.current.style.transform = `translateY(${Math.round(scrolled * speed)}px)`;
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [subTab]);
 
   const openEmiDetail = useCallback(async (emi) => {
     setSelectedEmi(emi); setLoadingDetail(true);
@@ -152,9 +172,34 @@ const FinanceTab = ({ branches, onError }) => {
     if (!isConfirmed) return;
 
     try {
-      if (editingKuri) await api.put(`/kuri-master/${editingKuri.id}`, kuriForm);
-      else await api.post('/kuri-master', kuriForm);
-      setShowKuriForm(false); setEditingKuri(null); setKuriForm(defaultKuriForm); fetchKuris(); fetchKuriDash();
+      let res;
+      if (editingKuri) res = await api.put(`/kuri-master/${editingKuri.id}`, kuriForm);
+      else res = await api.post('/kuri-master', kuriForm);
+      console.debug('kuri saved', res?.data);
+
+      // extract created/updated item from common response shapes
+      const item = res?.data?.data || res?.data?.kuri || res?.data || null;
+      if (item) {
+        if (editingKuri) {
+          // update existing item in list
+          setKuris(prev => prev.map(k => (k.id === item.id ? { ...k, ...item } : k)));
+          // keep detail view in sync if open
+          setKuriDetail(prev => (prev && (prev.kuri?.id === item.id || prev.id === item.id) ? { ...prev, ...(prev.kuri ? { kuri: { ...prev.kuri, ...item } } : item) } : prev));
+          setSelectedKuri(prev => (prev && prev.id === item.id ? { ...prev, ...item } : prev));
+        } else {
+          // optimistic prepend so user sees new item immediately
+          setKuris(prev => [item, ...prev]);
+          setKuriTotal(prev => Number(prev || 0) + 1);
+        }
+      }
+
+      setShowKuriForm(false);
+      setEditingKuri(null);
+      setKuriForm(defaultKuriForm);
+
+      // refresh dashboard counts in background; reconcile list after a short delay
+      fetchKuriDash();
+      setTimeout(() => { fetchKuris(kuriPage); }, 1500);
     } catch (err) { onError(err.response?.data?.message || 'Failed'); }
   };
 
@@ -379,6 +424,12 @@ const FinanceTab = ({ branches, onError }) => {
       {/* ── Kuri sub-tab ── */}
       {subTab === 'kuri' && (
         <>
+          <div style={{ position: 'relative', overflow: 'hidden', height: 160, marginBottom: 12 }}>
+            <div ref={kuriBgRef} style={{ position: 'absolute', top: -40, left: 0, right: 0, height: 260, background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(124,58,237,0.06))', backgroundSize: 'cover', backgroundPosition: 'center', transform: 'translateY(0)', transition: 'transform 0.05s linear', willChange: 'transform' }} aria-hidden="true" />
+            <div style={{ position: 'relative', zIndex: 1, padding: '12px 16px' }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Kuri / Chit Funds</h3>
+            </div>
+          </div>
           {kuriDash && (
             <div className="em-kpi-grid em-kpi-grid--3">
               <div className="em-kpi-card em-kpi-card--purple"><div className="em-kpi-card__icon"><Repeat size={22} /></div><div className="em-kpi-card__body"><div className="em-kpi-card__label">Total Kuri/Month</div><div className="em-kpi-card__value">₹{fmt(kuriDash.totalKuriPerMonth)}</div></div></div>

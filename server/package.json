@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

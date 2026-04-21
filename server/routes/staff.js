@@ -1,6 +1,7 @@
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getUserBranchId, auditLog, normalizeMobile } = require('../helpers');
+const { getUserBranchId, auditLog, normalizeMobileWithCountry } = require('../helpers');
+const { attachNormalizedMobile } = require('../middleware/phone');
 const bcrypt = require('bcryptjs');
 const { validate, addStaffSchema, staffSalaryUpdateSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
@@ -11,13 +12,14 @@ module.exports = (upload, removeUploadFile) => {
     // --- STAFF ROUTES (Admin Only) ---
 
     // Add Staff
-    router.post('/', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), validate(addStaffSchema), async (req, res) => {
-        const { mobile, name, role, branch_id } = req.body;
-        const normalizedMobile = normalizeMobile(mobile);
+    router.post('/', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), validate(addStaffSchema), attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
+        const { mobile, countryCode, name, role, branch_id } = req.body;
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-        if (normalizedMobile.length !== 10) {
-            return res.status(400).json({ message: 'Mobile number must be 10 digits' });
+        // Normalize using optional countryCode hint
+        const normalizedMobile = normalizeMobileWithCountry(mobile, countryCode);
+        if (!normalizedMobile || (!(normalizedMobile.startsWith('+') || normalizedMobile.length === 10))) {
+            return res.status(400).json({ message: 'Invalid mobile number' });
         }
 
         try {
@@ -27,7 +29,7 @@ module.exports = (upload, removeUploadFile) => {
                 [normalizedMobile, hashedPassword, role, name, 1, branch_id || null, imageUrl]
             );
 
-            auditLog(req.user.id, 'STAFF_ADD', `Added staff ${mobile} as ${role} for branch ${branch_id}`);
+            auditLog(req.user.id, 'STAFF_ADD', `Added staff ${normalizedMobile} as ${role} for branch ${branch_id}`);
             res.status(201).json({ id: result.insertId, message: 'Staff added successfully' });
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'User ID already exists' });
@@ -160,10 +162,10 @@ module.exports = (upload, removeUploadFile) => {
         }
 
         // Full update with mobile (user_id change)
-        const normalizedMobile = normalizeMobile(mobile);
-
-        if (normalizedMobile.length !== 10) {
-            return res.status(400).json({ message: 'Mobile number must be 10 digits' });
+        // Normalize using optional countryCode if provided
+        const normalizedMobile = normalizeMobileWithCountry(mobile, req.body?.countryCode);
+        if (!normalizedMobile || (!(normalizedMobile.startsWith('+') || normalizedMobile.length === 10))) {
+            return res.status(400).json({ message: 'Invalid mobile number' });
         }
 
         try {
@@ -286,7 +288,7 @@ module.exports = (upload, removeUploadFile) => {
             const [users] = await pool.query("SELECT user_id, name FROM sarga_staff WHERE id = ?", [id]);
             if (!users[0]) return res.status(404).json({ message: 'Staff member not found' });
 
-            const normalizedMobile = normalizeMobile(users[0].user_id);
+            const normalizedMobile = normalizeMobileWithCountry(users[0].user_id);
             const passwordWithSuffix = `${normalizedMobile}@Sarga`;
             const newHashedPassword = await bcrypt.hash(passwordWithSuffix, 10);
             await pool.query("UPDATE sarga_staff SET password = ?, is_first_login = 1 WHERE id = ?", [newHashedPassword, id]);

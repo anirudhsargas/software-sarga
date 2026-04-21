@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { pool } = require('../database');
 
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { normalizeMobile, auditLog, hasPendingCustomerBalance, asyncHandler } = require('../helpers');
+const { normalizeMobileWithCountry, auditLog, hasPendingCustomerBalance, asyncHandler } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
 
 // --- USER ID CHANGE REQUESTS ---
@@ -153,11 +153,15 @@ router.post('/requests/customer-change/:id/review', authenticateToken, authorize
 
             if (request.action === 'EDIT') {
                 const payload = request.payload ? JSON.parse(request.payload) : {};
-                const normalizedMobile = payload.mobile ? normalizeMobile(payload.mobile) : null;
+                // Normalize payload.mobile with optional payload.countryCode using helper
+                let normalizedMobile = null;
+                if (payload.mobile) {
+                    normalizedMobile = normalizeMobileWithCountry(payload.mobile, payload.countryCode);
+                }
 
-                if (normalizedMobile && normalizedMobile.length !== 10) {
+                if (normalizedMobile && (!(normalizedMobile.startsWith('+') || normalizedMobile.length === 10))) {
                     await connection.rollback();
-                    return res.status(400).json({ message: 'Mobile number must be 10 digits' });
+                    return res.status(400).json({ message: 'Invalid mobile number' });
                 }
 
                 await connection.query(

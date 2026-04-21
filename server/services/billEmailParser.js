@@ -103,6 +103,16 @@ async function processParsedEmail(parsed, uid, imap) {
     }
     console.log(`Matched branch_id: ${branch_id} for connection_id: ${consumer}`);
 
+    // Ensure this consumer/connection is recorded in utility connections for the branch
+    try {
+      const [[{ cnt }]] = await pool.query('SELECT COUNT(*) as cnt FROM sarga_utility_connections WHERE branch_id = ? AND utility_type = ? AND connection_id = ?', [branch_id, utility_type, consumer]);
+      if (Number(cnt) === 0) {
+        await pool.query('INSERT INTO sarga_utility_connections (branch_id, utility_type, connection_id, label, created_at) VALUES (?, ?, ?, ?, NOW())', [branch_id, utility_type, consumer, consumer]);
+      }
+    } catch (err) {
+      console.warn('Connection insert failed:', err.message);
+    }
+
     // Duplicate check
     try {
       const [[{ cnt }]] = await pool.query('SELECT COUNT(*) as cnt FROM sarga_utility_bills WHERE connection_id = ? AND bill_date = ?', [consumer, bill_date]);

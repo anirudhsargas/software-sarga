@@ -11,6 +11,7 @@ import './Jobs.css';
 import { useOptimistic } from '../hooks/useOptimistic';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
+import { formatForDisplay, telHref } from '../utils/phone';
 
 // ── Priority helpers ──
 const URGENCY_CONFIG = {
@@ -559,7 +560,7 @@ const Jobs = () => {
                                             <td>
                                                 <div className="stack-xs">
                                                     <span className="text-sm font-medium">{j.customer_name}</span>
-                                                    <span className="text-xs muted">+91 {j.customer_mobile}</span>
+                                                    <span className="text-xs muted">{formatForDisplay(j.customer_mobile)}</span>
                                                 </div>
                                             </td>
                                             <td className="text-sm">

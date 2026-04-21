@@ -68,14 +68,18 @@ export default function AnomalyPanel() {
     return (
         <div style={{ margin: '0 0 16px', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--card-bg, #fff)' }}>
             {/* Header bar */}
-            <button
+            <div
+                role="button"
+                tabIndex={0}
                 onClick={() => setExpanded(e => !e)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(x => !x); } }}
                 style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
-                    padding: '12px 16px', border: 'none', cursor: 'pointer',
+                    padding: '12px 16px', cursor: 'pointer',
                     background: highCount > 0 ? '#fef2f2' : '#fffbeb',
                     color: highCount > 0 ? '#b91c1c' : '#92400e',
                     fontWeight: 600, fontSize: '14px',
+                    border: '0'
                 }}
             >
                 <Shield size={18} />
@@ -92,7 +96,7 @@ export default function AnomalyPanel() {
                     <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                 </button>
                 {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
+            </div>
 
             {/* Anomaly list */}
             {expanded && (

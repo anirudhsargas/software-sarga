@@ -50,6 +50,20 @@ module.exports = (upload, removeUploadFile) => {
                         FOREIGN KEY (product_id) REFERENCES sarga_products(id) ON DELETE CASCADE
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`
             );
+
+            await pool.query(
+                `CREATE TABLE IF NOT EXISTS sarga_product_links (
+                    id INT NOT NULL AUTO_INCREMENT,
+                    product_id INT NOT NULL,
+                    name VARCHAR(150) NOT NULL,
+                    url VARCHAR(1000) NOT NULL,
+                    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY idx_product_links_product (product_id),
+                    CONSTRAINT fk_product_links_product
+                        FOREIGN KEY (product_id) REFERENCES sarga_products(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`
+            );
         } catch (err) {
             console.warn('products migration warning:', err.message);
         }
@@ -464,6 +478,20 @@ module.exports = (upload, removeUploadFile) => {
                 }
             }
 
+            const links = typeof req.body.links === 'string' ? JSON.parse(req.body.links) : (req.body.links || []);
+            if (links && links.length > 0) {
+                for (const link of links) {
+                    const linkName = String(link.name || '').trim();
+                    const linkUrl = String(link.url || '').trim();
+                    if (linkName && linkUrl) {
+                        await connection.query(
+                            "INSERT INTO sarga_product_links (product_id, name, url) VALUES (?, ?, ?)",
+                            [productId, linkName, linkUrl]
+                        );
+                    }
+                }
+            }
+
             await connection.commit();
             invalidateHierarchyCache();
 
@@ -525,6 +553,22 @@ module.exports = (upload, removeUploadFile) => {
                         "INSERT INTO sarga_product_extras_template (product_id, purpose, amount) VALUES (?, ?, ?)",
                         [id, extra.purpose, extra.amount]
                     );
+                }
+            }
+
+            // Update Links: DELETE and INSERT
+            const links = typeof req.body.links === 'string' ? JSON.parse(req.body.links) : (req.body.links || []);
+            await connection.query("DELETE FROM sarga_product_links WHERE product_id = ?", [id]);
+            if (links && links.length > 0) {
+                for (const link of links) {
+                    const linkName = String(link.name || '').trim();
+                    const linkUrl = String(link.url || '').trim();
+                    if (linkName && linkUrl) {
+                        await connection.query(
+                            "INSERT INTO sarga_product_links (product_id, name, url) VALUES (?, ?, ?)",
+                            [id, linkName, linkUrl]
+                        );
+                    }
                 }
             }
 
@@ -871,6 +915,7 @@ module.exports = (upload, removeUploadFile) => {
 
             const [slabs] = await pool.query("SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC", [product.id]);
             const [extras] = await pool.query("SELECT * FROM sarga_product_extras_template WHERE product_id = ?", [product.id]);
+            const [links] = await pool.query("SELECT id, name, url FROM sarga_product_links WHERE product_id = ? ORDER BY id ASC", [product.id]);
 
             res.json({
                 ...product,
@@ -879,7 +924,8 @@ module.exports = (upload, removeUploadFile) => {
                 company_code: resolvedCompanyCode,
                 size: resolvedSize,
                 slabs,
-                extras
+                extras,
+                links
             });
         } catch (err) {
             res.status(500).json({ message: 'Database error' });

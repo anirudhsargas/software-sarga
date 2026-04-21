@@ -10,6 +10,8 @@ import ImageCropModal from '../components/ImageCropModal';
 import Pagination from '../components/Pagination';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
+import CountryCodeSelect from '../components/CountryCodeSelect';
+import { formatForDisplay, telHref } from '../utils/phone';
 
 // Memoized staff row
 const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword }) => (
@@ -33,7 +35,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
         </td>
         <td>{s.role}</td>
         <td>{s.branch_name || 'N/A'}</td>
-        <td>+91 {s.user_id || s.mobile}</td>
+        <td>{formatForDisplay(s.user_id || s.mobile)}</td>
         <td>{new Date(s.created_at).toLocaleDateString()}</td>
         <td>
             {isAdmin ? (
@@ -69,9 +71,9 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                     <button
                         className="btn btn-ghost"
                         style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
-                        onClick={(e) => {
+                            onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedStaff({ ...s, countryCode: '+91' });
+                            setSelectedStaff({ ...s, countryCode: s.countryCode || '+91' });
                             setEditStaffImage(null);
                             setEditStaffPreview('');
                             setShowEditModal(true);
@@ -465,7 +467,10 @@ const StaffManagement = () => {
                             </div>
                             <div>
                                 <label className="label">Mobile Number</label>
-                                <input type="tel" name="newStaffMobile" className="input-field" placeholder="10-digit mobile" value={newStaff.mobile} onChange={e => setNewStaff({...newStaff, mobile: validateMobile(e.target.value)})} required />
+                                <div className="row gap-sm">
+                                    <CountryCodeSelect value={newStaff.countryCode} onChange={(val) => setNewStaff({...newStaff, countryCode: val})} />
+                                    <input type="tel" name="newStaffMobile" className="input-field" placeholder="10-digit mobile" value={newStaff.mobile} onChange={e => setNewStaff({...newStaff, mobile: validateMobile(e.target.value)})} required />
+                                </div>
                             </div>
                             <div>
                                 <label className="label">Branch</label>
@@ -532,7 +537,10 @@ const StaffManagement = () => {
                             </div>
                             <div>
                                 <label className="label">Mobile Number</label>
-                                <input type="tel" name="editStaffMobile" className="input-field" value={selectedStaff.user_id} onChange={e => setSelectedStaff({...selectedStaff, user_id: validateMobile(e.target.value)})} required />
+                                <div className="row gap-sm">
+                                    <CountryCodeSelect value={selectedStaff?.countryCode || '+91'} onChange={(val) => setSelectedStaff({...selectedStaff, countryCode: val})} />
+                                    <input type="tel" name="editStaffMobile" className="input-field" value={selectedStaff.user_id} onChange={e => setSelectedStaff({...selectedStaff, user_id: validateMobile(e.target.value)})} required />
+                                </div>
                             </div>
                             <div>
                                 <label className="label">Branch</label>

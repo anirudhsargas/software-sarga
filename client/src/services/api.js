@@ -42,33 +42,68 @@ const api = axios.create({
     baseURL: API_URL,
     timeout: 30000
 });
-
-// --- Request Deduplication ---
+// --- Request Deduplication & Response Caching ---
 const pendingRequests = new Map();
-
-/** Deduplicated GET: If same request fires twice, only make one API call */
-export const deduplicatedGet = async (url) => {
-    if (pendingRequests.has(url)) {
-        return pendingRequests.get(url); // Return existing promise
-    }
-    const promise = api.get(url).finally(() => pendingRequests.delete(url));
-    pendingRequests.set(url, promise);
-    return promise;
-};
-
-// --- Response Caching for Stable Data ---
 const cache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-/** Cached GET: For stable data (products, branches, customers) */
-export const cachedGet = async (url) => {
-    const cached = cache.get(url);
-    if (cached && Date.now() - cached.time < CACHE_TTL) {
-        return cached.data; // Return from memory cache instantly
+// Keep original axios GET reference so we can override api.get safely
+const origGet = api.get.bind(api);
+
+const getRequestKey = (url, config) => {
+    const path = typeof url === 'string' ? url : (url && url.url) || '';
+    let params = '';
+    try {
+        if (config && config.params) params = JSON.stringify(config.params);
+    } catch (e) {
+        params = String(config.params || '');
     }
-    const response = await api.get(url);
-    cache.set(url, { data: response, time: Date.now() });
+    return `${path}|${params}`;
+};
+
+/** Deduplicated GET: If same request fires twice, only make one API call */
+export const deduplicatedGet = async (url, config) => {
+    const key = getRequestKey(url, config);
+    if (pendingRequests.has(key)) return pendingRequests.get(key);
+    const promise = origGet(url, config).finally(() => pendingRequests.delete(key));
+    pendingRequests.set(key, promise);
+    return promise;
+};
+
+/** Cached GET: For stable data (products, branches, customers) */
+export const cachedGet = async (url, config) => {
+    const key = getRequestKey(url, config);
+    const cached = cache.get(key);
+    if (cached && Date.now() - cached.time < CACHE_TTL) {
+        return cached.data; // Return cached axios response
+    }
+    const response = await origGet(url, config);
+    cache.set(key, { data: response, time: Date.now() });
     return response;
+};
+
+// Override api.get to provide automatic caching + dedup by default.
+// Callers can opt-out by passing `{ _noCache: true }` in the config.
+api.get = function (url, config) {
+    if (config && config._noCache) return origGet(url, config);
+    const key = getRequestKey(url, config);
+    const cached = cache.get(key);
+    if (cached && Date.now() - cached.time < CACHE_TTL) {
+        return Promise.resolve(cached.data);
+    }
+    if (pendingRequests.has(key)) return pendingRequests.get(key);
+    const p = origGet(url, config)
+        .then((res) => {
+            cache.set(key, { data: res, time: Date.now() });
+            pendingRequests.delete(key);
+            return res;
+        })
+        .catch((err) => {
+            pendingRequests.delete(key);
+            throw err;
+        });
+    pendingRequests.set(key, p);
+    return p;
 };
 
 const createIdempotencyKey = (prefix = 'req') => (typeof crypto !== 'undefined' && crypto.randomUUID

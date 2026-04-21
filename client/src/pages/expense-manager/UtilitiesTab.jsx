@@ -40,6 +40,13 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
   const [multipleConsumers, setMultipleConsumers] = useState(false);
   const [billEntries, setBillEntries] = useState([]);
 
+  // Connections management
+  const [connections, setConnections] = useState([]);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+  const [showConnectionsModal, setShowConnectionsModal] = useState(false);
+  const [newConnection, setNewConnection] = useState({ connection_id: '', label: '' });
+  const [connectionSaving, setConnectionSaving] = useState(false);
+
   const [fetchingEmail, setFetchingEmail] = useState(false);
   const [fetchReport, setFetchReport] = useState(null);
   const [showFetchReport, setShowFetchReport] = useState(false);
@@ -146,6 +153,41 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
     setShowBillForm(true);
     setMultipleConsumers(false);
     setBillEntries([{ connection_id: '', amount: '', bill_number: '' }]);
+    // fetch saved connections for this utility
+    fetchConnections(utilType);
+  };
+
+  const fetchConnections = async (utilityType) => {
+    setConnectionsLoading(true);
+    try {
+      const r = await api.get('/utility-connections', { params: { utility_type: utilityType } });
+      setConnections(r.data.rows || []);
+    } catch (err) {
+      console.warn('Failed to fetch utility connections', err);
+    } finally {
+      setConnectionsLoading(false);
+    }
+  };
+
+  const addConnection = async (utilityType) => {
+    if (!newConnection.connection_id) return;
+    setConnectionSaving(true);
+    try {
+      await api.post('/utility-connections', { utility_type: utilityType, connection_id: newConnection.connection_id, label: newConnection.label || null });
+      setNewConnection({ connection_id: '', label: '' });
+      await fetchConnections(utilityType);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add connection');
+    } finally { setConnectionSaving(false); }
+  };
+
+  const deleteConnection = async (id, utilityType) => {
+    try {
+      await api.delete(`/utility-connections/${id}`);
+      await fetchConnections(utilityType);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete connection');
+    }
   };
 
   /* ── Submit Bill ── */
@@ -273,6 +315,9 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
             <button className="btn btn-sm" style={{ background: 'var(--warning)', color: 'var(--on-accent)', border: 'none' }} onClick={() => openBillForm(selectedUtility)}>
               <ShoppingCart size={14} /> Add Bill
+            </button>
+            <button className="btn btn-sm" onClick={() => { fetchConnections(selectedUtility); setShowConnectionsModal(true); }}>
+              <FileText size={14} /> Manage Connections
             </button>
             <button className="btn btn-primary btn-sm" onClick={() => onPayment({ type: 'Utility', payee_name: selectedUtility })}>
               <IndianRupee size={14} /> Make Payment
@@ -494,6 +539,48 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
         </div>
       )}
 
+      {/* ── Manage Connections Modal ── */}
+      {showConnectionsModal && (
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowConnectionsModal(false); }}>
+          <div className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
+            <div className="em-modal__header">
+              <h2>Manage Connections — {selectedUtility || billForm.utility_type || 'Utility'}</h2>
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowConnectionsModal(false)}><X size={18} /></button>
+            </div>
+            <div className="em-modal__body">
+              <div className="em-form-group" style={{ display: 'flex', gap: 8 }}>
+                <input className="em-input" placeholder="Connection ID" value={newConnection.connection_id} onChange={e => setNewConnection(n => ({ ...n, connection_id: e.target.value }))} />
+                <input className="em-input" placeholder="Label (optional)" value={newConnection.label} onChange={e => setNewConnection(n => ({ ...n, label: e.target.value }))} />
+                <button className="btn btn-primary" disabled={connectionSaving} onClick={() => addConnection(selectedUtility || billForm.utility_type)}>{connectionSaving ? 'Saving...' : 'Add'}</button>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                {connectionsLoading ? <div>Loading...</div> : (
+                  <div className="em-table-wrap">
+                    <table className="em-table">
+                      <thead><tr><th>Connection</th><th>Label</th><th style={{ width: 90 }}>Action</th></tr></thead>
+                      <tbody>
+                        {connections.map(c => (
+                          <tr key={c.id}>
+                            <td>{c.connection_id}</td>
+                            <td>{c.label || '—'}</td>
+                            <td>
+                              <button className="btn btn-ghost btn-icon btn-sm" title="Delete" onClick={() => deleteConnection(c.id, selectedUtility || billForm.utility_type)}><Trash2 size={14} /></button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="em-modal__footer">
+              <button className="btn btn-primary" onClick={() => setShowConnectionsModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Request Utility Type Modal (Front Office) ── */}
       {showRequestType && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowRequestType(false); }}>
@@ -567,7 +654,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                           <label>Consumers</label>
                           {billEntries.map((entry, idx) => (
                             <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                              <input className="em-input" placeholder="Connection ID" value={entry.connection_id} onChange={e => updateBillEntry(idx, 'connection_id', e.target.value)} />
+                              <input className="em-input" list="connections-list" placeholder="Connection ID" value={entry.connection_id} onChange={e => updateBillEntry(idx, 'connection_id', e.target.value)} />
                               <input className="em-input" placeholder="Amount (₹)" type="number" step="0.01" min="0" value={entry.amount} onChange={e => updateBillEntry(idx, 'amount', e.target.value)} />
                               <input className="em-input" placeholder="Bill Number (optional)" value={entry.bill_number} onChange={e => updateBillEntry(idx, 'bill_number', e.target.value)} />
                               <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => removeBillEntry(idx)} title="Remove"><Trash2 size={14} /></button>
@@ -580,7 +667,10 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                       ) : (
                         <div className="em-form-group">
                           <label>Connection ID / Account No.</label>
-                          <input className="em-input" value={billForm.connection_id} onChange={e => setBillForm(p => ({ ...p, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" />
+                          <input className="em-input" list="connections-list" value={billForm.connection_id} onChange={e => setBillForm(p => ({ ...p, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" />
+                          <datalist id="connections-list">
+                            {connections.map(c => (<option key={c.id} value={c.connection_id}>{c.label || c.connection_id}</option>))}
+                          </datalist>
                         </div>
                       )}
                     </>
@@ -600,7 +690,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                       </div>
                       <div className="em-form-group">
                         <label>Connection ID / Account No.</label>
-                        <input className="em-input" value={billForm.connection_id} onChange={e => setBillForm(p => ({ ...p, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" />
+                        <input className="em-input" list="connections-list" value={billForm.connection_id} onChange={e => setBillForm(p => ({ ...p, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" />
                       </div>
                     </>
                   )}

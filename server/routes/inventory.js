@@ -44,6 +44,30 @@ async function findInventoryByScannedCode(rawCode) {
     return { normalized, item: rows[0] || null, matchType: rows[0] ? 'sku' : null };
 }
 
+// Auto-migrate: ensure reserved_quantity column exists on sarga_inventory
+(async () => {
+    try {
+        const [[dbRow]] = await pool.query('SELECT DATABASE() AS db');
+        const dbName = dbRow?.db;
+        const [cols] = await pool.query(
+            `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'sarga_inventory' AND COLUMN_NAME = 'reserved_quantity'`,
+            [dbName]
+        );
+        if (!cols || cols.length === 0) {
+            await pool.query('ALTER TABLE sarga_inventory ADD COLUMN reserved_quantity INT NOT NULL DEFAULT 0');
+            try {
+                await pool.query('ALTER TABLE sarga_inventory ADD CONSTRAINT chk_inventory_reserved_quantity CHECK (reserved_quantity >= 0)');
+            } catch (e) {
+                // Some MySQL versions / engines ignore CHECK; non-fatal
+            }
+            console.log('[InventoryMigration] Added reserved_quantity column to sarga_inventory');
+        }
+    } catch (err) {
+        console.warn('inventory migration warning:', err.message || err);
+    }
+})();
+
 // --- INVENTORY ROUTES (Admin Only) ---
 
 // List Inventory with enhanced filtering
@@ -100,6 +124,14 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
         if (category) {
             whereClauses.push(`(LOWER(i.category) = LOWER(?) OR LOWER(ps.name) = LOWER(?))`);
             params.push(category, category);
+        }
+
+        // Vendor name filter (partial match)
+        const vendorName = req.query.vendor_name ? String(req.query.vendor_name).trim() : null;
+        if (vendorName) {
+            const v = vendorName.substring(0, 100);
+            whereClauses.push(`i.vendor_name LIKE ?`);
+            params.push(`%${v}%`);
         }
 
         // Status filter (stock level indicators)
@@ -849,6 +881,42 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             acc[item.id] = item;
             return acc;
         }, {});
+
+        // Identify paper inventory items (explicit categories + paper cut mappings)
+        const paperCategoryAliases = ['offset papers', 'laser papers', 'other papers', 'offset paper', 'laser paper', 'other paper'];
+        const isPaperCategory = (cat) => {
+            if (!cat) return false;
+            const c = String(cat).toLowerCase().trim();
+            if (c.includes('paper')) return true;
+            for (const alias of paperCategoryAliases) {
+                if (c.includes(alias)) return true;
+            }
+            return false;
+        };
+
+        try {
+            const [paperParentRows] = await pool.query(
+                'SELECT parent_inventory_item_id AS id FROM sarga_paper_cut_map WHERE parent_inventory_item_id IN (?)',
+                [itemIds]
+            );
+            const paperParentSet = new Set((paperParentRows || []).map(r => Number(r.id)).filter(Boolean));
+
+            const invalidPaperIds = dbItems
+                .filter(it => isPaperCategory(it.category) || paperParentSet.has(Number(it.id)))
+                .map(it => it.id);
+
+            if (invalidPaperIds.length > 0) {
+                return res.status(400).json({ message: 'Label printing is disabled for paper inventory items', invalid_item_ids: invalidPaperIds });
+            }
+        } catch (e) {
+            // If paper-mapping table doesn't exist or query fails, fall back to category-only detection
+            const invalidPaperIds = dbItems
+                .filter(it => isPaperCategory(it.category))
+                .map(it => it.id);
+            if (invalidPaperIds.length > 0) {
+                return res.status(400).json({ message: 'Label printing is disabled for paper inventory items', invalid_item_ids: invalidPaperIds });
+            }
+        }
 
         // Prepare label data based on user requested quantities
         const labelData = [];

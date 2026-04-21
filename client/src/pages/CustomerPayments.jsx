@@ -20,6 +20,7 @@ import { GST_RATE } from '../constants';
 import { Tag } from 'lucide-react';
 import offlineDb from '../services/offlineDb';
 import { useOnlineStatus } from '../hooks/useOffline';
+import { formatForDisplay, telHref } from '../utils/phone';
 
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
 
@@ -830,7 +831,7 @@ const CustomerPayments = () => {
                           <div className="cp-dropdown-avatar">{(c.name || '?').charAt(0).toUpperCase()}</div>
                           <div className="cp-dropdown-info">
                             <span className="cp-dropdown-name">{c.name}</span>
-                            <span className="cp-dropdown-mobile">{c.mobile ? `+91 ${c.mobile}` : 'No mobile'}</span>
+                            <span className="cp-dropdown-mobile">{c.mobile ? formatForDisplay(c.mobile) : 'No mobile'}</span>
                           </div>
                         </button>
                       ))
@@ -870,7 +871,7 @@ const CustomerPayments = () => {
             <div className="cp-customer-info">
               <span className="cp-customer-name">{formData.customer_name || 'No customer selected'}</span>
               <span className="cp-customer-meta">
-                {formData.customer_mobile ? `+91 ${formData.customer_mobile}` : 'No mobile'}
+                {formData.customer_mobile ? formatForDisplay(formData.customer_mobile) : 'No mobile'}
               </span>
             </div>
             <div className="cp-info-chips">

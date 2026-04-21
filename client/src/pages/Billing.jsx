@@ -18,6 +18,7 @@ import offlineDb from '../services/offlineDb';
 import { useOnlineStatus } from '../hooks/useOffline';
 import { syncManager } from '../services/syncWorkerManager';
 // All sync logic is now handled by syncWorker.js in a Web Worker.
+import SkeletonLoader from '../components/SkeletonLoader';
 
 // --- Upsell popup state ---
 const defaultUpsell = { open: false, suggestions: [], loading: false, baseProduct: null };
@@ -1546,7 +1547,18 @@ const Billing = () => {
           </div>
         </div>
 
-        {loading && <div className="muted">Loading products...</div>}
+        {loading && (
+          <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16, padding: '12px 0' }}>
+            <div>
+              <SkeletonLoader type="form" />
+            </div>
+            <div>
+              <SkeletonLoader type="cards" count={2} />
+              <div style={{ height: 12 }} />
+              <SkeletonLoader type="table" count={4} />
+            </div>
+          </div>
+        )}
         {customerSearching && <div className="muted" style={{ fontSize: '13px', padding: '4px 0' }}>Searching customer...</div>}
         {offlineMode && (
           <div style={{

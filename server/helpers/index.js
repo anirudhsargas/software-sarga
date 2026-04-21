@@ -1,9 +1,118 @@
 const { pool } = require('../database');
 
-const normalizeMobile = (value) => {
+/**
+ * Normalize a phone value to E.164 where possible.
+ * Returns a string:
+ *  - E.164 (e.g. +919876543210) when parsable and valid
+ *  - Fallback last-10-digits string when parsing fails (preserves legacy behavior)
+ *  - Empty string for null/undefined/empty input
+ *
+ * @param {string} value
+ * @param {string} [defaultRegion='IN'] - region hint for parsing non-international numbers
+ * @returns {string}
+ */
+const normalizeMobile = (value, defaultRegion = 'IN') => {
     if (value === null || value === undefined) return '';
-    const cleaned = String(value).replace(/\D/g, '');
+    const raw = String(value).trim();
+
+    // Try using google-libphonenumber if available
+    try {
+        const libph = require('google-libphonenumber');
+        const phoneUtil = libph.PhoneNumberUtil.getInstance();
+        const PNF = libph.PhoneNumberFormat;
+
+        let parsed;
+        try {
+            // Always provide a region hint; libphonenumber will accept international (+) numbers too.
+            parsed = phoneUtil.parse(raw, defaultRegion);
+
+            if (phoneUtil.isValidNumber(parsed)) {
+                return phoneUtil.format(parsed, PNF.E164);
+            }
+        } catch (err) {
+            // parsing failed - fall through to legacy fallback
+        }
+    } catch (err) {
+        // google-libphonenumber not installed / require failed - fall back
+    }
+
+    // Legacy fallback: return last 10 digits (keeps existing behavior for older data)
+    const cleaned = raw.replace(/\D/g, '');
     return cleaned.slice(-10);
+};
+
+/**
+ * Normalize a mobile value using an optional countryCode hint.
+ * - If `countryCode` is a 2-letter region (e.g. 'IN', 'US'), it is passed as the region hint to `normalizeMobile`.
+ * - If `countryCode` is a calling code string like '+91' or '91', it will be combined with `value` before normalization.
+ * - Falls back to calling `normalizeMobile(value)` on any error.
+ *
+ * @param {string} value
+ * @param {string} [countryCode]
+ * @param {string} [defaultRegion='IN']
+ * @returns {string}
+ */
+const normalizeMobileWithCountry = (value, countryCode, defaultRegion = 'IN') => {
+    try {
+        if (!countryCode) return normalizeMobile(value, defaultRegion);
+        const cc = String(countryCode).trim();
+        if (/^[A-Za-z]{2}$/.test(cc)) {
+            // Region hint like 'IN' or 'US'
+            return normalizeMobile(value, cc.toUpperCase());
+        }
+
+        // Treat as calling code like '+91' or '91'
+        let combined;
+        if (cc.startsWith('+')) combined = `${cc}${value}`;
+        else if (/^\d+$/.test(cc)) combined = `+${cc}${value}`;
+        else combined = `${value}`;
+        return normalizeMobile(combined, defaultRegion);
+    } catch (err) {
+        return normalizeMobile(value, defaultRegion);
+    }
+};
+
+/**
+ * Resolve a customer by a phone input. Tries phone_numbers.number_e164 first
+ * (if that table exists/populated), then falls back to matching RIGHT(mobile,10)
+ * on `sarga_customers` for legacy data.
+ *
+ * Returns either the phone_numbers row joined with customer info, or a
+ * customer row fallback: { customer_pk, customer_uid, name, mobile } or null.
+ */
+const resolveCustomerByE164 = async (phoneInput, opts = {}) => {
+    if (!phoneInput) return null;
+    const defaultRegion = opts.defaultRegion || 'IN';
+    const normalized = normalizeMobile(phoneInput, defaultRegion);
+
+    const digitsOnly = String(phoneInput || '').replace(/\D/g, '');
+    const last10 = digitsOnly.slice(-10);
+
+    // Prefer phone_numbers lookup (normalized to E.164 when possible)
+    try {
+        const [rows] = await pool.query(
+            `SELECT pn.id AS phone_id, pn.customer_id, pn.number_e164, pn.is_primary, c.id AS customer_pk, c.customer_uid, c.name, c.mobile
+             FROM phone_numbers pn
+             JOIN sarga_customers c ON c.id = pn.customer_id
+             WHERE pn.number_e164 = ? LIMIT 1`,
+            [normalized]
+        );
+        if (rows && rows[0]) return rows[0];
+    } catch (err) {
+        // phone_numbers table may not exist yet; fall back quietly
+        console.warn('resolveCustomerByE164: phone_numbers lookup failed, falling back to customers.mobile', err && err.message);
+    }
+
+    // Fallback: match last-10 digits against sarga_customers.mobile
+    if (last10 && last10.length === 10) {
+        const [rows2] = await pool.query(
+            `SELECT id AS customer_pk, customer_uid, name, mobile FROM sarga_customers WHERE RIGHT(mobile,10) = ? LIMIT 1`,
+            [last10]
+        );
+        return (rows2 && rows2[0]) ? rows2[0] : null;
+    }
+
+    return null;
 };
 
 const auditLog = async (userId, action, details, opts = {}) => {
@@ -240,6 +349,8 @@ const getTodayDate = () => {
 
 module.exports = {
     normalizeMobile,
+    normalizeMobileWithCountry,
+    resolveCustomerByE164,
     auditLog,
     auditFieldChanges,
     getNextInvoiceNumber,

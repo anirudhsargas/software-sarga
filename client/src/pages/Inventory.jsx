@@ -5,7 +5,6 @@ import auth from '../services/auth';
 import localDb from '../services/localDb';
 import Pagination from '../components/Pagination';
 import SecureImage from '../components/SecureImage';
-import PaperSidePanel from '../components/PaperSidePanel';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import SmartBillUpload from './expense-manager/SmartBillUpload';
@@ -48,8 +47,10 @@ const Inventory = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+    const [limit, setLimit] = useState(50);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [viewMode, setViewMode] = useState('list');
 
     const [hierarchy, setHierarchy] = useState([]);
     const [allProducts, setAllProducts] = useState([]);
@@ -57,6 +58,10 @@ const Inventory = () => {
     const [filterType, setFilterType] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
+    const [filterVendor, setFilterVendor] = useState('');
+    const [vendorSuggestions, setVendorSuggestions] = useState([]);
+    const [vendorSearchDebounced, setVendorSearchDebounced] = useState('');
+    const [showVendorSuggestions, setShowVendorSuggestions] = useState(false);
 
     const [selectedIds, setSelectedIds] = useState([]);
     const [printQuantities, setPrintQuantities] = useState({}); // { id: qty }
@@ -79,7 +84,7 @@ const Inventory = () => {
     const [branchAvailabilityLoading, setBranchAvailabilityLoading] = useState(false);
     const [branchRequestQtys, setBranchRequestQtys] = useState({}); // { branchId: qty string }
     const [showStockRequestsPanel, setShowStockRequestsPanel] = useState(false);
-    const [showPaperPanel, setShowPaperPanel] = useState(false);
+    
     const [stockRequests, setStockRequests] = useState([]);
     const [stockRequestsLoading, setStockRequestsLoading] = useState(false);
     const [stockRequestSaving, setStockRequestSaving] = useState(false);
@@ -91,8 +96,11 @@ const Inventory = () => {
 
     useEffect(() => {
         fetchInventory();
+    }, [page, debouncedSearch, filterType, filterCategory, filterStatus, filterVendor, limit]);
+
+    useEffect(() => {
         fetchHierarchy();
-    }, [page, debouncedSearch, filterType, filterCategory, filterStatus]);
+    }, []);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -101,6 +109,32 @@ const Inventory = () => {
         }, 500);
         return () => clearTimeout(timer);
     }, [searchTerm]);
+
+    useEffect(() => {
+        const t = setTimeout(() => {
+            setVendorSearchDebounced(filterVendor);
+        }, 300);
+        return () => clearTimeout(t);
+    }, [filterVendor]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const fetchSuggestions = async () => {
+            try {
+                if (!vendorSearchDebounced) {
+                    const all = await localDb.getVendors();
+                    if (!cancelled) setVendorSuggestions((all || []).slice(0, 10));
+                    return;
+                }
+                const res = await localDb.getVendors({ search: vendorSearchDebounced });
+                if (!cancelled) setVendorSuggestions((res || []).slice(0, 10));
+            } catch (err) {
+                console.error('Vendor suggestions error', err);
+            }
+        };
+        fetchSuggestions();
+        return () => { cancelled = true; };
+    }, [vendorSearchDebounced]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -130,12 +164,36 @@ const Inventory = () => {
                 item_type: filterType || undefined,
                 category: filterCategory || undefined,
                 status: filterStatus || undefined,
-                limit: 50
+                vendor_name: filterVendor || undefined,
+                limit: limit || 50
             };
             const res = await api.get('/inventory', { params });
-            setItems(res.data.data || []);
-            setTotal(res.data.total || 0);
-            setTotalPages(res.data.totalPages || 1);
+
+            // Support two types of responses:
+            // 1) Server-side paginated: { data: [...], total, totalPages }
+            // 2) Full array returned directly: [...]
+            const resp = res.data;
+            if (resp && Array.isArray(resp.data)) {
+                // Server-side pagination
+                setItems(resp.data || []);
+                setTotal(Number(resp.total) || resp.data.length || 0);
+                setTotalPages(Number(resp.totalPages) || Math.max(1, Math.ceil((Number(resp.total) || resp.data.length || 0) / limit)));
+            } else if (Array.isArray(resp)) {
+                // Backend returned full array; do client-side paging
+                const full = resp;
+                const totalLocal = full.length;
+                const totalPagesLocal = Math.max(1, Math.ceil(totalLocal / limit));
+                const start = (page - 1) * limit;
+                const pageItems = full.slice(start, start + limit);
+                setItems(pageItems);
+                setTotal(totalLocal);
+                setTotalPages(totalPagesLocal);
+            } else {
+                // Fallback
+                setItems(resp?.data || []);
+                setTotal(resp?.total || 0);
+                setTotalPages(resp?.totalPages || 1);
+            }
         } catch {
             setError('Failed to fetch inventory');
         } finally {
@@ -354,11 +412,33 @@ const Inventory = () => {
         });
         if (!isConfirmed) return;
 
+        // Optimistic UI: remove locally first to avoid full reload
+        const prevItems = items;
+        const prevTotal = total;
+        setItems((prev) => prev.filter((i) => i.id !== id));
+        setTotal(Math.max(0, prevTotal - 1));
+        setSelectedIds((prev) => prev.filter((i) => i !== id));
+
         try {
+            // If offline, delete locally and rely on sync worker
+            if (!navigator.onLine) {
+                await localDb.deleteInventoryItem(id);
+                toast.success('Inventory item deleted (offline). Will sync when online.');
+                // If this was the only item on the page, move back a page
+                if ((prevItems || []).length === 1 && page > 1) setPage((p) => p - 1);
+                return;
+            }
+
             await api.delete(`/inventory/${id}`);
             toast.success('Inventory item deleted');
-            fetchInventory();
+
+            // If this was the only item on the page, go back a page to avoid empty list
+            if ((prevItems || []).length === 1 && page > 1) setPage((p) => p - 1);
+            // otherwise avoid calling fetchInventory() to prevent a full reload
         } catch (err) {
+            // Revert optimistic update
+            setItems(prevItems);
+            setTotal(prevTotal);
             toast.error(err.response?.data?.message || 'Failed to delete item');
         }
     };
@@ -374,6 +454,16 @@ const Inventory = () => {
         return Math.max(1, Math.floor(stockQty || 1));
     };
 
+    // Paper category detection: explicitly recognise main paper categories
+    const paperCategoryAliases = ['offset papers', 'laser papers', 'other papers', 'offset paper', 'laser paper', 'other paper'];
+    const isPaperCategory = (cat) => {
+        if (!cat) return false;
+        const c = String(cat).toLowerCase().trim();
+        if (c.includes('paper')) return true;
+        for (const alias of paperCategoryAliases) if (c.includes(alias)) return true;
+        return false;
+    };
+
     const applyStockQuantitiesForSelected = () => {
         const next = {};
         items
@@ -387,11 +477,22 @@ const Inventory = () => {
     const handlePrintLabels = async () => {
         if (selectedIds.length === 0) return;
 
-        // Initialize print quantities with 1 for all selected
-        const initialQtys = {};
-        selectedIds.forEach(id => {
-            initialQtys[id] = 1;
+        // Filter out paper items from printable selection (explicit paper categories)
+        const printableIds = selectedIds.filter(id => {
+            const item = items.find(it => it.id === id);
+            return item && !isPaperCategory(item.category);
         });
+
+        if (printableIds.length === 0) {
+            toast.error('No printable items selected — paper inventory items cannot be printed');
+            return;
+        }
+        if (printableIds.length !== selectedIds.length) {
+            toast.warning('Paper items were excluded from the print selection');
+        }
+
+        const initialQtys = {};
+        printableIds.forEach(id => { initialQtys[id] = 1; });
         setPrintQuantities(initialQtys);
         setShowPrintModal(true);
     };
@@ -412,12 +513,17 @@ const Inventory = () => {
             return;
         }
 
-        const nextIds = newItems.map((item) => item.id);
+        // Exclude paper items from automatic-new-items printing
+        const printableNewItems = newItems.filter(item => !isPaperCategory(item.category));
+        if (printableNewItems.length === 0) {
+            toast.error('No printable new items found — paper inventory items are excluded from label printing');
+            return;
+        }
+        const nextIds = printableNewItems.map((item) => item.id);
         const nextQuantities = {};
-        newItems.forEach((item) => {
+        printableNewItems.forEach((item) => {
             nextQuantities[item.id] = getStockBasedPrintQty(item);
         });
-
         setSelectedIds(nextIds);
         setPrintQuantities(nextQuantities);
         setShowPrintModal(true);
@@ -426,10 +532,13 @@ const Inventory = () => {
     const generatePDF = async () => {
         setPrintingLabel(true);
         try {
-            const itemsToPrint = selectedIds.map(id => ({
-                id,
-                quantity_to_print: printQuantities[id] || 1
-            }));
+            const itemsToPrint = Object.keys(printQuantities).map(id => ({ id: Number(id), quantity_to_print: printQuantities[id] || 1 }));
+
+            if (itemsToPrint.length === 0) {
+                toast.error('No printable items selected');
+                setPrintingLabel(false);
+                return;
+            }
 
             const response = await api.post('/inventory/generate-labels',
                 { items: itemsToPrint },
@@ -550,16 +659,31 @@ const Inventory = () => {
                     </div>
                 </div>
                 <div className="row gap-sm">
+                        <div className="btn-group" role="group" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                                type="button"
+                                className={`btn btn-ghost ${viewMode === 'list' ? 'active' : ''}`}
+                                onClick={() => setViewMode('list')}
+                                title="List view"
+                            >
+                                <Eye size={16} />
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn btn-ghost ${viewMode === 'grid' ? 'active' : ''}`}
+                                onClick={() => setViewMode('grid')}
+                                title="Grid view"
+                            >
+                                <ImageIcon size={16} />
+                            </button>
+                        </div>
                     {items.length > 0 && (
                         <button className="btn btn-ghost" onClick={handlePrintNewItemsLabels}>
                             <Printer size={18} />
                             <span>Print New Item Labels</span>
                         </button>
                     )}
-                    <button className="btn btn-ghost" onClick={() => setShowPaperPanel(true)}>
-                        <Package size={18} />
-                        <span>Paper Panel</span>
-                    </button>
+                    
                     {selectedIds.length > 0 && (
                         <button className="btn btn-ghost" onClick={handlePrintLabels}>
                             <Printer size={18} />
@@ -639,13 +763,47 @@ const Inventory = () => {
                         <option value="low">Low Stock</option>
                     </select>
                 </div>
-                {(filterType || filterCategory || filterStatus) && (
+                <div className="input-group" style={{ maxWidth: '220px' }}>
+                    <input
+                        name="filterVendor"
+                        className="input-field py-xs"
+                        placeholder="Filter by vendor..."
+                        value={filterVendor}
+                        onChange={(e) => { setFilterVendor(e.target.value); setPage(1); }}
+                        onFocus={() => setShowVendorSuggestions(true)}
+                        onBlur={() => setShowVendorSuggestions(false)}
+                    />
+                    {showVendorSuggestions && vendorSuggestions.length > 0 && (
+                        <div className="dropdown mt-4" style={{ maxHeight: 240, overflowY: 'auto' }}>
+                            {vendorSuggestions.map(v => (
+                                <div key={v.id || v.name} className="dropdown-item" onMouseDown={() => { setFilterVendor(v.name); setPage(1); setShowVendorSuggestions(false); }}>
+                                    <div className="text-sm font-medium">{v.name}</div>
+                                    {v.phone && <div className="muted text-xs">{v.phone}</div>}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <div className="input-group" style={{ maxWidth: '140px' }}>
+                    <select
+                        name="perPage"
+                        className="input-field py-xs"
+                        value={limit}
+                        onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                    >
+                        <option value={20}>20 / page</option>
+                        <option value={50}>50 / page</option>
+                        <option value={100}>100 / page</option>
+                    </select>
+                </div>
+                {(filterType || filterCategory || filterStatus || filterVendor) && (
                     <button 
                         className="btn btn-ghost btn-sm" 
                         onClick={() => {
                             setFilterType('');
                             setFilterCategory('');
                             setFilterStatus('');
+                            setFilterVendor('');
                             setPage(1);
                         }}
                     >
@@ -662,126 +820,139 @@ const Inventory = () => {
             )}
 
             <div className="panel panel--tight">
-                <div className="table-scroll">
-                    <table className="table">
-                        <thead>
-                            <tr>
-                                <th style={{ width: '40px' }}>
-                                    <input
-                                        type="checkbox"
-                                        onChange={(e) => {
-                                            if (e.target.checked) setSelectedIds(items.map(i => i.id));
-                                            else setSelectedIds([]);
-                                        }}
-                                        checked={items.length > 0 && selectedIds.length === items.length}
-                                    />
-                                </th>
-                                <th>Item</th>
-                                <th>SKU</th>
-                                <th>Category</th>
-                                <th>Qty</th>
-                                <th>Unit</th>
-                                <th>Cost</th>
-                                <th>GST %</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
+                {viewMode === 'list' ? (
+                    <div className="table-scroll">
+                        <table className="table">
+                            <thead>
                                 <tr>
-                                    <td colSpan={10} className="text-center muted table-empty">
-                                        <Loader2 className="animate-spin" />
-                                    </td>
+                                    <th style={{ width: '40px' }}>
+                                        <input
+                                            type="checkbox"
+                                            onChange={(e) => {
+                                                if (e.target.checked) setSelectedIds(items.map(i => i.id));
+                                                else setSelectedIds([]);
+                                            }}
+                                            checked={items.length > 0 && selectedIds.length === items.length}
+                                        />
+                                    </th>
+                                    <th>Item</th>
+                                    <th>SKU</th>
+                                    <th>Category</th>
+                                    <th>Qty</th>
+                                    <th>Unit</th>
+                                    <th>Cost</th>
+                                    <th>GST %</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
                                 </tr>
-                            ) : items.length === 0 ? (
-                                <tr>
-                                    <td colSpan={10} className="text-center muted table-empty">
-                                        No inventory items found.
-                                    </td>
-                                </tr>
-                            ) : (
-                                items.map((item) => (
-                                    <tr key={item.id} className={selectedIds.includes(item.id) ? 'row-selected' : ''} style={{ cursor: 'pointer' }}>
-                                        <td onClick={(e) => e.stopPropagation()}>
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedIds.includes(item.id)}
-                                                onChange={() => toggleSelect(item.id)}
-                                            />
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan={10} className="text-center muted table-empty">
+                                            <Loader2 className="animate-spin" />
                                         </td>
-                                        <td onClick={() => openItemDetail(item.id)}>
-                                            <div className="row gap-sm items-center">
-                                                {item.product_image_url ? (
-                                                    <div style={{ width: 36, height: 36, borderRadius: 6, overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border)' }}>
-                                                        <SecureImage src={item.product_image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                    </div>
-                                                ) : (
-                                                    <div className="user-avatar avatar-sm">
-                                                        {item.linked_product_id ? <Link size={14} className="text-primary" /> : <Package size={16} />}
-                                                    </div>
-                                                )}
-                                                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                                    <span className="user-name">{item.name}</span>
-                                                    {item.product_image_url && (
-                                                        <span className="muted text-xs" style={{ fontFamily: 'monospace', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{getImageId(item.product_image_url)}</span>
+                                    </tr>
+                                ) : items.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={10} className="text-center muted table-empty">
+                                            No inventory items found.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    items.map((item) => (
+                                        <tr key={item.id} className={selectedIds.includes(item.id) ? 'row-selected' : ''} style={{ cursor: 'pointer' }}>
+                                            <td onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.includes(item.id)}
+                                                    onChange={() => toggleSelect(item.id)}
+                                                />
+                                            </td>
+                                            <td onClick={() => openItemDetail(item.id)}>
+                                                <div className="row gap-sm items-center">
+                                                    {item.product_image_url ? (
+                                                        <div style={{ width: 36, height: 36, borderRadius: 6, overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border)' }}>
+                                                            <SecureImage src={item.product_image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="user-avatar avatar-sm">
+                                                            {item.linked_product_id ? <Link size={14} className="text-primary" /> : <Package size={16} />}
+                                                        </div>
                                                     )}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                                        <span className="user-name">{item.name}</span>
+                                                        {item.product_image_url && (
+                                                            <span className="muted text-xs" style={{ fontFamily: 'monospace', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{getImageId(item.product_image_url)}</span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.sku || '-'}</td>
-                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.category || item.product_subcategory_name || '-'}</td>
-                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.quantity}</td>
-                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.unit}</td>
-                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{Number(item.cost_price).toFixed(2)}</td>
-                                        <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.gst_rate}%</td>
-                                        <td onClick={() => openItemDetail(item.id)}>
-                                            <span className={`badge ${getStatus(item) === 'low' ? 'badge--warn' : 'badge--ok'}`}>
-                                                {getStatus(item) === 'low' ? 'Low' : 'OK'}
-                                            </span>
-                                        </td>
-                                        {isAdmin && (
-                                            <td>
-                                                <div className="row gap-sm">
-                                                    {item.item_type === 'Consumable' && (
-                                                        <>
-                                                            <button
-                                                                className="btn btn-ghost"
-                                                                title="Consume Stock"
-                                                                onClick={() => {
-                                                                    setConsumeData({ id: item.id, quantity: '', notes: '' });
-                                                                    setShowConsumeModal(true);
-                                                                }}
-                                                            >
-                                                                <Minus size={16} className="text-danger" />
-                                                            </button>
-                                                            <button
-                                                                className="btn btn-ghost"
-                                                                title="Restock"
-                                                                onClick={() => {
-                                                                    setRestockData({ id: item.id, quantity: '', cost: item.cost_price, notes: '' });
-                                                                    setShowRestockModal(true);
-                                                                }}
-                                                            >
-                                                                <Plus size={16} className="text-primary" />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                    <button
-                                                        className="btn btn-ghost"
-                                                        onClick={() => {
-                                                            setSelectedItem(normalizeItem(item));
-                                                            setShowEditModal(true);
-                                                        }}
-                                                    >
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-ghost btn-danger"
-                                                        onClick={() => handleDeleteItem(item.id)}
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                            </td>
+                                            <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.sku || '-'}</td>
+                                            <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.category || item.product_subcategory_name || '-'}</td>
+                                            <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.quantity}</td>
+                                            <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.unit}</td>
+                                            <td className="text-sm" onClick={() => openItemDetail(item.id)}>{Number(item.cost_price).toFixed(2)}</td>
+                                            <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.gst_rate}%</td>
+                                            <td onClick={() => openItemDetail(item.id)}>
+                                                <span className={`badge ${getStatus(item) === 'low' ? 'badge--warn' : 'badge--ok'}`}>
+                                                    {getStatus(item) === 'low' ? 'Low' : 'OK'}
+                                                </span>
+                                            </td>
+                                            {isAdmin && (
+                                                <td>
+                                                    <div className="row gap-sm">
+                                                        {item.item_type === 'Consumable' && (
+                                                            <>
+                                                                <button
+                                                                    className="btn btn-ghost"
+                                                                    title="Consume Stock"
+                                                                    onClick={() => {
+                                                                        setConsumeData({ id: item.id, quantity: '', notes: '' });
+                                                                        setShowConsumeModal(true);
+                                                                    }}
+                                                                >
+                                                                    <Minus size={16} className="text-danger" />
+                                                                </button>
+                                                                <button
+                                                                    className="btn btn-ghost"
+                                                                    title="Restock"
+                                                                    onClick={() => {
+                                                                        setRestockData({ id: item.id, quantity: '', cost: item.cost_price, notes: '' });
+                                                                        setShowRestockModal(true);
+                                                                    }}
+                                                                >
+                                                                    <Plus size={16} className="text-primary" />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        <button
+                                                            className="btn btn-ghost"
+                                                            onClick={() => {
+                                                                setSelectedItem(normalizeItem(item));
+                                                                setShowEditModal(true);
+                                                            }}
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-ghost btn-danger"
+                                                            onClick={() => handleDeleteItem(item.id)}
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-ghost"
+                                                            title="Request from Another Branch"
+                                                            onClick={() => openStockRequestModal(item)}
+                                                        >
+                                                            <ArrowLeftRight size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                            {!isAdmin && (
+                                                <td>
                                                     <button
                                                         className="btn btn-ghost"
                                                         title="Request from Another Branch"
@@ -789,28 +960,66 @@ const Inventory = () => {
                                                     >
                                                         <ArrowLeftRight size={16} />
                                                     </button>
-                                                </div>
-                                            </td>
-                                        )}
-                                        {!isAdmin && (
-                                            <td>
-                                                <button
-                                                    className="btn btn-ghost"
-                                                    title="Request from Another Branch"
-                                                    onClick={() => openStockRequestModal(item)}
-                                                >
-                                                    <ArrowLeftRight size={16} />
-                                                </button>
-                                            </td>
-                                        )}
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div >
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+                        {loading ? (
+                            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 24 }}>
+                                <Loader2 className="animate-spin" />
+                            </div>
+                        ) : items.length === 0 ? (
+                            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 24 }} className="muted">
+                                No inventory items found.
+                            </div>
+                        ) : items.map(item => (
+                            <div key={item.id} className={`card`} style={{ padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                    <div style={{ width: 84, height: 84, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface-2)', cursor: 'pointer' }} onClick={() => openItemDetail(item.id)}>
+                                        {item.product_image_url ? <SecureImage src={item.product_image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>No Image</div>}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div style={{ minWidth: 0 }}>
+                                                <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                                                <div className="muted text-xs" style={{ marginTop: 6 }}>{item.sku || '-'}</div>
+                                            </div>
+                                            <div style={{ marginLeft: 8, textAlign: 'right' }}>
+                                                <div className="muted text-sm">{item.quantity}</div>
+                                                <div className="muted text-xs">{item.unit}</div>
+                                            </div>
+                                        </div>
+                                        <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+                                            <div className="muted text-sm">{item.category || item.product_subcategory_name || '-'}</div>
+                                            <div style={{ flex: 1 }} />
+                                            <div>
+                                                <span className={`badge ${getStatus(item) === 'low' ? 'badge--warn' : 'badge--ok'}`}>{getStatus(item) === 'low' ? 'Low' : 'OK'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <button className="btn btn-ghost" onClick={() => { setSelectedItem(normalizeItem(item)); setShowEditModal(true); }}><Edit2 size={16} /></button>
+                                        <button className="btn btn-ghost btn-danger" onClick={() => handleDeleteItem(item.id)}><Trash2 size={16} /></button>
+                                        <button className="btn btn-ghost" onClick={() => openStockRequestModal(item)} title="Request from Another Branch"><ArrowLeftRight size={16} /></button>
+                                    </div>
+                                    <div style={{ color: 'var(--muted)', fontSize: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <div>₹{Number(item.cost_price || 0).toFixed(2)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div >
-            <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
+            <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} limit={limit} loading={loading} />
 
             {
                 showAddModal && (
@@ -1563,7 +1772,7 @@ const Inventory = () => {
                 />
             )}
 
-            <PaperSidePanel open={showPaperPanel} onClose={() => setShowPaperPanel(false)} />
+            
 
             {/* Product Detail Dashboard Modal */}
             {showDetailModal && (

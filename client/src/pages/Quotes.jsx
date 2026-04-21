@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { FileText, Plus, Edit2, Trash2, Send, ArrowRight, Search, X, ChevronDown, Loader2, UserSquare, Package, Clock } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { FileText, Plus, Edit2, Trash2, Send, ArrowRight, Search, X, ChevronDown, Loader2, UserSquare, Package, Clock, Camera } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import ScannerModal from '../components/ScannerModal';
 
 const statusColors = {
     draft: '#6b7280', sent: '#3b82f6', accepted: '#22c55e', rejected: '#ef4444',
@@ -17,6 +18,83 @@ export default function Quotes() {
     const [statusFilter, setStatusFilter] = useState('');
     const [customers, setCustomers] = useState([]);
     const [form, setForm] = useState(emptyForm());
+
+    // Product picker (reuse Billing methods)
+    const [hierarchy, setHierarchy] = useState([]);
+    const [selectedCategoryId, setSelectedCategoryId] = useState('');
+    const [selectedSubcategoryId, setSelectedSubcategoryId] = useState('');
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [qrInput, setQrInput] = useState('');
+    const [showScanner, setShowScanner] = useState(false);
+
+    useEffect(() => {
+        const fetchHierarchy = async () => {
+            try {
+                const { data } = await api.get('/product-hierarchy');
+                const serverHierarchy = Array.isArray(data) ? data : (data?.data || []);
+                setHierarchy(serverHierarchy);
+                if (serverHierarchy.length > 0) {
+                    setSelectedCategoryId(serverHierarchy[0].id);
+                    const subs = serverHierarchy[0].subcategories || [];
+                    if (subs.length > 0) setSelectedSubcategoryId(subs[0].id);
+                }
+            } catch (err) {
+                // ignore silently — product picker is optional for quotes
+            }
+        };
+        fetchHierarchy();
+    }, []);
+
+    const normalizeCode = (value) => {
+        let code = String(value || '');
+        code = code.replace(/^\uFEFF/, '');
+        code = code.trim();
+        code = code.replace(/\s+/g, '');
+        code = code.toUpperCase();
+        return code;
+    };
+
+    const qrLookupMap = useMemo(() => {
+        const map = new Map();
+        hierarchy.forEach((cat) => {
+            (cat.subcategories || []).forEach((sub) => {
+                (sub.products || []).forEach((prod) => {
+                    const code = String(prod.product_code || '').replace(/\s+/g, '').toUpperCase();
+                    if (code) map.set(code, { product: prod, catId: cat.id, subId: sub.id });
+                });
+            });
+        });
+        return map;
+    }, [hierarchy]);
+
+    const handleQrLookup = async (providedCode) => {
+        const code = providedCode || qrInput;
+        const normalized = normalizeCode(code);
+        if (!normalized) { toast.error('Enter a product code'); return; }
+        const entry = qrLookupMap.get(normalized);
+        if (entry) {
+            setSelectedCategoryId(entry.catId || '');
+            setSelectedSubcategoryId(entry.subId || '');
+            setSelectedProduct(entry.product);
+            setQrInput('');
+            toast.success(`Selected product: ${entry.product.name}`);
+            return;
+        }
+        toast.error('No product found for this code');
+    };
+
+    const addSelectedProductItem = () => {
+        if (!selectedProduct) { toast.error('Select a product first'); return; }
+        const item = {
+            item_name: selectedProduct.name || '',
+            description: selectedProduct.description || '',
+            quantity: 1,
+            unit_price: Number(selectedProduct.sell_price || selectedProduct.price || 0)
+        };
+        setForm(f => ({ ...f, items: [...f.items, item] }));
+        setSelectedProduct(null);
+        toast.success(`Added: ${item.item_name}`);
+    };
 
     function emptyForm() {
         return {
@@ -256,6 +334,58 @@ export default function Quotes() {
                                 </div>
                                 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    {/* Product picker (Billing-like) */}
+                                    <div style={{ marginBottom: 8, padding: 12, border: '1px dashed var(--border)', borderRadius: 12 }}>
+                                        <div style={{ marginBottom: 8 }}>
+                                            <label style={{ fontSize: 13, fontWeight: 600 }}>Scan / Search Product</label>
+                                            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                                                <input
+                                                    className="input-field"
+                                                    value={qrInput}
+                                                    onChange={e => setQrInput(e.target.value)}
+                                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleQrLookup(); } }}
+                                                    placeholder="Scan code or type product code"
+                                                    style={{ ...inputStyle }}
+                                                />
+                                                <button onClick={() => setShowScanner(true)} style={{ ...btnStyle('var(--primary)') }}><Camera size={14} /> Scan</button>
+                                                <button onClick={handleQrLookup} style={{ ...btnStyle() }}>Find</button>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                                            <div style={{ flex: 1, minWidth: 160 }}>
+                                                <label style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Category</label>
+                                                <select className="input-field" value={selectedCategoryId} onChange={e => setSelectedCategoryId(e.target.value)} style={{ ...inputStyle }}>
+                                                    <option value="">Select category</option>
+                                                    {hierarchy.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 160 }}>
+                                                <label style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Sub-category</label>
+                                                <select className="input-field" value={selectedSubcategoryId} onChange={e => setSelectedSubcategoryId(e.target.value)} style={{ ...inputStyle }}>
+                                                    <option value="">Select sub-category</option>
+                                                    {(hierarchy.find(c => String(c.id) === String(selectedCategoryId))?.subcategories || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 200 }}>
+                                                <label style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Product</label>
+                                                <select className="input-field" value={selectedProduct?.id || ''} onChange={e => {
+                                                    const subs = (hierarchy.find(c => String(c.id) === String(selectedCategoryId))?.subcategories || []);
+                                                    const products = (subs.find(s => String(s.id) === String(selectedSubcategoryId))?.products || []);
+                                                    const p = products.find(p => String(p.id) === String(e.target.value));
+                                                    setSelectedProduct(p || null);
+                                                }} style={{ ...inputStyle }}>
+                                                    <option value="">Select product</option>
+                                                    {((hierarchy.find(c => String(c.id) === String(selectedCategoryId))?.subcategories || []).find(s => String(s.id) === String(selectedSubcategoryId))?.products || []).map(p => (
+                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                                                <button onClick={addSelectedProductItem} style={{ ...btnStyle('var(--primary)') }}>Add to Quote</button>
+                                            </div>
+                                        </div>
+                                    </div>
                                     {form.items.map((item, i) => (
                                         <div key={i} className="quote-item-card" style={{ 
                                             padding: 18, 
@@ -319,6 +449,8 @@ export default function Quotes() {
                                 </div>
                             </div>
                         </div>
+
+                        <ScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={(code) => handleQrLookup(code)} />
 
                         <div style={{ padding: '20px 24px', background: 'var(--surface-lowest)', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
                             <button onClick={() => setShowForm(false)} style={{ ...btnStyle('transparent'), color: 'var(--text-muted)', fontWeight: 500 }}>Cancel</button>

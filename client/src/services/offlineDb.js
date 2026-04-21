@@ -140,11 +140,21 @@ function openDb() {
         req.onsuccess = () => {
             dbInstance = req.result;
             dbInstance.onversionchange = () => {
+                // Close local handle so future openDb() calls will recreate the connection.
                 dbInstance.close();
                 dbInstance = null;
                 dbPromise = null;
-                console.log('[OfflineDB] Database version changed elsewhere. Reloading...');
-                window.location.reload();
+                // Do NOT force a full page reload here — that was closing user dialogs unexpectedly.
+                // Instead, emit an application event so the UI can choose how to notify the user.
+                console.warn('[OfflineDB] Database version changed elsewhere. Connection closed.');
+                try {
+                    if (typeof window !== 'undefined' && window.dispatchEvent) {
+                        window.dispatchEvent(new CustomEvent('offline-db-versionchange'));
+                    }
+                } catch (e) {
+                    // Fallback: log but avoid throwing
+                    console.warn('[OfflineDB] Failed to dispatch versionchange event:', e);
+                }
             };
             resolve(dbInstance);
         };

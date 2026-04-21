@@ -115,6 +115,20 @@
   animation: cd-rotate 0.7s linear infinite;
 }
 
+/* ── Skeleton placeholders (shimmer) ── */
+.skeleton {
+  background: linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.06) 37%, rgba(0,0,0,0.04) 63%);
+  background-size: 400% 100%;
+  animation: cd-shimmer 1.2s linear infinite;
+  border-radius: 4px;
+}
+@keyframes cd-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.skeleton--text { height: 14px; width: 100%; }
+.skeleton--title { height: 22px; width: 220px; border-radius: 6px; }
+.skeleton--avatar { width: 64px; height: 64px; border-radius: 50%; }
+.skeleton--kpi { height: 28px; width: 90px; border-radius: 8px; }
+.skeleton--block { height: 120px; width: 100%; border-radius: 12px; }
+
 .cd-profile {
   display: flex;
   align-items: flex-start;

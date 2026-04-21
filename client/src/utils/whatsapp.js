@@ -1,12 +1,14 @@
 const fmtCurrency = (v) => '₹' + (parseFloat(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 
+import { normalizeToE164, e164ToWhatsAppDigits } from './phone';
+
 function formatPhone(mobile) {
   if (!mobile) return '';
-  const digits = String(mobile).replace(/\D/g, '');
-  if (digits.startsWith('91') && digits.length === 12) return digits;
-  if (digits.length === 10) return '91' + digits;
-  return digits;
+  const e164 = normalizeToE164(mobile);
+  if (!e164) return '';
+  // wa.me expects numbers without the leading +
+  return e164ToWhatsAppDigits(e164);
 }
 
 export function whatsappUrl(mobile, message) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDebounce } from '../../hooks/useDebounce';
 import {
-  Store, IndianRupee, ChevronDown, ChevronUp, ArrowLeft,
+  Store, IndianRupee, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ArrowLeft,
   Phone, MapPin, FileText, User, TrendingUp, TrendingDown,
   Search, Package, Loader2, Plus, Pencil, Trash2, X, ShoppingCart, Calendar
 } from 'lucide-react';
@@ -103,6 +103,8 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [vendorLedger, setVendorLedger] = useState(null);
   const [loadingLedger, setLoadingLedger] = useState(false);
+  const [statementFrom, setStatementFrom] = useState('');
+  const [statementTo, setStatementTo] = useState('');
   const [fullBillState, setFullBillState] = useState({ open: false, vendorBillId: null });
   // Pagination state
   const [paginatedVendors, setPaginatedVendors] = useState([]);
@@ -151,6 +153,12 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
 
+  // Add Inventory Item (from vendor side panel)
+  const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
+  const [addInventoryForm, setAddInventoryForm] = useState({ name: '', sku: '', category: '', unit: 'pcs', quantity: 0, reorder_level: 0, cost_price: 0, sell_price: 0, hsn: '', gst_rate: 0, item_type: 'Retail', vendor_name: '', vendor_contact: '', purchase_link: '' });
+  const [addInventorySaving, setAddInventorySaving] = useState(false);
+  const [addInventoryError, setAddInventoryError] = useState('');
+
   // Fetch vendors paginated
   const fetchVendors = useCallback(async (pageNum = 1, search = '') => {
     setLoadingVendors(true);
@@ -178,29 +186,102 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
     // eslint-disable-next-line
   }, [page, debouncedSearchTerm, limit]);
 
-  const openVendorDetail = useCallback(async (v) => {
-    setSelectedVendor(v);
+  const fetchVendorLedger = useCallback(async (vendor, from = '', to = '') => {
+    if (!vendor) return;
     setLoadingLedger(true);
     try {
-      // TODO: Switch to API if available, else fallback to localDb
-      // const ledger = await api.get(`/vendors/${v.id}/statement`);
-      // setVendorLedger(ledger.data);
-      setVendorLedger({ rows: [], payments: [], purchases: [] });
-      // fetch aggregated items purchased from this vendor
-      try {
-        const ir = await api.get(`/vendors/${v.id}/items`);
-        setVendorItems(ir.data.items || []);
-        setSelectedItemIds(new Set());
-        setSelectAll(false);
-      } catch (e) {
-        setVendorItems([]);
+      let ledgerData = null;
+      const params = new URLSearchParams();
+      if (from) params.append('from', from);
+      if (to) params.append('to', to);
+
+      if (navigator.onLine) {
+        try {
+          const r = await api.get(`/vendors/${vendor.id}/statement${params.toString() ? `?${params.toString()}` : ''}`);
+          ledgerData = r.data || null;
+        } catch (err) {
+          ledgerData = null;
+        }
       }
-    } catch {
-      setVendorLedger({ rows: [], payments: [], purchases: [] });
-    } finally {
-      setLoadingLedger(false);
-    }
+
+      if (!ledgerData) {
+        // fallback to local DB
+        try {
+          ledgerData = await localDb.getVendorLedger(vendor.id);
+        } catch (err) {
+          ledgerData = { rows: [], payments: [], purchases: [] };
+        }
+      }
+
+      // filter by date range if provided
+      const fromDate = from ? new Date(from) : null;
+      const toDate = to ? new Date(new Date(to).setHours(23,59,59,999)) : null;
+
+      const filterByRange = (arr, dateFieldCandidates = ['payment_date','bill_date','_date']) => {
+        if (!Array.isArray(arr)) return [];
+        if (!fromDate && !toDate) return arr;
+        return arr.filter(item => {
+          const ds = dateFieldCandidates.map(f => item[f]).find(Boolean);
+          if (!ds) return false;
+          const d = new Date(ds);
+          if (fromDate && d < fromDate) return false;
+          if (toDate && d > toDate) return false;
+          return true;
+        });
+      };
+
+      const rows = filterByRange(ledgerData.rows || ledgerData.rows || [], ['_date','bill_date','payment_date']);
+      const payments = filterByRange(ledgerData.payments || [], ['payment_date','created_at']);
+      const purchases = filterByRange(ledgerData.purchases || [], ['bill_date','created_at']);
+
+      setVendorLedger({ rows, payments, purchases });
+    } finally { setLoadingLedger(false); }
   }, []);
+
+  const openVendorDetail = useCallback(async (v) => {
+    setSelectedVendor(v);
+    setVendorItems([]);
+    setSelectedItemIds(new Set());
+    setSelectAll(false);
+    // Load ledger (server preferred, fallback to local)
+    await fetchVendorLedger(v, statementFrom, statementTo);
+    // fetch aggregated items purchased from this vendor (best-effort)
+    try {
+      const ir = await api.get(`/vendors/${v.id}/items`);
+      setVendorItems(ir.data.items || []);
+    } catch (e) {
+      setVendorItems([]);
+    }
+  }, [fetchVendorLedger, statementFrom, statementTo]);
+
+  const openAddInventoryForVendor = (v) => {
+    setAddInventoryForm({ name: '', sku: '', category: '', unit: 'pcs', quantity: 0, reorder_level: 0, cost_price: 0, sell_price: 0, hsn: '', gst_rate: 0, item_type: 'Retail', vendor_name: v.name || '', vendor_contact: v.phone || '', purchase_link: '' });
+    setAddInventoryError('');
+    setShowAddInventoryModal(true);
+  };
+
+  const handleAddInventorySubmit = async (e) => {
+    e.preventDefault();
+    if (!addInventoryForm.name || !addInventoryForm.name.trim()) { setAddInventoryError('Name is required'); return; }
+    setAddInventorySaving(true); setAddInventoryError('');
+    try {
+      await localDb.saveInventoryItem({
+        ...addInventoryForm,
+        quantity: Number(addInventoryForm.quantity) || 0,
+        reorder_level: Number(addInventoryForm.reorder_level) || 0,
+        cost_price: Number(addInventoryForm.cost_price) || 0,
+        sell_price: Number(addInventoryForm.sell_price) || 0,
+        gst_rate: Number(addInventoryForm.gst_rate) || 0
+      });
+      toast.success('Inventory item added locally');
+      setShowAddInventoryModal(false);
+      // refresh vendor detail items
+      if (selectedVendor) openVendorDetail(selectedVendor);
+    } catch (err) {
+      console.error('Add inventory error', err);
+      setAddInventoryError('Failed to save inventory item');
+    } finally { setAddInventorySaving(false); }
+  };
 
   const openFullBillFromTransaction = (row) => {
     if (row?._entry_type !== 'Purchase' || !row?.id) return;
@@ -425,6 +506,299 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
     toast.success('Download started');
   };
 
+  const downloadVendorStatement = async () => {
+    if (!selectedVendor) { toast.error('No vendor selected'); return; }
+    try {
+      let ledgerData = vendorLedger;
+      // Try server API if available
+      try {
+        const r = await api.get(`/vendors/${selectedVendor.id}/statement`);
+        ledgerData = r.data || ledgerData;
+      } catch (err) {
+        // swallow — we'll fallback to local ledger/purchases/payments
+      }
+
+      const rows = (ledgerData?.rows || []);
+      if (rows.length > 0) {
+        const csvRows = [["Date","Type","Ref","Description","Amount"]];
+        rows.forEach(r => {
+          const date = fmtDate(r.payment_date || r.bill_date || r._date);
+          const type = r._entry_type || '';
+          const ref = r.reference_number || r.bill_number || '';
+          const desc = r.description || r.payee_name || '';
+          const amt = Number(r.amount || r.total_amount || 0);
+          const signed = type === 'Purchase' ? -amt : amt;
+          csvRows.push([date, type, ref, desc, signed]);
+        });
+        const csv = csvRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-\.]/g, '');
+        a.download = `vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast.success('Download started');
+        return;
+      }
+
+      // Fallback: plain text summary using purchases/payments/vendorItems
+      const purchases = (ledgerData?.purchases || vendorLedger?.purchases || []);
+      const payments = (ledgerData?.payments || vendorLedger?.payments || []);
+      const lines = [];
+      lines.push(`Vendor Statement — ${selectedVendor.name || ''}`);
+      lines.push('');
+      if (purchases.length) {
+        lines.push('Purchases:');
+        purchases.forEach(p => {
+          lines.push(`${fmtDate(p.bill_date || p.date)} | ${p.bill_number || p.reference || ''} | ${p.description || ''} | ₹${fmt(Number(p.total_amount || p.amount || 0))}`);
+        });
+        lines.push('');
+      }
+      if (payments.length) {
+        lines.push('Payments:');
+        payments.forEach(p => {
+          lines.push(`${fmtDate(p.payment_date || p.date)} | ${p.reference_number || ''} | ${p.description || ''} | ₹${fmt(Number(p.amount || 0))}`);
+        });
+        lines.push('');
+      }
+      if (!purchases.length && !payments.length && vendorItems.length) {
+        lines.push('Items Purchased (aggregated):');
+        vendorItems.forEach(it => {
+          lines.push(`${it.item_name || ''} | Qty: ${it.total_purchased || 0} | Last Unit Cost: ${it.last_unit_cost != null ? '₹' + it.last_unit_cost : '—'}`);
+        });
+      }
+
+      const blob2 = new Blob([lines.join('\n')], { type: 'text/plain' });
+      const url2 = URL.createObjectURL(blob2);
+      const a2 = document.createElement('a');
+      a2.href = url2;
+      a2.download = `vendor-statement-${selectedVendor?.id || 'vendor'}.txt`;
+      document.body.appendChild(a2);
+      a2.click();
+      a2.remove();
+      URL.revokeObjectURL(url2);
+      toast.success('Download started');
+    } catch (err) {
+      console.error('Download statement error', err);
+      toast.error('Failed to prepare statement');
+    }
+  };
+
+  const downloadVendorStatementPdf = async () => {
+    if (!selectedVendor) { toast.error('No vendor selected'); return; }
+    try {
+      let ledgerData = vendorLedger;
+      const params = new URLSearchParams();
+      if (statementFrom) params.append('from', statementFrom);
+      if (statementTo) params.append('to', statementTo);
+
+      if (navigator.onLine) {
+        try {
+          const r = await api.get(`/vendors/${selectedVendor.id}/statement${params.toString() ? `?${params.toString()}` : ''}`);
+          ledgerData = r.data || ledgerData;
+        } catch (err) {
+          try { ledgerData = await localDb.getVendorLedger(selectedVendor.id); } catch (e) { ledgerData = { rows: [], payments: [], purchases: [] }; }
+        }
+      } else {
+        try { ledgerData = await localDb.getVendorLedger(selectedVendor.id); } catch (e) { ledgerData = { rows: [], payments: [], purchases: [] }; }
+      }
+
+      // apply client-side date filtering if needed
+      const fromDate = statementFrom ? new Date(statementFrom) : null;
+      const toDate = statementTo ? new Date(new Date(statementTo).setHours(23,59,59,999)) : null;
+      const filterByRange = (arr, fields = ['_date','bill_date','payment_date']) => {
+        if (!Array.isArray(arr)) return [];
+        if (!fromDate && !toDate) return arr;
+        return arr.filter(item => {
+          const ds = fields.map(f => item[f]).find(Boolean);
+          if (!ds) return false;
+          const d = new Date(ds);
+          if (fromDate && d < fromDate) return false;
+          if (toDate && d > toDate) return false;
+          return true;
+        });
+      };
+
+      const rows = filterByRange(ledgerData?.rows || []);
+
+      // Build statement HTML
+      const companyName = (window?.SARGA_COMPANY_NAME || document.title || 'Sarga Print Centre');
+      const companyAddr = (window?.SARGA_COMPANY_ADDR || '');
+      const toName = selectedVendor.name || '';
+      const asOf = new Date().toISOString().slice(0,10);
+
+      // Compute running balance
+      let running = 0;
+      const tableRowsHtml = (rows.length ? rows : []).map(r => {
+        const date = fmtDate(r.payment_date || r.bill_date || r._date);
+        const type = r._entry_type || '';
+        const ref = r.reference_number || r.bill_number || '';
+        const desc = r.description || r.payee_name || '';
+        const amt = Number(r.amount || r.total_amount || 0);
+        const debit = type === 'Purchase' ? amt : 0;
+        const credit = type === 'Payment' ? amt : 0;
+        running = running + credit - debit;
+        return `<tr>
+          <td style="padding:6px 8px;white-space:nowrap">${date}</td>
+          <td style="padding:6px 8px">${type}</td>
+          <td style="padding:6px 8px">${ref}</td>
+          <td style="padding:6px 8px">${desc}</td>
+          <td style="padding:6px 8px;text-align:right">${debit ? '₹' + fmt(debit) : ''}</td>
+          <td style="padding:6px 8px;text-align:right">${credit ? '₹' + fmt(credit) : ''}</td>
+          <td style="padding:6px 8px;text-align:right">₹${fmt(Math.abs(running))}</td>
+        </tr>`;
+      }).join('');
+
+      const summaryHtml = `
+        <div style="font-family:Arial, Helvetica, sans-serif; color:#000; padding:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+            <div>
+              <h2 style="margin:0;">STATEMENT OF ACCOUNT</h2>
+              <div style="margin-top:8px;font-size:12px">
+                <div>To: ${toName}</div>
+                ${selectedVendor.address ? `<div>${selectedVendor.address}</div>` : ''}
+                ${selectedVendor.phone ? `<div>Tel: ${selectedVendor.phone}</div>` : ''}
+                ${selectedVendor.gstin ? `<div>GSTIN: ${selectedVendor.gstin}</div>` : ''}
+                ${ (statementFrom || statementTo) ? `<div style="margin-top:6px;font-weight:600">Period: ${statementFrom || '...'} — ${statementTo || '...'}</div>` : '' }
+              </div>
+            </div>
+            <div style="text-align:right;font-size:12px">
+              <div>${companyName}</div>
+              <div>${companyAddr}</div>
+              <div>As on: ${asOf}</div>
+            </div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #ddd;font-size:12px">
+            <thead>
+              <tr style="background:#f3f4f6;font-weight:700">
+                <th style="padding:8px;text-align:left">DATE</th>
+                <th style="padding:8px;text-align:left">TRANSACTION</th>
+                <th style="padding:8px;text-align:left">REF</th>
+                <th style="padding:8px;text-align:left">DESCRIPTION</th>
+                <th style="padding:8px;text-align:right">DEBIT</th>
+                <th style="padding:8px;text-align:right">CREDIT</th>
+                <th style="padding:8px;text-align:right">BALANCE</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRowsHtml || '<tr><td colspan="7" style="padding:16px;text-align:center;color:#666">No transactions found</td></tr>'}
+            </tbody>
+          </table>
+          <div style="margin-top:12px;font-size:11px;color:#444">Our terms are 30 days net, however if payment is not made within 30 days an appropriate finance charge may be applied.</div>
+        </div>
+      `;
+
+      // Create hidden but renderable container (kept in DOM, invisible)
+      const container = document.createElement('div');
+      container.id = 'vendor-statement-print-area';
+      container.style.position = 'fixed';
+      container.style.left = '0px';
+      container.style.top = '0px';
+      container.style.opacity = '0';
+      container.style.pointerEvents = 'none';
+      container.style.width = '794px';
+      container.style.background = '#fff';
+      container.innerHTML = summaryHtml;
+      document.body.appendChild(container);
+
+      // Helper to load script
+      const loadScript = (src) => new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) return resolve();
+        const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
+      });
+
+      // Try to load jspdf + html2canvas from CDN
+      try {
+        if (!window.jspdf) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+        if (!window.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+        // If there are no transactions, generate a simple textual PDF with vendor details
+        if (!rows || rows.length === 0) {
+          const margin = 40;
+          let yPos = 40;
+          doc.setFontSize(16);
+          doc.text('STATEMENT OF ACCOUNT', margin, yPos);
+          yPos += 24;
+          doc.setFontSize(11);
+          doc.text(`To: ${selectedVendor.name || ''}`, margin, yPos);
+          yPos += 14;
+          if (selectedVendor.address) { doc.text(String(selectedVendor.address), margin, yPos); yPos += 12; }
+          if (selectedVendor.phone) { doc.text(`Tel: ${selectedVendor.phone}`, margin, yPos); yPos += 12; }
+          if (selectedVendor.gstin) { doc.text(`GSTIN: ${selectedVendor.gstin}`, margin, yPos); yPos += 12; }
+          if (statementFrom || statementTo) { doc.text(`Period: ${statementFrom || '...'} — ${statementTo || '...'}`, margin, yPos); yPos += 18; }
+          doc.text('No transactions found for the selected period.', margin, yPos);
+          yPos += 20;
+          doc.setFontSize(10);
+          doc.text(`Generated: ${new Date().toLocaleString()}`, margin, yPos);
+          const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-\.]/g, '');
+          doc.save(`vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.pdf`);
+          container.remove();
+          toast.success('PDF downloaded');
+          return;
+        }
+
+        // Give the browser a moment to render the hidden element
+        await new Promise(r => setTimeout(r, 250));
+        // Sanity check: ensure container has content
+        if (!container.innerText || !container.innerText.trim()) {
+          console.warn('Vendor statement HTML appears empty');
+        }
+        // Render the HTML to a canvas using html2canvas
+        const canvas = await window.html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        const imgWidthPx = canvas.width;
+        const imgHeightPx = canvas.height;
+        const pdfWidthPt = doc.internal.pageSize.getWidth();
+        const pdfHeightPt = doc.internal.pageSize.getHeight();
+
+        // pixels per PDF point
+        const pxPerPt = imgWidthPx / pdfWidthPt;
+        const sliceHeightPx = Math.floor(pdfHeightPt * pxPerPt);
+
+        let y = 0;
+        while (y < imgHeightPx) {
+          const h = Math.min(sliceHeightPx, imgHeightPx - y);
+          const tmpCanvas = document.createElement('canvas');
+          tmpCanvas.width = imgWidthPx;
+          tmpCanvas.height = h;
+          const tCtx = tmpCanvas.getContext('2d');
+          tCtx.drawImage(canvas, 0, y, imgWidthPx, h, 0, 0, imgWidthPx, h);
+          const imgData = tmpCanvas.toDataURL('image/png');
+          const sliceHeightPt = h / pxPerPt;
+          if (y > 0) doc.addPage();
+          doc.addImage(imgData, 'PNG', 0, 0, pdfWidthPt, sliceHeightPt);
+          y += h;
+        }
+
+        const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-\.]/g, '');
+        doc.save(`vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.pdf`);
+        container.remove();
+        toast.success('PDF downloaded');
+        return;
+      } catch (err) {
+        // fallback to print window
+        console.warn('PDF generation failed, falling back to print', err);
+        const w = window.open('', '_blank');
+        w.document.write(`<html><head><title>Statement - ${selectedVendor.name || ''}</title></head><body>${summaryHtml}</body></html>`);
+        w.document.close();
+        w.focus();
+        // give time for resources to load then call print
+        setTimeout(() => { try { w.print(); } catch (e) { console.error(e); } }, 500);
+        container.remove();
+        toast.success('Opened print dialog (save as PDF)');
+        return;
+      }
+    } catch (err) {
+      console.error('Download PDF error', err);
+      toast.error('Failed to prepare PDF');
+    }
+  };
+
   const sendWhatsApp = () => {
     const items = vendorItems.filter(i => selectedItemIds.has(i.inventory_id));
     if (!items.length) { toast.error('Select items to send'); return; }
@@ -500,6 +874,12 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
             <button className="btn btn-sm" style={{ background: 'var(--info, #2563eb)', color: 'var(--on-accent)' }} onClick={() => openBillForm(v)}>
               <Package size={14} /> Bill with Items
             </button>
+            <button className="btn btn-sm" style={{ background: 'var(--neutral, #6b7280)', color: 'var(--on-accent)' }} onClick={() => openAddInventoryForVendor(v)}>
+              <Plus size={14} /> Add Item
+            </button>
+            <button className="btn btn-sm" style={{ background: 'var(--neutral, #374151)', color: 'var(--on-accent)' }} onClick={downloadVendorStatementPdf}>
+              <FileText size={14} /> Download Statement (PDF)
+            </button>
             <button className="btn btn-primary btn-sm" onClick={() => onPayment({ type: 'Vendor', vendor_id: v.id, payee_name: v.name })}>
               <IndianRupee size={14} /> Make Payment
             </button>
@@ -534,7 +914,15 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
 
         {/* Transaction History */}
         <div className="em-card">
-          <div className="em-card__title"><FileText size={16} /> Transaction History</div>
+          <div className="em-card__title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div><FileText size={16} /> Transaction History</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="date" className="em-input" value={statementFrom} onChange={e => setStatementFrom(e.target.value)} />
+              <input type="date" className="em-input" value={statementTo} onChange={e => setStatementTo(e.target.value)} />
+              <button className="btn btn-ghost btn-sm" onClick={() => fetchVendorLedger(selectedVendor, statementFrom, statementTo)}>Apply</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setStatementFrom(''); setStatementTo(''); fetchVendorLedger(selectedVendor, '', ''); }}>Clear</button>
+            </div>
+          </div>
           {loadingLedger ? <div className="em-loading"><Loader2 className="spin" size={20} /> Loading...</div> : rows.length > 0 ? (
             <div className="em-table-wrap">
               <table className="em-table">
@@ -944,6 +1332,64 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
         vendorBillId={fullBillState.vendorBillId}
         onClose={() => setFullBillState({ open: false, vendorBillId: null })}
       />
+      {/* Add Inventory Item Modal (from vendor detail) */}
+      {showAddInventoryModal && (
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowAddInventoryModal(false); }}>
+          <div className="em-modal" onClick={e => e.stopPropagation()}>
+            <div className="em-modal__header">
+              <h2>Add Inventory Item</h2>
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowAddInventoryModal(false)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleAddInventorySubmit}>
+              <div className="em-modal__body">
+                {addInventoryError && <div className="em-error" style={{ marginBottom: 12 }}>{addInventoryError}</div>}
+                <div className="em-form-grid">
+                  <div className="em-form-group">
+                    <label>Item Name *</label>
+                    <input className="em-input" value={addInventoryForm.name} onChange={e => setAddInventoryForm(p => ({ ...p, name: e.target.value }))} required />
+                  </div>
+                  <div className="em-form-group">
+                    <label>SKU</label>
+                    <input className="em-input" value={addInventoryForm.sku} onChange={e => setAddInventoryForm(p => ({ ...p, sku: e.target.value }))} />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Category</label>
+                    <input className="em-input" value={addInventoryForm.category} onChange={e => setAddInventoryForm(p => ({ ...p, category: e.target.value }))} />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Quantity</label>
+                    <input className="em-input" type="number" min="0" value={addInventoryForm.quantity} onChange={e => setAddInventoryForm(p => ({ ...p, quantity: e.target.value }))} />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Unit</label>
+                    <input className="em-input" value={addInventoryForm.unit} onChange={e => setAddInventoryForm(p => ({ ...p, unit: e.target.value }))} />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Cost Price</label>
+                    <input className="em-input" type="number" step="0.01" min="0" value={addInventoryForm.cost_price} onChange={e => setAddInventoryForm(p => ({ ...p, cost_price: e.target.value }))} />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Sell Price</label>
+                    <input className="em-input" type="number" step="0.01" min="0" value={addInventoryForm.sell_price} onChange={e => setAddInventoryForm(p => ({ ...p, sell_price: e.target.value }))} />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Vendor</label>
+                    <input className="em-input" value={addInventoryForm.vendor_name} onChange={e => setAddInventoryForm(p => ({ ...p, vendor_name: e.target.value }))} />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Vendor Contact</label>
+                    <input className="em-input" value={addInventoryForm.vendor_contact} onChange={e => setAddInventoryForm(p => ({ ...p, vendor_contact: e.target.value }))} />
+                  </div>
+                </div>
+              </div>
+              <div className="em-modal__footer">
+                <button type="button" className="btn btn-ghost" onClick={() => setShowAddInventoryModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={addInventorySaving}>{addInventorySaving ? 'Saving...' : 'Add Item'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

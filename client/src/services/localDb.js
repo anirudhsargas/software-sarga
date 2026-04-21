@@ -33,6 +33,7 @@
 
 import offlineDb from './offlineDb';
 import api from './api';
+import { normalizeToE164 } from '../utils/phone';
 
 // ──────────────────── Helpers ────────────────────
 
@@ -40,7 +41,11 @@ import api from './api';
 const generateLocalId = (prefix = 'LOCAL') =>
     `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const normalizeCustomerMobile = (mobile) => String(mobile || '').replace(/\D/g, '');
+const normalizeCustomerMobile = (mobile) => {
+    // Prefer E.164 when user provides it; fallback to legacy last-10 digits
+    const e164 = normalizeToE164(mobile);
+    return e164 || String(mobile || '').replace(/\D/g, '').slice(-10);
+};
 
 const isTemporaryCustomerId = (id) => typeof id === 'string' && id.startsWith('CUST-');
 
@@ -388,6 +393,11 @@ export async function getInventory(filters = {}) {
         } else if (filters.status === 'ok') {
             items = items.filter(i => Number(i.quantity) > Number(i.reorder_level || 0));
         }
+    }
+
+    if (filters.vendor_name) {
+        const q = filters.vendor_name.toLowerCase();
+        items = items.filter(i => i.vendor_name && i.vendor_name.toLowerCase().includes(q));
     }
 
     const page = filters.page || 1;

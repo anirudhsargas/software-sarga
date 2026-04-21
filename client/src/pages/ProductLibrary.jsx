@@ -3,7 +3,7 @@ import api, { imgUrl } from '../services/api';
 import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
 
-import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon, ChevronLeft, Search, Filter, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
 import {
@@ -69,6 +69,13 @@ const ProductLibrary = () => {
     const [loading, setLoading] = useState(true);
     // Navigation state: [] = categories, [catId] = subcategories, [catId, subId] = products
     const [viewPath, setViewPath] = useState([]);
+    // Pagination & filtering for products view
+    const PRODUCTS_PER_PAGE = 24;
+    const [productPage, setProductPage] = useState(1);
+    const [productSearch, setProductSearch] = useState('');
+    const [filterVendor, setFilterVendor] = useState('all');
+    const [filterCalcType, setFilterCalcType] = useState('all');
+    const [selectedProductIds, setSelectedProductIds] = useState([]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -106,6 +113,7 @@ const ProductLibrary = () => {
     const [imageRequestSubmitting, setImageRequestSubmitting] = useState(false);
     const [pendingImageRequests, setPendingImageRequests] = useState([]);
     const [loadingPendingImageRequests, setLoadingPendingImageRequests] = useState(false);
+    const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
 
     const [newProduct, setNewProduct] = useState({
         name: '',
@@ -120,6 +128,7 @@ const ProductLibrary = () => {
         has_double_side_rate: false,
         slabs: [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
         extras: [],
+        links: [],
         isPhysicalProduct: false // Checklist: show in inventory
     });
 
@@ -169,19 +178,97 @@ const ProductLibrary = () => {
         }
     };
 
+    const resetProductFilters = () => {
+        setProductPage(1);
+        setProductSearch('');
+        setFilterVendor('all');
+        setFilterCalcType('all');
+        setSelectedProductIds([]);
+    };
+
+    useEffect(() => {
+        // Clear selection when navigating between views or when hierarchy changes
+        setSelectedProductIds([]);
+    }, [viewPath.join('-'), hierarchy]);
+
+    const toggleSelectProduct = (id) => {
+        setSelectedProductIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+
+    const exportSelectedCSV = () => {
+        const fields = ['id', 'name', 'product_code', 'company_name', 'size', 'calculation_type', 'description'];
+        const selected = (filteredProducts || []).filter(p => selectedProductIds.includes(p.id));
+        if (!selected.length) return toast.error('No products selected');
+        const csv = [fields.join(',')].concat(selected.map(p => fields.map(f => `"${String(p[f] || '').replace(/"/g, '""')}"`).join(','))).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `products_export_${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const bulkDeleteSelected = async () => {
+        if (!selectedProductIds.length) return;
+        const isConfirmed = await confirm({
+            title: 'Delete products',
+            message: `Are you sure you want to delete ${selectedProductIds.length} product(s)? This cannot be undone.`,
+            confirmText: 'Delete',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
+
+        try {
+            const results = await Promise.allSettled(selectedProductIds.map(id => api.delete(`/products/${id}`)));
+            const failed = results.filter(r => r.status === 'rejected').length;
+            if (failed === 0) toast.success('Deleted selected products');
+            else toast.success(`Deleted ${selectedProductIds.length - failed} products. ${failed} failed.`);
+            setSelectedProductIds([]);
+            fetchHierarchy();
+        } catch (err) {
+            toast.error('Error deleting selected products');
+        }
+    };
+
+    const bulkToggleActive = async () => {
+        if (!selectedProductIds.length) return;
+        const selected = (filteredProducts || []).filter(p => selectedProductIds.includes(p.id));
+        const anyActive = selected.some(p => p.is_active === 1 || p.is_active === true);
+        const isConfirmed = await confirm({
+            title: anyActive ? 'Disable products' : 'Enable products',
+            message: `Are you sure you want to ${anyActive ? 'disable' : 'enable'} ${selectedProductIds.length} product(s)?`,
+            confirmText: anyActive ? 'Disable' : 'Enable',
+            type: anyActive ? 'danger' : 'primary'
+        });
+        if (!isConfirmed) return;
+
+        try {
+            await Promise.allSettled(selectedProductIds.map(id => api.patch(`/products/${id}/toggle-active`)));
+            toast.success(`${anyActive ? 'Disabled' : 'Enabled'} selected products`);
+            setSelectedProductIds([]);
+            fetchHierarchy();
+        } catch (err) {
+            toast.error('Error updating products');
+        }
+    };
+
     const toggleCat = (id) => {
         setViewPath([id]);
+        resetProductFilters();
     };
 
     const toggleSub = (subId) => {
         // Find category for this sub
         const cat = hierarchy.find(c => c.subcategories.some(s => s.id === subId));
         if (cat) setViewPath([cat.id, subId]);
+        resetProductFilters();
     };
 
     const navigateBack = (index) => {
         if (index === -1) setViewPath([]);
         else setViewPath(viewPath.slice(0, index + 1));
+        resetProductFilters();
     };
 
     const getCurrentViewInfo = () => {
@@ -211,9 +298,57 @@ const ProductLibrary = () => {
     };
 
     const viewInfo = getCurrentViewInfo();
+
+    // Filter + pagination derived values (only for products/subcategory view)
+    const allProducts = viewInfo.type === 'subcategory' ? viewInfo.items : [];
+
+    // Unique vendor list for dropdown
+    const vendorOptions = viewInfo.type === 'subcategory'
+        ? [...new Set(allProducts.map(p => p.company_name).filter(Boolean))].sort()
+        : [];
+    // Unique calc types for dropdown
+    const calcTypeOptions = viewInfo.type === 'subcategory'
+        ? [...new Set(allProducts.map(p => p.calculation_type).filter(Boolean))].sort()
+        : [];
+
+    const filteredProducts = allProducts.filter(p => {
+        const q = productSearch.trim().toLowerCase();
+        const matchSearch = !q ||
+            (p.name || '').toLowerCase().includes(q) ||
+            (p.product_code || '').toLowerCase().includes(q) ||
+            (p.company_name || '').toLowerCase().includes(q) ||
+            (p.size || '').toLowerCase().includes(q);
+        const matchVendor = filterVendor === 'all' || (p.company_name || '') === filterVendor;
+        const matchCalc = filterCalcType === 'all' || (p.calculation_type || '') === filterCalcType;
+        return matchSearch && matchVendor && matchCalc;
+    });
+
+    const totalProducts = filteredProducts.length;
+    const totalProductPages = Math.max(1, Math.ceil(totalProducts / PRODUCTS_PER_PAGE));
+    const pagedProducts = filteredProducts.slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE);
+    const hasActiveFilters = productSearch.trim() !== '' || filterVendor !== 'all' || filterCalcType !== 'all';
+
     const availableSubcategories = selectedCatId
         ? hierarchy.find(c => c.id === selectedCatId)?.subcategories || []
         : [];
+
+    // Build a deduplicated list of known companies from the whole hierarchy
+    const knownCompanies = React.useMemo(() => {
+        const map = new Map();
+        hierarchy.forEach(cat =>
+            cat.subcategories?.forEach(sub =>
+                sub.products?.forEach(p => {
+                    if (p.company_name && !map.has(p.company_name.toUpperCase())) {
+                        map.set(p.company_name.toUpperCase(), {
+                            name: p.company_name,
+                            code: p.company_code || ''
+                        });
+                    }
+                })
+            )
+        );
+        return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+    }, [hierarchy]);
 
     const buildAutoSku = (companyCode, productName, size) => {
         const c = (companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -274,6 +409,7 @@ const ProductLibrary = () => {
             has_double_side_rate: false,
             slabs: [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
             extras: [],
+            links: [],
             isPhysicalProduct: false
         });
         setProductImage(null);
@@ -355,6 +491,7 @@ const ProductLibrary = () => {
             formData.append('has_double_side_rate', newProduct.has_double_side_rate);
             formData.append('slabs', JSON.stringify(newProduct.slabs));
             formData.append('extras', JSON.stringify(newProduct.extras));
+            formData.append('links', JSON.stringify(newProduct.links || []));
             formData.append('isPhysicalProduct', newProduct.isPhysicalProduct ? 1 : 0);
             if (productImage) formData.append('image', productImage);
             else if (isEditing && newProduct.image_url) formData.append('image_url', newProduct.image_url);
@@ -554,6 +691,7 @@ const ProductLibrary = () => {
                 inventory_item_id: prod.inventory_item_id || '',
                 slabs: prod.slabs && prod.slabs.length > 0 ? prod.slabs : [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
                 extras: prod.extras || [],
+                links: prod.links || [],
                 image_url: prod.image_url,
                 isPhysicalProduct: prod.is_physical_product === 1 || prod.is_physical_product === true
             });
@@ -709,6 +847,14 @@ const ProductLibrary = () => {
         });
     };
 
+    const addLink = () => {
+        setNewProduct({ ...newProduct, links: [...(newProduct.links || []), { name: '', url: '' }] });
+    };
+
+    const removeLink = (index) => {
+        setNewProduct({ ...newProduct, links: (newProduct.links || []).filter((_, i) => i !== index) });
+    };
+
     const openCropper = (file) => {
         if (!file) return;
         setCropState({ file });
@@ -841,6 +987,104 @@ const ProductLibrary = () => {
                 </nav>
             </header>
 
+            {/* Search & Filter bar — only for products view */}
+            {viewInfo.type === 'subcategory' && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    flexWrap: 'wrap',
+                    padding: '12px 0 4px',
+                }}>
+                    {/* Search input */}
+                    <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 180 }}>
+                        <Search size={15} style={{
+                            position: 'absolute', left: 10, top: '50%',
+                            transform: 'translateY(-50%)',
+                            color: 'var(--text-muted, #64748b)', pointerEvents: 'none'
+                        }} />
+                        <input
+                            className="input-field"
+                            style={{ paddingLeft: 32, height: 36 }}
+                            placeholder="Search by name, code, size…"
+                            value={productSearch}
+                            onChange={e => { setProductSearch(e.target.value); setProductPage(1); }}
+                        />
+                    </div>
+
+                    {/* Vendor filter */}
+                    {vendorOptions.length > 0 && (
+                        <select
+                            className="input-field"
+                            style={{ flex: '0 1 180px', height: 36, minWidth: 140 }}
+                            value={filterVendor}
+                            onChange={e => { setFilterVendor(e.target.value); setProductPage(1); }}
+                        >
+                            <option value="all">All Vendors</option>
+                            {vendorOptions.map(v => (
+                                <option key={v} value={v}>{v}</option>
+                            ))}
+                        </select>
+                    )}
+
+                    {/* Calculation type filter */}
+                    {calcTypeOptions.length > 1 && (
+                        <select
+                            className="input-field"
+                            style={{ flex: '0 1 160px', height: 36, minWidth: 130 }}
+                            value={filterCalcType}
+                            onChange={e => { setFilterCalcType(e.target.value); setProductPage(1); }}
+                        >
+                            <option value="all">All Types</option>
+                            {calcTypeOptions.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
+                    )}
+
+                    {/* Clear filters */}
+                    {hasActiveFilters && (
+                        <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', height: 36 }}
+                            onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType('all'); setProductPage(1); }}
+                        >
+                            <X size={13} /> Clear
+                        </button>
+                    )}
+
+                    <span className="muted text-sm" style={{ whiteSpace: 'nowrap' }}>
+                        {totalProducts} of {allProducts.length} products
+                    </span>
+                </div>
+            )}
+
+            {viewInfo.type === 'subcategory' && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                            type="checkbox"
+                            onChange={(e) => {
+                                if (e.target.checked) setSelectedProductIds(filteredProducts.map(p => p.id));
+                                else setSelectedProductIds([]);
+                            }}
+                            checked={filteredProducts.length > 0 && selectedProductIds.length === filteredProducts.length}
+                            disabled={filteredProducts.length === 0}
+                        />
+                        <span className="muted text-sm">Select all</span>
+                        <span className="muted text-sm" style={{ marginLeft: 8 }}>{selectedProductIds.length} selected</span>
+                    </div>
+
+                    {selectedProductIds.length > 0 && (
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button className="btn btn-ghost btn-sm" onClick={exportSelectedCSV}>Export CSV</button>
+                            <button className="btn btn-ghost btn-sm" onClick={bulkToggleActive}>Toggle Active</button>
+                            <button className="btn btn-danger btn-sm" onClick={bulkDeleteSelected}>Delete</button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="grid-container">
                 <DndContext
                     sensors={sensors}
@@ -848,13 +1092,28 @@ const ProductLibrary = () => {
                     onDragEnd={handleDragEnd}
                 >
                     <SortableContext
-                        items={viewInfo.items.map(i => i.id)}
+                        items={(viewInfo.type === 'subcategory' ? pagedProducts : viewInfo.items).map(i => i.id)}
                         strategy={rectSortingStrategy}
                     >
                         <div className="product-grid">
+                            {/* Empty state: no items at all */}
                             {viewInfo.items.length === 0 && (
                                 <div className="p-40 text-center muted italic border-dashed border-radius-lg flex-1" style={{ gridColumn: '1 / -1' }}>
                                     No {viewInfo.title.toLowerCase()} found in this section.
+                                </div>
+                            )}
+
+                            {/* Empty state: items exist but active filters match nothing */}
+                            {viewInfo.type === 'subcategory' && viewInfo.items.length > 0 && filteredProducts.length === 0 && (
+                                <div className="p-40 text-center border-dashed border-radius-lg flex-1" style={{ gridColumn: '1 / -1' }}>
+                                    <Search size={32} style={{ color: 'var(--text-muted, #64748b)', marginBottom: 10 }} />
+                                    <div className="muted" style={{ marginBottom: 8 }}>No products match your filters.</div>
+                                    <button
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType('all'); setProductPage(1); }}
+                                    >
+                                        <X size={13} /> Clear Filters
+                                    </button>
                                 </div>
                             )}
 
@@ -978,7 +1237,7 @@ const ProductLibrary = () => {
                                 </SortableItem>
                             ))}
 
-                            {viewInfo.type === 'subcategory' && viewInfo.items.map((prod, idx) => (
+                            {viewInfo.type === 'subcategory' && pagedProducts.map((prod, idx) => (
                                 <SortableItem
                                     key={prod.id}
                                     id={prod.id}
@@ -1011,7 +1270,14 @@ const ProductLibrary = () => {
                                         </button>
                                     </div>
                                     )}
-                                    <div className="product-card__image-wrap">
+                                    <div className="product-card__image-wrap" style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 6 }} onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedProductIds.includes(prod.id)}
+                                                onChange={() => toggleSelectProduct(prod.id)}
+                                            />
+                                        </div>
                                         <div className="drag-indicator top-left">
                                             <GripVertical size={16} />
                                         </div>
@@ -1036,6 +1302,63 @@ const ProductLibrary = () => {
                     </SortableContext>
                 </DndContext>
             </div>
+
+            {/* Pagination controls — only shown for products view with multiple pages */}
+            {viewInfo.type === 'subcategory' && totalProductPages > 1 && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '16px 0 8px',
+                    flexWrap: 'wrap',
+                }}>
+                    <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                        onClick={() => { setProductPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        disabled={productPage === 1}
+                    >
+                        <ChevronLeft size={15} /> Prev
+                    </button>
+
+                    {Array.from({ length: totalProductPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalProductPages || Math.abs(p - productPage) <= 2)
+                        .reduce((acc, p, idx, arr) => {
+                            if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                            acc.push(p);
+                            return acc;
+                        }, [])
+                        .map((p, idx) =>
+                            p === '...' ? (
+                                <span key={`ellipsis-${idx}`} className="muted" style={{ padding: '0 4px' }}>…</span>
+                            ) : (
+                                <button
+                                    key={p}
+                                    className={`btn btn-sm${productPage === p ? ' btn-primary' : ' btn-ghost'}`}
+                                    style={{ minWidth: 36 }}
+                                    onClick={() => { setProductPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                >
+                                    {p}
+                                </button>
+                            )
+                        )
+                    }
+
+                    <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                        onClick={() => { setProductPage(p => Math.min(totalProductPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        disabled={productPage === totalProductPages}
+                    >
+                        Next <ChevronRight size={15} />
+                    </button>
+
+                    <span className="muted text-sm" style={{ marginLeft: 8 }}>
+                        {(productPage - 1) * PRODUCTS_PER_PAGE + 1}–{Math.min(productPage * PRODUCTS_PER_PAGE, totalProducts)} of {totalProducts} products
+                    </span>
+                </div>
+            )}
 
             {/* Modals for Cat/Sub/Prod */}
             {showCatModal && (
@@ -1286,11 +1609,14 @@ const ProductLibrary = () => {
                             {/* Company Name + Code + Size */}
                             {isAdmin && (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '14px', alignItems: 'end' }}>
-                                <div>
+                                <div style={{ position: 'relative' }}>
                                     <label className="label">Company Name</label>
                                     <input
                                         className="input-field"
                                         value={newProduct.company_name}
+                                        autoComplete="off"
+                                        onFocus={() => setCompanyDropdownOpen(true)}
+                                        onBlur={() => setTimeout(() => setCompanyDropdownOpen(false), 150)}
                                         onChange={e => {
                                             const val = e.target.value.toUpperCase();
                                             const quickCode = val.replace(/[^A-Z0-9]/g, '').substring(0, 3);
@@ -1300,12 +1626,75 @@ const ProductLibrary = () => {
                                                 company_code: quickCode,
                                                 product_code: buildAutoSku(quickCode, prev.name, prev.size)
                                             }));
-                                            // Async: fetch truly unique code from server
                                             fetchUniqueCode(val, newProduct);
+                                            setCompanyDropdownOpen(true);
                                         }}
                                         placeholder="e.g. PAMCO INDIA"
                                         maxLength={50}
                                     />
+                                    {/* Autocomplete dropdown */}
+                                    {companyDropdownOpen && (() => {
+                                        const q = (newProduct.company_name || '').trim().toLowerCase();
+                                        const matches = knownCompanies.filter(c =>
+                                            !q || c.name.toLowerCase().includes(q)
+                                        );
+                                        if (matches.length === 0) return null;
+                                        return (
+                                            <div style={{
+                                                position: 'absolute', top: '100%', left: 0, right: 0,
+                                                zIndex: 999, marginTop: 2,
+                                                background: 'var(--surface, #1e293b)',
+                                                border: '1px solid var(--border, #334155)',
+                                                borderRadius: 8,
+                                                boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                                                maxHeight: 200,
+                                                overflowY: 'auto',
+                                            }}>
+                                                {matches.map((c, i) => (
+                                                    <div
+                                                        key={i}
+                                                        onMouseDown={e => {
+                                                            e.preventDefault();
+                                                            // Auto-fill from selected company
+                                                            const autoSku = buildAutoSku(c.code, newProduct.name, newProduct.size);
+                                                            setNewProduct(prev => ({
+                                                                ...prev,
+                                                                company_name: c.name,
+                                                                company_code: c.code,
+                                                                product_code: autoSku,
+                                                            }));
+                                                            setCompanyDropdownOpen(false);
+                                                        }}
+                                                        style={{
+                                                            padding: '9px 14px',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: 10,
+                                                            borderBottom: i < matches.length - 1
+                                                                ? '1px solid var(--border, #1e293b)'
+                                                                : 'none',
+                                                            transition: 'background 0.1s',
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2, #0f172a)'}
+                                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                    >
+                                                        <span style={{ fontWeight: 500, fontSize: 13 }}>{c.name}</span>
+                                                        {c.code && (
+                                                            <span style={{
+                                                                fontFamily: 'monospace', fontSize: 11,
+                                                                fontWeight: 700, letterSpacing: '1px',
+                                                                color: 'var(--accent, #6366f1)',
+                                                                background: 'var(--accent-bg, rgba(99,102,241,0.12))',
+                                                                padding: '2px 7px', borderRadius: 4,
+                                                            }}>{c.code}</span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 <div>
                                     <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1768,6 +2157,66 @@ const ProductLibrary = () => {
                                                 onWheel={e => e.preventDefault()}
                                             />
                                             {isAdmin && <button type="button" className="btn btn-ghost btn-sm text-error" style={{ flexShrink: 0 }} onClick={() => removeExtra(idx)}><Trash2 size={14} /></button>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Product Links */}
+                            <div className="stack-sm">
+                                <div className="row space-between items-center gap-md">
+                                    <label className="label mb-0" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <LinkIcon size={14} /> Product Links
+                                    </label>
+                                    {isAdmin && <button type="button" className="btn btn-ghost btn-sm" onClick={addLink}><Plus size={14} /> Add Link</button>}
+                                </div>
+                                <div className="stack-sm bg-light p-16 rounded border">
+                                    {(newProduct.links || []).length === 0 && (
+                                        <p className="muted text-xs">No links added. Use this to attach work files, references, templates, etc.</p>
+                                    )}
+                                    {(newProduct.links || []).map((lk, idx) => (
+                                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: 8, alignItems: 'center' }}>
+                                            <input
+                                                placeholder="Label (e.g. Work File)"
+                                                className="input-field text-sm"
+                                                value={lk.name}
+                                                disabled={!isAdmin}
+                                                onChange={e => {
+                                                    const links = [...(newProduct.links || [])];
+                                                    links[idx] = { ...links[idx], name: e.target.value };
+                                                    setNewProduct({ ...newProduct, links });
+                                                }}
+                                            />
+                                            <input
+                                                placeholder="URL or path (https://… or \\\\server\\file)"
+                                                className="input-field text-sm"
+                                                value={lk.url}
+                                                disabled={!isAdmin}
+                                                onChange={e => {
+                                                    const links = [...(newProduct.links || [])];
+                                                    links[idx] = { ...links[idx], url: e.target.value };
+                                                    setNewProduct({ ...newProduct, links });
+                                                }}
+                                            />
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                                                {lk.url && (
+                                                    <a
+                                                        href={lk.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="btn btn-ghost btn-sm"
+                                                        title="Open link"
+                                                        style={{ padding: '5px 8px' }}
+                                                    >
+                                                        <ExternalLink size={13} />
+                                                    </a>
+                                                )}
+                                                {isAdmin && (
+                                                    <button type="button" className="btn btn-ghost btn-sm text-error" style={{ padding: '5px 8px' }} onClick={() => removeLink(idx)}>
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

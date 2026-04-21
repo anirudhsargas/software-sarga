@@ -8,7 +8,7 @@ const OTPVerification = ({
   autoSend = false // Auto send OTP on mount
 }) => {
   const {
-    step, otp, setOtp, error, countdown,
+    step, phone, otp, setOtp, error, countdown,
     sendOTP, verifyOTP, reset,
     canResend, isSending, isVerifying, isVerified, otpSent
   } = useOTP();
@@ -62,7 +62,7 @@ const OTPVerification = ({
       <div className="otp-success">
         <CheckCircle2 size={48} color="#10b981" />
         <h3>Mobile Verified!</h3>
-        <p>+91 {phoneNumber} verified successfully</p>
+        <p>{phone || phoneNumber} verified successfully</p>
       </div>
     );
   }
@@ -84,15 +84,13 @@ const OTPVerification = ({
           </p>
 
           <div className="otp-phone-input">
-            <span className="otp-phone-prefix">+91</span>
             <input
               type="tel"
               className="input-field"
-              placeholder="Enter 10-digit mobile"
-              maxLength={10}
+              placeholder="Enter mobile (include +country code for non-IN)"
               defaultValue={phoneNumber}
               id="otp-phone"
-              inputMode="numeric"
+              inputMode="tel"
             />
           </div>
 
@@ -121,7 +119,7 @@ const OTPVerification = ({
           </div>
           <h3 className="otp-title">Enter OTP</h3>
           <p className="otp-subtitle">
-            Sent to +91 {phoneNumber}
+            Sent to {phone || phoneNumber}
           </p>
 
           {/* 6 digit OTP boxes */}
@@ -164,11 +162,11 @@ const OTPVerification = ({
               </span>
             ) : (
               <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => sendOTP(phoneNumber)}
-              >
-                <RefreshCw size={14} /> Resend OTP
-              </button>
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => sendOTP(phoneNumber)}
+                >
+                  <RefreshCw size={14} /> Resend OTP
+                </button>
             )}
           </div>
 

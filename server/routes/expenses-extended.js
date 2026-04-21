@@ -2464,6 +2464,24 @@ router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accoun
       [utility_type, finalBranchId, bill_number || null, bill_date || new Date().toISOString().split('T')[0], Number(amount), description || null, connection_id || null]
     );
 
+      // Persist connection in utility connections table for easy reuse/search
+      if (connection_id) {
+        try {
+          const [[{ cnt }]] = await pool.query(
+            'SELECT COUNT(*) as cnt FROM sarga_utility_connections WHERE branch_id = ? AND utility_type = ? AND connection_id = ?',
+            [finalBranchId, utility_type, connection_id]
+          );
+          if (Number(cnt) === 0) {
+            await pool.query(
+              'INSERT INTO sarga_utility_connections (branch_id, utility_type, connection_id, label, created_at) VALUES (?, ?, ?, ?, NOW())',
+              [finalBranchId, utility_type, connection_id, connection_id]
+            );
+          }
+        } catch (connErr) {
+          console.warn('Failed to upsert utility connection:', connErr.message);
+        }
+      }
+
     // SYNC WITH GLOBAL PAYMENTS TABLE (Assuming utility bill record is also a payment in this context)
     await pool.query(`
       INSERT INTO sarga_payments 
@@ -2539,6 +2557,61 @@ router.delete('/utility-bills/:id', authenticateToken, authorizeRoles('Admin'), 
     res.json({ message: 'Utility bill deleted' });
   } catch (err) {
     console.error('Delete utility bill error:', err);
+    res.status(500).json({ message: 'Database error' });
+  }
+});
+
+// --- Utility Connections CRUD ---
+router.get('/utility-connections', authenticateToken, async (req, res) => {
+  try {
+    const { utility_type, branch_id } = req.query;
+    const params = [];
+    let where = ' WHERE 1=1';
+
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      where += ' AND branch_id = ?';
+      params.push(req.user.branch_id);
+    } else if (branch_id) {
+      where += ' AND branch_id = ?';
+      params.push(branch_id);
+    }
+
+    if (utility_type) {
+      where += ' AND utility_type = ?';
+      params.push(utility_type);
+    }
+
+    const [rows] = await pool.query(`SELECT * FROM sarga_utility_connections ${where} ORDER BY created_at DESC`, params);
+    res.json({ rows });
+  } catch (err) {
+    console.error('Utility connections list error:', err);
+    res.status(500).json({ message: 'Database error' });
+  }
+});
+
+router.post('/utility-connections', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+  const { utility_type, connection_id, label, branch_id } = req.body;
+  const finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? (branch_id || req.user.branch_id) : req.user.branch_id;
+  if (!utility_type || !connection_id) return res.status(400).json({ message: 'utility_type and connection_id are required' });
+  try {
+    const [[{ cnt }]] = await pool.query('SELECT COUNT(*) as cnt FROM sarga_utility_connections WHERE branch_id = ? AND utility_type = ? AND connection_id = ?', [finalBranchId, utility_type, connection_id]);
+    if (Number(cnt) > 0) return res.status(409).json({ message: 'Connection already exists' });
+    const [result] = await pool.query('INSERT INTO sarga_utility_connections (branch_id, utility_type, connection_id, label) VALUES (?, ?, ?, ?)', [finalBranchId, utility_type, connection_id, label || null]);
+    auditLog(req.user.id, 'UTILITY_CONNECTION_ADD', `Added connection ${connection_id} for ${utility_type}`);
+    res.status(201).json({ id: result.insertId, message: 'Connection added' });
+  } catch (err) {
+    console.error('Add utility connection error:', err);
+    res.status(500).json({ message: 'Database error' });
+  }
+});
+
+router.delete('/utility-connections/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+  try {
+    await pool.query('DELETE FROM sarga_utility_connections WHERE id = ?', [req.params.id]);
+    auditLog(req.user.id, 'UTILITY_CONNECTION_DELETE', `Deleted utility connection ${req.params.id}`);
+    res.json({ message: 'Connection deleted' });
+  } catch (err) {
+    console.error('Delete utility connection error:', err);
     res.status(500).json({ message: 'Database error' });
   }
 });

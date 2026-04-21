@@ -16,7 +16,9 @@ import { useLocation } from 'react-router-dom';
 import ProgressBar from '../components/ProgressBar';
 import AnomalyPanel from '../components/AnomalyPanel';
 import InsightsPanel from '../components/InsightsPanel';
+import PaperSidePanel from '../components/PaperSidePanel';
 import useTranslation from '../hooks/useTranslation';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 // Lazy-loaded pages — each becomes a separate chunk
 const StaffManagement = React.lazy(() => import('./StaffManagement'));
@@ -96,6 +98,7 @@ const Dashboard = () => {
     const [showInventoryScan, setShowInventoryScan] = useState(false);
     const [inventoryScanResult, setInventoryScanResult] = useState(null);
     const [inventoryScanLoading, setInventoryScanLoading] = useState(false);
+    const [showPaperPanel, setShowPaperPanel] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
     const [anomalyCount, setAnomalyCount] = useState(0);
     const [companyInfo, setCompanyInfo] = useState({ name: 'SARGA', logo: null });
@@ -129,6 +132,56 @@ const Dashboard = () => {
     }, []);
 
     const { t } = useTranslation();
+
+    const SuspenseFallback = () => {
+        const path = location.pathname || '';
+        // Jobs table skeleton
+        if (path.includes('/dashboard/jobs')) {
+            const cols = [
+                { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
+                { key: 'customer', header: 'Customer', width: '1.5fr', lines: 2 },
+                { key: 'branch', header: 'Branch', width: '1fr' },
+                { key: 'status', header: 'Status', width: '1fr', pill: true },
+                { key: 'production', header: 'Production', width: '1fr', lines: 2 },
+                { key: 'delivery', header: 'Delivery', width: '1fr' },
+                { key: 'actions', header: 'Actions', width: '0.8fr' }
+            ];
+            return (
+                <div style={{ padding: '20px' }}>
+                    <SkeletonLoader type="table" count={6} columns={cols} />
+                </div>
+            );
+        }
+
+        // Customers list skeleton
+        if (path.includes('/dashboard/customers')) {
+            return (
+                <div style={{ padding: '12px' }}>
+                    <SkeletonLoader type="customer-list" count={8} />
+                </div>
+            );
+        }
+
+        // Billing skeleton
+        if (path.includes('/dashboard/billing')) {
+            return (
+                <div style={{ padding: '20px' }}>
+                    <SkeletonLoader type="form" />
+                </div>
+            );
+        }
+
+        // Default dashboard home skeleton
+        if (path === '/dashboard' || path === '/dashboard/') {
+            return (
+                <div style={{ padding: '12px' }}>
+                    <SkeletonLoader type="cards" count={4} />
+                </div>
+            );
+        }
+
+        return PageLoader();
+    };
 
     const menuItems = [
         // Main dashboards
@@ -522,6 +575,19 @@ const Dashboard = () => {
                             </div>
                         </button>
                     )}
+                    {['Admin', 'Front Office', 'Accountant', 'Designer'].includes(user?.role) && (
+                        <button
+                            className="nav-item"
+                            style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}
+                            onClick={() => { closeSidebar(); setShowPaperPanel(true); }}
+                            title="Paper Inventory"
+                        >
+                            <div className="nav-item-inner">
+                                <FileText size={20} />
+                                <span className="nav-label">Paper Inventory</span>
+                            </div>
+                        </button>
+                    )}
                 </nav>
 
                 <div className="sidebar-footer">
@@ -582,8 +648,8 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                <div className={`content-container ${isNavigating ? 'page-enter' : 'page-enter-active'}`} key={location.pathname}>
-                    <Suspense fallback={<PageLoader />}>
+                    <div className={`content-container ${isNavigating ? 'page-enter' : 'page-enter-active'}`} key={location.pathname}>
+                    <Suspense fallback={<SuspenseFallback />}>
                         <Routes>
                             <Route path="" element={<DashboardHome />} />
                             <Route path="billing" element={<Billing />} />
@@ -820,6 +886,9 @@ const Dashboard = () => {
                         <button className="btn btn-ghost btn--full mt-16" onClick={() => setInventoryScanResult(null)}>Close</button>
                     </div>
                 </div>
+            )}
+            {showPaperPanel && (
+                <PaperSidePanel open={showPaperPanel} onClose={() => setShowPaperPanel(false)} />
             )}
         </div>
     );

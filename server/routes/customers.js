@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog, normalizeMobile } = require('../helpers');
+const { auditLog, normalizeMobileWithCountry } = require('../helpers');
+const { attachNormalizedMobile } = require('../middleware/phone');
 const { branchFilter } = require('../middleware/branchFilter');
 const { validate, addCustomerSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
@@ -98,12 +99,13 @@ router.get('/customers/:id', authenticateToken, async (req, res) => {
 });
 
 // Add Customer
-router.post('/customers', authenticateToken, validate(addCustomerSchema), async (req, res) => {
-    const { mobile, name, type, email, gst, address } = req.body;
-    const normalizedMobile = normalizeMobile(mobile);
+router.post('/customers', authenticateToken, validate(addCustomerSchema), attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
+    const { mobile, countryCode, name, type, email, gst, address } = req.body;
 
-    if (normalizedMobile.length !== 10) {
-        return res.status(400).json({ message: 'Mobile number must be 10 digits' });
+    // Normalize mobile using optional countryCode (handles region codes and calling codes).
+    const normalizedMobile = normalizeMobileWithCountry(mobile, countryCode);
+    if (!normalizedMobile || (!(normalizedMobile.startsWith('+') || normalizedMobile.length === 10))) {
+        return res.status(400).json({ message: 'Invalid mobile number' });
     }
 
     try {
@@ -122,13 +124,14 @@ router.post('/customers', authenticateToken, validate(addCustomerSchema), async 
 });
 
 // Update Customer
-router.put('/customers/:id', authenticateToken, async (req, res) => {
+router.put('/customers/:id', authenticateToken, attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
     const { id } = req.params;
-    const { mobile, name, type, email, gst, address } = req.body;
-    const normalizedMobile = normalizeMobile(mobile);
+    const { mobile, countryCode, name, type, email, gst, address } = req.body;
 
-    if (normalizedMobile.length !== 10) {
-        return res.status(400).json({ message: 'Mobile number must be 10 digits' });
+    // Normalize mobile using optional countryCode (handles region codes and calling codes).
+    const normalizedMobile = normalizeMobileWithCountry(mobile, countryCode);
+    if (!normalizedMobile || (!(normalizedMobile.startsWith('+') || normalizedMobile.length === 10))) {
+        return res.status(400).json({ message: 'Invalid mobile number' });
     }
 
     try {
@@ -201,12 +204,35 @@ router.get('/customers/:id/dashboard', authenticateToken, async (req, res) => {
         const cancelledOrders = jobs.filter(j => j.status === 'Cancelled').length;
         const lastOrderDate = jobs.length > 0 ? jobs[0].created_at : null;
 
-        // 4. All payments
-        const [payments] = await pool.query(`
-            SELECT ${CUSTOMER_PAYMENT_SUMMARY_COLUMNS} FROM sarga_customer_payments
-            WHERE customer_id = ?
-            ORDER BY payment_date DESC, created_at DESC
-        `, [id]);
+        // 4. Payments (support optional pagination via ?page & ?limit)
+        const { limit: _limit, offset: _offset, page: _page } = paginate(req.query, req.query.page, req.query.limit);
+        let payments = [];
+        let paymentMeta = {};
+
+        if (req.query.page || req.query.limit) {
+            const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total FROM sarga_customer_payments WHERE customer_id = ?`, [id]);
+            const totalPayments = total || 0;
+            const [rows] = await pool.query(
+                `SELECT ${CUSTOMER_PAYMENT_SUMMARY_COLUMNS} FROM sarga_customer_payments WHERE customer_id = ? ORDER BY payment_date DESC, created_at DESC LIMIT ? OFFSET ?`,
+                [id, _limit, _offset]
+            );
+            payments = rows;
+            paymentMeta = {
+                total: totalPayments,
+                page: _page,
+                limit: _limit,
+                totalPages: Math.ceil(totalPayments / (_limit || 1)),
+                hasNext: _page < Math.ceil(totalPayments / (_limit || 1)),
+                hasPrev: _page > 1
+            };
+        } else {
+            const [rows] = await pool.query(`
+                SELECT ${CUSTOMER_PAYMENT_SUMMARY_COLUMNS} FROM sarga_customer_payments
+                WHERE customer_id = ?
+                ORDER BY payment_date DESC, created_at DESC
+            `, [id]);
+            payments = rows;
+        }
 
         const totalBilled = jobs.reduce((s, j) => s + Number(j.total_amount || 0), 0);
         const totalPaid = jobs.reduce((s, j) => s + Number(j.advance_paid || 0), 0);
@@ -272,14 +298,14 @@ router.get('/customers/:id/dashboard', authenticateToken, async (req, res) => {
                 cancelledOrders,
                 lastOrderDate
             },
-            payments: {
+            payments: Object.assign({
                 records: payments,
                 totalPaid,
                 totalBilled,
                 outstandingBalance,
                 lastPaymentDate,
                 methodBreakdown
-            },
+            }, paymentMeta),
             jobs,
             assignments,
             reorderItems
