@@ -39,7 +39,7 @@ class SyncWorkerManager {
       // Known production backend fallback for hosted app
       const host = window.location.hostname || '';
         if (host.includes('software-sarga.vercel.app') || host.includes('software-sarga')) {
-          apiBaseUrl = 'https://sarga-backend-prod.onrender.com/api';
+          apiBaseUrl = 'https://software-sarga-2.onrender.com/api';
         } else {
         // Default to same origin /api as last resort (useful for local preview)
         apiBaseUrl = window.location.origin + '/api';

@@ -27,7 +27,7 @@ services:
       - key: VITE_FIREBASE_MEASUREMENT_ID
         value: "G-5XD6YCERCC"
       - key: VITE_API_URL
-        value: "https://sarga-backend-prod.onrender.com/api"
+        value: "https://software-sarga-2.onrender.com/api"
       - key: CORS_ORIGIN
         value: "https://software-sarga.vercel.app"
       - key: JWT_SECRET

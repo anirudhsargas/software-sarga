@@ -94,6 +94,38 @@ function gracefulShutdown(signal) {
 
 // --------------- Middleware ---------------
 
+// CORS - Strictly limited to CLIENT_URL and ALLOWED_ORIGINS
+const allowedOrigins = [
+    process.env.CLIENT_URL,
+    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : []),
+    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) : []),
+    'https://software-sarga.vercel.app',
+    'https://software-sarga-git-main-anirudhsargas-projects.vercel.app' // Common Vercel preview/branch URL
+].filter(Boolean).map(o => o.replace(/\/$/, '')); // Normalize by removing trailing slashes
+
+console.log('[CORS] Configured origins:', allowedOrigins);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, server-to-server)
+        if (!origin) return callback(null, true);
+        
+        // Normalize incoming origin
+        const normalizedOrigin = origin.replace(/\/$/, '');
+        
+        if (allowedOrigins.includes(normalizedOrigin)) {
+            return callback(null, true);
+        }
+        
+        console.warn(`[CORS Blocked] Origin: ${origin}`);
+        // Return false instead of an Error to allow the middleware to handle the response gracefully
+        callback(null, false);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Idempotency-Key', 'ngrok-skip-browser-warning']
+}));
+
 // Security headers
 app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow uploads to be served cross-origin
@@ -115,28 +147,6 @@ app.use(helmet({
 
 // Response compression
 app.use(compression());
-
-// CORS - Strictly limited to CLIENT_URL and ALLOWED_ORIGINS
-const allowedOrigins = [
-    process.env.CLIENT_URL,
-    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : [])
-].filter(Boolean);
-
-if (allowedOrigins.length === 0) {
-    console.warn('[CORS] No allowed origins configured (CLIENT_URL or ALLOWED_ORIGINS). CORS will block all requests with an origin.');
-}
-
-app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, curl, server-to-server)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        
-        console.error(`[CORS Blocked] Origin: ${origin}`);
-        callback(new Error(`CORS: origin '${origin}' not allowed`));
-    },
-    credentials: true
-}));
 
 // Body parsing with size limits
 app.use(express.json({ limit: '2mb' }));
