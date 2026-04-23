@@ -116,14 +116,15 @@ app.use(helmet({
 // Response compression
 app.use(compression());
 
-// CORS - Strictly limited to CLIENT_URL and ALLOWED_ORIGINS
+// CORS - Accepts CLIENT_URL, ALLOWED_ORIGINS, or CORS_ORIGIN (all equivalent)
 const allowedOrigins = [
     process.env.CLIENT_URL,
+    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) : []),
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : [])
 ].filter(Boolean);
 
 if (allowedOrigins.length === 0) {
-    console.warn('[CORS] No allowed origins configured (CLIENT_URL or ALLOWED_ORIGINS). CORS will block all requests with an origin.');
+    console.warn('[CORS] No allowed origins configured (CLIENT_URL, CORS_ORIGIN, or ALLOWED_ORIGINS). CORS will block all requests with an origin.');
 }
 
 app.use(cors({
