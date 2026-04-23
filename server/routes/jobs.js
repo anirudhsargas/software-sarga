@@ -40,7 +40,7 @@ const JOB_LIST_COLUMNS = [
 
 const CATEGORY_COLUMNS = 'id, name, position, image_url, is_active, created_at';
 const SUBCATEGORY_COLUMNS = 'id, category_id, name, position, image_url, is_active, created_at';
-const PRODUCT_COLUMNS = 'id, subcategory_id, name, product_code, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product, is_active, created_at, updated_at';
+const PRODUCT_COLUMNS = 'id, subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product, is_active, created_at, updated_at';
 const PAYMENT_SUMMARY_COLUMNS = 'id, customer_id, customer_name, customer_mobile, total_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, created_at, verification_status';
 
 // --- IN-MEMORY CACHE for product hierarchy data ---
@@ -53,13 +53,14 @@ const getHierarchyData = async () => {
         const [inventory] = await pool.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id");
         return { ...hierarchyCache.data, inventory };
     }
-    const [categories, subcategories, products, inventory, slabs, extras] = await Promise.all([
+    const [categories, subcategories, products, inventory, slabs, extras, links] = await Promise.all([
         pool.query(`SELECT ${CATEGORY_COLUMNS} FROM sarga_product_categories`).then(r => r[0]),
         pool.query(`SELECT ${SUBCATEGORY_COLUMNS} FROM sarga_product_subcategories`).then(r => r[0]),
         pool.query(`SELECT ${PRODUCT_COLUMNS} FROM sarga_products`).then(r => r[0]),
         pool.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id").then(r => r[0]),
         pool.query("SELECT id, product_id, min_qty, max_qty, unit_rate, base_value, double_side_unit_rate FROM sarga_product_slabs ORDER BY product_id, min_qty ASC").then(r => r[0]),
-        pool.query("SELECT id, product_id, purpose AS extra_name, amount AS unit_rate, 1 as is_active FROM sarga_product_extras_template").then(r => r[0])
+        pool.query("SELECT id, product_id, purpose AS extra_name, amount AS unit_rate, 1 as is_active FROM sarga_product_extras_template").then(r => r[0]),
+        pool.query("SELECT id, product_id, name, url FROM sarga_product_links ORDER BY id ASC").then(r => r[0])
     ]);
 
     // Attach slabs and extras to their respective products for offline pricing
@@ -73,9 +74,15 @@ const getHierarchyData = async () => {
         if (!extrasByProduct[e.product_id]) extrasByProduct[e.product_id] = [];
         extrasByProduct[e.product_id].push(e);
     });
+    const linksByProduct = {};
+    (links || []).forEach(l => {
+        if (!linksByProduct[l.product_id]) linksByProduct[l.product_id] = [];
+        linksByProduct[l.product_id].push({ id: l.id, name: l.name, url: l.url });
+    });
     products.forEach(p => {
         p.slabs = slabsByProduct[p.id] || [];
         p.extras = extrasByProduct[p.id] || [];
+        p.links = linksByProduct[p.id] || [];
     });
 
     hierarchyCache = { data: { categories, subcategories, products }, timestamp: now };

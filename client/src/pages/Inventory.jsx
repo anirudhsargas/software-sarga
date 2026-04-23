@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, Eye, TrendingUp, TrendingDown, DollarSign, BarChart3, Clock, ShoppingCart, Image as ImageIcon, ArrowLeftRight, Bell } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, List, Grid, TrendingUp, TrendingDown, DollarSign, BarChart3, Clock, ShoppingCart, ArrowLeftRight, Bell, Image as ImageIcon } from 'lucide-react';
 import api from '../services/api';
 import auth from '../services/auth';
 import localDb from '../services/localDb';
@@ -93,6 +94,7 @@ const Inventory = () => {
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [detailItem, setDetailItem] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
         fetchInventory();
@@ -344,6 +346,21 @@ const Inventory = () => {
         }
     };
 
+    const resolveImageSrc = (itemOrUrl) => {
+        if (!itemOrUrl) return null;
+        if (typeof itemOrUrl === 'string') return itemOrUrl;
+        // Prefer explicit fields on the inventory item
+        const direct = itemOrUrl.product_image_url || itemOrUrl.image_url || itemOrUrl.product_image || itemOrUrl.image;
+        if (direct) return direct;
+        // If item links to a product, try to find product image from cached product list
+        const linkedId = itemOrUrl.linked_product_id || itemOrUrl.product_id || null;
+        if (linkedId && Array.isArray(allProducts) && allProducts.length > 0) {
+            const found = allProducts.find(p => String(p.id) === String(linkedId) || String(p.product_code) === String(linkedId));
+            if (found && (found.image_url || found.product_image_url)) return found.image_url || found.product_image_url;
+        }
+        return null;
+    };
+
     const handleAddItem = async (e) => {
         e.preventDefault();
         setError('');
@@ -401,15 +418,6 @@ const Inventory = () => {
         } finally {
             setSaving(false);
         }
-    };
-
-    const handleDeleteItem = async (id) => {
-        const isConfirmed = await confirm({
-            title: 'Delete Inventory Item',
-            message: 'Are you sure you want to delete this inventory item?',
-            confirmText: 'Delete',
-            type: 'danger'
-        });
         if (!isConfirmed) return;
 
         // Optimistic UI: remove locally first to avoid full reload
@@ -629,7 +637,8 @@ const Inventory = () => {
 
     return (
         <div className="stack-lg">
-            <div className="page-header">
+            {/* Row 1: Title and Search */}
+            <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                     <h1 className="section-title">Inventory</h1>
                     <p className="section-subtitle">Manage stock, prices, and reorder levels.</p>
@@ -658,67 +667,60 @@ const Inventory = () => {
                         )}
                     </div>
                 </div>
-                <div className="row gap-sm">
-                        <div className="btn-group" role="group" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <button
-                                type="button"
-                                className={`btn btn-ghost ${viewMode === 'list' ? 'active' : ''}`}
-                                onClick={() => setViewMode('list')}
-                                title="List view"
-                            >
-                                <Eye size={16} />
-                            </button>
-                            <button
-                                type="button"
-                                className={`btn btn-ghost ${viewMode === 'grid' ? 'active' : ''}`}
-                                onClick={() => setViewMode('grid')}
-                                title="Grid view"
-                            >
-                                <ImageIcon size={16} />
-                            </button>
-                        </div>
-                    {items.length > 0 && (
-                        <button className="btn btn-ghost" onClick={handlePrintNewItemsLabels}>
-                            <Printer size={18} />
-                            <span>Print New Item Labels</span>
-                        </button>
-                    )}
-                    
-                    {selectedIds.length > 0 && (
-                        <button className="btn btn-ghost" onClick={handlePrintLabels}>
-                            <Printer size={18} />
-                            <span>Print Labels ({selectedIds.length})</span>
-                        </button>
-                    )}
-                    <button
-                        className="btn btn-ghost"
-                        style={{ position: 'relative' }}
-                        onClick={() => { fetchStockRequests(); setShowStockRequestsPanel(true); }}
-                    >
-                        <Bell size={18} />
-                        <span>Stock Requests</span>
-                        {pendingRequestsCount > 0 && (
-                            <span style={{ position: 'absolute', top: 4, right: 4, background: 'var(--danger)', color: 'var(--on-accent)', borderRadius: '50%', width: 16, height: 16, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                                {pendingRequestsCount}
-                            </span>
-                        )}
+            </div>
+
+            {/* Row 2: Action Buttons */}
+            <div className="row gap-sm" style={{ justifyContent: 'flex-end', marginBottom: '4px' }}>
+                <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                    title={viewMode === 'grid' ? 'Switch to List View' : 'Switch to Grid View'}
+                >
+                    {viewMode === 'grid' ? <List size={18} /> : <Grid size={18} />}
+                    <span>{viewMode === 'grid' ? 'List View' : 'Grid View'}</span>
+                </button>
+                {items.length > 0 && (
+                    <button className="btn btn-ghost" onClick={handlePrintNewItemsLabels}>
+                        <Printer size={18} />
+                        <span>Print New Item Labels</span>
                     </button>
-                    {isAdmin && (
-                        <>
-                            <button
-                                className="btn btn-secondary"
-                                onClick={() => setShowSmartUpload(true)}
-                            >
-                                <Printer size={18} />
-                                <span>Scan Bill</span>
-                            </button>
-                            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-                                <Plus size={18} />
-                                <span>Add Item</span>
-                            </button>
-                        </>
+                )}
+                
+                {selectedIds.length > 0 && (
+                    <button className="btn btn-ghost" onClick={handlePrintLabels}>
+                        <Printer size={18} />
+                        <span>Print Labels ({selectedIds.length})</span>
+                    </button>
+                )}
+                <button
+                    className="btn btn-ghost"
+                    style={{ position: 'relative' }}
+                    onClick={() => { fetchStockRequests(); setShowStockRequestsPanel(true); }}
+                >
+                    <Bell size={18} />
+                    <span>Stock Requests</span>
+                    {pendingRequestsCount > 0 && (
+                        <span style={{ position: 'absolute', top: 4, right: 4, background: 'var(--danger)', color: 'var(--on-accent)', borderRadius: '50%', width: 16, height: 16, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                            {pendingRequestsCount}
+                        </span>
                     )}
-                </div>
+                </button>
+                {isAdmin && (
+                    <>
+                        <button
+                            className="btn btn-secondary"
+                            onClick={() => setShowSmartUpload(true)}
+                        >
+                            <Printer size={18} />
+                            <span>Scan Bill</span>
+                        </button>
+                        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+                            <Plus size={18} />
+                            <span>Add Item</span>
+                        </button>
+                    </>
+                )}
             </div>
 
             <div className="row gap-md p-sm bg-surface-2 rounded-md border border-light">
@@ -871,9 +873,9 @@ const Inventory = () => {
                                             </td>
                                             <td onClick={() => openItemDetail(item.id)}>
                                                 <div className="row gap-sm items-center">
-                                                    {item.product_image_url ? (
+                                                    {resolveImageSrc(item) ? (
                                                         <div style={{ width: 36, height: 36, borderRadius: 6, overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border)' }}>
-                                                            <SecureImage src={item.product_image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            <SecureImage src={resolveImageSrc(item)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                         </div>
                                                     ) : (
                                                         <div className="user-avatar avatar-sm">
@@ -882,8 +884,8 @@ const Inventory = () => {
                                                     )}
                                                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                                                         <span className="user-name">{item.name}</span>
-                                                        {item.product_image_url && (
-                                                            <span className="muted text-xs" style={{ fontFamily: 'monospace', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{getImageId(item.product_image_url)}</span>
+                                                        {resolveImageSrc(item) && (
+                                                            <span className="muted text-xs" style={{ fontFamily: 'monospace', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{getImageId(resolveImageSrc(item))}</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -982,7 +984,7 @@ const Inventory = () => {
                             <div key={item.id} className={`card`} style={{ padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                                     <div style={{ width: 84, height: 84, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface-2)', cursor: 'pointer' }} onClick={() => openItemDetail(item.id)}>
-                                        {item.product_image_url ? <SecureImage src={item.product_image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>No Image</div>}
+                                        {resolveImageSrc(item) ? <SecureImage src={resolveImageSrc(item)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>No Image</div>}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1003,6 +1005,7 @@ const Inventory = () => {
                                             </div>
                                         </div>
                                     </div>
+
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                     <div style={{ display: 'flex', gap: 8 }}>
@@ -1791,13 +1794,13 @@ const Inventory = () => {
                             <div>
                                 {/* Header with image */}
                                 <div className="row gap-lg items-start mb-24">
-                                    {detailItem.product_image_url ? (
+                                    {resolveImageSrc(detailItem) ? (
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 120, flexShrink: 0 }}>
                                             <div style={{ width: 120, height: 120, borderRadius: 12, overflow: 'hidden', border: '2px solid var(--border)', background: 'var(--surface-alt)' }}>
-                                                <SecureImage src={detailItem.product_image_url} alt={detailItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                <SecureImage src={resolveImageSrc(detailItem)} alt={detailItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                             </div>
                                             <div style={{ marginTop: 8 }}>
-                                                <span className="muted text-xs" style={{ fontFamily: 'monospace', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>{getImageId(detailItem.product_image_url)}</span>
+                                                <span className="muted text-xs" style={{ fontFamily: 'monospace', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>{getImageId(resolveImageSrc(detailItem))}</span>
                                             </div>
                                         </div>
                                     ) : (
@@ -1809,6 +1812,38 @@ const Inventory = () => {
                                         <h2 className="section-title mb-4">{detailItem.name}</h2>
                                         {detailItem.sku && (
                                             <p className="text-sm muted mb-4" style={{ fontFamily: 'monospace', letterSpacing: '0.5px' }}>SKU: {detailItem.sku}</p>
+                                        )}
+                                        {/* Action buttons */}
+                                        {auth.getUser()?.role === 'Admin' && (
+                                            <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
+                                                {detailItem.linked_product_id && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-ghost btn-sm"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const prodId = detailItem.linked_product_id;
+                                                            navigate('/dashboard/products');
+                                                            setTimeout(() => {
+                                                                window.dispatchEvent(new CustomEvent('sarga:edit-product', { detail: { id: prodId } }));
+                                                            }, 120);
+                                                        }}
+                                                    >
+                                                        <Edit2 size={14} style={{ marginRight: 6 }} /> Edit Product
+                                                    </button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-primary btn-sm"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setRestockData({ id: detailItem.id, quantity: '', cost: detailItem.cost_price || 0, notes: '' });
+                                                        setShowRestockModal(true);
+                                                    }}
+                                                >
+                                                    <Plus size={14} style={{ marginRight: 6 }} /> Add Stock
+                                                </button>
+                                            </div>
                                         )}
                                         <div className="row gap-sm mb-8">
                                             <span className={`badge ${getStatus(detailItem) === 'low' ? 'badge--warn' : 'badge--ok'}`}>

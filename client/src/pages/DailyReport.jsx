@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import usePolling from '../hooks/usePolling';
 import {
     BookOpen, Printer, Package, RefreshCw, TrendingUp, TrendingDown,
-    Monitor, Hash, Building2, Check, Edit3, Lock, Send, FileText,
+    Monitor, Hash, Building2, Check, Edit3, Lock, Send, FileText, Plus, Trash2,
     Calendar, Clock, ArrowUpRight, ArrowDownRight, X, Wallet, CreditCard,
     IndianRupee, ChevronRight, ChevronLeft, BarChart3, Users
 } from 'lucide-react';
@@ -183,6 +183,17 @@ const DailyReport = () => {
     const [attendanceData, setAttendanceData] = useState(null);
     const [attendanceLoading, setAttendanceLoading] = useState(false);
     const [creditTransactions, setCreditTransactions] = useState([]);
+    const [laserCredits, setLaserCredits] = useState([]);
+    const [otherCredits, setOtherCredits] = useState([]);
+    const [showCreditModal, setShowCreditModal] = useState(false);
+    const [creditModalData, setCreditModalData] = useState({
+        book_type: 'Offset',
+        transaction_type: 'Credit Out',
+        customer_name: '',
+        customer_phone: '',
+        amount: '',
+        remarks: ''
+    });
     const [tabErrors, setTabErrors] = useState({ Offset: null, Laser: null, Other: null });
 
 
@@ -499,28 +510,41 @@ const DailyReport = () => {
         } catch (err) { console.error('Error fetching live counts:', err); }
     }, [reportDate, selectedBranch, branchParam, getPendingEntriesForTab]);
 
-    // ─── Fetch Credit Transactions (Offset report details) ─────────
+    
+
+    // ─── Fetch Credit Transactions ──────────────────────────────
     const fetchCreditTransactions = useCallback(async () => {
         try {
-            const res = await api.get('/daily-reports/offset', { params: { start_date: reportDate, end_date: reportDate, branch_id: selectedBranch || branchParam } });
-            const list = res.data || [];
-            if (Array.isArray(list) && list.length > 0) {
-                const report = list[0];
-                try {
-                    const detail = await api.get(`/daily-reports/offset/${report.id}`);
-                    setCreditTransactions(detail.data.credit_transactions || []);
-                } catch (err) {
-                    console.error('Error fetching offset report details:', err);
-                    setCreditTransactions([]);
-                }
+            const response = await api.get('/daily-reports/offset', { params: { start_date: reportDate, end_date: reportDate, branch_id: selectedBranch || branchParam } });
+            if (response.data.length > 0) {
+                const detail = await api.get(`/daily-reports/offset/${response.data[0].id}`);
+                setCreditTransactions(detail.data.credit_transactions || []);
             } else {
-                setCreditTransactions([]);
+                const liveResp = await api.get('/daily-report-unified/credits', {
+                    params: { date: reportDate, book_type: 'Offset', branch_id: selectedBranch }
+                });
+                setCreditTransactions(liveResp.data || []);
             }
-        } catch (err) {
-            console.error('Error fetching credit transactions:', err);
-            setCreditTransactions([]);
-        }
-    }, [reportDate, selectedBranch, branchParam]);
+        } catch (error) { console.error('Offset credits fetch fail:', error); }
+    }, [reportDate, selectedBranch]);
+
+    const fetchLaserCredits = useCallback(async () => {
+        try {
+            const res = await api.get('/daily-report-unified/credits', {
+                params: { date: reportDate, book_type: 'Laser', branch_id: selectedBranch }
+            });
+            setLaserCredits(res.data || []);
+        } catch (error) { console.error('Laser credits fetch fail:', error); }
+    }, [reportDate, selectedBranch]);
+
+    const fetchOtherCredits = useCallback(async () => {
+        try {
+            const res = await api.get('/daily-report-unified/credits', {
+                params: { date: reportDate, book_type: 'Other', branch_id: selectedBranch }
+            });
+            setOtherCredits(res.data || []);
+        } catch (error) { console.error('Other credits fetch fail:', error); }
+    }, [reportDate, selectedBranch]);
 
     const loadAllData = useCallback(async (isInitial = false) => {
         if (isInitial) setInitialLoading(true);
@@ -836,7 +860,8 @@ const DailyReport = () => {
             customer: t.customer_name || t.customer || t.description || '—',
             details: t.remarks || t.details || '',
             amount: Number(t.amount || 0),
-            reference: t.reference_number || t.reference || ''
+            reference: t.reference_number || t.reference || '',
+            isManual: true
         }));
 
         const mappedLive = derived.map((e, i) => ({
@@ -845,19 +870,43 @@ const DailyReport = () => {
             customer: e.description || e.customer_name || '—',
             details: e.details || '',
             amount: Number(e.total || 0),
-            reference: e.reference || ''
+            reference: e.reference || '',
+            isManual: false
         }));
 
         const all = [...mappedPersisted, ...mappedLive];
         const total = all.reduce((s, x) => s + (Number(x.amount) || 0), 0);
 
+        const handleDeleteCredit = async (id) => {
+            if (!window.confirm('Are you sure you want to delete this manual credit?')) return;
+            try {
+                await api.delete(`/daily-report-unified/credits/${id}`);
+                toast.success('Credit deleted');
+                if (bookKey === 'Offset') fetchCreditTransactions();
+                else if (bookKey === 'Laser') fetchLaserCredits();
+                else if (bookKey === 'Other') fetchOtherCredits();
+            } catch (err) {
+                toast.error('Failed to delete credit');
+            }
+        };
+
         return (
             <div className="panel">
-                <h3 className="panel-title" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <IndianRupee size={16} /> Credits{bookKey ? ' — ' + bookKey : ''}
-                    <span className="badge" style={{ fontSize: 10, marginLeft: 4 }}>{all.length}</span>
-                    <span style={{ marginLeft: 'auto', fontWeight: 700 }}>{formatCurrency(total)}</span>
-                </h3>
+                <div className="panel-header" style={{ marginBottom: 12 }}>
+                    <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <IndianRupee size={16} /> Credits — {bookKey}
+                        <span className="badge" style={{ fontSize: 10, marginLeft: 4 }}>{all.length}</span>
+                    </h3>
+                    <div className="row gap-sm">
+                        <span style={{ fontWeight: 700, marginRight: 8 }}>Total: {formatCurrency(total)}</span>
+                        <button className="btn btn-primary btn-sm" onClick={() => {
+                            setCreditModalData({ ...creditModalData, book_type: bookKey });
+                            setShowCreditModal(true);
+                        }}>
+                            <Plus size={14} /> Add
+                        </button>
+                    </div>
+                </div>
 
                 {all.length === 0 ? (
                     <div style={{ padding: '12px 6px', color: 'var(--muted)' }}>No credit transactions for this book/date.</div>
@@ -870,6 +919,7 @@ const DailyReport = () => {
                                     <th>Customer / Desc</th>
                                     <th>Details</th>
                                     <th style={{ textAlign: 'right' }}>Amount</th>
+                                    <th style={{ width: 40 }}></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -881,6 +931,13 @@ const DailyReport = () => {
                                         </td>
                                         <td style={{ color: 'var(--muted)', fontSize: 13 }}>{c.details || c.reference}</td>
                                         <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(c.amount)}</td>
+                                        <td>
+                                            {c.isManual && (
+                                                <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteCredit(c.id)}>
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            )}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -1592,7 +1649,7 @@ const DailyReport = () => {
                 </h3>
                 <EntryTable entries={laserData.entries} type="laser" />
             </div>
-            <CreditList bookKey="Laser" credits={[]} liveEntries={laserData.entries} />
+            <CreditList bookKey="Laser" credits={laserCredits} liveEntries={laserData.entries} />
             <SummaryPanel summary={laserData.summary || {}} tabKey="Laser" />
         </div>
     );
@@ -1611,12 +1668,25 @@ const DailyReport = () => {
                 </p>
                 <EntryTable entries={otherData.entries} type="other" />
             </div>
-            <CreditList bookKey="Other" credits={[]} liveEntries={otherData.entries} />
+            <CreditList bookKey="Other" credits={otherCredits} liveEntries={otherData.entries} />
             <SummaryPanel summary={otherData.summary || {}} tabKey="Other" />
         </div>
     );
 
     // ═══════════════════ RENDER ═══════════════════
+
+    // Listen for attendance updates from other pages (EmployeeDetail) and refresh in realtime
+    useEffect(() => {
+        const onStorage = (e) => {
+            if (!e) return;
+            if (e.key === 'attendance:updated') {
+                try { fetchAttendanceData(); } catch (err) { console.error('fetchAttendanceData error on storage:', err); }
+                try { fetchLiveCounts(); } catch (err) { console.error('fetchLiveCounts error on storage:', err); }
+            }
+        };
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
+    }, [fetchAttendanceData, fetchLiveCounts]);
 
     return (
         <div className="stack-lg">
@@ -1851,17 +1921,10 @@ const DailyReport = () => {
             </div>
 
             {/* Credits Today quick view */}
+            {activeTab !== 'Attendance' && (
             <div className="panel" style={{ marginBottom: 12 }}>
                 <div className="panel-header" style={{ justifyContent: 'space-between' }}>
-                    <h3 className="panel-title">Today's Credits</h3>
-                    <div className="row gap-sm">
-                        <button className="btn btn-ghost btn-sm" onClick={() => { setActiveTab('Offset'); }}>
-                            View Offset Book
-                        </button>
-                        <button className="btn btn-ghost btn-sm" onClick={manualRefresh}>
-                            Refresh
-                        </button>
-                    </div>
+                    <h3 className="panel-title">Today's Credits — {activeTab}</h3>
                 </div>
                 <div className="row gap-lg" style={{ flexWrap: 'wrap' }}>
                     {initialLoading ? (
@@ -1869,35 +1932,116 @@ const DailyReport = () => {
                             <SkeletonLoader type="cards" count={3} />
                         </div>
                     ) : (
-                        <>
-                            <div className="stack-xs">
-                                <span className="text-sm muted">Credit Out</span>
-                                <span className="text-lg font-medium text-warning">₹{creditTotals.out.toFixed(2)}</span>
-                            </div>
-                            <div className="stack-xs">
-                                <span className="text-sm muted">Credit In</span>
-                                <span className="text-lg font-medium text-success">₹{creditTotals.in.toFixed(2)}</span>
-                            </div>
-                            <div style={{ flexBasis: '100%' }} />
-                            <div style={{ flex: 1 }}>
-                                {creditTransactions.length === 0 ? (
-                                    <p className="text-sm muted">No credit transactions for this date.</p>
-                                ) : (
-                                    <ul style={{ margin: 0, paddingLeft: 16 }}>
-                                        {creditTransactions.slice(0, 5).map((t, i) => (
-                                            <li key={i} style={{ marginBottom: 6 }}>
-                                                <strong style={{ display: 'inline-block', width: 120 }}>{t.transaction_type}</strong>
-                                                {t.customer_name} — ₹{Number(t.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                {t.remarks ? <span style={{ marginLeft: 8, color: 'var(--muted)', fontSize: 12 }}>({t.remarks})</span> : null}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-                        </>
+                        <div style={{ width: '100%' }}>
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Book Type</th>
+                                        <th style={{ textAlign: 'right' }}>Credit Out (Sales)</th>
+                                        <th style={{ textAlign: 'right' }}>Credit In (Collections)</th>
+                                        <th style={{ textAlign: 'right' }}>Net Credit Change</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {[
+                                        { key: 'Offset', credits: creditTransactions, live: offsetData.entries },
+                                        { key: 'Laser', credits: laserCredits, live: laserData.entries },
+                                        { key: 'Other', credits: otherCredits, live: otherData.entries }
+                                    ].filter(book => book.key === activeTab).map(book => {
+                                        const manualIn = book.credits.filter(c => c.transaction_type === 'Credit In').reduce((s, c) => s + Number(c.amount), 0);
+                                        const manualOut = book.credits.filter(c => c.transaction_type === 'Credit Out').reduce((s, c) => s + Number(c.amount), 0);
+                                        const liveOut = (book.live || []).filter(e => {
+                                            const t = Number(e.total || 0);
+                                            const p = Number(e.cash_amount || 0) + Number(e.upi_amount || 0);
+                                            return t > 0 && p === 0;
+                                        }).reduce((s, e) => s + Number(e.total), 0);
+
+                                        const totalOut = manualOut + liveOut;
+                                        const net = manualIn - totalOut;
+
+                                        return (
+                                            <tr key={book.key}>
+                                                <td style={{ fontWeight: 600 }}>{book.key}</td>
+                                                <td style={{ textAlign: 'right', color: 'var(--warning)' }}>{formatCurrency(totalOut)}</td>
+                                                <td style={{ textAlign: 'right', color: 'var(--success)' }}>{formatCurrency(manualIn)}</td>
+                                                <td style={{ textAlign: 'right', fontWeight: 700, color: net >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                                                    {net >= 0 ? '+' : ''}{formatCurrency(net)}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     )}
                 </div>
             </div>
+            )}
+
+            {/* Credit Add Modal */}
+            {showCreditModal && (
+                <div className="modal-backdrop">
+                    <div className="modal-content" style={{ maxWidth: 450 }}>
+                        <div className="modal-header">
+                            <h3>Add Credit — {creditModalData.book_type}</h3>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setShowCreditModal(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="modal-body stack-md">
+                            <div className="form-group">
+                                <label className="form-label">Transaction Type</label>
+                                <select className="input-field" value={creditModalData.transaction_type}
+                                    onChange={(e) => setCreditModalData({ ...creditModalData, transaction_type: e.target.value })}>
+                                    <option value="Credit Out">Credit Out (Sale on Credit / Cash Given)</option>
+                                    <option value="Credit In">Credit In (Collection of Old Debt)</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Customer Name</label>
+                                <input type="text" className="input-field" value={creditModalData.customer_name}
+                                    onChange={(e) => setCreditModalData({ ...creditModalData, customer_name: e.target.value })}
+                                    placeholder="Enter customer name" />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Amount (₹)</label>
+                                <input type="number" className="input-field" value={creditModalData.amount}
+                                    onChange={(e) => setCreditModalData({ ...creditModalData, amount: e.target.value })}
+                                    placeholder="0.00" />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Remarks (Optional)</label>
+                                <input type="text" className="input-field" value={creditModalData.remarks}
+                                    onChange={(e) => setCreditModalData({ ...creditModalData, remarks: e.target.value })}
+                                    placeholder="Additional details..." />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setShowCreditModal(false)}>Cancel</button>
+                            <button className="btn btn-primary" onClick={async () => {
+                                if (!creditModalData.customer_name || !creditModalData.amount) {
+                                    toast.error('Please fill name and amount');
+                                    return;
+                                }
+                                try {
+                                    await api.post('/daily-report-unified/credits', {
+                                        ...creditModalData,
+                                        date: reportDate,
+                                        branch_id: selectedBranch
+                                    });
+                                    toast.success('Credit added');
+                                    setShowCreditModal(false);
+                                    if (creditModalData.book_type === 'Offset') fetchCreditTransactions();
+                                    else if (creditModalData.book_type === 'Laser') fetchLaserCredits();
+                                    else if (creditModalData.book_type === 'Other') fetchOtherCredits();
+                                } catch (err) {
+                                    toast.error('Failed to add credit');
+                                }
+                            }}>Save Credit</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Content */}
             <>

@@ -71,8 +71,12 @@ router.post('/auth/forgot-password', resetLimiter, async (req, res) => {
             [user.id, token, expiresAt]
         );
 
-        // Build reset URL
-        const baseUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host').replace(':5000', ':5173')}`;
+        // Build reset URL — always use CLIENT_URL to prevent host-header injection
+        const baseUrl = process.env.CLIENT_URL;
+        if (!baseUrl) {
+            console.error('[Password Reset] CLIENT_URL is not set. Cannot build reset link.');
+            return res.status(500).json({ message: 'Server configuration error. Please contact support.' });
+        }
         const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
         // Send email

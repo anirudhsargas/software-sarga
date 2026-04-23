@@ -49,57 +49,11 @@ module.exports = (upload) => {
                 return res.status(401).json({ message: 'Invalid credentials' });
             }
 
-            let validPassword = await bcrypt.compare(password, user.password);
+            const validPassword = await bcrypt.compare(password, user.password);
             console.log(`[LOGIN] bcrypt.compare result: ${validPassword}`);
 
-            if (!validPassword && user.is_first_login) {
-                console.log(`[LOGIN] Password didn't match, trying fallback checks (first_login=true)`);
-                const normalizedPassword = normalizeMobileWithCountry(password, req.body?.countryCode);
-                console.log(`[LOGIN] Normalized password: "${normalizedPassword}"`);
-
-                if (normalizedPassword) {
-                    try {
-                        if (String(normalizedPassword).startsWith('+')) {
-                            // If we have an E.164 normalized password, try that first
-                            if (await bcrypt.compare(normalizedPassword, user.password)) {
-                                validPassword = true;
-                            }
-                            // Also try legacy last-10 digits from the raw password
-                            const pDigits = String(password).replace(/\D/g, '').slice(-10);
-                            if (!validPassword && pDigits && pDigits.length === 10) {
-                                if (await bcrypt.compare(pDigits, user.password)) validPassword = true;
-                            }
-                        } else {
-                            // Normalized password is digits-only fallback
-                            if (await bcrypt.compare(normalizedPassword, user.password)) validPassword = true;
-                            // Try +91/91 variants for 10-digit numbers
-                            if (!validPassword && /^\d{10}$/.test(normalizedPassword)) {
-                                const candidates = [`+91${normalizedPassword}`, `91${normalizedPassword}`];
-                                for (const candidate of candidates) {
-                                    if (await bcrypt.compare(candidate, user.password)) {
-                                        validPassword = true; break;
-                                    }
-                                }
-                            }
-                        }
-                    } catch (err) {
-                        console.warn('Password fallback checks failed:', err && err.message);
-                    }
-                }
-
-                // Legacy final-resort: if the provided password is raw 10 digits, try +91/91 prefixes
-                if (!validPassword && /^\d{10}$/.test(password)) {
-                    const candidates = [`+91${password}`, `91${password}`];
-                    for (const candidate of candidates) {
-                        if (await bcrypt.compare(candidate, user.password)) {
-                            validPassword = true; break;
-                        }
-                    }
-                }
-            }
-            
             if (!validPassword) {
-                console.log(`[LOGIN] ❌ All password checks failed for user ${user.id}`);
+                console.log(`[LOGIN] ❌ Password check failed for user ${user.id}`);
                 return res.status(401).json({ message: 'Invalid credentials' });
             }
             

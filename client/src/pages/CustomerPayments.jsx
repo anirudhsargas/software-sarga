@@ -1334,56 +1334,60 @@ const CustomerPayments = () => {
           <span className="cp-panel-count">{paymentsTotal}</span>
         </div>
 
-        {/* ── VERIFICATION FILTER ── */}
-        {canVerify && (
-          <div className="cp-verify-filters" style={{ padding: '8px 16px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending', icon: ShieldAlert, color: '#f59e0b' }, { key: 'verified', label: 'Verified', icon: ShieldCheck, color: '#10b981' }, { key: 'rejected', label: 'Rejected', icon: ShieldX, color: '#ef4444' }].map(f => (
-              <button
-                key={f.key}
-                className={`btn btn-xs ${verifyFilter === f.key ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setVerifyFilter(f.key)}
-                style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-              >
-                {f.icon && <f.icon size={13} style={{ color: verifyFilter === f.key ? undefined : f.color }} />}
-                {f.label}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* ── FILTERS BAR ── */}
+        <div className="cp-filters-row" style={{ padding: '0 24px 20px', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '16px', borderBottom: '1px solid var(--border)', marginBottom: '20px' }}>
+          {canVerify && (
+            <div className="row gap-xs">
+              {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending', icon: ShieldAlert, color: '#f59e0b' }, { key: 'verified', label: 'Verified', icon: ShieldCheck, color: '#10b981' }, { key: 'rejected', label: 'Rejected', icon: ShieldX, color: '#ef4444' }].map(f => (
+                <button
+                  key={f.key}
+                  className={`btn btn-xs ${verifyFilter === f.key ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setVerifyFilter(f.key)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, height: '32px' }}
+                >
+                  {f.icon && <f.icon size={13} style={{ color: verifyFilter === f.key ? undefined : f.color }} />}
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          )}
 
-        {/* ── STATEMENT FILTERS ── */}
-        <div className="cp-statement-filters">
-          <div className="row gap-md wrap items-end">
-            <div>
-              <label className="label">From</label>
+          <div style={{ width: '1px', height: '24px', background: 'var(--border)', alignSelf: 'center', display: canVerify ? 'block' : 'none' }} />
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '300px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label className="label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: 0 }}>From</label>
               <input
                 type="date"
                 className="input-field input-field--sm"
                 value={statementRange.start}
                 onChange={e => setStatementRange(prev => ({ ...prev, start: e.target.value }))}
+                style={{ height: '32px', width: '130px', padding: '0 8px', fontSize: '12px' }}
               />
             </div>
-            <div>
-              <label className="label">To</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label className="label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: 0 }}>To</label>
               <input
                 type="date"
                 className="input-field input-field--sm"
                 value={statementRange.end}
                 onChange={e => setStatementRange(prev => ({ ...prev, end: e.target.value }))}
+                style={{ height: '32px', width: '130px', padding: '0 8px', fontSize: '12px' }}
               />
             </div>
-            <div className="row gap-sm">
-              <button className="btn btn-ghost btn-xs" onClick={() => setPredefinedRange('thisMonth')}>This Month</button>
-              <button className="btn btn-ghost btn-xs" onClick={() => setPredefinedRange('lastMonth')}>Last Month</button>
-              <button className="btn btn-ghost btn-xs" onClick={() => setPredefinedRange('financialYear')}>FY</button>
+            <div className="row gap-xs" style={{ height: '32px' }}>
+              <button className="btn btn-ghost btn-xs" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('thisMonth')}>This Month</button>
+              <button className="btn btn-ghost btn-xs" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('lastMonth')}>Last Month</button>
+              <button className="btn btn-ghost btn-xs" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('financialYear')}>FY</button>
             </div>
             <button
               className="btn btn-primary btn-sm ml-auto"
               onClick={handleDownloadStatement}
               disabled={downloading}
+              style={{ height: '32px', padding: '0 12px', fontSize: '12px' }}
             >
-              {downloading ? <Loader2 size={16} className="cp-spin" /> : <FileText size={16} />}
-              Download Statement
+              {downloading ? <Loader2 size={14} className="cp-spin" /> : <FileText size={14} />}
+              Statement
             </button>
           </div>
         </div>

@@ -1205,8 +1205,27 @@ export async function markAttendance(attendanceData) {
     const idbKey = await offlineDb.saveAttendance(record);
 
     tryServer(async () => {
-        await api.post('front-office/attendance', attendanceData);
-        await offlineDb.updateAttendanceStatus(idbKey, 'synced');
+        const res = await api.post('front-office/attendance', attendanceData);
+        // If server returned the saved attendance row, attach it to local record for auditing
+        const serverAttendance = res?.data?.attendance || null;
+        try {
+            const localRec = await offlineDb.getById('attendance', idbKey);
+            if (localRec) {
+                if (serverAttendance) {
+                    localRec.serverAttendance = serverAttendance;
+                    localRec.serverSyncedAt = Date.now();
+                    localRec.serverId = serverAttendance.id;
+                }
+                localRec.syncStatus = 'synced';
+                await offlineDb.putRecord('attendance', localRec);
+            } else {
+                // fallback: mark status only
+                await offlineDb.updateAttendanceStatus(idbKey, 'synced');
+            }
+        } catch (e) {
+            // best-effort update; if it fails, still mark as synced
+            await offlineDb.updateAttendanceStatus(idbKey, 'synced');
+        }
     });
 
     return { ...record, localId: idbKey };

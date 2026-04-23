@@ -150,7 +150,15 @@ router.post('/front-office/attendance', authenticateToken, async (req, res) => {
             out_time = COALESCE(VALUES(out_time), out_time)
         `, [staff_id, date, status, notes || null, in_time, out_time, req.user.id]);
 
-        res.json({ message: 'Attendance recorded successfully' });
+        // Return saved attendance row (including server `created_at`) so client has both selected and server times
+        const [[saved]] = await pool.query(`
+            SELECT id, staff_id, attendance_date, status, notes, in_time, out_time, work_hours, created_by, created_at
+            FROM sarga_staff_attendance
+            WHERE staff_id = ? AND attendance_date = ?
+            LIMIT 1
+        `, [staff_id, date]);
+
+        res.json({ message: 'Attendance recorded successfully', attendance: saved || null });
     } catch (err) {
         console.error('[FrontOffice] Attendance error:', err);
         res.status(500).json({ message: 'Failed to record attendance' });

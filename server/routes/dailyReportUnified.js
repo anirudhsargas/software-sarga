@@ -940,14 +940,23 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
             return null;
         }).filter(Boolean);
 
-        // 6. Opening balance
+        // 6. Manual Credits
+        const [manualCredits] = await pool.query(
+            `SELECT * FROM sarga_daily_credit_transactions 
+             WHERE report_date = ? AND branch_id = ? AND book_type = 'Laser'`,
+            [date, branchId]
+        );
+        const creditIn = manualCredits.filter(c => c.transaction_type === 'Credit In').reduce((s, c) => s + Number(c.amount), 0);
+        const creditOut = manualCredits.filter(c => c.transaction_type === 'Credit Out').reduce((s, c) => s + Number(c.amount), 0);
+
+        // 7. Opening balance
         const [openingRows] = await pool.query(
             `SELECT cash_opening FROM sarga_daily_opening_balances
              WHERE report_date = ? AND branch_id = ? AND book_type = 'Laser'`,
             [date, branchId]
         );
         const cashOpening = openingRows.length > 0 ? Number(openingRows[0].cash_opening) : 0;
-        const cashClosing = cashOpening + totalCashIn - totalCashOut;
+        const cashClosing = cashOpening + totalCashIn + creditIn - totalCashOut - creditOut;
 
         const allEntries = [...workEntries, ...billingEntries, ...transferEntries].sort((a, b) => new Date(b.time) - new Date(a.time));
         const entryCount = allEntries.length;
@@ -956,12 +965,15 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
         res.json({
             machines: machineData,
             entries: allEntries,
+            credits: manualCredits,
             summary: {
                 cash_opening: cashOpening,
                 total_cash_in: totalCashIn,
                 total_upi_in: totalUpiIn,
                 total_cash_out: totalCashOut,
                 total_upi_out: totalUpiOut,
+                total_credit_in: creditIn,
+                total_credit_out: creditOut,
                 total_copies: totalCopies,
                 waste_prints: totalWastePrints,
                 proof_prints: totalProofPrints,
@@ -1106,7 +1118,16 @@ router.get('/other-live', auth.authenticate, async (req, res) => {
             return null;
         }).filter(Boolean);
 
-        // Opening balance
+        // 5. Manual Credits
+        const [manualCredits] = await pool.query(
+            `SELECT * FROM sarga_daily_credit_transactions 
+             WHERE report_date = ? AND branch_id = ? AND book_type = 'Other'`,
+            [date, branchId]
+        );
+        const creditIn = manualCredits.filter(c => c.transaction_type === 'Credit In').reduce((s, c) => s + Number(c.amount), 0);
+        const creditOut = manualCredits.filter(c => c.transaction_type === 'Credit Out').reduce((s, c) => s + Number(c.amount), 0);
+
+        // 6. Opening balance
         const [openingRows] = await pool.query(
             `SELECT cash_opening FROM sarga_daily_opening_balances
              WHERE report_date = ? AND branch_id = ? AND book_type = 'Other'`,
@@ -1114,18 +1135,21 @@ router.get('/other-live', auth.authenticate, async (req, res) => {
         );
         const cashOpening = openingRows.length > 0 ? Number(openingRows[0].cash_opening) : 0;
 
-        const cashClosing = cashOpening + totalCashIn - totalCashOut;
+        const cashClosing = cashOpening + totalCashIn + creditIn - totalCashOut - creditOut;
 
         const allEntries = [...entries, ...transferEntries].sort((a, b) => new Date(b.time) - new Date(a.time));
 
         res.json({
             entries: allEntries,
+            credits: manualCredits,
             summary: {
                 cash_opening: cashOpening,
                 total_cash_in: totalCashIn,
                 total_upi_in: totalUpiIn,
                 total_cash_out: totalCashOut,
                 total_upi_out: totalUpiOut,
+                total_credit_in: creditIn,
+                total_credit_out: creditOut,
                 waste_prints: totalWastePrints,
                 proof_prints: totalProofPrints,
                 cash_closing: cashClosing,
@@ -1346,6 +1370,69 @@ router.get('/live-counts', auth.authenticate, async (req, res) => {
     } catch (error) {
         console.error('Error fetching live counts:', error);
         res.status(500).json({ error: 'Failed to fetch live counts' });
+    }
+});
+
+// ==================== MANUAL CREDIT TRANSACTIONS ====================
+router.get('/credits', auth.authenticate, async (req, res) => {
+    try {
+        const { date, book_type } = req.query;
+        const branchId = getBranchId(req.user, req.query.branch_id);
+
+        if (!date || !book_type) return res.status(400).json({ error: 'Date and book_type are required' });
+
+        const [rows] = await pool.query(
+            `SELECT * FROM sarga_daily_credit_transactions 
+             WHERE report_date = ? AND branch_id = ? AND book_type = ?
+             ORDER BY created_at ASC`,
+            [date, branchId, book_type]
+        );
+        res.json(rows);
+    } catch (error) {
+        console.error('Error fetching credits:', error);
+        res.status(500).json({ error: 'Failed to fetch credits' });
+    }
+});
+
+router.post('/credits', auth.authenticate, async (req, res) => {
+    try {
+        const { date, book_type, transaction_type, customer_name, customer_phone, amount, remarks } = req.body;
+        const branchId = getBranchId(req.user, req.body.branch_id);
+
+        if (!date || !book_type || !transaction_type || !customer_name || !amount) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const [result] = await pool.query(
+            `INSERT INTO sarga_daily_credit_transactions 
+             (branch_id, report_date, book_type, transaction_type, customer_name, customer_phone, amount, remarks)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [branchId, date, book_type, transaction_type, customer_name, customer_phone || '', amount, remarks || '']
+        );
+
+        auditLog(req.user.id, 'CREDIT_TXN_ADD', `Added ${transaction_type} of ₹${amount} for ${customer_name} in ${book_type} book`, { entity_type: 'credit_transaction', entity_id: result.insertId });
+        res.json({ id: result.insertId, message: 'Credit transaction added' });
+    } catch (error) {
+        console.error('Error adding credit:', error);
+        res.status(500).json({ error: 'Failed to add credit transaction' });
+    }
+});
+
+router.delete('/credits/:id', auth.authenticate, async (req, res) => {
+    try {
+        const creditId = req.params.id;
+        
+        // Fetch before delete for logging
+        const [existing] = await pool.query('SELECT * FROM sarga_daily_credit_transactions WHERE id = ?', [creditId]);
+        if (existing.length === 0) return res.status(404).json({ error: 'Credit transaction not found' });
+
+        await pool.query('DELETE FROM sarga_daily_credit_transactions WHERE id = ?', [creditId]);
+
+        auditLog(req.user.id, 'CREDIT_TXN_DELETE', `Deleted credit transaction for ${existing[0].customer_name} of ₹${existing[0].amount}`, { entity_type: 'credit_transaction', entity_id: creditId });
+        res.json({ message: 'Credit transaction deleted' });
+    } catch (error) {
+        console.error('Error deleting credit:', error);
+        res.status(500).json({ error: 'Failed to delete credit transaction' });
     }
 });
 

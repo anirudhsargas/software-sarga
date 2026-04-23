@@ -166,6 +166,23 @@ router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Ac
 
     const [allStaff] = await pool.query(staffQuery, staffParams);
 
+    // Get manually marked attendance for the day (used when CCTV events are missing)
+    let markedAttendanceByStaffId = {};
+    if (allStaff.length > 0) {
+      const staffIds = allStaff.map(s => s.id);
+      const placeholders = staffIds.map(() => '?').join(',');
+      const [markedAttendance] = await pool.query(
+        `SELECT staff_id, status, in_time, out_time
+         FROM sarga_staff_attendance
+         WHERE attendance_date = ? AND staff_id IN (${placeholders})`,
+        [targetDate, ...staffIds]
+      );
+      markedAttendanceByStaffId = markedAttendance.reduce((acc, row) => {
+        acc[row.staff_id] = row;
+        return acc;
+      }, {});
+    }
+
     // Get attendance records for the day
     let attQuery = `
       SELECT ca.staff_id, ca.event_type, ca.source, ca.timestamp, ca.created_at,
@@ -191,16 +208,21 @@ router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Ac
     }
 
     const now = new Date();
-      const isToday = targetDate === getTodayDate();
+    const isToday = targetDate === getTodayDate();
     const alertHour = 10; // 10 AM cutoff
 
     const summary = allStaff.map(staff => {
       const events = staffRecords[staff.id] || [];
       const entryEvent = events.find(e => e.event_type === 'entry' || e.event_type === 'manual');
       const exitEvent = [...events].reverse().find(e => e.event_type === 'exit');
+      const markedAttendance = markedAttendanceByStaffId[staff.id] || null;
 
       let status = 'absent';
       let absentAlert = false;
+      let entryTime = entryEvent ? entryEvent.timestamp : null;
+      let exitTime = exitEvent ? exitEvent.timestamp : null;
+      let entrySource = entryEvent ? entryEvent.source : null;
+      let exitSource = exitEvent ? exitEvent.source : null;
 
       if (entryEvent) {
         status = exitEvent ? 'left' : 'present';
@@ -208,6 +230,22 @@ router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Ac
         if (exitEvent) {
           const exitHour = new Date(exitEvent.timestamp).getHours();
           if (exitHour < 17) status = 'left_early';
+        }
+      } else if (markedAttendance) {
+        const markedStatus = String(markedAttendance.status || '').toLowerCase();
+        if (markedStatus === 'present' || markedStatus === 'half day') {
+          status = 'present';
+        } else {
+          status = 'absent';
+        }
+
+        if (markedAttendance.in_time) {
+          entryTime = `${targetDate} ${markedAttendance.in_time}`;
+          entrySource = 'staff_attendance';
+        }
+        if (markedAttendance.out_time) {
+          exitTime = `${targetDate} ${markedAttendance.out_time}`;
+          exitSource = 'staff_attendance';
         }
       } else if (isToday && now.getHours() >= alertHour) {
         absentAlert = true;
@@ -217,14 +255,16 @@ router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Ac
         staff_id: staff.id,
         name: staff.name,
         image_url: staff.image_url,
+        branch_id: staff.branch_id,
         branch_name: staff.branch_name,
-        entry_time: entryEvent ? entryEvent.timestamp : null,
-        exit_time: exitEvent ? exitEvent.timestamp : null,
-        entry_source: entryEvent ? entryEvent.source : null,
-        exit_source: exitEvent ? exitEvent.source : null,
+        entry_time: entryTime,
+        exit_time: exitTime,
+        entry_source: entrySource,
+        exit_source: exitSource,
         entry_discrepancy: (entryEvent && entryEvent.source === 'manual') ? (entryEvent.discrepancy_minutes || 0) : null,
         exit_discrepancy: (exitEvent && exitEvent.source === 'manual') ? (exitEvent.discrepancy_minutes || 0) : null,
         status,
+        marked_status: markedAttendance ? markedAttendance.status : null,
         absent_alert: absentAlert,
         event_count: events.length,
       };

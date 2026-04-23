@@ -250,7 +250,7 @@ const AttendanceSalary = () => {
           <div className="table-scroll">
             <table className="table" style={{ fontSize: 13 }}>
               <thead>
-                <tr><th>Date</th><th>Day</th><th>Status</th><th>Notes</th></tr>
+                <tr><th>Date</th><th>Day</th><th>Status</th><th>In Time</th><th>Gone Time</th><th>Notes</th></tr>
               </thead>
               <tbody>
                 {attendance.map((a, i) => {
@@ -265,6 +265,8 @@ const AttendanceSalary = () => {
                           {a.status}
                         </span>
                       </td>
+                      <td style={{ color: a.time ? 'inherit' : 'var(--muted)' }}>{a.time || '—'}</td>
+                      <td style={{ color: a.gone_time ? 'inherit' : 'var(--muted)' }}>{a.gone_time || '—'}</td>
                       <td style={{ color: 'var(--muted)', fontSize: 12 }}>{a.notes || '—'}</td>
                     </tr>
                   );

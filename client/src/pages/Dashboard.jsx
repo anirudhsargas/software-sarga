@@ -30,6 +30,7 @@ const JobDetail = React.lazy(() => import('./JobDetail'));
 const ProductLibrary = React.lazy(() => import('./ProductLibrary'));
 const IDChangeRequests = React.lazy(() => import('./Requests'));
 const Inventory = React.lazy(() => import('./Inventory'));
+const InventoryOverview = React.lazy(() => import('./InventoryOverview'));
 const Branches = React.lazy(() => import('./Branches'));
 const CustomerPayments = React.lazy(() => import('./CustomerPayments'));
 const Summary = React.lazy(() => import('./Summary'));
@@ -62,7 +63,13 @@ const ScheduleManagement = React.lazy(() => import('./ScheduleManagement'));
 const InternalBilling = React.lazy(() => import('./InternalBilling'));
 const InternalTransactions = React.lazy(() => import('./InternalTransactions'));
 const StockTransfer = React.lazy(() => import('./StockTransfer'));
-const PaperManagement = React.lazy(() => import('./PaperManagement'));
+const ConsumablesManagement = React.lazy(() => import('./ConsumablesManagement'));
+const PaperStockDashboard = React.lazy(() => import('./PaperStockDashboard'));
+const PaperInward = React.lazy(() => import('./PaperInward'));
+const PaperOutward = React.lazy(() => import('./PaperOutward'));
+const PaperMovementHistory = React.lazy(() => import('./PaperMovementHistory'));
+const PaperAlerts = React.lazy(() => import('./PaperAlerts'));
+const PaperTransfer = React.lazy(() => import('./PaperTransfer'));
 const Quotes = React.lazy(() => import('./Quotes'));
 const SettingsPage = React.lazy(() => import('./SettingsPage'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
@@ -195,8 +202,9 @@ const Dashboard = () => {
         { name: t('jobs_orders', 'Jobs & Orders'), icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Accountant'], group: 'business' },
         { name: t('customer_payments', 'Customer Payments'), icon: Receipt, path: '/dashboard/customer-payments', roles: ['Admin', 'Front Office'], group: 'business' },
         // Inventory & Operations
-        { name: t('inventory', 'Inventory'), icon: Box, path: '/dashboard/inventory', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
-        { name: t('paper_management', 'Paper Management'), icon: FileText, path: '/dashboard/paper-management', roles: ['Admin', 'Front Office', 'Accountant', 'Designer'], group: 'operations' },
+        { name: t('inventory', 'Inventory'), icon: Box, path: '/dashboard/inventory', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
+        { name: t('paper_inventory', 'Paper Inventory'), icon: FileText, path: '/dashboard/paper/stock', roles: ['Admin', 'Front Office', 'Accountant', 'Designer'], group: 'inventory' },
+        { name: t('consumables_inventory', 'Consumables Inventory'), icon: Package, path: '/dashboard/inventory/consumables', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
         { name: t('stock_verification', 'Stock Verification'), icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'operations' },
         { name: t('stock_planning', 'Stock Planning'), icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
         { name: t('product_library', 'Product Library'), icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'operations' },
@@ -238,6 +246,7 @@ const Dashboard = () => {
     const sidebarGroupDefs = [
         { key: 'main', label: null },
         { key: 'business', label: 'Business' },
+        { key: 'inventory', label: 'Inventory' },
         { key: 'internal', label: 'Internal' },
         { key: 'finance', label: 'Finance' },
         { key: 'manage', label: 'Administration' },
@@ -575,19 +584,7 @@ const Dashboard = () => {
                             </div>
                         </button>
                     )}
-                    {['Admin', 'Front Office', 'Accountant', 'Designer'].includes(user?.role) && (
-                        <button
-                            className="nav-item"
-                            style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}
-                            onClick={() => { closeSidebar(); setShowPaperPanel(true); }}
-                            title="Paper Inventory"
-                        >
-                            <div className="nav-item-inner">
-                                <FileText size={20} />
-                                <span className="nav-label">Paper Inventory</span>
-                            </div>
-                        </button>
-                    )}
+                    {/* Removed duplicate Paper Inventory quick button to avoid sidebar duplication. */}
                 </nav>
 
                 <div className="sidebar-footer">
@@ -663,6 +660,7 @@ const Dashboard = () => {
                             <Route path="jobs/:id" element={<JobDetail />} />
                             <Route path="requests" element={<IDChangeRequests />} />
                             <Route path="inventory" element={<Inventory />} />
+                            <Route path="inventory/overview" element={<InventoryOverview />} />
                             <Route path="stock-verification" element={<StockVerification />} />
                             <Route path="stock-planning" element={<RequiresConnection feature="Stock Planning"><StockPlanning /></RequiresConnection>} />
                             <Route path="customer-payments" element={<CustomerPayments />} />
@@ -690,7 +688,14 @@ const Dashboard = () => {
                             <Route path="printer-dashboard" element={<PrinterDashboard />} />
               <Route path="designer-dashboard" element={<DesignerDashboard />} />
                             <Route path="quotes" element={<Quotes />} />
-                            <Route path="paper-management" element={<PaperManagement />} />
+                            <Route path="inventory/paper" element={<PaperStockDashboard />} />
+                            <Route path="paper/stock" element={<PaperStockDashboard />} />
+                            <Route path="paper/inward" element={<PaperInward />} />
+                            <Route path="paper/outward" element={<PaperOutward />} />
+                            <Route path="paper/movements" element={<PaperMovementHistory />} />
+                            <Route path="paper/alerts" element={<PaperAlerts />} />
+                            <Route path="paper/transfer" element={<PaperTransfer />} />
+                            <Route path="inventory/consumables" element={<ConsumablesManagement />} />
                             <Route path="recurring-invoices" element={<RecurringInvoices />} />
                             <Route path="settings" element={<SettingsPage />} />
                             <Route path="*" element={<NotFound />} />

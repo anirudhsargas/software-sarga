@@ -18,6 +18,7 @@
     "@tanstack/react-virtual": "^3.13.23",
     "axios": "^1.7.9",
     "html5-qrcode": "^2.3.8",
+    "jsonwebtoken": "^9.0.3",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",
     "jsqr": "^1.4.0",

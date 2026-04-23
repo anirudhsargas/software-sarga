@@ -103,7 +103,7 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:", "blob:"],
+            imgSrc: ["'self'", "data:", "blob:", "https:", "http:"], // Allow images from any secure or insecure source (needed for local IP access)
             connectSrc: ["'self'"],
             objectSrc: ["'none'"],
             baseUri: ["'self'"],
@@ -116,32 +116,23 @@ app.use(helmet({
 // Response compression
 app.use(compression());
 
-// CORS
-const allowedOrigins = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
-    : ['http://localhost:5173', 'http://localhost:3000', 'https://software-sarga.vercel.app'];
+// CORS - Strictly limited to CLIENT_URL and ALLOWED_ORIGINS
+const allowedOrigins = [
+    process.env.CLIENT_URL,
+    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : [])
+].filter(Boolean);
+
+if (allowedOrigins.length === 0) {
+    console.warn('[CORS] No allowed origins configured (CLIENT_URL or ALLOWED_ORIGINS). CORS will block all requests with an origin.');
+}
 
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (mobile apps, curl, server-to-server)
         if (!origin) return callback(null, true);
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        // Allow localhost on any port
-        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
-            return callback(null, true);
-        }
-        // Allow LAN / private network IPs (10.x.x.x, 192.168.x.x, 172.16-31.x.x) on any port
-        if (/^https?:\/\/(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
-            return callback(null, true);
-        }
-        // Allow ngrok tunnels (for development/testing)
-        if (/^https:\/\/[a-zA-Z0-9-]+\.ngrok(-free)?\.(app|dev)$/.test(origin)) {
-            return callback(null, true);
-        }
-        // Allow Vercel preview/main domains (any subdomain under vercel.app)
-        if (/^https?:\/\/([a-zA-Z0-9-]+\.)*vercel\.app(:\d+)?$/.test(origin)) {
-            return callback(null, true);
-        }
+        
+        console.error(`[CORS Blocked] Origin: ${origin}`);
         callback(new Error(`CORS: origin '${origin}' not allowed`));
     },
     credentials: true
@@ -263,12 +254,18 @@ app.get('/api/server-time', asyncHandler((req, res) => {
     const now = new Date();
     const today = getTodayDate();
     res.json({
+        debug_marker: 'paper-inventory-debug-v1',
         iso: now.toISOString(),
         date: today,
         month: today.slice(0, 7),
         timestamp: now.getTime()
     });
 }));
+
+// Quick dev test route to verify paperInventory path
+app.get('/api/paperInventory/stock-test', (req, res) => {
+    res.json({ ok: true, message: 'paperInventory test route' });
+});
 
 app.use('/api', require('./routes/auth')(upload));
 app.use('/api', require('./routes/branches'));
@@ -283,7 +280,17 @@ app.use('/api/staff', require('./routes/staffDashboard'));
 app.use('/api/schedules', require('./routes/scheduleManagement'));
 app.use('/api', require('./routes/jobs').router);
 app.use('/api', require('./routes/products')(upload, removeUploadFile));
+app.use('/api/paperInventory', require('./routes/paperInventory'));
+app.use('/api', require('./routes/consumablesInventory'));
 app.use('/api', require('./routes/inventory'));
+// Dev helper routes (only load when not in production)
+// Dev helper routes (temporary - allow local UI testing without auth)
+try {
+    app.use('/api/dev', require('./routes/devRoutes'));
+    console.log('[DevRoutes] Loaded /api/dev routes');
+} catch (e) {
+    console.warn('[DevRoutes] Not loaded:', (e && e.stack) ? e.stack : (e && e.message) ? e.message : e);
+}
 app.use('/api', require('./routes/frontOffice'));
 app.use('/api', require('./routes/expenses'));
 app.use('/api', require('./routes/finance'));
@@ -392,6 +399,31 @@ if (process.env.NODE_ENV !== 'test') {
     initDb().then(() => {
         server = app.listen(PORT, '0.0.0.0', () => {
             console.log(`Server running on port ${PORT} (bound to 0.0.0.0)`);
+
+            // DEV: list registered routes to help debugging missing endpoints
+            try {
+                const getPath = (layer) => {
+                    if (layer.route && layer.route.path) return layer.route.path;
+                    if (layer.regexp && layer.regexp.source) return layer.regexp.source;
+                    return undefined;
+                };
+                const routes = [];
+                app._router.stack.forEach((layer) => {
+                    const p = getPath(layer);
+                    if (p) {
+                        routes.push(p);
+                    } else if (layer.name === 'router' && layer.handle && layer.handle.stack) {
+                        layer.handle.stack.forEach((l) => {
+                            const rp = getPath(l);
+                            if (rp) routes.push(rp);
+                        });
+                    }
+                });
+                console.log('[DevRoutes] Registered route patterns:');
+                routes.slice(0, 200).forEach(r => console.log('  ', r));
+            } catch (e) {
+                console.warn('[DevRoutes] Failed to list routes:', e.message);
+            }
 
             // Start daily report auto-mailer cron job
             try {

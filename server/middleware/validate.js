@@ -129,6 +129,83 @@ const addInventorySchema = z.object({
     purchase_link: z.string().optional().nullable().or(z.literal(''))
 });
 
+const paperInventorySchema = z.object({
+    paper_name: requiredString('Paper name'),
+    size: z.string().optional().nullable().or(z.literal('')),
+    gsm: z.preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().int().min(0).optional()),
+    ream_count: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().int().min(0).optional().default(0)),
+    sheets_per_ream: z.preprocess((v) => (v === '' || v === null ? 500 : Number(v)), z.number().int().min(1).optional().default(500)),
+    reorder_level_reams: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().int().min(0).optional().default(0)),
+    supplier_name: z.string().optional().nullable().or(z.literal('')),
+    purchase_price_per_ream: positiveDecimal,
+    branch: z.enum(['Perambra', 'Meppayur']),
+    notes: z.string().optional().nullable().or(z.literal(''))
+});
+
+// New Paper Inventory Module Schemas
+const addPaperTypeSchema = z.object({
+    category: z.enum(['LASER', 'OFFSET']),
+    size_name: requiredString('Size name'),
+    width_mm: positiveDecimal,
+    height_mm: positiveDecimal,
+    gsm: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().min(0).nullable()),
+    brand: z.string().optional().nullable(),
+    is_active: z.boolean().optional().default(true)
+});
+
+const paperInwardSchema = z.object({
+    paper_type_id: z.preprocess(Number, z.number().int().positive()),
+    branch_id: z.preprocess(Number, z.number().int().positive()),
+    quantity: z.preprocess(Number, z.number().int().positive()),
+    unit: z.enum(['SHEETS', 'REAMS', 'PACKETS']).default('SHEETS'),
+    unit_cost: positiveDecimal,
+    reference_id: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().positive().nullable()),
+    notes: z.string().optional().nullable(),
+    date_received: z.string().optional().nullable() // ISO or YYYY-MM-DD
+});
+
+const paperOutwardSchema = z.object({
+    paper_type_id: z.preprocess(Number, z.number().int().positive()),
+    branch_id: z.preprocess(Number, z.number().int().positive()),
+    quantity: z.preprocess(Number, z.number().int().positive()),
+    reference_id: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().positive().nullable()),
+    reference_type: z.enum(['JOB', 'WASTE', 'SAMPLE', 'DEMO']).default('JOB'),
+    notes: z.string().optional().nullable()
+});
+
+const paperAdjustmentSchema = z.object({
+    paper_type_id: z.preprocess(Number, z.number().int().positive()),
+    branch_id: z.preprocess(Number, z.number().int().positive()),
+    quantity: z.preprocess(Number, z.number().int()), // can be negative for deduction
+    notes: requiredString('Reason/Notes')
+});
+
+const paperTransferSchema = z.object({
+    paper_type_id: z.preprocess(Number, z.number().int().positive()),
+    from_branch_id: z.preprocess(Number, z.number().int().positive()),
+    to_branch_id: z.preprocess(Number, z.number().int().positive()),
+    quantity: z.preprocess(Number, z.number().int().positive()),
+    notes: z.string().optional().nullable()
+});
+
+const consumablesInventorySchema = z.object({
+    name: requiredString('Name'),
+    category: z.enum(['ink', 'chemical', 'plate', 'spare_part', 'other']).default('other'),
+    unit: z.enum(['litre', 'kg', 'piece', 'box', 'set']).default('piece'),
+    quantity_in_stock: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().min(0).default(0)),
+    reorder_level: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().min(0).default(0)),
+    unit_cost: positiveDecimal,
+    supplier_name: z.string().optional().nullable().or(z.literal('')),
+    branch: z.preprocess((v) => {
+        if (typeof v !== 'string') return v;
+        const lower = v.toLowerCase();
+        if (lower === 'perambra') return 'Perambra';
+        if (lower === 'meppayur') return 'Meppayur';
+        return v;
+    }, z.enum(['Perambra', 'Meppayur'])),
+    notes: z.string().optional().nullable().or(z.literal(''))
+});
+
 // ---- Attendance ----
 const attendanceSchema = z.object({
     attendance_date: z.string().min(1, 'Date is required').regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
@@ -237,5 +314,12 @@ module.exports = {
     kuriPaymentSchema,
     staffSalaryUpdateSchema,
     addJobSchema,
-    addPaymentSchema
+    addPaymentSchema,
+    paperInventorySchema,
+    consumablesInventorySchema,
+    addPaperTypeSchema,
+    paperInwardSchema,
+    paperOutwardSchema,
+    paperAdjustmentSchema,
+    paperTransferSchema
 };

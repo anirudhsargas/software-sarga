@@ -5,9 +5,9 @@ const getApiUrl = () => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
 
-    // If we're on localhost, try to use the local port 5000
+    // If we're on localhost, call backend directly to avoid occasional Vite proxy issues
     if (isLocal) {
-        return `http://localhost:5000/api/`;
+        return `${window.location.protocol}//localhost:5000/api/`;
     }
 
     if (envUrl) {
@@ -165,3 +165,14 @@ export const getAuthHeader = () => {
 };
 
 export default api;
+
+// When running locally without an auth token, point read-only requests to dev routes
+export const devFallback = (path) => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const token = localStorage.getItem('token');
+    if (isLocal && !token) {
+        const clean = path && String(path).replace(/^\/+/, '');
+        return clean.startsWith('dev/') ? `/${clean}` : `/dev/${clean}`;
+    }
+    return path;
+};

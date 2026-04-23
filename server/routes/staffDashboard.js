@@ -620,7 +620,16 @@ router.post('/:id/attendance', authenticateToken, validate(attendanceSchema), as
         }
 
         auditLog(req.user.id, 'ATTENDANCE_RECORD', `Recorded attendance for staff ${id} on ${attendance_date}: ${status}`);
-        res.json({ message: 'Attendance recorded successfully' });
+
+        // Return the saved attendance row so client can see both selected time and server timestamp (created_at)
+        const [[saved]] = await pool.query(`
+            SELECT id, staff_id, attendance_date, status, notes, in_time, out_time, work_hours, created_by, created_at
+            FROM sarga_staff_attendance
+            WHERE staff_id = ? AND attendance_date = ?
+            LIMIT 1
+        `, [id, attendance_date]);
+
+        res.json({ message: 'Attendance recorded successfully', attendance: saved || null });
     } catch (err) {
         console.error('Attendance error:', err);
         res.status(500).json({ message: 'Failed to record attendance' });

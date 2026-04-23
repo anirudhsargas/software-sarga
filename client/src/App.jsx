@@ -110,6 +110,15 @@ function App() {
                 }
               />
               <Route
+                path="/inventory"
+                element={
+                  <ProtectedRoute>
+                    {/* Redirect to dashboard inventory overview */}
+                    <Navigate to="/dashboard/inventory/overview" replace />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/staff-settings"
                 element={
                   <ProtectedRoute roles={['Other Staff', 'Designer', 'Printer', 'Front Office', 'Accountant']}>

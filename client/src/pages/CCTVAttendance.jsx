@@ -73,6 +73,18 @@ const CCTVAttendance = () => {
     return () => clearInterval(interval);
   }, [fetchSummary]);
 
+  // Listen for attendance updates from other pages and refresh immediately
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (!e) return;
+      if (e.key === 'attendance:updated') {
+        fetchSummary();
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [fetchSummary]);
+
   // Fetch staff list for manual entry modal
   useEffect(() => {
     const fetchStaff = async () => {

@@ -12,6 +12,33 @@ const createIdempotencyKey = () => (typeof crypto !== 'undefined' && crypto.rand
     ? `salary-${crypto.randomUUID()}`
     : `salary-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
+const toLocalDateKey = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return typeof value === 'string' ? value.slice(0, 10) : '';
+    }
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`;
+};
+
+const normalizeTimeDisplay = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') {
+        if (/^\d{2}:\d{2}(:\d{2})?$/.test(value)) return value.slice(0, 5);
+        const parsed = new Date(value);
+        if (!Number.isNaN(parsed.getTime())) return parsed.toTimeString().slice(0, 5);
+        return value.slice(0, 5);
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toTimeString().slice(0, 5);
+    return '';
+};
+
+const getInTime = (record) => normalizeTimeDisplay(record?.in_time || record?.time);
+const getOutTime = (record) => normalizeTimeDisplay(record?.out_time || record?.gone_time);
+
 const EmployeeDetail = () => {
     const { staffId } = useParams();
     const navigate = useNavigate();
@@ -21,6 +48,7 @@ const EmployeeDetail = () => {
     const { data: attendance, setData: setAttendance, optimisticUpdate } = useOptimistic([]);
     // Track if attendance is already marked today
     const [attendanceMarkedToday, setAttendanceMarkedToday] = useState(false);
+    const [todayStatus, setTodayStatus] = useState(null);
     const [salaryCalculation, setSalaryCalculation] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -76,6 +104,8 @@ const EmployeeDetail = () => {
             notes: attendanceForm.notes,
             time: attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day' ? attendanceForm.time : undefined,
             gone_time: attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day' ? (attendanceForm.gone_time || undefined) : undefined,
+            in_time: attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day' ? attendanceForm.time : undefined,
+            out_time: attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day' ? (attendanceForm.gone_time || undefined) : undefined,
             _optimistic: true
         };
 
@@ -83,14 +113,12 @@ const EmployeeDetail = () => {
             updateFn: (prev) => {
                 // Remove existing today's record if any, and add new one
                 const filtered = prev.filter(a => {
-                    const attDate = typeof a.attendance_date === 'string' 
-                        ? a.attendance_date.slice(0, 10) 
-                        : new Date(a.attendance_date).toISOString().slice(0, 10);
+                    const attDate = toLocalDateKey(a.attendance_date);
                     return attDate !== today;
                 });
                 return [newRecord, ...filtered];
             },
-            serverFn: async () => {
+                serverFn: async () => {
                 const payload = {
                     attendance_date: today,
                     status: attendanceForm.status,
@@ -99,6 +127,8 @@ const EmployeeDetail = () => {
                     gone_time: newRecord.gone_time
                 };
                 await api.post(`/staff/${staffId}/attendance`, payload);
+                // Broadcast an update so other pages (Daily Report) can refresh in realtime
+                try { localStorage.setItem('attendance:updated', String(Date.now())); } catch (e) { }
                 setShowAttendanceModal(false);
                 setAttendanceForm({ status: 'Present', time: '09:00', gone_time: '', notes: '' });
                 fetchAttendanceData(); // Refresh to get real ID and update salary calc
@@ -108,6 +138,16 @@ const EmployeeDetail = () => {
             successMsg: 'Attendance marked',
             errorMsg: 'Failed to mark attendance'
         });
+        // Reflect quickly in header/actions and local list so UI updates without refresh
+        setAttendance(prev => {
+            const filtered = prev.filter(a => toLocalDateKey(a.attendance_date) !== today);
+            return [newRecord, ...filtered];
+        });
+        setAttendanceMarkedToday(true);
+        // Close modal and reset form immediately so header updates are visible
+        setShowAttendanceModal(false);
+        setAttendanceForm({ status: 'Present', time: '09:00', gone_time: '', notes: '' });
+        setTodayStatus(attendanceForm.status);
     };
     const [salaryForm, setSalaryForm] = useState({
         payment_amount: '',
@@ -156,17 +196,84 @@ const EmployeeDetail = () => {
             // Check if attendance is already marked today
             const today = serverToday();
             const found = (response.data.attendance || []).find(a => {
-                const attDate = typeof a.attendance_date === 'string' 
-                    ? a.attendance_date.slice(0, 10) 
-                    : new Date(a.attendance_date).toISOString().slice(0, 10);
+                const attDate = toLocalDateKey(a.attendance_date);
                 return attDate === today;
             });
             setAttendanceMarkedToday(!!found);
+            setTodayStatus(found ? found.status : null);
         } catch (err) {
             console.error('Error fetching attendance:', err);
             setAttendanceError(`Failed to load attendance: ${err.response?.data?.message || err.message}`);
             setAttendance([]);
         }
+    };
+
+    // Helper: today's attendance record (if any)
+    const todayRecord = attendance.find(a => {
+        const attDate = toLocalDateKey(a.attendance_date);
+        return attDate === serverToday();
+    });
+
+    // Today's displayed in/out times (normalized)
+    const todayInTime = getInTime(todayRecord);
+    const todayOutTime = getOutTime(todayRecord);
+
+    // Quick mark gone time now (optimistic)
+    const markGoneNow = async () => {
+        if (!todayRecord || !['Present', 'Half Day'].includes(todayRecord.status)) {
+            setAttendanceSubmitError('Cannot mark gone time: no present/half-day record found for today');
+            return;
+        }
+        const now = new Date().toTimeString().slice(0, 5);
+        const currentInTime = getInTime(todayRecord);
+        const newRecord = {
+            id: Date.now(),
+            attendance_date: serverToday(),
+            status: todayRecord.status,
+            notes: todayRecord.notes || '',
+            time: currentInTime || undefined,
+            gone_time: now,
+            in_time: currentInTime || undefined,
+            out_time: now,
+            _optimistic: true
+        };
+
+        optimisticUpdate({
+            updateFn: (prev) => {
+                const filtered = prev.filter(a => {
+                    const attDate = toLocalDateKey(a.attendance_date);
+                    return attDate !== serverToday();
+                });
+                const todayInTime = getInTime(todayRecord);
+                const todayOutTime = getOutTime(todayRecord);
+                return [newRecord, ...filtered];
+            },
+            serverFn: async () => {
+                const payload = {
+                    attendance_date: serverToday(),
+                    status: todayRecord.status,
+                    notes: newRecord.notes,
+                    time: newRecord.time,
+                    gone_time: newRecord.gone_time
+                };
+                await api.post(`/staff/${staffId}/attendance`, payload);
+                // Notify other pages to refresh
+                try { localStorage.setItem('attendance:updated', String(Date.now())); } catch (e) { }
+                fetchAttendanceData();
+                return (prev) => prev.map(a => a.id === newRecord.id ? { ...a, _optimistic: false } : a);
+            },
+            successMsg: 'Gone time recorded',
+            errorMsg: 'Failed to record gone time',
+            rollbackFn: (prev) => prev.filter(a => a.id !== newRecord.id)
+        });
+        // Mark attendance as present for today immediately so header updates
+        const todayKey = serverToday();
+        setAttendance(prev => {
+            const filtered = prev.filter(a => toLocalDateKey(a.attendance_date) !== todayKey);
+            return [newRecord, ...filtered];
+        });
+        setAttendanceMarkedToday(true);
+        setTodayStatus(todayRecord.status || 'Present');
     };
 
     const fetchSalaryCalculation = async () => {
@@ -314,6 +421,11 @@ const EmployeeDetail = () => {
                             <h1 className="employee-detail__name">{employee.name}</h1>
                             <p className="employee-detail__role">{employee.role}</p>
                             <p className="employee-detail__meta">User ID: {employee.user_id}</p>
+                            <p className="employee-detail__meta">
+                                Today: {todayRecord?.status || 'Not marked'}
+                                {todayInTime ? ` | In ${todayInTime}` : ''}
+                                {todayOutTime ? ` | Out ${todayOutTime}` : ''}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -396,7 +508,7 @@ const EmployeeDetail = () => {
                                                 onClick={() => { const now = new Date(); setAttendanceForm(f => ({ ...f, time: now.toTimeString().slice(0, 5) })); setShowAttendanceModal(true); }}
                                                 className="employee-detail__cta employee-detail__cta--warning"
                                             >
-                                                {auth.getUser()?.role === 'Admin' ? 'Update Attendance' : 'Request Change'}
+                                                Change Attendance
                                             </button>
                                             : <button
                                                 onClick={() => { const now = new Date(); setAttendanceForm(f => ({ ...f, time: now.toTimeString().slice(0, 5) })); setShowAttendanceModal(true); }}
@@ -404,6 +516,16 @@ const EmployeeDetail = () => {
                                             >
                                                 ✓ Mark Attendance
                                             </button>
+                                    )}
+                                    {['Admin', 'Accountant', 'Front Office', 'front office'].includes(auth.getUser()?.role) && attendanceMarkedToday && ((todayStatus || (todayRecord && todayRecord.status)) === 'Present' || (todayStatus || (todayRecord && todayRecord.status)) === 'Half Day') && (
+                                        <button
+                                            onClick={markGoneNow}
+                                            className="employee-detail__cta employee-detail__cta--ghost"
+                                            title="Record gone time now"
+                                            style={{ marginLeft: 8 }}
+                                        >
+                                            Mark Gone
+                                        </button>
                                     )}
                                     {['Admin', 'Accountant', 'Front Office', 'front office'].includes(auth.getUser()?.role) && (
                                         <button
@@ -449,16 +571,7 @@ const EmployeeDetail = () => {
                                                                 required
                                                             />
                                                         </div>
-                                                        <div style={{ marginBottom: 16 }}>
-                                                            <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Gone Time</label>
-                                                            <input
-                                                                type="time"
-                                                                value={attendanceForm.gone_time}
-                                                                onChange={e => setAttendanceForm(f => ({ ...f, gone_time: e.target.value }))}
-                                                                className="employee-detail__input"
-                                                                style={{ width: '100%', marginTop: 4 }}
-                                                            />
-                                                        </div>
+                                                        
                                                         </>
                                                     )}
                                                     <div style={{ marginBottom: 16 }}>
@@ -533,16 +646,7 @@ const EmployeeDetail = () => {
                                                                 required
                                                             />
                                                         </div>
-                                                        <div style={{ marginBottom: 16 }}>
-                                                            <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Requested Gone Time</label>
-                                                            <input
-                                                                type="time"
-                                                                value={attendanceForm.gone_time}
-                                                                onChange={e => setAttendanceForm(f => ({ ...f, gone_time: e.target.value }))}
-                                                                className="employee-detail__input"
-                                                                style={{ width: '100%', marginTop: 4 }}
-                                                            />
-                                                        </div>
+                                                        
                                                         </>
                                                     )}
                                                     <div style={{ marginBottom: 16 }}>
@@ -577,7 +681,6 @@ const EmployeeDetail = () => {
                                                     </select>
                                                 </div>
                                                 {(attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day') && (
-                                                    <>
                                                     <div style={{ marginBottom: 16 }}>
                                                         <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>In Time</label>
                                                         <input
@@ -589,17 +692,6 @@ const EmployeeDetail = () => {
                                                             required
                                                         />
                                                     </div>
-                                                    <div style={{ marginBottom: 16 }}>
-                                                        <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Gone Time</label>
-                                                        <input
-                                                            type="time"
-                                                            value={attendanceForm.gone_time}
-                                                            onChange={e => setAttendanceForm(f => ({ ...f, gone_time: e.target.value }))}
-                                                            className="employee-detail__input"
-                                                            style={{ width: '100%', marginTop: 4 }}
-                                                        />
-                                                    </div>
-                                                    </>
                                                 )}
                                                 <div style={{ marginBottom: 16 }}>
                                                     <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Notes</label>
@@ -838,7 +930,8 @@ const EmployeeDetail = () => {
                                                                     </span>
                                                                 </td>
                                                                 <td style={{ fontSize: 12, color: record.in_time ? 'var(--text)' : 'var(--muted)' }}>{record.in_time ? record.in_time.slice(0, 5) : '—'}</td>
-                                                                <td style={{ fontSize: 12, color: record.out_time ? 'var(--text)' : 'var(--muted)' }}>{record.out_time ? record.out_time.slice(0, 5) : '—'}</td>
+                                                                <td style={{ fontSize: 12, color: getInTime(record) ? 'var(--text)' : 'var(--muted)' }}>{getInTime(record) || '—'}</td>
+                                                                <td style={{ fontSize: 12, color: getOutTime(record) ? 'var(--text)' : 'var(--muted)' }}>{getOutTime(record) || '—'}</td>
                                                                 <td style={{ color: 'var(--muted)', fontSize: 12 }}>{record.notes || '—'}</td>
                                                             </tr>
                                                         );
