@@ -70,7 +70,7 @@ module.exports = (upload, removeUploadFile) => {
     })();
 
     // Auto-create an inventory entry when a product is added to the Product Library
-    async function autoCreateInventoryFromProduct(productId, productName, productCode, subcategoryId, slabs, companyName, companyCode, size) {
+    async function autoCreateInventoryFromProduct(productId, productName, productCode, subcategoryId, slabs, companyName, companyCode, size, extraInv = {}) {
         // Check if already linked
         const [existing] = await pool.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? AND inventory_item_id IS NOT NULL', [productId]);
         if (existing.length > 0) return;
@@ -117,9 +117,19 @@ module.exports = (upload, removeUploadFile) => {
             inventoryId = existingInv[0].id;
         } else {
             const [invResult] = await pool.query(
-                `INSERT INTO sarga_inventory (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, item_type, source_code, model_name, size_code)
-                 VALUES (?, ?, ?, 'pcs', 0, 0, 0, ?, 'Retail', ?, ?, ?)`,
-                [productName, sku, inventoryCategory, sellPrice, sourceCode, productName, sizeCode]
+                `INSERT INTO sarga_inventory (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, item_type, source_code, model_name, size_code, hsn, gst_rate, vendor_name)
+                 VALUES (?, ?, ?, ?, ?, 0, ?, ?, 'Retail', ?, ?, ?, ?, ?, ?)`,
+                [
+                    productName, sku, inventoryCategory, 
+                    extraInv.unit || 'pcs', 
+                    Number(extraInv.quantity) || 0, 
+                    Number(extraInv.cost_price) || 0, 
+                    Number(extraInv.sell_price) || sellPrice, 
+                    sourceCode, productName, sizeCode,
+                    extraInv.hsn || null,
+                    Number(extraInv.gst_rate) || 0,
+                    extraInv.vendor_name || null
+                ]
             );
             inventoryId = invResult.insertId;
 
@@ -424,9 +434,10 @@ module.exports = (upload, removeUploadFile) => {
 
     // Add Product with Slabs and Extras
     router.post('/products', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
-        const { subcategory_id, name, product_code, calculation_type, description, inventory_item_id, isPhysicalProduct, company_name, company_code, size } = req.body;
+        const { subcategory_id, name, product_code, calculation_type, description, inventory_item_id, isPhysicalProduct, company_name, company_code, size, extraInv } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
+        const parsedExtraInv = typeof extraInv === 'string' ? JSON.parse(extraInv) : (extraInv || {});
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
         const connection = await pool.getConnection();
         try {
@@ -498,7 +509,7 @@ module.exports = (upload, removeUploadFile) => {
             // Auto-create inventory entry if not already linked to one
             if (!inventory_item_id) {
                 try {
-                    await autoCreateInventoryFromProduct(productId, String(name).trim(), product_code, subcategory_id, slabs, company_name, company_code, size);
+                    await autoCreateInventoryFromProduct(productId, String(name).trim(), product_code, subcategory_id, slabs, company_name, company_code, size, parsedExtraInv);
                 } catch (autoErr) {
                     console.error('Auto-create inventory from product failed (non-blocking):', autoErr.message);
                 }
@@ -588,12 +599,22 @@ module.exports = (upload, removeUploadFile) => {
     // Delete Product
     router.delete('/products/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
         try {
+            // Check if the product has stock in inventory
+            const [prodRows] = await pool.query("SELECT inventory_item_id FROM sarga_products WHERE id = ?", [req.params.id]);
+            if (prodRows.length > 0 && prodRows[0].inventory_item_id) {
+                const [invRows] = await pool.query("SELECT quantity FROM sarga_inventory WHERE id = ?", [prodRows[0].inventory_item_id]);
+                if (invRows.length > 0 && Number(invRows[0].quantity) > 0) {
+                    return res.status(400).json({ message: `Cannot delete product. It has ${invRows[0].quantity} unit(s) of stock remaining in inventory.` });
+                }
+            }
+
             await pool.query("DELETE FROM sarga_products WHERE id = ?", [req.params.id]);
             invalidateHierarchyCache();
             auditLog(req.user.id, 'PRODUCT_DELETE', `Deleted product #${req.params.id}`, { entity_type: 'product', entity_id: req.params.id });
             res.json({ message: 'Product deleted successfully' });
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            console.error('Delete product error:', err);
+            res.status(500).json({ message: err.message || 'Database error' });
         }
     });
 

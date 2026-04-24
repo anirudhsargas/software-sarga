@@ -290,7 +290,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
   };
 
   /* ══════════ Utility Detail Sub-Dashboard ══════════ */
-  if (selectedUtility) {
+  const renderUtilityDashboard = () => {
     const rows = statement?.rows || [];
     const payments = statement?.payments || [];
     const bills = statement?.bills || [];
@@ -411,10 +411,10 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
         </div>
       </div>
     );
-  }
+  };
 
   /* ══════════ Utility Overview Grid ══════════ */
-  return (
+  const renderOverviewGrid = () => (
     <div className="em-section">
       <div className="em-filter-row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div className="em-section-title"><Zap size={18} /> Utility Payments</div>
@@ -498,10 +498,16 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
           </div>
         </div>
       )}
+    </div>
+  );
+
+  return (
+    <>
+      {selectedUtility ? renderUtilityDashboard() : renderOverviewGrid()}
 
       {/* ── Add Utility Type Modal ── */}
       {showAddType && (
-        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowAddType(false); }}>
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowAddType(false); }}>
           <div className="em-modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
               <h2>Add Utility Type</h2>
@@ -523,7 +529,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
 
       {/* ── Fetch From Email Report Modal ── */}
       {showFetchReport && (
-        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowFetchReport(false); }}>
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowFetchReport(false); }}>
           <div className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
               <h2>Fetch Bills From Email</h2>
@@ -541,7 +547,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
 
       {/* ── Manage Connections Modal ── */}
       {showConnectionsModal && (
-        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowConnectionsModal(false); }}>
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowConnectionsModal(false); }}>
           <div className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
               <h2>Manage Connections — {selectedUtility || billForm.utility_type || 'Utility'}</h2>
@@ -709,7 +715,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api, { imgUrl } from '../services/api';
 import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon, ChevronLeft, Search, Filter, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { isTouchDevice } from '../services/utils';
@@ -60,6 +61,8 @@ const SortableItem = ({ id, children, className, disabled, ...props }) => {
 };
 
 const ProductLibrary = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
     const { user } = useAuth();
     const isAdmin = user?.role === 'Admin';
     const isDesigner = user?.role === 'Designer';
@@ -116,6 +119,8 @@ const ProductLibrary = () => {
     const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
     const [vendors, setVendors] = useState([]);
 
+    const [showAdvancedInventory, setShowAdvancedInventory] = useState(false);
+
     const [newProduct, setNewProduct] = useState({
         name: '',
         product_code: '',
@@ -130,7 +135,17 @@ const ProductLibrary = () => {
         slabs: [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
         extras: [],
         links: [],
-        isPhysicalProduct: false // Checklist: show in inventory
+        isPhysicalProduct: false, // Checklist: show in inventory
+        isManualCompanyCode: false,
+        extraInv: {
+            hsn: '',
+            quantity: '',
+            unit: 'pcs',
+            gst_rate: '0',
+            cost_price: '',
+            sell_price: '',
+            vendor_name: ''
+        }
     });
 
 
@@ -230,6 +245,15 @@ const ProductLibrary = () => {
         });
         if (!isConfirmed) return;
 
+        // Optimistic UI Update
+        setHierarchy(prev => prev.map(c => ({
+            ...c,
+            subcategories: c.subcategories?.map(s => ({
+                ...s,
+                products: s.products?.filter(p => !selectedProductIds.includes(p.id))
+            }))
+        })));
+
         try {
             const results = await Promise.allSettled(selectedProductIds.map(id => api.delete(`/products/${id}`)));
             const failed = results.filter(r => r.status === 'rejected').length;
@@ -253,6 +277,20 @@ const ProductLibrary = () => {
             type: anyActive ? 'danger' : 'primary'
         });
         if (!isConfirmed) return;
+
+        // Optimistic UI Update
+        setHierarchy(prev => prev.map(c => ({
+            ...c,
+            subcategories: c.subcategories?.map(s => ({
+                ...s,
+                products: s.products?.map(p => {
+                    if (selectedProductIds.includes(p.id)) {
+                        return { ...p, is_active: anyActive ? 0 : 1 };
+                    }
+                    return p;
+                })
+            }))
+        })));
 
         try {
             await Promise.allSettled(selectedProductIds.map(id => api.patch(`/products/${id}/toggle-active`)));
@@ -405,19 +443,25 @@ const ProductLibrary = () => {
             try {
                 const res = await api.get('/unique-company-code', { params: { name: companyName } });
                 const uniqueCode = res.data.code || cleaned.substring(0, 3).toUpperCase();
-                setNewProduct(prev => ({
-                    ...prev,
-                    company_code: uniqueCode,
-                    product_code: buildAutoSku(uniqueCode, prev.name, prev.size)
-                }));
+                setNewProduct(prev => {
+                    if (prev.isManualCompanyCode) return prev;
+                    return {
+                        ...prev,
+                        company_code: uniqueCode,
+                        product_code: buildAutoSku(uniqueCode, prev.name, prev.size)
+                    };
+                });
             } catch (err) {
                 // Fallback: just use first 3 letters
                 const fallback = cleaned.substring(0, 3).toUpperCase();
-                setNewProduct(prev => ({
-                    ...prev,
-                    company_code: fallback,
-                    product_code: buildAutoSku(fallback, prev.name, prev.size)
-                }));
+                setNewProduct(prev => {
+                    if (prev.isManualCompanyCode) return prev;
+                    return {
+                        ...prev,
+                        company_code: fallback,
+                        product_code: buildAutoSku(fallback, prev.name, prev.size)
+                    };
+                });
             }
         }, 400);
     }, []);
@@ -437,7 +481,17 @@ const ProductLibrary = () => {
             slabs: [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
             extras: [],
             links: [],
-            isPhysicalProduct: false
+            isPhysicalProduct: false,
+            isManualCompanyCode: false,
+            extraInv: {
+                hsn: '',
+                quantity: '',
+                unit: 'pcs',
+                gst_rate: '0',
+                cost_price: '',
+                sell_price: '',
+                vendor_name: ''
+            }
         });
         setProductImage(null);
         setProductImagePreview('');
@@ -522,6 +576,7 @@ const ProductLibrary = () => {
             const linksPayload = (newProduct.links || []).map(l => ({ name: (l.name || l.url || '').trim(), url: (l.url || '').trim() }));
             formData.append('links', JSON.stringify(linksPayload));
             formData.append('isPhysicalProduct', newProduct.isPhysicalProduct ? 1 : 0);
+            formData.append('extraInv', JSON.stringify(newProduct.extraInv || {}));
             if (newProduct.inventory_item_id) {
                 formData.append('inventory_item_id', newProduct.inventory_item_id);
             }
@@ -670,12 +725,28 @@ const ProductLibrary = () => {
         });
         if (!isConfirmed) return;
 
+        // Optimistic UI Update
+        if (type === 'category') {
+            setHierarchy(prev => prev.filter(c => c.id !== id));
+        } else if (type === 'subcategory') {
+            setHierarchy(prev => prev.map(c => ({ ...c, subcategories: c.subcategories?.filter(s => s.id !== id) })));
+        } else if (type === 'product') {
+            setHierarchy(prev => prev.map(c => ({
+                ...c,
+                subcategories: c.subcategories?.map(s => ({
+                    ...s,
+                    products: s.products?.filter(p => p.id !== id)
+                }))
+            })));
+        }
+
         try {
             const endpoint = type === 'category' ? `/product-categories/${id}` : type === 'subcategory' ? `/product-subcategories/${id}` : `/products/${id}`;
             await api.delete(endpoint);
             fetchHierarchy();
         } catch (err) {
             toast.error(err.response?.data?.message || `Error deleting ${type}`);
+            fetchHierarchy(); // Revert on error
         }
     };
 
@@ -725,7 +796,9 @@ const ProductLibrary = () => {
                 extras: prod.extras || [],
                 links: prod.links || [],
                 image_url: prod.image_url,
-                isPhysicalProduct: prod.is_physical_product === 1 || prod.is_physical_product === true
+                isPhysicalProduct: prod.is_physical_product === 1 || prod.is_physical_product === true,
+                isManualCompanyCode: !!prod.company_code,
+                extraInv: prod.extraInv || { hsn: '', quantity: '', unit: 'pcs', gst_rate: '0', cost_price: '', sell_price: '', vendor_name: '' }
             });
             setProductImage(null);
             setProductImagePreview(prod.image_url ? imgUrl(prod.image_url) : '');
@@ -735,46 +808,69 @@ const ProductLibrary = () => {
         }
     };
 
-    // Listen for external edit requests (e.g., from Inventory page)
+    // Listen for external edit requests (e.g., from Inventory page via router state)
     useEffect(() => {
-        const handler = (e) => {
-            const id = e?.detail?.id;
-            if (id) startEditProduct(id);
-        };
-        window.addEventListener('sarga:edit-product', handler);
-        return () => window.removeEventListener('sarga:edit-product', handler);
-    }, []);
+        if (location.state?.editProductId && !loading) {
+            startEditProduct(location.state.editProductId);
+            // Clear the state so it doesn't re-trigger
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [location.state, loading, navigate]);
 
     const handleToggleProduct = async (prod) => {
         const isActive = prod.is_active === 1 || prod.is_active === true;
+        
+        // Optimistic UI Update
+        setHierarchy(prev => prev.map(c => ({
+            ...c,
+            subcategories: c.subcategories?.map(s => ({
+                ...s,
+                products: s.products?.map(p => p.id === prod.id ? { ...p, is_active: !isActive } : p)
+            }))
+        })));
+
         try {
             await api.patch(`/products/${prod.id}/toggle-active`);
             toast.success(isActive ? `"${prod.name}" disabled` : `"${prod.name}" enabled`);
             fetchHierarchy();
         } catch (err) {
             toast.error('Error updating product status');
+            fetchHierarchy(); // Revert on error
         }
     };
 
     const handleToggleCategory = async (cat) => {
         const isActive = cat.is_active === 1 || cat.is_active === true;
+
+        // Optimistic UI Update
+        setHierarchy(prev => prev.map(c => c.id === cat.id ? { ...c, is_active: !isActive } : c));
+
         try {
             await api.patch(`/product-categories/${cat.id}/toggle-active`);
             toast.success(isActive ? `"${cat.name}" disabled` : `"${cat.name}" enabled`);
             fetchHierarchy();
         } catch (err) {
             toast.error('Error updating category status');
+            fetchHierarchy(); // Revert on error
         }
     };
 
     const handleToggleSubcategory = async (sub) => {
         const isActive = sub.is_active === 1 || sub.is_active === true;
+
+        // Optimistic UI Update
+        setHierarchy(prev => prev.map(c => ({
+            ...c,
+            subcategories: c.subcategories?.map(s => s.id === sub.id ? { ...s, is_active: !isActive } : s)
+        })));
+
         try {
             await api.patch(`/product-subcategories/${sub.id}/toggle-active`);
             toast.success(isActive ? `"${sub.name}" disabled` : `"${sub.name}" enabled`);
             fetchHierarchy();
         } catch (err) {
             toast.error('Error updating subcategory status');
+            fetchHierarchy(); // Revert on error
         }
     };
 
@@ -808,7 +904,9 @@ const ProductLibrary = () => {
                 inventory_item_id: prod.inventory_item_id || '',
                 slabs: prod.slabs && prod.slabs.length > 0 ? prod.slabs.map(s => ({ ...s, id: undefined })) : [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
                 extras: prod.extras ? prod.extras.map(e => ({ ...e, id: undefined })) : [],
-                image_url: prod.image_url // Retain image ref if possible, or leave blank if we want fresh upload. Usually better to copy.
+                image_url: prod.image_url, // Retain image ref if possible, or leave blank if we want fresh upload. Usually better to copy.
+                isManualCompanyCode: false,
+                extraInv: prod.extraInv || { hsn: '', quantity: '', unit: 'pcs', gst_rate: '0', cost_price: '', sell_price: '', vendor_name: '' }
             });
             // For duplicate, we might not want to carry over the image unless user explicitly re-uploads or we backend supports copying. 
             // For now, let's keep it simple and NOT copy the image file itself to avoid complexity, but we can show it as "current" if we wanted.
@@ -1715,44 +1813,50 @@ const ProductLibrary = () => {
                                 </div>
                             </div>
 
-                            {/* Manufacturer / Vendor Details with Autocomplete */}
+                            {/* Manufacturer / Vendor Details with Autocomplete - Modernized */}
                             <div className="vendor-specs-section" style={{
-                                background: 'var(--surface-1, #0f172a)',
+                                background: 'var(--surface-2, #1e293b)',
                                 padding: '24px',
-                                borderRadius: '20px',
-                                border: '1px solid var(--border, #1e293b)',
-                                marginBottom: '24px',
-                                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.2)'
+                                borderRadius: '16px',
+                                border: '1px solid var(--border, #334155)',
+                                marginBottom: '24px'
                             }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '20px' }}>
+                                <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Package size={16} className="text-accent" />
+                                    Brand & Specifications
+                                </h3>
+                                
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px' }}>
+                                    {/* Company Name with Autocomplete */}
                                     <div style={{ position: 'relative' }}>
-                                        <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Package size={14} className="muted" /> 
-                                            Company / Brand Name
-                                        </label>
-                                        <input
-                                            className="input-field"
-                                            value={newProduct.company_name}
-                                            autoComplete="off"
-                                            onFocus={() => setCompanyDropdownOpen(true)}
-                                            onBlur={() => setTimeout(() => setCompanyDropdownOpen(false), 200)}
-                                            onChange={e => {
-                                                const val = e.target.value.toUpperCase();
-                                                // Quick guess at code if none exists
-                                                const quickCode = val.replace(/[^A-Z0-9]/g, '').substring(0, 3);
-                                                setNewProduct(prev => ({
-                                                    ...prev,
-                                                    company_name: val,
-                                                    company_code: prev.company_code || quickCode, // Only fill if empty
-                                                    product_code: buildAutoSku(prev.company_code || quickCode, prev.name, prev.size)
-                                                }));
-                                                fetchUniqueCode(val, newProduct);
-                                                setCompanyDropdownOpen(true);
-                                            }}
-                                            placeholder="Search or add new..."
-                                        />
+                                        <label className="label">Company / Brand Name</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                className="input-field"
+                                                style={{ paddingLeft: '36px' }}
+                                                value={newProduct.company_name}
+                                                autoComplete="off"
+                                                onFocus={() => setCompanyDropdownOpen(true)}
+                                                onBlur={() => setTimeout(() => setCompanyDropdownOpen(false), 200)}
+                                                onChange={e => {
+                                                    const val = e.target.value.toUpperCase();
+                                                    // Quick guess at code if none exists
+                                                    const quickCode = val.replace(/[^A-Z0-9]/g, '').substring(0, 3);
+                                                    setNewProduct(prev => ({
+                                                        ...prev,
+                                                        company_name: val,
+                                                        company_code: prev.isManualCompanyCode ? prev.company_code : (prev.company_code || quickCode),
+                                                        product_code: buildAutoSku(prev.isManualCompanyCode ? prev.company_code : (prev.company_code || quickCode), prev.name, prev.size)
+                                                    }));
+                                                    fetchUniqueCode(val, newProduct);
+                                                    setCompanyDropdownOpen(true);
+                                                }}
+                                                placeholder="Search Brands..."
+                                            />
+                                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                        </div>
                                         
-                                        {/* Autocomplete Dropdown - Premium UI */}
+                                        {/* Autocomplete Dropdown */}
                                         {companyDropdownOpen && (() => {
                                             const q = (newProduct.company_name || '').trim().toLowerCase();
                                             const matches = knownCompanies.filter(c =>
@@ -1761,56 +1865,59 @@ const ProductLibrary = () => {
                                             if (matches.length === 0) return null;
                                             return (
                                                 <div style={{
-                                                    position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                                                    position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
                                                     zIndex: 1000,
-                                                    background: 'var(--surface, #1e293b)',
-                                                    border: '1px solid var(--border, #334155)',
+                                                    background: 'var(--surface-3, #2d3748)',
+                                                    border: '1px solid var(--border, #4a5568)',
                                                     borderRadius: '12px',
-                                                    boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)',
-                                                    maxHeight: '240px',
+                                                    boxShadow: '0 12px 24px -6px rgba(0,0,0,0.4)',
+                                                    maxHeight: '220px',
                                                     overflowY: 'auto',
                                                     padding: '6px'
                                                 }}>
-                                                    <div style={{ padding: '8px 12px', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent Companies</div>
                                                     {matches.map((c, i) => (
                                                         <div
                                                             key={i}
-                                                                onMouseDown={e => {
-                                                                    e.preventDefault();
-                                                                    if (codeTimerRef.current) clearTimeout(codeTimerRef.current);
-                                                                    const autoSku = buildAutoSku(c.code, newProduct.name, newProduct.size);
-                                                                    setNewProduct(prev => ({
-                                                                        ...prev,
-                                                                        company_name: c.name,
-                                                                        company_code: c.code,
-                                                                        product_code: autoSku,
-                                                                    }));
-                                                                    setCompanyDropdownOpen(false);
-                                                                }}
-                                                            className="autocomplete-item"
+                                                            onMouseDown={e => {
+                                                                e.preventDefault();
+                                                                if (codeTimerRef.current) clearTimeout(codeTimerRef.current);
+                                                                const autoSku = buildAutoSku(c.code, newProduct.name, newProduct.size);
+                                                                setNewProduct(prev => ({
+                                                                    ...prev,
+                                                                    company_name: c.name,
+                                                                    company_code: c.code,
+                                                                    product_code: autoSku,
+                                                                    isManualCompanyCode: true
+                                                                }));
+                                                                setCompanyDropdownOpen(false);
+                                                            }}
                                                             style={{
-                                                                padding: '10px 12px',
+                                                                padding: '10px 14px',
                                                                 cursor: 'pointer',
                                                                 display: 'flex',
                                                                 alignItems: 'center',
                                                                 justifyContent: 'space-between',
                                                                 borderRadius: '8px',
-                                                                transition: 'background 0.2s'
+                                                                transition: 'all 0.2s'
                                                             }}
-                                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2, #334155)'}
+                                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.15)'}
                                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                                         >
-                                                            <div className="row items-center gap-sm">
-                                                                <div style={{ width: 32, height: 32, borderRadius: 6, background: 'var(--bg)', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, color: 'var(--accent)' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                <div style={{ 
+                                                                    width: '28px', height: '28px', borderRadius: '6px', 
+                                                                    background: 'var(--bg)', display: 'grid', placeItems: 'center', 
+                                                                    fontSize: '12px', fontWeight: 800, color: 'var(--accent)' 
+                                                                }}>
                                                                     {c.name.charAt(0)}
                                                                 </div>
                                                                 <span style={{ fontWeight: 600, fontSize: '13px' }}>{c.name}</span>
                                                             </div>
                                                             <span style={{
                                                                 fontFamily: 'monospace', fontSize: '11px',
-                                                                fontWeight: 700, color: 'var(--accent, #6366f1)',
-                                                                background: 'var(--accent-light, rgba(99,102,241,0.1))',
-                                                                padding: '2px 8px', borderRadius: '4px',
+                                                                fontWeight: 700, color: 'var(--accent)',
+                                                                background: 'rgba(99,102,241,0.1)',
+                                                                padding: '2px 6px', borderRadius: '4px',
                                                             }}>{c.code}</span>
                                                         </div>
                                                     ))}
@@ -1819,24 +1926,44 @@ const ProductLibrary = () => {
                                         })()}
                                     </div>
 
+                                    {/* Company Code */}
                                     <div>
-                                        <label className="label">Company Code</label>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="label">Unique Brand Code</label>
+                                            {newProduct.isManualCompanyCode && (
+                                                <button 
+                                                    type="button" 
+                                                    className="btn btn-ghost btn-xs text-accent" 
+                                                    style={{ padding: '0 4px', fontSize: '10px', height: '18px' }}
+                                                    onClick={() => {
+                                                        setNewProduct(prev => {
+                                                            const newCode = (prev.company_name || '').replace(/[^A-Z0-9]/g, '').substring(0, 3).toUpperCase();
+                                                            return { ...prev, isManualCompanyCode: false, company_code: newCode, product_code: buildAutoSku(newCode, prev.name, prev.size) };
+                                                        });
+                                                        fetchUniqueCode(newProduct.company_name, newProduct);
+                                                    }}
+                                                >
+                                                    <RotateCcw size={10} style={{ marginRight: 2 }} /> Auto
+                                                </button>
+                                            )}
+                                        </div>
                                         <input
                                             className="input-field"
-                                            style={{ fontFamily: 'monospace', fontWeight: 700, textAlign: 'center', letterSpacing: '1px' }}
+                                            style={{ fontFamily: 'monospace', fontWeight: 700, textAlign: 'center', letterSpacing: '1px', textTransform: 'uppercase' }}
                                             value={newProduct.company_code}
                                             onChange={e => {
                                                 const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 5);
                                                 const autoSku = buildAutoSku(val, newProduct.name, newProduct.size);
-                                                setNewProduct({ ...newProduct, company_code: val, product_code: autoSku });
+                                                setNewProduct({ ...newProduct, company_code: val, product_code: autoSku, isManualCompanyCode: true });
                                             }}
                                             placeholder="e.g. PMI"
                                             maxLength={5}
                                         />
                                     </div>
 
+                                    {/* Size */}
                                     <div>
-                                        <label className="label">Size / Spec</label>
+                                        <label className="label">Dimensions / Size</label>
                                         <input
                                             className="input-field"
                                             value={newProduct.size}
@@ -1845,32 +1972,34 @@ const ProductLibrary = () => {
                                                 const autoSku = buildAutoSku(newProduct.company_code, newProduct.name, val);
                                                 setNewProduct({ ...newProduct, size: val, product_code: autoSku });
                                             }}
-                                            placeholder="e.g. 12X18, A4"
-                                            maxLength={20}
+                                            placeholder="e.g. 12X18"
                                         />
                                     </div>
                                 </div>
 
-                                <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border, #1e293b)' }}>
-                                    <div className="row items-center space-between">
-                                        <div className="stack-xs">
-                                            <label className="label mb-0">System SKU / Product Code</label>
-                                            <span className="text-xs muted">Generated automatically from company, name, and size.</span>
-                                        </div>
-                                        <div style={{
-                                            background: 'var(--bg, #0f172a)',
-                                            padding: '8px 16px',
-                                            borderRadius: '8px',
-                                            border: '1px solid var(--border, #1e293b)',
-                                            fontFamily: 'monospace',
-                                            fontSize: '14px',
-                                            fontWeight: 700,
-                                            color: 'var(--accent, #6366f1)',
-                                            minWidth: '200px',
-                                            textAlign: 'right'
-                                        }}>
-                                            {newProduct.product_code || '---'}
-                                        </div>
+                                {/* SKU Preview Area */}
+                                <div style={{ 
+                                    marginTop: '20px', 
+                                    padding: '16px', 
+                                    background: 'var(--surface-3, #0f172a)', 
+                                    borderRadius: '12px',
+                                    border: '1px solid var(--border)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <div className="stack-xs">
+                                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase' }}>Auto-Generated System SKU</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Code used for internal tracking & inventory sync.</span>
+                                    </div>
+                                    <div style={{ 
+                                        fontFamily: 'monospace', 
+                                        fontSize: '16px', 
+                                        fontWeight: 800, 
+                                        color: 'var(--text)',
+                                        letterSpacing: '0.05em'
+                                    }}>
+                                        {newProduct.product_code || '---'}
                                     </div>
                                 </div>
                             </div>
@@ -1878,6 +2007,7 @@ const ProductLibrary = () => {
 
                             {/* Physical product toggle */}
                             {isAdmin && (
+                            <>
                             <label style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -1903,67 +2033,129 @@ const ProductLibrary = () => {
                                     </span>
                                 </div>
                             </label>
+
+                            {newProduct.isPhysicalProduct && (
+                                <div className="product-form-section" style={{
+                                    background: 'var(--surface-2, #1e293b)',
+                                    padding: '24px',
+                                    borderRadius: '16px',
+                                    border: '1px solid var(--border, #334155)',
+                                    marginBottom: '24px',
+                                    marginTop: '8px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showAdvancedInventory ? '16px' : '0' }}>
+                                        <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Initial Inventory Details</h3>
+                                        <button 
+                                            type="button" 
+                                            className="btn btn-ghost btn-sm" 
+                                            onClick={() => setShowAdvancedInventory(!showAdvancedInventory)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                            {showAdvancedInventory ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                            {showAdvancedInventory ? 'Hide' : 'Show'} Advanced Options
+                                        </button>
+                                    </div>
+                                    
+                                    {showAdvancedInventory && (
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                                            <div>
+                                                <label className="label">Opening Qty</label>
+                                                <input className="input-field" type="number" placeholder="0" value={newProduct.extraInv.quantity} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, quantity: e.target.value}})} />
+                                            </div>
+                                            <div>
+                                                <label className="label">Unit</label>
+                                                <input className="input-field" placeholder="pcs" value={newProduct.extraInv.unit} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, unit: e.target.value}})} />
+                                            </div>
+                                            <div>
+                                                <label className="label">HSN Code</label>
+                                                <input className="input-field" placeholder="e.g. 4820" value={newProduct.extraInv.hsn} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, hsn: e.target.value}})} />
+                                            </div>
+                                            <div>
+                                                <label className="label">Cost Price (₹)</label>
+                                                <input className="input-field" type="number" placeholder="0.00" value={newProduct.extraInv.cost_price} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, cost_price: e.target.value}})} />
+                                            </div>
+                                            <div>
+                                                <label className="label">Selling Price (₹)</label>
+                                                <input className="input-field" type="number" placeholder="Auto from slabs" value={newProduct.extraInv.sell_price} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, sell_price: e.target.value}})} />
+                                            </div>
+                                            <div>
+                                                <label className="label">GST Rate (%)</label>
+                                                <input className="input-field" type="number" placeholder="0" value={newProduct.extraInv.gst_rate} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, gst_rate: e.target.value}})} />
+                                            </div>
+                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                <label className="label">Vendor Name (for stock)</label>
+                                                <input className="input-field" placeholder="Primary supplier" value={newProduct.extraInv.vendor_name} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, vendor_name: e.target.value}})} />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            </>
                             )}
 
+                            {/* Calculation Strategy - Refined UI */}
                             {isAdmin && (
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: newProduct.calculation_type === 'Slab' ? '1fr 1fr' : '1fr auto',
-                                gap: '14px', alignItems: 'start',
-                                padding: '14px 16px',
+                            <div className="product-form-section" style={{
                                 background: 'var(--surface-2, #1e293b)',
-                                borderRadius: '10px',
-                                border: '1px solid var(--border, #334155)'
+                                padding: '24px',
+                                borderRadius: '16px',
+                                border: '1px solid var(--border, #334155)',
+                                marginBottom: '24px'
                             }}>
-                                <div>
-                                    <label className="label">Calculation Method</label>
-                                    <select
-                                        className="input-field"
-                                        value={newProduct.calculation_type}
-                                        onChange={e => setNewProduct({ ...newProduct, calculation_type: e.target.value })}
-                                    >
-                                        <option value="Normal">Normal (Qty * Rate)</option>
-                                        <option value="Slab">Slab (Interpolation)</option>
-                                        <option value="Range">Range (Qty * Rate)</option>
-                                    </select>
-                                </div>
-                                {newProduct.calculation_type === 'Slab' && (
-                                    <div className="flex-1">
-                                        <label className="label row items-center gap-xs">
+                                <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pricing Strategy</h3>
+                                
+                                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '20px', alignItems: 'end' }}>
+                                    <div>
+                                        <label className="label">Calculation Method</label>
+                                        <select
+                                            className="input-field"
+                                            style={{ fontWeight: 600 }}
+                                            value={newProduct.calculation_type}
+                                            onChange={e => setNewProduct({ ...newProduct, calculation_type: e.target.value })}
+                                        >
+                                            <option value="Normal">Fixed Unit Rate (Qty × Rate)</option>
+                                            <option value="Slab">Interpolated Slab (Gradual Transition)</option>
+                                            <option value="Range">Quantity Range (Tiered Pricing)</option>
+                                        </select>
+                                    </div>
+
+                                    {newProduct.calculation_type === 'Slab' && (
+                                        <div>
+                                            <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={newProduct.has_paper_rate}
+                                                    onChange={e => setNewProduct({ ...newProduct, has_paper_rate: e.target.checked })}
+                                                    style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+                                                />
+                                                Add Paper Rate?
+                                            </label>
+                                            {newProduct.has_paper_rate && (
+                                                <input
+                                                    type="number"
+                                                    step="any"
+                                                    className="input-field"
+                                                    style={{ marginTop: '8px' }}
+                                                    placeholder="Rate/unit"
+                                                    value={newProduct.paper_rate !== undefined ? newProduct.paper_rate : ''}
+                                                    onChange={e => setNewProduct({ ...newProduct, paper_rate: e.target.value === '' ? '' : Number(e.target.value) })}
+                                                    onWheel={e => e.preventDefault()}
+                                                />
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div style={{ paddingBottom: '12px' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                                             <input
                                                 type="checkbox"
-                                                checked={newProduct.has_paper_rate}
-                                                onChange={e => setNewProduct({ ...newProduct, has_paper_rate: e.target.checked })}
+                                                checked={newProduct.has_double_side_rate}
+                                                onChange={e => setNewProduct({ ...newProduct, has_double_side_rate: e.target.checked })}
+                                                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
                                             />
-                                            Enable Paper Rate Add-on
+                                            Double Side Support
                                         </label>
-                                        {newProduct.has_paper_rate && (
-                                            <input
-                                                type="number"
-                                                step="any"
-                                                className="input-field"
-                                                placeholder="Rate per unit"
-                                                value={newProduct.paper_rate !== undefined ? newProduct.paper_rate : ''}
-                                                onChange={e => setNewProduct({ ...newProduct, paper_rate: e.target.value === '' ? '' : Number(e.target.value) })}
-                                                onWheel={e => e.preventDefault()}
-                                            />
-                                        )}
                                     </div>
-                                )}
-                                <div style={{ display: 'flex', alignItems: 'center', paddingTop: '28px' }}>
-                                    <label style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: '8px',
-                                        fontSize: '13px', fontWeight: 500, cursor: 'pointer',
-                                        userSelect: 'none', whiteSpace: 'nowrap'
-                                    }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={newProduct.has_double_side_rate}
-                                            onChange={e => setNewProduct({ ...newProduct, has_double_side_rate: e.target.checked })}
-                                            style={{ width: '16px', height: '16px', accentColor: 'var(--primary, #6366f1)', cursor: 'pointer' }}
-                                        />
-                                        Enable Double Side Rate
-                                    </label>
                                 </div>
                             </div>
                             )}

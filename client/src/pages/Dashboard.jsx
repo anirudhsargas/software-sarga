@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, Suspense, useCallback } from 'reac
 import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import {
-    Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2,
+    Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store,
     Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
@@ -37,6 +37,7 @@ const Summary = React.lazy(() => import('./Summary'));
 const Billing = React.lazy(() => import('./Billing'));
 const FrontOffice = React.lazy(() => import('./FrontOffice'));
 const ExpenseManager = React.lazy(() => import('./ExpenseManager'));
+const Vendors = React.lazy(() => import('./Vendors'));
 const MachineManagement = React.lazy(() => import('./MachineManagement'));
 const DailyReport = React.lazy(() => import('./DailyReport'));
 const AttendanceSalary = React.lazy(() => import('./AttendanceSalary'));
@@ -223,6 +224,7 @@ const Dashboard = () => {
         { name: t('schedules_time', 'Schedules & Time'), icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'manage' },
         // Finance & Reports
         { name: t('expense_manager', 'Expense Manager'), icon: Receipt, path: '/dashboard/expenses', roles: ['Admin', 'Front Office', 'Accountant'], group: 'finance' },
+        { name: t('vendors', 'Vendors'), icon: Store, path: '/dashboard/vendors', roles: ['Admin', 'Accountant', 'Front Office'], group: 'finance' },
         { name: t('payment_verification', 'Payment Verification'), icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'finance' },
         { name: t('accounts_gst', 'Accounts & GST'), icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
         { name: t('daily_report', 'Daily Report'), icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office', 'Admin', 'Accountant'], group: 'business' },
@@ -666,6 +668,7 @@ const Dashboard = () => {
                             <Route path="customer-payments" element={<CustomerPayments />} />
                             <Route path="payment-verification" element={<PaymentVerification />} />
                             <Route path="expenses" element={<ExpenseManager />} />
+                            <Route path="vendors" element={<Vendors />} />
                             <Route path="machines" element={<MachineManagement />} />
                             <Route path="daily-report" element={<DailyReport />} />
                             <Route path="internal-transactions" element={<InternalTransactions />} />

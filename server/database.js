@@ -1887,6 +1887,18 @@ const initDb = async () => {
       console.error('Error adding Half Day enum:', err);
     }
 
+    // Enhance Attendance Requests for gone_time tracking
+    try {
+      await connection.query(`
+        ALTER TABLE sarga_attendance_requests 
+        ADD COLUMN requested_gone_time TIME AFTER requested_time
+      `);
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.error('Error enhancing attendance requests table:', err);
+      }
+    }
+
     console.log("Three Books System tables created successfully.");
 
     // Job Status History and new Cost fields

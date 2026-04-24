@@ -215,11 +215,15 @@ const Customers = () => {
         });
         if (!isConfirmed) return;
 
+        // Optimistic UI Update
+        setCustomers(prev => prev.filter(c => c.id !== id));
+
         try {
             await api.delete(`/customers/${id}`);
             fetchCustomers();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to delete customer');
+            fetchCustomers();
         }
     };
 

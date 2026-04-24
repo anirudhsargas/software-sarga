@@ -11,27 +11,34 @@ export default function RecurringInvoices() {
     const [processing, setProcessing] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [form, setForm] = useState({
-        customer_id: '', description: '', amount: 0, frequency: 'monthly',
-        next_run_date: new Date().toISOString().split('T')[0], end_date: '', payment_method: 'Cash'
+        customer_id: '', customer_name: '', customer_mobile: '', customer_email: '',
+        description: '', total: 0, subtotal: 0, frequency: 'monthly',
+        next_date: new Date().toISOString().split('T')[0], end_date: '', payment_method: 'Cash',
+        is_active: true
     });
 
     const fetch = useCallback(async () => {
         try {
             const [{ data }, { data: custs }] = await Promise.all([
                 api.get('/recurring-invoices'),
-                api.get('/customers')
+                api.get('/customers?limit=1000')
             ]);
-            setItems(data); setCustomers(custs);
-        } catch {}
+            setItems(data);
+            setCustomers(Array.isArray(custs) ? custs : (custs.data || []));
+        } catch (err) {
+            console.error('Fetch error:', err);
+            toast.error('Failed to load data');
+        }
         setLoading(false);
     }, []);
     useEffect(() => { fetch(); }, [fetch]);
 
     const handleSave = async () => {
-        if (!form.customer_id || !form.amount) return toast.error('Customer and amount required');
+        if (!form.customer_id || !form.total) return toast.error('Customer and amount required');
         try {
-            if (editingId) { await api.put(`/recurring-invoices/${editingId}`, form); }
-            else { await api.post('/recurring-invoices', form); }
+            const payload = { ...form, subtotal: form.total }; // Simple mapping for now
+            if (editingId) { await api.put(`/recurring-invoices/${editingId}`, payload); }
+            else { await api.post('/recurring-invoices', payload); }
             toast.success('Saved');
             setShowForm(false); setEditingId(null); fetch();
         } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
@@ -39,9 +46,12 @@ export default function RecurringInvoices() {
 
     const handleEdit = (r) => {
         setForm({
-            customer_id: r.customer_id, description: r.description || '', amount: r.amount,
-            frequency: r.frequency, next_run_date: r.next_run_date?.split('T')[0] || '',
-            end_date: r.end_date?.split('T')[0] || '', payment_method: r.payment_method || 'Cash'
+            customer_id: r.customer_id, customer_name: r.customer_name || '',
+            customer_mobile: r.customer_mobile || '', customer_email: r.customer_email || '',
+            description: r.description || '', total: r.total || 0, subtotal: r.subtotal || 0,
+            frequency: r.frequency, next_date: r.next_date?.split('T')[0] || '',
+            end_date: r.end_date?.split('T')[0] || '', payment_method: r.payment_method || 'Cash',
+            is_active: !!r.is_active
         });
         setEditingId(r.id); setShowForm(true);
     };
@@ -73,7 +83,7 @@ export default function RecurringInvoices() {
     const btnStyle = (bg = '#6366f1') => ({ background: bg, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14 });
 
     const freqLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly' };
-    const getCustomerName = (id) => customers.find(c => c.id === id)?.name || `#${id}`;
+    const getCustomerName = (id) => (Array.isArray(customers) ? customers : []).find(c => String(c.id) === String(id))?.name || `#${id}`;
 
     if (loading) return <div style={{ textAlign: 'center', padding: 60 }}><Loader2 size={28} className="animate-spin" /></div>;
 
@@ -85,7 +95,16 @@ export default function RecurringInvoices() {
                     <button onClick={processNow} disabled={processing} style={btnStyle('#22c55e')}>
                         {processing ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />} Process Due
                     </button>
-                    <button onClick={() => { setForm({ customer_id: '', description: '', amount: 0, frequency: 'monthly', next_run_date: new Date().toISOString().split('T')[0], end_date: '', payment_method: 'Cash' }); setEditingId(null); setShowForm(true); }} style={btnStyle()}>
+                    <button onClick={() => { 
+                        setForm({ 
+                            customer_id: '', customer_name: '', customer_mobile: '', customer_email: '',
+                            description: '', total: 0, subtotal: 0, frequency: 'monthly', 
+                            next_date: new Date().toISOString().split('T')[0], end_date: '', payment_method: 'Cash',
+                            is_active: true 
+                        }); 
+                        setEditingId(null); 
+                        setShowForm(true); 
+                    }} style={btnStyle()}>
                         <Plus size={16} /> New Recurring
                     </button>
                 </div>
@@ -101,8 +120,8 @@ export default function RecurringInvoices() {
             {items.map(r => (
                 <div key={r.id} style={{ ...cardStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: r.is_active ? 1 : 0.5 }}>
                     <div>
-                        <strong>{getCustomerName(r.customer_id)}</strong>
-                        <span style={{ margin: '0 10px', fontSize: 20, fontWeight: 700 }}>₹{Number(r.amount).toLocaleString()}</span>
+                        <strong>{r.customer_name || getCustomerName(r.customer_id)}</strong>
+                        <span style={{ margin: '0 10px', fontSize: 20, fontWeight: 700 }}>₹{Number(r.total || 0).toLocaleString()}</span>
                         <span style={{ background: '#e0e7ff', color: '#4338ca', padding: '2px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{freqLabel[r.frequency]}</span>
                         {!r.is_active && <span style={{ marginLeft: 8, background: '#fef2f2', color: '#ef4444', padding: '2px 8px', borderRadius: 8, fontSize: 11 }}>Paused</span>}
                         <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4, display: 'flex', gap: 16 }}>
@@ -127,14 +146,28 @@ export default function RecurringInvoices() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
                         <div>
                             <label style={{ fontSize: 13, fontWeight: 600 }}>Customer *</label>
-                            <select value={form.customer_id} onChange={e => setForm(f => ({ ...f, customer_id: e.target.value }))} style={inputStyle}>
+                            <select 
+                                value={form.customer_id} 
+                                onChange={e => {
+                                    const id = e.target.value;
+                                    const c = customers.find(cust => String(cust.id) === String(id));
+                                    setForm(f => ({ 
+                                        ...f, 
+                                        customer_id: id,
+                                        customer_name: c?.name || '',
+                                        customer_mobile: c?.mobile || '',
+                                        customer_email: c?.email || ''
+                                    }));
+                                }} 
+                                style={inputStyle}
+                            >
                                 <option value="">Select customer</option>
                                 {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label style={{ fontSize: 13, fontWeight: 600 }}>Amount (₹) *</label>
-                            <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: Number(e.target.value) }))} style={inputStyle} />
+                            <input type="number" value={form.total} onChange={e => setForm(f => ({ ...f, total: Number(e.target.value) }))} style={inputStyle} />
                         </div>
                         <div>
                             <label style={{ fontSize: 13, fontWeight: 600 }}>Frequency</label>
@@ -144,7 +177,7 @@ export default function RecurringInvoices() {
                         </div>
                         <div>
                             <label style={{ fontSize: 13, fontWeight: 600 }}>Next Run Date</label>
-                            <input type="date" value={form.next_run_date} onChange={e => setForm(f => ({ ...f, next_run_date: e.target.value }))} style={inputStyle} />
+                            <input type="date" value={form.next_date} onChange={e => setForm(f => ({ ...f, next_date: e.target.value }))} style={inputStyle} />
                         </div>
                         <div>
                             <label style={{ fontSize: 13, fontWeight: 600 }}>End Date (optional)</label>

@@ -1017,6 +1017,13 @@ select.em-input {
     box-shadow: 0 20px 60px rgba(0, 0, 0, .2);
 }
 
+.em-modal > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
 .em-modal__header {
     display: flex;
     align-items: center;
@@ -1148,7 +1155,8 @@ select.em-input {
 
 /* ─── Modal Backdrop ──────────────────────────────────── */
 .em-page~.modal-backdrop,
-.modal-backdrop {
+.modal-backdrop,
+.em-modal-backdrop {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, .45);
@@ -1159,7 +1167,8 @@ select.em-input {
     backdrop-filter: blur(3px);
 }
 
-.dark .modal-backdrop {
+.dark .modal-backdrop,
+.dark .em-modal-backdrop {
     background: rgba(0, 0, 0, .65);
 }
 

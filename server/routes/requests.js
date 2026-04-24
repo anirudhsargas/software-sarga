@@ -229,7 +229,7 @@ router.post('/requests/attendance/:id/review', authenticateToken, authorizeRoles
     await connection.beginTransaction();
 
     try {
-        const [requests] = await connection.query("SELECT id, staff_id, attendance_date, requested_status, requested_notes, requested_time, status FROM sarga_attendance_requests WHERE id = ?", [requestId]);
+        const [requests] = await connection.query("SELECT id, staff_id, attendance_date, requested_status, requested_notes, requested_time, requested_gone_time, status FROM sarga_attendance_requests WHERE id = ?", [requestId]);
         const request = requests[0];
 
         if (!request) {
@@ -254,15 +254,19 @@ router.post('/requests/attendance/:id/review', authenticateToken, authorizeRoles
                 req.user.id
             ]);
 
-            // If time was requested and it's present/half-day, we can also update the time if those columns exist (in_time)
-            if (request.requested_time && (request.requested_status === 'Present' || request.requested_status === 'Half Day')) {
-                try {
+            // Update times if requested
+            if (request.requested_status === 'Present' || request.requested_status === 'Half Day') {
+                if (request.requested_time) {
                     await connection.query(
                         "UPDATE sarga_staff_attendance SET in_time = ? WHERE staff_id = ? AND attendance_date = ?",
                         [request.requested_time, request.staff_id, request.attendance_date]
                     );
-                } catch (err) {
-                    console.log('Skipping in_time update (column might not exist)');
+                }
+                if (request.requested_gone_time) {
+                    await connection.query(
+                        "UPDATE sarga_staff_attendance SET out_time = ? WHERE staff_id = ? AND attendance_date = ?",
+                        [request.requested_gone_time, request.staff_id, request.attendance_date]
+                    );
                 }
             }
 

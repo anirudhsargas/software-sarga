@@ -96,6 +96,11 @@ router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant',
     const finalBranchId = (['Admin', 'Accountant'].includes(req.user.role) ? branch_id : req.user.branch_id) || null;
 
     try {
+        const [existing] = await pool.query("SELECT id FROM sarga_vendors WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))", [name]);
+        if (existing.length > 0) {
+            return res.status(400).json({ message: 'Payee name already exists' });
+        }
+
         const [result] = await pool.query(
             "INSERT INTO sarga_vendors (name, type, contact_person, phone, address, branch_id, order_link, gstin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             [name, type || 'Vendor', contact_person, phone, address, finalBranchId, order_link, gstin]
@@ -123,6 +128,11 @@ router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountan
         }
 
         const finalBranchId = (['Admin', 'Accountant'].includes(req.user.role) ? branch_id : req.user.branch_id) || null;
+
+        const [existing] = await pool.query("SELECT id FROM sarga_vendors WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?", [name, id]);
+        if (existing.length > 0) {
+            return res.status(400).json({ message: 'Payee name already exists' });
+        }
 
         await pool.query(
             "UPDATE sarga_vendors SET name = ?, type = ?, contact_person = ?, phone = ?, address = ?, branch_id = ?, order_link = ?, gstin = ? WHERE id = ?",

@@ -1075,6 +1075,16 @@ router.delete('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Acco
         // Unlink products that reference this inventory item
         await pool.query('UPDATE sarga_products SET inventory_item_id = NULL, is_physical_product = 0 WHERE inventory_item_id = ?', [id]);
 
+        // Manually delete dependencies to avoid FK constraint failures (for legacy schemas without ON DELETE CASCADE)
+        await pool.query('DELETE FROM sarga_branch_stock WHERE inventory_item_id = ?', [id]);
+        await pool.query('DELETE FROM sarga_inventory_reorders WHERE inventory_item_id = ?', [id]);
+        await pool.query('DELETE FROM sarga_inventory_consumption WHERE inventory_item_id = ?', [id]);
+        await pool.query('DELETE FROM sarga_paper_cut_map WHERE parent_inventory_item_id = ?', [id]);
+        await pool.query('DELETE FROM sarga_stock_requests WHERE inventory_item_id = ?', [id]);
+        await pool.query('DELETE FROM sarga_vendor_bill_items WHERE inventory_item_id = ?', [id]);
+        await pool.query('DELETE FROM sarga_stock_verification_items WHERE inventory_item_id = ?', [id]);
+        await pool.query('DELETE FROM sarga_purchase_order_items WHERE inventory_item_id = ?', [id]);
+
         await pool.query("DELETE FROM sarga_inventory WHERE id = ?", [id]);
         auditLog(req.user.id, 'INVENTORY_DELETE', `Deleted item ${id} (${rows[0].name}), had qty=${rows[0].quantity}`);
         res.json({ message: 'Inventory item deleted' });

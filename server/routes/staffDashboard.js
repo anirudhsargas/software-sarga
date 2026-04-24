@@ -670,7 +670,7 @@ router.post('/mark-holiday', authenticateToken, async (req, res) => {
 // Request Attendance Change (Non-Admin)
 router.post('/:id/attendance-change-request', authenticateToken, async (req, res) => {
     const { id } = req.params;
-    const { attendance_date, requested_status, requested_time, requested_notes, requested_by } = req.body;
+    const { attendance_date, requested_status, requested_time, requested_gone_time, requested_notes, requested_by } = req.body;
 
     // Only Front Office/Accountant can request for themselves or others
     const allowedRoles = ["Admin", "Accountant", "Front Office", "front office"];
@@ -691,9 +691,9 @@ router.post('/:id/attendance-change-request', authenticateToken, async (req, res
     try {
         await pool.query(`
             INSERT INTO sarga_attendance_requests 
-            (staff_id, attendance_date, requested_status, requested_time, requested_notes, requested_by)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `, [id, attendance_date, requested_status, requested_time || null, requested_notes || null, requested_by]);
+            (staff_id, attendance_date, requested_status, requested_time, requested_gone_time, requested_notes, requested_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [id, attendance_date, requested_status, requested_time || null, requested_gone_time || null, requested_notes || null, requested_by]);
 
         auditLog(req.user.id, 'ATTENDANCE_CHANGE_REQUEST', `Requested attendance change for staff ${id} on ${attendance_date} to ${requested_status}`);
         res.json({ message: 'Attendance change request submitted successfully' });

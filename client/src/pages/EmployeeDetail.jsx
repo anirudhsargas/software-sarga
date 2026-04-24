@@ -571,6 +571,16 @@ const EmployeeDetail = () => {
                                                                 required
                                                             />
                                                         </div>
+                                                        <div style={{ marginBottom: 16 }}>
+                                                            <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Out Time</label>
+                                                            <input
+                                                                type="time"
+                                                                value={attendanceForm.gone_time}
+                                                                onChange={e => setAttendanceForm(f => ({ ...f, gone_time: e.target.value }))}
+                                                                className="employee-detail__input"
+                                                                style={{ width: '100%', marginTop: 4 }}
+                                                            />
+                                                        </div>
                                                         
                                                         </>
                                                     )}
@@ -644,6 +654,16 @@ const EmployeeDetail = () => {
                                                                 className="employee-detail__input"
                                                                 style={{ width: '100%', marginTop: 4 }}
                                                                 required
+                                                            />
+                                                        </div>
+                                                        <div style={{ marginBottom: 16 }}>
+                                                            <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Requested Out Time</label>
+                                                            <input
+                                                                type="time"
+                                                                value={attendanceForm.gone_time}
+                                                                onChange={e => setAttendanceForm(f => ({ ...f, gone_time: e.target.value }))}
+                                                                className="employee-detail__input"
+                                                                style={{ width: '100%', marginTop: 4 }}
                                                             />
                                                         </div>
                                                         
@@ -930,7 +950,7 @@ const EmployeeDetail = () => {
                                                                     </span>
                                                                 </td>
                                                                 <td style={{ fontSize: 12, color: record.in_time ? 'var(--text)' : 'var(--muted)' }}>{record.in_time ? record.in_time.slice(0, 5) : '—'}</td>
-                                                                <td style={{ fontSize: 12, color: getInTime(record) ? 'var(--text)' : 'var(--muted)' }}>{getInTime(record) || '—'}</td>
+
                                                                 <td style={{ fontSize: 12, color: getOutTime(record) ? 'var(--text)' : 'var(--muted)' }}>{getOutTime(record) || '—'}</td>
                                                                 <td style={{ color: 'var(--muted)', fontSize: 12 }}>{record.notes || '—'}</td>
                                                             </tr>

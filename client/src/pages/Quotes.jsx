@@ -191,7 +191,7 @@ export default function Quotes() {
     };
 
     const cardStyle = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 24, marginBottom: 20, boxShadow: '0 12px 32px rgba(15, 23, 42, 0.05)' };
-    const btnStyle = (bg = '#6366f1') => ({ background: bg, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, minHeight: 42 });
+    const btnStyle = (bg = '#6366f1') => ({ background: bg, color: bg === 'var(--primary)' ? 'var(--on-accent)' : '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, minHeight: 42, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
     const inputStyle = { width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--input-bg, var(--surface))', color: 'var(--text)', fontSize: 14, minHeight: 42, boxSizing: 'border-box' };
 
     return (
@@ -330,7 +330,7 @@ export default function Quotes() {
                                         <Package size={18} />
                                         <span style={{ fontWeight: 600, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Items & Pricing</span>
                                     </div>
-                                    <button onClick={addItem} style={{ ...btnStyle('var(--primary)'), padding: '6px 12px', fontSize: 13 }}><Plus size={14} /> Add Item</button>
+                                    <button onClick={addItem} style={{ ...btnStyle('var(--primary)'), padding: '8px 14px', fontSize: 13, minHeight: 'auto' }}><Plus size={14} /> Add Item</button>
                                 </div>
                                 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -347,8 +347,8 @@ export default function Quotes() {
                                                     placeholder="Scan code or type product code"
                                                     style={{ ...inputStyle }}
                                                 />
-                                                <button onClick={() => setShowScanner(true)} style={{ ...btnStyle('var(--primary)') }}><Camera size={14} /> Scan</button>
-                                                <button onClick={handleQrLookup} style={{ ...btnStyle() }}>Find</button>
+                                                <button onClick={() => setShowScanner(true)} style={{ ...btnStyle('var(--primary)'), minWidth: '100px' }}><Camera size={14} /> Scan</button>
+                                                <button onClick={handleQrLookup} style={{ ...btnStyle(), minWidth: '70px' }}>Find</button>
                                             </div>
                                         </div>
 
@@ -382,7 +382,7 @@ export default function Quotes() {
                                                 </select>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                                <button onClick={addSelectedProductItem} style={{ ...btnStyle('var(--primary)') }}>Add to Quote</button>
+                                                <button onClick={addSelectedProductItem} style={{ ...btnStyle('var(--primary)'), minWidth: '130px' }}>Add to Quote</button>
                                             </div>
                                         </div>
                                     </div>
@@ -453,7 +453,7 @@ export default function Quotes() {
                         <ScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={(code) => handleQrLookup(code)} />
 
                         <div style={{ padding: '20px 24px', background: 'var(--surface-lowest)', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                            <button onClick={() => setShowForm(false)} style={{ ...btnStyle('transparent'), color: 'var(--text-muted)', fontWeight: 500 }}>Cancel</button>
+                            <button onClick={() => setShowForm(false)} style={{ ...btnStyle('#ffffff00'), color: 'var(--text)', fontWeight: 500, border: '1px solid var(--border)' }}>Cancel</button>
                             <button onClick={handleSave} style={{ ...btnStyle('var(--primary)'), padding: '10px 24px', fontWeight: 600, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>{editing ? 'Update Quotation' : 'Create Quotation'}</button>
                         </div>
                     </div>

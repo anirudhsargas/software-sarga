@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, List, Grid, TrendingUp, TrendingDown, DollarSign, BarChart3, Clock, ShoppingCart, ArrowLeftRight, Bell, Image as ImageIcon } from 'lucide-react';
+import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, List, Grid, TrendingUp, TrendingDown, IndianRupee, BarChart3, Clock, ShoppingCart, ArrowLeftRight, Bell, Image as ImageIcon } from 'lucide-react';
 import api from '../services/api';
 import auth from '../services/auth';
 import localDb from '../services/localDb';
@@ -418,6 +418,15 @@ const Inventory = () => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleDeleteItem = async (id) => {
+        const isConfirmed = await confirm({
+            title: 'Delete Item',
+            message: 'Are you sure you want to delete this item?',
+            confirmText: 'Delete',
+            type: 'danger'
+        });
         if (!isConfirmed) return;
 
         // Optimistic UI: remove locally first to avoid full reload
@@ -604,7 +613,7 @@ const Inventory = () => {
         e.preventDefault();
         setSaving(true);
         try {
-            await api.post(`/inventory/${restockData.id}/restock`, { quantity: restockData.quantity, cost: restockData.cost, notes: restockData.notes });
+            await api.post(`/inventory/${restockData.id}/restock`, { quantity_received: restockData.quantity, cost_price: restockData.cost, notes: restockData.notes });
             toast.success(`Restocked successfully`);
             setShowRestockModal(false);
             setRestockData({ id: null, quantity: '', cost: '', notes: '' });
@@ -714,10 +723,6 @@ const Inventory = () => {
                         >
                             <Printer size={18} />
                             <span>Scan Bill</span>
-                        </button>
-                        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-                            <Plus size={18} />
-                            <span>Add Item</span>
                         </button>
                     </>
                 )}
@@ -1712,7 +1717,7 @@ const Inventory = () => {
             )}
 
             {showRestockModal && restockData.id && (
-                <div className="modal-backdrop">
+                <div className="modal-backdrop" style={{ zIndex: 1050 }}>
                     <div className="modal" style={{ maxWidth: '400px' }}>
                         <button className="modal-close" onClick={() => setShowRestockModal(false)}>
                             <X size={22} />
@@ -1823,10 +1828,7 @@ const Inventory = () => {
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             const prodId = detailItem.linked_product_id;
-                                                            navigate('/dashboard/products');
-                                                            setTimeout(() => {
-                                                                window.dispatchEvent(new CustomEvent('sarga:edit-product', { detail: { id: prodId } }));
-                                                            }, 120);
+                                                            navigate('/dashboard/products', { state: { editProductId: prodId } });
                                                         }}
                                                     >
                                                         <Edit2 size={14} style={{ marginRight: 6 }} /> Edit Product
@@ -1873,7 +1875,7 @@ const Inventory = () => {
                                     </div>
                                     {!isFrontOffice && (
                                         <div className="panel panel--tight" style={{ textAlign: 'center', padding: '12px 8px' }}>
-                                            <DollarSign size={18} className="text-primary mb-4" />
+                                            <IndianRupee size={18} className="text-primary mb-4" />
                                             <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>₹{Number(detailItem.cost_price).toFixed(2)}</div>
                                             <div className="text-xs muted">Cost Price</div>
                                         </div>
@@ -1894,7 +1896,7 @@ const Inventory = () => {
                                     )}
                                     {isFrontOffice && detailItem.item_type !== 'Consumable' && (
                                         <div className="panel panel--tight" style={{ textAlign: 'center', padding: '12px 8px' }}>
-                                            <DollarSign size={18} className="text-primary mb-4" />
+                                            <IndianRupee size={18} className="text-primary mb-4" />
                                             <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>₹{Number(detailItem.sell_price || 0).toFixed(2)}</div>
                                             <div className="text-xs muted">Retail Price</div>
                                         </div>
@@ -1979,23 +1981,23 @@ const Inventory = () => {
                                 {(detailItem.vendor_name || detailItem.vendor_contact || detailItem.purchase_link) && (
                                     <div className="panel panel--tight mb-16" style={{ background: 'var(--surface-alt)' }}>
                                         <h3 className="text-sm font-medium mb-12" style={{ fontWeight: 600 }}>Vendor Information</h3>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>
                                             {detailItem.vendor_name && (
-                                                <div className="row justify-between">
-                                                    <span className="text-sm muted">Vendor</span>
-                                                    <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.vendor_name}</span>
+                                                <div className="row justify-between" style={{ gap: '16px' }}>
+                                                    <span className="text-sm muted" style={{ whiteSpace: 'nowrap' }}>Vendor</span>
+                                                    <span className="text-sm text-right" style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={detailItem.vendor_name}>{detailItem.vendor_name}</span>
                                                 </div>
                                             )}
                                             {detailItem.vendor_contact && (
-                                                <div className="row justify-between">
-                                                    <span className="text-sm muted">Contact</span>
-                                                    <span className="text-sm" style={{ fontWeight: 500 }}>{detailItem.vendor_contact}</span>
+                                                <div className="row justify-between" style={{ gap: '16px' }}>
+                                                    <span className="text-sm muted" style={{ whiteSpace: 'nowrap' }}>Contact</span>
+                                                    <span className="text-sm text-right" style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={detailItem.vendor_contact}>{detailItem.vendor_contact}</span>
                                                 </div>
                                             )}
                                             {detailItem.purchase_link && (
-                                                <div style={{ gridColumn: '1 / -1' }}>
-                                                    <span className="text-sm muted">Purchase Link: </span>
-                                                    <a href={detailItem.purchase_link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary">{detailItem.purchase_link}</a>
+                                                <div className="row justify-between" style={{ gap: '16px' }}>
+                                                    <span className="text-sm muted" style={{ whiteSpace: 'nowrap' }}>Purchase Link</span>
+                                                    <a href={detailItem.purchase_link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary text-right" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={detailItem.purchase_link}>{detailItem.purchase_link}</a>
                                                 </div>
                                             )}
                                         </div>

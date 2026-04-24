@@ -334,11 +334,16 @@ const StaffManagement = () => {
             type: 'danger'
         });
         if (!isConfirmed) return;
+        
+        // Optimistic UI Update
+        setStaff(prev => prev.filter(s => s.id !== id));
+        
         try {
             await api.delete(`/staff/${id}`);
             fetchStaff();
         } catch (err) {
             setError('Failed to delete staff member');
+            fetchStaff();
         }
     };
 

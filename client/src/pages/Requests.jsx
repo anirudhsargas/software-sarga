@@ -477,8 +477,14 @@ const Requests = () => {
                                     </div>
                                     {selectedRequest.requested_time && (
                                         <div>
-                                            <label className="label">Requested Time</label>
+                                            <label className="label">Requested In Time</label>
                                             <input type="time" className="input-field" value={selectedRequest.requested_time} disabled />
+                                        </div>
+                                    )}
+                                    {selectedRequest.requested_gone_time && (
+                                        <div>
+                                            <label className="label">Requested Out Time</label>
+                                            <input type="time" className="input-field" value={selectedRequest.requested_gone_time} disabled />
                                         </div>
                                     )}
                                     {selectedRequest.requested_notes && (
