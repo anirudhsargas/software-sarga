@@ -349,9 +349,16 @@ const Inventory = () => {
     const resolveImageSrc = (itemOrUrl) => {
         if (!itemOrUrl) return null;
         if (typeof itemOrUrl === 'string') return imgUrl(itemOrUrl);
-        // Prefer explicit fields on the inventory item
-        const direct = itemOrUrl.product_image_url || itemOrUrl.image_url || itemOrUrl.product_image || itemOrUrl.image;
-        if (direct) return imgUrl(direct);
+        
+        // Check all possible image field names on the inventory item
+        const direct = itemOrUrl.product_image_url || itemOrUrl.image_url || 
+                      itemOrUrl.product_image || itemOrUrl.image ||
+                      itemOrUrl.photo || itemOrUrl.photo_url ||
+                      itemOrUrl.thumbnail || itemOrUrl.thumbnail_url;
+        
+        if (direct) {
+            return imgUrl(direct);
+        }
 
         const productsAvailable = Array.isArray(allProducts) && allProducts.length > 0;
         const inventoryItemId = itemOrUrl.id;
@@ -361,7 +368,9 @@ const Inventory = () => {
             // If item links to a product explicitly, use that product's image.
             if (linkedId) {
                 const found = allProducts.find(p => String(p.id) === String(linkedId) || String(p.product_code) === String(linkedId));
-                if (found && (found.image_url || found.product_image_url)) return imgUrl(found.image_url || found.product_image_url);
+                if (found && (found.image_url || found.product_image_url)) {
+                    return imgUrl(found.image_url || found.product_image_url);
+                }
             }
 
             // Also check reverse relationship: product may reference this inventory item.

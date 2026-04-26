@@ -926,3 +926,33 @@
     text-align: right;
     font-weight: 600;
 }
+
+/* Mobile responsive for credit list table */
+@media (max-width: 768px) {
+    .credit-list-table-container {
+        margin: 0 -16px;
+        padding: 0 16px;
+    }
+    
+    .credit-list-table {
+        min-width: 600px;
+    }
+    
+    .credit-list-table th,
+    .credit-list-table td {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .credit-list-table {
+        min-width: 500px;
+    }
+    
+    .credit-list-table th,
+    .credit-list-table td {
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+}

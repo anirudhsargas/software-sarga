@@ -35,6 +35,21 @@ export const FILE_BASE = API_URL.replace(/\/api\/?$/, '');
 /** Build a full image URL with auth token + ngrok bypass when needed */
 export const imgUrl = (path) => {
     if (!path) return '';
+    
+    // If path is already a full URL (starts with http:// or https://), return it with token appended
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        const url = new URL(path);
+        const token = localStorage.getItem('token');
+        if (token) {
+            url.searchParams.set('token', token);
+        }
+        if (FILE_BASE.includes('ngrok')) {
+            url.searchParams.set('ngrok-skip-browser-warning', 'true');
+        }
+        return url.toString();
+    }
+    
+    // Otherwise, prepend FILE_BASE
     const url = `${FILE_BASE}${path}`;
     const token = localStorage.getItem('token');
     const params = new URLSearchParams();

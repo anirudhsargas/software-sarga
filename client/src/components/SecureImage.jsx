@@ -14,19 +14,24 @@ const IS_CROSS_ORIGIN = !IS_LOCAL_DEV;
  */
 export default function SecureImage({ src, alt, className, style, loading, width, height }) {
     const [displaySrc, setDisplaySrc] = useState(null);
+    const [error, setError] = useState(false);
 
     useEffect(() => {
-        if (!src) { setDisplaySrc(null); return; }
+        if (!src) { setDisplaySrc(null); setError(false); return; }
 
         // blob:/data: URLs are local previews — render directly
         if (src.startsWith('blob:') || src.startsWith('data:')) {
             setDisplaySrc(src);
+            setError(false);
             return;
         }
 
         // In local dev (same-origin), just build the auth URL and let <img> load it
         if (!IS_CROSS_ORIGIN) {
-            setDisplaySrc(imgUrl(src));
+            const url = imgUrl(src);
+            console.log('[SecureImage] Local dev, using URL:', url);
+            setDisplaySrc(url);
+            setError(false);
             return;
         }
 
@@ -36,19 +41,30 @@ export default function SecureImage({ src, alt, className, style, loading, width
         const token = localStorage.getItem('token');
         const url = imgUrl(src);
 
+        console.log('[SecureImage] Cross-origin, fetching:', url);
+
         fetch(url, {
             headers: {
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 'ngrok-skip-browser-warning': '1',
             },
         })
-            .then(r => (r.ok ? r.blob() : null))
+            .then(r => {
+                console.log('[SecureImage] Fetch response:', r.status, r.ok);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.blob();
+            })
             .then(blob => {
                 if (cancelled || !blob) return;
                 objectUrl = URL.createObjectURL(blob);
+                console.log('[SecureImage] Blob created:', objectUrl);
                 setDisplaySrc(objectUrl);
+                setError(false);
             })
-            .catch(() => { });
+            .catch(err => {
+                console.error('[SecureImage] Fetch error:', err);
+                setError(true);
+            });
 
         return () => {
             cancelled = true;
@@ -56,7 +72,11 @@ export default function SecureImage({ src, alt, className, style, loading, width
         };
     }, [src]);
 
-    if (!displaySrc) return null;
+    if (!displaySrc) {
+        console.log('[SecureImage] No displaySrc, error:', error);
+        return null;
+    }
+    
     return (
         <img
             src={displaySrc}
@@ -66,6 +86,10 @@ export default function SecureImage({ src, alt, className, style, loading, width
             loading={loading}
             width={width}
             height={height}
+            onError={(e) => {
+                console.error('[SecureImage] Image load error:', e, 'src:', displaySrc);
+                setError(true);
+            }}
         />
     );
 }
