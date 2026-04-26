@@ -1022,7 +1022,14 @@ export async function createBill(billData, matterFiles = []) {
         id: idbKey,
         invoice_number: localId.replace('BILL-', 'INV-'),
         local: true,
-        syncStatus: 'pending'
+        syncStatus: 'pending',
+        total_amount: billData.totalAmount != null ? billData.totalAmount : (billData.total_amount != null ? billData.total_amount : 0),
+        advance_paid: billData.advancePaid != null ? billData.advancePaid : (billData.advance_paid != null ? billData.advance_paid : 0),
+        cash_amount: billData.cashAmount || billData.cash_amount || 0,
+        upi_amount: billData.upiAmount || billData.upi_amount || 0,
+        payment_method: billData.paymentMethod || billData.payment_method || 'Cash',
+        customer_name: billData.customerName || billData.customer_name || 'Walk-in',
+        order_lines: billData.orderLines || billData.order_lines || []
     };
     const syntheticJobs = (billData.orderLines || billData.order_lines || []).map((line, i) => ({
         id: `${localId}-JOB-${i}`,

@@ -47,7 +47,7 @@ const toPendingEntry = (bill, tab) => {
     const method = bill.paymentMethod || bill.payment_method || 'Cash';
     const cashAmt = Number(bill.cashAmount ?? bill.cash_amount ?? 0);
     const upiAmt = Number(bill.upiAmount ?? bill.upi_amount ?? 0);
-    const advPaid = Number(bill.advancePaid ?? bill.advance_paid ?? bill.totalAmount ?? bill.total_amount ?? 0);
+    const advPaid = bill.advancePaid != null ? Number(bill.advancePaid) : (bill.advance_paid != null ? Number(bill.advance_paid) : 0);
     let cashIn = 0;
     let upiIn = 0;
     if (method === 'Both') {
@@ -171,6 +171,7 @@ const DailyReport = () => {
     const [showOpeningPrompt, setShowOpeningPrompt] = useState(false);
     const [promptBalances, setPromptBalances] = useState({ Offset: '', Laser: '', Other: '' });
     const [promptMachines, setPromptMachines] = useState([]);
+    const [machineOpeningTemps, setMachineOpeningTemps] = useState({});
     const [savingPrompt, setSavingPrompt] = useState(false);
     const [promptDone, setPromptDone] = useState(false);
     const [prevClosing, setPrevClosing] = useState({ Offset: 0, Laser: 0, Other: 0 });
@@ -302,10 +303,14 @@ const DailyReport = () => {
 
                     if (needsBalances || needsMachines) {
                         setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
-                        setPromptMachines(unenteredMachines.map(m => ({
+                        const machines = unenteredMachines.map(m => ({
                             id: m.id, machine_name: m.machine_name, location: m.location,
                             opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''
-                        })));
+                        }));
+                        setPromptMachines(machines);
+                        setMachineOpeningTemps(
+                            machines.reduce((acc, m) => ({ ...acc, [m.id]: m.opening_count }), {})
+                        );
                         const newBalances = {};
                         relevantBooks.forEach(b => {
                             newBalances[b] = prevData[b] > 0 ? String(prevData[b]) : '';
