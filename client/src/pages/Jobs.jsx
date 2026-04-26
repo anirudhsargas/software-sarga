@@ -259,12 +259,16 @@ const Jobs = () => {
     const handleDeleteJob = async (e, jobId) => {
         e.stopPropagation();
         if (!window.confirm('Delete this job permanently?\n\nThis will also delete all associated payments, proofs, staff assignments, and other linked records.\n\nThis cannot be undone.')) return;
+        // Optimistic UI Update
+        setJobs(prev => prev.filter(job => job.id !== jobId));
+        setTotal(prev => Math.max(0, prev - 1));
         try {
             await api.delete(`/jobs/${jobId}`);
             toast.success('Job and all associated records deleted');
             fetchJobs(page);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to delete job');
+            fetchJobs(page);
         }
     };
 

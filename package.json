@@ -1,7 +1,7 @@
 {
   "scripts": {
     "build": "cd client && npm ci --prefer-offline --no-audit --no-fund && npm run build",
-    "dev": "powershell -ExecutionPolicy Bypass -File ./start.ps1",
+    "dev": "node start.js",
     "start": "npm run dev",
     "fix:laser-booktype:preview": "cd server && node scripts/fix-laser-book-type.js",
     "fix:laser-booktype:apply": "cd server && node scripts/fix-laser-book-type.js --apply --confirm=LASER"

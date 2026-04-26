@@ -14,15 +14,16 @@ const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 const { initDb, pool } = require('./database');
 const { getTodayDate } = require('./helpers');
+const logger = require('./helpers/logger');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
 if (!JWT_SECRET) {
-    console.error('FATAL: JWT_SECRET environment variable is not defined. Refusing to start.');
+    logger.error('FATAL: JWT_SECRET environment variable is not defined. Refusing to start.');
     process.exit(1);
 }
 if (JWT_SECRET === 'printing_shop_secret_key_2025' || JWT_SECRET.length < 32) {
-    console.error('FATAL: JWT_SECRET is weak or default. Use a random 256-bit secret (at least 32 chars). Refusing to start.');
+    logger.error('FATAL: JWT_SECRET is weak or default. Use a random 256-bit secret (at least 32 chars). Refusing to start.');
     process.exit(1);
 }
 
@@ -54,7 +55,7 @@ app.use((req, res, next) => {
     const start = Date.now();
     res.on('finish', () => {
         const duration = Date.now() - start;
-        console.error(`[${new Date().toISOString()}] ${req.method} ${req.url} ${res.statusCode} - ${duration}ms`);
+        logger.info(`${req.method} ${req.url} ${res.statusCode} - ${duration}ms`);
     });
     next();
 });
@@ -62,12 +63,12 @@ app.use((req, res, next) => {
 let server; // Will hold the http.Server instance for graceful shutdown
 
 process.on('uncaughtException', (err) => {
-    console.error('UNCAUGHT EXCEPTION! Shutting down...', err);
+    logger.error('UNCAUGHT EXCEPTION! Shutting down...', err);
     gracefulShutdown('uncaughtException');
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('UNHANDLED REJECTION! Shutting down...', reason);
+    logger.error('UNHANDLED REJECTION! Shutting down...', reason);
     gracefulShutdown('unhandledRejection');
 });
 
@@ -75,16 +76,16 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 function gracefulShutdown(signal) {
-    console.log(`\n[${signal}] Graceful shutdown initiated...`);
+    logger.info(`[${signal}] Graceful shutdown initiated...`);
     if (server) {
         server.close(() => {
-            console.log('HTTP server closed.');
+            logger.info('HTTP server closed.');
             if (pool) pool.end().catch(() => { });
             process.exit(signal === 'SIGTERM' || signal === 'SIGINT' ? 0 : 1);
         });
         // Force shutdown after 10 seconds
         setTimeout(() => {
-            console.error('Forced shutdown after timeout.');
+            logger.error('Forced shutdown after timeout.');
             process.exit(1);
         }, 10000);
     } else {
@@ -103,7 +104,7 @@ const allowedOrigins = [
     'https://software-sarga-git-main-anirudhsargas-projects.vercel.app' // Common Vercel preview/branch URL
 ].filter(Boolean).map(o => o.replace(/\/$/, '')); // Normalize by removing trailing slashes
 
-console.log('[CORS] Configured origins:', allowedOrigins);
+logger.info('[CORS] Configured origins:', allowedOrigins);
 
 app.use(cors({
     origin: (origin, callback) => {
@@ -117,7 +118,7 @@ app.use(cors({
             return callback(null, true);
         }
         
-        console.warn(`[CORS Blocked] Origin: ${origin}`);
+        logger.warn(`[CORS Blocked] Origin: ${origin}`);
         // Return false instead of an Error to allow the middleware to handle the response gracefully
         callback(null, false);
     },
@@ -148,13 +149,13 @@ app.use(helmet({
 // Response compression
 app.use(compression());
 
-// Body parsing with size limits
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Body parsing with size limits (increased for Base64 images)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Request logger
 app.use((req, res, next) => {
-    console.log(`[REQUEST] ${req.method} ${req.url}`);
+    logger.info(`[REQUEST] ${req.method} ${req.url}`);
     next();
 });
 
@@ -222,7 +223,7 @@ const fileFilter = (req, file, cb) => {
     cb(new Error('Invalid file type. Only JPG, PNG, WEBP are allowed.'));
 };
 
-const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Serve uploads — require valid JWT token via query param or Authorization header
 const jwt = require('jsonwebtoken');
@@ -247,7 +248,7 @@ const removeUploadFile = async (imageUrl) => {
         await fs.promises.unlink(filePath);
     } catch (err) {
         if (err.code !== 'ENOENT') {
-            console.error('Failed to delete upload:', err);
+            logger.error('Failed to delete upload:', err);
         }
     }
 };
@@ -256,6 +257,44 @@ const removeUploadFile = async (imageUrl) => {
 const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
 };
+
+// --------------- Response Caching ---------------
+const NodeCache = require('node-cache');
+const cache = new NodeCache({ stdTTL: 300, checkperiod: 320 }); // 5 minute default TTL
+
+const cacheMiddleware = (duration = 300) => {
+    return (req, res, next) => {
+    const key = req.originalUrl || req.url;
+    const cached = cache.get(key);
+    if (cached) {
+        logger.debug(`[Cache HIT] ${key}`);
+        return res.json(cached);
+    }
+    
+    // Store original json method
+    const originalJson = res.json.bind(res);
+    
+    // Override json method to cache response
+    res.json = (data) => {
+        cache.set(key, data, duration);
+        logger.debug(`[Cache MISS] ${key} - cached for ${duration}s`);
+        return originalJson(data);
+    };
+    
+    next();
+    };
+};
+
+const invalidateCache = (pattern) => {
+    const keys = cache.keys();
+    const keysToDelete = keys.filter(key => key.includes(pattern));
+    keysToDelete.forEach(key => cache.del(key));
+    logger.info(`[Cache Invalidated] Pattern: ${pattern}, Deleted: ${keysToDelete.length} keys`);
+};
+
+// Export cache utilities for use in routes
+module.exports.cacheMiddleware = cacheMiddleware;
+module.exports.invalidateCache = invalidateCache;
 
 // --------------- Route Modules ---------------
 
@@ -297,9 +336,9 @@ app.use('/api', require('./routes/inventory'));
 // Dev helper routes (temporary - allow local UI testing without auth)
 try {
     app.use('/api/dev', require('./routes/devRoutes'));
-    console.log('[DevRoutes] Loaded /api/dev routes');
+    logger.info('[DevRoutes] Loaded /api/dev routes');
 } catch (e) {
-    console.warn('[DevRoutes] Not loaded:', (e && e.stack) ? e.stack : (e && e.message) ? e.message : e);
+    logger.warn('[DevRoutes] Not loaded:', (e && e.stack) ? e.stack : (e && e.message) ? e.message : e);
 }
 app.use('/api', require('./routes/frontOffice'));
 app.use('/api', require('./routes/expenses'));
@@ -385,7 +424,7 @@ app.get('/api/ping', async (req, res) => {
 
 // --------------- Error Handling ---------------
 app.use((err, req, res, next) => {
-    console.error(`[Error] ${req.method} ${req.url} - ${err.message}`);
+    logger.error(`[Error] ${req.method} ${req.url} - ${err.message}`);
 
     if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
@@ -408,7 +447,7 @@ app.use((err, req, res, next) => {
 if (process.env.NODE_ENV !== 'test') {
     initDb().then(() => {
         server = app.listen(PORT, '0.0.0.0', () => {
-            console.log(`Server running on port ${PORT} (bound to 0.0.0.0)`);
+            logger.info(`Server running on port ${PORT} (bound to 0.0.0.0)`);
 
             // DEV: list registered routes to help debugging missing endpoints
             try {
@@ -429,17 +468,17 @@ if (process.env.NODE_ENV !== 'test') {
                         });
                     }
                 });
-                console.log('[DevRoutes] Registered route patterns:');
-                routes.slice(0, 200).forEach(r => console.log('  ', r));
+                logger.info('[DevRoutes] Registered route patterns:');
+                routes.slice(0, 200).forEach(r => logger.info('  ', r));
             } catch (e) {
-                console.warn('[DevRoutes] Failed to list routes:', e.message);
+                logger.warn('[DevRoutes] Failed to list routes:', e.message);
             }
 
             // Start daily report auto-mailer cron job
             try {
                 require('./scripts/sendDailyReports');
             } catch (e) {
-                console.warn('[Warning] scripts/sendDailyReports not loaded:', e.message);
+                logger.warn('[Warning] scripts/sendDailyReports not loaded:', e.message);
             }
 
             // Anomaly detection cron — every 15 minutes
@@ -447,14 +486,14 @@ if (process.env.NODE_ENV !== 'test') {
                 const cron = require('node-cron');
                 const { checkAnomalies } = require('./routes/anomalies');
                 cron.schedule('*/15 * * * *', () => {
-                    console.log('[Cron] Running anomaly check…');
-                    checkAnomalies().catch(err => console.error('[Cron] Anomaly check failed:', err.message));
+                    logger.info('[Cron] Running anomaly check…');
+                    checkAnomalies().catch(err => logger.error('[Cron] Anomaly check failed:', err.message));
                 });
                 // Run once on startup (after a short delay so DB is warm)
                 setTimeout(() => checkAnomalies().catch(() => {}), 10_000);
-                console.log('[Cron] Anomaly detection scheduled every 15 minutes');
+                logger.info('[Cron] Anomaly detection scheduled every 15 minutes');
             } catch (e) {
-                console.warn('[Warning] Anomaly cron not loaded:', e.message);
+                logger.warn('[Warning] Anomaly cron not loaded:', e.message);
             }
 
             // Business insights cron — daily at 7:00 AM
@@ -462,12 +501,12 @@ if (process.env.NODE_ENV !== 'test') {
                 const cron2 = require('node-cron');
                 const { generateInsights } = require('./routes/insights');
                 cron2.schedule('0 7 * * *', () => {
-                    console.log('[Cron] Generating daily business insights…');
-                    generateInsights().catch(err => console.error('[Cron] Insights generation failed:', err.message));
+                    logger.info('[Cron] Generating daily business insights…');
+                    generateInsights().catch(err => logger.error('[Cron] Insights generation failed:', err.message));
                 });
-                console.log('[Cron] Business insights scheduled daily at 7:00 AM');
+                logger.info('[Cron] Business insights scheduled daily at 7:00 AM');
             } catch (e) {
-                console.warn('[Warning] Insights cron not loaded:', e.message);
+                logger.warn('[Warning] Insights cron not loaded:', e.message);
             }
 
             // Seasonal analysis cron — 1st of every month at 6:00 AM
@@ -475,12 +514,12 @@ if (process.env.NODE_ENV !== 'test') {
                 const cron3 = require('node-cron');
                 const { computeSeasonal } = require('./routes/seasonal');
                 cron3.schedule('0 6 1 * *', () => {
-                    console.log('[Cron] Recomputing seasonal analysis…');
-                    computeSeasonal().catch(err => console.error('[Cron] Seasonal analysis failed:', err.message));
+                    logger.info('[Cron] Recomputing seasonal analysis…');
+                    computeSeasonal().catch(err => logger.error('[Cron] Seasonal analysis failed:', err.message));
                 });
-                console.log('[Cron] Seasonal analysis scheduled monthly (1st at 6:00 AM)');
+                logger.info('[Cron] Seasonal analysis scheduled monthly (1st at 6:00 AM)');
             } catch (e) {
-                console.warn('[Warning] Seasonal cron not loaded:', e.message);
+                logger.warn('[Warning] Seasonal cron not loaded:', e.message);
             }
 
             // Bill email parser cron — daily at 9:00 AM
@@ -488,11 +527,11 @@ if (process.env.NODE_ENV !== 'test') {
                 const { scheduleDaily } = require('./services/billScheduler');
                 scheduleDaily();
             } catch (e) {
-                console.warn('[Warning] Bill email parser not loaded:', e.message);
+                logger.warn('[Warning] Bill email parser not loaded:', e.message);
             }
         });
     }).catch(err => {
-        console.error("Initialization failed:", err);
+        logger.error("Initialization failed:", err);
         process.exit(1);
     });
 }

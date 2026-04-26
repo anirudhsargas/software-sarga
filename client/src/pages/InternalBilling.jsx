@@ -247,38 +247,34 @@ const InternalBilling = () => {
     }
   };
 
-  if (loading) return <div className="panel flex-center" style={{ minHeight: 400 }}><Loader2 className="animate-spin" size={32} /></div>;
+  if (loading) return <div className="panel flex-center loading-container"><Loader2 className="animate-spin" size={32} /></div>;
 
   return (
     <div className="stack-lg">
-      <div className="panel appearance-none" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)', color: 'white', border: 'none', padding: '24px 32px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="internal-ops-header">
+        <div className="internal-ops-header__content">
           <div className="stack-xs">
-            <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 14 }}>
-              <Receipt size={32} /> Internal Operations
-            </h1>
-            <p style={{ opacity: 0.9, margin: 0, fontSize: '1rem' }}>Manage internal departmental billing and usage analytics</p>
+            <h1><Receipt size={32} /> Internal Operations</h1>
+            <p>Manage internal departmental billing and usage analytics</p>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', padding: '6px 14px', fontSize: '0.9rem' }}>
-               <Building2 size={16} style={{ marginRight: 8 }} />
+          <div className="internal-ops-header__badge">
+            <div className="badge badge--white-transparent">
+               <Building2 size={16} />
                {branches.find(b => String(b.id) === String(myBranchId))?.name || 'Main Branch'}
             </div>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, backgroundColor: 'var(--bg-secondary)', padding: 6, borderRadius: 16, width: 'fit-content', border: '1px solid var(--border)' }}>
+      <div className="module-tabs">
         <button 
-          className={`btn ${moduleTab === 'entry' ? 'btn-primary' : 'btn-ghost'}`} 
-          style={{ borderRadius: 12, padding: '10px 24px', flex: 1, minWidth: 160, display: 'flex', gap: 10, fontWeight: 700 }}
+          className={`btn ${moduleTab === 'entry' ? 'btn-primary' : 'btn-ghost'} module-tab`} 
           onClick={() => setModuleTab('entry')}
         >
           <Plus size={18} /> Billing Entry
         </button>
         <button 
-          className={`btn ${moduleTab === 'reports' ? 'btn-primary' : 'btn-ghost'}`} 
-          style={{ borderRadius: 12, padding: '10px 24px', flex: 1, minWidth: 160, display: 'flex', gap: 10, fontWeight: 700 }}
+          className={`btn ${moduleTab === 'reports' ? 'btn-primary' : 'btn-ghost'} module-tab`} 
           onClick={() => setModuleTab('reports')}
         >
           <FileText size={18} /> Usage Reports
@@ -290,13 +286,13 @@ const InternalBilling = () => {
           <InternalUsageReport />
         </div>
       ) : (
-        <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24, alignItems: 'start' }}>
+        <div className="fade-in internal-billing-grid">
           <div className="stack-md">
-            <div className="panel stack-md" style={{ borderTop: '4px solid var(--primary)' }}>
-              <div style={{ display: 'flex', gap: 24 }}>
+            <div className="panel stack-md panel--primary-border">
+              <div className="form-row--2">
                 <div className="stack-xs" style={{ flex: 1 }}>
                   <label className="label">Transfer Type</label>
-                  <div style={{ display: 'flex', backgroundColor: 'var(--bg-secondary)', borderRadius: 12, padding: 4, gap: 4 }}>
+                  <div className="mode-switch">
                     <button 
                       className={`btn ${branchSelectionType === 'own' ? 'btn-primary' : 'btn-ghost'}`} 
                       style={{ flex: 1, height: 40 }}
@@ -316,7 +312,7 @@ const InternalBilling = () => {
 
                 <div className="stack-xs" style={{ flex: 1 }}>
                   <label className="label">Target Machine/Dept</label>
-                  <div style={{ display: 'flex', backgroundColor: 'var(--bg-secondary)', borderRadius: 12, padding: 4, gap: 4 }}>
+                  <div className="mode-switch">
                     {MACHINE_TYPES.map(m => (
                       <button 
                         key={m.key}
@@ -331,12 +327,12 @@ const InternalBilling = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="form-row--2">
                 <div className="stack-xs">
                   <label className="label">Select Branch</label>
                   {branchSelectionType === 'own' ? (
-                     <div className="input-field flex-center-y" style={{ background: 'var(--bg-secondary)', fontWeight: 600 }}>
-                       <Building2 size={14} style={{ marginRight: 8 }} />
+                     <div className="input-field flex-center-y input-field--readonly">
+                       <Building2 size={14} />
                        {branches.find(b => String(b.id) === String(myBranchId))?.name || 'My Branch'}
                      </div>
                   ) : (
@@ -351,7 +347,7 @@ const InternalBilling = () => {
                 </div>
                 <div className="stack-xs">
                   <label className="label">Billing Name (Calculated)</label>
-                  <div className="input-field flex-center-y" style={{ background: 'var(--bg-secondary)', color: 'var(--primary)', fontWeight: 700 }}>
+                  <div className="input-field flex-center-y input-field--readonly input-field--primary">
                      {targetCustomer?.name || '...'}
                   </div>
                 </div>
@@ -359,26 +355,22 @@ const InternalBilling = () => {
             </div>
 
             <div className="panel stack-md">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <ShoppingBag size={18} /> Add Items
-                </h3>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <div style={{ position: 'relative', width: 200 }}>
-                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+              <div className="panel-header panel-header--with-actions">
+                <h3><ShoppingBag size={18} /> Add Items</h3>
+                <div className="qr-input-group">
+                  <div className="qr-input-wrapper">
+                    <Search size={14} className="search-input-icon search-input-icon--small" />
                     <input 
                       ref={qrInputRef}
-                      className="input-field" 
+                      className="input-field input-field--qr" 
                       placeholder="Scan QR or code..." 
-                      style={{ paddingLeft: 32, height: 36 }}
                       value={qrInput}
                       onChange={handleQrInput}
                     />
                   </div>
                   <button 
                     type="button" 
-                    className="btn btn-ghost btn-icon" 
-                    style={{ height: 36, width: 36, backgroundColor: 'var(--bg-secondary)' }}
+                    className="btn btn-ghost btn-icon btn-icon--square" 
                     onClick={() => setShowScanner(true)}
                   >
                     <Camera size={18} />
@@ -386,7 +378,7 @@ const InternalBilling = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr', gap: 12 }}>
+              <div className="form-row--3">
                 <div className="stack-xs">
                   <label className="label-sm">Category</label>
                   <select 
@@ -441,42 +433,41 @@ const InternalBilling = () => {
               </div>
 
               {selectedProduct && (
-                <div className="panel appearance-none stack-sm" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--primary)', borderRadius: 12, padding: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div className="panel panel--selected-product stack-sm">
+                  <div className="selected-product-header">
                     <div className="stack-xs">
-                      <span style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Configure Selection</span>
-                      <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>{selectedProduct.name}</span>
+                      <span className="selected-product-label">Configure Selection</span>
+                      <span className="selected-product-name">{selectedProduct.name}</span>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Unit Price</div>
-                      <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem' }}>₹{selectedProduct.sell_price}</div>
+                    <div className="selected-product-price">
+                      <div className="selected-product-price__label">Unit Price</div>
+                      <div className="selected-product-price__value">₹{selectedProduct.sell_price}</div>
                     </div>
                   </div>
                   
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
+                  <div className="product-action-row">
                     <div className="stack-xs" style={{ width: 120 }}>
                       <label className="label-sm">Quantity</label>
                       <input 
                         type="number" 
-                        className="input-field" 
+                        className="input-field input-field--quantity" 
                         value={qty} 
                         onChange={e => setQty(e.target.value)} 
                         min="1" 
                         autoFocus 
-                        style={{ height: 44, fontSize: '1.1rem', fontWeight: 700 }}
                       />
                     </div>
                     <div className="stack-xs" style={{ flex: 1 }}>
                       <label className="label-sm">Total for this item</label>
-                      <div className="input-field flex-center-y" style={{ height: 44, background: 'var(--bg-3)', fontWeight: 800, fontSize: '1.2rem', color: 'var(--primary)' }}>
+                      <div className="input-field flex-center-y input-field--total">
                         ₹{(Number(selectedProduct.sell_price) * (Number(qty) || 1)).toLocaleString()}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-primary" style={{ height: 44, padding: '0 24px', fontWeight: 700 }} onClick={() => addProductToBill(selectedProduct)}>
-                        <Plus size={18} style={{ marginRight: 8 }} /> Add To Bill
+                    <div className="product-action-buttons">
+                      <button className="btn btn-primary btn--standard" onClick={() => addProductToBill(selectedProduct)}>
+                        <Plus size={18} /> Add To Bill
                       </button>
-                      <button className="btn btn-ghost" style={{ height: 44, width: 44, padding: 0 }} onClick={() => setSelectedProduct(null)}>
+                      <button className="btn btn-ghost btn-icon--square" onClick={() => setSelectedProduct(null)}>
                         <X size={20} />
                       </button>
                     </div>
@@ -484,16 +475,16 @@ const InternalBilling = () => {
                 </div>
               )}
 
-              <div style={{ paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <div className="quick-entry-section">
                  <div className="stack-xs">
                    <label className="label-sm">Quick Manual Entry</label>
-                   <div style={{ display: 'flex', gap: 12 }}>
-                      <input className="input-field" style={{ flex: 2 }} placeholder="Item name..." value={quickName} onChange={e => setQuickName(e.target.value)} />
-                      <div style={{ display: 'flex', flex: 1.5, gap: 8 }}>
+                   <div className="quick-entry-row">
+                      <input className="input-field quick-entry-name" placeholder="Item name..." value={quickName} onChange={e => setQuickName(e.target.value)} />
+                      <div className="quick-entry-inputs">
                         <input type="number" className="input-field" placeholder="Price" value={quickAmount} onChange={e => setQuickAmount(e.target.value)} />
                         <input type="number" className="input-field" placeholder="Qty" value={qty} onChange={e => setQty(e.target.value)} min="1" />
                       </div>
-                      <button className="btn btn-ghost btn-primary-hover" style={{ width: 44, height: 44 }} onClick={addQuickItem} title="Quick Add">
+                      <button className="btn btn-ghost btn-primary-hover btn-icon--square" onClick={addQuickItem} title="Quick Add">
                         <Check size={20} />
                       </button>
                    </div>
@@ -501,40 +492,40 @@ const InternalBilling = () => {
               </div>
             </div>
 
-            <div className="panel stack-sm" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
-                <h4 style={{ margin: 0, fontWeight: 700 }}>Line Items ({orderLines.length})</h4>
-                <span style={{ fontWeight: 800, color: 'var(--primary)' }}>Total: ₹{totalAmount.toLocaleString()}</span>
+            <div className="panel stack-sm panel--line-items">
+              <div className="line-items-header">
+                <h4>Line Items ({orderLines.length})</h4>
+                <span className="line-items-total">Total: ₹{totalAmount.toLocaleString()}</span>
               </div>
-              <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+              <div className="line-items-body">
                 {orderLines.length === 0 ? (
-                  <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
-                    <Package size={48} style={{ opacity: 0.1, marginBottom: 16 }} />
+                  <div className="line-items-empty">
+                    <Package size={48} />
                     <p>No items added yet. Use the selectors above to add products.</p>
                   </div>
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead style={{ background: 'var(--bg-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: 1 }}>
+                  <table className="table line-items-table">
+                    <thead>
                       <tr>
-                        <th style={{ padding: '8px 16px', textAlign: 'left' }}>Item Details</th>
-                        <th style={{ padding: '8px 16px', textAlign: 'right', width: 80 }}>Qty</th>
-                        <th style={{ padding: '8px 16px', textAlign: 'right', width: 100 }}>Price</th>
-                        <th style={{ padding: '8px 16px', textAlign: 'right', width: 100 }}>Total</th>
-                        <th style={{ padding: '8px 16px', textAlign: 'center', width: 50 }}></th>
+                        <th>Item Details</th>
+                        <th className="text-right" style={{ width: 80 }}>Qty</th>
+                        <th className="text-right" style={{ width: 100 }}>Price</th>
+                        <th className="text-right" style={{ width: 100 }}>Total</th>
+                        <th className="text-center" style={{ width: 50 }}></th>
                       </tr>
                     </thead>
                     <tbody>
                       {orderLines.map(line => (
-                        <tr key={line.id} style={{ borderTop: '1px solid var(--border)' }}>
-                          <td style={{ padding: '12px 16px' }}>
-                            <div style={{ fontWeight: 600 }}>{line.product_name}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{line.category} › {line.subcategory}</div>
+                        <tr key={line.id}>
+                          <td>
+                            <div className="font-semibold">{line.product_name}</div>
+                            <div className="text-xs muted">{line.category} › {line.subcategory}</div>
                           </td>
-                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>{line.quantity}</td>
-                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>₹{line.unit_price}</td>
-                          <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700 }}>₹{line.total_amount}</td>
-                          <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                            <button className="btn btn-ghost btn-icon" style={{ color: 'var(--danger)' }} onClick={() => removeLine(line.id)}>
+                          <td className="text-right">{line.quantity}</td>
+                          <td className="text-right">₹{line.unit_price}</td>
+                          <td className="text-right font-bold">₹{line.total_amount}</td>
+                          <td className="text-center">
+                            <button className="btn btn-ghost btn-icon text-danger" onClick={() => removeLine(line.id)}>
                               <Trash2 size={14} />
                             </button>
                           </td>
@@ -547,33 +538,32 @@ const InternalBilling = () => {
             </div>
           </div>
 
-          <div className="stack-md" style={{ position: 'sticky', top: 20 }}>
-            <div className="panel stack-md" style={{ borderTop: '4px solid var(--primary)' }}>
-              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Summary</h3>
-              <div className="stack-sm" style={{ fontSize: '0.9rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--muted)' }}>Subtotal</span>
+          <div className="stack-md summary-panel">
+            <div className="panel stack-md panel--primary-border">
+              <h3>Summary</h3>
+              <div className="stack-sm summary-details">
+                <div className="summary-row">
+                  <span className="summary-label">Subtotal</span>
                   <span>₹{totalAmount.toLocaleString()}</span>
                 </div>
-                <div style={{ height: 1, backgroundColor: 'var(--border)', margin: '8px 0' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 800 }}>
+                <div className="summary-divider"></div>
+                <div className="summary-row summary-row--total">
                   <span>Total</span>
-                  <span style={{ color: 'var(--primary)' }}>₹{totalAmount.toLocaleString()}</span>
+                  <span className="summary-total-value">₹{totalAmount.toLocaleString()}</span>
                 </div>
               </div>
 
-              <div className="panel appearance-none" style={{ backgroundColor: 'var(--bg-secondary)', padding: 12, borderRadius: 12 }}>
-                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                   <Info size={16} style={{ marginTop: 2, color: 'var(--primary)' }} />
-                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              <div className="panel panel--info">
+                 <div className="info-row">
+                   <Info size={16} />
+                   <div className="info-text">
                      Targeting <strong>{targetCustomer?.name}</strong>. The bill will be recorded as an internal transfer.
                    </div>
                  </div>
               </div>
 
               <button 
-                className="btn btn-primary" 
-                style={{ padding: '16px', fontSize: '1.1rem', fontWeight: 700, display: 'flex', gap: 12, width: '100%' }}
+                className="btn btn-primary btn--full btn--large btn-with-icon" 
                 disabled={saving || orderLines.length === 0}
                 onClick={handleSubmit}
               >

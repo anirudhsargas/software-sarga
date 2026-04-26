@@ -6,6 +6,8 @@ const { attachNormalizedMobile } = require('../middleware/phone');
 const { branchFilter } = require('../middleware/branchFilter');
 const { validate, addCustomerSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
+const { cacheMiddleware, invalidateCache } = require('../index');
+const logger = require('../helpers/logger');
 
 const CUSTOMER_COLUMNS = [
     'id',
@@ -75,7 +77,7 @@ router.get('/customers', authenticateToken, async (req, res) => {
         
         res.json(response(rows, total));
     } catch (err) {
-        console.error('List customers error:', err);
+        logger.error('List customers error:', err);
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -116,9 +118,10 @@ router.post('/customers', authenticateToken, validate(addCustomerSchema), attach
         );
         auditLog(req.user.id, 'CUSTOMER_ADD', `Added customer ${name} (${normalizedMobile})`);
         res.status(201).json({ id: result.insertId, message: 'Customer added successfully' });
+        auditLog(req.user.id, 'CUSTOMER_ADD', `Added customer: ${name}`, { entity_type: 'customer', entity_id: result.insertId });
     } catch (err) {
-        console.error('Add Customer error:', err);
-        if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Mobile number already exists' });
+        logger.error('Add Customer error:', err);
+        if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Customer mobile number already exists' });
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -311,7 +314,7 @@ router.get('/customers/:id/dashboard', authenticateToken, async (req, res) => {
             reorderItems
         });
     } catch (err) {
-        console.error('Customer dashboard error:', err);
+        logger.error('Customer dashboard error:', err);
         res.status(500).json({ message: 'Failed to load customer dashboard' });
     }
 });

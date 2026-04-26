@@ -38,6 +38,7 @@ def create_app():
     from upsell import bp as upsell_bp
     from turnaround import bp as turnaround_bp
     from expense_categorizer import bp as expense_cat_bp
+    from ocr_service import bp as ocr_bp
 
     application.register_blueprint(fraud_bp)
     application.register_blueprint(sales_bp)
@@ -48,6 +49,7 @@ def create_app():
     application.register_blueprint(upsell_bp)
     application.register_blueprint(turnaround_bp)
     application.register_blueprint(expense_cat_bp)
+    application.register_blueprint(ocr_bp)
 
     # ── Health check ──────────────────────────────────────────────────────
     @application.route("/health", methods=["GET"])

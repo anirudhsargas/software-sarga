@@ -105,12 +105,15 @@ const TransportTab = ({ onError }) => {
       type: 'danger'
     });
     if (!isConfirmed) return;
+    // Optimistic UI Update
+    setExpenses(prev => prev.filter(e => e.id !== id));
     try {
       await api.delete(`/transport-expenses/${id}`);
       fetchDashboard();
       fetchExpenses();
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Failed to delete transport expense');
+      fetchExpenses();
     }
   };
 

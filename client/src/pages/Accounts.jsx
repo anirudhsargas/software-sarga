@@ -744,7 +744,17 @@ const BillsDocsTab = () => {
     const handleDelete = async (id) => {
         const ok = await confirm({ title: 'Delete Document', message: 'Are you sure you want to delete this document?', confirmText: 'Delete', type: 'danger' });
         if (!ok) return;
-        try { await api.delete(`/bills-documents/${id}`); toast.success('Document deleted'); fetchDocs(); } catch { toast.error('Delete failed'); }
+        // Optimistic UI Update
+        setDocs(prev => prev.filter(d => d.id !== id));
+        setDocsTotal(prev => Math.max(0, prev - 1));
+        try {
+            await api.delete(`/bills-documents/${id}`);
+            toast.success('Document deleted');
+            fetchDocs();
+        } catch {
+            toast.error('Delete failed');
+            fetchDocs();
+        }
     };
 
     const handleUpload = async (e) => {

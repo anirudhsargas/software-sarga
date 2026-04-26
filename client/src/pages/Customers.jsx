@@ -104,12 +104,11 @@ const Customers = () => {
             if (typeFilter) params.append('type', typeFilter);
             const res = await api.get(`/customers?${params.toString()}`);
             if (res.data?.data && res.data?.total !== undefined) {
-                // Exclude internal clients from the customers list in the UI
-                const filtered = (res.data.data || []).filter(c => c.client_type !== 'internal');
-                setCustomers(filtered);
-                setTotal(filtered.length);
-                setTotalPages(Math.ceil(filtered.length / LIMIT) || 1);
+                setCustomers(res.data.data);
+                setTotal(res.data.total);
+                setTotalPages(res.data.totalPages);
             } else if (Array.isArray(res.data)) {
+                // Fallback for non-paginated response
                 const filtered = res.data.filter(c => c.client_type !== 'internal');
                 setCustomers(filtered);
                 setTotal(filtered.length);
@@ -159,7 +158,12 @@ const Customers = () => {
         }
         setLoading(true);
         try {
-            await localDb.createCustomer(newCustomer);
+            const response = await localDb.createCustomer(newCustomer);
+            // Optimistic UI Update - add new customer to local state
+            if (response) {
+                setCustomers(prev => [...prev, response]);
+                setTotal(prev => prev + 1);
+            }
             closeAddModal(true);
             setNewCustomer({ mobile: '', name: '', type: 'Walk-in', email: '', gst: '', address: '' });
             toast.success('Customer added locally');
@@ -178,6 +182,9 @@ const Customers = () => {
         }
         
         setLoading(true);
+        // Optimistic UI Update
+        const prevCustomers = [...customers];
+        setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? { ...c, ...selectedCustomer } : c));
         try {
             await localDb.createCustomer(selectedCustomer); // createCustomer handles upsert
             closeEditModal(true);
@@ -186,6 +193,7 @@ const Customers = () => {
             fetchCustomers();
         } catch (err) {
             setError('Failed to update customer');
+            setCustomers(prevCustomers);
         } finally {
             setLoading(false);
         }

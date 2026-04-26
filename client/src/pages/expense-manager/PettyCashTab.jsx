@@ -103,12 +103,15 @@ const PettyCashTab = ({ onError }) => {
       type: 'danger'
     });
     if (!isConfirmed) return;
+    // Optimistic UI Update
+    setLedger(prev => prev.filter(e => e.id !== id));
     try {
       await api.delete(`/petty-cash/${id}`);
       fetchDashboard();
       fetchLedger();
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Failed to delete daily cash entry');
+      fetchLedger();
     }
   };
 

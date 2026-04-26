@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, List, Grid, TrendingUp, TrendingDown, IndianRupee, BarChart3, Clock, ShoppingCart, ArrowLeftRight, Bell, Image as ImageIcon } from 'lucide-react';
-import api from '../services/api';
+import api, { imgUrl } from '../services/api';
 import auth from '../services/auth';
 import localDb from '../services/localDb';
 import Pagination from '../components/Pagination';
@@ -348,16 +348,49 @@ const Inventory = () => {
 
     const resolveImageSrc = (itemOrUrl) => {
         if (!itemOrUrl) return null;
-        if (typeof itemOrUrl === 'string') return itemOrUrl;
+        if (typeof itemOrUrl === 'string') return imgUrl(itemOrUrl);
         // Prefer explicit fields on the inventory item
         const direct = itemOrUrl.product_image_url || itemOrUrl.image_url || itemOrUrl.product_image || itemOrUrl.image;
-        if (direct) return direct;
-        // If item links to a product, try to find product image from cached product list
+        if (direct) return imgUrl(direct);
+
+        const productsAvailable = Array.isArray(allProducts) && allProducts.length > 0;
+        const inventoryItemId = itemOrUrl.id;
         const linkedId = itemOrUrl.linked_product_id || itemOrUrl.product_id || null;
-        if (linkedId && Array.isArray(allProducts) && allProducts.length > 0) {
-            const found = allProducts.find(p => String(p.id) === String(linkedId) || String(p.product_code) === String(linkedId));
-            if (found && (found.image_url || found.product_image_url)) return found.image_url || found.product_image_url;
+
+        if (productsAvailable) {
+            // If item links to a product explicitly, use that product's image.
+            if (linkedId) {
+                const found = allProducts.find(p => String(p.id) === String(linkedId) || String(p.product_code) === String(linkedId));
+                if (found && (found.image_url || found.product_image_url)) return imgUrl(found.image_url || found.product_image_url);
+            }
+
+            // Also check reverse relationship: product may reference this inventory item.
+            if (inventoryItemId) {
+                const foundByInventoryId = allProducts.find(p => String(p.inventory_item_id) === String(inventoryItemId));
+                if (foundByInventoryId && (foundByInventoryId.image_url || foundByInventoryId.product_image_url)) {
+                    return imgUrl(foundByInventoryId.image_url || foundByInventoryId.product_image_url);
+                }
+            }
+
+            // Try matching by SKU/code if the item is not explicitly linked.
+            const itemSku = String(itemOrUrl.sku || itemOrUrl.product_code || '').trim();
+            if (itemSku) {
+                const foundBySku = allProducts.find(p => String(p.product_code || '').trim().toLowerCase() === itemSku.toLowerCase() || String(p.sku || '').trim().toLowerCase() === itemSku.toLowerCase());
+                if (foundBySku && (foundBySku.image_url || foundBySku.product_image_url)) {
+                    return imgUrl(foundBySku.image_url || foundBySku.product_image_url);
+                }
+            }
+
+            // Finally try matching by name if product has same name.
+            const itemName = String(itemOrUrl.name || '').trim().toLowerCase();
+            if (itemName) {
+                const foundByName = allProducts.find(p => String(p.name || '').trim().toLowerCase() === itemName);
+                if (foundByName && (foundByName.image_url || foundByName.product_image_url)) {
+                    return imgUrl(foundByName.image_url || foundByName.product_image_url);
+                }
+            }
         }
+
         return null;
     };
 
@@ -366,7 +399,7 @@ const Inventory = () => {
         setError('');
         setSaving(true);
         try {
-            await api.post('/inventory', {
+            const response = await api.post('/inventory', {
                 ...newItem,
                 quantity: Number(newItem.quantity) || 0,
                 reorder_level: Number(newItem.reorder_level) || 0,
@@ -379,6 +412,11 @@ const Inventory = () => {
                 model_name: newItem.model_name || null,
                 size_code: newItem.size_code || null
             });
+            // Optimistic UI Update - add new item to local state
+            if (response.data) {
+                setItems(prev => [...prev, response.data]);
+                setTotal(prev => prev + 1);
+            }
             setShowAddModal(false);
             setNewItem(emptyItem);
             toast.success('Inventory item added');
@@ -395,6 +433,9 @@ const Inventory = () => {
         if (!selectedItem) return;
         setError('');
         setSaving(true);
+        // Optimistic UI Update
+        const prevItems = [...items];
+        setItems(prev => prev.map(i => i.id === selectedItem.id ? { ...selectedItem, quantity: Number(selectedItem.quantity) || 0, reorder_level: Number(selectedItem.reorder_level) || 0, cost_price: Number(selectedItem.cost_price) || 0, sell_price: Number(selectedItem.sell_price) || 0, discount: Number(selectedItem.discount) || 0, gst_rate: Number(selectedItem.gst_rate) || 0, product_id: selectedItem.product_id || null, source_code: selectedItem.source_code || null, model_name: selectedItem.model_name || null, size_code: selectedItem.size_code || null } : i));
         try {
             await api.put(`/inventory/${selectedItem.id}`, {
                 ...selectedItem,
@@ -415,6 +456,7 @@ const Inventory = () => {
             fetchInventory();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update item');
+            setItems(prevItems);
         } finally {
             setSaving(false);
         }

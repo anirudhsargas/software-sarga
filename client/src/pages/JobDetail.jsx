@@ -46,16 +46,16 @@ const Badge = ({ label, color }) => {
 };
 
 const InfoRow = ({ icon: Icon, label, value, isPhone, whatsappOptions }) => (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 0', borderBottom: '1px solid var(--border, #e5e7eb)' }}>
-        <Icon size={16} style={{ marginTop: 2, color: 'var(--muted, var(--muted))', flexShrink: 0 }} />
-        <span className="job-info-label" style={{ color: 'var(--muted, var(--muted))', fontSize: '13px', minWidth: 110, flexShrink: 0 }}>{label}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap', minWidth: 0 }}>
-            <span style={{ fontSize: '13px', fontWeight: 500, wordBreak: 'break-word', minWidth: 0 }}>
+    <div className="job-info-row">
+        <Icon size={16} />
+        <span className="job-info-label">{label}</span>
+        <div className="job-info-value">
+            <span>
                 {isPhone && value ? value : (value || '—')}
             </span>
             {isPhone && value && (
                 <>
-                    <a href={`tel:${value}`} style={{ color: 'var(--success)', textDecoration: 'none', fontWeight: 600, fontSize: '13px', flexShrink: 0 }} title="Call">
+                    <a href={`tel:${value}`} className="job-info-phone-link" title="Call">
                         📞 Call
                     </a>
                     {whatsappOptions && whatsappOptions.length > 0 && <WhatsAppDropdown mobile={value} options={whatsappOptions} />}
@@ -84,18 +84,18 @@ const WhatsAppDropdown = ({ mobile, options }) => {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
     return (
-        <div ref={ref} style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+        <div className="whatsapp-dropdown">
             <button
                 ref={btnRef}
                 onClick={() => setOpen(!open)}
-                style={{ background: '#25D366', color: 'var(--on-accent)', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                className="whatsapp-button"
                 title="WhatsApp"
             >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                 WhatsApp ▾
             </button>
             {open && (
-                <div style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, background: 'var(--surface, #fff)', border: '1px solid var(--border, #e5e7eb)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', zIndex: 9999, minWidth: 210, overflow: 'hidden' }}>
+                <div className="whatsapp-dropdown-menu" style={{ top: dropPos.top, left: dropPos.left }}>
                     {options.map((opt, i) => (
                         <a
                             key={i}
@@ -103,9 +103,7 @@ const WhatsAppDropdown = ({ mobile, options }) => {
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={() => setOpen(false)}
-                            style={{ display: 'block', padding: '10px 16px', fontSize: '13px', color: 'var(--text, #333)', textDecoration: 'none', borderBottom: i < options.length - 1 ? '1px solid var(--border, #eee)' : 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg, #f3f4f6)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            className="whatsapp-dropdown-item"
                         >
                             {opt.icon} {opt.label}
                         </a>
@@ -117,36 +115,25 @@ const WhatsAppDropdown = ({ mobile, options }) => {
 };
 
 const Section = ({ title, icon: Icon, children }) => (
-    <div className="job-section" style={{ background: 'var(--surface, #fff)', border: '1px solid var(--border, #e5e7eb)', borderRadius: 10, padding: '20px', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <Icon size={18} style={{ color: 'var(--accent, var(--accent))' }} />
-            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>{title}</h3>
+    <div className="job-section">
+        <div className="job-section-header">
+            <Icon size={18} />
+            <h3>{title}</h3>
         </div>
         {children}
     </div>
 );
 
 const StatCard = ({ label, value, icon: Icon, color, subValue }) => (
-    <div className="job-stat-card-inner" style={{
-        background: 'var(--surface, #fff)',
-        border: '1px solid var(--border, #e5e7eb)',
-        borderRadius: 12,
-        padding: '20px',
-        flex: 1,
-        minWidth: '160px'
-    }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: '12px', color: 'var(--muted, var(--muted))', fontWeight: 500 }}>{label}</span>
-            <div style={{
-                width: 28, height: 28, borderRadius: 8,
-                background: color + '15', color: color,
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
+    <div className="job-stat-card-inner">
+        <div className="job-stat-card-header">
+            <span className="job-stat-card-label">{label}</span>
+            <div className="job-stat-card-icon" style={{ background: color + '15', color: color }}>
                 <Icon size={16} />
             </div>
         </div>
-        <div className="stat-value" style={{ fontSize: '20px', fontWeight: 700, margin: '4px 0' }}>{value}</div>
-        {subValue && <div style={{ fontSize: '11px', color: 'var(--muted, var(--muted))' }}>{subValue}</div>}
+        <div className="stat-value">{value}</div>
+        {subValue && <div className="job-stat-subvalue">{subValue}</div>}
     </div>
 );
 
@@ -301,12 +288,15 @@ const JobDetail = () => {
 
     const handleDeletePaperLog = async (logId) => {
         if (!confirm('Delete this paper log entry?')) return;
+        // Optimistic UI Update
+        setPaperLogs(prev => prev.filter(log => log.id !== logId));
         try {
             await api.delete(`/jobs/${id}/paper-logs/${logId}`);
             toast.success('Log removed');
             fetchPaperLogs();
         } catch (err) {
             toast.error('Failed to delete log');
+            fetchPaperLogs();
         }
     };
 
@@ -349,11 +339,16 @@ const JobDetail = () => {
 
     const handleDeleteMatter = async (matterId) => {
         if (!confirm('Delete this matter image?')) return;
+        // Optimistic UI Update
+        setMatterImages(prev => prev.filter(img => img.id !== matterId));
         try {
             await api.delete(`/jobs/${id}/matter/${matterId}`);
             toast.success('Deleted');
             fetchMatter();
-        } catch { toast.error('Failed to delete'); }
+        } catch {
+            toast.error('Failed to delete');
+            fetchMatter();
+        }
     };
 
     const fetchProofs = () => {
@@ -387,11 +382,16 @@ const JobDetail = () => {
 
     const handleDeleteDesign = async (designId) => {
         if (!confirm('Delete this design file?')) return;
+        // Optimistic UI Update
+        setJobDesigns(prev => prev.filter(design => design.id !== designId));
         try {
             await api.delete(`/jobs/${id}/designs/${designId}`);
             toast.success('Design deleted');
             fetchDesigns();
-        } catch { toast.error('Failed to delete design'); }
+        } catch {
+            toast.error('Failed to delete design');
+            fetchDesigns();
+        }
     };
 
     const handleUploadProof = async (e) => {
@@ -448,11 +448,16 @@ const JobDetail = () => {
 
     const handleDeleteProof = async (proofId) => {
         if (!confirm('Delete this proof?')) return;
+        // Optimistic UI Update
+        setProofs(prev => prev.filter(proof => proof.id !== proofId));
         try {
             await api.delete(`/jobs/${id}/proofs/${proofId}`);
             toast.success('Proof deleted');
             fetchProofs();
-        } catch { toast.error('Failed to delete proof'); }
+        } catch {
+            toast.error('Failed to delete proof');
+            fetchProofs();
+        }
     };
 
     const handleUpdatePlates = async () => {
@@ -644,7 +649,7 @@ const JobDetail = () => {
 
     if (loading) {
         return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 12 }}>
+            <div className="job-loading">
                 <Loader2 size={28} className="animate-spin" />
                 <span>Loading job dashboard...</span>
             </div>
@@ -653,11 +658,11 @@ const JobDetail = () => {
 
     if (error || !data) {
         return (
-            <div style={{ padding: 24 }}>
-                <button onClick={() => handleBackClick()} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent, var(--accent))', marginBottom: 16 }}>
+            <div className="job-error">
+                <button onClick={() => handleBackClick()} className="job-error-back">
                     <ArrowLeft size={18} /> Back
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--error)', padding: 16, background: 'var(--error-bg)', borderRadius: 8 }}>
+                <div className="job-error-message">
                     <AlertCircle size={20} />
                     <span>{error || 'Job not found'}</span>
                 </div>
@@ -678,25 +683,25 @@ const JobDetail = () => {
         || assignments?.find(a => a.staff_id === null && a.role === auth.getUser()?.role);
 
     return (
-        <div className="job-detail-container" style={{ maxWidth: 1100, margin: '0 auto', padding: '0 0 40px' }}>
+        <div className="job-detail-container">
             {/* Header / Dashboard Toolbar */}
-            <div className="job-detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+            <div className="job-detail-header">
                 <div>
                     <button
                         onClick={() => handleBackClick()}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted, var(--muted))', marginBottom: 8, padding: 0 }}
+                        className="back-button"
                     >
                         <ArrowLeft size={16} /> Back to Jobs
                     </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Job Dashboard</h1>
-                        <span style={{ fontSize: '14px', color: 'var(--muted, var(--muted))', fontFamily: 'monospace', background: 'var(--bg, #f3f4f6)', padding: '2px 8px', borderRadius: 4 }}>
+                        <h1>Job Dashboard</h1>
+                        <span className="job-number-badge">
                             {job.job_number}
                         </span>
                     </div>
                 </div>
 
-                <div className="job-detail-actions" style={{ display: 'flex', gap: 12 }}>
+                <div className="job-detail-actions">
                     {isFinancialsVisible && (
                         <button
                             className="btn btn-outline"
@@ -810,19 +815,19 @@ const JobDetail = () => {
 
                     {/* Staff Action Buttons */}
                     {currentUserAssignment && (
-                        <div className="job-staff-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <div className="job-staff-actions">
                             {currentUserAssignment.status === 'Pending' && !['Completed', 'Delivered', 'Cancelled'].includes(job.status) && (
                                 <button className="btn btn-primary" onClick={async () => {
                                     await handleAssignmentStatus(currentUserAssignment.id, 'In Progress');
                                     if (job.status === 'Pending') await handleUpdateStatus('Processing');
-                                }} style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}>
+                                }}>
                                     Start Job
                                 </button>
                             )}
                             {currentUserAssignment.status === 'In Progress' && job.status !== 'Approval Pending' && auth.getUser()?.role === 'Designer' && (
                                 <button className="btn btn-warning" onClick={async () => {
                                     await handleUpdateStatus('Approval Pending');
-                                }} style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600, color: 'var(--on-accent)', background: 'var(--warning)', borderColor: 'var(--warning)' }}>
+                                }} style={{ color: 'var(--on-accent)', background: 'var(--warning)', borderColor: 'var(--warning)' }}>
                                     Send for Customer Verification
                                 </button>
                             )}
@@ -835,18 +840,17 @@ const JobDetail = () => {
                                     if (othersCompleted) {
                                         await handleUpdateStatus('Completed');
                                     }
-                                }} style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}>
+                                }}>
                                     Complete Job
                                 </button>
                             )}
                             {job.status === 'Approval Pending' && !['Completed', 'Delivered'].includes(job.status) && (
                                 <>
-                                    <span className="badge badge--info" style={{ padding: '8px 16px', borderRadius: 8 }}>
+                                    <span className="badge badge--info">
                                         ✓ Sent for Customer Verification
                                     </span>
                                     <button className="btn btn-success" onClick={async () => {
                                         await handleAssignmentStatus(currentUserAssignment.id, 'Completed');
-                                        // Check if ALL other assignments are also completed
                                         const othersCompleted = assignments
                                             .filter(a => a.id !== currentUserAssignment.id)
                                             .every(a => a.status === 'Completed');
@@ -855,13 +859,13 @@ const JobDetail = () => {
                                         } else {
                                             await handleUpdateStatus('Processing');
                                         }
-                                    }} style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}>
+                                    }}>
                                         Complete
                                     </button>
                                 </>
                             )}
                             {(job.status === 'Completed' || job.status === 'Delivered') && (
-                                <span className="badge badge--success" style={{ padding: '8px 16px', borderRadius: 8 }}>
+                                <span className="badge badge--success">
                                     ✓ Completed
                                 </span>
                             )}
@@ -878,15 +882,15 @@ const JobDetail = () => {
                                     job.status === 'Completed' ? 'badge--success' :
                                     job.status === 'Delivered' ? 'badge--primary' :
                                     job.status === 'Cancelled' ? 'badge--danger' : ''
-                                }`}
-                                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', fontSize: '13px', fontWeight: 600, outline: 'none', opacity: job._updating ? 0.6 : 1 }}
+                                } job-status-select`}
+                                style={{ opacity: job._updating ? 0.6 : 1 }}
                                 value={job.status}
                                 onChange={(e) => handleUpdateStatus(e.target.value)}
                                 disabled={job._updating}
                             >
                                 {Object.keys(statusColors).map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
-                            {job._updating && <Loader2 size={16} className="animate-spin" style={{ color: 'var(--accent)' }} />}
+                            {job._updating && <Loader2 size={16} className="animate-spin status-spinner" />}
                         </div>
                     ) : (
                         <Badge label={job.status} color={statusColor} />
@@ -895,7 +899,7 @@ const JobDetail = () => {
             </div>
 
             {/* Dashboard Overview Cards */}
-            <div className="job-stat-cards-row" style={{ display: 'flex', gap: 12, marginBottom: 24, overflowX: 'auto', paddingBottom: 8 }}>
+            <div className="job-stat-cards-row">
                 {isFinancialsVisible && (
                     <>
                         <StatCard
@@ -932,31 +936,31 @@ const JobDetail = () => {
                 )}
             </div>
 
-            <div className="job-detail-main-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: 24, alignItems: 'start' }}>
-                <div className="stack-lg" style={{ minWidth: 0 }}>
+            <div className="job-detail-main-grid">
+                <div className="stack-lg">
                     {/* Main Info */}
                     <Section title="Order Overview" icon={FileText}>
-                        <div className="job-detail-info-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                        <div className="job-detail-info-grid">
                             <div className="stack-xs">
                                 <InfoRow icon={Briefcase} label="Task Name" value={job.job_name} />
                                 <InfoRow icon={Package} label="Product Type" value={job.product_name} />
                                 <InfoRow icon={Building2} label="Production Branch" value={job.branch_name || 'Main Office'} />
                                 <InfoRow icon={Clock} label="Planned Qty" value={job.quantity} />
                                 {/* Offset Plate Count — inline editable */}
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 0', borderBottom: '1px solid var(--border, #e5e7eb)' }}>
-                                    <Shield size={16} style={{ marginTop: 2, color: 'var(--muted, var(--muted))', flexShrink: 0 }} />
-                                    <span className="job-info-label" style={{ color: 'var(--muted, var(--muted))', fontSize: '13px', minWidth: 110, flexShrink: 0 }}>Plate Count</span>
+                                <div className="job-info-row">
+                                    <Shield size={16} />
+                                    <span className="job-info-label">Plate Count</span>
                                     {editingPlates ? (
-                                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                        <div className="plate-edit-row">
                                             <input type="number" min="0" value={plateInput} onChange={e => setPlateInput(e.target.value)} autoFocus
-                                                style={{ width: 70, padding: '4px 6px', borderRadius: 6, border: '2px solid var(--accent)', outline: 'none', fontSize: '13px', fontWeight: 700, textAlign: 'center', background: 'var(--bg, #f3f4f6)' }}
+                                                className="plate-edit-input"
                                                 onKeyDown={e => { if (e.key === 'Enter') handleUpdatePlates(); if (e.key === 'Escape') setEditingPlates(false); }}
                                             />
-                                            <button onClick={handleUpdatePlates} style={{ background: 'var(--accent)', color: 'var(--on-accent)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>OK</button>
+                                            <button onClick={handleUpdatePlates} className="plate-edit-button">OK</button>
                                         </div>
                                     ) : (
                                         <span onClick={() => { setPlateInput(String(job.plate_count || 0)); setEditingPlates(true); }}
-                                            style={{ fontSize: '13px', fontWeight: 500, cursor: 'pointer' }} title="Click to edit">
+                                            className="plate-edit-value" title="Click to edit">
                                             {job.plate_count || '—'}
                                         </span>
                                     )}
@@ -974,9 +978,9 @@ const JobDetail = () => {
                             </div>
                         </div>
                         {job.description && (
-                            <div style={{ marginTop: 20, padding: 16, background: 'var(--bg, #f9fafb)', borderRadius: 10, border: '1px solid var(--border)' }}>
-                                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Job Details / Notes</div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
+                            <div className="job-description-section">
+                                <div className="job-description-title">Job Details / Notes</div>
+                                <div className="job-description-tags">
                                     {job.description.split(' | ').filter(p => p && p.trim()).map((part, i) => {
                                         const isTagged = part.includes(':');
                                         const [label, ...rest] = isTagged ? part.split(':') : ['', part];
@@ -988,19 +992,12 @@ const JobDetail = () => {
                                         const isMatter = tagLabel === 'matter';
                                         
                                         return (
-                                            <span key={i} style={{
-                                                display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                padding: '4px 10px', borderRadius: 6, fontSize: 13, fontWeight: 600,
-                                                background: isColour ? 'rgba(146, 64, 14, 0.1)' : isNumbering ? 'rgba(30, 64, 175, 0.1)' : isMatter ? 'rgba(124, 58, 237, 0.1)' : 'var(--surface-2, rgba(108, 117, 125, 0.1))',
-                                                color: isColour ? '#d97706' : isNumbering ? '#3b82f6' : isMatter ? '#8b5cf6' : 'var(--text)',
-                                                border: `1px solid ${isColour ? 'rgba(217, 119, 6, 0.3)' : isNumbering ? 'rgba(59, 130, 246, 0.3)' : isMatter ? 'rgba(139, 92, 246, 0.3)' : 'var(--border)'}`,
-                                                overflowWrap: 'anywhere'
-                                            }}>
-                                                {isColour && <span style={{ fontSize: 15 }}>🎨</span>}
-                                                {isNumbering && <span style={{ fontSize: 15 }}>🔢</span>}
-                                                {isMatter && <span style={{ fontSize: 15 }}>📝</span>}
-                                                {tagLabel && <strong style={{ marginRight: 2, color: 'inherit', textTransform: 'capitalize' }}>{tagLabel}:</strong>}
-                                                <span style={{ color: 'var(--text)', fontWeight: 500 }}>{value}</span>
+                                            <span key={i} className={`job-tag ${isColour ? 'job-tag--colour' : ''} ${isNumbering ? 'job-tag--numbering' : ''} ${isMatter ? 'job-tag--matter' : ''}`}>
+                                                {isColour && <span className="tag-emoji">🎨</span>}
+                                                {isNumbering && <span className="tag-emoji">🔢</span>}
+                                                {isMatter && <span className="tag-emoji">📝</span>}
+                                                {tagLabel && <strong>{tagLabel}:</strong>}
+                                                <span>{value}</span>
                                             </span>
                                         );
                                     })}
@@ -1009,25 +1006,23 @@ const JobDetail = () => {
                         )}
 
                         {/* Matter Images */}
-                        <div style={{ marginTop: 20, padding: 16, background: 'var(--bg, #f9fafb)', borderRadius: 10, border: '1px solid var(--border)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <div className="matter-images-section">
+                            <div className="matter-images-header">
+                                <div className="matter-images-title">
                                     Matter ({matterImages.length})
                                 </div>
-                                <div style={{ display: 'flex', gap: 6 }}>
+                                <div className="matter-images-actions">
                                     {/* Hidden inputs */}
-                                    <input ref={matterCaptureRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                                    <input ref={matterCaptureRef} type="file" accept="image/*" capture="environment" className="hidden-input"
                                         onChange={(e) => { handleUploadMatter(e.target.files?.[0], true); e.target.value = ''; }} />
-                                    <input ref={matterUploadRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }}
+                                    <input ref={matterUploadRef} type="file" accept="image/*,.pdf" className="hidden-input"
                                         onChange={(e) => { handleUploadMatter(e.target.files?.[0], false); e.target.value = ''; }} />
-                                    <button className="btn btn-ghost btn-sm"
-                                        style={{ fontSize: 11, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 3 }}
+                                    <button className="btn btn-ghost btn-sm matter-image-button"
                                         disabled={uploadingMatter}
                                         onClick={() => matterCaptureRef.current?.click()}>
                                         {uploadingMatter ? <Loader2 size={11} className="animate-spin" /> : <Image size={11} />} Capture
                                     </button>
-                                    <button className="btn btn-ghost btn-sm"
-                                        style={{ fontSize: 11, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 3 }}
+                                    <button className="btn btn-ghost btn-sm matter-image-button"
                                         disabled={uploadingMatter}
                                         onClick={() => matterUploadRef.current?.click()}>
                                         <Upload size={11} /> Upload
@@ -1035,36 +1030,36 @@ const JobDetail = () => {
                                 </div>
                             </div>
                             {matterImages.length === 0 ? (
-                                <div style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>
+                                <div className="matter-images-empty">
                                     No matter images yet. Capture or upload to help staff understand the print content.
                                 </div>
                             ) : (
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                                <div className="matter-images-grid">
                                     {matterImages.map((m) => {
                                         const isImg = /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(m.file_url);
                                         return (
-                                            <div key={m.id} style={{ position: 'relative' }}>
+                                            <div key={m.id} className="matter-image-item">
                                                 {isImg ? (
                                                     <img
                                                         src={imgUrl(m.file_url)}
                                                         alt="Matter"
-                                                        style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer' }}
+                                                        className="matter-image-preview"
                                                         onClick={() => window.open(imgUrl(m.file_url), '_blank')}
                                                         title={m.original_name}
                                                     />
                                                 ) : (
                                                     <a href={imgUrl(m.file_url)} target="_blank" rel="noopener noreferrer"
-                                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 100, height: 100, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)', flexDirection: 'column', gap: 4, textDecoration: 'none', color: 'var(--text)' }}>
-                                                        <Image size={24} style={{ color: 'var(--muted)' }} />
-                                                        <span style={{ fontSize: 10, textAlign: 'center', padding: '0 4px' }}>{m.original_name?.slice(0, 15)}</span>
+                                                        className="matter-file-link">
+                                                        <Image size={24} />
+                                                        <span>{m.original_name?.slice(0, 15)}</span>
                                                     </a>
                                                 )}
                                                 {!isFrontOffice && (
                                                     <button onClick={() => handleDeleteMatter(m.id)}
-                                                        style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                        className="matter-image-delete"
                                                         title="Delete">×</button>
                                                 )}
-                                                {m.notes && <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 2, maxWidth: 100 }}>{m.notes}</div>}
+                                                {m.notes && <div className="matter-image-note">{m.notes}</div>}
                                             </div>
                                         );
                                     })}
@@ -1076,41 +1071,27 @@ const JobDetail = () => {
                     {/* Workforce Tracking */}
                     <Section title="Workforce & Production Status" icon={Users}>
                         {assignments?.length > 0 ? (
-                            <div className="job-workforce-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                            <div className="job-workforce-grid">
                                 {assignments.map((a, i) => {
                                     const isCompleted = a.status === 'Completed';
                                     const isProcessing = a.status === 'Processing' || a.status === 'In Progress';
                                     const statusColor = isCompleted ? 'var(--success)' : isProcessing ? 'var(--accent)' : 'var(--muted)';
 
                                     return (
-                                        <div key={i} style={{
-                                            display: 'flex', gap: 16, padding: 16,
-                                            background: 'var(--surface-2)',
-                                            borderRadius: 12, border: isProcessing ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                            position: 'relative',
-                                            overflow: 'hidden'
-                                        }}>
+                                        <div key={i} className={`workforce-card ${isProcessing ? 'workforce-card--processing' : ''}`}>
                                             {isProcessing && (
-                                                <div style={{
-                                                    position: 'absolute', top: 0, left: 0, width: 4, height: '100%',
-                                                    background: 'var(--accent)'
-                                                }} />
+                                                <div className="workforce-card-accent-bar" />
                                             )}
 
-                                            <div style={{
-                                                width: 44, height: 44, borderRadius: 10,
-                                                background: statusColor + '15', color: statusColor,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontWeight: 800, fontSize: '18px', border: `1px solid ${statusColor}33`
-                                            }}>
+                                            <div className="workforce-card-avatar" style={{ background: statusColor + '15', color: statusColor, borderColor: statusColor + '33' }}>
                                                 {a.staff_name?.[0] || (a.staff_id ? '?' : '👥')}
                                             </div>
 
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div className="workforce-card-content">
+                                                <div className="workforce-card-header">
                                                     <div>
-                                                        <div style={{ fontSize: '15px', fontWeight: 700 }}>{a.staff_name || `All ${a.role || a.staff_role}s`}</div>
-                                                        <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{a.staff_name ? a.staff_role : 'Role-based Assignment'}</div>
+                                                        <div className="workforce-card-name">{a.staff_name || `All ${a.role || a.staff_role}s`}</div>
+                                                        <div className="workforce-card-role">{a.staff_name ? a.staff_role : 'Role-based Assignment'}</div>
                                                     </div>
                                                     <div className={`badge ${isCompleted ? 'badge--success' : isProcessing ? 'badge--info' : 'badge--neutral'}`} style={{ opacity: a._updating ? 0.6 : 1 }}>
                                                         {isCompleted && <CheckCircle2 size={10} />}
@@ -1124,9 +1105,9 @@ const JobDetail = () => {
                                 })}
                             </div>
                         ) : (
-                            <div style={{ padding: '32px', textAlign: 'center', background: 'var(--bg, #f9fafb)', borderRadius: 12, border: '1px dashed var(--border)' }}>
-                                <Users size={32} style={{ color: 'var(--muted)', marginBottom: 12, opacity: 0.5 }} />
-                                <div style={{ fontSize: '14px', color: 'var(--muted)', fontWeight: 500 }}>No production staff assigned to this job yet.</div>
+                            <div className="workforce-empty">
+                                <Users size={32} />
+                                <div>No production staff assigned to this job yet.</div>
                             </div>
                         )}
                     </Section>
@@ -1138,11 +1119,11 @@ const JobDetail = () => {
                             if (Array.isArray(extras) && extras.length > 0) {
                                 return (
                                     <Section title="Applied Extras & Filters" icon={Package}>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                        <div className="extras-grid">
                                             {extras.map((e, i) => (
-                                                <div key={i} style={{ padding: '6px 12px', background: 'var(--bg, #f3f4f6)', borderRadius: 6, fontSize: '13px', display: 'flex', gap: 8 }}>
-                                                    <span style={{ color: 'var(--muted)' }}>{e.name || e.label}</span>
-                                                    {!isFrontOffice && <span style={{ fontWeight: 600 }}>{fmt(e.price || e.amount || 0)}</span>}
+                                                <div key={i} className="extra-item">
+                                                    <span className="extra-label">{e.name || e.label}</span>
+                                                    {!isFrontOffice && <span className="extra-price">{fmt(e.price || e.amount || 0)}</span>}
                                                 </div>
                                             ))}
                                         </div>
@@ -1155,18 +1136,18 @@ const JobDetail = () => {
                     {/* Cost Breakdown - Hidden for Front Office and Production Staff */}
                     {isFinancialsVisible && !isFrontOffice && (
                         <Section title="Internal Cost Analysis" icon={Activity}>
-                            <div className="job-detail-cost-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-                                <div style={{ padding: 16, border: '1px solid var(--border)', borderRadius: 10 }}>
-                                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Paper Cost</div>
-                                    <div style={{ fontSize: '16px', fontWeight: 700, marginTop: 4 }}>{fmt(job.paper_cost)}</div>
+                            <div className="job-detail-cost-grid job-detail-cost-grid--3">
+                                <div className="cost-card">
+                                    <div className="cost-card-label">Paper Cost</div>
+                                    <div className="cost-card-value">{fmt(job.paper_cost)}</div>
                                 </div>
-                                <div style={{ padding: 16, border: '1px solid var(--border)', borderRadius: 10 }}>
-                                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Machine Cost</div>
-                                    <div style={{ fontSize: '16px', fontWeight: 700, marginTop: 4 }}>{fmt(job.machine_cost)}</div>
+                                <div className="cost-card">
+                                    <div className="cost-card-label">Machine Cost</div>
+                                    <div className="cost-card-value">{fmt(job.machine_cost)}</div>
                                 </div>
-                                <div style={{ padding: 16, border: '1px solid var(--border)', borderRadius: 10 }}>
-                                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Labour Cost</div>
-                                    <div style={{ fontSize: '16px', fontWeight: 700, marginTop: 4 }}>{fmt(job.labour_cost)}</div>
+                                <div className="cost-card">
+                                    <div className="cost-card-label">Labour Cost</div>
+                                    <div className="cost-card-value">{fmt(job.labour_cost)}</div>
                                 </div>
                             </div>
                         </Section>
@@ -1184,45 +1165,45 @@ const JobDetail = () => {
                             return (
                                 <>
                                     {/* Summary Cards */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
-                                        <div style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center' }}>
-                                            <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Required</div>
+                                    <div className="paper-summary-grid">
+                                        <div className="paper-summary-card">
+                                            <div className="paper-summary-label">Required</div>
                                             {editingRequired ? (
-                                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center' }}>
+                                                <div className="paper-edit-row">
                                                     <input type="number" value={requiredInput} onChange={e => setRequiredInput(e.target.value)} autoFocus
-                                                        style={{ width: 70, padding: '4px 6px', borderRadius: 6, border: '2px solid var(--accent)', outline: 'none', fontSize: '14px', fontWeight: 700, textAlign: 'center', background: 'var(--bg, #f3f4f6)' }}
+                                                        className="plate-edit-input"
                                                         onKeyDown={e => { if (e.key === 'Enter') handleUpdateRequired(); if (e.key === 'Escape') setEditingRequired(false); }}
                                                     />
-                                                    <button onClick={handleUpdateRequired} style={{ background: 'var(--accent)', color: 'var(--on-accent)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>OK</button>
+                                                    <button onClick={handleUpdateRequired} className="plate-edit-button">OK</button>
                                                 </div>
                                             ) : (
-                                                <div onClick={() => { setRequiredInput(String(req)); setEditingRequired(true); }} style={{ fontSize: '20px', fontWeight: 700, cursor: 'pointer' }} title="Click to edit">
+                                                <div onClick={() => { setRequiredInput(String(req)); setEditingRequired(true); }} className="paper-summary-value" title="Click to edit">
                                                     {req || '—'}
                                                 </div>
                                             )}
                                         </div>
-                                        <div style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center' }}>
-                                            <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Used</div>
-                                            <div style={{ fontSize: '20px', fontWeight: 700 }}>{used || '—'}</div>
+                                        <div className="paper-summary-card">
+                                            <div className="paper-summary-label">Used</div>
+                                            <div className="paper-summary-value">{used || '—'}</div>
                                         </div>
-                                        <div style={{ padding: 14, border: `1px solid ${wasteColor}33`, borderRadius: 10, textAlign: 'center', background: wasteColor + '08' }}>
-                                            <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Waste</div>
-                                            <div style={{ fontSize: '20px', fontWeight: 700, color: wasteColor }}>{waste > 0 ? waste : '—'}</div>
+                                        <div className="paper-summary-card paper-summary-card--waste" style={{ borderColor: wasteColor + '33', background: wasteColor + '08' }}>
+                                            <div className="paper-summary-label">Waste</div>
+                                            <div className="paper-summary-value" style={{ color: wasteColor }}>{waste > 0 ? waste : '—'}</div>
                                         </div>
-                                        <div style={{ padding: 14, border: `1px solid ${wasteColor}33`, borderRadius: 10, textAlign: 'center', background: wasteColor + '08' }}>
-                                            <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Waste %</div>
-                                            <div style={{ fontSize: '20px', fontWeight: 700, color: wasteColor }}>{used > 0 ? `${wastePct}%` : '—'}</div>
+                                        <div className="paper-summary-card paper-summary-card--waste" style={{ borderColor: wasteColor + '33', background: wasteColor + '08' }}>
+                                            <div className="paper-summary-label">Waste %</div>
+                                            <div className="paper-summary-value" style={{ color: wasteColor }}>{used > 0 ? `${wastePct}%` : '—'}</div>
                                         </div>
                                     </div>
 
                                     {/* Waste Bar */}
                                     {req > 0 && used > 0 && (
-                                        <div style={{ marginBottom: 16 }}>
-                                            <div style={{ height: 8, background: 'var(--bg, #e5e7eb)', borderRadius: 99, overflow: 'hidden', position: 'relative' }}>
-                                                <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${Math.min(100, (req / used) * 100)}%`, background: 'var(--success)', borderRadius: 99, transition: 'width 0.5s' }} />
-                                                <div style={{ position: 'absolute', left: `${Math.min(100, (req / used) * 100)}%`, top: 0, height: '100%', width: `${Math.min(100, 100 - (req / used) * 100)}%`, background: wasteColor, borderRadius: '0 99px 99px 0', transition: 'width 0.5s' }} />
+                                        <div className="paper-waste-bar">
+                                            <div className="paper-waste-bar-track">
+                                                <div className="paper-waste-bar-productive" style={{ width: `${Math.min(100, (req / used) * 100)}%` }} />
+                                                <div className="paper-waste-bar-waste" style={{ left: `${Math.min(100, (req / used) * 100)}%`, width: `${Math.min(100, 100 - (req / used) * 100)}%`, background: wasteColor }} />
                                             </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', marginTop: 4 }}>
+                                            <div className="paper-waste-bar-labels">
                                                 <span style={{ color: 'var(--success)' }}>Productive: {req} sheets</span>
                                                 <span style={{ color: wasteColor }}>Waste: {waste} sheets</span>
                                             </div>
@@ -1230,39 +1211,38 @@ const JobDetail = () => {
                                     )}
 
                                     {/* Log Button */}
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-                                        <button onClick={() => setPaperLogModal(true)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--accent, var(--accent))', background: 'transparent', color: 'var(--accent, var(--accent))', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                                    <div className="paper-log-button-container">
+                                        <button onClick={() => setPaperLogModal(true)} className="btn btn-outline btn-sm">
                                             <Plus size={14} /> Log Paper Usage
                                         </button>
                                     </div>
 
                                     {/* Paper Usage Log Table */}
                                     {paperLogs.length > 0 && (
-                                        <div style={{ overflowX: 'auto' }}>
-                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                        <div className="paper-logs-table-container">
+                                            <table className="table paper-logs-table">
                                                 <thead>
-                                                    <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                                                        <th style={{ textAlign: 'left', padding: '10px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Stage</th>
-                                                        <th style={{ textAlign: 'left', padding: '10px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Paper Size</th>
-                                                        <th style={{ textAlign: 'right', padding: '10px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Used</th>
-                                                        <th style={{ textAlign: 'right', padding: '10px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Wasted</th>
-                                                        <th style={{ textAlign: 'left', padding: '10px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>By</th>
-                                                        <th style={{ textAlign: 'left', padding: '10px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Date</th>
-                                                        <th style={{ textAlign: 'center', padding: '10px', width: 40 }}></th>
+                                                    <tr>
+                                                        <th>Stage</th>
+                                                        <th>Paper Size</th>
+                                                        <th>Used</th>
+                                                        <th>Wasted</th>
+                                                        <th>By</th>
+                                                        <th>Date</th>
+                                                        <th></th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {paperLogs.map(log => (
-                                                        <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                                            <td style={{ padding: '10px', fontWeight: 600 }}>{log.stage}</td>
-                                                            <td style={{ padding: '10px' }}>{log.paper_size || '—'}</td>
-                                                            <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600 }}>{log.sheets_used}</td>
-                                                            <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600, color: log.sheets_wasted > 0 ? 'var(--error)' : 'inherit' }}>{log.sheets_wasted > 0 ? log.sheets_wasted : '—'}</td>
-                                                            <td style={{ padding: '10px', fontSize: '12px' }}>{log.staff_name || '—'}</td>
-                                                            <td style={{ padding: '10px', fontSize: '12px' }}>{fmtDateTime(log.created_at)}</td>
-                                                            <td style={{ padding: '10px', textAlign: 'center' }}>
-                                                                <button onClick={() => handleDeletePaperLog(log.id)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
+                                                        <tr key={log.id}>
+                                                            <td className="font-semibold">{log.stage}</td>
+                                                            <td>{log.paper_size || '—'}</td>
+                                                            <td className="text-right font-semibold">{log.sheets_used}</td>
+                                                            <td className="text-right font-semibold" style={{ color: log.sheets_wasted > 0 ? 'var(--error)' : 'inherit' }}>{log.sheets_wasted > 0 ? log.sheets_wasted : '—'}</td>
+                                                            <td className="text-xs">{log.staff_name || '—'}</td>
+                                                            <td className="text-xs">{fmtDateTime(log.created_at)}</td>
+                                                            <td className="text-center">
+                                                                <button onClick={() => handleDeletePaperLog(log.id)} title="Delete" className="btn btn-ghost btn-icon">
                                                                     <Trash2 size={14} />
                                                                 </button>
                                                             </td>
@@ -1274,7 +1254,7 @@ const JobDetail = () => {
                                     )}
 
                                     {paperLogs.length === 0 && !req && !used && (
-                                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px', background: 'var(--bg, #f9fafb)', borderRadius: 8, border: '1px dashed var(--border)' }}>
+                                        <div className="paper-logs-empty">
                                             No paper usage logged yet. Click "Log Paper Usage" to start tracking.
                                         </div>
                                     )}
@@ -1287,9 +1267,8 @@ const JobDetail = () => {
                     <Section title={`Proof Approval${proofs.length ? ` (${proofs.length})` : ''}`} icon={Eye}>
                         {/* Upload Button — only Designers can upload proofs */}
                         {userRole === 'Designer' && (
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-                                <button onClick={() => setProofModal(true)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--accent, var(--accent))', background: 'transparent', color: 'var(--accent, var(--accent))', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                            <div className="paper-log-button-container">
+                                <button onClick={() => setProofModal(true)} className="btn btn-outline btn-sm">
                                     <Upload size={14} /> Upload Proof
                                 </button>
                             </div>
@@ -1304,68 +1283,66 @@ const JobDetail = () => {
                                     const statusColor = p.status === 'Approved' ? '#166534' : p.status === 'Rejected' ? '#991b1b' : p.status === 'Revision Requested' ? '#92400e' : '#1e40af';
 
                                     return (
-                                        <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-                                            <div style={{ display: 'flex', gap: 16, padding: 16, alignItems: 'flex-start' }}>
+                                        <div key={p.id} className="proof-card">
+                                            <div className="proof-card-content">
                                                 {/* Thumbnail */}
                                                 <a href={proofUrl} target="_blank" rel="noopener noreferrer"
-                                                    style={{ display: 'block', width: 100, height: 80, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--bg, #f3f4f6)', flexShrink: 0, textDecoration: 'none' }}>
+                                                    className="proof-thumbnail">
                                                     {isImg ? (
-                                                        <SecureImage src={p.file_url} alt={`Proof v${p.version}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                                                        <SecureImage src={p.file_url} alt={`Proof v${p.version}`} className="proof-thumbnail-image" loading="lazy" />
                                                     ) : (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', gap: 2 }}>
-                                                            <FileText size={24} style={{ opacity: 0.5 }} />
-                                                            <span style={{ fontSize: 9, textTransform: 'uppercase', fontWeight: 700 }}>{p.file_type}</span>
+                                                        <div className="proof-thumbnail-file">
+                                                            <FileText size={24} />
+                                                            <span>{p.file_type}</span>
                                                         </div>
                                                     )}
                                                 </a>
 
                                                 {/* Info */}
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                            <span style={{ fontSize: '15px', fontWeight: 700 }}>Version {p.version}</span>
-                                                            <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: 6, background: statusBg, color: statusColor, fontWeight: 700, textTransform: 'uppercase' }}>
+                                                <div className="proof-info">
+                                                    <div className="proof-info-header">
+                                                        <div className="proof-info-title">
+                                                            <span className="proof-version">Version {p.version}</span>
+                                                            <span className="proof-status" style={{ background: statusBg, color: statusColor }}>
                                                                 {p.status}
                                                             </span>
                                                         </div>
-                                                        <button onClick={() => handleDeleteProof(p.id)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
+                                                        <button onClick={() => handleDeleteProof(p.id)} title="Delete" className="btn btn-ghost btn-icon">
                                                             <Trash2 size={14} />
                                                         </button>
                                                     </div>
-                                                    <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: 4 }}>
+                                                    <div className="proof-info-meta">
                                                         Uploaded by {p.uploaded_by_name || 'Unknown'} — {fmtDateTime(p.created_at)}
                                                     </div>
                                                     {/* Auto Design Check Result */}
                                                     {p.designCheck && (
-                                                        <div style={{
-                                                            fontSize: '12px', padding: '6px 10px', borderRadius: 6, marginBottom: 4,
-                                                            display: 'flex', alignItems: 'center', gap: 6,
+                                                        <div className="design-check-result" style={{
                                                             background: p.designCheck.passed ? 'rgba(47,125,74,0.08)' : (p.designCheck.critical_issues > 0 ? 'rgba(176,58,46,0.08)' : 'rgba(179,107,0,0.08)'),
                                                             color: p.designCheck.passed ? 'var(--success)' : (p.designCheck.critical_issues > 0 ? 'var(--error)' : 'var(--warning)'),
-                                                            border: `1px solid ${p.designCheck.passed ? 'rgba(47,125,74,0.25)' : (p.designCheck.critical_issues > 0 ? 'rgba(176,58,46,0.25)' : 'rgba(179,107,0,0.25)')}`
+                                                            borderColor: p.designCheck.passed ? 'rgba(47,125,74,0.25)' : (p.designCheck.critical_issues > 0 ? 'rgba(176,58,46,0.25)' : 'rgba(179,107,0,0.25)')
                                                         }}>
-                                                            <span style={{ fontWeight: 700 }}>
+                                                            <span className="design-check-status">
                                                                 {p.designCheck.passed ? '✓ Design Check Passed' : '⚠ Design Issues Found'}
                                                             </span>
                                                             {!p.designCheck.passed && (
-                                                                <span style={{ fontSize: '11px', opacity: 0.85 }}>
+                                                                <span className="design-check-details">
                                                                     — {p.designCheck.critical_issues} critical, {p.designCheck.warnings} warnings
                                                                 </span>
                                                             )}
                                                         </div>
                                                     )}
                                                     {p.designer_notes && (
-                                                        <div style={{ fontSize: '12px', padding: '6px 8px', background: 'var(--bg, #f9fafb)', borderRadius: 6, marginBottom: 4, fontStyle: 'italic' }}>
-                                                            <MessageSquare size={11} style={{ display: 'inline', marginRight: 4 }} /> {p.designer_notes}
+                                                        <div className="proof-note">
+                                                            <MessageSquare size={11} /> {p.designer_notes}
                                                         </div>
                                                     )}
                                                     {p.customer_feedback && (
-                                                        <div style={{ fontSize: '12px', padding: '6px 8px', background: p.status === 'Approved' ? 'rgba(47,125,74,0.08)' : 'rgba(176,58,46,0.08)', borderRadius: 6, marginBottom: 4 }}>
+                                                        <div className="proof-feedback" style={{ background: p.status === 'Approved' ? 'rgba(47,125,74,0.08)' : 'rgba(176,58,46,0.08)' }}>
                                                             <strong>Feedback:</strong> {p.customer_feedback}
                                                         </div>
                                                     )}
                                                     {p.reviewed_by_name && (
-                                                        <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                                                        <div className="proof-reviewer">
                                                             Reviewed by {p.reviewed_by_name} {p.reviewed_at ? `on ${fmtDateTime(p.reviewed_at)}` : ''}
                                                         </div>
                                                     )}
@@ -1374,11 +1351,9 @@ const JobDetail = () => {
 
                                             {/* Action Bar — show approve/reject for Pending proofs */}
                                             {p.status === 'Pending' && ['Admin', 'Front Office', 'front office'].includes(userRole) && (
-                                                <div style={{ display: 'flex', gap: 8, padding: '10px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg, #f9fafb)' }}>
-                                                    <button onClick={() => handleReviewProof.bind(null, 'Approved')() || setReviewModal(p)}
-                                                        style={{ display: 'none' }} />
+                                                <div className="proof-action-bar">
                                                     <button onClick={() => { setReviewModal(p); setReviewFeedback(''); }}
-                                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px', borderRadius: 8, border: '1px solid var(--success)', background: 'var(--success-bg)', color: 'var(--success)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                                                        className="btn btn-success btn-full btn-sm">
                                                         <ThumbsUp size={14} /> Review Proof
                                                     </button>
                                                 </div>
@@ -1388,8 +1363,8 @@ const JobDetail = () => {
                                 })}
                             </div>
                         ) : (
-                            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px', background: 'var(--bg, #f9fafb)', borderRadius: 8, border: '1px dashed var(--border)' }}>
-                                <Eye size={28} style={{ opacity: 0.3, marginBottom: 8 }} />
+                            <div className="proof-empty">
+                                <Eye size={28} />
                                 <div>No proofs uploaded yet. Upload a proof for customer approval.</div>
                             </div>
                         )}
@@ -1399,60 +1374,57 @@ const JobDetail = () => {
                     {isFinancialsVisible && (
                         <Section title="Transaction Ledger" icon={CreditCard}>
                             {(payments?.length > 0 || job.advance_paid > 0) ? (
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', minWidth: 400 }}>
+                                <div className="payment-table-container">
+                                    <table className="table payment-table">
                                         <thead>
-                                            <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                                                <th style={{ textAlign: 'left', padding: '12px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Date</th>
-                                                <th style={{ textAlign: 'right', padding: '12px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Amount</th>
-                                                <th style={{ textAlign: 'left', padding: '12px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Method</th>
-                                                <th style={{ textAlign: 'left', padding: '12px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Ref #</th>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Amount</th>
+                                                <th>Method</th>
+                                                <th>Ref #</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {job.advance_paid > 0 && !payments.some(p => Number(p.amount) === Number(job.advance_paid)) && (
-                                                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                                                    <td style={{ padding: '12px' }}>{fmtDate(job.created_at)}</td>
-                                                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'var(--success)' }}>{fmt(job.advance_paid)}</td>
-                                                    <td style={{ padding: '12px' }}>Advance</td>
-                                                    <td style={{ padding: '12px', color: 'var(--muted)' }}>—</td>
+                                                <tr>
+                                                    <td>{fmtDate(job.created_at)}</td>
+                                                    <td className="text-right font-semibold text-success">{fmt(job.advance_paid)}</td>
+                                                    <td>Advance</td>
+                                                    <td className="text-muted">—</td>
                                                 </tr>
                                             )}
                                             {payments.map((p, i) => (
-                                                <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                                                    <td style={{ padding: '12px' }}>{fmtDate(p.payment_date)}</td>
-                                                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'var(--success)' }}>{fmt(p.amount)}</td>
-                                                    <td style={{ padding: '12px' }}>{p.payment_method}</td>
-                                                    <td style={{ padding: '12px', color: 'var(--muted)' }}>{p.reference_number || '—'}</td>
+                                                <tr key={i}>
+                                                    <td>{fmtDate(p.payment_date)}</td>
+                                                    <td className="text-right font-semibold text-success">{fmt(p.amount)}</td>
+                                                    <td>{p.payment_method}</td>
+                                                    <td className="text-muted">{p.reference_number || '—'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
                             ) : (
-                                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)', fontSize: '14px' }}>No previous payments recorded.</div>
+                                <div className="payment-empty">No previous payments recorded.</div>
                             )}
                         </Section>
                     )}
                 </div>
 
                 {/* Sidebar: Timeline */}
-                <div className="stack-md" style={{ minWidth: 0 }}>
+                <div className="stack-md">
                     <Section title="Activity Logs" icon={Activity}>
-                        <div style={{ position: 'relative', paddingLeft: 20 }}>
-                            <div style={{ position: 'absolute', left: 4, top: 10, bottom: 10, width: 2, background: 'var(--border)' }} />
+                        <div className="activity-timeline">
+                            <div className="activity-timeline-line" />
                             <div className="stack-lg">
                                 {statusHistory?.length > 0 ? statusHistory.map((h, i) => (
-                                    <div key={i} style={{ position: 'relative', zIndex: 1 }}>
-                                        <div style={{
-                                            position: 'absolute', left: -20, top: 4, width: 10, height: 10, borderRadius: '50%',
-                                            background: statusColors[h.status] || 'var(--muted)', boxShadow: '0 0 0 4px var(--surface)'
-                                        }} />
-                                        <div style={{ fontSize: '14px', fontWeight: 700, color: statusColors[h.status] }}>{h.status}</div>
-                                        <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: 2 }}>{fmtDateTime(h.changed_at)}</div>
-                                        {h.staff_name && <div style={{ fontSize: '11px', color: 'var(--accent)', marginTop: 4, fontWeight: 500 }}>{h.staff_name}</div>}
+                                    <div key={i} className="activity-timeline-item">
+                                        <div className="activity-timeline-dot" style={{ background: statusColors[h.status] || 'var(--muted)' }} />
+                                        <div className="activity-timeline-status" style={{ color: statusColors[h.status] }}>{h.status}</div>
+                                        <div className="activity-timeline-date">{fmtDateTime(h.changed_at)}</div>
+                                        {h.staff_name && <div className="activity-timeline-staff">{h.staff_name}</div>}
                                     </div>
-                                )) : <div style={{ padding: 10, color: 'var(--muted)', fontSize: '13px' }}>No logs yet.</div>}
+                                )) : <div className="activity-timeline-empty">No logs yet.</div>}
                             </div>
                         </div>
                     </Section>
@@ -1460,31 +1432,31 @@ const JobDetail = () => {
                     {/* Job Designs — with upload */}
                     <Section title={`Design Files${jobDesigns.length ? ` (${jobDesigns.length})` : ''}`} icon={Image}>
                         {/* Hidden file input */}
-                        <input type="file" ref={designFileRef} onChange={handleDesignUpload} multiple accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.ai,.eps,.psd,.cdr,.indd,.tiff,.tif,.bmp,.zip,.rar" style={{ display: 'none' }} />
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                        <input type="file" ref={designFileRef} onChange={handleDesignUpload} multiple accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.ai,.eps,.psd,.cdr,.indd,.tiff,.tif,.bmp,.zip,.rar" className="hidden-input" />
+                        <div className="paper-log-button-container">
                             <button onClick={() => designFileRef.current?.click()} disabled={uploadingDesign}
-                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--accent, var(--accent))', background: 'transparent', color: 'var(--accent, var(--accent))', cursor: 'pointer', fontSize: '12px', fontWeight: 600, opacity: uploadingDesign ? 0.5 : 1 }}>
+                                className="btn btn-outline btn-sm" style={{ opacity: uploadingDesign ? 0.5 : 1 }}>
                                 {uploadingDesign ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />} Upload
                             </button>
                         </div>
                         {jobDesigns.length > 0 ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                            <div className="design-files-grid">
                                 {jobDesigns.slice(0, 8).map(d => {
                                     const url = imgUrl(d.file_url);
                                     const isImg = d.file_type === 'image';
                                     return (
-                                        <div key={d.id} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', height: 80, background: 'var(--bg, #f3f4f6)' }}>
-                                            <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: '100%', height: '100%', textDecoration: 'none' }}>
+                                        <div key={d.id} className="design-file-item">
+                                            <a href={url} target="_blank" rel="noopener noreferrer" className="design-file-link">
                                                 {isImg ? (
-                                                    <SecureImage src={d.file_url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                                                    <SecureImage src={d.file_url} alt={d.title} className="design-file-image" loading="lazy" />
                                                 ) : (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', gap: 2 }}>
-                                                        <FileText size={20} style={{ opacity: 0.5 }} />
-                                                        <span style={{ fontSize: 9, textTransform: 'uppercase', fontWeight: 700 }}>{d.file_type}</span>
+                                                    <div className="design-file-type">
+                                                        <FileText size={20} />
+                                                        <span>{d.file_type}</span>
                                                     </div>
                                                 )}
                                             </a>
-                                            <button onClick={() => handleDeleteDesign(d.id)} title="Delete" style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', color: 'var(--on-accent)', border: 'none', borderRadius: 4, padding: 2, cursor: 'pointer', lineHeight: 0 }}>
+                                            <button onClick={() => handleDeleteDesign(d.id)} title="Delete" className="design-file-delete">
                                                 <Trash2 size={12} />
                                             </button>
                                         </div>
@@ -1492,14 +1464,13 @@ const JobDetail = () => {
                                 })}
                             </div>
                         ) : (
-                            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--muted)', fontSize: '12px', background: 'var(--bg, #f9fafb)', borderRadius: 8, border: '1px dashed var(--border)' }}>
+                            <div className="design-files-empty">
                                 No design files yet. Click Upload to attach files.
                             </div>
                         )}
                         {jobDesigns.length > 8 && (
-                            <div style={{ textAlign: 'center', marginTop: 8 }}>
-                                <button onClick={() => navigate(`/dashboard/customers/${job.customer_id}`)}
-                                    style={{ background: 'none', border: 'none', color: 'var(--accent, var(--accent))', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                            <div className="design-view-more">
+                                <button onClick={() => navigate(`/dashboard/customers/${job.customer_id}`)} className="link-button">
                                     View all {jobDesigns.length} designs →
                                 </button>
                             </div>
@@ -1510,36 +1481,24 @@ const JobDetail = () => {
 
             {/* Record Payment Modal */}
             {paymentModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                    <div style={{ background: '#222', borderRadius: 16, width: '100%', maxWidth: 400, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-                        <h2 style={{ margin: '0 0 8px', fontSize: '20px' }}>Record Payment</h2>
-                        <p style={{ margin: '0 0 24px', color: 'var(--muted)', fontSize: '14px' }}>Enter the amount received from the customer.</p>
+                <div className="modal-overlay">
+                    <div className="modal modal--dark">
+                        <h2 className="modal-title">Record Payment</h2>
+                        <p className="modal-subtitle">Enter the amount received from the customer.</p>
 
                         <div className="form-group">
-                            <label style={{ display: 'block', marginBottom: 8, fontSize: '13px', fontWeight: 600 }}>Amount (₹)</label>
+                            <label className="form-label">Amount (₹)</label>
                             <input
                                 type="number"
-                                className="form-input"
+                                className="form-input modal-input-large"
                                 placeholder="0.00"
                                 value={paymentAmount}
                                 onChange={(e) => setPaymentAmount(e.target.value)}
                                 autoFocus
-                                style={{
-                                    fontSize: '20px',
-                                    color: 'var(--text)',
-                                    background: 'var(--surface-2)',
-                                    border: '2px solid #555',
-                                    borderRadius: '8px',
-                                    padding: '12px',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.16)',
-                                    width: '100%',
-                                    outline: 'none',
-                                    fontWeight: 600,
-                                }}
                             />
                         </div>
 
-                        <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+                        <div className="modal-actions">
                             <button className="btn btn-ghost flex-1" onClick={() => setPaymentModal(false)}>Cancel</button>
                             <button className="btn btn-primary flex-1" onClick={handleRecordPayment}>Save Payment</button>
                         </div>
@@ -1549,24 +1508,24 @@ const JobDetail = () => {
 
             {/* Cancel Order Modal */}
             {cancelModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                    <div style={{ background: '#222', borderRadius: 16, width: '100%', maxWidth: 440, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--error-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="modal-overlay">
+                    <div className="modal modal--dark">
+                        <div className="modal-header-with-icon">
+                            <div className="modal-icon modal-icon--error">
                                 <XCircle size={20} color="var(--error)" />
                             </div>
-                            <h2 style={{ margin: 0, fontSize: '20px' }}>Cancel Order</h2>
+                            <h2 className="modal-title">Cancel Order</h2>
                         </div>
-                        <p style={{ margin: '0 0 20px', color: 'var(--muted)', fontSize: '14px' }}>
+                        <p className="modal-subtitle">
                             This will mark order <strong>{job.job_number}</strong> as Cancelled. This action can be reversed by changing the status.
                         </p>
                         {Number(job.advance_paid) > 0 && (
-                            <div style={{ padding: 12, background: 'var(--warning-bg)', border: '1px solid var(--warning)', borderRadius: 8, marginBottom: 16, fontSize: '13px', color: '#92400e' }}>
+                            <div className="alert alert--warning">
                                 <strong>Note:</strong> Customer has paid ₹{Number(job.advance_paid).toLocaleString('en-IN')} in advance. You can process a refund after cancellation.
                             </div>
                         )}
                         <div className="form-group">
-                            <label style={{ display: 'block', marginBottom: 8, fontSize: '13px', fontWeight: 600 }}>Cancellation Reason *</label>
+                            <label className="form-label">Cancellation Reason *</label>
                             <textarea
                                 className="form-input"
                                 placeholder="Enter reason for cancellation..."
@@ -1574,16 +1533,16 @@ const JobDetail = () => {
                                 onChange={(e) => setCancelReason(e.target.value)}
                                 autoFocus
                                 rows={3}
-                                style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
                             />
                         </div>
-                        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+                        <div className="modal-actions">
                             <button className="btn btn-ghost flex-1" onClick={() => { setCancelModal(false); setCancelReason(''); }}>Go Back</button>
                             <LoadingButton
                                 onClick={handleCancelOrder}
                                 loading={cancelling}
                                 disabled={!cancelReason.trim()}
-                                style={{ flex: 1, background: 'var(--error)', color: 'var(--on-accent)', border: 'none', fontWeight: 600, opacity: !cancelReason.trim() ? 0.5 : 1 }}
+                                className="btn btn-danger flex-1"
+                                style={{ opacity: !cancelReason.trim() ? 0.5 : 1 }}
                             >
                                 Confirm Cancellation
                             </LoadingButton>
@@ -1594,19 +1553,19 @@ const JobDetail = () => {
 
             {/* Paper Usage Log Modal */}
             {paperLogModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                    <div style={{ background: '#222', borderRadius: 16, width: '100%', maxWidth: 440, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="modal-overlay">
+                    <div className="modal modal--dark modal--wide">
+                        <div className="modal-header-with-icon">
+                            <div className="modal-icon modal-icon--accent">
                                 <Layers size={20} color="var(--accent)" />
                             </div>
-                            <h2 style={{ margin: 0, fontSize: '20px' }}>Log Paper Usage</h2>
+                            <h2 className="modal-title">Log Paper Usage</h2>
                         </div>
 
-                        <div className="form-group" style={{ marginBottom: 14 }}>
-                            <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Production Stage *</label>
+                        <div className="form-group form-group--compact">
+                            <label className="form-label">Production Stage *</label>
                             <select value={paperForm.stage} onChange={e => setPaperForm(p => ({ ...p, stage: e.target.value }))}
-                                style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none' }}>
+                                className="form-select">
                                 <option value="">Select stage...</option>
                                 <option value="Printing">Printing</option>
                                 <option value="Cutting">Cutting</option>
@@ -1619,10 +1578,10 @@ const JobDetail = () => {
                             </select>
                         </div>
 
-                        <div className="form-group" style={{ marginBottom: 14 }}>
-                            <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Paper Size</label>
+                        <div className="form-group form-group--compact">
+                            <label className="form-label">Paper Size</label>
                             <select value={paperForm.paper_size} onChange={e => setPaperForm(p => ({ ...p, paper_size: e.target.value }))}
-                                style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none' }}>
+                                className="form-select">
                                 <option value="">Select size...</option>
                                 <option value="A4">A4 (210×297mm)</option>
                                 <option value="A3">A3 (297×420mm)</option>
@@ -1638,37 +1597,37 @@ const JobDetail = () => {
                             </select>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                        <div className="form-grid-2 form-group--compact">
                             <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Sheets Used *</label>
+                                <label className="form-label">Sheets Used *</label>
                                 <input type="number" min="0" placeholder="0" value={paperForm.sheets_used}
                                     onChange={e => setPaperForm(p => ({ ...p, sheets_used: e.target.value }))}
-                                    style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', fontSize: '16px', fontWeight: 600 }}
+                                    className="form-input form-input--large"
                                 />
                             </div>
                             <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Sheets Wasted</label>
+                                <label className="form-label">Sheets Wasted</label>
                                 <input type="number" min="0" placeholder="0" value={paperForm.sheets_wasted}
                                     onChange={e => setPaperForm(p => ({ ...p, sheets_wasted: e.target.value }))}
-                                    style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', fontSize: '16px', fontWeight: 600 }}
+                                    className="form-input form-input--large"
                                 />
                             </div>
                         </div>
 
-                        <div className="form-group" style={{ marginBottom: 14 }}>
-                            <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Notes (optional)</label>
+                        <div className="form-group form-group--compact">
+                            <label className="form-label">Notes (optional)</label>
                             <textarea placeholder="e.g., Misprinted 5 sheets, paper jam..." value={paperForm.notes}
                                 onChange={e => setPaperForm(p => ({ ...p, notes: e.target.value }))}
-                                rows={2} style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                                rows={2} className="form-input"
                             />
                         </div>
 
-                        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                        <div className="modal-actions">
                             <button className="btn btn-ghost flex-1" onClick={() => { setPaperLogModal(false); setPaperForm({ stage: '', paper_size: '', sheets_used: '', sheets_wasted: '', notes: '' }); }}>Cancel</button>
                             <LoadingButton 
                                 onClick={handleLogPaper} 
                                 loading={loggingPaper}
-                                className="btn-primary flex-1"
+                                className="btn btn-primary flex-1"
                             >
                                 Log Usage
                             </LoadingButton>
@@ -1679,94 +1638,95 @@ const JobDetail = () => {
 
             {/* Proof Upload Modal */}
             {proofModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                    <div style={{ background: '#222', borderRadius: 16, width: '100%', maxWidth: 440, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="modal-overlay">
+                    <div className="modal modal--dark modal--wide">
+                        <div className="modal-header-with-icon">
+                            <div className="modal-icon modal-icon--accent">
                                 <Eye size={20} color="var(--accent-2)" />
                             </div>
-                            <h2 style={{ margin: 0, fontSize: '20px' }}>Upload Proof for Approval</h2>
+                            <h2 className="modal-title">Upload Proof for Approval</h2>
                         </div>
-                        <p style={{ margin: '0 0 16px', color: 'var(--muted)', fontSize: '13px' }}>
+                        <p className="modal-subtitle">
                             Upload a design proof. This will be sent for customer verification. Version {proofs.length + 1}.
                         </p>
 
-                        <div className="form-group" style={{ marginBottom: 14 }}>
-                            <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Proof File *</label>
+                        <div className="form-group form-group--compact">
+                            <label className="form-label">Proof File *</label>
                             <input type="file" ref={proofFileRef} onChange={handleUploadProof}
                                 accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.ai,.eps,.psd,.cdr,.tiff,.tif,.bmp"
-                                style={{ color: 'var(--text)', fontSize: '13px' }} />
-                        </div>
-
-                        <div className="form-group" style={{ marginBottom: 14 }}>
-                            <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Designer Notes (optional)</label>
-                            <textarea placeholder="e.g., Updated font as per feedback..." value={proofNotes}
-                                onChange={e => setProofNotes(e.target.value)}
-                                rows={2} style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                                className="form-input"
                             />
                         </div>
 
-                        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                        <div className="form-group form-group--compact">
+                            <label className="form-label">Designer Notes (optional)</label>
+                            <textarea placeholder="e.g., Updated font as per feedback..." value={proofNotes}
+                                onChange={e => setProofNotes(e.target.value)}
+                                rows={2} className="form-input"
+                            />
+                        </div>
+
+                        <div className="modal-actions">
                             <button className="btn btn-ghost flex-1" onClick={() => { setProofModal(false); setProofNotes(''); }}>Cancel</button>
                         </div>
-                        {uploadingProof && <div style={{ textAlign: 'center', marginTop: 12, color: 'var(--accent)', fontSize: '13px' }}><Loader2 size={16} className="animate-spin" style={{ display: 'inline' }} /> Uploading...</div>}
+                        {uploadingProof && <div className="modal-uploading"><Loader2 size={16} className="animate-spin" /> Uploading...</div>}
                     </div>
                 </div>
             )}
 
             {/* Proof Review Modal */}
             {reviewModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, width: '100%', maxWidth: 480, padding: 32, boxShadow: 'var(--shadow-lg)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="modal-overlay">
+                    <div className="modal modal--wide modal--light">
+                        <div className="modal-header-with-icon">
+                            <div className="modal-icon modal-icon--accent">
                                 <Eye size={20} color="var(--accent-2)" />
                             </div>
-                            <h2 style={{ margin: 0, fontSize: '20px' }}>Review Proof v{reviewModal.version}</h2>
+                            <h2 className="modal-title">Review Proof v{reviewModal.version}</h2>
                         </div>
 
                         {/* Preview */}
                         {(() => {
                             const pUrl = imgUrl(reviewModal.file_url);
                             return reviewModal.file_type === 'image' ? (
-                                <SecureImage src={reviewModal.file_url} alt={`Proof v${reviewModal.version}`} style={{ width: '100%', maxHeight: 250, objectFit: 'contain', borderRadius: 8, marginBottom: 16, background: 'var(--bg-2)', border: '1px solid var(--border)' }} />
+                                <SecureImage src={reviewModal.file_url} alt={`Proof v${reviewModal.version}`} className="proof-preview-image" />
                             ) : (
-                                <a href={pUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: 20, textAlign: 'center', background: 'var(--bg-2)', borderRadius: 8, marginBottom: 16, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600, border: '1px solid var(--border)' }}>
-                                    <FileText size={28} style={{ marginBottom: 6, display: 'block', margin: '0 auto 6px' }} />
+                                <a href={pUrl} target="_blank" rel="noopener noreferrer" className="proof-preview-link">
+                                    <FileText size={28} />
                                     Open {reviewModal.original_name}
                                 </a>
                             );
                         })()}
 
                         {reviewModal.designer_notes && (
-                            <div style={{ padding: '8px 12px', background: 'var(--accent-light)', border: '1px solid var(--accent-soft)', borderRadius: 8, marginBottom: 12, fontSize: '13px', fontStyle: 'italic' }}>
+                            <div className="proof-designer-notes">
                                 <strong>Designer notes:</strong> {reviewModal.designer_notes}
                             </div>
                         )}
 
-                        <div className="form-group" style={{ marginBottom: 16 }}>
-                            <label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>Customer Feedback (optional for approval, recommended for rejection)</label>
+                        <div className="form-group form-group--compact">
+                            <label className="form-label">Customer Feedback (optional for approval, recommended for rejection)</label>
                             <textarea placeholder="e.g., Change the logo size, wrong color..." value={reviewFeedback}
                                 onChange={e => setReviewFeedback(e.target.value)}
-                                rows={3} style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                                rows={3} className="form-input"
                             />
                         </div>
 
-                        <div style={{ display: 'flex', gap: 10 }}>
-                            <button className="btn btn-ghost" onClick={() => { setReviewModal(null); setReviewFeedback(''); }} style={{ flex: 1 }}>Cancel</button>
+                        <div className="modal-actions modal-actions--4">
+                            <button className="btn btn-ghost flex-1" onClick={() => { setReviewModal(null); setReviewFeedback(''); }}>Cancel</button>
                             <button onClick={() => handleReviewProof('Revision Requested')} disabled={reviewing}
-                                className="badge badge--warning"
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 8, cursor: 'pointer', opacity: reviewing ? 0.5 : 1 }}>
+                                className="badge badge--warning proof-review-button"
+                                style={{ opacity: reviewing ? 0.5 : 1 }}>
                                 <RotateCcw size={14} /> Revision
                             </button>
                             <button onClick={() => handleReviewProof('Rejected')} disabled={reviewing}
-                                className="badge badge--danger"
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 8, cursor: 'pointer', opacity: reviewing ? 0.5 : 1 }}>
+                                className="badge badge--danger proof-review-button"
+                                style={{ opacity: reviewing ? 0.5 : 1 }}>
                                 <ThumbsDown size={14} /> Reject
                             </button>
                             <button onClick={() => handleReviewProof('Approved')} disabled={reviewing}
-                                className="badge badge--success"
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 8, cursor: 'pointer', opacity: reviewing ? 0.5 : 1 }}>
+                                className="badge badge--success proof-review-button"
+                                style={{ opacity: reviewing ? 0.5 : 1 }}>
                                 <ThumbsUp size={14} /> Approve
                             </button>
                         </div>
@@ -1776,41 +1736,39 @@ const JobDetail = () => {
 
             {/* Refund Modal */}
             {refundModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, width: '100%', maxWidth: 440, padding: 32, boxShadow: 'var(--shadow-lg)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--warning-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="modal-overlay">
+                    <div className="modal modal--wide modal--light">
+                        <div className="modal-header-with-icon">
+                            <div className="modal-icon modal-icon--warning">
                                 <RotateCcw size={20} color="var(--warning)" />
                             </div>
-                            <h2 style={{ margin: 0, fontSize: '20px' }}>Process Refund</h2>
+                            <h2 className="modal-title">Process Refund</h2>
                         </div>
-                        <p style={{ margin: '0 0 20px', color: 'var(--muted)', fontSize: '14px' }}>
+                        <p className="modal-subtitle">
                             Refund for <strong>{job.job_number}</strong> — {job.customer_name}
                         </p>
-                        <div style={{ padding: 12, background: '#1e293b', borderRadius: 8, marginBottom: 16, display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                            <span style={{ color: 'var(--muted)' }}>Maximum refundable</span>
-                            <span style={{ fontWeight: 700, color: 'var(--success)' }}>₹{Number(job.advance_paid).toLocaleString('en-IN')}</span>
+                        <div className="refund-max-info">
+                            <span className="refund-max-label">Maximum refundable</span>
+                            <span className="refund-max-value">₹{Number(job.advance_paid).toLocaleString('en-IN')}</span>
                         </div>
-                        <div className="form-group" style={{ marginBottom: 16 }}>
-                            <label style={{ display: 'block', marginBottom: 8, fontSize: '13px', fontWeight: 600 }}>Refund Amount (₹) *</label>
+                        <div className="form-group form-group--compact">
+                            <label className="form-label">Refund Amount (₹) *</label>
                             <input
                                 type="number"
-                                className="form-input"
+                                className="form-input modal-input-large"
                                 placeholder="0.00"
                                 value={refundAmount}
                                 onChange={(e) => setRefundAmount(e.target.value)}
                                 autoFocus
                                 max={Number(job.advance_paid)}
-                                style={{ fontSize: '20px', color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', width: '100%', outline: 'none', fontWeight: 600 }}
                             />
                         </div>
-                        <div className="form-group" style={{ marginBottom: 16 }}>
-                            <label style={{ display: 'block', marginBottom: 8, fontSize: '13px', fontWeight: 600 }}>Refund Method</label>
+                        <div className="form-group form-group--compact">
+                            <label className="form-label">Refund Method</label>
                             <select
-                                className="form-input"
+                                className="form-select"
                                 value={refundMethod}
                                 onChange={(e) => setRefundMethod(e.target.value)}
-                                style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px', width: '100%', outline: 'none' }}
                             >
                                 <option value="Cash">Cash</option>
                                 <option value="UPI">UPI</option>
@@ -1819,23 +1777,23 @@ const JobDetail = () => {
                             </select>
                         </div>
                         <div className="form-group">
-                            <label style={{ display: 'block', marginBottom: 8, fontSize: '13px', fontWeight: 600 }}>Note (optional)</label>
+                            <label className="form-label">Note (optional)</label>
                             <textarea
                                 className="form-input"
                                 placeholder="Reason for refund..."
                                 value={refundNote}
                                 onChange={(e) => setRefundNote(e.target.value)}
                                 rows={2}
-                                style={{ color: 'var(--text)', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', width: '100%', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
                             />
                         </div>
-                        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+                        <div className="modal-actions">
                             <button className="btn btn-ghost flex-1" onClick={() => { setRefundModal(false); setRefundAmount(''); setRefundNote(''); }}>Cancel</button>
                             <LoadingButton
                                 onClick={handleRefund}
                                 loading={refunding}
                                 disabled={!refundAmount || Number(refundAmount) <= 0}
-                                style={{ flex: 1, background: 'var(--warning)', color: 'var(--on-accent)', border: 'none', fontWeight: 600, opacity: !refundAmount || Number(refundAmount) <= 0 ? 0.5 : 1 }}
+                                className="btn btn-warning flex-1"
+                                style={{ opacity: !refundAmount || Number(refundAmount) <= 0 ? 0.5 : 1 }}
                             >
                                 Refund ₹{Number(refundAmount || 0).toLocaleString('en-IN')}
                             </LoadingButton>

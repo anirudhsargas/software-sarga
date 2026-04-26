@@ -45,6 +45,9 @@ const Branches = () => {
         setLoading(true);
         try {
             if (editingBranch) {
+                // Optimistic UI Update for edit
+                const prevBranches = [...branches];
+                setBranches(prev => prev.map(b => b.id === editingBranch.id ? { ...b, ...formData } : b));
                 await api.put(`/branches/${editingBranch.id}`, formData);
                 toast.success('Branch updated successfully');
             } else {
@@ -57,6 +60,7 @@ const Branches = () => {
             fetchBranches();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to save branch');
+            fetchBranches();
         } finally {
             setLoading(false);
         }
@@ -70,12 +74,15 @@ const Branches = () => {
             type: 'danger'
         });
         if (!isConfirmed) return;
+        // Optimistic UI Update
+        setBranches(prev => prev.filter(b => b.id !== id));
         try {
             await api.delete(`/branches/${id}`);
             toast.success('Branch deleted successfully');
             fetchBranches();
         } catch {
             setError('Failed to delete branch');
+            fetchBranches();
         }
     };
 

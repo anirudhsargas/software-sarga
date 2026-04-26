@@ -12,6 +12,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import { syncManager } from '../services/syncWorkerManager';
 import MeterVerification from '../components/MeterVerification';
+import './MachineManagement.css';
 
 const MachineManagement = () => {
     const { confirm } = useConfirm();
@@ -212,6 +213,9 @@ const MachineManagement = () => {
         e.preventDefault();
         try {
             if (editingMachine) {
+                // Optimistic UI Update for edit
+                const prevMachines = [...machines];
+                setMachines(prev => prev.map(m => m.id === editingMachine.id ? { ...m, ...formData } : m));
                 await api.put(`/machines/${editingMachine.id}`, formData);
             } else {
                 await api.post('/machines', formData);
@@ -224,6 +228,7 @@ const MachineManagement = () => {
             toast.success('Machine saved and cache refreshed');
         } catch (e) {
             toast.error(e.response?.data?.error || 'Failed to save machine');
+            fetchMachines();
         }
     };
 
@@ -274,12 +279,17 @@ const MachineManagement = () => {
         });
         if (!isConfirmed) return;
 
+        // Optimistic UI Update
+        setMachines(prev => prev.filter(m => m.id !== machine.id));
         try {
             await api.delete(`/machines/${machine.id}`);
             fetchMachines();
             // Invalidate machines cache so billing page gets fresh data
             syncManager.invalidateCache('machines');
-        } catch (e) { toast.error(e.response?.data?.error || 'Failed to delete machine'); }
+        } catch (e) {
+            toast.error(e.response?.data?.error || 'Failed to delete machine');
+            fetchMachines();
+        }
     };
 
     const resetForm = () => {
@@ -421,43 +431,35 @@ const MachineManagement = () => {
                 {/* Header */}
                 <div className="page-header">
                     <div className="row items-center gap-md">
-                        <button className="btn btn-ghost" onClick={() => { setSelectedMachine(null); setMachineDetails(null); }}>
-                            <ChevronLeft size={20} />
+                        <button className="btn btn-ghost" onClick={() => setSelectedMachine(null)}>
+                            <ArrowLeft size={18} />
                         </button>
-                        <div>
-                            <h1 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <Settings size={22} />
-                                {selectedMachine.machine_name}
-                            </h1>
-                            <p className="section-subtitle">
-                                <span className={`badge ${getTypeColor(selectedMachine.machine_type)}`}>{selectedMachine.machine_type}</span>
-                                {' '}{selectedMachine.branch_name} &middot; {selectedMachine.location || 'No location set'}
-                                {selectedMachine.ip_address && (
-                                    <span style={{ marginLeft: 8, fontFamily: 'var(--font-mono, monospace)', fontSize: 12, color: 'var(--clr-muted)' }}>
-                                        · IP: {selectedMachine.ip_address}
-                                    </span>
-                                )}
-                            </p>
+                        <div className="mm-page-header">
+                            <Printer size={20} className="mm-header-icon" />
+                            <h1 className="section-title">{selectedMachine.machine_name}</h1>
                         </div>
-                    </div>
-                    <div className="row gap-sm">
-                        <button className="btn btn-primary" onClick={() => setShowWorkModal(true)}>
-                            <Plus size={18} /> Add Work
-                        </button>
+                        {selectedMachine.ip_address && (
+                            <span className="mm-header-ip">IP: {selectedMachine.ip_address}</span>
+                        )}
+                        <div className="row gap-sm ml-auto">
+                            <button className="btn btn-primary" onClick={() => setShowWorkModal(true)}>
+                                <Plus size={18} /> Add Work
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 {detailLoading ? (
-                    <div className="panel" style={{ padding: 40, textAlign: 'center' }}>
-                        <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto' }} />
+                    <div className="mm-loading">
+                        <Loader2 className="animate-spin mm-loader-inline" size={32} />
                     </div>
                 ) : machineDetails ? (
                     <>
                         {/* Stats Cards */}
-                        <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-                            <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
-                                <div className="text-sm muted" style={{ marginBottom: 4 }}>Today Opening</div>
-                                <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono, monospace)' }}>
+                        <div className="mm-stats-grid">
+                            <div className="panel mm-stat-card">
+                                <div className="mm-stat-label">Today Opening</div>
+                                <div className="mm-stat-value">
                                     {machineDetails.today_reading ? fmt(machineDetails.today_reading.opening_count) : '—'}
                                 </div>
                                 <div className="form-group">
@@ -471,64 +473,64 @@ const MachineManagement = () => {
                                     </select>
                                 </div>
                             </div>
-                            <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
-                                <div className="text-sm muted" style={{ marginBottom: 4 }}>Today Closing</div>
-                                <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono, monospace)' }}>
+                            <div className="panel mm-stat-card">
+                                <div className="mm-stat-label">Today Closing</div>
+                                <div className="mm-stat-value">
                                     {machineDetails.today_reading?.closing_count != null ? fmt(machineDetails.today_reading.closing_count) : '—'}
                                 </div>
                             </div>
-                            <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
-                                <div className="text-sm muted" style={{ marginBottom: 4 }}>Total Copies</div>
-                                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--clr-primary)', fontFamily: 'var(--font-mono, monospace)' }}>
+                            <div className="panel mm-stat-card">
+                                <div className="mm-stat-label">Total Copies</div>
+                                <div className="mm-stat-value mm-stat-value--accent">
                                     {machineDetails.today_reading?.total_copies ? fmt(machineDetails.today_reading.total_copies) : '—'}
                                 </div>
                             </div>
-                            <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
-                                <div className="text-sm muted" style={{ marginBottom: 4, color: '#dc2626' }}>Waste Prints</div>
-                                <div style={{ fontSize: 22, fontWeight: 700, color: '#dc2626', fontFamily: 'var(--font-mono, monospace)' }}>
+                            <div className="panel mm-stat-card">
+                                <div className="mm-stat-label mm-monthly-stat-label--error">Waste Prints</div>
+                                <div className="mm-stat-value mm-stat-value--error">
                                     {machineDetails.today_reading?.waste_prints != null ? fmt(machineDetails.today_reading.waste_prints) : '—'}
                                 </div>
                                 {machineDetails.today_reading?.total_copies > 0 && machineDetails.today_reading?.waste_prints != null && (
-                                    <div style={{ fontSize: 11, color: '#dc2626' }}>
+                                    <div className="mm-table-percent mm-table-percent--error">
                                         {((machineDetails.today_reading.waste_prints / machineDetails.today_reading.total_copies) * 100).toFixed(1)}%
                                     </div>
                                 )}
                             </div>
-                            <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
-                                <div className="text-sm muted" style={{ marginBottom: 4, color: '#d97706' }}>Proof Prints</div>
-                                <div style={{ fontSize: 22, fontWeight: 700, color: '#d97706', fontFamily: 'var(--font-mono, monospace)' }}>
+                            <div className="panel mm-stat-card">
+                                <div className="mm-stat-label mm-monthly-stat-label--warning">Proof Prints</div>
+                                <div className="mm-stat-value mm-stat-value--warning">
                                     {machineDetails.today_reading?.proof_prints != null ? fmt(machineDetails.today_reading.proof_prints) : '—'}
                                 </div>
                                 {machineDetails.today_reading?.total_copies > 0 && machineDetails.today_reading?.proof_prints != null && (
-                                    <div style={{ fontSize: 11, color: '#d97706' }}>
+                                    <div className="mm-table-percent mm-table-percent--warning">
                                         {((machineDetails.today_reading.proof_prints / machineDetails.today_reading.total_copies) * 100).toFixed(1)}%
                                     </div>
                                 )}
                             </div>
-                            <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
-                                <div className="text-sm muted" style={{ marginBottom: 4 }}>Month Revenue</div>
-                                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--clr-success)', fontFamily: 'var(--font-mono, monospace)' }}>
+                            <div className="panel mm-stat-card">
+                                <div className="mm-stat-label">Month Revenue</div>
+                                <div className="mm-stat-value mm-stat-value--success">
                                     {fmtCur(machineDetails.monthly_stats?.total_revenue)}
                                 </div>
                             </div>
-                            <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
-                                <div className="text-sm muted" style={{ marginBottom: 4 }}>Month Jobs</div>
-                                <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono, monospace)' }}>
+                            <div className="panel mm-stat-card">
+                                <div className="mm-stat-label">Month Jobs</div>
+                                <div className="mm-stat-value">
                                     {fmt(machineDetails.monthly_stats?.total_jobs)}
                                 </div>
                             </div>
-                            <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
-                                <div className="text-sm muted" style={{ marginBottom: 4 }}>Assigned Staff</div>
-                                <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono, monospace)' }}>
+                            <div className="panel mm-stat-card">
+                                <div className="mm-stat-label">Assigned Staff</div>
+                                <div className="mm-stat-value">
                                     {machineDetails.assigned_staff?.length || 0}
                                 </div>
                             </div>
                             {machineDetails.ip_address && (
-                                <div className="panel" style={{ padding: 16, textAlign: 'center', position: 'relative', border: '1px solid var(--clr-primary)', background: 'color-mix(in srgb, var(--clr-primary) 8%, transparent)' }}>
-                                    <div className="text-sm" style={{ marginBottom: 4, color: 'var(--clr-primary)', fontWeight: 600 }}>Live Count</div>
-                                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono, monospace)', color: 'var(--clr-primary)' }}>
+                                <div className="panel mm-live-count-card">
+                                    <div className="mm-live-count-label">Live Count</div>
+                                    <div className="mm-live-count-value">
                                         {liveCountLoading ? (
-                                            <Loader2 size={20} className="animate-spin" style={{ display: 'inline-block' }} />
+                                            <Loader2 size={20} className="animate-spin mm-loader-inline" />
                                         ) : liveCount?.total_prints != null ? (
                                             liveCount.total_prints.toLocaleString('en-IN')
                                         ) : '—'}
@@ -537,12 +539,12 @@ const MachineManagement = () => {
                                         onClick={() => fetchLiveCount(selectedMachine.id, machineDetails.ip_address)}
                                         disabled={liveCountLoading}
                                         title="Refresh live count"
-                                        style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-primary)', padding: 2 }}
+                                        className="mm-live-count-refresh"
                                     >
                                         <RefreshCw size={13} className={liveCountLoading ? 'animate-spin' : ''} />
                                     </button>
                                     {liveCount?.fetched_at && (
-                                        <div style={{ fontSize: 10, color: 'var(--clr-muted)', marginTop: 2 }}>
+                                        <div className="mm-live-count-time">
                                             {new Date(liveCount.fetched_at).toLocaleTimeString()}
                                         </div>
                                     )}
@@ -551,23 +553,22 @@ const MachineManagement = () => {
                         </div>
 
                         {/* Opening/Closing Count Entry */}
-                        <div className="panel" style={{ padding: 16 }}>
-                            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>
-                                <Gauge size={16} style={{ verticalAlign: -3, marginRight: 6 }} />
+                        <div className="panel panel--tight">
+                            <h3 className="mm-panel-header-title">
+                                <Gauge size={16} className="mm-header-icon-small" />
                                 Today's Counter ({serverToday ? serverToday() : new Date().toISOString().split('T')[0]})
                             </h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 2fr auto', gap: '12px', alignItems: 'flex-end' }}>
-                                <div className="form-group" style={{ margin: 0 }}>
-                                    <label className="form-label text-sm" style={{ fontWeight: 600, color: 'var(--clr-muted)' }}>Opening Count</label>
-                                    <input type="number" className="input-field"
+                            <div className="mm-reading-form">
+                                <div className="form-group mm-form-group--inline">
+                                    <label className="form-label text-sm mm-reading-label mm-reading-label--muted">Opening Count</label>
+                                    <input type="number" className="input-field mm-reading-input mm-reading-input--large"
                                         value={readingForm.opening_count}
                                         onChange={e => setReadingForm({ ...readingForm, opening_count: e.target.value })}
                                         disabled={machineDetails.today_reading && !isAdmin}
-                                        style={{ height: 42, fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-mono, monospace)' }}
                                         placeholder="0"
                                     />
                                     {machineDetails.expected_opening_count != null && (
-                                        <div style={{ fontSize: 11, marginTop: 4, color: 'var(--clr-muted)' }}>
+                                        <div className="mm-reading-hint">
                                             Expected: <strong>{machineDetails.expected_opening_count.toLocaleString('en-IN')}</strong>
                                         </div>
                                     )}
@@ -575,79 +576,74 @@ const MachineManagement = () => {
                                         machineDetails.expected_opening_count != null &&
                                         readingForm.opening_count !== '' &&
                                         parseInt(readingForm.opening_count) !== machineDetails.expected_opening_count && (
-                                        <div style={{ fontSize: 10, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--clr-warning)' }}>
+                                        <div className="mm-reading-hint mm-reading-hint--warning">
                                             <AlertTriangle size={10} /> Flagged for review
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="form-group" style={{ margin: 0 }}>
-                                    <label className="form-label text-sm" style={{ fontWeight: 600, color: 'var(--clr-muted)' }}>Closing Count</label>
-                                    <input type="number" className="input-field"
+                                <div className="form-group mm-form-group--inline">
+                                    <label className="form-label text-sm mm-reading-label mm-reading-label--muted">Closing Count</label>
+                                    <input type="number" className="input-field mm-reading-input mm-reading-input--large"
                                         value={readingForm.closing_count}
                                         onChange={e => setReadingForm({ ...readingForm, closing_count: e.target.value })}
-                                        style={{ height: 42, fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-mono, monospace)' }}
                                         placeholder="—"
                                     />
                                     {readingForm.closing_count !== '' && readingForm.opening_count !== '' &&
                                         parseInt(readingForm.closing_count) > parseInt(readingForm.opening_count) && (
-                                        <div style={{ fontSize: 11, marginTop: 4, color: 'var(--clr-primary)', fontWeight: 600 }}>
+                                        <div className="mm-reading-hint mm-reading-hint--accent">
                                             Total: {(parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count)).toLocaleString('en-IN')}
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="form-group" style={{ margin: 0 }}>
-                                    <label className="form-label text-sm" style={{ fontWeight: 600, color: '#dc2626' }}>Waste Prints</label>
-                                    <input type="number" min="0" className="input-field"
+                                <div className="form-group mm-form-group--inline">
+                                    <label className="form-label text-sm mm-reading-label mm-reading-label--error">Waste Prints</label>
+                                    <input type="number" min="0" className="input-field mm-reading-input mm-reading-input--error"
                                         value={readingForm.waste_prints}
                                         onChange={e => setReadingForm({ ...readingForm, waste_prints: e.target.value })}
-                                        style={{ height: 42, fontFamily: 'var(--font-mono, monospace)', borderColor: readingForm.waste_prints ? '#dc2626' : undefined }}
                                         placeholder="0"
                                     />
                                     {readingForm.waste_prints && readingForm.closing_count && readingForm.opening_count &&
                                         parseInt(readingForm.closing_count) > parseInt(readingForm.opening_count) && (
-                                        <div style={{ fontSize: 11, marginTop: 4, color: '#dc2626' }}>
+                                        <div className="mm-reading-hint mm-reading-hint--error">
                                             {((parseInt(readingForm.waste_prints) / (parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count))) * 100).toFixed(1)}% waste
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="form-group" style={{ margin: 0 }}>
-                                    <label className="form-label text-sm" style={{ fontWeight: 600, color: '#d97706' }}>Proof Prints</label>
-                                    <input type="number" min="0" className="input-field"
+                                <div className="form-group mm-form-group--inline">
+                                    <label className="form-label text-sm mm-reading-label mm-reading-label--warning">Proof Prints</label>
+                                    <input type="number" min="0" className="input-field mm-reading-input mm-reading-input--warning"
                                         value={readingForm.proof_prints}
                                         onChange={e => setReadingForm({ ...readingForm, proof_prints: e.target.value })}
-                                        style={{ height: 42, fontFamily: 'var(--font-mono, monospace)', borderColor: readingForm.proof_prints ? '#d97706' : undefined }}
                                         placeholder="0"
                                     />
                                     {readingForm.proof_prints && readingForm.closing_count && readingForm.opening_count &&
                                         parseInt(readingForm.closing_count) > parseInt(readingForm.opening_count) && (
-                                        <div style={{ fontSize: 11, marginTop: 4, color: '#d97706' }}>
+                                        <div className="mm-reading-hint mm-reading-hint--warning">
                                             {((parseInt(readingForm.proof_prints) / (parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count))) * 100).toFixed(1)}% proof
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="form-group" style={{ margin: 0 }}>
-                                    <label className="form-label text-sm" style={{ fontWeight: 600, color: 'var(--clr-muted)' }}>Notes</label>
-                                    <input type="text" className="input-field"
+                                <div className="form-group mm-form-group--inline">
+                                    <label className="form-label text-sm mm-reading-label mm-reading-label--muted">Notes</label>
+                                    <input type="text" className="input-field mm-reading-input"
                                         value={readingForm.notes}
                                         onChange={e => setReadingForm({ ...readingForm, notes: e.target.value })}
-                                        style={{ height: 42 }}
                                         placeholder="Remarks..."
                                     />
                                 </div>
 
-                                <button className="btn btn-primary" onClick={handleSaveReading} disabled={readingSaving}
-                                    style={{ height: 42, padding: '0 20px', fontWeight: 600 }}>
+                                <button className="btn btn-primary mm-reading-save-btn" onClick={handleSaveReading} disabled={readingSaving}>
                                     {readingSaving ? <Loader2 className="animate-spin" size={18} /> : 'Save'}
                                 </button>
                             </div>
                             {/* Good prints summary */}
                             {readingForm.closing_count && readingForm.opening_count &&
                                 parseInt(readingForm.closing_count) > parseInt(readingForm.opening_count) && (
-                                <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                <div className="mm-good-prints-summary">
                                     {(() => {
                                         const total = parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count);
                                         const waste = parseInt(readingForm.waste_prints) || 0;
@@ -656,26 +652,26 @@ const MachineManagement = () => {
                                         const overLimit = waste + proof > total;
                                         return (
                                             <>
-                                                <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
+                                                <span className="mm-good-prints-item mm-good-prints-item--good">
                                                     ✓ Good: {good.toLocaleString('en-IN')} ({total > 0 ? ((good/total)*100).toFixed(1) : 0}%)
                                                 </span>
-                                                <span style={{ fontSize: 12, color: '#dc2626' }}>Waste: {waste.toLocaleString('en-IN')}</span>
-                                                <span style={{ fontSize: 12, color: '#d97706' }}>Proof: {proof.toLocaleString('en-IN')}</span>
-                                                {overLimit && <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 700 }}>⚠ Waste + Proof exceeds total!</span>}
+                                                <span className="mm-good-prints-item mm-good-prints-item--error">Waste: {waste.toLocaleString('en-IN')}</span>
+                                                <span className="mm-good-prints-item mm-good-prints-item--warning">Proof: {proof.toLocaleString('en-IN')}</span>
+                                                {overLimit && <span className="mm-good-prints-item mm-good-prints-item--alert">⚠ Waste + Proof exceeds total!</span>}
                                             </>
                                         );
                                     })()}
                                 </div>
                             )}
                             {machineDetails.today_reading && !isAdmin && (
-                                <p className="text-sm muted" style={{ marginTop: 8 }}>
+                                <p className="text-sm muted mm-reading-locked">
                                     Opening count is locked. Contact Admin for changes.
                                 </p>
                             )}
                         </div>
 
                         {/* Tab Navigation */}
-                        <div className="row gap-sm" style={{ borderBottom: '2px solid var(--clr-border)', paddingBottom: 0 }}>
+                        <div className="mm-tab-nav">
                             {[
                                 { key: 'work', label: "Today's Work", icon: ClipboardList },
                                 { key: 'production', label: 'Production Summary', icon: TrendingUp },
@@ -685,27 +681,21 @@ const MachineManagement = () => {
                                 { key: 'meter', label: 'MPR Verification', icon: Eye }
                             ].map(tab => (
                                 <button key={tab.key}
-                                    className={`btn ${detailTab === tab.key ? 'btn-primary' : 'btn-ghost'}`}
+                                    className={`btn ${detailTab === tab.key ? 'btn-primary' : 'btn-ghost'} mm-tab-btn`}
                                     onClick={() => setDetailTab(tab.key)}
-                                    style={{ borderRadius: '8px 8px 0 0', fontSize: 13 }}>
+                                >
                                     <tab.icon size={15} /> {tab.label}
                                 </button>
                             ))}
                             {/* Count Requests tab — admin only */}
                             {isAdmin && (
                                 <button
-                                    className={`btn ${detailTab === 'requests' ? 'btn-primary' : 'btn-ghost'}`}
+                                    className={`btn ${detailTab === 'requests' ? 'btn-primary' : 'btn-ghost'} mm-tab-btn mm-tab-btn--relative`}
                                     onClick={() => setDetailTab('requests')}
-                                    style={{ borderRadius: '8px 8px 0 0', fontSize: 13, position: 'relative' }}>
+                                >
                                     <AlertTriangle size={15} /> Count Requests
                                     {countRequests.length > 0 && (
-                                        <span style={{
-                                            position: 'absolute', top: 4, right: 4,
-                                            background: 'var(--clr-danger, #ef4444)', color: 'var(--on-accent)',
-                                            borderRadius: '50%', width: 16, height: 16,
-                                            fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontWeight: 700, lineHeight: 1
-                                        }}>{countRequests.length}</span>
+                                        <span className="mm-tab-badge">{countRequests.length}</span>
                                     )}
                                 </button>
                             )}
@@ -721,8 +711,8 @@ const MachineManagement = () => {
                                                 <th>Customer</th>
                                                 <th>Work Details</th>
                                                 <th>Copies</th>
-                                                <th style={{ color: '#dc2626' }}>Waste</th>
-                                                <th style={{ color: '#d97706' }}>Proof</th>
+                                                <th className="mm-table-header mm-table-header--error">Waste</th>
+                                                <th className="mm-table-header mm-table-header--warning">Proof</th>
                                                 <th>Payment</th>
                                                 <th>Amount</th>
                                                 <th>Remarks</th>
@@ -736,14 +726,14 @@ const MachineManagement = () => {
                                                 <tr key={w.id}>
                                                     <td className="font-medium">{w.customer_name}</td>
                                                     <td className="text-sm">{w.work_details}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{fmt(w.copies)}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#dc2626' }}>{w.waste_copies > 0 ? fmt(w.waste_copies) : '—'}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#d97706' }}>{w.proof_copies > 0 ? fmt(w.proof_copies) : '—'}</td>
+                                                    <td className="mm-table-cell-mono">{fmt(w.copies)}</td>
+                                                    <td className="mm-table-cell-mono mm-table-cell-mono--error">{w.waste_copies > 0 ? fmt(w.waste_copies) : '—'}</td>
+                                                    <td className="mm-table-cell-mono mm-table-cell-mono--warning">{w.proof_copies > 0 ? fmt(w.proof_copies) : '—'}</td>
                                                     <td><span className="badge badge--type-walk-in">{w.payment_type}</span></td>
-                                                    <td className="font-medium" style={{ fontFamily: 'var(--font-mono, monospace)' }}>{fmtCur(w.total_amount)}</td>
+                                                    <td className="font-medium mm-table-cell-mono">{fmtCur(w.total_amount)}</td>
                                                     <td className="text-sm muted">{w.remarks || '-'}</td>
                                                     <td>
-                                                        <button className="btn btn-ghost btn-danger" style={{ padding: 6 }}
+                                                        <button className="btn btn-ghost btn-danger mm-delete-btn"
                                                             onClick={() => handleDeleteWork(w.id)}><Trash2 size={15} /></button>
                                                     </td>
                                                 </tr>
@@ -752,9 +742,9 @@ const MachineManagement = () => {
                                     </table>
                                 </div>
                                 {machineDetails.today_work && machineDetails.today_work.length > 0 && (
-                                    <div className="row" style={{ padding: '12px 16px', justifyContent: 'flex-end', gap: 20, borderTop: '1px solid var(--clr-border)' }}>
+                                    <div className="mm-work-summary">
                                         <span className="text-sm muted">Total: <strong>{machineDetails.today_work.length}</strong> entries</span>
-                                        <span className="text-sm font-medium" style={{ color: 'var(--clr-success)' }}>
+                                        <span className="text-sm font-medium mm-work-summary-total">
                                             Total: {fmtCur(machineDetails.today_work.reduce((s, w) => s + parseFloat(w.total_amount || 0), 0))}
                                         </span>
                                     </div>
@@ -764,8 +754,8 @@ const MachineManagement = () => {
 
                         {detailTab === 'production' && (
                             <div className="panel panel--tight">
-                                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--clr-border)' }}>
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Last 7 Days Production</h3>
+                                <div className="mm-panel-header">
+                                    <h3 className="mm-panel-header-title">Last 7 Days Production</h3>
                                 </div>
                                 <div className="table-scroll">
                                     <table className="table">
@@ -775,9 +765,9 @@ const MachineManagement = () => {
                                                 <th>Opening</th>
                                                 <th>Closing</th>
                                                 <th>Total Copies</th>
-                                                <th style={{ color: '#16a34a' }}>Good</th>
-                                                <th style={{ color: '#dc2626' }}>Waste</th>
-                                                <th style={{ color: '#d97706' }}>Proof</th>
+                                                <th className="mm-table-header mm-table-header--good">Good</th>
+                                                <th className="mm-table-header mm-table-header--error">Waste</th>
+                                                <th className="mm-table-header mm-table-header--warning">Proof</th>
                                                 <th>Revenue</th>
                                                 <th>Work Entries</th>
                                             </tr>
@@ -792,17 +782,17 @@ const MachineManagement = () => {
                                                 return (
                                                 <tr key={p.reading_date}>
                                                     <td className="font-medium">{new Date(p.reading_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{fmt(p.opening_count)}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{p.closing_count != null ? fmt(p.closing_count) : '—'}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 600, color: 'var(--clr-primary)' }}>{fmt(p.total_copies)}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#16a34a', fontWeight: 600 }}>{fmt(good)}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#dc2626' }}>
-                                                        {waste > 0 ? <>{fmt(waste)} <span style={{ fontSize: 10 }}>({p.total_copies > 0 ? ((waste/p.total_copies)*100).toFixed(1) : 0}%)</span></> : '—'}
+                                                    <td className="mm-table-cell-mono">{fmt(p.opening_count)}</td>
+                                                    <td className="mm-table-cell-mono">{p.closing_count != null ? fmt(p.closing_count) : '—'}</td>
+                                                    <td className="mm-table-cell-mono mm-table-cell-mono--bold">{fmt(p.total_copies)}</td>
+                                                    <td className="mm-table-cell-mono mm-table-cell-mono--good mm-table-cell-mono--bold">{fmt(good)}</td>
+                                                    <td className="mm-table-cell-mono mm-table-cell-mono--error">
+                                                        {waste > 0 ? <>{fmt(waste)} <span className="mm-table-percent mm-table-percent--error"> ({p.total_copies > 0 ? ((waste/p.total_copies)*100).toFixed(1) : 0}%)</span></> : '—'}
                                                     </td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#d97706' }}>
-                                                        {proof > 0 ? <>{fmt(proof)} <span style={{ fontSize: 10 }}>({p.total_copies > 0 ? ((proof/p.total_copies)*100).toFixed(1) : 0}%)</span></> : '—'}
+                                                    <td className="mm-table-cell-mono mm-table-cell-mono--warning">
+                                                        {proof > 0 ? <>{fmt(proof)} <span className="mm-table-percent mm-table-percent--warning"> ({p.total_copies > 0 ? ((proof/p.total_copies)*100).toFixed(1) : 0}%)</span></> : '—'}
                                                     </td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{fmtCur(p.day_revenue)}</td>
+                                                    <td className="mm-table-cell-mono">{fmtCur(p.day_revenue)}</td>
                                                     <td>{p.work_entries_count || 0}</td>
                                                 </tr>
                                                 );
@@ -812,91 +802,41 @@ const MachineManagement = () => {
                                 </div>
                                 {/* Monthly Summary */}
                                 {machineDetails.monthly_stats && (
-                                    <div style={{ padding: 16, borderTop: '1px solid var(--clr-border)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
+                                    <div className="mm-monthly-stats">
                                         <div><span className="text-sm muted">Month Revenue</span><br /><strong>{fmtCur(machineDetails.monthly_stats.total_revenue)}</strong></div>
                                         <div><span className="text-sm muted">Cash</span><br /><strong>{fmtCur(machineDetails.monthly_stats.total_cash)}</strong></div>
                                         <div><span className="text-sm muted">UPI</span><br /><strong>{fmtCur(machineDetails.monthly_stats.total_upi)}</strong></div>
                                         <div><span className="text-sm muted">Credit</span><br /><strong>{fmtCur(machineDetails.monthly_stats.total_credit)}</strong></div>
                                         <div><span className="text-sm muted">Total Copies</span><br /><strong>{fmt(machineDetails.monthly_stats.total_copies)}</strong></div>
-                                        <div><span className="text-sm muted" style={{ color: '#dc2626' }}>Waste Prints</span><br /><strong style={{ color: '#dc2626' }}>{fmt(machineDetails.monthly_stats.waste_prints || 0)}</strong></div>
-                                        <div><span className="text-sm muted" style={{ color: '#d97706' }}>Proof Prints</span><br /><strong style={{ color: '#d97706' }}>{fmt(machineDetails.monthly_stats.proof_prints || 0)}</strong></div>
+                                        <div><span className="mm-monthly-stat-label mm-monthly-stat-label--error">Waste Prints</span><br /><strong className="mm-monthly-stat-value mm-monthly-stat-value--error">{fmt(machineDetails.monthly_stats.waste_prints || 0)}</strong></div>
+                                        <div><span className="mm-monthly-stat-label mm-monthly-stat-label--warning">Proof Prints</span><br /><strong className="mm-monthly-stat-value mm-monthly-stat-value--warning">{fmt(machineDetails.monthly_stats.proof_prints || 0)}</strong></div>
                                         <div><span className="text-sm muted">Total Jobs</span><br /><strong>{fmt(machineDetails.monthly_stats.total_jobs)}</strong></div>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {detailTab === 'jobs' && (
-                            <div className="panel panel--tight">
-                                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--clr-border)' }}>
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Pending Jobs (assigned staff)</h3>
-                                </div>
-                                <div className="table-scroll">
-                                    <table className="table">
-                                        <thead>
-                                            <tr>
-                                                <th>Job #</th>
-                                                <th>Customer</th>
-                                                <th>Job Name</th>
-                                                <th>Qty</th>
-                                                <th>Amount</th>
-                                                <th>Status</th>
-                                                <th>Due Date</th>
-                                                <th>Assigned To</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(!machineDetails.job_queue || machineDetails.job_queue.length === 0) ? (
-                                                <tr><td colSpan="8" className="text-center muted table-empty">No pending jobs</td></tr>
-                                            ) : machineDetails.job_queue.map(j => (
-                                                <tr key={j.id}>
-                                                    <td className="font-medium">{j.job_number || '-'}</td>
-                                                    <td>{j.customer_name || '-'}</td>
-                                                    <td>{j.job_name}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{j.quantity}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{fmtCur(j.total_amount)}</td>
-                                                    <td>
-                                                        <span className={`badge ${j.status === 'Pending' ? 'badge--warning' : 'badge--type-retail'}`}>
-                                                            {j.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="text-sm">{j.delivery_date ? new Date(j.delivery_date).toLocaleDateString('en-IN') : '-'}</td>
-                                                    <td className="text-sm">{j.assigned_to}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-
                         {detailTab === 'staff' && (
-                            <div className="panel" style={{ padding: 16 }}>
-                                <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Assigned Staff</h3>
+                            <div className="panel mm-staff-section">
+                                <div className="mm-staff-header">
+                                    <h3 className="mm-staff-title">Assigned Staff</h3>
                                     {isAdmin && (
-                                        <button className="btn btn-ghost btn-primary" style={{ fontSize: 13 }}
+                                        <button className="btn btn-ghost btn-primary mm-btn-sm"
                                             onClick={() => openAssignModal(selectedMachine)}>
                                             <UserPlus size={15} /> Manage
                                         </button>
                                     )}
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+                                <div className="mm-staff-grid">
                                     {(!machineDetails.assigned_staff || machineDetails.assigned_staff.length === 0) ? (
                                         <p className="text-sm muted">No staff assigned yet</p>
                                     ) : machineDetails.assigned_staff.map(s => (
-                                        <div key={s.id} className="panel" style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <div style={{
-                                                width: 36, height: 36, borderRadius: '50%',
-                                                background: 'var(--clr-primary-light, #eef2ff)',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontWeight: 600, fontSize: 14, color: 'var(--clr-primary)',
-                                                flexShrink: 0
-                                            }}>
+                                        <div key={s.id} className="panel mm-staff-card">
+                                            <div className="mm-staff-avatar">
                                                 {s.name?.charAt(0)?.toUpperCase()}
                                             </div>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div className="font-medium text-sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
+                                            <div className="mm-staff-info">
+                                                <div className="font-medium text-sm mm-staff-name">{s.name}</div>
                                                 <div className="text-xs muted">{s.role}</div>
                                             </div>
                                         </div>
@@ -907,6 +847,9 @@ const MachineManagement = () => {
 
                         {detailTab === 'readings' && (
                             <div className="panel panel--tight">
+                                <div className="mm-panel-header">
+                                    <h3 className="mm-panel-header-title">Reading History</h3>
+                                </div>
                                 <div className="table-scroll">
                                     <table className="table">
                                         <thead>
@@ -915,9 +858,9 @@ const MachineManagement = () => {
                                                 <th>Opening</th>
                                                 <th>Closing</th>
                                                 <th>Total Copies</th>
-                                                <th style={{ color: '#16a34a' }}>Good</th>
-                                                <th style={{ color: '#dc2626' }}>Waste</th>
-                                                <th style={{ color: '#d97706' }}>Proof</th>
+                                                <th>Good</th>
+                                                <th>Waste</th>
+                                                <th>Proof</th>
                                                 <th>Notes</th>
                                                 <th>Entered By</th>
                                             </tr>
@@ -932,15 +875,15 @@ const MachineManagement = () => {
                                                 return (
                                                 <tr key={r.id}>
                                                     <td className="font-medium">{new Date(r.reading_date).toLocaleDateString('en-IN')}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{fmt(r.opening_count)}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>{r.closing_count != null ? fmt(r.closing_count) : '—'}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>{fmt(r.total_copies)}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#16a34a', fontWeight: 600 }}>{fmt(good)}</td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#dc2626' }}>
-                                                        {waste > 0 ? <>{fmt(waste)}{r.total_copies > 0 && <span style={{ fontSize: 10 }}> ({((waste/r.total_copies)*100).toFixed(1)}%)</span>}</> : '—'}
+                                                    <td className="mm-table-cell-mono">{fmt(r.opening_count)}</td>
+                                                    <td className="mm-table-cell-mono">{r.closing_count != null ? fmt(r.closing_count) : '—'}</td>
+                                                    <td className="mm-table-cell-mono mm-table-cell-mono--bold">{fmt(r.total_copies)}</td>
+                                                    <td className="mm-table-cell-mono mm-table-cell-mono--good mm-table-cell-mono--bold">{fmt(good)}</td>
+                                                    <td className="mm-table-cell-mono mm-table-cell-mono--error">
+                                                        {waste > 0 ? <>{fmt(waste)}{r.total_copies > 0 && <span className="mm-table-percent mm-table-percent--error"> ({((waste/r.total_copies)*100).toFixed(1)}%)</span>}</> : '—'}
                                                     </td>
-                                                    <td style={{ fontFamily: 'var(--font-mono, monospace)', color: '#d97706' }}>
-                                                        {proof > 0 ? <>{fmt(proof)}{r.total_copies > 0 && <span style={{ fontSize: 10 }}> ({((proof/r.total_copies)*100).toFixed(1)}%)</span>}</> : '—'}
+                                                    <td className="mm-table-cell-mono mm-table-cell-mono--warning">
+                                                        {proof > 0 ? <>{fmt(proof)}{r.total_copies > 0 && <span className="mm-table-percent mm-table-percent--warning"> ({((proof/r.total_copies)*100).toFixed(1)}%)</span>}</> : '—'}
                                                     </td>
                                                     <td className="text-sm muted">{r.notes || '-'}</td>
                                                     <td className="text-sm">{r.created_by_name || '-'}</td>
@@ -955,13 +898,15 @@ const MachineManagement = () => {
 
                         {/* Count Requests Tab (Admin only) */}
                         {detailTab === 'requests' && isAdmin && (
-                            <div className="panel panel--tight">
-                                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--clr-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <AlertTriangle size={16} style={{ color: 'var(--clr-warning, #d97706)' }} />
-                                        Pending Count Mismatch Requests
-                                    </h3>
-                                    <span className="text-sm muted">Staff-entered counts that differ from the previous day's closing count</span>
+                            <>
+                                <div className="panel panel--tight">
+                                    <div className="mm-panel-header mm-panel-header--flex">
+                                        <h3 className="mm-panel-header-title mm-panel-header-title--flex">
+                                            <AlertTriangle size={16} className="mm-header-icon-warning" />
+                                            Count Requests
+                                        </h3>
+                                    </div>
+                                    <div className="text-sm muted">Staff-entered counts that differ from the previous day's closing count</div>
                                 </div>
                                 <div className="table-scroll">
                                     <table className="table">
@@ -983,28 +928,26 @@ const MachineManagement = () => {
                                                 return (
                                                     <tr key={req.id}>
                                                         <td className="font-medium">{new Date(req.reading_date).toLocaleDateString('en-IN')}</td>
-                                                        <td style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+                                                        <td className="mm-table-cell-mono">
                                                             {req.expected_count != null ? req.expected_count.toLocaleString('en-IN') : '—'}
                                                         </td>
-                                                        <td style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>
+                                                        <td className="mm-table-cell-mono mm-table-cell-mono--bold">
                                                             {req.entered_count.toLocaleString('en-IN')}
                                                         </td>
-                                                        <td style={{ fontFamily: 'var(--font-mono, monospace)', color: diff > 0 ? 'var(--clr-success)' : diff < 0 ? 'var(--clr-danger, #ef4444)' : undefined, fontWeight: 600 }}>
+                                                        <td className="mm-table-cell-mono" style={{ color: diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--error)' : undefined, fontWeight: 600 }}>
                                                             {diff > 0 ? '+' : ''}{diff.toLocaleString('en-IN')}
                                                         </td>
                                                         <td className="text-sm">{req.submitted_by_name || '—'}</td>
                                                         <td>
-                                                            <div className="row gap-sm">
+                                                            <div className="mm-count-request-actions">
                                                                 <button
-                                                                    className="btn btn-sm"
-                                                                    style={{ background: 'var(--clr-success)', color: 'var(--on-accent)', padding: '4px 10px', fontSize: 12 }}
+                                                                    className="btn btn-sm mm-count-request-approve-btn"
                                                                     disabled={countRequestWorking}
                                                                     onClick={() => handleCountRequestReview(req.id, 'Approved', null)}>
                                                                     <CheckCircle size={13} /> Approve
                                                                 </button>
                                                                 <button
-                                                                    className="btn btn-sm btn-danger"
-                                                                    style={{ padding: '4px 10px', fontSize: 12 }}
+                                                                    className="btn btn-sm btn-danger mm-count-request-reject-btn"
                                                                     disabled={countRequestWorking}
                                                                     onClick={() => handleCountRequestReview(req.id, 'Rejected', null)}>
                                                                     <XCircle size={13} /> Reject
@@ -1018,18 +961,18 @@ const MachineManagement = () => {
                                     </table>
                                 </div>
                                 {countRequests.length > 0 && (
-                                    <div className="text-sm muted" style={{ padding: '10px 16px', borderTop: '1px solid var(--clr-border)' }}>
+                                    <div className="text-sm muted mm-count-request-hint">
                                         <strong>Approve</strong> = accept the staff's entered count &nbsp;|&nbsp;
                                         <strong>Reject</strong> = revert to the expected count (last day's closing)
                                     </div>
                                 )}
-                            </div>
+                            </>
                         )}
 
                         {/* MPR Meter Verification Tab (Admin only) */}
                         {detailTab === 'meter' && isAdmin && machineDetails && (
                             <div className="panel panel--tight">
-                                <div style={{ padding: '12px 16px' }}>
+                                <div className="mm-panel-header">
                                     <MeterVerification 
                                         machineId={machineDetails.id}
                                         machineName={machineDetails.machine_name}
@@ -1045,7 +988,7 @@ const MachineManagement = () => {
                 {/* Work Entry Modal */}
                 {showWorkModal && (
                     <div className="modal-overlay" onClick={() => setShowWorkModal(false)}>
-                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                        <div className="modal mm-work-modal" onClick={e => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2>Add Work Entry</h2>
                                 <button className="btn btn-ghost" onClick={() => setShowWorkModal(false)}>×</button>
@@ -1066,29 +1009,29 @@ const MachineManagement = () => {
                                             placeholder="e.g., A4 Print 2-side" />
                                     </div>
                                     <div className="row gap-md">
-                                        <div className="form-group" style={{ flex: 1 }}>
+                                        <div className="form-group mm-work-input-group">
                                             <label className="form-label">Copies *</label>
                                             <input type="number" className="input-field" required min="0"
                                                 value={workForm.copies}
                                                 onChange={e => setWorkForm({ ...workForm, copies: e.target.value })} />
                                         </div>
-                                        <div className="form-group" style={{ flex: 1 }}>
-                                            <label className="form-label" style={{ color: '#dc2626' }}>Waste Copies</label>
+                                        <div className="form-group mm-work-input-group">
+                                            <label className="form-label mm-work-input-label--error">Waste Copies</label>
                                             <input type="number" className="input-field" min="0"
                                                 value={workForm.waste_copies}
                                                 onChange={e => setWorkForm({ ...workForm, waste_copies: e.target.value })}
                                                 placeholder="0"
                                                 style={{ borderColor: workForm.waste_copies ? '#dc2626' : undefined }} />
                                         </div>
-                                        <div className="form-group" style={{ flex: 1 }}>
-                                            <label className="form-label" style={{ color: '#d97706' }}>Proof Copies</label>
+                                        <div className="form-group mm-work-input-group">
+                                            <label className="form-label mm-work-input-label--warning">Proof Copies</label>
                                             <input type="number" className="input-field" min="0"
                                                 value={workForm.proof_copies}
                                                 onChange={e => setWorkForm({ ...workForm, proof_copies: e.target.value })}
                                                 placeholder="0"
                                                 style={{ borderColor: workForm.proof_copies ? '#d97706' : undefined }} />
                                         </div>
-                                        <div className="form-group" style={{ flex: 1 }}>
+                                        <div className="form-group mm-work-input-group">
                                             <label className="form-label">Payment Type</label>
                                             <select className="input-field" value={workForm.payment_type}
                                                 onChange={e => setWorkForm({ ...workForm, payment_type: e.target.value })}>
@@ -1098,7 +1041,7 @@ const MachineManagement = () => {
                                     </div>
                                     <div className="row gap-md">
                                         {(workForm.payment_type === 'Cash' || workForm.payment_type === 'UPI') && (
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                            <div className="form-group mm-work-input-group">
                                                 <label className="form-label">{workForm.payment_type} Amount</label>
                                                 <input type="number" className="input-field" step="0.01" min="0"
                                                     value={workForm.payment_type === 'Cash' ? workForm.cash_amount : workForm.upi_amount}
@@ -1112,14 +1055,14 @@ const MachineManagement = () => {
                                             </div>
                                         )}
                                         {workForm.payment_type === 'Credit' && (
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                            <div className="form-group mm-work-input-group">
                                                 <label className="form-label">Credit Amount</label>
                                                 <input type="number" className="input-field" step="0.01" min="0"
                                                     value={workForm.credit_amount}
                                                     onChange={e => setWorkForm({ ...workForm, credit_amount: e.target.value, total_amount: e.target.value })} />
                                             </div>
                                         )}
-                                        <div className="form-group" style={{ flex: 1 }}>
+                                        <div className="form-group mm-work-input-group">
                                             <label className="form-label">Total Amount</label>
                                             <input type="number" className="input-field" step="0.01" min="0"
                                                 value={workForm.total_amount}
@@ -1164,32 +1107,28 @@ const MachineManagement = () => {
         }
         return (
             <div className="modal-overlay" onClick={() => setShowAssignModal(false)}>
-                <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
-                    <div className="modal-header">
+                <div className="modal mm-assign-modal" onClick={e => e.stopPropagation()}>
+                    <div className="modal-header modal-header--flex">
                         <h2>Assign Staff</h2>
                         <button className="btn btn-ghost" onClick={() => setShowAssignModal(false)}>×</button>
                     </div>
-                    <div className="modal-body" style={{ maxHeight: 400, overflowY: 'auto' }}>
-                        <p className="text-sm muted" style={{ marginBottom: 12 }}>Select staff members to assign to this machine. Multiple selections allowed.</p>
+                    <div className="modal-body mm-assign-modal-body">
+                        <p className="text-sm muted mm-assign-hint">Select staff members to assign to this machine. Multiple selections allowed.</p>
                         <div className="stack-sm">
                             {filteredStaff.map(s => (
-                                <label key={s.id} className="row items-center gap-sm" style={{
-                                    padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
-                                    border: '1px solid var(--clr-border)',
-                                    background: selectedStaffIds.includes(s.id) ? 'var(--clr-primary-light, #eef2ff)' : 'transparent'
-                                }}>
+                                <label key={s.id} className="mm-assign-staff-item mm-assign-staff-item--selected"
+                                    style={{
+                                        background: selectedStaffIds.includes(s.id) ? 'var(--accent)' : 'transparent',
+                                        color: selectedStaffIds.includes(s.id) ? 'var(--on-accent)' : 'var(--text)'
+                                    }}
+                                >
                                     <input type="checkbox"
                                         checked={selectedStaffIds.includes(s.id)}
                                         onChange={() => toggleStaff(s.id)} />
-                                    <div style={{
-                                        width: 28, height: 28, borderRadius: '50%',
-                                        background: 'var(--accent)', color: 'var(--on-accent)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: 12, fontWeight: 600, flexShrink: 0
-                                    }}>
+                                    <div className="mm-assign-avatar">
                                         {s.name?.charAt(0)?.toUpperCase()}
                                     </div>
-                                    <div style={{ flex: 1 }}>
+                                    <div className="flex-1">
                                         <div className="font-medium text-sm">{s.name}</div>
                                         <div className="text-xs muted">{s.role} &middot; {s.branch_name || ''}</div>
                                     </div>
@@ -1227,18 +1166,18 @@ const MachineManagement = () => {
             </div>
 
             {loading ? (
-                <div className="panel" style={{ padding: 40, textAlign: 'center' }}>
-                    <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto' }} />
+                <div className="mm-loading">
+                    <Loader2 className="animate-spin" size={32} />
                 </div>
             ) : machines.length === 0 ? (
-                <div className="panel" style={{ padding: 40, textAlign: 'center' }}>
-                    <Settings size={40} className="muted" style={{ margin: '0 auto 12px' }} />
+                <div className="mm-empty-state">
+                    <Settings size={40} className="muted mm-empty-icon" />
                     <p className="muted">{isAdmin ? 'No machines found. Add your first machine.' : 'No machines assigned to you.'}</p>
                 </div>
             ) : (
                 <>
                     {/* Filter Bar */}
-                    <div className="row items-center gap-md" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
+                    <div className="mm-filter-bar">
                         {/* Machine Type Filter */}
                         <div className="row items-center gap-sm">
                             <span className="text-sm font-medium muted">Type:</span>
@@ -1246,9 +1185,8 @@ const MachineManagement = () => {
                                 {['All', 'Offset', 'Laser', 'Others'].map(type => (
                                     <button
                                         key={type}
-                                        className={`btn btn-sm ${filterType === type ? 'btn-primary' : 'btn-ghost'}`}
+                                        className={`btn btn-sm ${filterType === type ? 'btn-primary' : 'btn-ghost'} mm-filter-pill`}
                                         onClick={() => setFilterType(type)}
-                                        style={{ borderRadius: 20, padding: '4px 16px', fontSize: 13, color: filterType === type ? 'var(--on-accent, #fff)' : undefined }}
                                     >
                                         {type}
                                     </button>
@@ -1258,11 +1196,10 @@ const MachineManagement = () => {
 
                         {/* Branch Filter (Admin only) */}
                         {isAdmin && (
-                            <div className="row items-center gap-sm" style={{ marginLeft: 'auto' }}>
+                            <div className="row items-center gap-sm ml-auto">
                                 <span className="text-sm font-medium muted">Branch:</span>
                                 <select 
-                                    className="input-field" 
-                                    style={{ width: 180, height: 32, padding: '0 8px', fontSize: 13, borderRadius: 8 }}
+                                    className="mm-filter-select"
                                     value={selectedBranch}
                                     onChange={e => setSelectedBranch(e.target.value)}
                                 >
@@ -1275,84 +1212,70 @@ const MachineManagement = () => {
                         )}
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+                    <div className="mm-machine-grid">
                         {filteredMachines.map(machine => (
-                        <div key={machine.id} className="panel"
+                        <div key={machine.id} className={`mm-machine-card ${machine.is_active === 1 ? '' : 'mm-machine-card--inactive'}`}
                             onDoubleClick={() => handleCardDoubleClick(machine)}
-                            style={{
-                                padding: 0, cursor: 'pointer', transition: 'box-shadow .15s, transform .15s',
-                                opacity: machine.is_active === 1 ? 1 : 0.6,
-                                position: 'relative', overflow: 'hidden'
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,.12)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; }}
                         >
                             {/* Card Header */}
-                            <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--clr-border)' }}>
-                                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div className="row items-center gap-sm">
-                                            <Printer size={18} style={{ color: 'var(--clr-primary)', flexShrink: 0 }} />
-                                            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {machine.machine_name}
-                                            </h3>
-                                        </div>
-                                        <div className="row items-center gap-xs" style={{ marginTop: 4 }}>
-                                            <span className={`badge ${getTypeColor(machine.machine_type)}`} style={{ fontSize: 11 }}>{machine.machine_type}</span>
-                                            <span className="text-xs muted">{machine.counter_type}</span>
-                                            {machine.is_active !== 1 && <span className="badge badge--danger" style={{ fontSize: 11 }}>Inactive</span>}
-                                        </div>
-                                    </div>
-                                    {isAdmin && (
-                                        <div className="row gap-xs" style={{ flexShrink: 0 }}>
-                                            <button className="btn btn-ghost" style={{ padding: 4 }}
-                                                onClick={e => openAssignModal(machine, e)} title="Assign Staff">
-                                                <UserPlus size={15} />
-                                            </button>
-                                            <button className="btn btn-ghost btn-primary" style={{ padding: 4 }}
-                                                onClick={e => handleEdit(machine, e)} title="Edit">
-                                                <Edit2 size={15} />
-                                            </button>
-                                            <button className={`btn btn-ghost ${machine.is_active === 1 ? 'btn-warning' : 'btn-success'}`}
-                                                style={{ padding: 4 }}
-                                                onClick={e => handleToggleActive(machine, e)}
-                                                title={machine.is_active === 1 ? 'Deactivate' : 'Activate'}>
-                                                {machine.is_active === 1 ? <PowerOff size={15} /> : <Power size={15} />}
-                                            </button>
-                                            <button className="btn btn-ghost btn-danger" style={{ padding: 4 }}
-                                                onClick={e => handleDelete(machine, e)} title="Delete">
-                                                <Trash2 size={15} />
-                                            </button>
-                                        </div>
-                                    )}
+                            <div className="mm-card-header">
+                                <div className="row items-center gap-sm flex-1 min-w-0">
+                                    <Printer size={18} className="mm-header-icon-accent" />
+                                    <h3 className="mm-card-name">{machine.machine_name}</h3>
                                 </div>
+                                <div className="row items-center gap-xs mt-2">
+                                    <span className={`badge ${getTypeColor(machine.machine_type)} mm-badge-sm`}>{machine.machine_type}</span>
+                                    <span className="text-xs muted">{machine.counter_type}</span>
+                                    {machine.is_active !== 1 && <span className="badge badge--danger mm-badge-sm">Inactive</span>}
+                                </div>
+                                {isAdmin && (
+                                    <div className="mm-card-actions">
+                                        <button className="mm-card-action-btn"
+                                            onClick={e => openAssignModal(machine, e)} title="Assign Staff">
+                                            <UserPlus size={15} />
+                                        </button>
+                                        <button className="mm-card-action-btn btn-primary mm-action-btn-sm"
+                                            onClick={e => handleEdit(machine, e)} title="Edit">
+                                            <Edit2 size={15} />
+                                        </button>
+                                        <button className={`mm-card-action-btn ${machine.is_active === 1 ? 'btn-warning' : 'btn-success'}`}
+                                            onClick={e => handleToggleActive(machine, e)}
+                                            title={machine.is_active === 1 ? 'Deactivate' : 'Activate'}>
+                                            {machine.is_active === 1 ? <PowerOff size={15} /> : <Power size={15} />}
+                                        </button>
+                                        <button className="mm-card-action-btn btn-danger"
+                                            onClick={e => handleDelete(machine, e)} title="Delete">
+                                            <Trash2 size={15} />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Card Body */}
-                            <div style={{ padding: '10px 16px 14px' }}>
-                                <div className="row items-center gap-xs text-sm" style={{ marginBottom: 6 }}>
+                            <div className="mm-card-info">
+                                <div className="mm-card-info-row">
                                     <Building2 size={14} className="muted" />
                                     <span className="muted">{machine.branch_name}</span>
                                     {machine.location && <span className="muted">&middot; {machine.location}</span>}
                                 </div>
                                 {machine.ip_address && (
-                                    <div className="row items-center gap-xs text-sm" style={{ marginBottom: 4 }}>
-                                        <span className="muted" style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>IP: {machine.ip_address}</span>
+                                    <div className="mm-card-info-row">
+                                        <span className="muted mm-ip-address">IP: {machine.ip_address}</span>
                                     </div>
                                 )}
 
                                 {/* Assigned Staff */}
-                                <div className="row items-center gap-xs" style={{ marginTop: 8 }}>
+                                <div className="mm-card-info-row mt-8">
                                     <Users size={14} className="muted" />
                                     {machine.assigned_staff_names ? (
-                                        <span className="text-sm" style={{ color: 'var(--clr-primary)' }}>{machine.assigned_staff_names}</span>
+                                        <span className="text-sm mm-staff-names">{machine.assigned_staff_names}</span>
                                     ) : (
                                         <span className="text-sm muted">No staff assigned</span>
                                     )}
                                 </div>
 
                                 {/* Double-click hint */}
-                                <div className="text-xs muted" style={{ marginTop: 8, opacity: 0.6 }}>
+                                <div className="text-xs muted mm-card-hint">
                                     Double-click to view full details
                                 </div>
                             </div>
@@ -1366,9 +1289,9 @@ const MachineManagement = () => {
             {showModal && (
                 <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>
                     <div className="modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div className="modal-header modal-header--flex">
                             <h2>{editingMachine ? 'Edit Machine' : 'Add New Machine'}</h2>
-                            <button className="btn btn-ghost" style={{ marginLeft: 'auto', flexShrink: 0 }} onClick={() => { setShowModal(false); resetForm(); }}>×</button>
+                            <button className="btn btn-ghost ml-auto" onClick={() => { setShowModal(false); resetForm(); }}>×</button>
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div className="modal-body stack-md">
@@ -1379,7 +1302,7 @@ const MachineManagement = () => {
                                         onChange={e => setFormData({ ...formData, machine_name: e.target.value })} />
                                 </div>
                                 <div className="row gap-md">
-                                    <div className="form-group" style={{ flex: 1 }}>
+                                    <div className="form-group flex-1">
                                         <label className="form-label">Machine Type *</label>
                                         <select className="input-field" required
                                             value={formData.machine_type}
@@ -1387,7 +1310,7 @@ const MachineManagement = () => {
                                             {machineTypes.map(t => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </div>
-                                    <div className="form-group" style={{ flex: 1 }}>
+                                    <div className="form-group flex-1">
                                         <label className="form-label">Counter Type *</label>
                                         <select className="input-field" required
                                             value={formData.counter_type}
@@ -1426,36 +1349,36 @@ const MachineManagement = () => {
                                         value={formData.snmp_community}
                                         onChange={e => setFormData({ ...formData, snmp_community: e.target.value })}
                                         placeholder="public" />
-                                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>For most printers: leave as "public". For Canon: skip this and use web login below instead. For Kyocera/others with non-standard SNMP: enter the community name.</small>
+                                    <small className="mm-snmp-hint">For most printers: leave as "public". For Canon: skip this and use web login below instead. For Kyocera/others with non-standard SNMP: enter the community name.</small>
                                 </div>
                                 <div className="form-group">
-                                    <label className="row items-center gap-sm" style={{ cursor: 'pointer', marginBottom: '0.5rem' }}>
+                                    <label className="row items-center gap-sm mm-label-checkbox">
                                         <input type="checkbox" checked={formData.mpr_requires_login}
                                             onChange={e => setFormData({ ...formData, mpr_requires_login: e.target.checked, mpr_username: e.target.checked ? formData.mpr_username : '', mpr_password: e.target.checked ? formData.mpr_password : '' })} />
-                                        <span className="form-label" style={{ margin: 0 }}>✓ Printer requires web login (Canon, some Ricoh)</span>
+                                        <span className="form-label mm-label-checkbox-text">✓ Printer requires web login (Canon, some Ricoh)</span>
                                     </label>
                                     {formData.mpr_requires_login && (
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.5rem', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
+                                        <div className="mm-login-grid">
                                             <div>
-                                                <label className="form-label" style={{ fontSize: '0.8rem' }}>👤 Username</label>
+                                                <label className="form-label mm-label-sm">👤 Username</label>
                                                 <input type="text" className="input-field"
                                                     value={formData.mpr_username}
                                                     onChange={e => setFormData({ ...formData, mpr_username: e.target.value })}
                                                     placeholder="e.g., admin" autoComplete="off" />
-                                                <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem', display: 'block', marginTop: '0.25rem' }}>Canon default: admin or your domain user</small>
+                                                <small className="mm-login-hint">Canon default: admin or your domain user</small>
                                             </div>
                                             <div>
-                                                <label className="form-label" style={{ fontSize: '0.8rem' }}>🔐 Password</label>
+                                                <label className="form-label mm-label-sm">🔐 Password</label>
                                                 <input type="password" className="input-field"
                                                     value={formData.mpr_password}
                                                     onChange={e => setFormData({ ...formData, mpr_password: e.target.value })}
-                                                    placeholder="Your login password" autoComplete="new-password" />
+                                                    placeholder="••••••••" autoComplete="new-password" />
                                             </div>
                                         </div>
                                     )}
                                 </div>
                                 <div className="form-group">
-                                    <label className="row items-center gap-sm" style={{ cursor: 'pointer' }}>
+                                    <label className="row items-center gap-sm mm-label-checkbox">
                                         <input type="checkbox" checked={formData.is_active}
                                             onChange={e => setFormData({ ...formData, is_active: e.target.checked })} />
                                         <span>Active</span>
@@ -1478,14 +1401,14 @@ const MachineManagement = () => {
 
             {/* Cash Book Assignments (Admin only) */}
             {isAdmin && (
-                <div className="panel" style={{ padding: 20 }}>
-                    <h3 className="panel-title" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="panel mm-cash-book-panel">
+                    <h3 className="panel-title mm-panel-title--flex">
                         <BookOpen size={16} /> Cash Book Assignments
                     </h3>
-                    <p className="text-sm muted" style={{ marginBottom: 14 }}>
+                    <p className="text-sm muted mm-cash-book-desc">
                         Assign staff responsible for entering cash opening for each book. Only assigned staff will see that book's opening prompt.
                     </p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+                    <div className="mm-book-grid">
                         {BOOK_TYPES.map(bt => {
                             // Group by branch
                             const byBranch = {};
@@ -1496,27 +1419,27 @@ const MachineManagement = () => {
                             });
                             const branchEntries = Object.entries(byBranch);
                             return (
-                                <div key={bt.key} className="panel" style={{ padding: 14, border: `2px solid ${bt.color}22` }}>
-                                    <div className="row items-center" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <div style={{ width: 10, height: 10, borderRadius: 3, background: bt.color }} />
-                                            <span style={{ fontWeight: 700, fontSize: 14 }}>{bt.label}</span>
+                                <div key={bt.key} className="panel mm-book-type-panel" style={{ padding: 14, border: `2px solid ${bt.color}22` }}>
+                                    <div className="row items-center mm-book-type-header">
+                                        <div className="mm-book-type-title">
+                                            <div className="mm-book-type-dot" style={{ background: bt.color }} />
+                                            <span className="mm-book-type-label">{bt.label}</span>
                                         </div>
-                                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}
+                                        <button className="btn btn-ghost btn-sm mm-btn-xs"
                                             onClick={() => openBookAssignModal(bt.key)}>
                                             <UserPlus size={13} /> Assign
                                         </button>
                                     </div>
                                     {branchEntries.length === 0 ? (
-                                        <p className="text-sm muted" style={{ margin: 0 }}>No staff assigned</p>
+                                        <p className="text-sm muted mm-empty-paragraph">No staff assigned</p>
                                     ) : (
                                         <div className="stack-xs">
                                             {branchEntries.map(([bName, staffArr]) => (
                                                 <div key={bName}>
-                                                    <div className="text-xs muted" style={{ fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{bName}</div>
+                                                    <div className="text-xs muted mm-branch-label">{bName}</div>
                                                     {staffArr.map(s => (
-                                                        <div key={s.staff_id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                                                            <div style={{ width: 22, height: 22, borderRadius: '50%', background: bt.color, color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                                                        <div key={s.staff_id} className="mm-staff-item">
+                                                            <div className="mm-staff-avatar-small" style={{ background: bt.color, color: 'var(--on-accent)' }}>
                                                                 {s.staff_name?.charAt(0)?.toUpperCase()}
                                                             </div>
                                                             <div>
@@ -1544,18 +1467,18 @@ const MachineManagement = () => {
                 );
                 return (
                     <div className="modal-overlay" onClick={() => setShowBookAssignModal(false)}>
-                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                        <div className="modal mm-modal-sm" onClick={e => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2>Assign Staff — {bookAssignType} Book</h2>
                                 <button className="btn btn-ghost" onClick={() => setShowBookAssignModal(false)}>×</button>
                             </div>
-                            <div className="modal-body" style={{ maxHeight: 440, overflowY: 'auto' }}>
-                                <p className="text-sm muted" style={{ marginBottom: 12 }}>
+                            <div className="modal-body mm-modal-body-scroll">
+                                <p className="text-sm muted mm-modal-desc">
                                     Only Front Office staff can enter cash opening. Select a branch and assign staff.
                                 </p>
                                 {/* Branch selector */}
-                                <div style={{ marginBottom: 14 }}>
-                                    <label className="label" style={{ fontSize: 12 }}>Branch</label>
+                                <div className="mm-branch-selector">
+                                    <label className="label mm-label-xs">Branch</label>
                                     <select
                                         className="input-field"
                                         value={bookAssignBranchId}
@@ -1569,7 +1492,7 @@ const MachineManagement = () => {
                                     {foStaff.length === 0 ? (
                                         <p className="text-sm muted">{bookAssignBranchId ? 'No Front Office staff in this branch.' : 'Select a branch to see staff.'}</p>
                                     ) : foStaff.map(s => (
-                                        <label key={s.id} className="row items-center gap-sm" style={{
+                                        <label key={s.id} className="row items-center gap-sm mm-staff-label" style={{
                                             padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
                                             border: '1px solid var(--clr-border)',
                                             background: bookAssignStaffIds.includes(s.id) ? 'var(--clr-primary-light, #eef2ff)' : 'transparent'
@@ -1577,12 +1500,12 @@ const MachineManagement = () => {
                                             <input type="checkbox"
                                                 checked={bookAssignStaffIds.includes(s.id)}
                                                 onChange={() => toggleBookStaff(s.id)} />
-                                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+                                            <div className="mm-staff-avatar-md">
                                                 {s.name?.charAt(0)?.toUpperCase()}
                                             </div>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{s.name}</div>
-                                                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Front Office &middot; {s.branch_name || ''}</div>
+                                            <div className="flex-1">
+                                                <div className="mm-staff-name">{s.name}</div>
+                                                <div className="mm-staff-role">Front Office &middot; {s.branch_name || ''}</div>
                                             </div>
                                         </label>
                                     ))}

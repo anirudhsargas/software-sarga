@@ -15,6 +15,7 @@ import { serverToday, serverNow } from '../services/serverTime';
 import toast from 'react-hot-toast';
 import { formatCurrencyDecimal } from '../constants';
 import SkeletonLoader from '../components/SkeletonLoader';
+import './DailyReport.css';
 
 const TABS = [
     { key: 'Offset', label: 'Offset', icon: BookOpen, color: 'var(--accent)', bg: 'rgba(37,99,235,0.08)' },
@@ -892,45 +893,39 @@ const DailyReport = () => {
 
         return (
             <div className="panel">
-                <div className="panel-header" style={{ marginBottom: 12 }}>
-                    <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="panel-header credit-list-header">
+                    <h3 className="panel-title credit-list-title">
                         <IndianRupee size={16} /> Credits — {bookKey}
-                        <span className="badge" style={{ fontSize: 10, marginLeft: 4 }}>{all.length}</span>
+                        <span className="badge credit-list-badge">{all.length}</span>
                     </h3>
                     <div className="row gap-sm">
-                        <span style={{ fontWeight: 700, marginRight: 8 }}>Total: {formatCurrency(total)}</span>
-                        <button className="btn btn-primary btn-sm" onClick={() => {
-                            setCreditModalData({ ...creditModalData, book_type: bookKey });
-                            setShowCreditModal(true);
-                        }}>
-                            <Plus size={14} /> Add
-                        </button>
+                        <span className="credit-list-total">Total: {formatCurrency(total)}</span>
                     </div>
                 </div>
 
                 {all.length === 0 ? (
-                    <div style={{ padding: '12px 6px', color: 'var(--muted)' }}>No credit transactions for this book/date.</div>
+                    <div className="credit-list-empty">No credit transactions for this book/date.</div>
                 ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table className="data-table">
+                    <div className="credit-list-table-container">
+                        <table className="data-table credit-list-table">
                             <thead>
                                 <tr>
                                     <th>Type</th>
                                     <th>Customer / Desc</th>
                                     <th>Details</th>
-                                    <th style={{ textAlign: 'right' }}>Amount</th>
-                                    <th style={{ width: 40 }}></th>
+                                    <th>Amount</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {all.slice(0, 50).map(c => (
                                     <tr key={c.id}>
-                                        <td style={{ width: 140 }}>{c.type}</td>
+                                        <td>{c.type}</td>
                                         <td>
-                                            <div style={{ fontWeight: 600 }}>{c.customer}</div>
+                                            <div>{c.customer}</div>
                                         </td>
-                                        <td style={{ color: 'var(--muted)', fontSize: 13 }}>{c.details || c.reference}</td>
-                                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(c.amount)}</td>
+                                        <td>{c.details || c.reference}</td>
+                                        <td>{formatCurrency(c.amount)}</td>
                                         <td>
                                             {c.isManual && (
                                                 <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteCredit(c.id)}>
@@ -1010,7 +1005,7 @@ const DailyReport = () => {
         return (
             <div className="stack-md">
                 {/* Stats Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                <div className="attendance-stats-grid">
                     <div className="stat-card">
                         <div className="stat-value">{present} / {total_staff}</div>
                         <div className="stat-label">Staff Present</div>
@@ -1020,29 +1015,29 @@ const DailyReport = () => {
                         <div className="stat-label">Staff Absent</div>
                     </div>
                     {alert_count > 0 && (
-                        <div className="stat-card" style={{ borderLeft: '3px solid var(--warning)' }}>
-                            <div className="stat-value" style={{ color: 'var(--warning)' }}>{alert_count}</div>
+                        <div className="stat-card attendance-stat-card--alert">
+                            <div className="stat-value attendance-stat-value--alert">{alert_count}</div>
                             <div className="stat-label">Not Arrived (Alert)</div>
                         </div>
                     )}
                     {discrepancy_count > 0 && (
-                        <div className="stat-card" style={{ borderLeft: '3px solid #f59e0b' }}>
-                            <div className="stat-value" style={{ color: '#b45309' }}>{discrepancy_count}</div>
+                        <div className="stat-card attendance-stat-card--discrepancy">
+                            <div className="stat-value attendance-stat-value--discrepancy">{discrepancy_count}</div>
                             <div className="stat-label">Time Flags</div>
                         </div>
                     )}
                 </div>
 
                 {/* Staff Table */}
-                <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--surface-3)', background: 'var(--surface)' }}>
-                    <table className="data-table">
+                <div className="staff-table-container">
+                    <table className="data-table staff-table">
                         <thead>
                             <tr>
                                 <th>Staff Name</th>
                                 <th>Entry</th>
                                 <th>Exit</th>
                                 <th>Status</th>
-                                <th style={{ textAlign: 'right' }}>Logs</th>
+                                <th>Logs</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1050,23 +1045,23 @@ const DailyReport = () => {
                                 const statusKey = String(s.status || '').toLowerCase();
                                 const rowKey = s.staff_id || s.id || s.name || Math.random();
                                 return (
-                                    <tr key={rowKey} style={s?.absent_alert ? { background: 'rgba(255,0,0,0.04)' } : undefined}>
+                                    <tr key={rowKey} className={s?.absent_alert ? 'staff-table tr--alert' : ''}>
                                         <td>
-                                            <div style={{ fontWeight: 500 }}>{s.name}</div>
-                                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{s.branch_name}</div>
+                                            <div className="staff-table-name">{s.name}</div>
+                                            <div className="staff-table-branch">{s.branch_name}</div>
                                         </td>
                                         <td>
                                             {s.entry_time ? (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                    <Clock size={12} style={{ color: 'var(--muted)' }} />
+                                                <div className="staff-table-time">
+                                                    <Clock size={12} />
                                                     {formatTime(s.entry_time)}
                                                 </div>
                                             ) : '—'}
                                         </td>
                                         <td>
                                             {s.exit_time ? (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                    <Clock size={12} style={{ color: 'var(--muted)' }} />
+                                                <div className="staff-table-time">
+                                                    <Clock size={12} />
                                                     {formatTime(s.exit_time)}
                                                 </div>
                                             ) : '—'}
@@ -1076,7 +1071,7 @@ const DailyReport = () => {
                                                 {(s.status || '').replace('_', ' ')}
                                             </span>
                                         </td>
-                                        <td style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 12 }}>
+                                        <td className="staff-table-logs">
                                             {s.event_count}
                                         </td>
                                     </tr>
@@ -1104,21 +1099,21 @@ const DailyReport = () => {
                         <Wallet size={13} />
                         Cash Opening — {bookType}
                         {isLocked && (
-                            <span style={{ color: 'var(--warning)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            <span className="dr-opening-locked">
                                 <Lock size={11} /> Locked
                             </span>
                         )}
                     </div>
                     {isEditing ? (
-                        <div className="row gap-sm" style={{ marginTop: 8 }}>
+                        <div className="row gap-sm dr-opening-edit-row">
                             <input
-                                type="number" className="input-field" value={tempBalance}
+                                type="number" className="input-field dr-opening-input" value={tempBalance}
                                 onChange={(e) => setTempBalance(e.target.value)}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') saveOpeningBalance(bookType, tempBalance);
                                     if (e.key === 'Escape') setEditingBalance(null);
                                 }}
-                                autoFocus step="0.01" style={{ width: 160, fontSize: 16, fontWeight: 600 }}
+                                autoFocus step="0.01"
                             />
                             <button className="btn btn-primary btn-sm" onClick={() => saveOpeningBalance(bookType, tempBalance)}>
                                 <Check size={14} /> Save
@@ -1141,7 +1136,7 @@ const DailyReport = () => {
                             </button>
                         )}
                         {isLocked && isFrontOffice && (
-                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--warning)' }}
+                            <button className="btn btn-ghost btn-sm dr-opening-request-btn"
                                 onClick={() => { setShowChangeRequest({ type: 'balance', bookType, currentValue }); setChangeRequestValue(String(currentValue)); setChangeRequestNote(''); }}
                                 title="Request change from Admin"
                             >
@@ -1176,8 +1171,8 @@ const DailyReport = () => {
                 return (
                     <div className="dr-empty">
                         <div className="dr-empty__icon"><FileText size={22} /></div>
-                        <p style={{ fontWeight: 500, marginBottom: 4 }}>No entries yet</p>
-                        <p style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        <p>No entries yet</p>
+                        <p>
                             {type === 'laser' ? 'Laser work entries will appear here' : 'Data auto-syncs from billing & expenses'}
                         </p>
                     </div>
@@ -1187,31 +1182,31 @@ const DailyReport = () => {
         const isLaser = type === 'laser';
 
         return (
-            <div style={{ overflowX: 'auto', borderRadius: 12 }}>
+            <div className="entry-table-container">
                 {entries.length > PAGE_SIZE && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
-                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                    <div className="entry-table-pagination">
+                        <span>
                             {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, entries.length)} of {entries.length}
                         </span>
                         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
                         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
                     </div>
                 )}
-                <table className="data-table">
+                <table className="data-table entry-table">
                     <thead>
                         <tr>
-                            <th style={{ width: 70 }}>Time</th>
+                            <th>Time</th>
                             <th>{isLaser ? 'Customer / Work' : 'Description'}</th>
-                            {isLaser && <th style={{ width: 100 }}>Machine</th>}
+                            {isLaser && <th>Machine</th>}
                             {isLaser
-                                ? <th style={{ textAlign: 'right', width: 70 }}>Copies</th>
-                                : <th style={{ width: 80 }}>Type</th>
+                                ? <th>Copies</th>
+                                : <th>Type</th>
                             }
-                            {isLaser && <th style={{ width: 80 }}>Type</th>}
-                            <th style={{ width: 80 }}>Mode</th>
-                            <th style={{ textAlign: 'right', width: 100 }}>Cash</th>
-                            <th style={{ textAlign: 'right', width: 100 }}>UPI</th>
-                            <th style={{ textAlign: 'right', width: 100 }}>Total</th>
+                            {isLaser && <th>Type</th>}
+                            <th>Mode</th>
+                            <th>Cash</th>
+                            <th>UPI</th>
+                            <th>Total</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1222,50 +1217,50 @@ const DailyReport = () => {
                             const isExpanded = expandedIds.has(entry.id);
                             return (
                                 <React.Fragment key={`${type}-${entry.id}-${i}`}>
-                                    <tr style={hasLines ? { cursor: 'pointer' } : undefined} onClick={hasLines ? () => toggleExpand(entry.id) : undefined}>
+                                    <tr className={hasLines ? 'entry-table tr--clickable' : ''} onClick={hasLines ? () => toggleExpand(entry.id) : undefined}>
                                         <td>
-                                            <span style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                            <span className="entry-table-time">
                                                 <Clock size={10} /> {formatTime(entry.time)}
                                             </span>
                                         </td>
                                         <td>
-                                            <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <div className="entry-table-description">
                                                 {hasLines && (
-                                                    <ChevronRight size={14} style={{ flexShrink: 0, transition: 'transform 0.15s', transform: isExpanded ? 'rotate(90deg)' : 'none', color: 'var(--muted)' }} />
+                                                    <ChevronRight size={14} className={`entry-table-chevron ${isExpanded ? 'entry-table-chevron--expanded' : ''}`} />
                                                 )}
                                                 {entry.description}
                                                 {hasLines && (
-                                                    <span className="badge badge--default" style={{ fontSize: 9, marginLeft: 4 }}>{entry.order_lines.length} items</span>
+                                                    <span className="badge badge--default entry-table-badge">{entry.order_lines.length} items</span>
                                                 )}
                                                 {entry.is_local_pending && (
-                                                    <span className="badge badge--warning" style={{ fontSize: 9, marginLeft: 4 }}>Pending Sync</span>
+                                                    <span className="badge badge--warning entry-table-badge">Pending Sync</span>
                                                 )}
                                             </div>
-                                            {!hasLines && entry.details && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{entry.details}</div>}
+                                            {!hasLines && entry.details && <div className="entry-table-details">{entry.details}</div>}
                                             {(entry.waste_prints > 0 || entry.proof_prints > 0) && (
-                                                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, display: 'flex', gap: 8 }}>
-                                                    {entry.waste_prints > 0 && <span style={{ color: '#dc2626' }}>Waste: {entry.waste_prints}</span>}
-                                                    {entry.proof_prints > 0 && <span style={{ color: '#d97706' }}>Proof: {entry.proof_prints}</span>}
+                                                <div className="entry-table-waste-proof">
+                                                    {entry.waste_prints > 0 && <span className="entry-table-waste">Waste: {entry.waste_prints}</span>}
+                                                    {entry.proof_prints > 0 && <span className="entry-table-proof">Proof: {entry.proof_prints}</span>}
                                                 </div>
                                             )}
                                             {entry.discount_amount > 0 && (
-                                                <div style={{ fontSize: 11, color: '#059669', marginTop: 2 }}>
+                                                <div className="entry-table-discount">
                                                     Discount: {entry.discount_percent > 0 ? `${entry.discount_percent}%` : ''} (-{formatCurrency(entry.discount_amount)})
                                                 </div>
                                             )}
                                         </td>
                                         {isLaser && (
                                             <td>
-                                                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--primary)' }}>
+                                                <div className="entry-table-machine">
                                                     {entry.machine_name || '—'}
                                                 </div>
                                             </td>
                                         )}
                                         {isLaser ? (
-                                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{entry.copies}</td>
+                                            <td className="entry-table-copies">{entry.copies}</td>
                                         ) : (
                                             <td>
-                                                <span className={`badge ${isExpense ? 'badge--danger' : 'badge--success'}`} style={{ fontSize: 10, gap: 3 }}>
+                                                <span className={`badge ${isExpense ? 'badge--danger' : 'badge--success'} entry-table-badge`}>
                                                     {isExpense
                                                         ? <><ArrowDownRight size={10} /> Expense</>
                                                         : <><ArrowUpRight size={10} /> Income</>
@@ -1276,46 +1271,44 @@ const DailyReport = () => {
                                         {isLaser && (
                                             <td>
                                                 {isInternal ? (
-                                                    <span className="badge" style={{ fontSize: 10, background: 'rgba(99,102,241,0.12)', color: '#6366f1' }}>🏠 Internal</span>
+                                                    <span className="badge entry-table-internal-badge">🏠 Internal</span>
                                                 ) : (
-                                                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>—</span>
+                                                    <span className="entry-table-line-qty">—</span>
                                                 )}
                                             </td>
                                         )}
                                         <td>
-                                            <span className="badge badge--default" style={{ fontSize: 10 }}>
+                                            <span className="badge badge--default entry-table-badge">
                                                 {entry.payment_method || 'Cash'}
                                             </span>
                                         </td>
-                                        <td style={{ textAlign: 'right', color: isExpense ? 'var(--error)' : 'var(--success)', fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                                        <td className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
                                             {isExpense ? '-' : '+'}{formatCurrency(entry.cash_amount)}
                                         </td>
-                                        <td style={{ textAlign: 'right', color: isExpense ? 'var(--error)' : 'var(--success)', fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                                        <td className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
                                             {isExpense ? '-' : '+'}{formatCurrency(entry.upi_amount)}
                                         </td>
-                                        <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap' }}>
+                                        <td className="entry-table-total">
                                             {isExpense ? '-' : ''}{formatCurrency(entry.total)}
                                         </td>
                                     </tr>
                                     {hasLines && isExpanded && entry.order_lines.map((line, li) => (
-                                        <tr key={`${entry.id}-line-${li}`} style={{ background: 'var(--surface-2, #f9fafb)' }}>
+                                        <tr key={`${entry.id}-line-${li}`} className="entry-table-row--expanded">
                                             <td></td>
-                                            <td colSpan={isLaser ? 2 : 1} style={{ paddingLeft: 32, fontSize: 13, color: 'var(--text-secondary, var(--muted))' }}>
-                                                <span style={{ fontWeight: 500 }}>{line.name || 'Item'}</span>
-                                                {line.qty > 1 && <span style={{ color: 'var(--muted)', marginLeft: 6 }}>×{line.qty}</span>}
+                                            <td colSpan={isLaser ? 2 : 1} className="entry-table-row-expanded-content">
+                                                <span className="entry-table-line-name">{line.name || 'Item'}</span>
+                                                {line.qty > 1 && <span className="entry-table-line-qty">×{line.qty}</span>}
                                                 {(line.waste_prints > 0 || line.proof_prints > 0) && (
-                                                    <span style={{ marginLeft: 8, fontSize: 11 }}>
-                                                        {line.waste_prints > 0 && <span style={{ color: '#dc2626' }}>Waste:{line.waste_prints} </span>}
-                                                        {line.proof_prints > 0 && <span style={{ color: '#d97706' }}>Proof:{line.proof_prints}</span>}
+                                                    <span className="entry-table-line-waste-proof">
+                                                        {line.waste_prints > 0 && <span className="entry-table-line-waste">Waste:{line.waste_prints} </span>}
+                                                        {line.proof_prints > 0 && <span className="entry-table-line-proof">Proof:{line.proof_prints}</span>}
                                                     </span>
                                                 )}
                                             </td>
-                                            {isLaser && <td></td>}
-                                            {isLaser && <td></td>}
                                             <td></td>
                                             <td></td>
                                             <td></td>
-                                            <td style={{ textAlign: 'right', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif", color: 'var(--muted)' }}>
+                                            <td className="entry-table-line-amount">
                                                 {formatCurrency(line.amount)}
                                             </td>
                                         </tr>
@@ -1339,65 +1332,65 @@ const DailyReport = () => {
                 </div>
                 <div className="dr-summary-item">
                     <span className="dr-summary-item__label">
-                        <TrendingUp size={12} style={{ display: 'inline', marginRight: 3, color: 'var(--success)' }} /> Cash In
+                        <TrendingUp size={12} /> Cash In
                     </span>
-                    <span className="dr-summary-item__value" style={{ color: 'var(--success)' }}>{formatCurrency(summary.total_cash_in)}</span>
+                    <span className="dr-summary-item__value dr-summary-item__value--success">{formatCurrency(summary.total_cash_in)}</span>
                 </div>
                 <div className="dr-summary-item">
                     <span className="dr-summary-item__label">
-                        <CreditCard size={12} style={{ display: 'inline', marginRight: 3, color: 'var(--success)' }} /> UPI In
+                        <CreditCard size={12} /> UPI In
                     </span>
-                    <span className="dr-summary-item__value" style={{ color: 'var(--success)' }}>{formatCurrency(summary.total_upi_in)}</span>
+                    <span className="dr-summary-item__value dr-summary-item__value--success">{formatCurrency(summary.total_upi_in)}</span>
                 </div>
                 {summary.total_cash_out !== undefined && summary.total_cash_out !== null && (
                     <div className="dr-summary-item">
                         <span className="dr-summary-item__label">
-                            <TrendingDown size={12} style={{ display: 'inline', marginRight: 3, color: 'var(--error)' }} /> Cash Out
+                            <TrendingDown size={12} /> Cash Out
                         </span>
-                        <span className="dr-summary-item__value" style={{ color: 'var(--error)' }}>{formatCurrency(summary.total_cash_out)}</span>
+                        <span className="dr-summary-item__value dr-summary-item__value--error">{formatCurrency(summary.total_cash_out)}</span>
                     </div>
                 )}
                 {summary.total_copies !== undefined && (
                     <div className="dr-summary-item">
                         <span className="dr-summary-item__label">
-                            <Hash size={12} style={{ display: 'inline', marginRight: 3 }} /> Total Copies
+                            <Hash size={12} /> Total Copies
                         </span>
                         <span className="dr-summary-item__value">{formatNum(summary.total_copies)}</span>
                     </div>
                 )}
                 {summary.waste_prints > 0 && (
                     <div className="dr-summary-item">
-                        <span className="dr-summary-item__label" style={{ color: '#dc2626' }}>
-                            <Hash size={12} style={{ display: 'inline', marginRight: 3 }} /> Waste Prints
+                        <span className="dr-summary-item__label dr-summary-item__label--waste">
+                            <Hash size={12} /> Waste Prints
                         </span>
-                        <span className="dr-summary-item__value" style={{ color: '#dc2626' }}>{formatNum(summary.waste_prints)}</span>
+                        <span className="dr-summary-item__value dr-summary-item__value--waste">{formatNum(summary.waste_prints)}</span>
                     </div>
                 )}
                 {summary.proof_prints > 0 && (
                     <div className="dr-summary-item">
-                        <span className="dr-summary-item__label" style={{ color: '#d97706' }}>
-                            <Hash size={12} style={{ display: 'inline', marginRight: 3 }} /> Proof Prints
+                        <span className="dr-summary-item__label dr-summary-item__label--proof">
+                            <Hash size={12} /> Proof Prints
                         </span>
-                        <span className="dr-summary-item__value" style={{ color: '#d97706' }}>{formatNum(summary.proof_prints)}</span>
+                        <span className="dr-summary-item__value dr-summary-item__value--proof">{formatNum(summary.proof_prints)}</span>
                     </div>
                 )}
                 {summary.internal_prints > 0 && (
                     <div className="dr-summary-item">
-                        <span className="dr-summary-item__label" style={{ color: '#6366f1' }}>
+                        <span className="dr-summary-item__label dr-summary-item__label--internal">
                             🏠 Internal Prints
                         </span>
-                        <span className="dr-summary-item__value" style={{ color: '#6366f1' }}>{formatNum(summary.internal_prints)}</span>
+                        <span className="dr-summary-item__value dr-summary-item__value--internal">{formatNum(summary.internal_prints)}</span>
                     </div>
                 )}
                 {summary.internal_bill_count > 0 && (
                     <div className="dr-summary-item">
-                        <span className="dr-summary-item__label" style={{ color: '#6366f1' }}>Internal Jobs</span>
-                        <span className="dr-summary-item__value" style={{ color: '#6366f1' }}>{summary.internal_bill_count}</span>
+                        <span className="dr-summary-item__label dr-summary-item__label--internal">Internal Jobs</span>
+                        <span className="dr-summary-item__value dr-summary-item__value--internal">{summary.internal_bill_count}</span>
                     </div>
                 )}
                 <div className="dr-summary-closing">
                     <span className="dr-summary-item__label">Cash Closing</span>
-                    <span className="dr-summary-item__value" style={{ fontSize: 26, color: tabMeta?.color || 'var(--primary)' }}>
+                    <span className="dr-summary-item__value dr-summary-closing-value" style={{ color: tabMeta?.color || 'var(--primary)' }}>
                         {formatCurrency(summary.cash_closing)}
                     </span>
                 </div>
@@ -1406,13 +1399,13 @@ const DailyReport = () => {
     };
 
     const StatRow = ({ items }) => (
-        <div className="row gap-md" style={{ flexWrap: 'wrap' }}>
+        <div className="row gap-md stat-row">
             {items.map((item, i) => (
-                <div key={i} className="stat-card" style={{ flex: '1 1 140px', minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 6 }}>
-                        {item.icon && <item.icon size={14} style={{ color: item.color || 'var(--muted)' }} />}
+                <div key={i} className="stat-card stat-row-item">
+                    <div className="stat-row-icon">
+                        {item.icon && <item.icon size={14} />}
                     </div>
-                    <div className="stat-value" style={{ color: item.color || 'var(--text)' }}>{item.value}</div>
+                    <div className="stat-value stat-row-value">{item.value}</div>
                     <div className="stat-label">{item.label}</div>
                 </div>
             ))}
@@ -1422,19 +1415,19 @@ const DailyReport = () => {
     const MachineSection = () => {
         if ((loading || initialLoading) && !laserData.machines?.length) {
             return (
-                <div className="panel" style={{ textAlign: 'center', padding: '30px 0' }}>
-                    <RefreshCw size={24} className="spin" style={{ color: 'var(--primary)', marginBottom: 10, opacity: 0.5 }} />
-                    <p style={{ fontSize: 13, color: 'var(--muted)' }}>Fetching machines...</p>
+                <div className="panel machine-loading">
+                    <RefreshCw size={24} className="spin machine-loading-icon" />
+                    <p className="machine-loading-text">Fetching machines...</p>
                 </div>
             );
         }
 
         if (tabErrors.Laser) {
             return (
-                <div className="panel dr-error" style={{ borderColor: 'var(--error)' }}>
-                    <div className="dr-empty__icon" style={{ borderColor: 'rgba(239, 68, 68, 0.2)', color: 'var(--error)' }}><Monitor size={22} /></div>
-                    <p style={{ fontWeight: 600, color: 'var(--error)' }}>Connection Error</p>
-                    <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{tabErrors.Laser}</p>
+                <div className="panel dr-error machine-error">
+                    <div className="dr-empty__icon machine-error-icon"><Monitor size={22} /></div>
+                    <p className="machine-error-title">Connection Error</p>
+                    <p className="machine-error-message">{tabErrors.Laser}</p>
                     <button className="btn btn-ghost btn-sm mt-12" onClick={() => loadTabData('Laser')}>Try Again</button>
                 </div>
             );
@@ -1443,72 +1436,69 @@ const DailyReport = () => {
         if (!laserData.machines?.length) return (
 
             <div className="panel">
-                <h3 className="panel-title" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 className="panel-title machine-panel-title">
                     <Monitor size={16} /> Machines
                 </h3>
                 <div className="dr-empty">
                     <div className="dr-empty__icon"><Monitor size={22} /></div>
-                    <p style={{ fontWeight: 500 }}>No active Digital machines</p>
+                    <p className="machine-empty-text">No active Digital machines</p>
                 </div>
             </div>
         );
 
         return (
             <div className="panel">
-                <h3 className="panel-title" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 className="panel-title machine-panel-title machine-panel-title--active">
                     <Monitor size={16} />
                     Machines
-                    <span className="badge badge--info" style={{ fontSize: 10, marginLeft: 4 }}>{laserData.machines.length} active</span>
+                    <span className="badge badge--info panel-title-badge">{laserData.machines.length} active</span>
                 </h3>
                 <div className="stack-sm">
                     {laserData.machines.map(m => {
                         const isEditingThis = editingMachine === m.id;
                         return (
                             <div key={m.id} className="dr-machine-card">
-                                <div style={{ flex: 1, minWidth: 130 }}>
-                                    <div style={{ fontWeight: 600, fontSize: 14 }}>{m.machine_name}</div>
-                                    {m.location && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{m.location}</div>}
+                                <div className="machine-card-info">
+                                    <div className="machine-card-name">{m.machine_name}</div>
+                                    {m.location && <div className="machine-card-location">{m.location}</div>}
                                 </div>
 
                                 {isEditingThis ? (
-                                    <div className="row gap-sm items-end" style={{ flexWrap: 'wrap' }}>
+                                    <div className="row gap-sm items-end machine-edit-row">
                                         <div className="stack-xs">
-                                            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                            <label className="machine-edit-label">
                                                 Opening
-                                                {m.has_reading && !isAdmin && <Lock size={9} style={{ color: 'var(--warning)' }} />}
+                                                {m.has_reading && !isAdmin && <Lock size={9} className="machine-edit-label-lock" />}
                                             </label>
-                                            <input type="number" className="input-field"
+                                            <input type="number" className={`input-field machine-edit-input ${m.has_reading && !isAdmin ? 'machine-edit-input--locked' : ''}`}
                                                 value={machineReadingTemp.opening_count}
                                                 onChange={(e) => setMachineReadingTemp(prev => ({ ...prev, opening_count: e.target.value }))}
                                                 autoFocus={!m.has_reading || isAdmin}
                                                 disabled={m.has_reading && !isAdmin}
-                                                style={{ width: 110, opacity: (m.has_reading && !isAdmin) ? 0.5 : 1 }}
                                             />
                                         </div>
                                         <div className="stack-xs">
-                                            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>Closing</label>
-                                            <input type="number" className="input-field"
+                                            <label className="machine-edit-label">Closing</label>
+                                            <input type="number" className="input-field machine-edit-input"
                                                 value={machineReadingTemp.closing_count}
                                                 onChange={(e) => setMachineReadingTemp(prev => ({ ...prev, closing_count: e.target.value }))}
-                                                style={{ width: 110 }} placeholder="Optional"
+                                                placeholder="Optional"
                                                 autoFocus={m.has_reading && !isAdmin}
                                             />
                                         </div>
                                         <div className="stack-xs">
-                                            <label style={{ fontSize: 11, fontWeight: 600, color: '#dc2626' }}>Waste</label>
-                                            <input type="number" className="input-field" min="0"
+                                            <label className="machine-edit-label machine-edit-label--waste">Waste</label>
+                                            <input type="number" className={`input-field machine-edit-input machine-edit-input--small ${machineReadingTemp.waste_prints ? 'machine-edit-input--waste' : ''}`} min="0"
                                                 value={machineReadingTemp.waste_prints}
                                                 onChange={(e) => setMachineReadingTemp(prev => ({ ...prev, waste_prints: e.target.value }))}
-                                                style={{ width: 80, borderColor: machineReadingTemp.waste_prints ? '#dc2626' : undefined }}
                                                 placeholder="0"
                                             />
                                         </div>
                                         <div className="stack-xs">
-                                            <label style={{ fontSize: 11, fontWeight: 600, color: '#d97706' }}>Proof</label>
-                                            <input type="number" className="input-field" min="0"
+                                            <label className="machine-edit-label machine-edit-label--proof">Proof</label>
+                                            <input type="number" className={`input-field machine-edit-input machine-edit-input--small ${machineReadingTemp.proof_prints ? 'machine-edit-input--proof' : ''}`} min="0"
                                                 value={machineReadingTemp.proof_prints}
                                                 onChange={(e) => setMachineReadingTemp(prev => ({ ...prev, proof_prints: e.target.value }))}
-                                                style={{ width: 80, borderColor: machineReadingTemp.proof_prints ? '#d97706' : undefined }}
                                                 placeholder="0"
                                             />
                                         </div>
@@ -1520,47 +1510,47 @@ const DailyReport = () => {
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="row gap-lg items-center" style={{ flexWrap: 'wrap' }}>
+                                    <div className="row gap-lg items-center machine-view-row">
                                         <div className="dr-machine-stat">
                                             <div className="dr-machine-stat__label">Opening</div>
                                             <div className="dr-machine-stat__value">
                                                 {m.has_reading ? formatNum(m.opening_count) : '—'}
                                             </div>
                                         </div>
-                                        <ChevronRight size={14} style={{ color: 'var(--muted)' }} />
+                                        <ChevronRight size={14} className="machine-view-chevron" />
                                         <div className="dr-machine-stat">
                                             <div className="dr-machine-stat__label">Current</div>
-                                            <div className="dr-machine-stat__value" style={{ color: 'var(--primary)' }}>
+                                            <div className="dr-machine-stat__value machine-stat-value--primary">
                                                 {m.closing_count !== null ? formatNum(m.closing_count) : '—'}
                                             </div>
                                         </div>
-                                        <div className="dr-machine-stat" style={{ background: 'rgba(5,150,105,0.08)', padding: '8px 14px', borderRadius: 10 }}>
+                                        <div className="dr-machine-stat machine-stat--today">
                                             <div className="dr-machine-stat__label">Today</div>
-                                            <div className="dr-machine-stat__value" style={{ color: 'var(--success)', fontSize: 20 }}>
+                                            <div className="dr-machine-stat__value machine-stat-value--today">
                                                 {formatNum(m.today_copies)}
                                             </div>
                                         </div>
                                         {(m.waste_prints > 0 || m.proof_prints > 0) && (
-                                            <div className="dr-machine-stat" style={{ background: 'rgba(220,38,38,0.06)', padding: '8px 12px', borderRadius: 10 }}>
-                                                <div className="dr-machine-stat__label" style={{ color: '#dc2626' }}>Waste</div>
-                                                <div className="dr-machine-stat__value" style={{ color: '#dc2626', fontSize: 16 }}>
+                                            <div className="dr-machine-stat machine-stat--waste">
+                                                <div className="dr-machine-stat__label machine-stat-label--waste">Waste</div>
+                                                <div className="dr-machine-stat__value machine-stat-value--waste">
                                                     {formatNum(m.waste_prints || 0)}
                                                 </div>
                                                 {m.billing_waste > 0 && (
-                                                    <div style={{ fontSize: 10, color: '#dc2626', opacity: 0.7, marginTop: 2 }}>
+                                                    <div className="machine-stat-billing-note">
                                                         incl. {formatNum(m.billing_waste)} from billing
                                                     </div>
                                                 )}
                                             </div>
                                         )}
                                         {(m.proof_prints > 0) && (
-                                            <div className="dr-machine-stat" style={{ background: 'rgba(217,119,6,0.06)', padding: '8px 12px', borderRadius: 10 }}>
-                                                <div className="dr-machine-stat__label" style={{ color: '#d97706' }}>Proof</div>
-                                                <div className="dr-machine-stat__value" style={{ color: '#d97706', fontSize: 16 }}>
+                                            <div className="dr-machine-stat machine-stat--proof">
+                                                <div className="dr-machine-stat__label machine-stat-label--proof">Proof</div>
+                                                <div className="dr-machine-stat__value machine-stat-value--proof">
                                                     {formatNum(m.proof_prints || 0)}
                                                 </div>
                                                 {m.billing_proof > 0 && (
-                                                    <div style={{ fontSize: 10, color: '#d97706', opacity: 0.7, marginTop: 2 }}>
+                                                    <div className="machine-stat-billing-note--proof">
                                                         incl. {formatNum(m.billing_proof)} from billing
                                                     </div>
                                                 )}
@@ -1583,7 +1573,7 @@ const DailyReport = () => {
                                             </button>
                                         )}
                                         {m.has_reading && isFrontOffice && (
-                                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--warning)', padding: '4px 8px' }}
+                                            <button className="btn btn-ghost btn-sm machine-request-btn"
                                                 onClick={() => {
                                                     setShowChangeRequest({ type: 'machine_count', machineId: m.id, machineName: m.machine_name, currentValue: m.opening_count });
                                                     setChangeRequestValue(String(m.opening_count));
@@ -1617,10 +1607,10 @@ const DailyReport = () => {
                 ]} />
             )}
             <div className="panel">
-                <h3 className="panel-title" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 className="panel-title panel-title--badge">
                     <FileText size={16} />
                     Transactions
-                    <span className="badge" style={{ fontSize: 10, marginLeft: 4 }}>{offsetData.entries?.length || 0}</span>
+                    <span className="badge panel-title-badge">{offsetData.entries?.length || 0}</span>
                 </h3>
                 <EntryTable entries={offsetData.entries} type="offset" />
             </div>
@@ -1642,10 +1632,10 @@ const DailyReport = () => {
                 ]} />
             )}
             <div className="panel">
-                <h3 className="panel-title" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 className="panel-title panel-title--badge">
                     <FileText size={16} />
                     Laser Work Details
-                    <span className="badge" style={{ fontSize: 10, marginLeft: 4 }}>{laserData.entries?.length || 0}</span>
+                    <span className="badge panel-title-badge">{laserData.entries?.length || 0}</span>
                 </h3>
                 <EntryTable entries={laserData.entries} type="laser" />
             </div>
@@ -1658,12 +1648,12 @@ const DailyReport = () => {
         <div className="stack-md">
             <OpeningBalanceCard bookType="Other" />
             <div className="panel">
-                <h3 className="panel-title" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 className="panel-title panel-title--badge">
                     <Package size={16} />
                     Other Products
-                    <span className="badge" style={{ fontSize: 10, marginLeft: 4 }}>{otherData.entries?.length || 0}</span>
+                    <span className="badge panel-title-badge">{otherData.entries?.length || 0}</span>
                 </h3>
-                <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+                <p className="other-panel-description">
                     Mementos, Photo Frames, Gifts & other non-printing products
                 </p>
                 <EntryTable entries={otherData.entries} type="other" />
@@ -1693,38 +1683,38 @@ const DailyReport = () => {
             {/* Opening Balance Prompt Modal */}
             {showOpeningPrompt && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: 560 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-                            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(37,99,235,0.1)', display: 'grid', placeItems: 'center' }}>
-                                <IndianRupee size={20} style={{ color: 'var(--accent)' }} />
+                    <div className="modal opening-prompt-modal">
+                        <div className="opening-prompt-header">
+                            <div className="opening-prompt-icon">
+                                <IndianRupee size={20} />
                             </div>
                             <div>
-                                <h2 className="section-title" style={{ marginBottom: 0 }}>Good Morning!</h2>
-                                <p style={{ fontSize: 13, color: 'var(--muted)' }}>Set opening values for today</p>
+                                <h2 className="section-title opening-prompt-title">Good Morning!</h2>
+                                <p className="opening-prompt-subtitle">Set opening values for today</p>
                             </div>
                         </div>
 
-                        <div className="stack-md" style={{ marginTop: 20 }}>
+                        <div className="stack-md opening-prompt-content">
                             {Object.keys(promptBalances).length > 0 && (
-                                <div className="panel panel--tight" style={{ background: 'var(--surface-2)' }}>
-                                    <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
+                                <div className="panel panel--tight opening-prompt-panel">
+                                    <h4 className="opening-prompt-panel-title">
                                         <Wallet size={14} /> CASH OPENING BALANCES
                                     </h4>
                                     <div className="stack-sm">
                                         {TABS.filter(tab => Object.prototype.hasOwnProperty.call(promptBalances, tab.key)).map(tab => (
-                                            <div key={tab.key} className="row gap-md items-center" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                                                <div style={{ width: 80, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                                                    <div style={{ width: 8, height: 8, borderRadius: 3, background: tab.color }} />
+                                            <div key={tab.key} className="row gap-md items-center opening-prompt-balance-row">
+                                                <div className="opening-prompt-balance-label">
+                                                    <div className="opening-prompt-balance-dot" style={{ background: tab.color }} />
                                                     {tab.label}
                                                 </div>
-                                                <div style={{ flex: 1, minWidth: 180 }}>
-                                                    <input type="number" className="input-field"
+                                                <div className="opening-prompt-balance-input-wrapper">
+                                                    <input type="number" className="input-field opening-prompt-balance-input"
                                                         value={promptBalances[tab.key]}
                                                         onChange={(e) => setPromptBalances(prev => ({ ...prev, [tab.key]: e.target.value }))}
-                                                        placeholder="₹ 0.00" step="0.01" style={{ width: '100%' }}
+                                                        placeholder="₹ 0.00" step="0.01"
                                                     />
                                                     {prevClosing[tab.key] > 0 && (
-                                                        <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)', textAlign: 'right' }}>
+                                                        <div className="opening-prompt-prev-closing">
                                                             prev: ₹{Number(prevClosing[tab.key]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                         </div>
                                                     )}
@@ -1736,26 +1726,21 @@ const DailyReport = () => {
                             )}
 
                             {promptMachines.length > 0 && (
-                                <div className="panel panel--tight" style={{ background: 'var(--surface-2)' }}>
-                                    <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
+                                <div className="panel panel--tight opening-prompt-panel">
+                                    <h4 className="opening-prompt-machine-panel-title">
                                         <Monitor size={14} /> MACHINE OPENING COUNTS
                                     </h4>
                                     <div className="stack-sm">
                                         {promptMachines.map((m, idx) => (
                                             <div key={m.id} className="row gap-md items-center">
-                                                <div style={{ flex: 1, minWidth: 120 }}>
-                                                    <div style={{ fontWeight: 600, fontSize: 14 }}>{m.machine_name}</div>
-                                                    {m.location && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{m.location}</div>}
+                                                <div className="opening-prompt-machine-info">
+                                                    <div className="opening-prompt-machine-name">{m.machine_name}</div>
+                                                    {m.location && <div className="opening-prompt-machine-location">{m.location}</div>}
                                                 </div>
-                                                <input type="number" className="input-field"
-                                                    value={m.opening_count}
-                                                    onChange={(e) => {
-                                                        const updated = [...promptMachines];
-                                                        updated[idx].opening_count = e.target.value;
-                                                        setPromptMachines(updated);
-                                                    }}
+                                                <input type="number" className="input-field opening-prompt-machine-input"
+                                                    value={machineOpeningTemps[m.id] || ''}
+                                                    onChange={(e) => setMachineOpeningTemps(prev => ({ ...prev, [m.id]: e.target.value }))}
                                                     placeholder="Counter reading"
-                                                    style={{ width: 160, minWidth: 160, borderColor: 'var(--border)', lineHeight: 1.4 }}
                                                 />
                                             </div>
                                         ))}
@@ -1764,7 +1749,7 @@ const DailyReport = () => {
                             )}
                         </div>
 
-                        <div className="row gap-sm justify-end" style={{ marginTop: 20 }}>
+                        <div className="row gap-sm justify-end opening-prompt-actions">
                             <button className="btn btn-ghost" onClick={() => { setShowOpeningPrompt(false); setPromptDone(true); }}>
                                 Skip for now
                             </button>
@@ -1779,22 +1764,22 @@ const DailyReport = () => {
             {/* Change Request Modal */}
             {showChangeRequest && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: 440 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(179,107,0,0.1)', display: 'grid', placeItems: 'center' }}>
-                                    <Send size={16} style={{ color: 'var(--warning)' }} />
+                    <div className="modal change-request-modal">
+                        <div className="change-request-header">
+                            <div className="change-request-header-left">
+                                <div className="change-request-icon">
+                                    <Send size={16} />
                                 </div>
                                 <div>
-                                    <h2 className="section-title" style={{ marginBottom: 0, fontSize: 18 }}>Request Change</h2>
-                                    <p style={{ fontSize: 12, color: 'var(--muted)' }}>
+                                    <h2 className="section-title change-request-title">Request Change</h2>
+                                    <p className="change-request-subtitle">
                                         {showChangeRequest.type === 'balance'
                                             ? `Opening balance — ${showChangeRequest.bookType} book`
                                             : `Opening count — ${showChangeRequest.machineName || 'Machine'}`}
                                     </p>
                                 </div>
                             </div>
-                            <button className="btn btn-ghost btn-sm" onClick={() => setShowChangeRequest(null)} style={{ padding: 6 }}>
+                            <button className="btn btn-ghost btn-sm change-request-close-btn" onClick={() => setShowChangeRequest(null)}>
                                 <X size={16} />
                             </button>
                         </div>
@@ -1802,9 +1787,8 @@ const DailyReport = () => {
                         <div className="stack-md">
                             <div>
                                 <label className="label">Current Value</label>
-                                <input type="text" className="input-field" disabled
+                                <input type="text" className="input-field change-request-input-disabled" disabled
                                     value={showChangeRequest.type === 'balance' ? formatCurrency(showChangeRequest.currentValue) : showChangeRequest.currentValue}
-                                    style={{ opacity: 0.6 }}
                                 />
                             </div>
                             <div>
@@ -1826,7 +1810,7 @@ const DailyReport = () => {
                             </div>
                         </div>
 
-                        <div className="row gap-sm justify-end" style={{ marginTop: 16 }}>
+                        <div className="row gap-sm justify-end change-request-actions">
                             <button className="btn btn-ghost" onClick={() => setShowChangeRequest(null)}>Cancel</button>
                             <button className="btn btn-primary" onClick={submitChangeRequest} disabled={submittingRequest || !changeRequestValue}>
                                 <Send size={14} /> {submittingRequest ? 'Submitting...' : 'Submit Request'}
@@ -1843,14 +1827,14 @@ const DailyReport = () => {
                         <BarChart3 size={22} style={{ color: currentTabMeta.color }} />
                     </div>
                     <div>
-                        <h1 className="section-title" style={{ marginBottom: 2 }}>Daily Report</h1>
-                        <p style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <h1 className="section-title dr-title-section">Daily Report</h1>
+                        <p className="dr-subtitle">
                             Live cash book — auto-synced
                             {canViewAllBranches && branchName && (
-                                <span className="badge badge--info" style={{ fontSize: 10 }}>{branchName}</span>
+                                <span className="badge badge--info dr-branch-badge">{branchName}</span>
                             )}
                             {lastRefresh && (
-                                <span style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <span className="dr-refresh-time">
                                     <Clock size={10} /> {formatTime(lastRefresh)}
                                 </span>
                             )}
@@ -1860,24 +1844,22 @@ const DailyReport = () => {
 
                 <div className="dr-controls">
                     {canViewAllBranches && branches.length > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Building2 size={15} style={{ color: 'var(--muted)' }} />
-                            <select className="input-field" value={selectedBranch || ''}
+                        <div className="dr-controls-branch">
+                            <Building2 size={15} />
+                            <select className="input-field dr-controls-branch-select" value={selectedBranch || ''}
                                 onChange={(e) => setSelectedBranch(Number(e.target.value))}
-                                style={{ width: 170, padding: '8px 12px', fontSize: 13 }}
                             >
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                             </select>
                         </div>
                     )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Calendar size={15} style={{ color: 'var(--muted)' }} />
-                        <input type="date" className="input-field" value={reportDate}
+                    <div className="dr-controls-date">
+                        <Calendar size={15} />
+                        <input type="date" className="input-field dr-controls-date-input" value={reportDate}
                             onChange={(e) => setReportDate(e.target.value)}
-                            style={{ width: 160, padding: '8px 12px', fontSize: 13 }}
                         />
                     </div>
-                    <button className="btn btn-primary btn-sm" onClick={generatePDF} title="Download PDF" style={{ gap: 4 }}>
+                    <button className="btn btn-primary btn-sm dr-pdf-btn" onClick={generatePDF} title="Download PDF">
                         <FileText size={15} /> PDF
                     </button>
                 </div>
@@ -1922,17 +1904,17 @@ const DailyReport = () => {
 
             {/* Credits Today quick view */}
             {activeTab !== 'Attendance' && (
-            <div className="panel" style={{ marginBottom: 12 }}>
-                <div className="panel-header" style={{ justifyContent: 'space-between' }}>
+            <div className="panel dr-credits-panel">
+                <div className="panel-header dr-credits-panel-header">
                     <h3 className="panel-title">Today's Credits — {activeTab}</h3>
                 </div>
-                <div className="row gap-lg" style={{ flexWrap: 'wrap' }}>
+                <div className="row gap-lg dr-credits-grid">
                     {initialLoading ? (
-                        <div style={{ width: '100%' }}>
+                        <div className="dr-credits-skeleton">
                             <SkeletonLoader type="cards" count={3} />
                         </div>
                     ) : (
-                        <div style={{ width: '100%' }}>
+                        <div className="dr-credits-table-wrapper">
                             <table className="data-table">
                                 <thead>
                                     <tr>

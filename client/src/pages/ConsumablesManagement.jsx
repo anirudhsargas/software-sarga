@@ -158,6 +158,9 @@ const ConsumablesManagement = () => {
                 await api.post('/inventory/consumables', formData);
                 toast.success('Consumable item added');
             } else {
+                // Optimistic UI Update for edit
+                const prevConsumables = [...consumables];
+                setConsumables(prev => prev.map(c => c.id === selectedItem.id ? { ...c, ...formData } : c));
                 await api.put(`/inventory/consumables/${selectedItem.id}`, formData);
                 toast.success('Consumable item updated');
             }
@@ -165,6 +168,7 @@ const ConsumablesManagement = () => {
             fetchConsumables();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to save consumable item');
+            fetchConsumables();
         }
     };
 

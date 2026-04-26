@@ -6,6 +6,7 @@ const { validate, loginSchema, changePasswordSchema } = require('../middleware/v
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const { fileToBase64 } = require('../utils/base64');
 
 // Rate limiting for auth endpoints
 const authLimiter = rateLimit({
@@ -149,7 +150,7 @@ module.exports = (upload) => {
     // Update Current Staff Profile
     router.put('/staff/me', authenticateToken, upload.single('image'), async (req, res) => {
         const { name } = req.body;
-        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+        const imageUrl = req.file ? await fileToBase64(req.file.path) : null;
 
         if (name !== undefined && !String(name).trim()) {
             return res.status(400).json({ message: 'Name is required' });

@@ -255,7 +255,11 @@ const StaffManagement = () => {
             }
             if (newStaffImage) formData.append('image', newStaffImage);
 
-            await api.post('/staff', formData);
+            const response = await api.post('/staff', formData);
+            // Optimistic UI Update - add new staff to local state
+            if (response.data) {
+                setStaff(prev => [...prev, response.data]);
+            }
             setShowAddModal(false);
             setNewStaff({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: branches[0]?.id || '', salary_type: 'Monthly', base_salary: '', daily_rate: '' });
             setNewStaffImage(null);
@@ -273,6 +277,9 @@ const StaffManagement = () => {
             return setError('Mobile number must be exactly 10 digits');
         }
         setLoading(true);
+        // Optimistic UI Update
+        const prevStaff = [...staff];
+        setStaff(prev => prev.map(s => s.id === selectedStaff.id ? { ...s, ...selectedStaff, user_id: selectedStaff.user_id } : s));
         try {
             const formData = new FormData();
             formData.append('mobile', selectedStaff.user_id);
@@ -298,6 +305,7 @@ const StaffManagement = () => {
             fetchStaff();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update staff');
+            setStaff(prevStaff);
         } finally {
             setLoading(false);
         }

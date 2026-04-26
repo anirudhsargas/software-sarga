@@ -284,7 +284,16 @@ function TaxSettings() {
     const handleEdit = (t) => { setForm(t); setEditingId(t.id); setShowForm(true); };
     const handleDelete = async (id) => {
         if (!confirm('Delete this tax rate?')) return;
-        try { await api.delete(`/tax-settings/${id}`); toast.success('Deleted'); fetch(); } catch { toast.error('Failed'); }
+        // Optimistic UI Update
+        setTaxes(prev => prev.filter(t => t.id !== id));
+        try {
+            await api.delete(`/tax-settings/${id}`);
+            toast.success('Deleted');
+            fetch();
+        } catch {
+            toast.error('Failed');
+            fetch();
+        }
     };
 
     if (loading) return <div className="sp-spinner-wrap"><Loader2 size={24} className="animate-spin" /></div>;
@@ -377,14 +386,29 @@ function PaymentModeSettings() {
     const handleEdit = (m) => { setForm(m); setEditingId(m.id); setShowForm(true); };
     const handleDelete = async (id) => {
         if (!confirm('Delete this payment mode?')) return;
-        try { await api.delete(`/payment-modes/${id}`); toast.success('Deleted'); fetch(); } catch { toast.error('Failed'); }
+        // Optimistic UI Update
+        setModes(prev => prev.filter(m => m.id !== id));
+        try {
+            await api.delete(`/payment-modes/${id}`);
+            toast.success('Deleted');
+            fetch();
+        } catch {
+            toast.error('Failed');
+            fetch();
+        }
     };
 
     const toggleActive = async (m) => {
+        // Optimistic UI Update
+        setModes(prev => prev.map(mode => mode.id === m.id ? { ...mode, is_active: !mode.is_active } : mode));
         try {
             await api.put(`/payment-modes/${m.id}`, { ...m, is_active: !m.is_active });
-            toast.success(`${m.name} ${m.is_active ? 'disabled' : 'enabled'}`); fetch();
-        } catch { toast.error('Failed'); }
+            toast.success(`${m.name} ${m.is_active ? 'disabled' : 'enabled'}`);
+            fetch();
+        } catch {
+            toast.error('Failed');
+            fetch();
+        }
     };
 
     if (loading) return <div className="sp-spinner-wrap"><Loader2 size={24} className="animate-spin" /></div>;

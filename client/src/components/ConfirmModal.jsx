@@ -1,6 +1,5 @@
 import React from 'react';
 import { AlertCircle, AlertTriangle, Info } from 'lucide-react';
-import './ConfirmModal.css';
 
 const ConfirmModal = ({ isOpen, title, message, confirmText, cancelText, type, onConfirm, onCancel }) => {
     if (!isOpen) return null;

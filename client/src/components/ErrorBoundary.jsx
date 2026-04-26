@@ -54,6 +54,36 @@ class ErrorBoundary extends React.Component {
     this.setState({ hasError: false, error: null, isChunk: false });
   };
 
+  handleHardReload = async () => {
+    // Clear the reload counter
+    sessionStorage.removeItem('sarga_chunk_reload');
+    
+    // Unregister all service workers
+    if ('serviceWorker' in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      } catch (e) {
+        console.error('Failed to unregister service workers:', e);
+      }
+    }
+    
+    // Clear all caches
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      } catch (e) {
+        console.error('Failed to clear caches:', e);
+      }
+    }
+    
+    // Hard reload
+    window.location.reload();
+  };
+
   render() {
     if (this.state.hasError) {
       const { isChunk, error } = this.state;
@@ -93,7 +123,7 @@ class ErrorBoundary extends React.Component {
           )}
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button
-              onClick={() => window.location.reload()}
+              onClick={isChunk ? this.handleHardReload : () => window.location.reload()}
               style={{
                 padding: '0.5rem 1.5rem',
                 backgroundColor: 'var(--accent)',
@@ -107,6 +137,23 @@ class ErrorBoundary extends React.Component {
             >
               {isChunk ? 'Reload Now' : 'Reload Page'}
             </button>
+            {isChunk && (
+              <button
+                onClick={this.handleHardReload}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  backgroundColor: 'var(--warning)',
+                  color: 'var(--on-warning)',
+                  border: 'none',
+                  borderRadius: '0.375rem',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: 600
+                }}
+              >
+                Clear Cache & Reload
+              </button>
+            )}
             {!isChunk && (
               <>
                 <button

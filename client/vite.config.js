@@ -2,11 +2,13 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { visualizer } from 'rollup-plugin-visualizer'
+import { boneyardPlugin } from 'boneyard-js/vite'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    boneyardPlugin(),
     VitePWA({
       registerType: 'prompt', // Don't force reloads, let user decide
       includeAssets: ['vite.svg', 'icons/*.png'],

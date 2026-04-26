@@ -97,12 +97,16 @@ const MiscTab = ({ onError }) => {
       type: 'danger'
     });
     if (!isConfirmed) return;
+    // Optimistic UI Update
+    setExpenses(prev => prev.filter(e => e.id !== id));
+    setTotal(prev => Math.max(0, prev - 1));
     try {
       await api.delete(`/misc-expenses/${id}`);
       fetchDashboard();
       fetchExpenses(page);
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Failed to delete misc expense');
+      fetchExpenses(page);
     }
   };
 

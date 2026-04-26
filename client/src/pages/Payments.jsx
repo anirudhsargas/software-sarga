@@ -352,11 +352,15 @@ const Payments = () => {
             type: 'danger'
         });
         if (!isConfirmed) return;
+        // Optimistic UI Update
+        setPayments(prev => prev.filter(p => p.id !== id));
+        setTotal(prev => Math.max(0, prev - 1));
         try {
             await api.delete(`/payments/${id}`);
             fetchPayments();
         } catch (err) {
             setError('Failed to delete payment');
+            fetchPayments();
         }
     };
 

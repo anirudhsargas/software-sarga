@@ -100,16 +100,15 @@ const Login = () => {
 
                     <div>
                         <label className="label">Password</label>
-                        <div style={{ position: 'relative', width: '100%' }}>
-                            <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none', zIndex: 1, display: 'flex', alignItems: 'center' }}>
+                        <div className="input-group input-group--password">
+                            <div className="input-icon">
                                 <Lock size={18} />
                             </div>
                             <input
                                 type={showPassword ? "text" : "password"}
                                 placeholder="Password"
                                 autoComplete="current-password"
-                                className="input-field"
-                                style={{ paddingLeft: 40, paddingRight: 52 }}
+                                className="input-field input-field--with-icon input-field--with-toggle"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 disabled={loading}
@@ -118,19 +117,19 @@ const Login = () => {
                                 type="button"
                                 onPointerDown={(e) => e.preventDefault()}
                                 onClick={() => setShowPassword(!showPassword)}
-                                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 48, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', borderRadius: '0 14px 14px 0' }}
+                                className="password-toggle"
                             >
                                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="form-actions">
                         <div className="checkbox-row">
                             <input type="checkbox" id="remember" />
                             <label htmlFor="remember">Remember Me</label>
                         </div>
-                        <a href="/forgot-password" style={{ fontSize: 13, color: 'var(--primary, #6366f1)', textDecoration: 'none' }}>Forgot Password?</a>
+                        <a href="/forgot-password" className="forgot-link">Forgot Password?</a>
                     </div>
 
                     <button

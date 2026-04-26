@@ -104,7 +104,7 @@ const initDb = async () => {
         role VARCHAR(50) NOT NULL,
         name VARCHAR(100) NOT NULL,
         branch_id INT,
-        image_url VARCHAR(255),
+        image_url LONGTEXT,
         salary_type ENUM('Monthly', 'Daily') DEFAULT 'Monthly',
         base_salary DECIMAL(12, 2) DEFAULT 0,
         daily_rate DECIMAL(12, 2) DEFAULT 0,
@@ -114,8 +114,9 @@ const initDb = async () => {
       )
     `);
 
-    // Add is_active column to sarga_staff if it doesn't exist
+    // Add is_active column and update image_url to LONGTEXT for base64 support
     try { await connection.query("ALTER TABLE sarga_staff ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query("ALTER TABLE sarga_staff MODIFY COLUMN image_url LONGTEXT"); } catch (e) { console.error('Error migrating staff image_url:', e.message); }
 
     // Inter-Branch Stock Requests Table
     await connection.query(`
@@ -527,11 +528,12 @@ const initDb = async () => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
         position INT NOT NULL DEFAULT 0,
-        image_url VARCHAR(255),
+        image_url LONGTEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    try { await connection.query("ALTER TABLE sarga_product_categories ADD COLUMN image_url VARCHAR(255)"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query("ALTER TABLE sarga_product_categories ADD COLUMN image_url LONGTEXT"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query("ALTER TABLE sarga_product_categories MODIFY COLUMN image_url LONGTEXT"); } catch (e) { }
     try { await connection.query("ALTER TABLE sarga_product_categories ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
 
     // Product Hierarchy: Sub-categories
@@ -541,12 +543,13 @@ const initDb = async () => {
         category_id INT NOT NULL,
         name VARCHAR(100) NOT NULL,
         position INT NOT NULL DEFAULT 0,
-        image_url VARCHAR(255),
+        image_url LONGTEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (category_id) REFERENCES sarga_product_categories(id) ON DELETE CASCADE
       )
     `);
-    try { await connection.query("ALTER TABLE sarga_product_subcategories ADD COLUMN image_url VARCHAR(255)"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query("ALTER TABLE sarga_product_subcategories ADD COLUMN image_url LONGTEXT"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query("ALTER TABLE sarga_product_subcategories MODIFY COLUMN image_url LONGTEXT"); } catch (e) { }
     try { await connection.query("ALTER TABLE sarga_product_subcategories ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
 
     // Products
@@ -561,7 +564,7 @@ const initDb = async () => {
         size VARCHAR(30) DEFAULT NULL,
         calculation_type ENUM('Normal', 'Slab', 'Range') DEFAULT 'Normal',
         description TEXT,
-        image_url VARCHAR(255),
+        image_url LONGTEXT,
         has_paper_rate TINYINT(1) DEFAULT 0,
         paper_rate DECIMAL(10, 2) DEFAULT 0,
         has_double_side_rate TINYINT(1) DEFAULT 0,
@@ -574,6 +577,7 @@ const initDb = async () => {
         FOREIGN KEY (inventory_item_id) REFERENCES sarga_inventory(id) ON DELETE SET NULL
       )
     `);
+    try { await connection.query("ALTER TABLE sarga_products MODIFY COLUMN image_url LONGTEXT"); } catch (e) { }
     // Ensure is_physical_product column exists (for existing tables)
     try {
       await connection.query(
@@ -1149,7 +1153,7 @@ const initDb = async () => {
       CREATE TABLE IF NOT EXISTS sarga_job_matter (
         id INT AUTO_INCREMENT PRIMARY KEY,
         job_id INT NOT NULL,
-        file_url VARCHAR(500) NOT NULL,
+        file_url LONGTEXT NOT NULL,
         original_name VARCHAR(300),
         file_size INT DEFAULT 0,
         notes TEXT,
@@ -1968,7 +1972,7 @@ const initDb = async () => {
         customer_id INT NOT NULL,
         job_id INT DEFAULT NULL,
         title VARCHAR(200) NOT NULL,
-        file_url VARCHAR(500) NOT NULL,
+        file_url LONGTEXT NOT NULL,
         file_type VARCHAR(30) DEFAULT 'image',
         original_name VARCHAR(300),
         file_size INT DEFAULT 0,
@@ -1981,6 +1985,7 @@ const initDb = async () => {
         FOREIGN KEY (uploaded_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
       )
     `);
+    try { await connection.query("ALTER TABLE sarga_customer_designs MODIFY COLUMN file_url LONGTEXT"); } catch (e) { }
 
     // ─── Job Proofs (Proof Approval Workflow) ────────────────────
     await connection.query(`
@@ -1988,7 +1993,7 @@ const initDb = async () => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         job_id INT NOT NULL,
         version INT NOT NULL DEFAULT 1,
-        file_url VARCHAR(500) NOT NULL,
+        file_url LONGTEXT NOT NULL,
         original_name VARCHAR(300),
         file_size INT DEFAULT 0,
         file_type VARCHAR(30) DEFAULT 'image',
@@ -2004,6 +2009,7 @@ const initDb = async () => {
         FOREIGN KEY (reviewed_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
       )
     `);
+    try { await connection.query("ALTER TABLE sarga_job_proofs MODIFY COLUMN file_url LONGTEXT"); } catch (e) { }
 
     for (const col of newJobsCols) {
       try {
@@ -2391,6 +2397,121 @@ const initDb = async () => {
     await safeIndex('idx_ot_staff_date', 'CREATE INDEX idx_ot_staff_date ON sarga_staff_overtime (staff_id, overtime_date)');
     await safeIndex('idx_ot_date', 'CREATE INDEX idx_ot_date ON sarga_staff_overtime (overtime_date)');
     await safeIndex('idx_ot_approved', 'CREATE INDEX idx_ot_approved ON sarga_staff_overtime (approved)');
+
+    // Vendor Management Tables
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS vendors (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        contact_person VARCHAR(255),
+        phone VARCHAR(20),
+        email VARCHAR(255),
+        gstin VARCHAR(20),
+        address TEXT,
+        city VARCHAR(100),
+        vendor_code VARCHAR(10),
+        category ENUM('offset_supplies','chemicals','paper','ink','equipment','other') DEFAULT 'other',
+        credit_days INT DEFAULT 0,
+        credit_limit DECIMAL(12,2) DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_vendor_name (name)
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS vendor_invoices (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vendor_id INT NOT NULL,
+        invoice_number VARCHAR(100),
+        invoice_date DATE NOT NULL,
+        due_date DATE,
+        amount DECIMAL(12,2) NOT NULL,
+        paid_amount DECIMAL(12,2) DEFAULT 0,
+        status ENUM('pending','partial','paid','overdue') DEFAULT 'pending',
+        branch ENUM('perambra','meppayur','common') DEFAULT 'common',
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE,
+        INDEX idx_vendor_invoice_status (vendor_id, status),
+        INDEX idx_invoice_due_date (due_date),
+        INDEX idx_invoice_branch (branch)
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS vendor_payments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vendor_invoice_id INT NOT NULL,
+        vendor_id INT NOT NULL,
+        amount DECIMAL(12,2) NOT NULL,
+        payment_date DATE NOT NULL,
+        payment_mode ENUM('cash','upi','bank_transfer','cheque') DEFAULT 'cash',
+        reference_number VARCHAR(100),
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (vendor_invoice_id) REFERENCES vendor_invoices(id),
+        FOREIGN KEY (vendor_id) REFERENCES vendors(id),
+        INDEX idx_payment_vendor (vendor_id),
+        INDEX idx_payment_date (payment_date)
+      )
+    `);
+
+    // Initialize sample vendor data if vendors table is empty
+    try {
+      const [existingVendors] = await connection.query('SELECT COUNT(*) as count FROM vendors');
+      if (existingVendors[0].count === 0) {
+        // Insert sample vendors
+        await connection.query(`
+          INSERT INTO vendors (name, contact_person, phone, email, gstin, address, city, vendor_code, category, credit_days, credit_limit, notes) VALUES
+          ('Suprabhat Trading Corporation', 'Mr. Rajesh Kumar', '+91-9876543210', 'rajesh@suprabhat.com', '33AAAAA0000A1Z5', '123 Industrial Area, Sivakasi', 'Sivakasi', 'STR', 'offset_supplies', 30, 50000.00, 'Reliable offset printing supplies vendor'),
+          ('Monotech Systems', 'Ms. Priya Sharma', '+91-9876543211', 'priya@monotech.com', '29BBBBB1111B1Z6', '456 Tech Park, Chennai', 'Chennai', 'MNT', 'chemicals', 45, 75000.00, 'Specialized in printing chemicals'),
+          ('Kerala Paper Mart', 'Mr. Suresh Nair', '+91-9876543212', 'suresh@kpm.com', '32CCCCC2222C1Z7', '789 Paper Street, Kozhikode', 'Kozhikode', 'KPM', 'paper', 15, 25000.00, 'Local paper supplier with good quality'),
+          ('Riya Ink Suppliers', 'Mrs. Meera Patel', '+91-9876543213', 'meera@riyainks.com', '24DDDDD3333D1Z8', '321 Ink Lane, Calicut', 'Calicut', 'RIS', 'ink', 0, 15000.00, 'Cash basis supplier for inks')
+        `);
+
+        // Insert sample invoices
+        await connection.query(`
+          INSERT INTO vendor_invoices (vendor_id, invoice_number, invoice_date, due_date, amount, paid_amount, status, branch, notes) VALUES
+          (1, 'STC-2024-001', '2024-04-01', '2024-05-01', 15000.00, 15000.00, 'paid', 'perambra', 'Offset plates and chemicals'),
+          (1, 'STC-2024-002', '2024-04-15', '2024-05-15', 12000.00, 6000.00, 'partial', 'meppayur', 'Paper supplies'),
+          (1, 'STC-2024-003', '2024-03-20', '2024-04-20', 8000.00, 0.00, 'overdue', 'common', 'Ink cartridges'),
+          (2, 'MS-2024-001', '2024-04-05', '2024-05-20', 25000.00, 25000.00, 'paid', 'perambra', 'Chemical supplies'),
+          (2, 'MS-2024-002', '2024-04-20', '2024-06-04', 18000.00, 0.00, 'pending', 'meppayur', 'Developer solutions'),
+          (3, 'KPM-2024-001', '2024-04-10', '2024-04-25', 10000.00, 10000.00, 'paid', 'common', 'Art paper 100gsm'),
+          (3, 'KPM-2024-002', '2024-04-25', '2024-05-10', 7500.00, 5000.00, 'partial', 'perambra', 'Cardstock paper'),
+          (4, 'RIS-2024-001', '2024-04-12', '2024-04-12', 5000.00, 5000.00, 'paid', 'meppayur', 'CMYK ink set'),
+          (4, 'RIS-2024-002', '2024-04-28', '2024-04-28', 3000.00, 0.00, 'pending', 'common', 'Spot color inks')
+        `);
+
+        // Insert sample payments
+        await connection.query(`
+          INSERT INTO vendor_payments (vendor_invoice_id, vendor_id, amount, payment_date, payment_mode, reference_number, notes) VALUES
+          (1, 1, 15000.00, '2024-04-15', 'bank_transfer', 'BT001234', 'Full payment for offset supplies'),
+          (2, 1, 6000.00, '2024-04-20', 'cheque', 'CHQ567890', 'Partial payment for paper supplies'),
+          (4, 2, 25000.00, '2024-04-10', 'upi', 'UPI987654', 'Chemical supplies payment'),
+          (6, 3, 10000.00, '2024-04-15', 'cash', 'CASH001', 'Art paper payment'),
+          (7, 3, 5000.00, '2024-04-28', 'bank_transfer', 'BT005678', 'Partial payment for cardstock'),
+          (8, 4, 5000.00, '2024-04-12', 'cash', 'CASH002', 'CMYK ink set payment')
+        `);
+
+        console.log('Sample vendor data initialized');
+      }
+    } catch (err) {
+      logger.warn('Warning: Could not initialize sample vendor data:', err.message);
+    }
+
+    // Performance indexes for frequently queried tables
+    await safeIndex('idx_staff_user_id', 'CREATE INDEX idx_staff_user_id ON sarga_staff (user_id)');
+    await safeIndex('idx_staff_branch_role', 'CREATE INDEX idx_staff_branch_role ON sarga_staff (branch_id, role)');
+    await safeIndex('idx_payments_date_branch', 'CREATE INDEX idx_payments_date_branch ON sarga_payments (payment_date, branch_id)');
+    await safeIndex('idx_payments_type_date', 'CREATE INDEX idx_payments_type_date ON sarga_payments (type, payment_date)');
+    await safeIndex('idx_jobs_created_status', 'CREATE INDEX idx_jobs_created_status ON sarga_jobs (created_at, status)');
+    await safeIndex('idx_jobs_customer_status', 'CREATE INDEX idx_jobs_customer_status ON sarga_jobs (customer_id, status)');
+    await safeIndex('idx_customers_mobile', 'CREATE INDEX idx_customers_mobile ON sarga_customers (mobile)');
+    await safeIndex('idx_customers_branch_type', 'CREATE INDEX idx_customers_branch_type ON sarga_customers (branch_id, type)');
 
     console.log('Database initialized successfully');
   } catch (err) {

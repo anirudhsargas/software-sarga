@@ -4,6 +4,7 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog, auditFieldChanges, getUsageMap, sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser, generateJobNumber, getTodayDate } = require('../helpers');
 const { analyzeDesign } = require('../helpers/designAnalyzer');
 const { validate, addJobSchema } = require('../middleware/validate');
+const { fileToBase64 } = require('../utils/base64');
 console.log('[DEBUG] addJobSchema imported:', !!addJobSchema);
 const { paginate } = require('../helpers/pagination');
 const { branchFilter } = require('../middleware/branchFilter');
@@ -2047,15 +2048,62 @@ router.post('/jobs/:id/proofs', authenticateToken, uploadProof.single('file'), a
         );
         const nextVersion = (maxV.maxVer || 0) + 1;
 
-        const fileUrl = `/uploads/proofs/${req.file.filename}`;
+        // ─── Auto Design Check: analyze the uploaded proof automatically ───
+        let designCheckResult = null;
+        let analysis = null;
+        try {
+            const absFilePath = req.file.path; // multer provides absolute path
+            analysis = await analyzeDesign(absFilePath);
+        } catch (dcErr) {
+            console.error('Auto design check error (pre-conversion):', dcErr.message);
+        }
+
+        const dataUri = await fileToBase64(req.file.path);
         const fileType = getProofFileType(req.file.originalname);
 
         const [result] = await pool.query(
             `INSERT INTO sarga_job_proofs 
              (job_id, version, file_url, original_name, file_size, file_type, designer_notes, uploaded_by)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [jobId, nextVersion, fileUrl, req.file.originalname, req.file.size, fileType, designer_notes || null, req.user.id]
+            [jobId, nextVersion, dataUri, req.file.originalname, req.file.size, fileType, designer_notes || null, req.user.id]
         );
+
+        if (analysis) {
+            try {
+                // Save design check result to sarga_design_checks linked to this job
+                const [dcResult] = await pool.query(
+                    `INSERT INTO sarga_design_checks 
+                        (file_name, file_path, file_type, file_size_kb, result_json, passed, 
+                         total_issues, critical_issues, warnings, checked_by, job_id, proof_id)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        req.file.originalname,
+                        dataUri,
+                        analysis.file_type,
+                        Math.round(req.file.size / 1024),
+                        JSON.stringify(analysis),
+                        analysis.passed ? 1 : 0,
+                        analysis.total_issues,
+                        analysis.critical_issues,
+                        analysis.warnings,
+                        req.user.id,
+                        jobId,
+                        result.insertId
+                    ]
+                );
+
+                designCheckResult = {
+                    id: dcResult.insertId,
+                    passed: analysis.passed,
+                    total_issues: analysis.total_issues,
+                    critical_issues: analysis.critical_issues,
+                    warnings: analysis.warnings,
+                    checks: analysis.checks
+                };
+            } catch (dcErr) {
+                console.error('Auto design check save error:', dcErr.message);
+            }
+        }
 
         // Update job status to Approval Pending if currently Designing or Processing
         const [[job]] = await pool.query('SELECT status FROM sarga_jobs WHERE id = ?', [jobId]);
@@ -2068,53 +2116,6 @@ router.post('/jobs/:id/proofs', authenticateToken, uploadProof.single('file'), a
         }
 
         auditLog(req.user.id, 'PROOF_UPLOAD', `Uploaded proof v${nextVersion} for job ${jobId}`);
-
-        // ─── Auto Design Check: analyze the uploaded proof automatically ───
-        let designCheckResult = null;
-        try {
-            const absFilePath = req.file.path; // multer provides absolute path
-            const analysis = await analyzeDesign(absFilePath);
-
-            // Save design check result to sarga_design_checks linked to this job
-            const [dcResult] = await pool.query(
-                `INSERT INTO sarga_design_checks 
-                    (file_name, file_path, file_type, file_size_kb, result_json, passed, 
-                     total_issues, critical_issues, warnings, checked_by, job_id, proof_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                    req.file.originalname,
-                    fileUrl,
-                    analysis.file_type,
-                    Math.round(req.file.size / 1024),
-                    JSON.stringify(analysis),
-                    analysis.passed ? 1 : 0,
-                    analysis.total_issues,
-                    analysis.critical_issues,
-                    analysis.warnings,
-                    req.user.id,
-                    jobId,
-                    result.insertId
-                ]
-            );
-
-            designCheckResult = {
-                id: dcResult.insertId,
-                passed: analysis.passed,
-                total_issues: analysis.total_issues,
-                critical_issues: analysis.critical_issues,
-                warnings: analysis.warnings,
-                checks: analysis.checks
-            };
-
-            auditLog(req.user.id, 'AUTO_DESIGN_CHECK',
-                `Auto design check for proof v${nextVersion} of job ${jobId}: ${analysis.passed ? 'PASSED' : 'FAILED'} (${analysis.critical_issues} critical, ${analysis.warnings} warnings)`,
-                { entity_type: 'job', entity_id: jobId }
-            );
-        } catch (dcErr) {
-            // Design check failure should NOT block proof upload
-            console.error('Auto design check error (non-blocking):', dcErr.message);
-            designCheckResult = { error: 'Design check could not be completed', message: dcErr.message };
-        }
 
         res.status(201).json({
             id: result.insertId,
@@ -2249,15 +2250,17 @@ router.post('/jobs/:id/matter', authenticateToken, (req, res, next) => {
             return res.status(404).json({ message: 'Job not found' });
         }
 
-        const fileUrl = `/uploads/matter/${req.file.filename}`;
+        const dataUri = await fileToBase64(req.file.path);
+        if (!dataUri) throw new Error('Base64 conversion failed');
+
         const [result] = await pool.query(
             `INSERT INTO sarga_job_matter (job_id, file_url, original_name, file_size, notes, uploaded_by)
              VALUES (?, ?, ?, ?, ?, ?)`,
-            [jobId, fileUrl, req.file.originalname, req.file.size, req.body.notes || null, req.user.id || null]
+            [jobId, dataUri, req.file.originalname, req.file.size, req.body.notes || null, req.user.id || null]
         );
 
         auditLog(req.user.id, 'MATTER_UPLOAD', `Uploaded matter image for job ${jobId}`);
-        res.status(201).json({ id: result.insertId, file_url: fileUrl, message: 'Matter image uploaded' });
+        res.status(201).json({ id: result.insertId, file_url: dataUri, message: 'Matter image uploaded' });
     } catch (err) {
         fs.unlink(req.file.path, () => {});
         console.error('Matter upload error:', err);

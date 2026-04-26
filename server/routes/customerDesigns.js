@@ -7,6 +7,7 @@ const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
+const { fileToBase64 } = require('../utils/base64');
 
 // ─── Uploads Dir ─────────────────────────────────────────────
 const uploadsDir = path.join(__dirname, '..', 'uploads', 'designs');
@@ -142,13 +143,13 @@ router.post('/customers/:id/designs', authenticateToken, (req, res, next) => {
             }
         }
 
-        const insertValues = req.files.map(file => {
-            const fileUrl = `/uploads/designs/${file.filename}`;
+        const insertValues = await Promise.all(req.files.map(async file => {
+            const dataUri = await fileToBase64(file.path);
             const fileType = getFileCategory(file.originalname);
             const originalName = file.originalname;
             const fileSize = file.size;
-            return [customerId, job_id || null, title || originalName, fileUrl, fileType, originalName, fileSize, notes || null, tags || null, req.user.id || null];
-        });
+            return [customerId, job_id || null, title || originalName, dataUri || `/uploads/designs/${file.filename}`, fileType, originalName, fileSize, notes || null, tags || null, req.user.id || null];
+        }));
 
         const placeholders = insertValues.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
         const flatValues = insertValues.flat();

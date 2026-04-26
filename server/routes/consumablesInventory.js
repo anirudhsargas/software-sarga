@@ -27,7 +27,7 @@ router.get('/inventory/consumables', authenticateToken, async (req, res) => {
         const normalizedCategory = normalizeCategory(category);
         const normalizedBranch = normalizeBranch(branch);
 
-        let query = 'SELECT * FROM consumables_inventory WHERE 1=1';
+        let query = 'SELECT id, name, category, unit, quantity_in_stock, reorder_level, unit_cost, supplier_name, branch, notes, last_updated FROM consumables_inventory WHERE 1=1';
         const params = [];
 
         if (normalizedCategory) {
@@ -61,7 +61,7 @@ router.get('/inventory/consumables/low-stock', authenticateToken, async (req, re
         const normalizedCategory = normalizeCategory(category);
         const normalizedBranch = normalizeBranch(branch);
 
-        let query = 'SELECT * FROM consumables_inventory WHERE quantity_in_stock <= reorder_level';
+        let query = 'SELECT id, name, category, unit, quantity_in_stock, reorder_level, unit_cost, supplier_name, branch, notes, last_updated FROM consumables_inventory WHERE quantity_in_stock <= reorder_level';
         const params = [];
 
         if (normalizedCategory) {

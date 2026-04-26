@@ -165,8 +165,16 @@ export default function Quotes() {
 
     const handleDelete = async (id) => {
         if (!confirm('Delete this quote?')) return;
-        try { await api.delete(`/quotes/${id}`); toast.success('Deleted'); fetchQuotes(); }
-        catch { toast.error('Failed to delete'); }
+        // Optimistic UI Update
+        setQuotes(prev => prev.filter(q => q.id !== id));
+        try {
+            await api.delete(`/quotes/${id}`);
+            toast.success('Deleted');
+            fetchQuotes();
+        } catch {
+            toast.error('Failed to delete');
+            fetchQuotes();
+        }
     };
 
     const handleConvert = async (id) => {

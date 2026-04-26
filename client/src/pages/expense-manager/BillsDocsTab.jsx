@@ -74,11 +74,14 @@ const BillsDocsTab = ({ onError }) => {
 
     window.confirm('Also delete inventory entries added from this bill? Click OK for Yes, Cancel for No.');
 
+    // Optimistic UI Update
+    setDocs(prev => prev.filter(d => d.id !== id));
     try {
       await localDb.deleteBillDocument(id);
       fetchDocs();
     } catch {
       onError('Failed to delete bill document');
+      fetchDocs();
     }
   };
 

@@ -1,0 +1,279 @@
+/* StockVerification.css - Styles for the Stock Verification page */
+
+/* Main container */
+.sv-container {
+    height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Page header */
+.sv-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.sv-header-title {
+    margin-bottom: 4px;
+}
+
+.sv-header-subtitle {
+    margin: 0;
+}
+
+.sv-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.sv-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* History section */
+.sv-history-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.sv-history-title {
+    margin-bottom: 16px;
+}
+
+.sv-history-month {
+    font-weight: 600;
+}
+
+/* Main verification card */
+.sv-verification-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Controls row */
+.sv-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.sv-control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sv-control-group--month {
+    min-width: 180px;
+}
+
+.sv-control-group--search {
+    flex: 1;
+    min-width: 200px;
+}
+
+.sv-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.sv-month-input {
+    padding: 6px 12px;
+    height: 36px;
+    font-size: 13px;
+}
+
+.sv-search-wrapper {
+    position: relative;
+}
+
+.sv-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+}
+
+.sv-search-input {
+    padding-left: 32px;
+    padding: 6px 12px 6px 32px;
+    height: 36px;
+    font-size: 13px;
+}
+
+/* Status badge */
+.sv-status-badge {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    align-self: flex-end;
+    height: 36px;
+    box-sizing: border-box;
+}
+
+.sv-status-badge--completed {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid var(--success);
+}
+
+.sv-status-badge--draft {
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid var(--warning);
+}
+
+.sv-status-icon {
+    flex-shrink: 0;
+}
+
+.sv-status-icon--completed {
+    color: var(--success);
+}
+
+.sv-status-icon--draft {
+    color: var(--warning);
+}
+
+.sv-status-text {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.sv-status-text--completed {
+    color: var(--success);
+}
+
+.sv-status-text--draft {
+    color: var(--warning);
+}
+
+/* Loading state */
+.sv-loading {
+    padding: 40px 0;
+    text-align: center;
+    color: var(--text-muted);
+    flex: 1;
+}
+
+/* Table */
+.sv-table-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.sv-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.sv-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--surface);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.sv-table th--right {
+    text-align: right;
+}
+
+.sv-table th--qty {
+    width: 150px;
+}
+
+/* Table cells */
+.sv-item-name {
+    font-weight: 500;
+}
+
+.sv-item-sku {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.sv-sys-qty {
+    text-align: right;
+    font-weight: 500;
+}
+
+.sv-phys-qty-input {
+    padding: 6px 12px;
+}
+
+.sv-phys-qty-input--error {
+    border-color: var(--error);
+}
+
+.sv-phys-qty-input--success {
+    border-color: var(--success);
+}
+
+.sv-variance {
+    text-align: right;
+    font-weight: 600;
+}
+
+.sv-variance--error {
+    color: var(--error);
+}
+
+.sv-variance--success {
+    color: var(--success);
+}
+
+.sv-notes-input {
+    padding: 6px 12px;
+}
+
+/* Pagination */
+.sv-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.sv-pagination-info {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.sv-pagination-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.sv-page-indicator {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 13px;
+    font-weight: 500;
+}

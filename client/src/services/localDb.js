@@ -277,8 +277,10 @@ export async function getVendors(filters = {}) {
 
 export async function saveVendor(vendor) {
     const isNew = !vendor.id;
+    const id = vendor.id || generateLocalId('VEND');
     const result = await offlineDb.save('vendors', {
         ...vendor,
+        id,
         updated_at: new Date().toISOString(),
         created_at: vendor.created_at || new Date().toISOString()
     });

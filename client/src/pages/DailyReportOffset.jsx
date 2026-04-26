@@ -308,18 +308,37 @@ const DailyReportOffset = () => {
                 }));
             addedExpenses += newExpenses.length;
 
-            // --- SYNC CREDIT TRANSACTIONS from billing with balance ---
+            // --- SYNC CREDIT TRANSACTIONS from billing and jobs with balance ---
             const existingCreditNames = new Set(creditTransactions.map(t => t.customer_name + t.amount));
-            const newCredit = (customer_payments || [])
+            const newCreditFromBilling = (customer_payments || [])
                 .filter(cp => Number(cp.total_amount) - Number(cp.advance_paid) > 0.5)
                 .filter(cp => !existingCreditNames.has(cp.customer_name + (Number(cp.total_amount) - Number(cp.advance_paid))))
-                .map(cp => ({
-                    transaction_type: 'Credit Out',
-                    customer_name: cp.customer_name,
-                    customer_phone: '',
-                    amount: Number(cp.total_amount) - Number(cp.advance_paid),
-                    remarks: `Balance from Billing #${cp.id}`
-                }));
+                .map(cp => {
+                    existingCreditNames.add(cp.customer_name + (Number(cp.total_amount) - Number(cp.advance_paid)));
+                    return {
+                        transaction_type: 'Credit Out',
+                        customer_name: cp.customer_name,
+                        customer_phone: '',
+                        amount: Number(cp.total_amount) - Number(cp.advance_paid),
+                        remarks: `Balance from Billing #${cp.id}`
+                    };
+                });
+
+            const newCreditFromJobs = (completed_jobs || [])
+                .filter(j => Number(j.total_amount) - Number(j.advance_paid) > 0.5)
+                .filter(j => !existingCreditNames.has(j.customer_name + (Number(j.total_amount) - Number(j.advance_paid))))
+                .map(j => {
+                    existingCreditNames.add(j.customer_name + (Number(j.total_amount) - Number(j.advance_paid)));
+                    return {
+                        transaction_type: 'Credit Out',
+                        customer_name: j.customer_name,
+                        customer_phone: '',
+                        amount: Number(j.total_amount) - Number(j.advance_paid),
+                        remarks: `Balance from Job ${j.job_number}`
+                    };
+                });
+
+            const newCredit = [...newCreditFromBilling, ...newCreditFromJobs];
             addedCredit += newCredit.length;
 
             // Apply all synced data

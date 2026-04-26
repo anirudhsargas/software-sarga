@@ -58,15 +58,29 @@ export default function RecurringInvoices() {
 
     const handleDelete = async (id) => {
         if (!confirm('Delete this recurring invoice?')) return;
-        try { await api.delete(`/recurring-invoices/${id}`); toast.success('Deleted'); fetch(); }
-        catch { toast.error('Failed'); }
+        // Optimistic UI Update
+        setItems(prev => prev.filter(item => item.id !== id));
+        try {
+            await api.delete(`/recurring-invoices/${id}`);
+            toast.success('Deleted');
+            fetch();
+        } catch {
+            toast.error('Failed');
+            fetch();
+        }
     };
 
     const toggleActive = async (r) => {
+        // Optimistic UI Update
+        setItems(prev => prev.map(item => item.id === r.id ? { ...item, is_active: r.is_active ? 0 : 1 } : item));
         try {
             await api.put(`/recurring-invoices/${r.id}`, { ...r, is_active: r.is_active ? 0 : 1 });
-            toast.success(r.is_active ? 'Paused' : 'Activated'); fetch();
-        } catch { toast.error('Failed'); }
+            toast.success(r.is_active ? 'Paused' : 'Activated');
+            fetch();
+        } catch {
+            toast.error('Failed');
+            fetch();
+        }
     };
 
     const processNow = async () => {

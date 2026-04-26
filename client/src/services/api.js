@@ -18,7 +18,13 @@ const getApiUrl = () => {
         return url;
     }
 
-    // Fallback
+    // Fallback: If not local and no env var, we're likely on Vercel.
+    // We should try to use the known Render backend URL or warn.
+    if (!isLocal) {
+        console.warn('[API] VITE_API_URL is missing. Falling back to default Render backend.');
+        return 'https://software-sarga-backend.onrender.com/api/';
+    }
+
     return `${window.location.protocol}//${window.location.hostname}:5000/api/`;
 };
 

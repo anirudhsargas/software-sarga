@@ -14,6 +14,7 @@ import { serverToday } from '../../services/serverTime';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import FullBillModal from './FullBillModal';
+import DOMPurify from 'dompurify';
 
 const emptyVendorForm = { name: '', type: 'Vendor', contact_person: '', phone: '', address: '', gstin: '', order_link: '' };
 
@@ -329,6 +330,9 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
     try {
       await localDb.deleteVendor(v.id);
       toast.success('Vendor deleted locally');
+      // Remove from local state immediately
+      setPaginatedVendors(prev => prev.filter(vendor => vendor.id !== v.id));
+      setTotal(prev => Math.max(0, prev - 1));
       if (onRefreshVendors) onRefreshVendors();
     } catch {
       toast.error('Cannot delete this vendor locally');
@@ -702,7 +706,7 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
       container.style.pointerEvents = 'none';
       container.style.width = '794px';
       container.style.background = '#fff';
-      container.innerHTML = summaryHtml;
+      container.innerHTML = DOMPurify.sanitize(summaryHtml, { ALLOWED_TAGS: ['div', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'h2', 'style'], ALLOWED_ATTR: ['style', 'id', 'colspan'] });
       document.body.appendChild(container);
 
       // Helper to load script

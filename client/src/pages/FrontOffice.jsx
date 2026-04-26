@@ -14,7 +14,6 @@ import auth from '../services/auth';
 import toast from 'react-hot-toast';
 
 import { serverNow, serverToday } from '../services/serverTime';
-import './FrontOffice.css';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 

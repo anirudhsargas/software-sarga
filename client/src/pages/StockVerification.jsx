@@ -4,6 +4,7 @@ import api from '../services/api';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { Save, CheckCircle, Search, Calendar, FileText, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import './StockVerification.css';
 
 const StockVerification = () => {
     const { user } = useAuth();
@@ -18,9 +19,15 @@ const StockVerification = () => {
     const [verification, setVerification] = useState(null);
     const [items, setItems] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 50;
 
     const [history, setHistory] = useState([]);
     const [showHistory, setShowHistory] = useState(false);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
 
     useEffect(() => {
         fetchVerification();
@@ -110,21 +117,23 @@ const StockVerification = () => {
             (item.category?.toLowerCase().includes(s));
     });
 
+    const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
+    const paginatedItems = filteredItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
     const isCompleted = verification?.status === 'Completed';
 
     return (
-        <div className="section">
+        <div className="section sv-container">
             {/* ── Page Header ── */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
+            <div className="sv-header">
                 <div>
-                    <h1 className="page-title" style={{ marginBottom: 4 }}>Monthly Stock Verification</h1>
-                    <p className="muted" style={{ margin: 0 }}>Enter physical counts to adjust system inventory.</p>
+                    <h1 className="page-title sv-header-title">Monthly Stock Verification</h1>
+                    <p className="muted sv-header-subtitle">Enter physical counts to adjust system inventory.</p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div className="sv-header-actions">
                     <button
                         className={`btn ${showHistory ? 'btn-primary' : 'btn-outline'}`}
                         onClick={() => setShowHistory(!showHistory)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                     >
                         <FileText size={15} />
                         {showHistory ? 'Hide History' : 'View History'}
@@ -132,18 +141,16 @@ const StockVerification = () => {
                     {!isCompleted && !showHistory && (
                         <>
                             <button
-                                className="btn btn-outline"
+                                className="btn btn-outline sv-action-btn"
                                 onClick={() => handleSave('Draft')}
                                 disabled={saving || loading}
-                                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                             >
                                 <Save size={15} /> Save Draft
                             </button>
                             <button
-                                className="btn btn-primary"
+                                className="btn btn-primary sv-action-btn"
                                 onClick={() => handleSave('Completed')}
                                 disabled={saving || loading}
-                                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                             >
                                 <CheckCircle size={15} /> Complete Verification
                             </button>
@@ -153,8 +160,8 @@ const StockVerification = () => {
             </div>
 
             {showHistory ? (
-                <div className="card p-16">
-                    <h2 className="section-title mb-16">Verification History</h2>
+                <div className="card p-16 sv-history-card">
+                    <h2 className="section-title sv-history-title">Verification History</h2>
                     {history.length > 0 ? (
                         <div className="table-scroll">
                             <table className="table">
@@ -169,7 +176,7 @@ const StockVerification = () => {
                                 <tbody>
                                     {history.map(h => (
                                         <tr key={h.id}>
-                                            <td style={{ fontWeight: 600 }}>{h.month}</td>
+                                            <td className="sv-history-month">{h.month}</td>
                                             <td>
                                                 <span className={`badge badge--${h.status === 'Completed' ? 'success' : 'warning'}`}>
                                                     {h.status}
@@ -187,47 +194,45 @@ const StockVerification = () => {
                     )}
                 </div>
             ) : (
-                <div className="card p-16">
+                <div className="card p-16 sv-verification-card">
                     {/* ── Controls Row ── */}
-                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                    <div className="sv-controls">
                         {/* Month picker */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 180 }}>
-                            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <div className="sv-control-group sv-control-group--month">
+                            <label className="sv-label">
                                 <Calendar size={13} /> Verification Month
                             </label>
                             <input
                                 type="month"
-                                className="input-field"
+                                className="input-field sv-month-input"
                                 value={month}
                                 onChange={(e) => setMonth(e.target.value)}
                                 disabled={loading || saving}
-                                style={{ padding: '6px 12px', height: 36, fontSize: 13 }}
                             />
                         </div>
 
                         {/* Search */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 200 }}>
-                            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <div className="sv-control-group sv-control-group--search">
+                            <label className="sv-label">
                                 <Search size={13} /> Search
                             </label>
-                            <div style={{ position: 'relative' }}>
-                                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+                            <div className="sv-search-wrapper">
+                                <Search size={14} className="sv-search-icon" />
                                 <input
                                     type="text"
-                                    className="input-field"
+                                    className="input-field sv-search-input"
                                     placeholder="Search by name, SKU or category..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    style={{ paddingLeft: 32, padding: '6px 12px 6px 32px', height: 36, fontSize: 13 }}
                                 />
                             </div>
                         </div>
 
                         {/* Status badge */}
                         {verification && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 8, background: isCompleted ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)', border: `1px solid ${isCompleted ? 'var(--success)' : 'var(--warning)'}`, alignSelf: 'flex-end', height: 36, boxSizing: 'border-box' }}>
-                                {isCompleted ? <CheckCircle size={15} style={{ color: 'var(--success)', flexShrink: 0 }} /> : <AlertTriangle size={15} style={{ color: 'var(--warning)', flexShrink: 0 }} />}
-                                <span style={{ fontSize: 13, fontWeight: 600, color: isCompleted ? 'var(--success)' : 'var(--warning)', whiteSpace: 'nowrap' }}>
+                            <div className={`sv-status-badge ${isCompleted ? 'sv-status-badge--completed' : 'sv-status-badge--draft'}`}>
+                                {isCompleted ? <CheckCircle size={15} className="sv-status-icon sv-status-icon--completed" /> : <AlertTriangle size={15} className="sv-status-icon sv-status-icon--draft" />}
+                                <span className={`sv-status-text ${isCompleted ? 'sv-status-text--completed' : 'sv-status-text--draft'}`}>
                                     Status: {verification.status}
                                 </span>
                             </div>
@@ -235,22 +240,22 @@ const StockVerification = () => {
                     </div>
 
                     {loading ? (
-                        <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading inventory data...</div>
+                        <div className="sv-loading">Loading inventory data...</div>
                     ) : (
-                        <div className="table-scroll" style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                            <table className="table" style={{ borderCollapse: 'collapse', width: '100%' }}>
-                                <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface)', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                        <div className="table-scroll sv-table-scroll">
+                            <table className="table sv-table">
+                                <thead>
                                     <tr>
                                         <th>Item Name & SKU</th>
                                         <th>Category</th>
-                                        <th style={{ textAlign: 'right' }}>System Qty</th>
-                                        <th style={{ width: '150px' }}>Physical Qty</th>
-                                        <th style={{ textAlign: 'right' }}>Variance</th>
+                                        <th className="sv-table-th--right">System Qty</th>
+                                        <th className="sv-table-th--qty">Physical Qty</th>
+                                        <th className="sv-table-th--right">Variance</th>
                                         <th>Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredItems.length > 0 ? filteredItems.map(item => {
+                                    {paginatedItems.length > 0 ? paginatedItems.map(item => {
                                         const sysQty = Number(item.system_quantity) || 0;
                                         const physQty = item.physical_quantity !== null && item.physical_quantity !== '' ? Number(item.physical_quantity) : null;
                                         const variance = physQty !== null ? physQty - sysQty : null;
@@ -262,36 +267,34 @@ const StockVerification = () => {
                                         return (
                                             <tr key={item.inventory_item_id}>
                                                 <td>
-                                                    <div style={{ fontWeight: 500 }}>{item.name}</div>
-                                                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.sku || 'No SKU'}</div>
+                                                    <div className="sv-item-name">{item.name}</div>
+                                                    <div className="sv-item-sku">{item.sku || 'No SKU'}</div>
                                                 </td>
                                                 <td>{item.category || '-'}</td>
-                                                <td style={{ textAlign: 'right', fontWeight: 500 }}>
+                                                <td className="sv-sys-qty">
                                                     {sysQty} {item.unit}
                                                 </td>
                                                 <td>
                                                     <input
                                                         type="number"
-                                                        className="input-field"
+                                                        className={`input-field sv-phys-qty-input ${physQty !== null && variance !== 0 ? (variance < 0 ? 'sv-phys-qty-input--error' : 'sv-phys-qty-input--success') : ''}`}
                                                         value={item.physical_quantity !== null ? item.physical_quantity : ''}
                                                         onChange={(e) => handleQtyChange(item.inventory_item_id, e.target.value)}
                                                         disabled={isCompleted}
                                                         placeholder="Count"
-                                                        style={{ padding: '6px 12px', borderColor: physQty !== null && variance !== 0 ? varianceColor : undefined }}
                                                     />
                                                 </td>
-                                                <td style={{ textAlign: 'right', fontWeight: 600, color: varianceColor }}>
+                                                <td className={`sv-variance ${varianceColor ? (variance < 0 ? 'sv-variance--error' : 'sv-variance--success') : ''}`} style={{ color: varianceColor }}>
                                                     {variance !== null ? (variance > 0 ? `+${variance}` : variance) : '-'}
                                                 </td>
                                                 <td>
                                                     <input
                                                         type="text"
-                                                        className="input-field"
+                                                        className="input-field sv-notes-input"
                                                         value={item.notes || ''}
                                                         onChange={(e) => handleNotesChange(item.inventory_item_id, e.target.value)}
                                                         disabled={isCompleted}
                                                         placeholder="Notes..."
-                                                        style={{ padding: '6px 12px' }}
                                                     />
                                                 </td>
                                             </tr>
@@ -303,6 +306,34 @@ const StockVerification = () => {
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+
+                    {/* Pagination Controls */}
+                    {!loading && totalPages > 1 && (
+                        <div className="sv-pagination">
+                            <div className="sv-pagination-info">
+                                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length} items
+                            </div>
+                            <div className="sv-pagination-controls">
+                                <button
+                                    className="btn btn-outline btn-sm"
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                >
+                                    Previous
+                                </button>
+                                <div className="sv-page-indicator">
+                                    Page {currentPage} of {totalPages}
+                                </div>
+                                <button
+                                    className="btn btn-outline btn-sm"
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

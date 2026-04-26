@@ -3,6 +3,7 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { invalidateHierarchyCache } = require('./jobs');
 const { paginate } = require('../helpers/pagination');
+const { fileToBase64 } = require('../utils/base64');
 
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
@@ -241,7 +242,7 @@ module.exports = (upload, removeUploadFile) => {
     // Add Category
     router.post('/product-categories', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
         const { name } = req.body;
-        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+        const imageUrl = req.file ? await fileToBase64(req.file.path) : null;
         if (!name || !String(name).trim()) {
             return res.status(400).json({ message: 'Category name is required' });
         }
@@ -272,7 +273,7 @@ module.exports = (upload, removeUploadFile) => {
         try {
             let imageUrl;
             if (req.file) {
-                imageUrl = `/uploads/${req.file.filename}`;
+                imageUrl = await fileToBase64(req.file.path);
                 const [old] = await pool.query("SELECT image_url FROM sarga_product_categories WHERE id = ?", [id]);
                 if (old[0]?.image_url) await removeUploadFile(old[0].image_url).catch(() => {});
             } else {
@@ -335,7 +336,7 @@ module.exports = (upload, removeUploadFile) => {
     // Add Subcategory
     router.post('/product-subcategories', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
         const { category_id, name } = req.body;
-        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+        const imageUrl = req.file ? await fileToBase64(req.file.path) : null;
         if (!category_id) {
             return res.status(400).json({ message: 'Category is required' });
         }
@@ -372,7 +373,7 @@ module.exports = (upload, removeUploadFile) => {
         try {
             let imageUrl;
             if (req.file) {
-                imageUrl = `/uploads/${req.file.filename}`;
+                imageUrl = await fileToBase64(req.file.path);
                 const [old] = await pool.query("SELECT image_url FROM sarga_product_subcategories WHERE id = ?", [id]);
                 if (old[0]?.image_url) await removeUploadFile(old[0].image_url).catch(() => {});
             } else {
@@ -438,7 +439,7 @@ module.exports = (upload, removeUploadFile) => {
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
         const parsedExtraInv = typeof extraInv === 'string' ? JSON.parse(extraInv) : (extraInv || {});
-        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+        const imageUrl = req.file ? await fileToBase64(req.file.path) : null;
         const connection = await pool.getConnection();
         try {
             if (!subcategory_id) {
@@ -534,7 +535,7 @@ module.exports = (upload, removeUploadFile) => {
         const { subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, inventory_item_id, isPhysicalProduct } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
-        const imageUrl = req.file ? `/uploads/${req.file.filename}` : req.body.image_url;
+        const imageUrl = req.file ? await fileToBase64(req.file.path) : req.body.image_url;
         const connection = await pool.getConnection();
 
         try {

@@ -38,6 +38,7 @@ const Billing = React.lazy(() => import('./Billing'));
 const FrontOffice = React.lazy(() => import('./FrontOffice'));
 const ExpenseManager = React.lazy(() => import('./ExpenseManager'));
 const Vendors = React.lazy(() => import('./Vendors'));
+const VendorDetail = React.lazy(() => import('../components/VendorDetail'));
 const MachineManagement = React.lazy(() => import('./MachineManagement'));
 const DailyReport = React.lazy(() => import('./DailyReport'));
 const AttendanceSalary = React.lazy(() => import('./AttendanceSalary'));
@@ -75,7 +76,7 @@ const Quotes = React.lazy(() => import('./Quotes'));
 const SettingsPage = React.lazy(() => import('./SettingsPage'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
 const PageLoader = () => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: '8px', color: 'var(--text-muted, var(--muted))' }}>
+    <div className="page-loader">
         <Loader2 size={20} className="animate-spin" /> Loading...
     </div>
 );
@@ -155,7 +156,7 @@ const Dashboard = () => {
                 { key: 'actions', header: 'Actions', width: '0.8fr' }
             ];
             return (
-                <div style={{ padding: '20px' }}>
+                <div className="skeleton-wrapper skeleton-wrapper--table">
                     <SkeletonLoader type="table" count={6} columns={cols} />
                 </div>
             );
@@ -164,7 +165,7 @@ const Dashboard = () => {
         // Customers list skeleton
         if (path.includes('/dashboard/customers')) {
             return (
-                <div style={{ padding: '12px' }}>
+                <div className="skeleton-wrapper skeleton-wrapper--list">
                     <SkeletonLoader type="customer-list" count={8} />
                 </div>
             );
@@ -173,7 +174,7 @@ const Dashboard = () => {
         // Billing skeleton
         if (path.includes('/dashboard/billing')) {
             return (
-                <div style={{ padding: '20px' }}>
+                <div className="skeleton-wrapper skeleton-wrapper--table">
                     <SkeletonLoader type="form" />
                 </div>
             );
@@ -182,7 +183,7 @@ const Dashboard = () => {
         // Default dashboard home skeleton
         if (path === '/dashboard' || path === '/dashboard/') {
             return (
-                <div style={{ padding: '12px' }}>
+                <div className="skeleton-wrapper skeleton-wrapper--list">
                     <SkeletonLoader type="cards" count={4} />
                 </div>
             );
@@ -573,8 +574,7 @@ const Dashboard = () => {
                     )}
                     {['Admin', 'Front Office', 'Accountant'].includes(user?.role) && (
                         <button
-                            className="nav-item"
-                            style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}
+                            className="nav-item nav-item--button"
                             onClick={() => { closeSidebar(); setShowInventoryScan(true); }}
                             title="Scan product QR code"
                         >
@@ -603,7 +603,7 @@ const Dashboard = () => {
                             <div className="user-role">{user?.role || 'Guest'}</div>
                         </div>
                     </div>
-                    <button className="btn btn-ghost btn--full mt-16" onClick={handleLogout} style={{ color: 'var(--error)' }}>
+                    <button className="btn btn-ghost btn--full mt-16 btn--danger" onClick={handleLogout}>
                         <LogOut size={18} className="mr-8" /> Logout
                     </button>
                 </div>
@@ -617,13 +617,9 @@ const Dashboard = () => {
                         <Grid size={20} />
                     </button>
                     <div className="logo-text">{companyInfo.name}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div className="topbar-actions">
                         {anomalyCount > 0 && ['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
-                            <span style={{
-                                background: 'var(--error)', color: 'var(--on-accent)', borderRadius: '999px',
-                                fontSize: '11px', fontWeight: 700, padding: '2px 7px',
-                                lineHeight: '16px', minWidth: '20px', textAlign: 'center',
-                            }} title={`${anomalyCount} anomalies detected`}>
+                            <span className="anomaly-badge" title={`${anomalyCount} anomalies detected`}>
                                 {anomalyCount > 99 ? '99+' : anomalyCount}
                             </span>
                         )}
@@ -641,7 +637,7 @@ const Dashboard = () => {
 
                 {/* AI Panels */}
                 {['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
-                    <div style={{ padding: '16px 16px 0' }}>
+                    <div className="ai-panels">
                         <InsightsPanel />
                         <AnomalyPanel />
                     </div>
@@ -669,6 +665,7 @@ const Dashboard = () => {
                             <Route path="payment-verification" element={<PaymentVerification />} />
                             <Route path="expenses" element={<ExpenseManager />} />
                             <Route path="vendors" element={<Vendors />} />
+                            <Route path="vendors/:id" element={<VendorDetail />} />
                             <Route path="machines" element={<MachineManagement />} />
                             <Route path="daily-report" element={<DailyReport />} />
                             <Route path="internal-transactions" element={<InternalTransactions />} />
@@ -708,40 +705,39 @@ const Dashboard = () => {
             </main>
 
             {showProfilePanel && (
-                <div className="modal-backdrop" style={{ zIndex: 1003 }}>
-                    <div className="modal" style={{ maxWidth: '660px', width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: 0 }}>
+                <div className="modal-backdrop modal-backdrop--high">
+                    <div className="modal modal--profile-panel">
                         {/* Profile Header */}
-                        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, background: 'var(--surface, #1e1e2e)', zIndex: 1 }}>
-                            <div className="user-avatar" style={{ width: 64, height: 64, borderRadius: 16, fontSize: 24, flexShrink: 0 }}>
+                        <div className="profile-panel-header">
+                            <div className="user-avatar user-avatar--large">
                                 {user?.image_url ? (
                                     <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
                                 ) : (
                                     user?.name ? user.name[0].toUpperCase() : 'U'
                                 )}
                             </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 20, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || 'User'}</div>
-                                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{user?.role || 'Guest'}</div>
+                            <div className="profile-panel-info">
+                                <div className="profile-panel-name">{user?.name || 'User'}</div>
+                                <div className="profile-panel-role">{user?.role || 'Guest'}</div>
                             </div>
                             <button
-                                className="btn btn-primary btn-sm"
-                                style={{ flexShrink: 0 }}
+                                className="btn btn-primary btn-sm btn--shrink"
                                 onClick={() => { setShowProfilePanel(false); setShowProfileModal(true); }}
                             >
                                 Edit Profile
                             </button>
-                            <button className="modal-close" style={{ position: 'static', margin: 0 }} aria-label="Close profile panel" onClick={() => setShowProfilePanel(false)} title="Close"><X size={20} /></button>
+                            <button className="modal-close modal-close--static" aria-label="Close profile panel" onClick={() => setShowProfilePanel(false)} title="Close"><X size={20} /></button>
                         </div>
                         {/* Attendance & Salary for staff roles */}
                         {['Designer', 'Printer', 'Front Office', 'Other Staff'].includes(user?.role) && (
-                            <div style={{ padding: '20px 16px' }}>
+                            <div className="profile-panel-content">
                                 <Suspense fallback={<PageLoader />}>
                                     <AttendanceSalary />
                                 </Suspense>
                             </div>
                         )}
                         {!['Designer', 'Printer', 'Front Office', 'Other Staff'].includes(user?.role) && (
-                            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>
+                            <div className="profile-panel-empty">
                                 Click <strong>Edit Profile</strong> to update your name or photo.
                             </div>
                         )}
@@ -751,12 +747,12 @@ const Dashboard = () => {
 
             {showProfileModal && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: '520px' }}>
+                    <div className="modal modal--profile">
                         <button className="modal-close" aria-label="Close profile modal" onClick={() => setShowProfileModal(false)} title="Close"><X size={20} /></button>
                         <h2 className="section-title mb-16">Edit Profile</h2>
                         <form onSubmit={handleProfileSave} className="stack-md">
                             <div className="row gap-md items-center">
-                                <div className="user-avatar" style={{ width: '72px', height: '72px', borderRadius: '18px' }}>
+                                <div className="user-avatar user-avatar--medium">
                                     {profileImage ? (
                                         <img src={profilePreview} alt="Profile" className="avatar-img" />
                                     ) : user?.image_url ? (
@@ -833,19 +829,19 @@ const Dashboard = () => {
 
             {/* Loading overlay when hardware scanner fires */}
             {inventoryScanLoading && (
-                <div className="modal-backdrop" style={{ zIndex: 1002 }}>
-                    <div className="modal" style={{ maxWidth: '300px', width: '90%', textAlign: 'center', padding: '32px 24px' }}>
-                        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--primary)', margin: '0 auto 12px' }} />
-                        <div style={{ fontWeight: 600, fontSize: '15px' }}>Looking up item…</div>
-                        <div className="muted" style={{ fontSize: '13px', marginTop: '4px' }}>Reading scanned code</div>
+                <div className="modal-backdrop modal-backdrop--medium">
+                    <div className="modal modal--scan-loading">
+                        <Loader2 size={32} className="animate-spin modal-loader-icon" />
+                        <div className="modal-loading-title">Looking up item…</div>
+                        <div className="muted modal-loading-subtitle">Reading scanned code</div>
                     </div>
                 </div>
             )}
 
             {/* Inventory Scan Result */}
             {inventoryScanResult && (
-                <div className="modal-backdrop" style={{ zIndex: 1001 }}>
-                    <div className="modal" style={{ maxWidth: '400px', width: '90%' }}>
+                <div className="modal-backdrop modal-backdrop--low">
+                    <div className="modal modal--scan-result">
                         <div className="row space-between items-center mb-16">
                             <h2 className="section-title">Product Details</h2>
                             <button className="icon-button" aria-label="Close product details" onClick={() => setInventoryScanResult(null)}><X size={20} /></button>
@@ -853,9 +849,9 @@ const Dashboard = () => {
                         <div className="stack-md">
                             {/* SKU — prominently at the top */}
                             {inventoryScanResult.sku && (
-                                <div style={{ background: 'var(--primary)', color: 'var(--on-accent)', borderRadius: '8px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '11px', textTransform: 'uppercase', opacity: 0.85, whiteSpace: 'nowrap' }}>SKU</span>
-                                    <span style={{ fontWeight: 700, fontSize: '16px', letterSpacing: '0.04em', flex: 1 }}>{inventoryScanResult.sku}</span>
+                                <div className="sku-badge">
+                                    <span className="sku-badge__label">SKU</span>
+                                    <span className="sku-badge__value">{inventoryScanResult.sku}</span>
                                 </div>
                             )}
                             <div className="row gap-md items-center">
@@ -863,30 +859,30 @@ const Dashboard = () => {
                                     <SecureImage
                                         src={inventoryScanResult.image_url}
                                         alt={inventoryScanResult.name}
-                                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)' }}
+                                        className="scan-result-image"
                                     />
                                 )}
                                 <div>
-                                    <div style={{ fontSize: '18px', fontWeight: 700 }}>{inventoryScanResult.name}</div>
+                                    <div className="scan-result-name">{inventoryScanResult.name}</div>
                                     {inventoryScanResult.category && (
-                                        <div className="muted" style={{ fontSize: '13px', marginTop: '2px' }}>{inventoryScanResult.category}</div>
+                                        <div className="muted scan-result-category">{inventoryScanResult.category}</div>
                                     )}
                                 </div>
                             </div>
-                            <div className="row gap-md" style={{ flexWrap: 'wrap' }}>
-                                <div style={{ flex: '1', minWidth: '90px', background: 'var(--surface)', borderRadius: '8px', padding: '10px 14px' }}>
-                                    <div className="muted" style={{ fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>MRP</div>
-                                    <div style={{ fontWeight: 700, fontSize: '20px', color: 'var(--primary)' }}>₹{inventoryScanResult.mrp}</div>
+                            <div className="row gap-md scan-result-stats">
+                                <div className="scan-result-stat">
+                                    <div className="muted scan-result-stat__label">MRP</div>
+                                    <div className="scan-result-stat__value scan-result-stat__value--price">₹{inventoryScanResult.mrp}</div>
                                 </div>
-                                <div style={{ flex: '1', minWidth: '90px', background: 'var(--surface)', borderRadius: '8px', padding: '10px 14px' }}>
-                                    <div className="muted" style={{ fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Qty Available</div>
-                                    <div style={{ fontWeight: 700, fontSize: '20px', color: inventoryScanResult.quantity <= (inventoryScanResult.reorder_level || 0) ? 'var(--error)' : 'var(--success)' }}>
+                                <div className="scan-result-stat">
+                                    <div className="muted scan-result-stat__label">Qty Available</div>
+                                    <div className={`scan-result-stat__value ${inventoryScanResult.quantity <= (inventoryScanResult.reorder_level || 0) ? 'scan-result-stat__value--error' : 'scan-result-stat__value--success'}`}>
                                         {inventoryScanResult.quantity} {inventoryScanResult.unit || ''}
                                     </div>
                                 </div>
                             </div>
                             {inventoryScanResult.hsn && (
-                                <div style={{ fontSize: '13px' }}>
+                                <div className="scan-result-hsn">
                                     <span className="muted">HSN: <strong>{inventoryScanResult.hsn}</strong></span>
                                 </div>
                             )}

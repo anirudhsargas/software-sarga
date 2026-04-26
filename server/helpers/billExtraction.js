@@ -5,6 +5,41 @@ const { extractBillData } = require('../utils/ocrParser');
 // Load server/.env explicitly so this helper works even when Node is started from workspace root.
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
+// ML Service URL for PaddleOCR
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5001';
+
+async function extractWithPaddleOCR(filePath) {
+  try {
+    console.log('[PaddleOCR] Processing bill:', filePath);
+    const imageData = fs.readFileSync(filePath);
+    const base64Data = imageData.toString('base64');
+    const mimeType = getMimeType(filePath);
+    const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+    const response = await fetch(`${ML_SERVICE_URL}/ocr/extract-text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataUrl, return_details: false })
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || `PaddleOCR service error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    if (!result.success || !result.text) {
+      throw new Error('PaddleOCR returned no text');
+    }
+
+    console.log('[PaddleOCR] Extraction successful');
+    return result.text;
+  } catch (error) {
+    console.warn('[PaddleOCR] Extraction failed:', error.message);
+    throw error;
+  }
+}
+
 function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey || !String(apiKey).trim()) {
@@ -286,11 +321,21 @@ async function processBillDocument(filePath) {
         throw geminiError;
       }
 
-      console.warn('[Gemini] Quota/rate limit reached. Falling back to local OCR.');
-      const mimeType = getMimeType(filePath);
-      const ocrData = await extractBillData(filePath, mimeType);
-      const fallbackSuggestions = buildSuggestionsFromOcr(ocrData);
-      return { success: true, suggestions: fallbackSuggestions };
+      console.warn('[Gemini] Quota/rate limit reached. Falling back to PaddleOCR.');
+      try {
+        const paddleText = await extractWithPaddleOCR(filePath);
+        // Parse PaddleOCR text using existing parser
+        const mimeType = getMimeType(filePath);
+        const ocrData = { ...await extractBillData(filePath, mimeType), raw_text: paddleText };
+        const fallbackSuggestions = buildSuggestionsFromOcr(ocrData);
+        return { success: true, suggestions: fallbackSuggestions };
+      } catch (paddleError) {
+        console.warn('[PaddleOCR] Failed. Falling back to Tesseract OCR.');
+        const mimeType = getMimeType(filePath);
+        const ocrData = await extractBillData(filePath, mimeType);
+        const fallbackSuggestions = buildSuggestionsFromOcr(ocrData);
+        return { success: true, suggestions: fallbackSuggestions };
+      }
     }
 
     const normalized = {

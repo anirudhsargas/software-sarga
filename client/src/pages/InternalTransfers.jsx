@@ -79,12 +79,12 @@ const InternalTransfers = () => {
 
   return (
     <div className="panel">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="panel-header">
         <BookOpen size={18} />
-        <h2 style={{ margin: 0 }}>Internal Transfers</h2>
+        <h2>Internal Transfers</h2>
       </div>
 
-      <div style={{ marginTop: 12 }}>
+      <div className="form-section">
         <form onSubmit={handleSubmit} className="stack-md">
           {isAdmin && (
             <div>
@@ -96,7 +96,7 @@ const InternalTransfers = () => {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div className="form-row form-row--3">
             <div>
               <label className="label">From Book</label>
               <select className="input-field" value={fromBook} onChange={e => setFromBook(e.target.value)}>
@@ -122,15 +122,15 @@ const InternalTransfers = () => {
             <input className="input-field" value={note} onChange={e => setNote(e.target.value)} />
           </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="form-actions">
             <button className="btn btn-primary" disabled={loading} type="submit">{loading ? 'Saving...' : 'Transfer'}</button>
             <button type="button" className="btn btn-ghost" onClick={() => { setAmount(''); setNote(''); }}>Reset</button>
           </div>
         </form>
       </div>
 
-      <div style={{ marginTop: 18 }}>
-        <h3 style={{ marginBottom: 8 }}>Recent Transfers</h3>
+      <div className="transfers-history">
+        <h3>Recent Transfers</h3>
         <div className="table-scroll">
           <table className="table">
             <thead>
@@ -138,23 +138,23 @@ const InternalTransfers = () => {
                 <th>Date</th>
                 <th>Branch</th>
                 <th>From</th>
-                <th style={{ textAlign: 'center' }}>→</th>
+                <th className="text-center">→</th>
                 <th>To</th>
-                <th style={{ textAlign: 'right' }}>Amount</th>
+                <th className="text-right">Amount</th>
                 <th>Note</th>
               </tr>
             </thead>
             <tbody>
               {transfers.length === 0 ? (
-                <tr><td colSpan="7" className="text-center muted table-empty">No transfers recorded</td></tr>
+                <tr><td colSpan={7} className="text-center muted table-empty">No transfers recorded</td></tr>
               ) : transfers.map(t => (
                 <tr key={t.id}>
                   <td>{new Date(t.created_at).toLocaleString()}</td>
                   <td>{t.branch_id}</td>
                   <td>{t.from_book_type}</td>
-                  <td style={{ textAlign: 'center' }}><ArrowRightCircle /></td>
+                  <td className="text-center"><ArrowRightCircle /></td>
                   <td>{t.to_book_type}</td>
-                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono, monospace)' }}>₹{Number(t.amount).toFixed(2)}</td>
+                  <td className="text-right font-mono">₹{Number(t.amount).toFixed(2)}</td>
                   <td className="text-sm muted">{t.note || '-'}</td>
                 </tr>
               ))}

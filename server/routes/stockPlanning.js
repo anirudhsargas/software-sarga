@@ -56,7 +56,12 @@ async function setCache(data) {
 async function getMockStockPlanningData() {
     try {
         // Load actual inventory to generate realistic mock data
-        const [items] = await pool.query(`SELECT id, name, category, unit, quantity FROM sarga_inventory ORDER BY RAND() LIMIT 20`);
+        // Use a more efficient approach than ORDER BY RAND() - select random offset
+        const [countResult] = await pool.query(`SELECT COUNT(*) as count FROM sarga_inventory`);
+        const totalCount = countResult[0].count;
+        const randomOffset = totalCount > 20 ? Math.floor(Math.random() * (totalCount - 20)) : 0;
+        
+        const [items] = await pool.query(`SELECT id, name, category, unit, quantity FROM sarga_inventory LIMIT 20 OFFSET ?`, [randomOffset]);
         
         const stock_status = items.map((item, idx) => {
             const currentStock = parseInt(item.quantity) || 0;

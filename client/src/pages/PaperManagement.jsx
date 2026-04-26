@@ -121,12 +121,15 @@ const PaperManagement = () => {
 
     const handleDelete = async (id) => {
         if (!window.confirm('Are you sure you want to delete this paper item?')) return;
+        // Optimistic UI Update
+        setPaperStock(prev => prev.filter(item => item.id !== id));
         try {
             await api.delete(`/inventory/paper/${id}`);
             toast.success('Deleted successfully');
             fetchPaperStock();
         } catch (err) {
             toast.error('Failed to delete');
+            fetchPaperStock();
         }
     };
 
@@ -137,6 +140,9 @@ const PaperManagement = () => {
                 await api.post('/inventory/paper', formData);
                 toast.success('Paper item added');
             } else {
+                // Optimistic UI Update for edit
+                const prevPaperStock = [...paperStock];
+                setPaperStock(prev => prev.map(p => p.id === selectedItem.id ? { ...p, ...formData } : p));
                 await api.put(`/inventory/paper/${selectedItem.id}`, formData);
                 toast.success('Paper item updated');
             }
@@ -144,6 +150,7 @@ const PaperManagement = () => {
             fetchPaperStock();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to save');
+            fetchPaperStock();
         }
     };
 

@@ -1,521 +1,1219 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog, getTodayDate } = require('../helpers');
-const { validate, addVendorSchema } = require('../middleware/validate');
+const { auditLog } = require('../helpers');
+const { validate } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
+const multer = require('multer');
+const csv = require('csv-parse');
+const fs = require('fs');
+const path = require('path');
+const pdfParse = require('pdf-parse');
+const logger = require('../helpers/logger');
 
-const VENDOR_COLUMNS = [
-    'id',
-    'name',
-    'type',
-    'contact_person',
-    'phone',
-    'address',
-    'branch_id',
-    'order_link',
-    'gstin',
-    'created_at'
-].join(', ');
+// Validation schemas
+const addVendorSchema = {
+  name: { type: 'string', required: true, minLength: 1 },
+  contact_person: { type: 'string', optional: true },
+  phone: { type: 'string', optional: true },
+  email: { type: 'string', optional: true },
+  gstin: { type: 'string', optional: true, pattern: /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}\d{1}[A-Z]{1}\d{1}$/ },
+  address: { type: 'string', optional: true },
+  city: { type: 'string', optional: true },
+  category: { type: 'string', enum: ['offset_supplies', 'chemicals', 'paper', 'ink', 'equipment', 'other'], default: 'other' },
+  credit_days: { type: 'number', default: 0 },
+  credit_limit: { type: 'number', default: 0 },
+  notes: { type: 'string', optional: true },
+  vendor_code: { type: 'string', optional: true, pattern: /^[A-Z]{3}$/ }
+};
 
-const PAYMENT_STATEMENT_COLUMNS = [
-    'p.id',
-    'p.branch_id',
-    'p.type',
-    'p.payee_name',
-    'p.amount',
-    'p.payment_method',
-    'p.reference_number',
-    'p.description',
-    'p.payment_date',
-    'p.vendor_id',
-    'p.payment_status',
-    'p.created_at'
-].join(', ');
+const addInvoiceSchema = {
+  vendor_id: { type: 'number', required: true },
+  invoice_number: { type: 'string', optional: true },
+  invoice_date: { type: 'string', required: true }, // YYYY-MM-DD
+  amount: { type: 'number', required: true, min: 0 },
+  branch: { type: 'string', enum: ['perambra', 'meppayur', 'common'], default: 'common' },
+  notes: { type: 'string', optional: true }
+};
 
-const VENDOR_BILL_STATEMENT_COLUMNS = [
-    'b.id',
-    'b.vendor_id',
-    'b.branch_id',
-    'b.bill_number',
-    'b.bill_date',
-    'b.total_amount',
-    'b.description',
-    'b.created_at'
-].join(', ');
+const addPaymentSchema = {
+  vendor_invoice_id: { type: 'number', required: true },
+  amount: { type: 'number', required: true, min: 0 },
+  payment_date: { type: 'string', required: true }, // YYYY-MM-DD
+  payment_mode: { type: 'string', enum: ['cash', 'upi', 'bank_transfer', 'cheque'], default: 'cash' },
+  reference_number: { type: 'string', optional: true },
+  notes: { type: 'string', optional: true }
+};
 
-function normalizeVendorName(name = '') {
-    return String(name || '').replace(/\s+/g, ' ').trim();
+// Vendor code generation function
+async function generateVendorCode(vendorName) {
+  // Clean the name: remove spaces and special characters, take first 3 letters, uppercase
+  const cleanName = vendorName.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase();
+
+  if (cleanName.length < 3) {
+    // If name is too short, pad with 'X'
+    return cleanName.padEnd(3, 'X');
+  }
+
+  let code = cleanName;
+
+  // Check if code exists, if so try next combinations
+  const usedCodes = new Set();
+  const [existing] = await pool.query('SELECT vendor_code FROM vendors WHERE vendor_code IS NOT NULL AND vendor_code != ""');
+  existing.forEach(row => usedCodes.add(row.vendor_code));
+
+  // If original code is free, use it
+  if (!usedCodes.has(code)) {
+    return code;
+  }
+
+  // Try variations: SUP → SUA → SUB → SUC ... SUZ → SAA → SAB ... SAZ → SBA → SBB ... etc.
+  const base = code.substring(0, 2);
+  for (let i = 65; i <= 90; i++) { // A-Z
+    const variation = base + String.fromCharCode(i);
+    if (!usedCodes.has(variation)) {
+      return variation;
+    }
+  }
+
+  // If all variations are taken, try different base
+  for (let i = 65; i <= 90; i++) {
+    for (let j = 65; j <= 90; j++) {
+      const variation = String.fromCharCode(i) + String.fromCharCode(j) + code[2];
+      if (!usedCodes.has(variation)) {
+        return variation;
+      }
+    }
+  }
+
+  // Fallback: generate random code (shouldn't happen in practice)
+  let randomCode;
+  do {
+    randomCode = String.fromCharCode(65 + Math.floor(Math.random() * 26)) +
+                 String.fromCharCode(65 + Math.floor(Math.random() * 26)) +
+                 String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  } while (usedCodes.has(randomCode));
+
+  return randomCode;
 }
 
-function stripFiscalSuffix(name = '') {
-    return normalizeVendorName(name).replace(/\s*-\s*\(\d{4}\s*[-/]\s*\d{4}\)\s*$/i, '').trim();
+// Helper function to update overdue status
+async function updateOverdueStatuses() {
+  try {
+    await pool.query(`
+      UPDATE vendor_invoices
+      SET status = 'overdue'
+      WHERE due_date < CURDATE()
+        AND paid_amount < amount
+        AND status != 'paid'
+    `);
+  } catch (error) {
+    logger.error('Error updating overdue statuses:', error);
+  }
 }
 
-function vendorMatchKey(name = '') {
-    return stripFiscalSuffix(name).toLowerCase();
-}
-
-// --- VENDOR ROUTES ---
-
-// List Vendors / Payees
+// GET /api/vendors - List all vendors with spend summary
 router.get('/vendors', authenticateToken, async (req, res) => {
-    const { type } = req.query;
-    try {
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+  try {
+    const { page = 1, limit = 20, search = '', category = '' } = req.query;
 
-        let query = `FROM sarga_vendors`;
-        const params = [];
-        const conditions = [];
+    let whereClause = 'WHERE v.is_active = TRUE';
+    const params = [];
 
-        if (type) {
-            conditions.push("type = ?");
-            params.push(type);
-        }
-
-        // All vendors are universally visible so they don't need to be defined per branch
-        // Front Office and Admin users alike can select any vendor
-        // (Bills and Payments are still correctly tied to the branch where the action happens)
-
-        const where = conditions.length > 0 ? " WHERE " + conditions.join(" AND ") : "";
-        
-        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${query}${where}`, params);
-        const [rows] = await pool.query(`SELECT ${VENDOR_COLUMNS} ${query}${where} ORDER BY name ASC LIMIT ? OFFSET ?`, [...params, limit, offset]);
-        
-        res.json(response(rows, total));
-    } catch (err) {
-        console.error('List vendors error:', err);
-        res.status(500).json({ message: 'Database error' });
+    if (search) {
+      whereClause += ' AND (v.name LIKE ? OR v.contact_person LIKE ? OR v.phone LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
+
+    if (category) {
+      whereClause += ' AND v.category = ?';
+      params.push(category);
+    }
+
+    // Get current month dates
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+    const [vendors] = await pool.query(`
+      SELECT
+        v.*,
+        COALESCE(SUM(CASE WHEN vi.invoice_date BETWEEN ? AND ? THEN vi.amount ELSE 0 END), 0) as this_month_spend,
+        COALESCE(SUM(vi.amount - vi.paid_amount), 0) as pending_amount,
+        COUNT(vi.id) as total_invoices,
+        COUNT(CASE WHEN vi.status = 'overdue' THEN 1 END) as overdue_invoices
+      FROM vendors v
+      LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id
+      ${whereClause}
+      GROUP BY v.id
+      ORDER BY v.name
+    `, [startOfMonth, endOfMonth, ...params]);
+
+    res.json({ success: true, data: vendors });
+  } catch (error) {
+    logger.error('Error fetching vendors:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
 });
 
-// Add Vendor / Payee
+// GET /api/vendors/:id - Single vendor with full details
+router.get('/vendors/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get vendor details
+    const [vendors] = await pool.query(`
+      SELECT v.*,
+             COALESCE(SUM(vi.amount), 0) as total_spend,
+             COALESCE(SUM(vi.amount - vi.paid_amount), 0) as pending_amount,
+             COUNT(vi.id) as total_invoices
+      FROM vendors v
+      LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id
+      WHERE v.id = ? AND v.is_active = TRUE
+      GROUP BY v.id
+    `, [id]);
+
+    if (vendors.length === 0) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    const vendor = vendors[0];
+
+    // Get recent invoices
+    const [invoices] = await pool.query(`
+      SELECT vi.*, vp.amount as last_payment_amount, vp.payment_date as last_payment_date
+      FROM vendor_invoices vi
+      LEFT JOIN vendor_payments vp ON vi.id = vp.vendor_invoice_id
+      WHERE vi.vendor_id = ?
+      ORDER BY vi.invoice_date DESC
+      LIMIT 10
+    `, [id]);
+
+    // Get recent payments
+    const [payments] = await pool.query(`
+      SELECT vp.*, vi.invoice_number
+      FROM vendor_payments vp
+      JOIN vendor_invoices vi ON vp.vendor_invoice_id = vi.id
+      WHERE vp.vendor_id = ?
+      ORDER BY vp.payment_date DESC
+      LIMIT 10
+    `, [id]);
+
+    res.json({
+      success: true,
+      data: {
+        ...vendor,
+        invoices,
+        payments
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching vendor details:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// POST /api/vendors - Create vendor
 router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addVendorSchema), async (req, res) => {
-    const { name, type, contact_person, phone, address, branch_id, order_link, gstin } = req.body;
-    // For non-admins/accountants, ensure they can only add to their own branch
-    const finalBranchId = (['Admin', 'Accountant'].includes(req.user.role) ? branch_id : req.user.branch_id) || null;
+  try {
+    const vendorData = req.body;
 
-    try {
-        const [existing] = await pool.query("SELECT id FROM sarga_vendors WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))", [name]);
-        if (existing.length > 0) {
-            return res.status(400).json({ message: 'Payee name already exists' });
-        }
-
-        const [result] = await pool.query(
-            "INSERT INTO sarga_vendors (name, type, contact_person, phone, address, branch_id, order_link, gstin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [name, type || 'Vendor', contact_person, phone, address, finalBranchId, order_link, gstin]
-        );
-        res.json({ id: result.insertId, message: 'Payee added successfully' });
-        auditLog(req.user.id, 'VENDOR_ADD', `Added vendor: ${name} (${type})`, { entity_type: 'vendor', entity_id: result.insertId });
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Payee name already exists' });
-        res.status(500).json({ message: 'Database error' });
+    // Check for duplicate name
+    const [existing] = await pool.query('SELECT id FROM vendors WHERE name = ? AND is_active = TRUE', [vendorData.name]);
+    if (existing.length > 0) {
+      return res.status(400).json({ success: false, message: 'Vendor name already exists' });
     }
+
+    // Generate or validate vendor code
+    let vendorCode = vendorData.vendor_code;
+    if (!vendorCode) {
+      vendorCode = await generateVendorCode(vendorData.name);
+    } else {
+      // Validate uniqueness if manually provided
+      const [codeCheck] = await pool.query('SELECT id FROM vendors WHERE vendor_code = ?', [vendorCode]);
+      if (codeCheck.length > 0) {
+        return res.status(400).json({ success: false, message: 'Vendor code already exists' });
+      }
+    }
+
+    const [result] = await pool.query(`
+      INSERT INTO vendors (name, contact_person, phone, email, gstin, address, city, category, credit_days, credit_limit, notes, vendor_code)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      vendorData.name,
+      vendorData.contact_person || null,
+      vendorData.phone || null,
+      vendorData.email || null,
+      vendorData.gstin || null,
+      vendorData.address || null,
+      vendorData.city || null,
+      vendorData.category || 'other',
+      vendorData.credit_days || 0,
+      vendorData.credit_limit || 0,
+      vendorData.notes || null,
+      vendorCode
+    ]);
+
+    auditLog(req.user.id, 'VENDOR_ADD', `Added vendor: ${vendorData.name} (${vendorCode})`, { entity_type: 'vendor', entity_id: result.insertId });
+
+    res.json({ success: true, data: { id: result.insertId, vendor_code: vendorCode, message: 'Vendor added successfully' } });
+  } catch (error) {
+    console.error('Error creating vendor:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
 });
 
-// Update Vendor / Payee
+// PUT /api/vendors/:id - Update vendor
 router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+  try {
     const { id } = req.params;
-    const { name, type, contact_person, phone, address, branch_id, order_link, gstin } = req.body;
+    const vendorData = req.body;
 
-    try {
-        // Enforce branch constraint for updates if not admin or accountant
-        if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            const [existing] = await pool.query("SELECT branch_id FROM sarga_vendors WHERE id = ?", [id]);
-            if (existing[0] && existing[0].branch_id !== null && existing[0].branch_id !== req.user.branch_id) {
-                return res.status(403).json({ message: 'Access denied to this payee' });
-            }
-        }
-
-        const finalBranchId = (['Admin', 'Accountant'].includes(req.user.role) ? branch_id : req.user.branch_id) || null;
-
-        const [existing] = await pool.query("SELECT id FROM sarga_vendors WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?", [name, id]);
-        if (existing.length > 0) {
-            return res.status(400).json({ message: 'Payee name already exists' });
-        }
-
-        await pool.query(
-            "UPDATE sarga_vendors SET name = ?, type = ?, contact_person = ?, phone = ?, address = ?, branch_id = ?, order_link = ?, gstin = ? WHERE id = ?",
-            [name, type, contact_person, phone, address, finalBranchId, order_link, gstin, id]
-        );
-        auditLog(req.user.id, 'VENDOR_UPDATE', `Updated vendor #${id}: ${name}`, { entity_type: 'vendor', entity_id: id });
-        res.json({ message: 'Payee updated successfully' });
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Payee name already exists' });
-        res.status(500).json({ message: 'Database error' });
+    // Check if vendor exists
+    const [existing] = await pool.query('SELECT id FROM vendors WHERE id = ? AND is_active = TRUE', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
     }
+
+    // Check for duplicate name
+    const [duplicate] = await pool.query('SELECT id FROM vendors WHERE name = ? AND id != ? AND is_active = TRUE', [vendorData.name, id]);
+    if (duplicate.length > 0) {
+      return res.status(400).json({ success: false, message: 'Vendor name already exists' });
+    }
+
+    // Validate vendor_code if provided
+    if (vendorData.vendor_code) {
+      const [codeCheck] = await pool.query('SELECT id FROM vendors WHERE vendor_code = ? AND id != ?', [vendorData.vendor_code, id]);
+      if (codeCheck.length > 0) {
+        return res.status(400).json({ success: false, message: 'Vendor code already exists' });
+      }
+    }
+
+    await pool.query(`
+      UPDATE vendors
+      SET name = ?, contact_person = ?, phone = ?, email = ?, gstin = ?, address = ?, city = ?, category = ?, credit_days = ?, credit_limit = ?, notes = ?, vendor_code = ?
+      WHERE id = ?
+    `, [
+      vendorData.name,
+      vendorData.contact_person || null,
+      vendorData.phone || null,
+      vendorData.email || null,
+      vendorData.gstin || null,
+      vendorData.address || null,
+      vendorData.city || null,
+      vendorData.category || 'other',
+      vendorData.credit_days || 0,
+      vendorData.credit_limit || 0,
+      vendorData.notes || null,
+      vendorData.vendor_code || null,
+      id
+    ]);
+
+    auditLog(req.user.id, 'VENDOR_UPDATE', `Updated vendor: ${vendorData.name}`, { entity_type: 'vendor', entity_id: id });
+
+    res.json({ success: true, message: 'Vendor updated successfully' });
+  } catch (error) {
+    console.error('Error updating vendor:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
 });
 
-// --- QUICK PURCHASE RECORDING ---
-
-// Record a quick purchase (without inventory items)
-router.post('/vendor-purchases', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
-    const { vendor_id, amount, bill_number, bill_date, description, branch_id } = req.body;
-    const finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? (branch_id || req.user.branch_id) : req.user.branch_id;
-
-    if (!vendor_id || !amount || Number(amount) <= 0) {
-        return res.status(400).json({ message: 'Vendor and amount are required' });
-    }
-
-    try {
-        const [result] = await pool.query(
-            "INSERT INTO sarga_vendor_bills (vendor_id, branch_id, bill_number, bill_date, total_amount, description) VALUES (?, ?, ?, ?, ?, ?)",
-            [vendor_id, finalBranchId, bill_number || null, bill_date || getTodayDate(), Number(amount), description || null]
-        );
-
-        // SYNC WITH GLOBAL PAYMENTS TABLE
-        const [[vendor]] = await pool.query('SELECT name FROM sarga_vendors WHERE id = ?', [vendor_id]);
-        await pool.query(`
-            INSERT INTO sarga_payments 
-            (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, reference_number, description, payment_date, vendor_id) 
-            VALUES (?, 'Vendor', ?, ?, 'Cash', ?, 0, ?, ?, ?)
-        `, [
-            finalBranchId,
-            vendor?.name || 'Vendor',
-            amount,
-            amount,
-            null,
-            `Quick Purchase${description ? ': ' + description : ''}`,
-            bill_date || new Date(),
-            vendor_id
-        ]);
-
-        auditLog(req.user.id, 'VENDOR_PURCHASE', `Quick purchase ₹${amount} for vendor ${vendor_id}`);
-        res.status(201).json({ id: result.insertId, message: 'Purchase recorded' });
-    } catch (err) {
-        console.error('Quick purchase error:', err);
-        res.status(500).json({ message: 'Database error' });
-    }
-});
-
-// --- VENDOR BILL ROUTES ---
-
-// List Vendor Bills
-router.get('/vendor-bills', authenticateToken, async (req, res) => {
-    const { vendor_id, branch_id } = req.query;
-    try {
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
-
-        let where = '';
-        const params = [];
-        if (vendor_id) {
-            where += " AND b.vendor_id = ?";
-            params.push(vendor_id);
-        }
-        if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            where += " AND b.branch_id = ?";
-            params.push(req.user.branch_id);
-        } else if (branch_id) {
-            where += " AND b.branch_id = ?";
-            params.push(branch_id);
-        }
-
-        const baseFrom = `
-            FROM sarga_vendor_bills b
-            JOIN sarga_vendors v ON b.vendor_id = v.id
-            JOIN sarga_branches br ON b.branch_id = br.id
-            WHERE 1=1 ${where}`;
-
-        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
-        const [rows] = await pool.query(`
-            SELECT b.*, v.name as vendor_name, br.name as branch_name
-            ${baseFrom} ORDER BY b.bill_date DESC, b.created_at DESC LIMIT ? OFFSET ?
-        `, [...params, limit, offset]);
-        
-        res.json(response(rows, total));
-    } catch (err) {
-        console.error('List vendor bills error:', err);
-        res.status(500).json({ message: 'Database error' });
-    }
-});
-
-// Full Vendor Bill Details (bill + items + linked document)
-router.get('/vendor-bills/:id/full', authenticateToken, async (req, res) => {
+// DELETE /api/vendors/:id - Soft delete vendor
+router.delete('/vendors/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+  try {
     const { id } = req.params;
-    try {
-        const [billRows] = await pool.query(
-            `SELECT b.*, v.name as vendor_name, br.name as branch_name
-             FROM sarga_vendor_bills b
-             JOIN sarga_vendors v ON b.vendor_id = v.id
-             JOIN sarga_branches br ON b.branch_id = br.id
-             WHERE b.id = ?
-             LIMIT 1`,
-            [id]
-        );
 
-        if (!billRows.length) {
-            return res.status(404).json({ message: 'Vendor bill not found' });
-        }
-
-        const bill = billRows[0];
-        if (!['Admin', 'Accountant'].includes(req.user.role) && Number(bill.branch_id) !== Number(req.user.branch_id)) {
-            return res.status(403).json({ message: 'Access denied' });
-        }
-
-        const [items] = await pool.query(
-            `SELECT i.id, i.bill_id, i.inventory_item_id, i.quantity, i.unit_cost, i.total_cost,
-                    inv.name as item_name, inv.sku as item_sku, inv.unit as item_unit
-             FROM sarga_vendor_bill_items i
-             LEFT JOIN sarga_inventory inv ON inv.id = i.inventory_item_id
-             WHERE i.bill_id = ?
-             ORDER BY i.id ASC`,
-            [id]
-        );
-
-        const [candidateDocs] = await pool.query(
-            `SELECT bd.id, bd.branch_id, bd.document_type, bd.vendor_name, bd.bill_number, bd.bill_date,
-                    bd.amount, bd.file_path, bd.file_name, bd.file_type, bd.description, bd.created_at
-             FROM sarga_bills_documents bd
-             WHERE bd.document_type = 'Vendor Bill'
-               AND bd.bill_date = ?
-               AND (bd.bill_number = ? OR (? IS NULL AND bd.bill_number IS NULL))
-               AND ABS(COALESCE(bd.amount, 0) - ?) < 0.01
-             ORDER BY bd.created_at DESC
-             LIMIT 25`,
-            [bill.bill_date, bill.bill_number || null, bill.bill_number || null, Number(bill.total_amount) || 0]
-        );
-
-        const billVendorKey = vendorMatchKey(bill.vendor_name);
-        const document = candidateDocs.find((doc) => vendorMatchKey(doc.vendor_name) === billVendorKey) || null;
-
-        res.json({
-            bill,
-            items,
-            document
-        });
-    } catch (err) {
-        console.error('Vendor bill full details error:', err);
-        res.status(500).json({ message: 'Database error' });
+    // Check if vendor has unpaid invoices
+    const [invoices] = await pool.query('SELECT COUNT(*) as count FROM vendor_invoices WHERE vendor_id = ? AND paid_amount < amount', [id]);
+    if (invoices[0].count > 0) {
+      return res.status(400).json({ success: false, message: 'Cannot delete vendor with unpaid invoices' });
     }
+
+    await pool.query('UPDATE vendors SET is_active = FALSE WHERE id = ?', [id]);
+
+    auditLog(req.user.id, 'VENDOR_DELETE', `Deleted vendor ID: ${id}`, { entity_type: 'vendor', entity_id: id });
+
+    res.json({ success: true, message: 'Vendor deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting vendor:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
 });
 
-// Add Vendor Bill
-router.post('/vendor-bills', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
-    const { vendor_id, bill_number, bill_date, items, branch_id } = req.body;
-    const finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? (branch_id || req.user.branch_id) : req.user.branch_id;
+// GET /api/vendors/dashboard/stats - Dashboard statistics
+router.get('/vendors/dashboard/stats', authenticateToken, async (req, res) => {
+  try {
+    // Update overdue statuses first
+    await updateOverdueStatuses();
 
-    if (!items || !items.length) return res.status(400).json({ message: 'No items in bill' });
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
-    const connection = await pool.getConnection();
+    // Basic stats
+    const [stats] = await pool.query(`
+      SELECT
+        COUNT(DISTINCT v.id) as total_vendors,
+        COALESCE(SUM(CASE WHEN vi.invoice_date BETWEEN ? AND ? THEN vi.amount ELSE 0 END), 0) as this_month_spend,
+        COALESCE(SUM(vi.amount - vi.paid_amount), 0) as pending_amount,
+        COALESCE(SUM(CASE WHEN vi.status = 'overdue' THEN vi.amount - vi.paid_amount ELSE 0 END), 0) as overdue_amount
+      FROM vendors v
+      LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id AND vi.status != 'paid'
+      WHERE v.is_active = TRUE
+    `, [startOfMonth, endOfMonth]);
+
+    // Top vendors by this month spend
+    const [topVendors] = await pool.query(`
+      SELECT
+        v.name, v.vendor_code,
+        COALESCE(SUM(CASE WHEN vi.invoice_date BETWEEN ? AND ? THEN vi.amount ELSE 0 END), 0) as spend
+      FROM vendors v
+      LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id
+      WHERE v.is_active = TRUE
+      GROUP BY v.id, v.name, v.vendor_code
+      HAVING spend > 0
+      ORDER BY spend DESC
+      LIMIT 5
+    `, [startOfMonth, endOfMonth]);
+
+    // Pending invoices
+    const [pendingInvoices] = await pool.query(`
+      SELECT
+        vi.id, vi.invoice_number, vi.invoice_date, vi.due_date, vi.amount, vi.paid_amount,
+        v.name as vendor_name, v.vendor_code, vi.branch, vi.status
+      FROM vendor_invoices vi
+      JOIN vendors v ON vi.vendor_id = v.id
+      WHERE vi.status IN ('pending', 'partial', 'overdue') AND v.is_active = TRUE
+      ORDER BY vi.due_date ASC
+      LIMIT 10
+    `);
+
+    // Monthly trend for last 6 months
+    const monthlyTrend = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const startDate = date.toISOString().split('T')[0];
+      const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
+      const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+      const [trend] = await pool.query(`
+        SELECT
+          COALESCE(SUM(vi.amount), 0) as total_spend,
+          vi.branch
+        FROM vendor_invoices vi
+        JOIN vendors v ON vi.vendor_id = v.id
+        WHERE vi.invoice_date BETWEEN ? AND ? AND v.is_active = TRUE
+        GROUP BY vi.branch
+      `, [startDate, endDate]);
+
+      monthlyTrend.push({
+        month: monthName,
+        perambra: trend.find(t => t.branch === 'perambra')?.total_spend || 0,
+        meppayur: trend.find(t => t.branch === 'meppayur')?.total_spend || 0,
+        common: trend.find(t => t.branch === 'common')?.total_spend || 0
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...stats[0],
+        top_vendors: topVendors,
+        pending_invoices: pendingInvoices,
+        monthly_trend: monthlyTrend
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// GET /api/vendor-invoices - List invoices with filters
+router.get('/vendor-invoices', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, vendor_id, status, branch, start_date, end_date } = req.query;
+
+    let whereClause = '';
+    const params = [];
+
+    if (vendor_id) {
+      whereClause += ' AND vi.vendor_id = ?';
+      params.push(vendor_id);
+    }
+
+    if (status) {
+      whereClause += ' AND vi.status = ?';
+      params.push(status);
+    }
+
+    if (branch) {
+      whereClause += ' AND vi.branch = ?';
+      params.push(branch);
+    }
+
+    if (start_date) {
+      whereClause += ' AND vi.invoice_date >= ?';
+      params.push(start_date);
+    }
+
+    if (end_date) {
+      whereClause += ' AND vi.invoice_date <= ?';
+      params.push(end_date);
+    }
+
+    // Update overdue statuses
+    await updateOverdueStatuses();
+
+    const [invoices] = await pool.query(`
+      SELECT
+        vi.*,
+        v.name as vendor_name,
+        v.category as vendor_category
+      FROM vendor_invoices vi
+      JOIN vendors v ON vi.vendor_id = v.id
+      WHERE v.is_active = TRUE ${whereClause}
+      ORDER BY vi.invoice_date DESC
+      LIMIT ? OFFSET ?
+    `, [...params, parseInt(limit), (parseInt(page) - 1) * parseInt(limit)]);
+
+    const [total] = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM vendor_invoices vi
+      JOIN vendors v ON vi.vendor_id = v.id
+      WHERE v.is_active = TRUE ${whereClause}
+    `, params);
+
+    res.json({
+      success: true,
+      data: invoices,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: total[0].count,
+        pages: Math.ceil(total[0].count / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// POST /api/vendor-invoices - Create invoice
+router.post('/vendor-invoices', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addInvoiceSchema), async (req, res) => {
+  try {
+    const invoiceData = req.body;
+
+    // Check if vendor exists
+    const [vendor] = await pool.query('SELECT id, credit_days FROM vendors WHERE id = ? AND is_active = TRUE', [invoiceData.vendor_id]);
+    if (vendor.length === 0) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    // Calculate due date
+    const invoiceDate = new Date(invoiceData.invoice_date);
+    const dueDate = new Date(invoiceDate);
+    dueDate.setDate(dueDate.getDate() + (vendor[0].credit_days || 0));
+
+    const [result] = await pool.query(`
+      INSERT INTO vendor_invoices (vendor_id, invoice_number, invoice_date, due_date, amount, branch, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [
+      invoiceData.vendor_id,
+      invoiceData.invoice_number || null,
+      invoiceData.invoice_date,
+      dueDate.toISOString().split('T')[0],
+      invoiceData.amount,
+      invoiceData.branch || 'common',
+      invoiceData.notes || null
+    ]);
+
+    auditLog(req.user.id, 'VENDOR_INVOICE_ADD', `Added invoice for vendor ${invoiceData.vendor_id}`, { entity_type: 'vendor_invoice', entity_id: result.insertId });
+
+    res.json({ success: true, data: { id: result.insertId, message: 'Invoice added successfully' } });
+  } catch (error) {
+    console.error('Error creating invoice:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// PUT /api/vendor-invoices/:id - Update invoice
+router.put('/vendor-invoices/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const invoiceData = req.body;
+
+    await pool.query(`
+      UPDATE vendor_invoices
+      SET invoice_number = ?, invoice_date = ?, due_date = ?, amount = ?, branch = ?, notes = ?
+      WHERE id = ?
+    `, [
+      invoiceData.invoice_number || null,
+      invoiceData.invoice_date,
+      invoiceData.due_date,
+      invoiceData.amount,
+      invoiceData.branch || 'common',
+      invoiceData.notes || null,
+      id
+    ]);
+
+    auditLog(req.user.id, 'VENDOR_INVOICE_UPDATE', `Updated invoice ${id}`, { entity_type: 'vendor_invoice', entity_id: id });
+
+    res.json({ success: true, message: 'Invoice updated successfully' });
+  } catch (error) {
+    console.error('Error updating invoice:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// POST /api/vendor-payments - Record payment
+router.post('/vendor-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addPaymentSchema), async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
     await connection.beginTransaction();
 
-    try {
-        const total_amount = items.reduce((sum, item) => sum + (Number(item.total_cost) || 0), 0);
+    const paymentData = req.body;
 
-        const [billResult] = await connection.query(
-            "INSERT INTO sarga_vendor_bills (vendor_id, branch_id, bill_number, bill_date, total_amount) VALUES (?, ?, ?, ?, ?)",
-            [vendor_id, finalBranchId, bill_number, bill_date, total_amount]
-        );
-
-        const billId = billResult.insertId;
-
-        for (const item of items) {
-            await connection.query(
-                "INSERT INTO sarga_vendor_bill_items (bill_id, inventory_item_id, quantity, unit_cost, total_cost) VALUES (?, ?, ?, ?, ?)",
-                [billId, item.inventory_item_id, item.quantity, item.unit_cost, item.total_cost]
-            );
-
-            // SYNC WITH INVENTORY: Increase stock
-            await connection.query(
-                "UPDATE sarga_inventory SET quantity = quantity + ? WHERE id = ?",
-                [item.quantity, item.inventory_item_id]
-            );
-
-            // Auto-generate SKU for items that don't have one yet
-            const [[invItem]] = await connection.query("SELECT sku, category, source_code, model_name, size_code, name FROM sarga_inventory WHERE id = ?", [item.inventory_item_id]);
-            if (invItem && !invItem.sku) {
-                const company = String(invItem.source_code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-                const product = String(invItem.model_name || invItem.name || '').trim().toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, '');
-                const size = String(invItem.size_code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-                let autoSku;
-                if (company || product) {
-                    const companyPart = company.substring(0, 3) || (invItem.category || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
-                    const parts = [companyPart];
-                    if (product) parts.push(product);
-                    if (size) parts.push(size);
-                    autoSku = parts.join('-');
-                } else {
-                    const prefix = (invItem.category || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
-                    autoSku = `${prefix}-${String(item.inventory_item_id).padStart(4, '0')}`;
-                }
-                await connection.query("UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL", [autoSku, item.inventory_item_id]);
-            }
-        }
-
-        await connection.commit();
-        
-        // Fetch updated items with SKUs for label suggestion
-        const itemIds = items.map(i => i.inventory_item_id);
-        const [updatedItems] = await pool.query(
-            "SELECT id, name, sku, quantity FROM sarga_inventory WHERE id IN (?)", [itemIds]
-        );
-        const labelSuggestions = items.map(i => {
-            const inv = updatedItems.find(u => u.id === Number(i.inventory_item_id));
-            return { inventory_item_id: i.inventory_item_id, name: inv?.name, sku: inv?.sku, quantity_added: i.quantity };
-        });
-
-        auditLog(req.user.id, 'VENDOR_BILL_ADD', `Added bill ${bill_number} for vendor ${vendor_id}, total ${total_amount}`);
-        res.status(201).json({ id: billId, label_suggestions: labelSuggestions, message: 'Bill recorded and inventory updated' });
-    } catch (err) {
-        await connection.rollback();
-        console.error('Vendor bill error:', err);
-        res.status(500).json({ message: 'Database error and rollback' });
-    } finally {
-        connection.release();
+    // Get invoice details
+    const [invoice] = await connection.query('SELECT * FROM vendor_invoices WHERE id = ?', [paymentData.vendor_invoice_id]);
+    if (invoice.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
+
+    const inv = invoice[0];
+    const balanceDue = inv.amount - inv.paid_amount;
+
+    if (paymentData.amount > balanceDue) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: `Payment amount cannot exceed balance due of ₹${balanceDue}` });
+    }
+
+    // Insert payment
+    const [paymentResult] = await connection.query(`
+      INSERT INTO vendor_payments (vendor_invoice_id, vendor_id, amount, payment_date, payment_mode, reference_number, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [
+      paymentData.vendor_invoice_id,
+      inv.vendor_id,
+      paymentData.amount,
+      paymentData.payment_date,
+      paymentData.payment_mode || 'cash',
+      paymentData.reference_number || null,
+      paymentData.notes || null
+    ]);
+
+    // Update invoice paid amount and status
+    const newPaidAmount = inv.paid_amount + paymentData.amount;
+    let newStatus = 'partial';
+    if (newPaidAmount >= inv.amount) {
+      newStatus = 'paid';
+    } else if (new Date(inv.due_date) < new Date() && newPaidAmount < inv.amount) {
+      newStatus = 'overdue';
+    }
+
+    await connection.query(`
+      UPDATE vendor_invoices
+      SET paid_amount = ?, status = ?
+      WHERE id = ?
+    `, [newPaidAmount, newStatus, paymentData.vendor_invoice_id]);
+
+    await connection.commit();
+
+    auditLog(req.user.id, 'VENDOR_PAYMENT_ADD', `Recorded payment of ₹${paymentData.amount} for invoice ${paymentData.vendor_invoice_id}`, {
+      entity_type: 'vendor_payment',
+      entity_id: paymentResult.insertId
+    });
+
+    res.json({ success: true, data: { id: paymentResult.insertId, message: 'Payment recorded successfully' } });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error recording payment:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  } finally {
+    connection.release();
+  }
 });
 
-// Payee Statement (Transaction History)
-router.get('/vendors/:id/statement', authenticateToken, async (req, res) => {
+// GET /api/vendors/:id/spend-trend - Monthly spend trend
+router.get('/vendors/:id/spend-trend', authenticateToken, async (req, res) => {
+  try {
     const { id } = req.params;
-    try {
-        const [payments] = await pool.query(`
-            SELECT ${PAYMENT_STATEMENT_COLUMNS}, b.name as branch_name, 'Payment' as entry_type
-            FROM sarga_payments p
-            JOIN sarga_branches b ON p.branch_id = b.id
-            WHERE p.vendor_id = ?
-            ORDER BY p.payment_date DESC, p.created_at DESC
-        `, [id]);
 
-        const [bills] = await pool.query(`
-            SELECT ${VENDOR_BILL_STATEMENT_COLUMNS}, br.name as branch_name, 'Purchase' as entry_type
-            FROM sarga_vendor_bills b
-            JOIN sarga_branches br ON b.branch_id = br.id
-            WHERE b.vendor_id = ?
-            ORDER BY b.bill_date DESC, b.created_at DESC
-        `, [id]);
+    const monthlySpend = [];
+    const now = new Date();
 
-        const [payee] = await pool.query(`SELECT ${VENDOR_COLUMNS} FROM sarga_vendors WHERE id = ?`, [id]);
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const startDate = date.toISOString().split('T')[0];
+      const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
+      const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
-        // Compute outstanding balance
-        const totalPurchases = bills.reduce((s, b) => s + Number(b.total_amount || 0), 0);
-        const totalPaid = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
-        const outstandingBalance = totalPurchases - totalPaid;
+      const [spend] = await pool.query(`
+        SELECT COALESCE(SUM(amount), 0) as total
+        FROM vendor_invoices
+        WHERE vendor_id = ? AND invoice_date BETWEEN ? AND ?
+      `, [id, startDate, endDate]);
 
-        // Combine and sort by date
-        const transactions = [...payments, ...bills].sort((a, b) => {
-            const dateA = new Date(a.payment_date || a.bill_date);
-            const dateB = new Date(b.payment_date || b.bill_date);
-            return dateB - dateA;
-        });
+      monthlySpend.push({
+        month: monthName,
+        spend: parseFloat(spend[0].total)
+      });
+    }
 
-        res.json({
-            payee: payee[0],
-            transactions: transactions,
-            summary: {
-                total_purchases: totalPurchases,
-                total_paid: totalPaid,
-                outstanding_balance: outstandingBalance
+    res.json({ success: true, data: monthlySpend });
+  } catch (error) {
+    console.error('Error fetching spend trend:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// File upload configuration
+const uploadDir = path.join(__dirname, '../uploads');
+const vendorBillsDir = path.join(uploadDir, 'vendor-bills');
+const vendorStatementsDir = path.join(uploadDir, 'vendor-statements');
+
+// Ensure directories exist
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+if (!fs.existsSync(vendorBillsDir)) fs.mkdirSync(vendorBillsDir);
+if (!fs.existsSync(vendorStatementsDir)) fs.mkdirSync(vendorStatementsDir);
+
+const billUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, vendorBillsDir);
+    },
+    filename: (req, file, cb) => {
+      const { vendor_code, invoice_id } = req.body;
+      const timestamp = Date.now();
+      const ext = path.extname(file.originalname);
+      cb(null, `${vendor_code}_${invoice_id}_${timestamp}${ext}`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, JPG, JPEG, PNG allowed.'));
+    }
+  }
+});
+
+const statementUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, vendorStatementsDir);
+    },
+    filename: (req, file, cb) => {
+      const { vendor_id } = req.params;
+      const timestamp = Date.now();
+      const ext = path.extname(file.originalname);
+      cb(null, `vendor_${vendor_id}_${timestamp}${ext}`);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['text/csv', 'application/pdf'];
+    if (allowedTypes.includes(file.mimetype) || file.originalname.endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only CSV and PDF allowed.'));
+    }
+  }
+});
+
+// POST /api/vendor-invoices/:id/upload-bill - Upload bill attachment
+router.post('/vendor-invoices/:id/upload-bill', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), billUpload.single('bill'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { invoice_id } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    // Get vendor info
+    const [invoice] = await pool.query(`
+      SELECT vi.*, v.vendor_code
+      FROM vendor_invoices vi
+      JOIN vendors v ON vi.vendor_id = v.id
+      WHERE vi.id = ?
+    `, [invoice_id || id]);
+
+    if (invoice.length === 0) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    const vendor = invoice[0];
+
+    // Insert attachment record
+    const [result] = await pool.query(`
+      INSERT INTO vendor_bill_attachments (vendor_invoice_id, vendor_id, file_name, file_path, file_type, file_size)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+      invoice_id || id,
+      vendor.vendor_id,
+      req.file.originalname,
+      req.file.path,
+      req.file.mimetype,
+      req.file.size
+    ]);
+
+    auditLog(req.user.id, 'BILL_UPLOAD', `Uploaded bill for invoice ${invoice_id || id}`, {
+      entity_type: 'vendor_bill_attachment',
+      entity_id: result.insertId
+    });
+
+    res.json({
+      success: true,
+      data: {
+        id: result.insertId,
+        file_name: req.file.originalname,
+        file_path: req.file.path,
+        uploaded_at: new Date()
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading bill:', error);
+    res.status(500).json({ success: false, message: 'Upload failed' });
+  }
+});
+
+// GET /api/vendors/:id/bills - Get all bills for vendor
+router.get('/vendors/:id/bills', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.query;
+
+    let whereClause = 'WHERE vba.vendor_id = ?';
+    const params = [id];
+
+    if (status) {
+      whereClause += ' AND vi.status = ?';
+      params.push(status);
+    }
+
+    const [bills] = await pool.query(`
+      SELECT
+        vba.id as attachment_id,
+        vba.file_name,
+        vba.file_path,
+        vba.file_type,
+        vba.uploaded_at,
+        vi.invoice_number,
+        vi.invoice_date,
+        vi.amount as invoice_amount,
+        vi.status as invoice_status
+      FROM vendor_bill_attachments vba
+      JOIN vendor_invoices vi ON vba.vendor_invoice_id = vi.id
+      JOIN vendors v ON vba.vendor_id = v.id
+      ${whereClause}
+      ORDER BY vba.uploaded_at DESC
+    `, params);
+
+    res.json({ success: true, data: bills });
+  } catch (error) {
+    console.error('Error fetching bills:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// GET /api/vendor-invoices/:id/bills - Get bills for specific invoice
+router.get('/vendor-invoices/:id/bills', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [bills] = await pool.query(`
+      SELECT
+        vba.id,
+        vba.file_name,
+        vba.file_path,
+        vba.file_type,
+        vba.file_size,
+        vba.uploaded_at
+      FROM vendor_bill_attachments vba
+      WHERE vba.vendor_invoice_id = ?
+      ORDER BY vba.uploaded_at DESC
+    `, [id]);
+
+    res.json({ success: true, data: bills });
+  } catch (error) {
+    console.error('Error fetching invoice bills:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// DELETE /api/vendor-bill-attachments/:id - Delete bill attachment
+router.delete('/vendor-bill-attachments/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get file path
+    const [attachment] = await pool.query('SELECT file_path FROM vendor_bill_attachments WHERE id = ?', [id]);
+    if (attachment.length === 0) {
+      return res.status(404).json({ success: false, message: 'Attachment not found' });
+    }
+
+    // Delete file from disk
+    if (fs.existsSync(attachment[0].file_path)) {
+      fs.unlinkSync(attachment[0].file_path);
+    }
+
+    // Delete from database
+    await pool.query('DELETE FROM vendor_bill_attachments WHERE id = ?', [id]);
+
+    auditLog(req.user.id, 'BILL_DELETE', `Deleted bill attachment ${id}`, {
+      entity_type: 'vendor_bill_attachment',
+      entity_id: id
+    });
+
+    res.json({ success: true, message: 'Bill attachment deleted' });
+  } catch (error) {
+    console.error('Error deleting bill attachment:', error);
+    res.status(500).json({ success: false, message: 'Delete failed' });
+  }
+});
+
+// POST /api/vendors/:id/upload-statement - Upload bank statement
+router.post('/vendors/:id/upload-statement', authenticateToken, authorizeRoles('Admin', 'Accountant'), statementUpload.single('statement'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { statement_month } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    // Insert statement record
+    const [result] = await pool.query(`
+      INSERT INTO vendor_statements (vendor_id, statement_month, file_name, file_path)
+      VALUES (?, ?, ?, ?)
+    `, [id, statement_month, req.file.originalname, req.file.path]);
+
+    const statementId = result.insertId;
+    let linesParsed = 0;
+
+    if (req.file.mimetype === 'text/csv' || req.file.originalname.endsWith('.csv')) {
+      // Parse CSV
+      const csvData = fs.readFileSync(req.file.path, 'utf8');
+      const records = [];
+
+      await new Promise((resolve, reject) => {
+        csv.parse(csvData, {
+          skip_empty_lines: true,
+          from_line: 2 // Skip header
+        })
+        .on('data', (row) => {
+          // Try to detect columns and parse
+          const line = parseStatementLine(row);
+          if (line) records.push({ ...line, statementId });
+        })
+        .on('end', () => resolve())
+        .on('error', reject);
+      });
+
+      // Insert parsed lines
+      if (records.length > 0) {
+        const values = records.map(r => [statementId, r.date, r.description, r.amount, r.type]);
+        await pool.query(`
+          INSERT INTO vendor_statement_lines (vendor_statement_id, line_date, description, amount, type)
+          VALUES ${values.map(() => '(?, ?, ?, ?, ?)').join(', ')}
+        `, values.flat());
+      }
+      linesParsed = records.length;
+
+    } else if (req.file.mimetype === 'application/pdf') {
+      // Extract text from PDF
+      const pdfData = fs.readFileSync(req.file.path);
+      const pdfText = await pdfParse(pdfData);
+
+      // Store raw text
+      await pool.query('UPDATE vendor_statements SET raw_text = ? WHERE id = ?', [pdfText.text, statementId]);
+
+      // Try to parse lines from text
+      const lines = pdfText.text.split('\n').filter(line => line.trim());
+      const parsedLines = [];
+
+      for (const line of lines) {
+        const parsed = parseStatementLineFromText(line);
+        if (parsed) {
+          parsedLines.push(parsed);
+        }
+      }
+
+      // Insert parsed lines
+      if (parsedLines.length > 0) {
+        const values = parsedLines.map(r => [statementId, r.date, r.description, r.amount, r.type]);
+        await pool.query(`
+          INSERT INTO vendor_statement_lines (vendor_statement_id, line_date, description, amount, type)
+          VALUES ${values.map(() => '(?, ?, ?, ?, ?)').join(', ')}
+        `, values.flat());
+      }
+      linesParsed = parsedLines.length;
+    }
+
+    auditLog(req.user.id, 'STATEMENT_UPLOAD', `Uploaded statement for vendor ${id}`, {
+      entity_type: 'vendor_statement',
+      entity_id: statementId
+    });
+
+    res.json({
+      success: true,
+      data: {
+        statement_id: statementId,
+        lines_parsed: linesParsed
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading statement:', error);
+    res.status(500).json({ success: false, message: 'Upload failed' });
+  }
+});
+
+// Helper function to parse CSV row
+function parseStatementLine(row) {
+  // Try different column arrangements
+  const datePatterns = [
+    /^\d{2}[-/]\d{2}[-/]\d{4}$/, // DD-MM-YYYY
+    /^\d{4}[-/]\d{2}[-/]\d{2}$/, // YYYY-MM-DD
+    /^\d{2}[-/]\d{2}[-/]\d{2}$/, // DD-MM-YY
+  ];
+
+  for (let i = 0; i < row.length; i++) {
+    const cell = row[i]?.trim();
+    if (!cell) continue;
+
+    // Check if this looks like a date
+    const isDate = datePatterns.some(pattern => pattern.test(cell));
+    if (isDate) {
+      const date = parseDate(cell);
+      if (date) {
+        // Look for amount in nearby columns
+        for (let j = i + 1; j < Math.min(i + 4, row.length); j++) {
+          const amountCell = row[j]?.trim();
+          if (amountCell) {
+            const amount = parseFloat(amountCell.replace(/[^\d.-]/g, ''));
+            if (!isNaN(amount) && amount !== 0) {
+              const description = row.slice(i + 1, j).join(' ').trim() || row.slice(Math.max(0, i - 2), i).join(' ').trim();
+              return {
+                date,
+                description: description || 'Transaction',
+                amount: Math.abs(amount),
+                type: amount > 0 ? 'credit' : 'debit'
+              };
             }
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// Helper function to parse statement line from text
+function parseStatementLineFromText(line) {
+  // Look for date pattern followed by amount
+  const datePattern = /(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/g;
+  const amountPattern = /₹?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/g;
+
+  const dateMatch = line.match(datePattern);
+  const amountMatch = line.match(amountPattern);
+
+  if (dateMatch && amountMatch) {
+    const date = parseDate(dateMatch[0]);
+    const amount = parseFloat(amountMatch[0].replace(/[^\d.]/g, ''));
+
+    if (date && !isNaN(amount)) {
+      // Remove date and amount from description
+      let description = line.replace(dateMatch[0], '').replace(amountMatch[0], '').trim();
+      if (!description) description = 'Transaction';
+
+      return {
+        date,
+        description,
+        amount,
+        type: amount > 0 ? 'credit' : 'debit'
+      };
+    }
+  }
+  return null;
+}
+
+// Helper function to parse date
+function parseDate(dateStr) {
+  // Try different date formats
+  const formats = [
+    'DD-MM-YYYY', 'DD/MM/YYYY', 'DD-MM-YY', 'DD/MM/YY',
+    'YYYY-MM-DD', 'YYYY/MM/DD', 'MM-DD-YYYY', 'MM/DD/YYYY'
+  ];
+
+  for (const format of formats) {
+    try {
+      let date;
+      if (format === 'DD-MM-YYYY') {
+        const [d, m, y] = dateStr.split(/[-/]/);
+        date = new Date(y.length === 2 ? `20${y}` : y, m - 1, d);
+      } else if (format === 'YYYY-MM-DD') {
+        const [y, m, d] = dateStr.split(/[-/]/);
+        date = new Date(y, m - 1, d);
+      }
+
+      if (date && !isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      continue;
+    }
+  }
+  return null;
+}
+
+// POST /api/vendor-statements/:id/reconcile - Reconcile statement
+router.post('/vendor-statements/:id/reconcile', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get statement and vendor info
+    const [statement] = await pool.query(`
+      SELECT vs.*, v.name as vendor_name
+      FROM vendor_statements vs
+      JOIN vendors v ON vs.vendor_id = v.id
+      WHERE vs.id = ?
+    `, [id]);
+
+    if (statement.length === 0) {
+      return res.status(404).json({ success: false, message: 'Statement not found' });
+    }
+
+    const vendorId = statement[0].vendor_id;
+
+    // Get unmatched statement lines
+    const [lines] = await pool.query(`
+      SELECT * FROM vendor_statement_lines
+      WHERE vendor_statement_id = ? AND match_status = 'unmatched'
+      ORDER BY line_date
+    `, [id]);
+
+    let matched = 0, partial = 0, unmatched = 0;
+    const discrepancies = [];
+
+    for (const line of lines) {
+      // Try to match with invoices
+      const [matches] = await pool.query(`
+        SELECT vi.*,
+               ABS(vi.amount - ?) as amount_diff,
+               ABS(DATEDIFF(vi.due_date, ?) / 30) as date_diff_months
+        FROM vendor_invoices vi
+        WHERE vi.vendor_id = ?
+          AND vi.status IN ('pending', 'partial', 'overdue')
+          AND ABS(vi.amount - ?) <= 100  -- Amount tolerance
+          AND ABS(DATEDIFF(vi.due_date, ?)) <= 5  -- Date tolerance (5 days)
+        ORDER BY amount_diff, date_diff_months
+        LIMIT 1
+      `, [line.amount, line.line_date, vendorId, line.amount, line.line_date]);
+
+      if (matches.length > 0) {
+        const invoice = matches[0];
+
+        // Check description match
+        const descriptionMatch = invoice.invoice_number &&
+          line.description.toLowerCase().includes(invoice.invoice_number.toLowerCase());
+
+        if (Math.abs(invoice.amount - line.amount) < 1 && descriptionMatch) {
+          // Perfect match
+          await pool.query(`
+            UPDATE vendor_statement_lines
+            SET matched_invoice_id = ?, match_status = 'matched'
+            WHERE id = ?
+          `, [invoice.id, line.id]);
+          matched++;
+        } else if (Math.abs(invoice.amount - line.amount) < 1) {
+          // Amount matches but date off
+          await pool.query(`
+            UPDATE vendor_statement_lines
+            SET matched_invoice_id = ?, match_status = 'partial'
+            WHERE id = ?
+          `, [invoice.id, line.id]);
+          partial++;
+        } else {
+          unmatched++;
+          discrepancies.push({
+            line_id: line.id,
+            description: line.description,
+            amount: line.amount,
+            reason: 'Amount mismatch'
+          });
+        }
+      } else {
+        unmatched++;
+        discrepancies.push({
+          line_id: line.id,
+          description: line.description,
+          amount: line.amount,
+          reason: 'No matching invoice found'
         });
-    } catch (err) {
-        console.error('Statement error:', err);
-        res.status(500).json({ message: 'Database error' });
+      }
     }
+
+    // Update statement reconciliation status
+    let status = 'pending';
+    if (matched > 0 && unmatched === 0) {
+      status = 'matched';
+    } else if (unmatched > 0) {
+      status = 'has_discrepancy';
+    }
+
+    await pool.query(`
+      UPDATE vendor_statements
+      SET reconciliation_status = ?, discrepancy_notes = ?
+      WHERE id = ?
+    `, [status, discrepancies.length > 0 ? JSON.stringify(discrepancies.slice(0, 10)) : null, id]);
+
+    auditLog(req.user.id, 'STATEMENT_RECONCILE', `Reconciled statement ${id}: ${matched} matched, ${partial} partial, ${unmatched} unmatched`, {
+      entity_type: 'vendor_statement',
+      entity_id: id
+    });
+
+    res.json({
+      success: true,
+      data: {
+        matched,
+        partial,
+        unmatched,
+        discrepancies: discrepancies.slice(0, 5) // Return first 5 discrepancies
+      }
+    });
+  } catch (error) {
+    console.error('Error reconciling statement:', error);
+    res.status(500).json({ success: false, message: 'Reconciliation failed' });
+  }
 });
 
-// Aggregated items purchased from a vendor
-router.get('/vendors/:id/items', authenticateToken, async (req, res) => {
-    const vendorId = req.params.id;
-    try {
-        // Branch visibility: non-admin/accountant users only see their branch
-        let branchClause = '';
-        const params = [];
-        if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            branchClause = ' AND b.branch_id = ?';
-            params.push(req.user.branch_id);
-        } else if (req.query.branch_id) {
-            branchClause = ' AND b.branch_id = ?';
-            params.push(req.query.branch_id);
-        }
+// GET /api/vendor-statements/:id/result - Get reconciliation results
+router.get('/vendor-statements/:id/result', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
 
-        // Aggregate quantities and fetch last purchase info per inventory item
-        const sql = `
-            SELECT i.inventory_item_id as inventory_id, IFNULL(inv.name, '') as item_name, IFNULL(inv.sku, '') as sku,
-                   SUM(i.quantity) as total_purchased,
-                   (
-                     SELECT ib.unit_cost FROM sarga_vendor_bill_items ib
-                     JOIN sarga_vendor_bills bb ON ib.bill_id = bb.id
-                     WHERE ib.inventory_item_id = i.inventory_item_id AND bb.vendor_id = ? ${branchClause}
-                     ORDER BY bb.bill_date DESC, ib.id DESC LIMIT 1
-                   ) as last_unit_cost,
-                   (
-                     SELECT bb.bill_date FROM sarga_vendor_bill_items ib2
-                     JOIN sarga_vendor_bills bb ON ib2.bill_id = bb.id
-                     WHERE ib2.inventory_item_id = i.inventory_item_id AND bb.vendor_id = ? ${branchClause}
-                     ORDER BY bb.bill_date DESC, ib2.id DESC LIMIT 1
-                   ) as last_bill_date,
-                   (
-                     SELECT bb.id FROM sarga_vendor_bill_items ib3
-                     JOIN sarga_vendor_bills bb ON ib3.bill_id = bb.id
-                     WHERE ib3.inventory_item_id = i.inventory_item_id AND bb.vendor_id = ? ${branchClause}
-                     ORDER BY bb.bill_date DESC, ib3.id DESC LIMIT 1
-                   ) as last_bill_id
-            FROM sarga_vendor_bill_items i
-            JOIN sarga_vendor_bills b ON i.bill_id = b.id
-            LEFT JOIN sarga_inventory inv ON inv.id = i.inventory_item_id
-            WHERE b.vendor_id = ? ${branchClause}
-            GROUP BY i.inventory_item_id
-            ORDER BY last_bill_date DESC, total_purchased DESC
-        `;
+    const [lines] = await pool.query(`
+      SELECT vsl.*,
+             vi.invoice_number,
+             vi.invoice_date,
+             vi.amount as invoice_amount,
+             vi.status as invoice_status
+      FROM vendor_statement_lines vsl
+      LEFT JOIN vendor_invoices vi ON vsl.matched_invoice_id = vi.id
+      WHERE vsl.vendor_statement_id = ?
+      ORDER BY vsl.line_date
+    `, [id]);
 
-        // params order: for each subquery vendorId + optional branch, then vendorId + optional branch, then vendorId + optional branch, then main vendorId + optional branch
-        const allParams = [vendorId];
-        if (branchClause) allParams.push(...params);
-        allParams.push(vendorId);
-        if (branchClause) allParams.push(...params);
-        allParams.push(vendorId);
-        if (branchClause) allParams.push(...params);
-        allParams.push(vendorId);
-        if (branchClause) allParams.push(...params);
-
-        const [rows] = await pool.query(sql, allParams);
-        const mapped = rows.map(r => ({
-            inventory_id: r.inventory_id,
-            item_name: r.item_name,
-            sku: r.sku,
-            total_purchased: Number(r.total_purchased || 0),
-            last_unit_cost: r.last_unit_cost != null ? Number(r.last_unit_cost) : null,
-            last_bill_date: r.last_bill_date || null,
-            last_bill_id: r.last_bill_id || null
-        }));
-
-        res.json({ items: mapped });
-    } catch (err) {
-        console.error('Vendor items error:', err);
-        res.status(500).json({ message: 'Failed to fetch vendor items' });
-    }
-});
-
-// Delete Vendor (Admin only)
-router.delete('/vendors/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        // Check if vendor has any bills or payments
-        const [[billCount]] = await pool.query(
-            'SELECT COUNT(*) as count FROM sarga_vendor_bills WHERE vendor_id = ?',
-            [id]
-        );
-        const [[paymentCount]] = await pool.query(
-            'SELECT COUNT(*) as count FROM sarga_payments WHERE vendor_id = ?',
-            [id]
-        );
-
-        if (Number(billCount.count) > 0 || Number(paymentCount.count) > 0) {
-            return res.status(400).json({
-                error: 'Cannot delete vendor with existing bills or payments. Please archive instead.'
-            });
-        }
-
-        await pool.query('DELETE FROM sarga_vendors WHERE id = ?', [id]);
-        auditLog(req.user.id, 'DELETE', `Deleted vendor ID ${id}`);
-        res.json({ message: 'Vendor deleted successfully' });
-    } catch (err) {
-        console.error('Delete vendor error:', err);
-        res.status(500).json({ error: 'Failed to delete vendor' });
-    }
+    res.json({ success: true, data: lines });
+  } catch (error) {
+    console.error('Error fetching reconciliation results:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
 });
 
 module.exports = router;
-
