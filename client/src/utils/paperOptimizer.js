@@ -42,10 +42,13 @@ export const PAPER_SIZES = {
   'SRA3': { w: 320, h: 450, label: 'SRA3 (320×450 mm)' },
   'SRA2': { w: 450, h: 640, label: 'SRA2 (450×640 mm)' },
   'SRA1': { w: 640, h: 900, label: 'SRA1 (640×900 mm)' },
+  // Common inch sizes for offset printing
+  '13x19': { w: 330, h: 483, label: '13×19 inch (330×483 mm)' },
+  '12x18': { w: 305, h: 457, label: '12×18 inch (305×457 mm)' },
 };
 
 // Common sheet sizes used as source paper
-export const SHEET_SIZES = ['SRA1', 'SRA2', 'SRA3', 'A0', 'A1', 'A2', 'A3', 'Demy', 'Crown', 'Double Demy', 'Tabloid', 'Legal', 'Letter', 'A4'];
+export const SHEET_SIZES = ['SRA1', 'SRA2', 'SRA3', 'A0', 'A1', 'A2', 'A3', 'Demy', 'Crown', 'Double Demy', 'Tabloid', 'Legal', 'Letter', 'A4', '13x19', '12x18'];
 
 // Common item sizes to print on
 export const ITEM_SIZES = ['A3', 'A4', 'A5', 'A6', 'A7', 'B4', 'B5', 'Letter', 'Legal', '1/4 Demy', '1/8 Demy', 'Business Card', 'DL Envelope'];

@@ -35,7 +35,7 @@ module.exports = (upload) => {
 
         try {
             const [users] = await pool.query(
-                `SELECT s.id, s.user_id, s.name, s.role, s.password, s.branch_id, s.is_first_login, s.image_url, b.short_name AS branch_short_name FROM sarga_staff s LEFT JOIN sarga_branches b ON b.id = s.branch_id WHERE (s.user_id = ? OR RIGHT(s.user_id, 10) = ?) LIMIT 1`,
+                `SELECT s.id, s.user_id, s.name, s.role, s.password, s.branch_id, s.is_first_login, s.image_url, s.settings, b.short_name AS branch_short_name FROM sarga_staff s LEFT JOIN sarga_branches b ON b.id = s.branch_id WHERE (s.user_id = ? OR RIGHT(s.user_id, 10) = ?) LIMIT 1`,
                 [normalizedUserId || last10, last10]
             );
             const user = users[0];
@@ -78,6 +78,7 @@ module.exports = (upload) => {
                     branch_id: user.branch_id || null,
                     branch_short_name: user.branch_short_name || null,
                     image_url: user.image_url || null,
+                    settings: user.settings || null,
                     is_first_login: !!user.is_first_login
                 }
             });
@@ -137,7 +138,7 @@ module.exports = (upload) => {
     router.get('/staff/me', authenticateToken, async (req, res) => {
         try {
             const [rows] = await pool.query(
-                "SELECT id, user_id, name, role, branch_id, image_url FROM sarga_staff WHERE id = ?",
+                "SELECT id, user_id, name, role, branch_id, image_url, settings FROM sarga_staff WHERE id = ?",
                 [req.user.id]
             );
             if (!rows[0]) return res.status(404).json({ message: 'User not found' });
@@ -177,7 +178,7 @@ module.exports = (upload) => {
             }
 
             const [rows] = await pool.query(
-                "SELECT id, user_id, name, role, branch_id, image_url FROM sarga_staff WHERE id = ?",
+                "SELECT id, user_id, name, role, branch_id, image_url, settings FROM sarga_staff WHERE id = ?",
                 [req.user.id]
             );
             auditLog(req.user.id, 'PROFILE_UPDATE', 'Updated profile details');

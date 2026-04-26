@@ -3,6 +3,7 @@ import { X, Loader2, ExternalLink, FileText } from 'lucide-react';
 import api, { imgUrl } from '../../services/api';
 import localDb from '../../services/localDb';
 import { fmt, fmtDate } from './constants';
+import SecureImage from '../../components/SecureImage';
 
 const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }) => {
   const [loading, setLoading] = useState(false);
@@ -152,7 +153,7 @@ const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }
                       <ExternalLink size={14} /> Open Original
                     </a>
                   </div>
-                  {isImage && <img src={attachmentUrl} alt="Bill attachment" style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)' }} />}
+                  {isImage && <SecureImage src={document.file_path} alt="Bill attachment" style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)' }} />}
                   {!isImage && isPdf && (
                     <iframe
                       src={attachmentUrl}

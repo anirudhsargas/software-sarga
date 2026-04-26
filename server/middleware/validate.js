@@ -281,7 +281,8 @@ const kuriPaymentSchema = z.object({
 const staffSalaryUpdateSchema = z.object({
     salary_type: z.enum(['Monthly', 'Daily']).optional(),
     base_salary: positiveDecimal.nullable(),
-    daily_rate: positiveDecimal.nullable()
+    daily_rate: positiveDecimal.nullable(),
+    settings: z.any().optional()
 });
 
 // ---- Middleware factory ----

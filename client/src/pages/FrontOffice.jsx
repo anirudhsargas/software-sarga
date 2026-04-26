@@ -101,7 +101,32 @@ const FrontOffice = () => {
         // Fetch fresh data
         try {
             const fresh = await api.get('/front-office/dashboard');
-            setData(fresh.data);
+            const serverData = fresh.data;
+
+            // Include local pending bills in stats
+            try {
+                const pendingBills = await localDb.getJobs();
+                const localBills = pendingBills.filter(j => j._isLocal && j.syncStatus === 'pending');
+                const today = new Date().toDateString();
+                const todayLocalBills = localBills.filter(j => 
+                    j.created_at && new Date(j.created_at).toDateString() === today
+                );
+
+                // Merge local bills into stats
+                const mergedData = {
+                    ...serverData,
+                    stats: {
+                        ...serverData.stats,
+                        today_orders: (serverData.stats?.today_orders || 0) + todayLocalBills.length,
+                        in_progress: (serverData.stats?.in_progress || 0) + localBills.filter(j => j.status === 'pending').length
+                    }
+                };
+                setData(mergedData);
+            } catch (localErr) {
+                console.error('Failed to load local bills for dashboard:', localErr);
+                // Fallback to server data only
+                setData(serverData);
+            }
             setError('');
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to load dashboard');
@@ -282,9 +307,26 @@ const FrontOffice = () => {
         try {
             const res = await api.get(`front-office/active-jobs?page=${pg}&limit=${PAGE_SIZE}`);
             const d = res.data;
-            setActiveJobs(d.data || []);
-            setActiveTotal(d.total || 0);
-            setActiveTotalPages(d.totalPages || 1);
+            let serverJobs = d.data || [];
+
+            // Include local pending bills as jobs
+            try {
+                const pendingBills = await localDb.getJobs({ status: 'pending' });
+                const localJobs = pendingBills.filter(j => j._isLocal && j.syncStatus === 'pending');
+                // Merge local jobs with server jobs, sort by created_at
+                const allJobs = [...localJobs, ...serverJobs].sort((a, b) => 
+                    new Date(b.created_at) - new Date(a.created_at)
+                );
+                setActiveJobs(allJobs);
+                setActiveTotal(allJobs.length);
+                setActiveTotalPages(Math.ceil(allJobs.length / PAGE_SIZE));
+            } catch (localErr) {
+                console.error('Failed to load local jobs:', localErr);
+                // Fallback to server jobs only
+                setActiveJobs(serverJobs);
+                setActiveTotal(d.total || 0);
+                setActiveTotalPages(d.totalPages || 1);
+            }
         } catch { toast.error('Failed to load active jobs'); }
         finally { setActiveLoading(false); }
     }, []);
@@ -657,6 +699,10 @@ const FrontOffice = () => {
                     <Wallet size={20} />
                     <span>Take Payment</span>
                     <kbd>Alt+P</kbd>
+                </button>
+                <button className="fo-action-btn fo-action-btn--info" onClick={() => navigate('/dashboard/staff')}>
+                    <Calendar size={20} />
+                    <span>Attendance</span>
                 </button>
                 <button className="fo-action-btn fo-action-btn--accent" onClick={() => navigate('/dashboard/customers')}>
                     <Users size={20} />

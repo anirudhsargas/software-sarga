@@ -8,7 +8,8 @@ import InvoiceModal from '../components/InvoiceModal';
 import PaymentModal from '../components/PaymentModal';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
-import { FaPlus, FaChartLine, FaList } from 'react-icons/fa';
+import { Plus, TrendingUp, List } from 'lucide-react';
+import './Vendors.css';
 
 const Vendors = () => {
   const navigate = useNavigate();
@@ -110,71 +111,59 @@ const Vendors = () => {
   };
 
   return (
-    <div className="page-container page-enter-active">
+    <div className="page-container">
       {/* Header section with glassmorphism */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-32">
-        <div>
-          <h1 className="text-32 font-700 tracking-tight mb-4" style={{ fontFamily: 'var(--font-heading, "Space Grotesk")' }}>
-            Vendor <span className="text-muted">Management</span>
+      <div className="vendor-header">
+        <div className="vendor-header__title">
+          <h1>
+            Vendor <span style={{ color: 'var(--muted)' }}>Management</span>
           </h1>
-          <p className="text-muted text-14 max-w-400">
+          <p>
             Monitor vendor performance, manage procurement invoices, and track outstanding liabilities across all branches.
           </p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-12">
-          <div className="p-4 bg-surface-2 rounded-16 flex gap-4 border border-subtle">
+        <div className="vendor-header__actions">
+          <div className="view-toggle">
             <button
               onClick={() => setCurrentView('dashboard')}
-              className={`px-16 py-8 rounded-12 flex items-center gap-8 transition-all duration-300 ${
-                currentView === 'dashboard'
-                  ? 'bg-accent text-on-accent shadow-md'
-                  : 'text-muted hover:text-accent hover:bg-surface-1'
-              }`}
+              className={`view-toggle__btn ${currentView === 'dashboard' ? 'view-toggle__btn--active' : ''}`}
             >
-              <FaChartLine size={16} />
-              <span className="font-600 text-14">Analytics</span>
+              <TrendingUp size={16} />
+              <span>Analytics</span>
             </button>
             <button
               onClick={() => setCurrentView('list')}
-              className={`px-16 py-8 rounded-12 flex items-center gap-8 transition-all duration-300 ${
-                currentView === 'list'
-                  ? 'bg-accent text-on-accent shadow-md'
-                  : 'text-muted hover:text-accent hover:bg-surface-1'
-              }`}
+              className={`view-toggle__btn ${currentView === 'list' ? 'view-toggle__btn--active' : ''}`}
             >
-              <FaList size={16} />
-              <span className="font-600 text-14">Directory</span>
+              <List size={16} />
+              <span>Directory</span>
             </button>
           </div>
 
           <button
             onClick={handleAddVendor}
-            className="btn btn-primary h-48 px-24 shadow-lg hover:scale-105 active:scale-95"
+            className="btn btn-primary"
           >
-            <FaPlus /> 
+            <Plus size={16} /> 
             <span>New Vendor</span>
           </button>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="vendor-content-wrapper">
+      <div>
         {currentView === 'dashboard' ? (
-          <div className="animate-in fade-in slide-in-from-bottom-10 duration-500">
-            <VendorDashboard />
-          </div>
+          <VendorDashboard />
         ) : (
-          <div className="animate-in fade-in slide-in-from-bottom-10 duration-500">
-            <VendorsList
-              onViewVendor={handleViewVendor}
-              onAddInvoice={handleAddInvoice}
-              onEditVendor={handleEditVendor}
-              onDeleteVendor={handleDeleteVendor}
-              formatCurrency={formatCurrency}
-              getStatusBadge={getStatusBadge}
-            />
-          </div>
+          <VendorsList
+            onViewVendor={handleViewVendor}
+            onAddInvoice={handleAddInvoice}
+            onEditVendor={handleEditVendor}
+            onDeleteVendor={handleDeleteVendor}
+            formatCurrency={formatCurrency}
+            getStatusBadge={getStatusBadge}
+          />
         )}
       </div>
 
@@ -203,33 +192,6 @@ const Vendors = () => {
         />
       )}
 
-      <style jsx>{`
-        .page-container {
-          padding: 32px;
-          max-width: 1400px;
-          margin: 0 auto;
-        }
-        .mb-32 { margin-bottom: 32px; }
-        .rounded-16 { border-radius: 16px; }
-        .rounded-12 { border-radius: 12px; }
-        .text-32 { font-size: 32px; }
-        .text-14 { font-size: 14px; }
-        .font-700 { font-weight: 700; }
-        .font-600 { font-weight: 600; }
-        .tracking-tight { letter-spacing: -0.02em; }
-        .max-w-400 { max-width: 400px; }
-        .gap-12 { gap: 12px; }
-        .h-48 { height: 48px; }
-        .border-subtle { border: 1px solid var(--border-subtle); }
-        
-        .animate-in {
-          animation: animate-in 0.5s ease-out;
-        }
-        @keyframes animate-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 };

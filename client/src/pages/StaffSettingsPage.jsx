@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Settings as SettingsIcon, UserSquare } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings as SettingsIcon, UserSquare, Loader2 } from 'lucide-react';
 import './SettingsPage.css';
-import { useEffect } from 'react';
+import useAuth from '../hooks/useAuth';
+import api from '../services/api';
+import toast from 'react-hot-toast';
 
 const staffTabs = [
     { key: 'profile', label: 'Profile', icon: UserSquare, desc: 'Your staff profile' },
@@ -11,26 +13,48 @@ const staffTabs = [
 
 const sidebarOptions = [
     { key: 'dashboard', label: 'Dashboard' },
-    { key: 'jobs', label: 'Jobs' },
-    { key: 'expenses', label: 'Expenses' },
-    { key: 'attendance', label: 'Attendance' },
-    { key: 'profile', label: 'Profile' },
-    // Add more as needed
+    { key: 'customers', label: 'Customers' },
+    { key: 'billing', label: 'Billing' },
+    { key: 'jobs', label: 'Jobs & Orders' },
+    { key: 'inventory', label: 'Inventory' },
+    { key: 'operations', label: 'Operations' },
+    { key: 'finance', label: 'Finance' },
+    { key: 'manage', label: 'Management' },
+    { key: 'reports', label: 'Reports' },
+    { key: 'internal', label: 'Internal Books' },
 ];
 
 function SidebarVisibilitySettings() {
+    const { user, updateUser } = useAuth();
+    const [loading, setLoading] = useState(false);
     const [visibleItems, setVisibleItems] = useState(() => {
-        // Load from localStorage or default to all true
-        const saved = localStorage.getItem('staffSidebarItems');
-        return saved ? JSON.parse(saved) : Object.fromEntries(sidebarOptions.map(opt => [opt.key, true]));
+        try {
+            const settings = user?.settings ? (typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings) : {};
+            return settings.sidebar || Object.fromEntries(sidebarOptions.map(opt => [opt.key, true]));
+        } catch (e) {
+            return Object.fromEntries(sidebarOptions.map(opt => [opt.key, true]));
+        }
     });
 
-    useEffect(() => {
-        localStorage.setItem('staffSidebarItems', JSON.stringify(visibleItems));
-    }, [visibleItems]);
-
-    const toggleItem = (key) => {
-        setVisibleItems(items => ({ ...items, [key]: !items[key] }));
+    const toggleItem = async (key) => {
+        const oldItems = { ...visibleItems };
+        const newVisible = { ...visibleItems, [key]: !visibleItems[key] };
+        setVisibleItems(newVisible);
+        
+        setLoading(true);
+        try {
+            const currentSettings = user?.settings ? (typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings) : {};
+            const newSettings = { ...currentSettings, sidebar: newVisible };
+            
+            const { data } = await api.put('/staff/me', { settings: newSettings });
+            updateUser({ ...user, settings: data.settings });
+            toast.success('Sidebar preferences updated');
+        } catch (err) {
+            toast.error('Failed to save preferences');
+            setVisibleItems(oldItems);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -38,13 +62,15 @@ function SidebarVisibilitySettings() {
             <div className="sp-section-header">
                 <SettingsIcon size={20} className="text-accent" />
                 <h3 className="sp-card-title">Sidebar Items</h3>
+                {loading && <Loader2 size={16} className="animate-spin ml-8" />}
             </div>
-            <p className="sp-note">Choose which items appear in your sidebar.</p>
+            <p className="sp-note">Choose which items appear in your sidebar. These settings are saved to your profile.</p>
             <div className="sp-grid sp-grid--2">
                 {sidebarOptions.map(opt => (
-                    <label key={opt.key} className="sp-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label key={opt.key} className="sp-label" style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
                         <input
                             type="checkbox"
+                            disabled={loading}
                             checked={!!visibleItems[opt.key]}
                             onChange={() => toggleItem(opt.key)}
                             style={{ marginRight: 8 }}

@@ -194,56 +194,74 @@ const Dashboard = () => {
 
     const menuItems = [
         // Main dashboards
-        { name: t('summary', 'Summary'), icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
-        { name: t('front_office', 'Front Office'), icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
-        { name: t('dashboard', 'Dashboard'), icon: Grid, path: '/dashboard', roles: ['Accountant', 'Other Staff'] },
+        { key: 'dashboard', name: t('summary', 'Summary'), icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
+        { key: 'dashboard', name: t('front_office', 'Front Office'), icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
+        { key: 'dashboard', name: t('dashboard', 'Dashboard'), icon: Grid, path: '/dashboard', roles: ['Accountant', 'Other Staff'] },
         // Business operations
-        { name: t('customers', 'Customers'), icon: UserSquare, path: '/dashboard/customers', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
-        { name: t('billing', 'Billing'), icon: Receipt, path: '/dashboard/billing', roles: ['Front Office'], group: 'business' },
-        { name: t('orders', 'Orders'), icon: ClipboardList, path: '/dashboard/jobs', roles: ['Front Office'] },
-        { name: t('jobs_orders', 'Jobs & Orders'), icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Accountant'], group: 'business' },
-        { name: t('customer_payments', 'Customer Payments'), icon: Receipt, path: '/dashboard/customer-payments', roles: ['Admin', 'Front Office'], group: 'business' },
+        { key: 'customers', name: t('customers', 'Customers'), icon: UserSquare, path: '/dashboard/customers', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
+        { key: 'billing', name: t('billing', 'Billing'), icon: Receipt, path: '/dashboard/billing', roles: ['Front Office'], group: 'business' },
+        { key: 'jobs', name: t('orders', 'Orders'), icon: ClipboardList, path: '/dashboard/jobs', roles: ['Front Office'] },
+        { key: 'jobs', name: t('jobs_orders', 'Jobs & Orders'), icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Accountant'], group: 'business' },
+        { key: 'customers', name: t('customer_payments', 'Customer Payments'), icon: Receipt, path: '/dashboard/customer-payments', roles: ['Admin', 'Front Office'], group: 'business' },
         // Inventory & Operations
-        { name: t('inventory', 'Inventory'), icon: Box, path: '/dashboard/inventory', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
-        { name: t('paper_inventory', 'Paper Inventory'), icon: FileText, path: '/dashboard/paper/stock', roles: ['Admin', 'Front Office', 'Accountant', 'Designer'], group: 'inventory' },
-        { name: t('consumables_inventory', 'Consumables Inventory'), icon: Package, path: '/dashboard/inventory/consumables', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
-        { name: t('stock_verification', 'Stock Verification'), icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'operations' },
-        { name: t('stock_planning', 'Stock Planning'), icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
-        { name: t('product_library', 'Product Library'), icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'operations' },
-        { name: t('plate_management', 'Plate Management'), icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'operations' },
-        { name: t('machine_management', 'Machine Management'), icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'operations' },
-        { name: t('paper_layout', 'Paper Layout'), icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'operations' },
-        { name: t('production_tracker', 'Production Tracker'), icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'operations' },
+        { key: 'inventory', name: t('inventory', 'Inventory'), icon: Box, path: '/dashboard/inventory', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
+        { key: 'inventory', name: t('paper_inventory', 'Paper Inventory'), icon: FileText, path: '/dashboard/paper/stock', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
+        { key: 'inventory', name: t('inventory', 'Consumables Inventory'), icon: Package, path: '/dashboard/inventory/consumables', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
+        { key: 'operations', name: t('stock_verification', 'Stock Verification'), icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'operations' },
+        { key: 'operations', name: t('stock_planning', 'Stock Planning'), icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
+        { key: 'operations', name: t('product_library', 'Product Library'), icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'operations' },
+        { key: 'operations', name: t('plate_management', 'Plate Management'), icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'operations' },
+        { key: 'operations', name: t('machine_management', 'Machine Management'), icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'operations' },
+        { key: 'operations', name: t('paper_layout', 'Paper Layout'), icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'operations' },
+        { key: 'operations', name: t('production_tracker', 'Production Tracker'), icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'operations' },
         // Staff & HR
-        { name: t('staff', 'Staff'), icon: Users, path: '/dashboard/staff', roles: ['Front Office'], group: 'manage' },
-        { name: t('staff_management', 'Staff Management'), icon: Users, path: '/dashboard/staff', roles: ['Admin', 'Accountant'], group: 'manage' },
-        { name: t('branches', 'Branches'), icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'manage' },
-        { name: t('requests', 'Requests'), icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin', 'Accountant'], group: 'manage' },
-        { name: t('coupons', 'Coupons'), icon: Tag, path: '/dashboard/coupons', roles: ['Admin'], group: 'manage' },
-        { name: t('cctv_attendance', 'CCTV Attendance'), icon: Camera, path: '/dashboard/cctv-attendance', roles: ['Admin', 'Accountant'], group: 'manage' },
-        { name: t('cctv_management', 'CCTV Management'), icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'manage' },
-        { name: t('schedules_time', 'Schedules & Time'), icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'manage' },
+        { key: 'manage', name: t('staff', 'Staff'), icon: Users, path: '/dashboard/staff', roles: ['Front Office'], group: 'manage' },
+        { key: 'manage', name: t('staff_management', 'Staff Management'), icon: Users, path: '/dashboard/staff', roles: ['Admin', 'Accountant'], group: 'manage' },
+        { key: 'manage', name: t('branches', 'Branches'), icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'manage' },
+        { key: 'manage', name: t('requests', 'Requests'), icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin', 'Accountant'], group: 'manage' },
+        { key: 'manage', name: t('manage', 'Coupons'), icon: Tag, path: '/dashboard/coupons', roles: ['Admin'], group: 'manage' },
+        { key: 'manage', name: t('manage', 'CCTV Attendance'), icon: Camera, path: '/dashboard/cctv-attendance', roles: ['Admin', 'Accountant'], group: 'manage' },
+        { key: 'manage', name: t('manage', 'CCTV Management'), icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'manage' },
+        { key: 'manage', name: t('manage', 'Schedules & Time'), icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'manage' },
         // Finance & Reports
-        { name: t('expense_manager', 'Expense Manager'), icon: Receipt, path: '/dashboard/expenses', roles: ['Admin', 'Front Office', 'Accountant'], group: 'finance' },
-        { name: t('vendors', 'Vendors'), icon: Store, path: '/dashboard/vendors', roles: ['Admin', 'Accountant', 'Front Office'], group: 'finance' },
-        { name: t('payment_verification', 'Payment Verification'), icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'finance' },
-        { name: t('accounts_gst', 'Accounts & GST'), icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
-        { name: t('daily_report', 'Daily Report'), icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office', 'Admin', 'Accountant'], group: 'business' },
-        { name: t('internal_transactions', 'Internal Transactions'), icon: BookOpen, path: '/dashboard/internal-transactions', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
-        { name: t('stock_transfer', 'Stock Transfer'), icon: Package, path: '/dashboard/stock-transfer', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
-        { name: t('internal_billing', 'Internal Billing'), icon: Receipt, path: '/dashboard/internal-billing', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
+        { key: 'expenses', name: t('expense_manager', 'Expense Manager'), icon: Receipt, path: '/dashboard/expenses', roles: ['Admin', 'Front Office', 'Accountant'], group: 'finance' },
+        { key: 'expenses', name: t('vendors', 'Vendors'), icon: Store, path: '/dashboard/vendors', roles: ['Admin', 'Accountant', 'Front Office'], group: 'finance' },
+        { key: 'expenses', name: t('finance', 'Payment Verification'), icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'finance' },
+        { key: 'expenses', name: t('finance', 'Accounts & GST'), icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
+        { key: 'reports', name: t('daily_report', 'Daily Report'), icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office', 'Admin', 'Accountant'], group: 'business' },
+        { key: 'internal', name: t('internal_transactions', 'Internal Transactions'), icon: BookOpen, path: '/dashboard/internal-transactions', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
+        { key: 'internal', name: t('internal', 'Stock Transfer'), icon: Package, path: '/dashboard/stock-transfer', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
+        { key: 'internal', name: t('internal', 'Internal Billing'), icon: Receipt, path: '/dashboard/internal-billing', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
         // AI Features
-        { name: t('design_check', 'Design Check'), icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
+        { key: 'operations', name: t('design_check', 'Design Check'), icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
         // Role-specific dashboards
-        { name: t('assigned_jobs', 'Assigned Jobs'), icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'business' },
-        { name: t('assigned_jobs', 'Assigned Jobs'), icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'business' },
+        { key: 'jobs', name: t('assigned_jobs', 'Assigned Jobs'), icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'business' },
+        { key: 'jobs', name: t('assigned_jobs', 'Assigned Jobs'), icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'business' },
         // ERP Features
-        { name: t('quotes_estimates', 'Quotes & Estimates'), icon: Receipt, path: '/dashboard/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
-        { name: t('recurring_invoices', 'Recurring Invoices'), icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'finance' },
-        { name: t('settings', 'Settings'), icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'manage' },
+        { key: 'billing', name: t('quotes_estimates', 'Quotes & Estimates'), icon: Receipt, path: '/dashboard/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
+        { key: 'finance', name: t('recurring_invoices', 'Recurring Invoices'), icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'finance' },
+        { key: 'manage', name: t('settings', 'Settings'), icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'manage' },
     ];
 
-    const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role));
+    const filteredMenu = useMemo(() => {
+        let items = menuItems.filter(item => item.roles.includes(user?.role));
+        
+        if (user?.settings) {
+            try {
+                const settings = typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings;
+                if (settings.sidebar) {
+                    items = items.filter(item => {
+                        // If setting exists for this key and is false, hide it
+                        if (settings.sidebar[item.key] === false) return false;
+                        return true;
+                    });
+                }
+            } catch (e) {
+                console.error('Error parsing user settings:', e);
+            }
+        }
+        return items;
+    }, [user, t]);
 
     // Collapsible sidebar groups for Admin
     const sidebarGroupDefs = [
@@ -476,6 +494,7 @@ const Dashboard = () => {
         if (user.role === 'Front Office') return <FrontOffice />;
         if (user.role === 'Accountant') return <AccountantDashboard />;
         if (user.role === 'Other Staff') return <OtherStaffDashboard />;
+        if (user.role === 'Designer') return <DesignerDashboard />;
         return <Jobs />;
     };
 

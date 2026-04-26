@@ -1056,8 +1056,12 @@ const Inventory = () => {
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                     <div style={{ display: 'flex', gap: 8 }}>
-                                        <button className="btn btn-ghost" onClick={() => { setSelectedItem(normalizeItem(item)); setShowEditModal(true); }}><Edit2 size={16} /></button>
-                                        <button className="btn btn-ghost btn-danger" onClick={() => handleDeleteItem(item.id)}><Trash2 size={16} /></button>
+                                        {isAdmin && (
+                                            <>
+                                                <button className="btn btn-ghost" onClick={() => { setSelectedItem(normalizeItem(item)); setShowEditModal(true); }}><Edit2 size={16} /></button>
+                                                <button className="btn btn-ghost btn-danger" onClick={() => handleDeleteItem(item.id)}><Trash2 size={16} /></button>
+                                            </>
+                                        )}
                                         <button className="btn btn-ghost" onClick={() => openStockRequestModal(item)} title="Request from Another Branch"><ArrowLeftRight size={16} /></button>
                                     </div>
                                     <div style={{ color: 'var(--muted)', fontSize: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1861,7 +1865,7 @@ const Inventory = () => {
                                             <p className="text-sm muted mb-4" style={{ fontFamily: 'monospace', letterSpacing: '0.5px' }}>SKU: {detailItem.sku}</p>
                                         )}
                                         {/* Action buttons */}
-                                        {auth.getUser()?.role === 'Admin' && (
+                                        {isAdmin && (
                                             <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
                                                 {detailItem.linked_product_id && (
                                                     <button

@@ -109,6 +109,7 @@ const initDb = async () => {
         base_salary DECIMAL(12, 2) DEFAULT 0,
         daily_rate DECIMAL(12, 2) DEFAULT 0,
         is_first_login TINYINT(1) DEFAULT 1,
+        settings JSON DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE SET NULL
       )
@@ -116,6 +117,7 @@ const initDb = async () => {
 
     // Add is_active column and update image_url to LONGTEXT for base64 support
     try { await connection.query("ALTER TABLE sarga_staff ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query("ALTER TABLE sarga_staff ADD COLUMN settings JSON DEFAULT NULL"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
     try { await connection.query("ALTER TABLE sarga_staff MODIFY COLUMN image_url LONGTEXT"); } catch (e) { console.error('Error migrating staff image_url:', e.message); }
 
     // Inter-Branch Stock Requests Table

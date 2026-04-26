@@ -7,6 +7,7 @@ import InvoiceModal from './InvoiceModal';
 import PaymentModal from './PaymentModal';
 import VendorDetail from './VendorDetail';
 import { Search, Filter, Store, Tag, Eye, Edit, FileText, Trash2, User, Phone, ChevronRight } from 'lucide-react';
+import '../pages/Vendors.css';
 
 const Vendors = () => {
   const navigate = useNavigate();
@@ -118,7 +119,7 @@ const Vendors = () => {
     };
 
     return (
-      <span className={`status-badge ${statusClasses[status] || 'status-badge status-badge--default'}`}>
+      <span className={statusClasses[status] || 'status-badge status-badge--default'}>
         {status?.charAt(0).toUpperCase() + status?.slice(1)}
       </span>
     );
@@ -148,7 +149,7 @@ const Vendors = () => {
                 placeholder="Search vendors by name, contact or location..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="input-field input-field--with-icon"
+                className="input-field"
               />
             </div>
             
@@ -157,7 +158,7 @@ const Vendors = () => {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="input-field input-field--with-icon"
+                className="input-field"
               >
                 <option value="">All Categories</option>
                 <option value="offset_supplies">Offset Supplies</option>
@@ -174,7 +175,7 @@ const Vendors = () => {
           {loading ? (
             <div className="loading-container">
               <div className="spinner-premium"></div>
-              <p className="text-muted">Curating vendor directory...</p>
+              <p style={{ color: 'var(--muted)' }}>Curating vendor directory...</p>
             </div>
           ) : (
             <div className="vendor-grid">
@@ -183,7 +184,7 @@ const Vendors = () => {
                   <div className="vendor-card__header">
                     <div className="vendor-card__main">
                       <div className="vendor-icon-wrap">
-                        <Store size={20} className="text-accent" />
+                        <Store size={20} style={{ color: 'var(--accent)' }} />
                       </div>
                       <div className="vendor-card__info">
                         <div className="vendor-card__name-row">
@@ -195,7 +196,7 @@ const Vendors = () => {
                           )}
                         </div>
                         <div className="vendor-card__category">
-                          <Tag size={12} className="text-muted" />
+                          <Tag size={12} style={{ color: 'var(--muted)' }} />
                           <span className="vendor-card__category-text">
                             {vendor.category?.replace('_', ' ')}
                           </span>
@@ -225,17 +226,23 @@ const Vendors = () => {
                       )}
                     </div>
 
-                    <div className="vendor-card__stats">
-                      <div className="stat-mini">
+                    <div className="vendor-card__summary">
+                      <div className="vendor-card__stat">
                         <span className="stat-mini__label">This Month</span>
                         <span className="stat-mini__value stat-mini__value--success">
                           {formatCurrency(vendor.this_month_spend || 0)}
                         </span>
                       </div>
-                      <div className="stat-mini">
+                      <div className="vendor-card__stat">
                         <span className="stat-mini__label">Payable</span>
                         <span className="stat-mini__value stat-mini__value--error">
                           {formatCurrency(vendor.pending_amount || 0)}
+                        </span>
+                      </div>
+                      <div className="vendor-card__stat">
+                        <span className="stat-mini__label">Invoices</span>
+                        <span className="stat-mini__value">
+                          {vendor.total_invoices || 0}
                         </span>
                       </div>
                     </div>
@@ -261,7 +268,7 @@ const Vendors = () => {
               {vendors.length === 0 && (
                 <div className="empty-state">
                   <div className="empty-state__icon">
-                    <Store size={48} className="text-muted opacity-30" />
+                    <Store size={48} style={{ color: 'var(--muted)', opacity: 0.3 }} />
                   </div>
                   <h3 className="empty-state__title">No vendors found</h3>
                   <p className="empty-state__text">

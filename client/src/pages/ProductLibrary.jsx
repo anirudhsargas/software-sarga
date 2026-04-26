@@ -64,7 +64,7 @@ const ProductLibrary = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const isAdmin = user?.role === 'Admin';
+    const isPrivileged = ['Admin', 'Accountant'].includes(user?.role);
     const isDesigner = user?.role === 'Designer';
     const canRequestImageUpdate = isDesigner;
     const { confirm } = useConfirm();
@@ -165,9 +165,9 @@ const ProductLibrary = () => {
     };
 
     useEffect(() => {
-        if (!isAdmin) return;
+        if (!isPrivileged) return;
         fetchPendingImageRequests();
-    }, [isAdmin]);
+    }, [isPrivileged]);
 
     useEffect(() => {
         if (!productImage) {
@@ -192,7 +192,7 @@ const ProductLibrary = () => {
     };
 
     const fetchPendingImageRequests = async () => {
-        if (!isAdmin) return;
+        if (!isPrivileged) return;
         setLoadingPendingImageRequests(true);
         try {
             const res = await api.get('/products/image-update-requests', { params: { status: 'pending' } });
@@ -552,7 +552,7 @@ const ProductLibrary = () => {
 
     const handleSaveProduct = async (e) => {
         e.preventDefault();
-        if (!isAdmin) return;
+        if (!isPrivileged) return;
         if (!selectedSubId) {
             toast.success('Please select a sub-category for this product.');
             return;
@@ -643,7 +643,7 @@ const ProductLibrary = () => {
     };
 
     const handleReviewImageRequest = async (requestId, action) => {
-        if (!isAdmin) return;
+        if (!isPrivileged) return;
         const isApprove = action === 'approve';
         const isConfirmed = await confirm({
             title: isApprove ? 'Approve Image Update' : 'Reject Image Update',
@@ -1068,7 +1068,7 @@ const ProductLibrary = () => {
                         <h1 className="page-title" style={{ margin: 0 }}>Product & Rate Library</h1>
                         <p className="muted" style={{ margin: '2px 0 0' }}>Manage your printing categories, products, and pricing slabs.</p>
                     </div>
-                    {isAdmin && (
+                    {isPrivileged && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={handleResetUsage}>
                             <RotateCcw size={15} /> Reset Usage Order
@@ -1215,7 +1215,7 @@ const ProductLibrary = () => {
                         <span className="muted text-sm" style={{ marginLeft: 8 }}>{selectedProductIds.length} selected</span>
                     </div>
 
-                    {selectedProductIds.length > 0 && (
+                    {isPrivileged && selectedProductIds.length > 0 && (
                         <div style={{ display: 'flex', gap: 8 }}>
                             <button className="btn btn-ghost btn-sm" onClick={exportSelectedCSV}>Export CSV</button>
                             <button className="btn btn-ghost btn-sm" onClick={bulkToggleActive}>Toggle Active</button>
@@ -1259,7 +1259,7 @@ const ProductLibrary = () => {
 
                             {viewInfo.type === 'root' && viewInfo.items.map((cat, idx) => (
                                 <SortableItem key={cat.id} id={cat.id} disabled={!isAdmin} className={`product-card pointer${cat.is_active === 0 || cat.is_active === false ? ' product-card--disabled' : ''}`}>
-                                    {isAdmin && (
+                                    {isPrivileged && (
                                     <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditCategory(cat); }} title="Edit Category">
                                             <Edit2 size={14} />
@@ -1302,7 +1302,7 @@ const ProductLibrary = () => {
                                 </SortableItem>
                             ))}
 
-                        {isAdmin && pendingImageRequests.length > 0 && (
+                        {isPrivileged && pendingImageRequests.length > 0 && (
                             <div className="bg-light p-12 rounded border stack-sm">
                                 <div className="row space-between items-center gap-md">
                                     <strong>Pending Product Image Approvals</strong>
@@ -1339,7 +1339,7 @@ const ProductLibrary = () => {
                         )}
                             {viewInfo.type === 'category' && viewInfo.items.map((sub, idx) => (
                                 <SortableItem key={sub.id} id={sub.id} disabled={!isAdmin} className={`product-card pointer${sub.is_active === 0 || sub.is_active === false ? ' product-card--disabled' : ''}`}>
-                                    {isAdmin && (
+                                    {isPrivileged && (
                                     <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditSubcategory(sub); }} title="Edit Sub-category">
                                             <Edit2 size={14} />
@@ -1382,15 +1382,15 @@ const ProductLibrary = () => {
                                     key={prod.id}
                                     id={prod.id}
                                     className={`product-card${prod.is_active === 0 || prod.is_active === false ? ' product-card--disabled' : ''}`}
-                                    disabled={!isAdmin}
+                                    disabled={!isPrivileged}
                                     {...(isTouchDevice()
                                         ? { onClick: () => startEditProduct(prod.id) }
                                         : { onDoubleClick: () => startEditProduct(prod.id) }
                                     )}
-                                    title={isTouchDevice() ? (isAdmin ? 'Click to edit' : 'Click to view rates') : (isAdmin ? 'Double click to edit' : 'Double click to view rates')}
+                                    title={isTouchDevice() ? (isPrivileged ? 'Click to edit' : 'Click to view rates') : (isPrivileged ? 'Double click to edit' : 'Double click to view rates')}
                                     style={{ cursor: 'pointer' }}
                                 >
-                                    {isAdmin && (
+                                    {isPrivileged && (
                                     <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditProduct(prod.id); }} title="Edit Product">
                                             <Edit2 size={14} />
@@ -2512,7 +2512,7 @@ const ProductLibrary = () => {
                                                 className="input-field text-sm"
                                                 style={{ border: 'none', background: 'var(--surface-2)', fontWeight: 600 }}
                                                 value={lk.name}
-                                                disabled={!isAdmin}
+                                                disabled={!isPrivileged}
                                                 onChange={e => {
                                                     const links = [...(newProduct.links || [])];
                                                     links[idx] = { ...links[idx], name: e.target.value };
@@ -2524,7 +2524,7 @@ const ProductLibrary = () => {
                                                 className="input-field text-sm"
                                                 style={{ border: 'none', background: 'var(--surface-2)', fontFamily: 'monospace' }}
                                                 value={lk.url}
-                                                disabled={!isAdmin}
+                                                disabled={!isPrivileged}
                                                 onChange={e => {
                                                     const links = [...(newProduct.links || [])];
                                                     links[idx] = { ...links[idx], url: e.target.value };

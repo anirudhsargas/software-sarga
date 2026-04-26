@@ -54,7 +54,7 @@ module.exports = (upload, removeUploadFile) => {
                 params.push(req.query.branch_id);
             }
 
-            const select = `SELECT s.id, s.user_id, s.name, s.role, s.is_first_login, s.created_at, s.branch_id, s.image_url, s.salary_type, s.base_salary, s.daily_rate, b.name as branch_name`;
+            const select = `SELECT s.id, s.user_id, s.name, s.role, s.is_first_login, s.created_at, s.branch_id, s.image_url, s.salary_type, s.base_salary, s.daily_rate, s.settings, b.name as branch_name`;
             const baseFrom = `FROM sarga_staff s LEFT JOIN sarga_branches b ON s.branch_id = b.id ${where}`;
 
             const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
@@ -150,11 +150,15 @@ module.exports = (upload, removeUploadFile) => {
                     // Clear base_salary when switching to daily or updating daily
                     updates.push("base_salary = NULL");
                 }
+                if (req.body.settings !== undefined) {
+                    updates.push("settings = ?");
+                    values.push(JSON.stringify(req.body.settings));
+                }
 
                 values.push(id);
                 await pool.query(`UPDATE sarga_staff SET ${updates.join(', ')} WHERE id = ?`, values);
 
-                const [rows] = await pool.query("SELECT id, user_id, name, role, branch_id, image_url, salary_type, base_salary, daily_rate FROM sarga_staff WHERE id = ?", [id]);
+                const [rows] = await pool.query("SELECT id, user_id, name, role, branch_id, image_url, salary_type, base_salary, daily_rate, settings FROM sarga_staff WHERE id = ?", [id]);
                 return res.json(rows[0]);
             } catch (err) {
                 return res.status(500).json({ message: 'Database error' });

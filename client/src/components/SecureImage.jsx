@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { imgUrl, FILE_BASE } from '../services/api';
 
-// Only need the fetch-with-header approach for ngrok tunnels.
-// In local dev (Vite proxy) or same-origin setups, a plain <img> works fine.
-const IS_NGROK = FILE_BASE.includes('ngrok');
+// Detect if we're in a cross-origin environment (Vercel, Render, etc.)
+// Local dev with Vite proxy is same-origin, so plain <img> works fine.
+const IS_LOCAL_DEV = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const IS_CROSS_ORIGIN = !IS_LOCAL_DEV;
 
 /**
  * Renders an image whose source path requires JWT auth (from /uploads/).
- * In production via ngrok, fetches the file with Authorization + bypass headers
- * to avoid ngrok's browser-interstitial page, then renders via a blob URL.
+ * In cross-origin environments (Vercel, Render, ngrok), fetches the file with
+ * Authorization header to avoid CORS issues, then renders via a blob URL.
  * In local dev, just uses a normal <img> (Vite proxy handles auth via query param).
  */
 export default function SecureImage({ src, alt, className, style, loading, width, height }) {
@@ -23,13 +24,13 @@ export default function SecureImage({ src, alt, className, style, loading, width
             return;
         }
 
-        // In non-ngrok envs, just build the auth URL and let <img> load it
-        if (!IS_NGROK) {
+        // In local dev (same-origin), just build the auth URL and let <img> load it
+        if (!IS_CROSS_ORIGIN) {
             setDisplaySrc(imgUrl(src));
             return;
         }
 
-        // ngrok: browser img tags can't send headers → fetch via JS with header
+        // Cross-origin: browser img tags can't send headers → fetch via JS with header
         let cancelled = false;
         let objectUrl = null;
         const token = localStorage.getItem('token');

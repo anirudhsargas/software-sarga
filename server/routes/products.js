@@ -240,7 +240,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Add Category
-    router.post('/product-categories', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
+    router.post('/product-categories', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
         const { name } = req.body;
         const imageUrl = req.file ? await fileToBase64(req.file.path) : null;
         if (!name || !String(name).trim()) {
@@ -266,7 +266,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Update Category
-    router.put('/product-categories/:id', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
+    router.put('/product-categories/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
         const { name, image_url: existingImageUrl } = req.body;
         const { id } = req.params;
         if (!name || !String(name).trim()) return res.status(400).json({ message: 'Name is required' });
@@ -295,7 +295,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Delete Category
-    router.delete('/product-categories/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.delete('/product-categories/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         try {
             const [rows] = await pool.query("SELECT image_url FROM sarga_product_categories WHERE id = ?", [req.params.id]);
             if (rows[0]?.image_url) await removeUploadFile(rows[0].image_url).catch(() => {});
@@ -309,7 +309,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Toggle Category Active/Inactive
-    router.patch('/product-categories/:id/toggle-active', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.patch('/product-categories/:id/toggle-active', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         try {
             const [rows] = await pool.query("SELECT is_active FROM sarga_product_categories WHERE id = ?", [req.params.id]);
             if (!rows[0]) return res.status(404).json({ message: 'Category not found' });
@@ -334,7 +334,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Add Subcategory
-    router.post('/product-subcategories', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
+    router.post('/product-subcategories', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
         const { category_id, name } = req.body;
         const imageUrl = req.file ? await fileToBase64(req.file.path) : null;
         if (!category_id) {
@@ -366,7 +366,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Update Subcategory
-    router.put('/product-subcategories/:id', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
+    router.put('/product-subcategories/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
         const { name, category_id, image_url: existingImageUrl } = req.body;
         const { id } = req.params;
         if (!name || !String(name).trim()) return res.status(400).json({ message: 'Name is required' });
@@ -395,7 +395,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Delete Subcategory
-    router.delete('/product-subcategories/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.delete('/product-subcategories/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         try {
             const [rows] = await pool.query("SELECT image_url FROM sarga_product_subcategories WHERE id = ?", [req.params.id]);
             if (rows[0]?.image_url) await removeUploadFile(rows[0].image_url).catch(() => {});
@@ -409,7 +409,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Toggle Subcategory Active/Inactive
-    router.patch('/product-subcategories/:id/toggle-active', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.patch('/product-subcategories/:id/toggle-active', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         try {
             const [rows] = await pool.query("SELECT is_active FROM sarga_product_subcategories WHERE id = ?", [req.params.id]);
             if (!rows[0]) return res.status(404).json({ message: 'Subcategory not found' });
@@ -434,7 +434,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Add Product with Slabs and Extras
-    router.post('/products', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
+    router.post('/products', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
         const { subcategory_id, name, product_code, calculation_type, description, inventory_item_id, isPhysicalProduct, company_name, company_code, size, extraInv } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
@@ -530,7 +530,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Update Product
-    router.put('/products/:id', authenticateToken, authorizeRoles('Admin'), upload.single('image'), async (req, res) => {
+    router.put('/products/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
         const { id } = req.params;
         const { subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, inventory_item_id, isPhysicalProduct } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
@@ -598,7 +598,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Delete Product
-    router.delete('/products/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.delete('/products/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         try {
             // Check if the product has stock in inventory
             const [prodRows] = await pool.query("SELECT inventory_item_id FROM sarga_products WHERE id = ?", [req.params.id]);
@@ -620,7 +620,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Toggle Product Active/Inactive
-    router.patch('/products/:id/toggle-active', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.patch('/products/:id/toggle-active', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         try {
             const [rows] = await pool.query("SELECT is_active FROM sarga_products WHERE id = ?", [req.params.id]);
             if (!rows[0]) return res.status(404).json({ message: 'Product not found' });
@@ -635,7 +635,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Delete Product Image
-    router.delete('/products/:id/image', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.delete('/products/:id/image', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         try {
             const [rows] = await pool.query("SELECT image_url FROM sarga_products WHERE id = ?", [req.params.id]);
             if (!rows[0]) return res.status(404).json({ message: 'Product not found' });
@@ -653,7 +653,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Update positions for categories/subcategories/products
-    router.put('/product-positions', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.put('/product-positions', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         const { type, updates } = req.body;
         const tableMap = {
             category: 'sarga_product_categories',
@@ -692,7 +692,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Reset usage-based ordering to default
-    router.post('/product-usage/reset', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.post('/product-usage/reset', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         const { user_id_internal } = req.body || {};
         try {
             if (user_id_internal) {
@@ -776,7 +776,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Admin list of image update requests
-    router.get('/products/image-update-requests', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.get('/products/image-update-requests', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         try {
             const status = String(req.query.status || 'pending').toLowerCase();
             const allowedStatuses = ['pending', 'approved', 'rejected', 'all'];
@@ -822,7 +822,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Admin approves/rejects image update request
-    router.patch('/products/image-update-requests/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.patch('/products/image-update-requests/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         const requestId = Number(req.params.id);
         const action = String(req.body?.action || '').toLowerCase();
         const adminNote = req.body?.note || null;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar } from 'lucide-react';
+import { User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings } from 'lucide-react';
 import HolidayCalendar from '../components/HolidayCalendar';
 import SecureImage from '../components/SecureImage';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +14,7 @@ import CountryCodeSelect from '../components/CountryCodeSelect';
 import { formatForDisplay, telHref } from '../utils/phone';
 
 // Memoized staff row
-const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword }) => (
+const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword, handleMarkAttendance, todayAttendance, onOpenSettings }) => (
     <tr
         key={s.id}
         onDoubleClick={() => navigate(`/dashboard/employee/${s.id}`)}
@@ -40,6 +40,17 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
         <td>
             {isAdmin ? (
                 <div className="row gap-sm" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        className="btn btn-ghost"
+                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkAttendance(s.id);
+                        }}
+                        title={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
+                    >
+                        {todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? <LogOut size={15} /> : <LogIn size={15} />}
+                    </button>
                     <button
                         className="btn btn-ghost"
                         style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
@@ -91,6 +102,14 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         <Key size={15} />
                     </button>
                     <button
+                        className="btn btn-ghost"
+                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
+                        onClick={(e) => { e.stopPropagation(); onOpenSettings(s); }}
+                        title="Staff Settings"
+                    >
+                        <Settings size={15} />
+                    </button>
+                    <button
                         className="btn btn-ghost text-error"
                         style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
                         onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
@@ -100,14 +119,27 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                     </button>
                 </div>
             ) : (
-                <button
-                    className="btn btn-ghost"
-                    style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
-                    onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/employee/${s.id}`); }}
-                    title="View Dashboard"
-                >
-                    <BarChart3 size={15} />
-                </button>
+                <>
+                    <button
+                        className="btn btn-ghost"
+                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkAttendance(s.id);
+                        }}
+                        title={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
+                    >
+                        {todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? <LogOut size={15} /> : <LogIn size={15} />}
+                    </button>
+                    <button
+                        className="btn btn-ghost"
+                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/employee/${s.id}`); }}
+                        title="View Dashboard"
+                    >
+                        <BarChart3 size={15} />
+                    </button>
+                </>
             )}
         </td>
     </tr>
@@ -124,6 +156,8 @@ const StaffManagement = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState(null);
     const [showHolidayModal, setShowHolidayModal] = useState(false);
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [settingsStaff, setSettingsStaff] = useState(null);
     const [newStaff, setNewStaff] = useState({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: '', salary_type: 'Monthly', base_salary: '', daily_rate: '' });
     const [branches, setBranches] = useState([]);
     const [error, setError] = useState('');
@@ -138,12 +172,14 @@ const StaffManagement = () => {
     const [selectedBranchFilter, setSelectedBranchFilter] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const debouncedSearch = useDebounce(searchInput, 300);
+    const [todayAttendance, setTodayAttendance] = useState({});
 
     const roles = ['Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'];
 
     useEffect(() => {
         fetchStaff();
         fetchBranches();
+        fetchTodayAttendance();
     }, []);
 
     useEffect(() => {
@@ -371,6 +407,53 @@ const StaffManagement = () => {
         }
     };
 
+    const fetchTodayAttendance = async () => {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const response = await api.get(`/cctvAttendance/attendance/summary?date=${today}`);
+            const attendanceMap = {};
+            response.data.staff.forEach(att => {
+                attendanceMap[att.staff_id] = {
+                    in_time: att.entry_time ? att.entry_time.split(' ')[1] : null,
+                    out_time: att.exit_time ? att.exit_time.split(' ')[1] : null,
+                    status: att.status === 'present' ? 'Present' : att.status
+                };
+            });
+            setTodayAttendance(attendanceMap);
+        } catch (err) {
+            console.error('Failed to fetch today\'s attendance:', err);
+        }
+    };
+
+    const handleMarkAttendance = async (staffId) => {
+        const existing = todayAttendance[staffId];
+        const today = new Date().toISOString().split('T')[0];
+        const now = new Date().toTimeString().slice(0, 5);
+
+        try {
+            if (existing?.in_time && !existing?.out_time) {
+                // Mark as gone (out_time)
+                await api.post(`/staff/${staffId}/attendance`, {
+                    attendance_date: today,
+                    status: existing.status || 'Present',
+                    gone_time: now
+                });
+                toast.success('Marked as gone successfully!');
+            } else {
+                // Mark attendance (in_time)
+                await api.post(`/staff/${staffId}/attendance`, {
+                    attendance_date: today,
+                    status: 'Present',
+                    time: now
+                });
+                toast.success('Attendance marked successfully!');
+            }
+            fetchTodayAttendance();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to mark attendance');
+        }
+    };
+
     const filteredStaff = useMemo(() => {
         if (!debouncedSearch) return staff;
         const q = debouncedSearch.toLowerCase();
@@ -455,6 +538,9 @@ const StaffManagement = () => {
                                 handleDelete={handleDeleteStaff}
                                 isAdmin={isAdmin}
                                 handleResetPassword={handleResetPassword}
+                                handleMarkAttendance={handleMarkAttendance}
+                                todayAttendance={todayAttendance}
+                                onOpenSettings={(s) => { setSettingsStaff(s); setShowSettingsModal(true); }}
                             />
                         ))}
                     </tbody>
@@ -608,6 +694,109 @@ const StaffManagement = () => {
             )}
 
             <ImageCropModal file={cropState?.file} title="Crop Photo" onCancel={handleCropCancel} onComplete={handleCropComplete} />
+
+            {showSettingsModal && settingsStaff && (
+                <StaffSettingsModal
+                    staff={settingsStaff}
+                    onClose={() => { setShowSettingsModal(false); setSettingsStaff(null); }}
+                    onUpdate={(updatedStaff) => {
+                        setStaff(prev => prev.map(s => s.id === updatedStaff.id ? updatedStaff : s));
+                        fetchStaff();
+                    }}
+                />
+            )}
+        </div>
+    );
+};
+
+const StaffSettingsModal = ({ staff, onClose, onUpdate }) => {
+    const [loading, setLoading] = useState(false);
+    const [settings, setSettings] = useState(() => {
+        try {
+            return staff.settings ? (typeof staff.settings === 'string' ? JSON.parse(staff.settings) : staff.settings) : {
+                sidebar: {
+                    dashboard: true,
+                    customers: true,
+                    billing: true,
+                    jobs: true,
+                    inventory: true,
+                    expenses: true,
+                    reports: true
+                }
+            };
+        } catch (e) {
+            return { sidebar: { dashboard: true, customers: true, billing: true, jobs: true, inventory: true, expenses: true, reports: true } };
+        }
+    });
+
+    const sidebarOptions = [
+        { key: 'dashboard', label: 'Dashboard' },
+        { key: 'customers', label: 'Customers' },
+        { key: 'billing', label: 'Billing' },
+        { key: 'jobs', label: 'Orders & Jobs' },
+        { key: 'inventory', label: 'Inventory' },
+        { key: 'operations', label: 'Operations' },
+        { key: 'finance', label: 'Finance' },
+        { key: 'manage', label: 'Management' },
+        { key: 'reports', label: 'Reports' },
+        { key: 'internal', label: 'Internal Books' },
+    ];
+
+    const handleSave = async () => {
+        setLoading(true);
+        try {
+            const response = await api.put(`/staff/${staff.id}`, { settings });
+            toast.success('Staff settings updated');
+            onUpdate(response.data);
+            onClose();
+        } catch (err) {
+            toast.error('Failed to update settings');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const toggleSidebar = (key) => {
+        setSettings(prev => ({
+            ...prev,
+            sidebar: {
+                ...prev.sidebar,
+                [key]: !prev.sidebar[key]
+            }
+        }));
+    };
+
+    return (
+        <div className="modal-backdrop">
+            <div className="modal">
+                <button className="modal-close" onClick={onClose}><X size={22} /></button>
+                <h2 className="section-title mb-8">Settings: {staff.name}</h2>
+                <p className="section-subtitle mb-24">Configure permissions and preferences for this staff member.</p>
+
+                <div className="stack-md">
+                    <div>
+                        <h3 className="label" style={{ marginBottom: 12 }}>Sidebar Visibility</h3>
+                        <div className="grid grid--2 gap-sm">
+                            {sidebarOptions.map(opt => (
+                                <label key={opt.key} className="row gap-sm items-center" style={{ cursor: 'pointer', padding: '8px', border: '1px solid var(--border)', borderRadius: 8 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={!!settings.sidebar?.[opt.key]}
+                                        onChange={() => toggleSidebar(opt.key)}
+                                    />
+                                    <span style={{ fontSize: 14 }}>{opt.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: 24 }}>
+                        <button className="btn btn-primary btn--full" onClick={handleSave} disabled={loading}>
+                            {loading ? <Loader2 size={18} className="animate-spin" /> : 'Save Settings'}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

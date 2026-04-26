@@ -16,6 +16,7 @@ import { useOnlineStatus } from '../hooks/useOffline';
 import { whatsappUrl, paymentReminderMessage, dueCollectionMessage } from '../utils/whatsapp';
 import { formatForDisplay, telHref } from '../utils/phone';
 import Skeleton, { SkeletonText, SkeletonAvatar, SkeletonTitle, SkeletonKpi } from '../components/Skeleton';
+import SecureImage from '../components/SecureImage';
 
 import './CustomerDetails.css';
 
@@ -730,7 +731,7 @@ const CustomerDetails = () => {
                       }}
                     >
                       {isImage ? (
-                        <img src={fileUrl} alt={d.title}
+                        <SecureImage src={d.file_url} alt={d.title}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           loading="lazy"
                         />
@@ -944,8 +945,8 @@ const CustomerDetails = () => {
             style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
             <X size={16} /> Close
           </button>
-          <img
-            src={`${getServerBase()}${previewDesign.file_url}`}
+          <SecureImage
+            src={previewDesign.file_url}
             alt={previewDesign.title}
             style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', objectFit: 'contain' }}
             onClick={e => e.stopPropagation()}

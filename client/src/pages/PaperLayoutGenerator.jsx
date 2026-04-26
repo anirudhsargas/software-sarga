@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Layers, Calculator, Download, Loader2, RotateCcw, Maximize } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Layers, Calculator, Download, Loader2, RotateCcw, Maximize, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import { optimizePaperUsage, findBestSheetSize, PAPER_SIZES as PAPER_SIZES_CONST, SHEET_SIZES } from '../utils/paperOptimizer';
 
 const PAPER_SIZES = [
     { name: 'A4', w: 210, h: 297 },
@@ -9,6 +10,8 @@ const PAPER_SIZES = [
     { name: 'Letter', w: 216, h: 279 },
     { name: 'Legal', w: 216, h: 356 },
     { name: 'SRA3', w: 320, h: 450 },
+    { name: '13x19', w: 330, h: 483 },
+    { name: '12x18', w: 305, h: 457 },
     { name: 'Custom', w: 0, h: 0 },
 ];
 
@@ -25,11 +28,48 @@ const PaperLayoutGenerator = () => {
     const [layout, setLayout] = useState(null);
     const [loading, setLoading] = useState(false);
     const [comparison, setComparison] = useState(null);
+    const [useClientOptimization, setUseClientOptimization] = useState(true);
+    const [quantity, setQuantity] = useState(100);
 
     useEffect(() => {
         const preset = PAPER_SIZES.find(p => p.name === paperSize);
         if (preset && preset.w) { setPaperW(preset.w); setPaperH(preset.h); }
     }, [paperSize]);
+
+    // Client-side optimization using paperOptimizer
+    const clientOptimization = useMemo(() => {
+        if (!useClientOptimization || paperW <= 0 || paperH <= 0 || designW <= 0 || designH <= 0) {
+            return null;
+        }
+
+        const result = optimizePaperUsage({
+            sheetSize: 'Custom',
+            sheetW: paperW,
+            sheetH: paperH,
+            itemSize: 'Custom',
+            itemW: designW,
+            itemH: designH,
+            itemCount: quantity,
+            bleed: bleed + gutter,
+            doubleSide: false
+        });
+
+        return result;
+    }, [paperW, paperH, designW, designH, quantity, bleed, gutter, useClientOptimization]);
+
+    // Find best sheet size for current design
+    const bestSheetOptions = useMemo(() => {
+        if (designW <= 0 || designH <= 0) return [];
+        
+        return findBestSheetSize({
+            itemSize: 'Custom',
+            itemW: designW,
+            itemH: designH,
+            itemCount: quantity,
+            bleed: bleed + gutter,
+            doubleSide: false
+        });
+    }, [designW, designH, quantity, bleed, gutter]);
 
     const drawCanvas = useCallback((layoutData) => {
         const canvas = canvasRef.current;
@@ -200,6 +240,24 @@ const PaperLayoutGenerator = () => {
                         </div>
                     </div>
 
+                    {/* Quantity */}
+                    <div style={{ marginBottom: 18 }}>
+                        <label className="label">Quantity</label>
+                        <input className="input-field" type="number" min={1} value={quantity} onChange={e => setQuantity(+e.target.value)} />
+                    </div>
+
+                    {/* Optimization Toggle */}
+                    <div style={{ marginBottom: 18 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                            <input 
+                                type="checkbox" 
+                                checked={useClientOptimization} 
+                                onChange={e => setUseClientOptimization(e.target.checked)} 
+                            />
+                            <span className="label" style={{ margin: 0 }}>Use Client-Side Optimization</span>
+                        </label>
+                    </div>
+
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button className="btn btn-primary" onClick={calculate} disabled={loading} style={{ flex: 1 }}>
                             {loading ? <Loader2 size={16} className="animate-spin" /> : <Calculator size={16} />}
@@ -223,7 +281,23 @@ const PaperLayoutGenerator = () => {
                     </div>
 
                     {/* Stats */}
-                    {layout && (
+                    {clientOptimization && useClientOptimization ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
+                            {[
+                                { label: 'Sheets Needed', value: clientOptimization.sheetsNeeded },
+                                { label: 'Items/Sheet', value: clientOptimization.itemsPerSheet },
+                                { label: 'Waste', value: `${clientOptimization.wastePercent}%`, color: clientOptimization.wastePercent < 20 ? 'var(--success)' : clientOptimization.wastePercent < 40 ? 'var(--warning)' : 'var(--error)' },
+                                { label: 'Utilization', value: `${clientOptimization.utilizationPercent}%`, color: clientOptimization.utilizationPercent >= 80 ? 'var(--success)' : clientOptimization.utilizationPercent >= 60 ? 'var(--warning)' : 'var(--error)' },
+                                { label: 'Layout', value: `${clientOptimization.cols}×${clientOptimization.rows} (${clientOptimization.layout})` },
+                                { label: 'Paper', value: `${paperW}×${paperH}mm` },
+                            ].map((s, i) => (
+                                <div key={i} className="summary-tile" style={{ minHeight: 'auto', padding: 14 }}>
+                                    <div className="summary-tile__title">{s.label}</div>
+                                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", color: s.color || 'var(--accent)' }}>{s.value}</div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : layout && (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
                             {[
                                 { label: 'Copies/Sheet', value: layout.cards_per_sheet || 0 },
@@ -252,6 +326,80 @@ const PaperLayoutGenerator = () => {
                             <button className="btn btn-primary" onClick={() => toast('PDF generation coming soon')}>
                                 <Download size={16} /> Export PDF
                             </button>
+                        </div>
+                    )}
+
+                    {/* Best Sheet Size Options */}
+                    {useClientOptimization && bestSheetOptions.length > 0 && (
+                        <div className="panel panel--tight" style={{ marginBottom: 20 }}>
+                            <h3 className="ai-section-heading" style={{ marginBottom: 12 }}>
+                                Best Sheet Sizes (Minimum Wastage)
+                            </h3>
+                            <div className="table-scroll">
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Paper Size</th>
+                                            <th>Sheets Needed</th>
+                                            <th>Items/Sheet</th>
+                                            <th>Waste</th>
+                                            <th>Efficiency</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {bestSheetOptions.slice(0, 8).map((opt, i) => (
+                                            <tr 
+                                                key={i} 
+                                                style={{ 
+                                                    cursor: 'pointer',
+                                                    backgroundColor: opt.sheetSize === paperSize ? 'var(--success)10' : 'transparent'
+                                                }}
+                                                onClick={() => {
+                                                    const preset = PAPER_SIZES.find(p => p.name === opt.sheetSize);
+                                                    if (preset) {
+                                                        setPaperSize(opt.sheetSize);
+                                                        setPaperW(preset.w);
+                                                        setPaperH(preset.h);
+                                                    } else {
+                                                        setPaperSize('Custom');
+                                                        setPaperW(opt.sheetW);
+                                                        setPaperH(opt.sheetH);
+                                                    }
+                                                }}
+                                            >
+                                                <td style={{ fontWeight: 600 }}>
+                                                    {opt.label}
+                                                    {i === 0 && (
+                                                        <span style={{ marginLeft: 8, fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'var(--success)', color: 'white' }}>
+                                                            BEST
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td>{opt.sheetsNeeded}</td>
+                                                <td>{opt.itemsPerSheet}</td>
+                                                <td style={{ color: opt.wastePercent < 20 ? 'var(--success)' : opt.wastePercent < 40 ? 'var(--warning)' : 'var(--error)' }}>
+                                                    {opt.wastePercent}%
+                                                </td>
+                                                <td>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--surface-2)', overflow: 'hidden', maxWidth: 80 }}>
+                                                            <div style={{ 
+                                                                height: '100%', 
+                                                                borderRadius: 3, 
+                                                                background: opt.utilizationPercent >= 80 ? 'var(--success)' : opt.utilizationPercent >= 60 ? 'var(--warning)' : 'var(--error)', 
+                                                                width: `${opt.utilizationPercent}%` 
+                                                            }} />
+                                                        </div>
+                                                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-2)' }}>
+                                                            {opt.utilizationPercent.toFixed(0)}%
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
 

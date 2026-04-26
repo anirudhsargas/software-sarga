@@ -358,17 +358,19 @@ const ConsumablesManagement = () => {
                                             <td>{item.branch}</td>
                                             <td style={{ textAlign: 'right' }}>
                                                 <div className="row gap-xs justify-end">
-                                                    <button className="btn btn-ghost btn-sm" title="Quick Adjust" onClick={() => handleOpenAdjust(item)}>
-                                                        <ArrowUp size={14} />
-                                                        <ArrowDown size={14} />
-                                                    </button>
-                                                    <button className="btn btn-ghost btn-sm" title="Edit" onClick={() => handleOpenEdit(item)}>
-                                                        <Edit2 size={15} />
-                                                    </button>
                                                     {isManager && (
-                                                        <button className="btn btn-ghost btn-sm text-error" title="Delete" onClick={() => handleDelete(item.id)}>
-                                                            <Trash2 size={15} />
-                                                        </button>
+                                                        <>
+                                                            <button className="btn btn-ghost btn-sm" title="Quick Adjust" onClick={() => handleOpenAdjust(item)}>
+                                                                <ArrowUp size={14} />
+                                                                <ArrowDown size={14} />
+                                                            </button>
+                                                            <button className="btn btn-ghost btn-sm" title="Edit" onClick={() => handleOpenEdit(item)}>
+                                                                <Edit2 size={15} />
+                                                            </button>
+                                                            <button className="btn btn-ghost btn-sm text-error" title="Delete" onClick={() => handleDelete(item.id)}>
+                                                                <Trash2 size={15} />
+                                                            </button>
+                                                        </>
                                                     )}
                                                 </div>
                                             </td>
