@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { auditLog } = require('../helpers');
+const { uploadToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 
 const VALID_BRANCHES = ['perambra', 'meppayur_main', 'meppayur_room'];
 
@@ -239,18 +241,19 @@ module.exports = (upload, removeUploadFile) => {
   router.post('/face-data', authenticateToken, authorizeRoles('Admin'), upload.single('face_image'), async (req, res) => {
     const { staff_id, label } = req.body;
     if (!staff_id || !req.file) {
-      if (req.file) await removeUploadFile(`/uploads/${req.file.filename}`);
       return res.status(400).json({ message: 'staff_id and face_image are required' });
     }
 
     try {
       const [staff] = await pool.query('SELECT id, name FROM sarga_staff WHERE id = ?', [staff_id]);
       if (staff.length === 0) {
-        await removeUploadFile(`/uploads/${req.file.filename}`);
         return res.status(404).json({ message: 'Staff member not found' });
       }
 
-      const imageUrl = `/uploads/${req.file.filename}`;
+      // Upload to Cloudinary
+      const cloudinaryResult = await uploadToCloudinary(req.file.path, 'cctv-faces');
+      const imageUrl = cloudinaryResult.secure_url;
+
       const [result] = await pool.query(
         'INSERT INTO sarga_cctv_face_data (staff_id, image_url, label) VALUES (?, ?, ?)',
         [staff_id, imageUrl, label || staff[0].name]
@@ -259,7 +262,6 @@ module.exports = (upload, removeUploadFile) => {
       res.status(201).json({ id: result.insertId, image_url: imageUrl, message: 'Face data added' });
     } catch (err) {
       console.error('Face data upload error:', err);
-      if (req.file) await removeUploadFile(`/uploads/${req.file.filename}`);
       res.status(500).json({ message: 'Database error' });
     }
   });

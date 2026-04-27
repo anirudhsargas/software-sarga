@@ -5,6 +5,7 @@ const { attachNormalizedMobile } = require('../middleware/phone');
 const bcrypt = require('bcryptjs');
 const { validate, addStaffSchema, staffSalaryUpdateSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
+const { uploadToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
@@ -14,7 +15,18 @@ module.exports = (upload, removeUploadFile) => {
     // Add Staff
     router.post('/', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), validate(addStaffSchema), attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
         const { mobile, countryCode, name, role, branch_id } = req.body;
-        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+        let imageUrl = null;
+
+        // Upload to Cloudinary if file is present
+        if (req.file) {
+            try {
+                const cloudinaryResult = await uploadToCloudinary(req.file.path, 'staff');
+                imageUrl = cloudinaryResult.secure_url;
+            } catch (uploadError) {
+                console.error('Cloudinary upload error:', uploadError);
+                return res.status(500).json({ message: 'Failed to upload image' });
+            }
+        }
 
         // Normalize using optional countryCode hint
         const normalizedMobile = normalizeMobileWithCountry(mobile, countryCode);
@@ -78,7 +90,18 @@ module.exports = (upload, removeUploadFile) => {
         }
 
         const { mobile, name, role, branch_id, salary_type, base_salary, daily_rate } = req.body;
-        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+        let imageUrl = null;
+
+        // Upload to Cloudinary if file is present
+        if (req.file) {
+            try {
+                const cloudinaryResult = await uploadToCloudinary(req.file.path, 'staff');
+                imageUrl = cloudinaryResult.secure_url;
+            } catch (uploadError) {
+                console.error('Cloudinary upload error:', uploadError);
+                return res.status(500).json({ message: 'Failed to upload image' });
+            }
+        }
 
         // Non-Admin/Accountant users can ONLY update their own name and image (profile updates)
         // They CANNOT change mobile, role, or branch_id
@@ -274,7 +297,19 @@ module.exports = (upload, removeUploadFile) => {
             if (!rows[0]) return res.status(404).json({ message: 'Staff member not found' });
 
             const imageUrl = rows[0].image_url;
-            if (imageUrl) await removeUploadFile(imageUrl);
+            // Delete from Cloudinary if it's a Cloudinary URL
+            if (imageUrl && imageUrl.includes('cloudinary.com')) {
+                try {
+                    // Extract public_id from Cloudinary URL
+                    const publicId = imageUrl.split('/').slice(-1)[0].split('.')[0];
+                    await deleteFromCloudinary(`staff/${publicId}`);
+                } catch (deleteError) {
+                    console.error('Cloudinary delete error:', deleteError);
+                }
+            } else if (imageUrl) {
+                // Fallback to local file deletion for existing files
+                await removeUploadFile(imageUrl);
+            }
 
             await pool.query("UPDATE sarga_staff SET image_url = NULL WHERE id = ?", [id]);
             res.json({ message: 'Staff image removed', image_url: null });

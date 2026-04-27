@@ -1,9 +1,8 @@
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog } = require('../helpers');
-const { invalidateHierarchyCache } = require('./jobs');
+const { auditLog, invalidateHierarchyCache } = require('./jobs');
 const { paginate } = require('../helpers/pagination');
-const { fileToBase64 } = require('../utils/base64');
+const { uploadToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
@@ -242,7 +241,11 @@ module.exports = (upload, removeUploadFile) => {
     // Add Category
     router.post('/product-categories', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
         const { name } = req.body;
-        const imageUrl = req.file ? await fileToBase64(req.file.path) : null;
+        let imageUrl = null;
+        if (req.file) {
+            const cloudinaryResult = await uploadToCloudinary(req.file.path, 'product-categories');
+            imageUrl = cloudinaryResult.secure_url;
+        }
         if (!name || !String(name).trim()) {
             return res.status(400).json({ message: 'Category name is required' });
         }
@@ -273,9 +276,15 @@ module.exports = (upload, removeUploadFile) => {
         try {
             let imageUrl;
             if (req.file) {
-                imageUrl = await fileToBase64(req.file.path);
+                const cloudinaryResult = await uploadToCloudinary(req.file.path, 'product-categories');
+                imageUrl = cloudinaryResult.secure_url;
                 const [old] = await pool.query("SELECT image_url FROM sarga_product_categories WHERE id = ?", [id]);
-                if (old[0]?.image_url) await removeUploadFile(old[0].image_url).catch(() => {});
+                if (old[0]?.image_url && old[0].image_url.includes('cloudinary.com')) {
+                    const publicId = old[0].image_url.split('/').slice(-1)[0].split('.')[0];
+                    await deleteFromCloudinary(`product-categories/${publicId}`).catch(() => {});
+                } else if (old[0]?.image_url) {
+                    await removeUploadFile(old[0].image_url).catch(() => {});
+                }
             } else {
                 imageUrl = existingImageUrl !== undefined ? (existingImageUrl || null) : undefined;
             }
@@ -336,7 +345,11 @@ module.exports = (upload, removeUploadFile) => {
     // Add Subcategory
     router.post('/product-subcategories', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
         const { category_id, name } = req.body;
-        const imageUrl = req.file ? await fileToBase64(req.file.path) : null;
+        let imageUrl = null;
+        if (req.file) {
+            const cloudinaryResult = await uploadToCloudinary(req.file.path, 'product-subcategories');
+            imageUrl = cloudinaryResult.secure_url;
+        }
         if (!category_id) {
             return res.status(400).json({ message: 'Category is required' });
         }
@@ -373,9 +386,15 @@ module.exports = (upload, removeUploadFile) => {
         try {
             let imageUrl;
             if (req.file) {
-                imageUrl = await fileToBase64(req.file.path);
+                const cloudinaryResult = await uploadToCloudinary(req.file.path, 'product-subcategories');
+                imageUrl = cloudinaryResult.secure_url;
                 const [old] = await pool.query("SELECT image_url FROM sarga_product_subcategories WHERE id = ?", [id]);
-                if (old[0]?.image_url) await removeUploadFile(old[0].image_url).catch(() => {});
+                if (old[0]?.image_url && old[0].image_url.includes('cloudinary.com')) {
+                    const publicId = old[0].image_url.split('/').slice(-1)[0].split('.')[0];
+                    await deleteFromCloudinary(`product-subcategories/${publicId}`).catch(() => {});
+                } else if (old[0]?.image_url) {
+                    await removeUploadFile(old[0].image_url).catch(() => {});
+                }
             } else {
                 imageUrl = existingImageUrl !== undefined ? (existingImageUrl || null) : undefined;
             }
@@ -439,7 +458,11 @@ module.exports = (upload, removeUploadFile) => {
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
         const parsedExtraInv = typeof extraInv === 'string' ? JSON.parse(extraInv) : (extraInv || {});
-        const imageUrl = req.file ? await fileToBase64(req.file.path) : null;
+        let imageUrl = null;
+        if (req.file) {
+            const cloudinaryResult = await uploadToCloudinary(req.file.path, 'products');
+            imageUrl = cloudinaryResult.secure_url;
+        }
         const connection = await pool.getConnection();
         try {
             if (!subcategory_id) {
@@ -535,7 +558,11 @@ module.exports = (upload, removeUploadFile) => {
         const { subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, inventory_item_id, isPhysicalProduct } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
-        const imageUrl = req.file ? await fileToBase64(req.file.path) : req.body.image_url;
+        let imageUrl = req.body.image_url;
+        if (req.file) {
+            const cloudinaryResult = await uploadToCloudinary(req.file.path, 'products');
+            imageUrl = cloudinaryResult.secure_url;
+        }
         const connection = await pool.getConnection();
 
         try {
