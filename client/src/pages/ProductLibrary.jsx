@@ -64,6 +64,7 @@ const ProductLibrary = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
     const isPrivileged = ['Admin', 'Accountant'].includes(user?.role);
     const isDesigner = user?.role === 'Designer';
     const canRequestImageUpdate = isDesigner;

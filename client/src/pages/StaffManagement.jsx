@@ -410,7 +410,7 @@ const StaffManagement = () => {
     const fetchTodayAttendance = async () => {
         try {
             const today = new Date().toISOString().split('T')[0];
-            const response = await api.get(`/cctvAttendance/attendance/summary?date=${today}`);
+            const response = await api.get(`/cctv/attendance/summary?date=${today}`);
             const attendanceMap = {};
             response.data.staff.forEach(att => {
                 attendanceMap[att.staff_id] = {

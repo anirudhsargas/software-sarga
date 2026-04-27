@@ -526,7 +526,7 @@ const DailyReport = () => {
                 const detail = await api.get(`/daily-reports/offset/${response.data[0].id}`);
                 setCreditTransactions(detail.data.credit_transactions || []);
             } else {
-                const liveResp = await api.get('/daily-report-unified/credits', {
+                const liveResp = await api.get('/daily-report/credits', {
                     params: { date: reportDate, book_type: 'Offset', branch_id: selectedBranch }
                 });
                 setCreditTransactions(liveResp.data || []);
@@ -536,7 +536,7 @@ const DailyReport = () => {
 
     const fetchLaserCredits = useCallback(async () => {
         try {
-            const res = await api.get('/daily-report-unified/credits', {
+            const res = await api.get('/daily-report/credits', {
                 params: { date: reportDate, book_type: 'Laser', branch_id: selectedBranch }
             });
             setLaserCredits(res.data || []);
@@ -545,7 +545,7 @@ const DailyReport = () => {
 
     const fetchOtherCredits = useCallback(async () => {
         try {
-            const res = await api.get('/daily-report-unified/credits', {
+            const res = await api.get('/daily-report/credits', {
                 params: { date: reportDate, book_type: 'Other', branch_id: selectedBranch }
             });
             setOtherCredits(res.data || []);
@@ -886,7 +886,7 @@ const DailyReport = () => {
         const handleDeleteCredit = async (id) => {
             if (!window.confirm('Are you sure you want to delete this manual credit?')) return;
             try {
-                await api.delete(`/daily-report-unified/credits/${id}`);
+                await api.delete(`/daily-report/credits/${id}`);
                 toast.success('Credit deleted');
                 if (bookKey === 'Offset') fetchCreditTransactions();
                 else if (bookKey === 'Laser') fetchLaserCredits();
@@ -2011,7 +2011,7 @@ const DailyReport = () => {
                                     return;
                                 }
                                 try {
-                                    await api.post('/daily-report-unified/credits', {
+                                    await api.post('/daily-report/credits', {
                                         ...creditModalData,
                                         date: reportDate,
                                         branch_id: selectedBranch
