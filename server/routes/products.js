@@ -1,6 +1,7 @@
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog, invalidateHierarchyCache } = require('./jobs');
+const { auditLog } = require('../helpers');
+const { invalidateHierarchyCache } = require('./jobs');
 const { paginate } = require('../helpers/pagination');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 

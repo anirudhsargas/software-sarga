@@ -1065,9 +1065,21 @@ const ProductLibrary = () => {
         <div className="stack-lg">
             <header className="stack-sm">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                    <div>
-                        <h1 className="page-title" style={{ margin: 0 }}>Product & Rate Library</h1>
-                        <p className="muted" style={{ margin: '2px 0 0' }}>Manage your printing categories, products, and pricing slabs.</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {viewPath.length > 0 && (
+                            <button 
+                                className="btn btn-ghost" 
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px' }}
+                                onClick={() => navigateBack(viewPath.length - 2)}
+                                title="Go back"
+                            >
+                                <ChevronLeft size={18} /> Back
+                            </button>
+                        )}
+                        <div>
+                            <h1 className="page-title" style={{ margin: 0 }}>Product & Rate Library</h1>
+                            <p className="muted" style={{ margin: '2px 0 0' }}>Manage your printing categories, products, and pricing slabs.</p>
+                        </div>
                     </div>
                     {isPrivileged && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

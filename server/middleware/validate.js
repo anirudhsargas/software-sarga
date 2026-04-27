@@ -82,10 +82,17 @@ const addVendorSchema = z.object({
     type: z.enum(['Vendor', 'Utility', 'Salary', 'Rent', 'Other']).optional().default('Vendor'),
     contact_person: z.string().optional().nullable(),
     phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits').optional().nullable().or(z.literal('')),
+    email: z.string().email('Invalid email format').optional().nullable().or(z.literal('')),
+    gstin: z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GSTIN format').optional().nullable().or(z.literal('')),
     address: z.string().optional().nullable(),
+    city: z.string().optional().nullable(),
+    category: z.enum(['offset_supplies', 'chemicals', 'paper', 'ink', 'equipment', 'other']).optional().default('other'),
+    credit_days: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().int().min(0).optional().default(0)),
+    credit_limit: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().min(0).optional().default(0)),
+    notes: z.string().optional().nullable(),
+    vendor_code: z.string().regex(/^[A-Z]{3}$/, 'Vendor code must be exactly 3 uppercase letters').optional().nullable().or(z.literal('')),
     branch_id: z.preprocess(Number, z.number().int().positive()).optional().nullable(),
-    order_link: z.string().optional().nullable(),
-    gstin: z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GSTIN format').optional().nullable().or(z.literal(''))
+    order_link: z.string().optional().nullable()
 });
 
 // ---- Jobs ----
@@ -285,6 +292,25 @@ const staffSalaryUpdateSchema = z.object({
     settings: z.any().optional()
 });
 
+// ---- Vendor Invoice & Payment Schemas ----
+const addInvoiceSchema = z.object({
+    vendor_id: z.preprocess(Number, z.number().int().positive()),
+    invoice_number: z.string().optional().nullable(),
+    invoice_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+    amount: requiredPositiveNumber,
+    branch: z.enum(['perambra', 'meppayur', 'common']).default('common'),
+    notes: z.string().optional().nullable()
+});
+
+const addVendorPaymentSchema = z.object({
+    vendor_invoice_id: z.preprocess(Number, z.number().int().positive()),
+    amount: requiredPositiveNumber,
+    payment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+    payment_mode: z.enum(['cash', 'upi', 'bank_transfer', 'cheque']).default('cash'),
+    reference_number: z.string().optional().nullable(),
+    notes: z.string().optional().nullable()
+});
+
 // ---- Middleware factory ----
 const validate = (schema, property = 'body') => (req, res, next) => {
     try {
@@ -322,5 +348,8 @@ module.exports = {
     paperInwardSchema,
     paperOutwardSchema,
     paperAdjustmentSchema,
-    paperTransferSchema
+    paperTransferSchema,
+    addVendorSchema,
+    addInvoiceSchema,
+    addVendorPaymentSchema
 };

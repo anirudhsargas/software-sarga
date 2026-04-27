@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
-const { validate } = require('../middleware/validate');
+const { validate, addVendorSchema, addInvoiceSchema, addVendorPaymentSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
 const multer = require('multer');
 const csv = require('csv-parse');
@@ -10,40 +10,6 @@ const fs = require('fs');
 const path = require('path');
 const pdfParse = require('pdf-parse');
 const logger = require('../helpers/logger');
-
-// Validation schemas
-const addVendorSchema = {
-  name: { type: 'string', required: true, minLength: 1 },
-  contact_person: { type: 'string', optional: true },
-  phone: { type: 'string', optional: true },
-  email: { type: 'string', optional: true },
-  gstin: { type: 'string', optional: true, pattern: /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}\d{1}[A-Z]{1}\d{1}$/ },
-  address: { type: 'string', optional: true },
-  city: { type: 'string', optional: true },
-  category: { type: 'string', enum: ['offset_supplies', 'chemicals', 'paper', 'ink', 'equipment', 'other'], default: 'other' },
-  credit_days: { type: 'number', default: 0 },
-  credit_limit: { type: 'number', default: 0 },
-  notes: { type: 'string', optional: true },
-  vendor_code: { type: 'string', optional: true, pattern: /^[A-Z]{3}$/ }
-};
-
-const addInvoiceSchema = {
-  vendor_id: { type: 'number', required: true },
-  invoice_number: { type: 'string', optional: true },
-  invoice_date: { type: 'string', required: true }, // YYYY-MM-DD
-  amount: { type: 'number', required: true, min: 0 },
-  branch: { type: 'string', enum: ['perambra', 'meppayur', 'common'], default: 'common' },
-  notes: { type: 'string', optional: true }
-};
-
-const addPaymentSchema = {
-  vendor_invoice_id: { type: 'number', required: true },
-  amount: { type: 'number', required: true, min: 0 },
-  payment_date: { type: 'string', required: true }, // YYYY-MM-DD
-  payment_mode: { type: 'string', enum: ['cash', 'upi', 'bank_transfer', 'cheque'], default: 'cash' },
-  reference_number: { type: 'string', optional: true },
-  notes: { type: 'string', optional: true }
-};
 
 // Vendor code generation function
 async function generateVendorCode(vendorName) {
@@ -568,7 +534,7 @@ router.put('/vendor-invoices/:id', authenticateToken, authorizeRoles('Admin', 'A
 });
 
 // POST /api/vendor-payments - Record payment
-router.post('/vendor-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addPaymentSchema), async (req, res) => {
+router.post('/vendor-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addVendorPaymentSchema), async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
