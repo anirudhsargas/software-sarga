@@ -27,10 +27,16 @@ export default function SecureImage({ src, alt, className, style, loading, width
             return;
         }
 
+        // Cloudinary / external CDN URLs don't need auth — render directly
+        if (src.startsWith('http://') || src.startsWith('https://')) {
+            setDisplaySrc(src);
+            setError(false);
+            return;
+        }
+
         // In local dev (same-origin), just build the auth URL and let <img> load it
         if (!IS_CROSS_ORIGIN) {
             const url = imgUrl(src);
-            console.log('[SecureImage] Local dev, using URL:', url);
             setDisplaySrc(url);
             setError(false);
             return;
@@ -42,7 +48,6 @@ export default function SecureImage({ src, alt, className, style, loading, width
         const token = localStorage.getItem('token');
         const url = imgUrl(src);
 
-        console.log('[SecureImage] Cross-origin, fetching:', url);
 
         fetch(url, {
             headers: {
@@ -51,14 +56,12 @@ export default function SecureImage({ src, alt, className, style, loading, width
             },
         })
             .then(r => {
-                console.log('[SecureImage] Fetch response:', r.status, r.ok);
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 return r.blob();
             })
             .then(blob => {
                 if (cancelled || !blob) return;
                 objectUrl = URL.createObjectURL(blob);
-                console.log('[SecureImage] Blob created:', objectUrl);
                 setDisplaySrc(objectUrl);
                 setError(false);
             })
@@ -74,7 +77,6 @@ export default function SecureImage({ src, alt, className, style, loading, width
     }, [src]);
 
     if (!displaySrc) {
-        console.log('[SecureImage] No displaySrc, error:', error);
         if (error) {
             return (
                 <div

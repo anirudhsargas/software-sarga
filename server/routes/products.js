@@ -749,7 +749,14 @@ module.exports = (upload, removeUploadFile) => {
             return res.status(400).json({ message: 'Invalid product id' });
         }
 
-        const proposedImageUrl = `/uploads/${req.file.filename}`;
+        let proposedImageUrl;
+        try {
+            const cloudinaryResult = await uploadToCloudinary(req.file.path, 'product-image-requests');
+            proposedImageUrl = cloudinaryResult.secure_url;
+        } catch (uploadError) {
+            console.error('Cloudinary upload error for image request:', uploadError);
+            return res.status(500).json({ message: 'Failed to upload image' });
+        }
 
         try {
             const [productRows] = await pool.query(
@@ -758,7 +765,6 @@ module.exports = (upload, removeUploadFile) => {
             );
             const product = productRows[0];
             if (!product) {
-                await removeUploadFile(proposedImageUrl).catch(() => {});
                 return res.status(404).json({ message: 'Product not found' });
             }
 
@@ -771,7 +777,6 @@ module.exports = (upload, removeUploadFile) => {
             );
 
             if (pendingRows.length > 0) {
-                await removeUploadFile(proposedImageUrl).catch(() => {});
                 return res.status(409).json({
                     message: 'An image update request is already pending for this product.'
                 });
@@ -797,7 +802,6 @@ module.exports = (upload, removeUploadFile) => {
                 status: 'pending'
             });
         } catch (err) {
-            await removeUploadFile(proposedImageUrl).catch(() => {});
             console.error('Create product image request error:', err);
             return res.status(500).json({ message: 'Database error' });
         }

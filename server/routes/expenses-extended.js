@@ -9,6 +9,7 @@ const { auditLog } = require('../helpers');
 const { invalidateHierarchyCache } = require('./jobs');
 const { validate, officeExpenseSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
+const { uploadToCloudinary } = require('../helpers/cloudinaryUpload');
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -1741,7 +1742,15 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
     const normalizedLineItems = normalizeLineItemsInput(line_items);
     const allowDuplicate = String(force_duplicate || '').trim() === '1';
 
-    const filePath = `/uploads/${req.file.filename}`;
+    let filePath;
+    try {
+      const cloudinaryResult = await uploadToCloudinary(req.file.path, 'bills-documents');
+      filePath = cloudinaryResult.secure_url;
+    } catch (uploadError) {
+      console.error('Cloudinary upload error for bill document:', uploadError);
+      // Fallback to local path if Cloudinary fails
+      filePath = `/uploads/${req.file.filename}`;
+    }
 
     // Prevent accidental duplicate uploads unless user explicitly confirms override.
     if (!allowDuplicate) {
