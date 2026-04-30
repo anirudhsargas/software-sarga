@@ -1,15 +1,15 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import './Pagination.css';
 
-const Pagination = ({ page, totalPages, total, limit = 20, onPageChange, loading }) => {
+const Pagination = React.memo(({ page, totalPages, total, limit = 20, onPageChange, loading }) => {
   if (totalPages <= 1) return null;
 
   const start = (page - 1) * limit + 1;
   const end = Math.min(page * limit, total);
 
   // Generate page numbers to show
-  const getPages = () => {
+  const getPages = useMemo(() => {
     const pages = [];
     const delta = 2; // Pages around current
 
@@ -30,7 +30,18 @@ const Pagination = ({ page, totalPages, total, limit = 20, onPageChange, loading
     }
 
     return pages;
-  };
+  }, [page, totalPages]);
+
+  const handlePageChange = useCallback((newPage) => {
+    onPageChange(newPage);
+  }, [onPageChange]);
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter') {
+      const val = Math.max(1, Math.min(totalPages, Number(e.target.value)));
+      onPageChange(val);
+    }
+  }, [totalPages, onPageChange]);
 
   return (
     <div className="pagination">
@@ -43,7 +54,7 @@ const Pagination = ({ page, totalPages, total, limit = 20, onPageChange, loading
         {/* First page */}
         <button
           className="pagination__btn"
-          onClick={() => onPageChange(1)}
+          onClick={() => handlePageChange(1)}
           disabled={page === 1 || loading}
           title="First page"
         >
@@ -53,7 +64,7 @@ const Pagination = ({ page, totalPages, total, limit = 20, onPageChange, loading
         {/* Previous */}
         <button
           className="pagination__btn"
-          onClick={() => onPageChange(page - 1)}
+          onClick={() => handlePageChange(page - 1)}
           disabled={page === 1 || loading}
           title="Previous page"
         >
@@ -61,13 +72,13 @@ const Pagination = ({ page, totalPages, total, limit = 20, onPageChange, loading
         </button>
 
         {/* Page numbers */}
-        {getPages().map((p, i) => (
+        {getPages.map((p, i) => (
           p === '...'
             ? <span key={`dots-${i}`} className="pagination__dots">···</span>
             : <button
                 key={p}
                 className={`pagination__btn ${page === p ? 'pagination__btn--active' : ''}`}
-                onClick={() => onPageChange(p)}
+                onClick={() => handlePageChange(p)}
                 disabled={loading}
               >
                 {p}
@@ -77,7 +88,7 @@ const Pagination = ({ page, totalPages, total, limit = 20, onPageChange, loading
         {/* Next */}
         <button
           className="pagination__btn"
-          onClick={() => onPageChange(page + 1)}
+          onClick={() => handlePageChange(page + 1)}
           disabled={page === totalPages || loading}
           title="Next page"
         >
@@ -87,7 +98,7 @@ const Pagination = ({ page, totalPages, total, limit = 20, onPageChange, loading
         {/* Last page */}
         <button
           className="pagination__btn"
-          onClick={() => onPageChange(totalPages)}
+          onClick={() => handlePageChange(totalPages)}
           disabled={page === totalPages || loading}
           title="Last page"
         >
@@ -104,17 +115,12 @@ const Pagination = ({ page, totalPages, total, limit = 20, onPageChange, loading
           max={totalPages}
           defaultValue={page}
           className="pagination__jump-input"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              const val = Math.max(1, Math.min(totalPages, Number(e.target.value)));
-              onPageChange(val);
-            }
-          }}
+          onKeyDown={handleKeyDown}
         />
         <span className="pagination__jump-label">of {totalPages}</span>
       </div>
     </div>
   );
-};
+});
 
 export default Pagination;

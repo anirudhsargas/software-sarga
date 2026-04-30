@@ -2,10 +2,10 @@
 @media (max-width: 768px) {
     .jobs-filter-row { flex-direction: column; width: 100%; align-items: stretch; }
     .jobs-filter-row > div { width: 100%; max-width: none !important; }
-    .jobs-filter-group { flex-direction: column; width: 100%; }
-    .jobs-filter-group > div { width: 100%; }
-    .table-scroll { 
-        overflow-x: auto; 
+    .jobs-filter-group { flex-direction: row; width: 100%; flex-wrap: wrap; }
+    .jobs-filter-group > div { flex: 1; min-width: 140px; }
+    .table-scroll {
+        overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         overflow-y: visible;
         margin: 0;
@@ -14,7 +14,7 @@
     }
     .table-scroll::-webkit-scrollbar { height: 6px; }
     .table-scroll::-webkit-scrollbar-thumb { background: var(--accent-soft); border-radius: 999px; }
-    .table { 
+    .table {
         width: 100%;
         min-width: 700px;
     }

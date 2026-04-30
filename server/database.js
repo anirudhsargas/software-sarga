@@ -11,8 +11,10 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 20,
   queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
   // Enable SSL when DB_SSL=true (required for Aiven and most cloud MySQL providers)
   ...(process.env.DB_SSL === 'true' && {
     ssl: {
@@ -2508,12 +2510,23 @@ const initDb = async () => {
     // Performance indexes for frequently queried tables
     await safeIndex('idx_staff_user_id', 'CREATE INDEX idx_staff_user_id ON sarga_staff (user_id)');
     await safeIndex('idx_staff_branch_role', 'CREATE INDEX idx_staff_branch_role ON sarga_staff (branch_id, role)');
+    await safeIndex('idx_staff_is_active', 'CREATE INDEX idx_staff_is_active ON sarga_staff (is_active)');
     await safeIndex('idx_payments_date_branch', 'CREATE INDEX idx_payments_date_branch ON sarga_payments (payment_date, branch_id)');
     await safeIndex('idx_payments_type_date', 'CREATE INDEX idx_payments_type_date ON sarga_payments (type, payment_date)');
+    await safeIndex('idx_payments_vendor_date', 'CREATE INDEX idx_payments_vendor_date ON sarga_payments (vendor_id, payment_date)');
     await safeIndex('idx_jobs_created_status', 'CREATE INDEX idx_jobs_created_status ON sarga_jobs (created_at, status)');
     await safeIndex('idx_jobs_customer_status', 'CREATE INDEX idx_jobs_customer_status ON sarga_jobs (customer_id, status)');
+    await safeIndex('idx_jobs_branch_status', 'CREATE INDEX idx_jobs_branch_status ON sarga_jobs (branch_id, status)');
+    await safeIndex('idx_jobs_created_branch', 'CREATE INDEX idx_jobs_created_branch ON sarga_jobs (created_at, branch_id)');
     await safeIndex('idx_customers_mobile', 'CREATE INDEX idx_customers_mobile ON sarga_customers (mobile)');
     await safeIndex('idx_customers_branch_type', 'CREATE INDEX idx_customers_branch_type ON sarga_customers (branch_id, type)');
+    await safeIndex('idx_products_subcategory', 'CREATE INDEX idx_products_subcategory ON sarga_products (subcategory_id)');
+    await safeIndex('idx_products_is_active', 'CREATE INDEX idx_products_is_active ON sarga_products (is_active)');
+    await safeIndex('idx_inventory_category', 'CREATE INDEX idx_inventory_category ON sarga_inventory (category)');
+    await safeIndex('idx_paper_stock_branch', 'CREATE INDEX idx_paper_stock_branch ON paper_stock_summary (branch_id)');
+    await safeIndex('idx_paper_type_active', 'CREATE INDEX idx_paper_type_active ON paper_types (is_active)');
+    await safeIndex('idx_stock_requests_status', 'CREATE INDEX idx_stock_requests_status ON sarga_stock_requests (status)');
+    await safeIndex('idx_stock_requests_branch', 'CREATE INDEX idx_stock_requests_branch ON sarga_stock_requests (from_branch_id, to_branch_id)');
 
     console.log('Database initialized successfully');
   } catch (err) {

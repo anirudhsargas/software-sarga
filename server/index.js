@@ -295,7 +295,7 @@ const asyncHandler = (fn) => (req, res, next) => {
 
 // --------------- Response Caching ---------------
 const NodeCache = require('node-cache');
-const cache = new NodeCache({ stdTTL: 300, checkperiod: 320 }); // 5 minute default TTL
+const cache = new NodeCache({ stdTTL: 600, checkperiod: 620, useClones: false }); // 10 minute default TTL, no cloning for performance
 
 const cacheMiddleware = (duration = 300) => {
     return (req, res, next) => {

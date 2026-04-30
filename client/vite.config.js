@@ -66,17 +66,40 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
+        manualChunks: (id) => {
           // Core (loads first)
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['lucide-react'],
+          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+            return 'vendor-react';
+          }
+          if (id.includes('lucide-react')) {
+            return 'vendor-ui';
+          }
           // Heavy libraries → separate chunks (lazy-loaded)
-          'pdf-export': ['jspdf', 'jspdf-autotable'],
-          'image-processing': ['react-easy-crop'],
-          'qr-code': ['html5-qrcode'],
-          // Drag & drop
-          'dnd-kit': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+          if (id.includes('jspdf')) {
+            return 'pdf-export';
+          }
+          if (id.includes('react-easy-crop')) {
+            return 'image-processing';
+          }
+          if (id.includes('html5-qrcode') || id.includes('jsqr')) {
+            return 'qr-code';
+          }
+          if (id.includes('@dnd-kit')) {
+            return 'dnd-kit';
+          }
+          if (id.includes('recharts')) {
+            return 'charts';
+          }
+          if (id.includes('axios')) {
+            return 'http';
+          }
+          if (id.includes('dompurify')) {
+            return 'security';
+          }
         },
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
       },
     },
     cssCodeSplit: true,
@@ -85,6 +108,7 @@ export default defineConfig({
       compress: {
         drop_console: true,
         drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug'],
       },
       format: {
         comments: false,
@@ -92,9 +116,13 @@ export default defineConfig({
     },
     sourcemap: false,
     // Increase chunk size limit to avoid many small chunks
-    chunkSizeWarningLimit: 500,
+    chunkSizeWarningLimit: 1000,
     // Emit module preload polyfill
     modulePreload: true,
+    // Optimize chunk size
+    target: 'esnext',
+    // Enable CSS minification
+    cssMinify: true,
   },
   server: {
     port: 5173,

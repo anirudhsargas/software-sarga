@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import localDb from '../services/localDb';
 import ScannerModal from '../components/ScannerModal';
 import InternalUsageReport from './InternalUsageReport';
+import './InternalBilling.css';
 
 const MACHINE_TYPES = [
   { key: 'Offset', label: 'Offset', icon: '🖨️' },

@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { addRipple } from '../utils/ripple';
 import { Loader2 } from 'lucide-react';
 
-export const Button = ({
+export const Button = React.memo(({
   children,
   variant = 'primary',
   size = 'md',
@@ -16,12 +16,12 @@ export const Button = ({
   className = '',
   ...props
 }) => {
-  const handleClick = (e) => {
+  const handleClick = useCallback((e) => {
     addRipple(e);
     if (onClick) onClick(e);
-  };
+  }, [onClick]);
 
-  const classes = [
+  const classes = useMemo(() => [
     'btn',
     `btn-${variant}`,
     size !== 'md' ? `btn-${size}` : '',
@@ -29,7 +29,7 @@ export const Button = ({
     full ? 'btn--full' : '',
     loading ? 'btn--loading' : '',
     className
-  ].filter(Boolean).join(' ');
+  ].filter(Boolean).join(' '), [variant, size, pill, full, loading, className]);
 
   return (
     <button
@@ -52,6 +52,6 @@ export const Button = ({
       )}
     </button>
   );
-};
+});
 
 export default Button;

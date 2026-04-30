@@ -956,3 +956,46 @@
         font-size: 11px;
     }
 }
+
+/* Mobile responsive for header controls */
+@media (max-width: 640px) {
+    .dr-controls {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .dr-controls-branch,
+    .dr-controls-date {
+        flex: 1;
+        min-width: 140px;
+    }
+
+    .dr-controls-branch-select,
+    .dr-controls-date-input {
+        width: 100%;
+    }
+}
+
+/* Mobile responsive for credits panel */
+@media (max-width: 640px) {
+    .dr-credits-panel {
+        margin: 0 -16px;
+        padding: 16px;
+    }
+
+    .dr-credits-table-wrapper {
+        overflow-x: auto;
+        margin: 0 -16px;
+        padding: 0 16px;
+    }
+
+    .dr-credits-table-wrapper table {
+        min-width: 500px;
+    }
+
+    .dr-credits-table-wrapper th,
+    .dr-credits-table-wrapper td {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+}

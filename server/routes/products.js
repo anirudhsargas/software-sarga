@@ -417,14 +417,28 @@ module.exports = (upload, removeUploadFile) => {
     // Delete Subcategory
     router.delete('/product-subcategories/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         try {
+            // Check if subcategory exists
             const [rows] = await pool.query("SELECT image_url FROM sarga_product_subcategories WHERE id = ?", [req.params.id]);
-            if (rows[0]?.image_url) await removeUploadFile(rows[0].image_url).catch(() => {});
+            if (!rows || rows.length === 0) {
+                return res.status(404).json({ message: 'Subcategory not found' });
+            }
+            
+            // Delete image file if exists
+            if (rows[0]?.image_url) {
+                await removeUploadFile(rows[0].image_url).catch(() => {});
+            }
+            
+            // Delete subcategory (products will be cascade deleted)
             await pool.query("DELETE FROM sarga_product_subcategories WHERE id = ?", [req.params.id]);
             invalidateHierarchyCache();
             auditLog(req.user.id, 'SUBCATEGORY_DELETE', `Deleted subcategory #${req.params.id}`, { entity_type: 'product_subcategory', entity_id: req.params.id });
             res.json({ message: 'Subcategory deleted' });
         } catch (err) {
-            res.status(500).json({ message: 'Database error' });
+            console.error('Delete subcategory error:', err);
+            if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_NO_REFERENCED_ROW_2') {
+                return res.status(400).json({ message: 'Cannot delete subcategory due to database constraints' });
+            }
+            res.status(500).json({ message: err.message || 'Database error' });
         }
     });
 

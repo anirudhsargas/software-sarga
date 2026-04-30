@@ -828,6 +828,49 @@ const ProductLibrary = () => {
         }
     }, [location.state, loading, navigate]);
 
+    // Sync viewPath with URL search params for proper browser back navigation
+    const isUpdatingFromUrl = useRef(false);
+    const skipNextUrlUpdate = useRef(false);
+    useEffect(() => {
+        if (skipNextUrlUpdate.current) {
+            skipNextUrlUpdate.current = false;
+            return;
+        }
+        const searchParams = new URLSearchParams(location.search);
+        const pathParam = searchParams.get('path');
+        if (pathParam) {
+            try {
+                const parsedPath = JSON.parse(pathParam);
+                isUpdatingFromUrl.current = true;
+                setViewPath(parsedPath);
+            } catch (e) {
+                console.error('Failed to parse path param:', e);
+            }
+        } else {
+            isUpdatingFromUrl.current = true;
+            setViewPath([]);
+        }
+    }, [location.search]);
+
+    // Update URL when viewPath changes (but not when updating from URL)
+    useEffect(() => {
+        if (isUpdatingFromUrl.current) {
+            isUpdatingFromUrl.current = false;
+            skipNextUrlUpdate.current = true;
+            return;
+        }
+        const searchParams = new URLSearchParams(location.search);
+        if (viewPath.length > 0) {
+            searchParams.set('path', JSON.stringify(viewPath));
+        } else {
+            searchParams.delete('path');
+        }
+        const newSearch = searchParams.toString();
+        if (newSearch !== location.search) {
+            navigate(`${location.pathname}?${newSearch}`, { replace: true });
+        }
+    }, [viewPath, location.search, navigate]);
+
     const handleToggleProduct = async (prod) => {
         const isActive = prod.is_active === 1 || prod.is_active === true;
         

@@ -1,0 +1,349 @@
+/* Stock Transfer Page Styles */
+
+/* Header */
+.stock-hub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.stock-hub-header__content h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.stock-hub-header__content p {
+  color: var(--muted);
+  margin: 4px 0 0 44px;
+}
+
+/* Tabs */
+.stock-hub-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.stock-hub-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Grid */
+.stock-hub-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .stock-hub-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Panel borders */
+.panel--primary-border {
+  border-top: 4px solid #3b82f6;
+}
+
+.panel--left-border-primary {
+  border-left: 4px solid #3b82f6;
+}
+
+.panel--left-border-warning {
+  border-left: 4px solid #f59e0b;
+}
+
+/* Icons */
+.icon-primary {
+  color: #3b82f6;
+}
+
+.icon-warning {
+  color: #f59e0b;
+}
+
+/* Status badge colors */
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Mode switch */
+.mode-switch {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-2);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.mode-switch button {
+  flex: 1;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+
+/* Search input */
+.search-input-wrapper {
+  position: relative;
+}
+
+.search-input-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.input-field--with-icon {
+  padding-left: 40px;
+}
+
+/* Dropdown */
+.panel--dropdown {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.dropdown-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s;
+}
+
+.dropdown-item:hover {
+  background: var(--surface-2);
+}
+
+.dropdown-item__name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.dropdown-item__meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Selected item */
+.selected-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.selected-item-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 4px;
+}
+
+/* Form rows */
+.form-row--2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-row--quantity {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+}
+
+.input-field--quantity {
+  width: 100%;
+}
+
+/* Summary panel */
+.summary-panel {
+  position: sticky;
+  top: 20px;
+}
+
+.summary-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--muted);
+  gap: 12px;
+}
+
+.transfer-path {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.transfer-path__node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.transfer-path__label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+
+.transfer-path__value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.transfer-path__arrow {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* Buttons */
+.btn--full {
+  width: 100%;
+  justify-content: center;
+}
+
+.btn--large {
+  padding: 14px 20px;
+  font-size: 15px;
+}
+
+.btn-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Table scroll */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Badge variants */
+.badge-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.badge-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.badge-ghost {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.badge--bg-secondary {
+  background: var(--surface-2);
+}
+
+/* Transfer path inline */
+.transfer-path-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Empty state */
+.empty-state {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Side badge */
+.side-badge {
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.side-badge--static {
+  background: #ef4444;
+  color: white;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .stock-hub-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .stock-hub-header__content p {
+    margin-left: 0;
+  }
+
+  .stock-hub-tabs {
+    width: 100%;
+  }
+
+  .stock-hub-tab {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .form-row--2,
+  .form-row--quantity {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-panel {
+    position: static;
+  }
+}

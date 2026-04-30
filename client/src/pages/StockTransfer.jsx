@@ -8,6 +8,7 @@ import {
 import api from '../services/api';
 import auth from '../services/auth';
 import toast from 'react-hot-toast';
+import './StockTransfer.css';
 
 const StockTransfer = () => {
     const user = auth.getUser();
