@@ -872,8 +872,13 @@ const ProductLibrary = () => {
     }, [viewPath, location.search, navigate]);
 
     const handleToggleProduct = async (prod) => {
+        // Inventory-only items cannot be toggled
+        if (prod.is_inventory_only) {
+            toast.error('Inventory items are always active');
+            return;
+        }
         const isActive = prod.is_active === 1 || prod.is_active === true;
-        
+
         // Optimistic UI Update
         setHierarchy(prev => prev.map(c => ({
             ...c,

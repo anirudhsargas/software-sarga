@@ -570,6 +570,44 @@ module.exports = (upload, removeUploadFile) => {
     // Update Product
     router.put('/products/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
         const { id } = req.params;
+
+        // Handle inventory-only items (inv-{id} format) - redirect to inventory update
+        if (typeof id === 'string' && id.startsWith('inv-')) {
+            const inventoryId = parseInt(id.replace('inv-', ''), 10);
+            if (isNaN(inventoryId)) {
+                return res.status(400).json({ message: 'Invalid inventory ID' });
+            }
+
+            const { name, product_code, extraInv } = req.body;
+            const invData = typeof extraInv === 'string' ? JSON.parse(extraInv) : extraInv;
+
+            try {
+                await pool.query(
+                    `UPDATE sarga_inventory
+                     SET name = ?, sku = ?, hsn = ?, quantity = ?, unit = ?, gst_rate = ?, cost_price = ?, sell_price = ?, vendor_name = ?
+                     WHERE id = ?`,
+                    [
+                        name || invData?.name,
+                        product_code || invData?.sku,
+                        invData?.hsn || '',
+                        invData?.quantity || 0,
+                        invData?.unit || 'pcs',
+                        invData?.gst_rate || '0',
+                        invData?.cost_price || 0,
+                        invData?.sell_price || 0,
+                        invData?.vendor_name || '',
+                        inventoryId
+                    ]
+                );
+                invalidateHierarchyCache();
+                auditLog(req.user.id, 'INVENTORY_UPDATE', `Updated inventory item #${inventoryId} via Product Library`, { entity_type: 'inventory', entity_id: inventoryId });
+                return res.json({ message: 'Inventory item updated successfully' });
+            } catch (err) {
+                console.error('Update inventory error:', err);
+                return res.status(500).json({ message: 'Database error' });
+            }
+        }
+
         const { subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, inventory_item_id, isPhysicalProduct } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
@@ -641,6 +679,31 @@ module.exports = (upload, removeUploadFile) => {
 
     // Delete Product
     router.delete('/products/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+        // Handle inventory-only items (inv-{id} format) - redirect to inventory delete
+        if (typeof req.params.id === 'string' && req.params.id.startsWith('inv-')) {
+            const inventoryId = parseInt(req.params.id.replace('inv-', ''), 10);
+            if (isNaN(inventoryId)) {
+                return res.status(400).json({ message: 'Invalid inventory ID' });
+            }
+
+            try {
+                // Check if inventory item has stock
+                const [invRows] = await pool.query("SELECT quantity FROM sarga_inventory WHERE id = ?", [inventoryId]);
+                if (!invRows[0]) return res.status(404).json({ message: 'Inventory item not found' });
+                if (Number(invRows[0].quantity) > 0) {
+                    return res.status(400).json({ message: `Cannot delete inventory item. It has ${invRows[0].quantity} unit(s) remaining.` });
+                }
+
+                await pool.query("DELETE FROM sarga_inventory WHERE id = ?", [inventoryId]);
+                invalidateHierarchyCache();
+                auditLog(req.user.id, 'INVENTORY_DELETE', `Deleted inventory item #${inventoryId} via Product Library`, { entity_type: 'inventory', entity_id: inventoryId });
+                return res.json({ message: 'Inventory item deleted successfully' });
+            } catch (err) {
+                console.error('Delete inventory error:', err);
+                return res.status(500).json({ message: 'Database error' });
+            }
+        }
+
         try {
             // Check if the product has stock in inventory
             const [prodRows] = await pool.query("SELECT inventory_item_id FROM sarga_products WHERE id = ?", [req.params.id]);
@@ -663,6 +726,11 @@ module.exports = (upload, removeUploadFile) => {
 
     // Toggle Product Active/Inactive
     router.patch('/products/:id/toggle-active', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+        // Handle inventory-only items (inv-{id} format) - inventory items don't have is_active
+        if (typeof req.params.id === 'string' && req.params.id.startsWith('inv-')) {
+            return res.status(400).json({ message: 'Inventory items cannot be toggled. They are always active.' });
+        }
+
         try {
             const [rows] = await pool.query("SELECT is_active FROM sarga_products WHERE id = ?", [req.params.id]);
             if (!rows[0]) return res.status(404).json({ message: 'Product not found' });
@@ -952,6 +1020,57 @@ module.exports = (upload, removeUploadFile) => {
     // Get Full Product Details (including slabs and extras)
     router.get('/products/:id', authenticateToken, async (req, res) => {
         try {
+            // Handle inventory-only items (inv-{id} format)
+            if (typeof req.params.id === 'string' && req.params.id.startsWith('inv-')) {
+                const inventoryId = parseInt(req.params.id.replace('inv-', ''), 10);
+                if (isNaN(inventoryId)) {
+                    return res.status(400).json({ message: 'Invalid inventory ID' });
+                }
+
+                const [invRows] = await pool.query(
+                    `SELECT id, name, sku, sell_price, category, hsn, quantity, unit, gst_rate, cost_price, vendor_name
+                     FROM sarga_inventory
+                     WHERE id = ?
+                     LIMIT 1`,
+                    [inventoryId]
+                );
+                const invItem = invRows[0];
+                if (!invItem) return res.status(404).json({ message: 'Inventory item not found' });
+
+                // Return inventory item in product-like format
+                return res.json({
+                    id: `inv-${invItem.id}`,
+                    inventory_id: invItem.id,
+                    name: invItem.name,
+                    product_code: invItem.sku,
+                    company_name: invItem.vendor_name,
+                    company_code: '',
+                    size: '',
+                    calculation_type: 'Normal',
+                    description: '',
+                    image_url: null,
+                    has_paper_rate: false,
+                    paper_rate: 0,
+                    has_double_side_rate: false,
+                    inventory_item_id: invItem.id,
+                    is_physical_product: true,
+                    is_active: true,
+                    is_inventory_only: true,
+                    slabs: [],
+                    extras: [],
+                    links: [],
+                    extraInv: {
+                        hsn: invItem.hsn || '',
+                        quantity: invItem.quantity || '',
+                        unit: invItem.unit || 'pcs',
+                        gst_rate: invItem.gst_rate || '0',
+                        cost_price: invItem.cost_price || '',
+                        sell_price: invItem.sell_price || '',
+                        vendor_name: invItem.vendor_name || ''
+                    }
+                });
+            }
+
             const [products] = await pool.query("SELECT * FROM sarga_products WHERE id = ?", [req.params.id]);
             const product = products[0];
             if (!product) return res.status(404).json({ message: 'Product not found' });
