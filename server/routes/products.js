@@ -381,6 +381,11 @@ module.exports = (upload, removeUploadFile) => {
 
     // Update Subcategory
     router.put('/product-subcategories/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
+        // Handle virtual subcategories (inv-sub-{id} format) - these don't exist in database
+        if (typeof req.params.id === 'string' && req.params.id.startsWith('inv-sub-')) {
+            return res.status(400).json({ message: 'Virtual subcategories cannot be edited. Edit individual inventory items instead.' });
+        }
+
         const { name, category_id, image_url: existingImageUrl } = req.body;
         const { id } = req.params;
         if (!name || !String(name).trim()) return res.status(400).json({ message: 'Name is required' });
@@ -416,6 +421,11 @@ module.exports = (upload, removeUploadFile) => {
 
     // Delete Subcategory
     router.delete('/product-subcategories/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+        // Handle virtual subcategories (inv-sub-{id} format) - these don't exist in database
+        if (typeof req.params.id === 'string' && req.params.id.startsWith('inv-sub-')) {
+            return res.status(400).json({ message: 'Virtual subcategories cannot be deleted. Delete individual inventory items instead.' });
+        }
+
         try {
             // Check if subcategory exists
             const [rows] = await pool.query("SELECT image_url FROM sarga_product_subcategories WHERE id = ?", [req.params.id]);
@@ -444,6 +454,11 @@ module.exports = (upload, removeUploadFile) => {
 
     // Toggle Subcategory Active/Inactive
     router.patch('/product-subcategories/:id/toggle-active', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+        // Handle virtual subcategories (inv-sub-{id} format) - these don't exist in database
+        if (typeof req.params.id === 'string' && req.params.id.startsWith('inv-sub-')) {
+            return res.status(400).json({ message: 'Virtual subcategories cannot be toggled. They are always active.' });
+        }
+
         try {
             const [rows] = await pool.query("SELECT is_active FROM sarga_product_subcategories WHERE id = ?", [req.params.id]);
             if (!rows[0]) return res.status(404).json({ message: 'Subcategory not found' });

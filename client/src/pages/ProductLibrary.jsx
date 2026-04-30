@@ -725,6 +725,11 @@ const ProductLibrary = () => {
     };
 
     const handleDelete = async (type, id, name) => {
+        // Prevent deleting virtual subcategories
+        if (type === 'subcategory' && typeof id === 'string' && id.startsWith('inv-sub-')) {
+            toast.error('Virtual subcategories cannot be deleted. Delete individual inventory items instead.');
+            return;
+        }
         const isConfirmed = await confirm({
             title: `Delete ${type.charAt(0).toUpperCase() + type.slice(1)}`,
             message: `Are you sure you want to delete this ${type}: "${name}"?`,
@@ -915,6 +920,11 @@ const ProductLibrary = () => {
     };
 
     const handleToggleSubcategory = async (sub) => {
+        // Virtual subcategories cannot be toggled
+        if (typeof sub.id === 'string' && sub.id.startsWith('inv-sub-')) {
+            toast.error('Virtual subcategories are always active');
+            return;
+        }
         const isActive = sub.is_active === 1 || sub.is_active === true;
 
         // Optimistic UI Update
@@ -2221,7 +2231,6 @@ const ProductLibrary = () => {
                                                     placeholder="Rate/unit"
                                                     value={newProduct.paper_rate !== undefined ? newProduct.paper_rate : ''}
                                                     onChange={e => setNewProduct({ ...newProduct, paper_rate: e.target.value === '' ? '' : Number(e.target.value) })}
-                                                    onWheel={e => e.preventDefault()}
                                                 />
                                             )}
                                         </div>
@@ -2306,7 +2315,6 @@ const ProductLibrary = () => {
                                                         slabs[0].double_side_unit_rate = e.target.value === '' ? '' : Number(e.target.value);
                                                         setNewProduct({ ...newProduct, slabs });
                                                     }}
-                                                    onWheel={e => e.preventDefault()}
                                                 />
                                             </div>
                                         )}
@@ -2342,7 +2350,6 @@ const ProductLibrary = () => {
                                                             moveSlabFocus(idx, 0, e.key === 'ArrowUp' ? -1 : 1);
                                                         }
                                                     }}
-                                                    onWheel={e => e.preventDefault()}
                                                 />
                                                 {newProduct.calculation_type === 'Range' && (
                                                     <input
@@ -2372,8 +2379,7 @@ const ProductLibrary = () => {
                                                                 moveSlabFocus(idx, 1, e.key === 'ArrowUp' ? -1 : 1);
                                                             }
                                                         }}
-                                                        onWheel={e => e.preventDefault()}
-                                                    />
+                                                        />
                                                 )}
                                                 {newProduct.calculation_type === 'Slab' && (
                                                     <input
@@ -2397,8 +2403,7 @@ const ProductLibrary = () => {
                                                                 moveSlabFocus(idx, 1, e.key === 'ArrowUp' ? -1 : 1);
                                                             }
                                                         }}
-                                                        onWheel={e => e.preventDefault()}
-                                                    />
+                                                        />
                                                 )}
                                                 {newProduct.calculation_type === 'Slab' && newProduct.has_double_side_rate && (
                                                     <input
@@ -2422,8 +2427,7 @@ const ProductLibrary = () => {
                                                                 moveSlabFocus(idx, 2, e.key === 'ArrowUp' ? -1 : 1);
                                                             }
                                                         }}
-                                                        onWheel={e => e.preventDefault()}
-                                                    />
+                                                        />
                                                 )}
                                                 {newProduct.calculation_type === 'Range' && (
                                                     <>
@@ -2445,8 +2449,7 @@ const ProductLibrary = () => {
                                                                     moveSlabFocus(idx, 2, e.key === 'ArrowUp' ? -1 : 1);
                                                                 }
                                                             }}
-                                                            onWheel={e => e.preventDefault()}
-                                                        />
+                                                                />
                                                         <input
                                                             type="number" className="input-field text-sm"
                                                             placeholder="Offset Rate"
@@ -2468,8 +2471,7 @@ const ProductLibrary = () => {
                                                                     moveSlabFocus(idx, 3, e.key === 'ArrowUp' ? -1 : 1);
                                                                 }
                                                             }}
-                                                            onWheel={e => e.preventDefault()}
-                                                        />
+                                                                />
                                                         {newProduct.has_double_side_rate && (
                                                             <input
                                                                 type="number" className="input-field text-sm"
@@ -2489,8 +2491,7 @@ const ProductLibrary = () => {
                                                                         moveSlabFocus(idx, 4, e.key === 'ArrowUp' ? -1 : 1);
                                                                     }
                                                                 }}
-                                                                onWheel={e => e.preventDefault()}
-                                                            />
+                                                                        />
                                                         )}
                                                     </>
                                                 )}
