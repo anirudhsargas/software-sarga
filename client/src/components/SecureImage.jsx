@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { imgUrl, FILE_BASE } from '../services/api';
+import { Image as ImageIcon } from 'lucide-react';
 
 // Detect if we're in a cross-origin environment (Vercel, Render, etc.)
 // Local dev with Vite proxy is same-origin, so plain <img> works fine.
@@ -74,6 +75,25 @@ export default function SecureImage({ src, alt, className, style, loading, width
 
     if (!displaySrc) {
         console.log('[SecureImage] No displaySrc, error:', error);
+        if (error) {
+            return (
+                <div
+                    className={className}
+                    style={{
+                        ...style,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'var(--surface-2, #1e293b)',
+                        border: '1px solid var(--border, #334155)',
+                        borderRadius: '8px',
+                        color: 'var(--text-muted, #64748b)'
+                    }}
+                >
+                    <ImageIcon size={24} />
+                </div>
+            );
+        }
         return null;
     }
     
