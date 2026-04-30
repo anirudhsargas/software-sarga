@@ -32,6 +32,12 @@ services:
         value: "https://software-sarga.vercel.app"
       - key: JWT_SECRET
         fromSecret: JWT_SECRET
+      - key: CLOUDINARY_CLOUD_NAME
+        fromSecret: CLOUDINARY_CLOUD_NAME
+      - key: CLOUDINARY_API_KEY
+        fromSecret: CLOUDINARY_API_KEY
+      - key: CLOUDINARY_API_SECRET
+        fromSecret: CLOUDINARY_API_SECRET
       # Add production secrets (DB, JWT, third-party keys) as Render secrets instead
       # Example using a secret reference:
       # - key: DATABASE_URL
