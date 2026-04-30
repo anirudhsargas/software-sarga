@@ -257,7 +257,7 @@ const Summary = () => {
                                     <span className="font-medium muted">Kuri Installments</span>
                                     <span className="font-bold">{fmt(statsToday?.financial_roadmap?.kuri_total)}</span>
                                 </div>
-                                <div className="row space-between p-20 bg-primary text-white rounded shadow-md mt-4" style={{marginTop: 24, marginBottom: 8}}>
+                                <div className="row space-between p-20 bg-primary rounded shadow-md mt-4" style={{marginTop: 24, marginBottom: 8, color: 'var(--on-accent)'}}>
                                     <span className="font-bold">Total Monthly Fixed</span>
                                     <span className="font-black text-lg">{fmt(statsToday?.financial_roadmap?.total_monthly_commitment)}</span>
                                 </div>

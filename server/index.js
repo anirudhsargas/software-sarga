@@ -227,17 +227,52 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 102
 
 // Serve uploads — require valid JWT token via query param or Authorization header
 const jwt = require('jsonwebtoken');
+const { cloudinary, getCloudinaryUrl } = require('./helpers/cloudinaryUpload');
+
+// Protected uploads route with Cloudinary fallback when local file missing
 app.use('/uploads', (req, res, next) => {
     // Allow token via query string (?token=xxx) or Authorization header
     const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
     if (!token) return res.status(401).json({ message: 'Access denied.' });
     try {
         verifyWithAnySecret(token);
-        next();
     } catch {
         return res.status(403).json({ message: 'Invalid or expired token.' });
     }
-}, express.static(uploadsDir));
+
+    // Map requested path to local uploads file
+    const fileName = path.basename(req.path || '');
+    const filePath = path.join(uploadsDir, fileName);
+
+    // If local file exists, let express.static serve it
+    if (filePath.startsWith(uploadsDir) && fs.existsSync(filePath)) {
+        return express.static(uploadsDir)(req, res, next);
+    }
+
+    // Local file missing — attempt Cloudinary fallback (if configured)
+    (async () => {
+        if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+            const base = path.parse(fileName).name;
+            const possiblePublicIds = [`uploads/${base}`, base];
+            for (const pubId of possiblePublicIds) {
+                try {
+                    // Check resource existence in Cloudinary
+                    await cloudinary.api.resource(pubId);
+                    const url = getCloudinaryUrl(pubId);
+                    return res.redirect(302, url);
+                } catch (err) {
+                    // not found in this id, continue to next
+                }
+            }
+        }
+
+        // Not found locally or in Cloudinary
+        return res.status(404).json({ message: 'Not found.' });
+    })().catch(err => {
+        logger.error('Error in uploads fallback:', err);
+        return res.status(500).json({ message: 'Server error.' });
+    });
+});
 
 const removeUploadFile = async (imageUrl) => {
     if (!imageUrl || !imageUrl.startsWith('/uploads/')) return;

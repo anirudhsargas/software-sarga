@@ -4,7 +4,7 @@ import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon, ChevronLeft, Search, Filter, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon, ChevronLeft, Search, Filter, Link as LinkIcon, ExternalLink, Loader2 } from 'lucide-react';
 import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
 import {
@@ -114,6 +114,8 @@ const ProductLibrary = () => {
 
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
+    const [editLoading, setEditLoading] = useState(false);
+    const [saveLoading, setSaveLoading] = useState(false);
     const [imageRequestSubmitting, setImageRequestSubmitting] = useState(false);
     const [pendingImageRequests, setPendingImageRequests] = useState([]);
     const [loadingPendingImageRequests, setLoadingPendingImageRequests] = useState(false);
@@ -558,6 +560,7 @@ const ProductLibrary = () => {
             toast.success('Please select a sub-category for this product.');
             return;
         }
+        setSaveLoading(true);
         try {
             const formData = new FormData();
             formData.append('subcategory_id', selectedSubId);
@@ -586,14 +589,18 @@ const ProductLibrary = () => {
 
             if (isEditing) {
                 await api.put(`/products/${editId}`, formData);
+                toast.success('Product updated successfully');
             } else {
                 await api.post('/products', formData);
+                toast.success('Product added successfully');
             }
             resetProductForm();
             setShowProdModal(false);
             fetchHierarchy();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Error saving product');
+        } finally {
+            setSaveLoading(false);
         }
     };
 
@@ -773,6 +780,7 @@ const ProductLibrary = () => {
     };
 
     const startEditProduct = async (prodId) => {
+        setEditLoading(true);
         try {
             const res = await api.get(`/products/${prodId}`);
             const prod = res.data;
@@ -806,6 +814,8 @@ const ProductLibrary = () => {
             setShowProdModal(true);
         } catch (err) {
             toast.error('Error fetching product details');
+        } finally {
+            setEditLoading(false);
         }
     };
 
@@ -1405,8 +1415,8 @@ const ProductLibrary = () => {
                                 >
                                     {isPrivileged && (
                                     <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
-                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditProduct(prod.id); }} title="Edit Product">
-                                            <Edit2 size={14} />
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditProduct(prod.id); }} title="Edit Product" disabled={editLoading}>
+                                            {editLoading ? <Loader2 size={14} className="spin" /> : <Edit2 size={14} />}
                                         </button>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); handleDuplicateProduct(prod.id); }} title="Duplicate Product">
                                             <Copy size={14} />
@@ -1859,7 +1869,8 @@ const ProductLibrary = () => {
                                                         ...prev,
                                                         company_name: val,
                                                         company_code: prev.isManualCompanyCode ? prev.company_code : (prev.company_code || quickCode),
-                                                        product_code: buildAutoSku(prev.isManualCompanyCode ? prev.company_code : (prev.company_code || quickCode), prev.name, prev.size)
+                                                        product_code: buildAutoSku(prev.isManualCompanyCode ? prev.company_code : (prev.company_code || quickCode), prev.name, prev.size),
+                                                        extraInv: { ...prev.extraInv, vendor_name: val }
                                                     }));
                                                     fetchUniqueCode(val, newProduct);
                                                     setCompanyDropdownOpen(true);
@@ -1900,7 +1911,8 @@ const ProductLibrary = () => {
                                                                     company_name: c.name,
                                                                     company_code: c.code,
                                                                     product_code: autoSku,
-                                                                    isManualCompanyCode: true
+                                                                    isManualCompanyCode: true,
+                                                                    extraInv: { ...prev.extraInv, vendor_name: c.name }
                                                                 }));
                                                                 setCompanyDropdownOpen(false);
                                                             }}
@@ -2097,7 +2109,16 @@ const ProductLibrary = () => {
                                             </div>
                                             <div style={{ gridColumn: '1 / -1' }}>
                                                 <label className="label">Vendor Name (for stock)</label>
-                                                <input className="input-field" placeholder="Primary supplier" value={newProduct.extraInv.vendor_name} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, vendor_name: e.target.value}})} />
+                                                <input 
+                                                    className="input-field" 
+                                                    placeholder="Auto-synced from Company/Brand Name" 
+                                                    value={newProduct.extraInv.vendor_name} 
+                                                    readOnly
+                                                    style={{ background: 'var(--surface-2, #1e293b)', cursor: 'not-allowed' }}
+                                                />
+                                                <p style={{ fontSize: '11px', color: 'var(--text-muted, #64748b)', margin: '4px 0 0' }}>
+                                                    Auto-synced with Company/Brand Name above
+                                                </p>
                                             </div>
                                         </div>
                                     )}
@@ -2582,9 +2603,18 @@ const ProductLibrary = () => {
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         gap: '8px'
-                                    }}>
-                                        <Save size={20} />
-                                        {isEditing ? 'Update Product in Library' : 'Create & Save Product'}
+                                    }} disabled={saveLoading}>
+                                        {saveLoading ? (
+                                            <>
+                                                <Loader2 size={20} className="spin" />
+                                                {isEditing ? 'Updating...' : 'Saving...'}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save size={20} />
+                                                {isEditing ? 'Update Product in Library' : 'Create & Save Product'}
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             )}

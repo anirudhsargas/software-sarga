@@ -143,6 +143,29 @@
   box-shadow: 0 0 0 3px rgba(16,185,129,0.4);
 }
 
+/* ── Secondary Button ── */
+.btn-secondary {
+  background: var(--btn-secondary-bg, #e5e7eb);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2, #d1d5db);
+}
+
+/* ── Outline Button ── */
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border: 1.5px solid var(--border);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
 /* ── Icon Button ── */
 .btn-icon {
   padding: 8px;
@@ -247,7 +270,7 @@
 .btn-chip.active,
 .btn-chip:active {
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   border-color: var(--accent);
   transform: scale(0.97);
 }
@@ -274,7 +297,7 @@
 .cp-method-pill--active {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
+  color: var(--on-accent);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
 }

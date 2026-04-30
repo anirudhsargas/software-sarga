@@ -7904,3 +7904,39 @@ select.badge option {
     opacity: 0.5;
   }
 }
+
+/* ── Dark Mode Visibility Fixes ── */
+
+/* Ensure text is visible on primary/accent backgrounds which become light in dark mode */
+.dark .bg-primary,
+.dark .bg-accent {
+  background: var(--accent) !important;
+  color: var(--on-accent) !important;
+}
+
+.dark .bg-primary *,
+.dark .bg-accent * {
+  color: var(--on-accent) !important;
+}
+
+/* Specific fix for text-white on primary/accent background */
+.dark .bg-primary.text-white,
+.dark .bg-accent.text-white {
+  color: var(--on-accent) !important;
+}
+
+/* Global utility for white text that needs to adapt */
+.dark .text-white-adaptive {
+  color: var(--text) !important;
+}
+
+/* Ensure common badges have consistent naming and visibility */
+.badge-primary {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dark .badge-primary {
+  background: rgba(var(--accent-rgb), 0.2);
+  color: var(--accent);
+}
