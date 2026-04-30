@@ -509,6 +509,19 @@ if (process.env.NODE_ENV !== 'test') {
                 logger.warn('[DevRoutes] Failed to list routes:', e.message);
             }
 
+            // One-time migration: convert /uploads/ DB references to Cloudinary URLs
+            try {
+                const { migrateUploadsToCloudinary } = require('./helpers/migrateUploads');
+                setTimeout(() => {
+                    migrateUploadsToCloudinary().catch(err =>
+                        logger.error('[Migration] Upload migration failed:', err.message)
+                    );
+                }, 15_000); // Run 15s after startup to let DB warm up
+                logger.info('[Migration] Upload-to-Cloudinary migration scheduled');
+            } catch (e) {
+                logger.warn('[Migration] Not loaded:', e.message);
+            }
+
             // Start daily report auto-mailer cron job
             try {
                 require('./scripts/sendDailyReports');
