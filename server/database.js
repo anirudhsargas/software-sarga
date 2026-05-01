@@ -564,7 +564,7 @@ const initDb = async () => {
         name VARCHAR(150) NOT NULL,
         product_code VARCHAR(80),
         company_name VARCHAR(100) DEFAULT NULL,
-        company_code VARCHAR(10) DEFAULT NULL,
+        company_code VARCHAR(50) DEFAULT NULL,
         size VARCHAR(30) DEFAULT NULL,
         calculation_type ENUM('Normal', 'Slab', 'Range') DEFAULT 'Normal',
         description TEXT,

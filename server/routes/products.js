@@ -26,7 +26,17 @@ module.exports = (upload, removeUploadFile) => {
                 await pool.query('ALTER TABLE sarga_products ADD COLUMN company_name VARCHAR(100) DEFAULT NULL');
             }
             if (!existing.includes('company_code')) {
-                await pool.query('ALTER TABLE sarga_products ADD COLUMN company_code VARCHAR(10) DEFAULT NULL');
+                await pool.query('ALTER TABLE sarga_products ADD COLUMN company_code VARCHAR(50) DEFAULT NULL');
+            } else {
+                // Check if column needs to be resized (VARCHAR(10) -> VARCHAR(50))
+                const [colInfo] = await pool.query(
+                    `SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS
+                     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'sarga_products' AND COLUMN_NAME = 'company_code'`,
+                    [dbName]
+                );
+                if (colInfo[0] && colInfo[0].CHARACTER_MAXIMUM_LENGTH < 50) {
+                    await pool.query('ALTER TABLE sarga_products MODIFY COLUMN company_code VARCHAR(50) DEFAULT NULL');
+                }
             }
             if (!existing.includes('size')) {
                 await pool.query('ALTER TABLE sarga_products ADD COLUMN size VARCHAR(30) DEFAULT NULL');
