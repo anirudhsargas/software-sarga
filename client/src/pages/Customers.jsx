@@ -85,7 +85,7 @@ const Customers = () => {
         setEditFormDirty(false);
     };
 
-    const customerTypes = ['Walk-in', 'Retail', 'Association', 'Offset'];
+    const customerTypes = ['Walk-in', 'Retail', 'Offset'];
 
 
     // --- PAGINATION STATE ---

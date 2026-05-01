@@ -28,6 +28,7 @@ const CustomerDetails = React.lazy(() => import('./CustomerDetails'));
 const Jobs = React.lazy(() => import('./Jobs'));
 const JobDetail = React.lazy(() => import('./JobDetail'));
 const ProductLibrary = React.lazy(() => import('./ProductLibrary'));
+const ProductRequests = React.lazy(() => import('./ProductRequests'));
 const IDChangeRequests = React.lazy(() => import('./Requests'));
 const Inventory = React.lazy(() => import('./Inventory'));
 const InventoryOverview = React.lazy(() => import('./InventoryOverview'));
@@ -210,6 +211,7 @@ const Dashboard = () => {
         { key: 'operations', name: t('stock_verification', 'Stock Verification'), icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'operations' },
         { key: 'operations', name: t('stock_planning', 'Stock Planning'), icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
         { key: 'operations', name: t('product_library', 'Product Library'), icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'operations' },
+        { key: 'operations', name: 'Product Requests', icon: ShieldAlert, path: '/dashboard/product-requests', roles: ['Admin', 'Accountant'], group: 'operations' },
         { key: 'operations', name: t('plate_management', 'Plate Management'), icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'operations' },
         { key: 'operations', name: t('machine_management', 'Machine Management'), icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'operations' },
         { key: 'operations', name: t('paper_layout', 'Paper Layout'), icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'operations' },
@@ -673,6 +675,7 @@ const Dashboard = () => {
                             <Route path="customers" element={<Customers />} />
                             <Route path="customers/:id" element={<CustomerDetails />} />
                             <Route path="products" element={<ProductLibrary />} />
+                            <Route path="product-requests" element={<ProductRequests />} />
                             <Route path="jobs" element={<Jobs />} />
                             <Route path="jobs/:id" element={<JobDetail />} />
                             <Route path="requests" element={<IDChangeRequests />} />

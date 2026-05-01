@@ -119,6 +119,10 @@ const ProductLibrary = () => {
     const [imageRequestSubmitting, setImageRequestSubmitting] = useState(false);
     const [pendingImageRequests, setPendingImageRequests] = useState([]);
     const [loadingPendingImageRequests, setLoadingPendingImageRequests] = useState(false);
+    const [pendingUpdateRequests, setPendingUpdateRequests] = useState([]);
+    const [loadingPendingUpdateRequests, setLoadingPendingUpdateRequests] = useState(false);
+    const [showUpdateRequestModal, setShowUpdateRequestModal] = useState(false);
+    const [activeUpdateRequest, setActiveUpdateRequest] = useState(null);
     const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
     const [vendors, setVendors] = useState([]);
 
@@ -170,6 +174,7 @@ const ProductLibrary = () => {
     useEffect(() => {
         if (!isPrivileged) return;
         fetchPendingImageRequests();
+        fetchPendingUpdateRequests();
     }, [isPrivileged]);
 
     useEffect(() => {
@@ -204,6 +209,19 @@ const ProductLibrary = () => {
             toast.error(err.response?.data?.message || 'Failed to load pending image requests');
         } finally {
             setLoadingPendingImageRequests(false);
+        }
+    };
+
+    const fetchPendingUpdateRequests = async () => {
+        if (!isPrivileged) return;
+        setLoadingPendingUpdateRequests(true);
+        try {
+            const res = await api.get('/products/update-requests', { params: { status: 'pending' } });
+            setPendingUpdateRequests(Array.isArray(res.data) ? res.data : []);
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to load pending update requests');
+        } finally {
+            setLoadingPendingUpdateRequests(false);
         }
     };
 
@@ -650,6 +668,48 @@ const ProductLibrary = () => {
         }
     };
 
+    const handleSubmitProductUpdateRequest = async (e) => {
+        e.preventDefault();
+        if (isPrivileged) return; // Admin path uses save
+        if (!isEditing || !editId) return;
+
+        setSaveLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('subcategory_id', selectedSubId);
+            formData.append('name', newProduct.name);
+            formData.append('product_code', newProduct.product_code || '');
+            formData.append('company_name', newProduct.company_name || '');
+            formData.append('company_code', newProduct.company_code || '');
+            formData.append('size', newProduct.size || '');
+            formData.append('calculation_type', newProduct.calculation_type);
+            formData.append('description', newProduct.description || '');
+            formData.append('has_paper_rate', newProduct.has_paper_rate);
+            formData.append('paper_rate', newProduct.paper_rate);
+            formData.append('has_double_side_rate', newProduct.has_double_side_rate);
+            formData.append('slabs', JSON.stringify(newProduct.slabs));
+            formData.append('extras', JSON.stringify(newProduct.extras));
+            const linksPayload = (newProduct.links || []).map(l => ({ name: (l.name || l.url || '').trim(), url: (l.url || '').trim() }));
+            formData.append('links', JSON.stringify(linksPayload));
+            formData.append('is_physical_product', newProduct.isPhysicalProduct ? 1 : 0);
+            formData.append('extraInv', JSON.stringify(newProduct.extraInv || {}));
+            if (newProduct.inventory_item_id) formData.append('inventory_item_id', newProduct.inventory_item_id);
+            if (productImage) formData.append('image', productImage);
+            else if (newProduct.image_url) formData.append('image_url', newProduct.image_url);
+
+            await api.post(`/products/${editId}/update-requests`, formData);
+            toast.success('Update request sent to admin for approval');
+            setShowProdModal(false);
+            setProductImage(null);
+            setProductImagePreview('');
+            fetchHierarchy();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to submit update request');
+        } finally {
+            setSaveLoading(false);
+        }
+    };
+
     const handleReviewImageRequest = async (requestId, action) => {
         if (!isPrivileged) return;
         const isApprove = action === 'approve';
@@ -670,6 +730,38 @@ const ProductLibrary = () => {
             fetchHierarchy();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to review image request');
+        }
+    };
+
+    const openUpdateRequestModal = (req) => {
+        setActiveUpdateRequest(req);
+        setShowUpdateRequestModal(true);
+    };
+
+    const closeUpdateRequestModal = () => {
+        setActiveUpdateRequest(null);
+        setShowUpdateRequestModal(false);
+    };
+
+    const handleReviewUpdateRequest = async (requestId, action, adminNote) => {
+        if (!isPrivileged) return;
+        const isApprove = action === 'approve';
+        const isConfirmed = await confirm({
+            title: isApprove ? 'Approve Update Request' : 'Reject Update Request',
+            message: isApprove ? 'Approve this product update and apply changes now?' : 'Reject this submitted product update? This will discard the proposed changes.',
+            confirmText: isApprove ? 'Approve' : 'Reject',
+            type: isApprove ? 'primary' : 'danger'
+        });
+        if (!isConfirmed) return;
+
+        try {
+            await api.patch(`/products/update-requests/${requestId}`, { action, note: adminNote });
+            toast.success(isApprove ? 'Update approved and applied' : 'Update request rejected');
+            fetchPendingUpdateRequests();
+            fetchHierarchy();
+            closeUpdateRequestModal();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to review update request');
         }
     };
 
@@ -1418,6 +1510,33 @@ const ProductLibrary = () => {
                                 ))}
                             </div>
                         )}
+                        {isPrivileged && pendingUpdateRequests.length > 0 && (
+                            <div className="bg-light p-12 rounded border stack-sm" style={{ marginTop: 12 }}>
+                                <div className="row space-between items-center gap-md">
+                                    <strong>Pending Product Update Approvals</strong>
+                                    <span className="badge badge--sm">{loadingPendingUpdateRequests ? 'Loading...' : `${pendingUpdateRequests.length} Pending`}</span>
+                                </div>
+                                {!loadingPendingUpdateRequests && pendingUpdateRequests.length === 0 && (
+                                    <p className="muted text-sm">No pending product update requests.</p>
+                                )}
+                                {!loadingPendingUpdateRequests && pendingUpdateRequests.length > 0 && pendingUpdateRequests.slice(0, 6).map((req) => (
+                                    <div key={req.id} className="row gap-md items-center" style={{ alignItems: 'center' }}>
+                                        <div style={{ minWidth: 46 }}>
+                                            <div className="thumb-img" style={{ display: 'grid', placeItems: 'center' }}><Package size={14} /></div>
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 600 }}>{req.product_name || `Product #${req.product_id}`}</div>
+                                            <div className="muted text-xs">Requested by {req.requested_by_name || `Staff #${req.requested_by}`}</div>
+                                        </div>
+                                        <div className="row gap-sm">
+                                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => openUpdateRequestModal(req)}>View</button>
+                                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleReviewUpdateRequest(req.id, 'reject')}>Reject</button>
+                                            <button type="button" className="btn btn-primary btn-sm" onClick={() => handleReviewUpdateRequest(req.id, 'approve')}>Approve</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                             {viewInfo.type === 'category' && viewInfo.items.map((sub, idx) => (
                                 <SortableItem key={sub.id} id={sub.id} disabled={!isAdmin} className={`product-card pointer${sub.is_active === 0 || sub.is_active === false ? ' product-card--disabled' : ''}`}>
                                     {isPrivileged && (
@@ -1687,7 +1806,7 @@ const ProductLibrary = () => {
                         <h2 className="section-title" style={{ marginBottom: '4px', flexShrink: 0 }}>{isEditing ? (isAdmin ? 'Edit Product' : (canRequestImageUpdate ? 'Request Product Image Update' : 'View Product Rates')) : 'Add New Product'}</h2>
                         {isAdmin && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: '0 0 20px', flexShrink: 0 }}>Define pricing rules and default extras.</p>}
                         {canRequestImageUpdate && isEditing && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: '0 0 20px', flexShrink: 0 }}>Upload a new product image. Admin approval is required before it goes live.</p>}
-                        <form onSubmit={isAdmin ? handleSaveProduct : handleSubmitProductImageRequest} className="stack-md" style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+                        <form onSubmit={isPrivileged ? handleSaveProduct : handleSubmitProductUpdateRequest} className="stack-md" style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
                             {canRequestImageUpdate && isEditing && (
                             <div>
                                 <label className="label">Proposed Product Image</label>
@@ -2667,10 +2786,17 @@ const ProductLibrary = () => {
                                     </button>
                                 </div>
                             )}
-                            {canRequestImageUpdate && isEditing && (
-                                <button type="submit" className="btn btn-primary btn--full mt-8" disabled={imageRequestSubmitting || !productImage}>
-                                    {imageRequestSubmitting ? 'Submitting...' : 'Submit Image For Admin Approval'}
-                                </button>
+                            {!isPrivileged && isEditing && (
+                                <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
+                                    <button type="submit" className="btn btn-primary btn--full mt-8" disabled={saveLoading}>
+                                        {saveLoading ? 'Sending request...' : 'Send update request to Admin'}
+                                    </button>
+                                    {canRequestImageUpdate && (
+                                        <button type="button" className="btn btn-ghost mt-8" disabled={imageRequestSubmitting || !productImage} onClick={handleSubmitProductImageRequest}>
+                                            {imageRequestSubmitting ? 'Submitting...' : 'Submit Image Only'}
+                                        </button>
+                                    )}
+                                </div>
                             )}
                         </form>
                     </div>
@@ -2684,6 +2810,34 @@ const ProductLibrary = () => {
                 onCancel={handleCropCancel}
                 onComplete={handleCropComplete}
             />
+            {showUpdateRequestModal && activeUpdateRequest && (
+                <div className="modal-backdrop">
+                    <div className="modal" style={{ maxWidth: '760px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <button className="modal-close" onClick={closeUpdateRequestModal}><X size={20} /></button>
+                        <h2 className="section-title" style={{ marginBottom: '4px' }}>{`Review Update Request — ${activeUpdateRequest.product_name || `#${activeUpdateRequest.product_id}`}`}</h2>
+                        <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8 }}>
+                            <div className="row gap-md">
+                                <div style={{ flex: 1 }}>
+                                    <strong>Current</strong>
+                                    <pre style={{ whiteSpace: 'pre-wrap', background: 'var(--surface-2)', padding: 12, borderRadius: 8, marginTop: 8 }}>{JSON.stringify(activeUpdateRequest.current_data, null, 2)}</pre>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <strong>Proposed</strong>
+                                    <pre style={{ whiteSpace: 'pre-wrap', background: 'var(--surface-2)', padding: 12, borderRadius: 8, marginTop: 8 }}>{JSON.stringify(activeUpdateRequest.proposed_data, null, 2)}</pre>
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ marginTop: 12 }}>
+                            <label className="label">Admin note (optional)</label>
+                            <textarea className="input" rows={3} value={activeUpdateRequest.admin_note || ''} onChange={(e) => setActiveUpdateRequest({ ...activeUpdateRequest, admin_note: e.target.value })} />
+                            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                                <button className="btn btn-ghost" onClick={() => handleReviewUpdateRequest(activeUpdateRequest.id, 'reject', activeUpdateRequest.admin_note)}>Reject</button>
+                                <button className="btn btn-primary" onClick={() => handleReviewUpdateRequest(activeUpdateRequest.id, 'approve', activeUpdateRequest.admin_note)}>Approve & Apply</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

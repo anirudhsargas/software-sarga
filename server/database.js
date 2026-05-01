@@ -480,7 +480,7 @@ const initDb = async () => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         mobile VARCHAR(15) UNIQUE NOT NULL,
         name VARCHAR(100) NOT NULL,
-        type ENUM('Walk-in', 'Retail', 'Association', 'Offset') NOT NULL DEFAULT 'Walk-in',
+        type ENUM('Walk-in', 'Retail', 'Offset') NOT NULL DEFAULT 'Walk-in',
         email VARCHAR(100),
         gst VARCHAR(20),
         address TEXT,

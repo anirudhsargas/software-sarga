@@ -5,7 +5,6 @@ const { auditLog, auditFieldChanges, getUsageMap, sortByPositionThenName, sortBy
 const { analyzeDesign } = require('../helpers/designAnalyzer');
 const { validate, addJobSchema } = require('../middleware/validate');
 const { fileToBase64 } = require('../utils/base64');
-console.log('[DEBUG] addJobSchema imported:', !!addJobSchema);
 const { paginate } = require('../helpers/pagination');
 const { branchFilter } = require('../middleware/branchFilter');
 

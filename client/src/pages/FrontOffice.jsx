@@ -844,7 +844,7 @@ const FrontOffice = () => {
                                                 const due = daysUntil(job.delivery_date);
                                                 const overdue = due !== null && due < 0;
                                                 const dueToday = due === 0;
-                                                const balance = Number(job.balance_amount || 0);
+                                                const balance = Number(job.balance_amount ?? job.balance ?? 0);
                                                 return (
                                                     <tr
                                                         key={job.id}
@@ -1045,7 +1045,7 @@ const FrontOffice = () => {
                                         <tbody>
                                             {filteredOverdue.map(job => {
                                                 const days = Math.abs(daysUntil(job.delivery_date));
-                                                const balance = Number(job.balance_amount || 0);
+                                                const balance = Number(job.balance_amount ?? job.balance ?? 0);
                                                 return (
                                                     <tr key={job.id} className="fo-row--overdue">
                                                         <td>
@@ -1184,7 +1184,7 @@ const FrontOffice = () => {
                                                     </td>
                                                     <td><span className={`fo-badge ${getStatusBadge(job.status)}`}>{job.status}</span></td>
                                                     <td className="fo-amount">{fmt(job.total_amount)}</td>
-                                                    <td>{Number(job.balance_amount) > 0 ? <span className="fo-due-amount">{fmt(Number(job.balance_amount))}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
+                                                    <td>{(Number(job.balance_amount ?? job.balance ?? 0)) > 0 ? <span className="fo-due-amount">{fmt(Number(job.balance_amount ?? job.balance ?? 0))}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
                                                     <td>{fmtDate(job.updated_at || job.delivery_date)}</td>
                                                     <td>
                                                         <button className="btn btn-ghost btn-icon btn-sm" aria-label="View job details" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View">
@@ -1368,7 +1368,7 @@ const FrontOffice = () => {
                                                         </div>
                                                     </td>
                                                     <td className="fo-amount">{fmt(job.total_amount)}</td>
-                                                    <td>{Number(job.balance_amount) > 0 ? <span className="fo-due-amount">{fmt(Number(job.balance_amount))}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
+                                                    <td>{(Number(job.balance_amount ?? job.balance ?? 0)) > 0 ? <span className="fo-due-amount">{fmt(Number(job.balance_amount ?? job.balance ?? 0))}</span> : <span className="fo-paid-tag"><CheckCircle2 size={14} /> Paid</span>}</td>
                                                     <td>{fmtDate(job.delivery_date || job.updated_at)}</td>
                                                     <td>
                                                         <button className="btn btn-ghost btn-icon btn-sm" aria-label="View job details" onClick={() => navigate(`/dashboard/jobs/${job.id}`)} title="View">

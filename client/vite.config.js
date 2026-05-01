@@ -10,33 +10,46 @@ export default defineConfig({
     react(),
     boneyardPlugin(),
     VitePWA({
-      registerType: 'prompt', // Don't force reloads, let user decide
-      includeAssets: ['vite.svg', 'icons/*.png'],
+      registerType: 'autoUpdate', // Automatically update and reload when a new version is available
+      includeAssets: ['favicon.png', 'icons/*.png', 'assets/**/*'],
       manifest: false, // we already have public/manifest.json
       workbox: {
+        cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit for caching
         // Cache JS, CSS, HTML, images, fonts
-        globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
+        globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2,json}'],
         // Runtime caching for the API
         runtimeCaching: [
           {
             // Cache product hierarchy, branches, customers for instant load
-            urlPattern: /\/api\/(product-hierarchy|branches|customers)/,
+            urlPattern: /\/api\/(product-hierarchy|branches|customers|company-settings)/,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'sarga-api-stable',
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 }, // 1 day
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 }, // 1 week
               cacheableResponse: { statuses: [0, 200] },
             },
           },
           {
-            // Cache product/category/staff/machines (less critical)
+            // Cache products/categories/staff/machines (active data)
             urlPattern: /\/api\/(products|categories|staff|machines)/,
             handler: 'NetworkFirst',
             options: {
+              networkTimeoutSeconds: 5, // Fallback to cache after 5s
               cacheName: 'sarga-api-data',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 4 }, // 4 hours
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 }, // 1 day
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Cache images from the server/cloudinary
+            urlPattern: /\/uploads\/|res\.cloudinary\.com/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'sarga-images',
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 }, // 30 days
               cacheableResponse: { statuses: [0, 200] },
             },
           },

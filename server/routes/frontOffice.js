@@ -245,7 +245,7 @@ router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
             ),
             // 8. Overdue Jobs (delivery_date passed, not delivered)
             pool.query(
-                `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid,
+                `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.balance_amount,
                         j.status, j.delivery_date, j.created_at, j.category,
                         COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
                  FROM sarga_jobs j
@@ -261,7 +261,7 @@ router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
                         COUNT(j.id) as job_count,
                         SUM(j.total_amount) as total_billed,
                         SUM(j.advance_paid) as total_paid,
-                        SUM(CASE WHEN (j.total_amount - j.advance_paid) >= 1 THEN (j.total_amount - j.advance_paid) ELSE 0 END) as due_amount
+                        SUM(j.balance_amount) as due_amount
                  FROM sarga_customers c
                  INNER JOIN sarga_jobs j ON j.customer_id = c.id AND j.status != 'Cancelled'
                  WHERE j.created_at > DATE_SUB(NOW(), INTERVAL 6 MONTH) ${custBranchWhere}
@@ -305,13 +305,13 @@ router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
                 ...j,
                 total_amount: Number(j.total_amount),
                 advance_paid: Number(j.advance_paid),
-                balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0)
+                balance: Number(j.balance_amount)
             })),
             overdue_jobs: overdueJobs.map(j => ({
                 ...j,
                 total_amount: Number(j.total_amount),
                 advance_paid: Number(j.advance_paid),
-                balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0)
+                balance: Number(j.balance_amount)
             })),
             due_customers: dueCustomers.map(c => ({
                 ...c,
@@ -352,7 +352,7 @@ router.get('/front-office/active-jobs', authenticateToken, async (req, res) => {
              ORDER BY CASE j.status WHEN 'Processing' THEN 1 WHEN 'Designing' THEN 2 WHEN 'Printing' THEN 3 WHEN 'Pending' THEN 4 ELSE 5 END, j.delivery_date ASC, j.created_at DESC
              LIMIT ? OFFSET ?`, [...branchParams, limit, offset]
         );
-        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total));
+        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Number(j.balance_amount) })), total));
     } catch (err) {
         console.error('Active jobs error:', err);
         res.status(500).json({ message: 'Failed to load active jobs' });
@@ -373,7 +373,7 @@ router.get('/front-office/due-customers', authenticateToken, async (req, res) =>
                 INNER JOIN sarga_jobs j ON j.customer_id = c.id AND j.status != 'Cancelled'
                 WHERE 1=1 ${custBranchWhere}
                 GROUP BY c.id
-                HAVING SUM(CASE WHEN (j.total_amount - j.advance_paid) >= 1 THEN (j.total_amount - j.advance_paid) ELSE 0 END) >= 1
+                HAVING SUM(j.balance_amount) >= 1
             ) sub`, branchParams
         );
         const [rows] = await pool.query(
@@ -381,7 +381,7 @@ router.get('/front-office/due-customers', authenticateToken, async (req, res) =>
                     COUNT(j.id) as job_count,
                     SUM(j.total_amount) as total_billed,
                     SUM(j.advance_paid) as total_paid,
-                    SUM(CASE WHEN (j.total_amount - j.advance_paid) >= 1 THEN (j.total_amount - j.advance_paid) ELSE 0 END) as due_amount
+                    SUM(j.balance_amount) as due_amount
              FROM sarga_customers c
              INNER JOIN sarga_jobs j ON j.customer_id = c.id AND j.status != 'Cancelled'
              WHERE 1=1 ${custBranchWhere}
@@ -411,7 +411,7 @@ router.get('/front-office/overdue-jobs', authenticateToken, async (req, res) => 
             [today, ...branchParams]
         );
         const [jobs] = await pool.query(
-            `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid,
+            `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.balance_amount,
                     j.status, j.delivery_date, j.created_at, j.category,
                     COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
              FROM sarga_jobs j LEFT JOIN sarga_customers c ON j.customer_id = c.id
@@ -419,7 +419,7 @@ router.get('/front-office/overdue-jobs', authenticateToken, async (req, res) => 
              ORDER BY j.delivery_date ASC
              LIMIT ? OFFSET ?`, [today, ...branchParams, limit, offset]
         );
-        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total));
+        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Number(j.balance_amount) })), total));
     } catch (err) {
         console.error('Overdue jobs error:', err);
         res.status(500).json({ message: 'Failed to load overdue jobs' });
@@ -465,7 +465,7 @@ router.get('/front-office/search', authenticateToken, async (req, res) => {
         const [customers] = await pool.query(
             `SELECT c.id, c.name, c.mobile, c.type,
                     (SELECT COUNT(*) FROM sarga_jobs j WHERE j.customer_id = c.id) as job_count,
-                    (SELECT COALESCE(SUM(CASE WHEN (j2.total_amount - j2.advance_paid) >= 1 THEN (j2.total_amount - j2.advance_paid) ELSE 0 END), 0)
+                    (SELECT COALESCE(SUM(j2.balance_amount), 0)
                      FROM sarga_jobs j2 WHERE j2.customer_id = c.id AND j2.status != 'Cancelled') as due_amount
              FROM sarga_customers c
              WHERE (c.name LIKE ? OR c.mobile LIKE ?) ${branchWhere}
@@ -537,7 +537,7 @@ router.get('/front-office/completed', authenticateToken, async (req, res) => {
              LIMIT ? OFFSET ?`,
             [...branchParams, limit, offset]
         );
-        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Math.max(Number(j.total_amount) - Number(j.advance_paid), 0) })), total));
+        res.json(response(jobs.map(j => ({ ...j, total_amount: Number(j.total_amount), advance_paid: Number(j.advance_paid), balance: Number(j.balance_amount) })), total));
     } catch (err) {
         console.error('Completed work error:', err);
         res.status(500).json({ message: 'Failed to load completed work' });

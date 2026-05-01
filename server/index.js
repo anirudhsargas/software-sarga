@@ -12,6 +12,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 const { initDb, pool } = require('./database');
 const { getTodayDate } = require('./helpers');
 const logger = require('./helpers/logger');
@@ -226,7 +227,6 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Serve uploads — require valid JWT token via query param or Authorization header
-const jwt = require('jsonwebtoken');
 const { cloudinary, getCloudinaryUrl } = require('./helpers/cloudinaryUpload');
 
 // Protected uploads route with Cloudinary fallback when local file missing

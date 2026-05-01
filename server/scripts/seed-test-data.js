@@ -33,7 +33,7 @@ const LAST_NAMES = [
   'Xavier','Francis','Philip','Antony','Paul','Krishnan','Rajan','Mohan','Vijayan',
   'Govindan','Narayanan','P.V.','K.K.','M.K.','P.K.','A.R.','B.K.','C.P.','K.V.',
 ];
-const CUSTOMER_TYPES = ['Walk-in', 'Retail', 'Association', 'Offset'];
+const CUSTOMER_TYPES = ['Walk-in', 'Retail', 'Offset'];
 
 const JOB_CATEGORIES = [
   { cat:'Offset',    sub:'Visiting Cards',   minQty:100,  maxQty:5000, minRate:2,   maxRate:8   },

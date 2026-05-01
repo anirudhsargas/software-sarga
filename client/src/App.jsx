@@ -35,6 +35,9 @@ const ProtectedRoute = ({ children, roles }) => {
 
 function App() {
   useEffect(() => {
+    // Remove splash screen after app mounts
+    document.body.classList.add('loaded');
+
     // Sync with server clock so staff cannot manipulate dates
     initServerTime();
 

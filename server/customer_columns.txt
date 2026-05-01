@@ -2,7 +2,7 @@
 id	int	NO	PRI	NULL	auto_increment
 mobile	varchar(15)	NO	UNI	NULL	
 name	varchar(100)	NO		NULL	
-type	enum('Walk-in','Retail','Association','Offset')	NO		Walk-in	
+type	enum('Walk-in','Retail','Offset')	NO		Walk-in	
 email	varchar(100)	YES		NULL	
 address	text	YES		NULL	
 created_at	timestamp	YES		CURRENT_TIMESTAMP	DEFAULT_GENERATED

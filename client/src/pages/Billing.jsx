@@ -23,7 +23,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 // --- Upsell popup state ---
 const defaultUpsell = { open: false, suggestions: [], loading: false, baseProduct: null };
 
-const customerTypes = ['Walk-in', 'Retail', 'Association', 'Offset'];
+const customerTypes = ['Walk-in', 'Retail', 'Offset'];
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
 
 const Billing = () => {
@@ -480,7 +480,7 @@ const Billing = () => {
   }, [orderLines.length, form.mobile, form.name]);
 
   const isWalkIn = form.type === 'Walk-in';
-  const needsGst = form.type === 'Association' || form.type === 'Offset' || form.type === 'Retail';
+  const needsGst = form.type === 'Offset' || form.type === 'Retail';
 
   const canProceed = useMemo(() => {
     const customerReady = isWalkIn ? true : (form.mobile.length === 10 && form.name.trim().length > 0);

@@ -41,7 +41,7 @@ const addStaffSchema = z.object({
 const addCustomerSchema = z.object({
     mobile: z.string().min(1, 'Mobile is required').regex(/^\d{10}$/, 'Mobile must be exactly 10 digits'),
     name: z.string().min(1, 'Name is required').max(100, 'Name too long').trim(),
-    type: z.enum(['Walk-in', 'Retail', 'Association', 'Offset']).optional().default('Walk-in'),
+    type: z.enum(['Walk-in', 'Retail', 'Offset']).optional().default('Walk-in'),
     email: z.string().email('Invalid email format').optional().nullable().or(z.literal('')),
     gst: z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GST format').optional().nullable().or(z.literal('')),
     address: z.string().max(500, 'Address too long').optional().nullable().or(z.literal(''))

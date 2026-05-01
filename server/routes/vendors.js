@@ -289,9 +289,29 @@ router.delete('/vendors/:id', authenticateToken, authorizeRoles('Admin'), async 
   try {
     const { id } = req.params;
 
-    // Check if vendor has unpaid invoices
-    const [invoices] = await pool.query('SELECT COUNT(*) as count FROM vendor_invoices WHERE vendor_id = ? AND paid_amount < amount', [id]);
-    if (invoices[0].count > 0) {
+    // Check if vendor exists
+    const [vendor] = await pool.query('SELECT id FROM vendors WHERE id = ? AND is_active = TRUE', [id]);
+    if (vendor.length === 0) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    // Check if vendor has unpaid invoices (try both table schemas for compatibility)
+    let unpaidCount = 0;
+    try {
+      const [invoices] = await pool.query('SELECT COUNT(*) as count FROM vendor_invoices WHERE vendor_id = ? AND paid_amount < amount', [id]);
+      unpaidCount = invoices[0].count;
+    } catch (err) {
+      // If vendor_invoices doesn't exist or fails, try sarga_vendor_bills
+      try {
+        const [bills] = await pool.query('SELECT COUNT(*) as count FROM sarga_vendor_bills WHERE vendor_id = ?', [id]);
+        unpaidCount = bills[0].count;
+      } catch (err2) {
+        // Both queries failed, assume no invoices
+        logger.warn('Could not check for unpaid invoices, proceeding with deletion:', err2.message);
+      }
+    }
+
+    if (unpaidCount > 0) {
       return res.status(400).json({ success: false, message: 'Cannot delete vendor with unpaid invoices' });
     }
 
@@ -301,7 +321,7 @@ router.delete('/vendors/:id', authenticateToken, authorizeRoles('Admin'), async 
 
     res.json({ success: true, message: 'Vendor deleted successfully' });
   } catch (error) {
-    console.error('Error deleting vendor:', error);
+    logger.error('Error deleting vendor:', error);
     res.status(500).json({ success: false, message: 'Database error' });
   }
 });

@@ -3,7 +3,7 @@ const mysql = require('mysql2/promise');
 async function run() {
   const dbHost = process.env.DB_HOST || 'localhost';
   const dbUser = process.env.DB_USER || 'root';
-  const dbPass = process.env.DB_PASS || '';
+  const dbPass = process.env.DB_PASSWORD || '';
   const dbName = process.env.DB_NAME || 'sarga';
 
   console.log('Connecting to DB', { host: dbHost, user: dbUser, database: dbName });

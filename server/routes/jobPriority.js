@@ -69,9 +69,9 @@ function computePriorityScore(job, now = new Date()) {
 
     // 3. Customer Type Weight (0-15 points)
     const custType = (job.customer_type || '').toLowerCase();
-    if (custType === 'association' || custType === 'offset') {
-        score += 15;
-        reasons.push('VIP/Association customer');
+        if (custType === 'offset') {
+            score += 15;
+            reasons.push('VIP/Offset customer');
     } else if (custType === 'retail') {
         score += 10;
         reasons.push('Retail customer');
