@@ -3,7 +3,7 @@
  */
 
 const DB_NAME = 'sarga-offline';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 let dbInstance = null;
 let dbPromise = null;
@@ -130,6 +130,11 @@ function openDb() {
             if (!db.objectStoreNames.contains('proofs')) {
                 const store = db.createObjectStore('proofs', { keyPath: 'id' });
                 store.createIndex('job_id', 'job_id', { unique: false });
+            }
+            // sync_meta: used by syncWorker.v2.js to track last-download timestamps per data key.
+            // Must exist in the DB schema so the worker can open transactions on it safely.
+            if (!db.objectStoreNames.contains('sync_meta')) {
+                db.createObjectStore('sync_meta', { keyPath: 'id' });
             }
         };
 
