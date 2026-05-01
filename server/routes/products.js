@@ -686,7 +686,10 @@ module.exports = (upload, removeUploadFile) => {
         } catch (err) {
             await connection.rollback();
             console.error('Update product error:', err);
-            res.status(500).json({ message: 'Database error' });
+            console.error('Error details:', err.message, err.sqlMessage);
+            const isProd = process.env.NODE_ENV === 'production';
+            const friendlyMessage = err?.sqlMessage || err?.message || 'Database error';
+            res.status(500).json({ message: isProd ? 'Database error' : friendlyMessage });
         } finally {
             connection.release();
         }
