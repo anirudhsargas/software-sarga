@@ -316,6 +316,13 @@ const runSync = async () => {
 const invalidateCache = async (dataKey) => {
   try {
     const db = await openDB();
+    
+    // Check if sync_meta store exists
+    if (!db.objectStoreNames.contains('sync_meta')) {
+      console.log(`[Sync] sync_meta store not found, skipping cache invalidation for ${dataKey}`);
+      return;
+    }
+    
     const tx = db.transaction('sync_meta', 'readwrite');
     const store = tx.objectStore('sync_meta');
     store.delete(dataKey);
