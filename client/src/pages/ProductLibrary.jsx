@@ -527,6 +527,8 @@ const ProductLibrary = () => {
         setProductImagePreview('');
         setIsEditing(false);
         setEditId(null);
+        setSaveLoading(false);
+        setImageRequestSubmitting(false);
     };
 
     const handleSaveCategory = async (e) => {
@@ -887,6 +889,8 @@ const ProductLibrary = () => {
 
     const startEditProduct = async (prodId) => {
         setEditLoading(true);
+        setSaveLoading(false);
+        setImageRequestSubmitting(false);
         try {
             const res = await api.get(`/products/${prodId}`);
             const prod = res.data;
@@ -1807,13 +1811,10 @@ const ProductLibrary = () => {
                             </div>
                         </form>
                     </div>
-                </div>
-            )}
-
-            {showProdModal && (
+{showProdModal && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '620px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <button className="modal-close" onClick={() => { setShowProdModal(false); setIsEditing(false); }}><X size={20} /></button>
+                        <button className="modal-close" onClick={() => { setShowProdModal(false); setIsEditing(false); resetProductForm(); }}><X size={20} /></button>
                         <h2 className="section-title" style={{ marginBottom: '4px', flexShrink: 0 }}>{isEditing ? (isAdmin ? 'Edit Product' : (canRequestImageUpdate ? 'Request Product Image Update' : 'View Product Rates')) : 'Add New Product'}</h2>
                         {isAdmin && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: '0 0 20px', flexShrink: 0 }}>Define pricing rules and default extras.</p>}
                         {canRequestImageUpdate && isEditing && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: '0 0 20px', flexShrink: 0 }}>Upload a new product image. Admin approval is required before it goes live.</p>}
@@ -2643,8 +2644,8 @@ const ProductLibrary = () => {
                                 )}
                             </div>
 
-                            <div className="stack-sm">
-                                <div className="row space-between items-center gap-md">
+                            <div className="stack-sm" style={{ marginTop: '24px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', width: '100%' }}>
                                     <label className="label mb-0">Default Extra Charges</label>
                                     {isAdmin && <button type="button" className="btn btn-ghost btn-sm" onClick={addExtra}><Plus size={14} /> Add Extra</button>}
                                 </div>
@@ -2688,7 +2689,7 @@ const ProductLibrary = () => {
                                 border: '1px solid var(--border, #334155)',
                                 marginTop: '12px'
                             }}>
-                                <div className="row space-between items-center mb-16">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', width: '100%' }}>
                                     <div className="stack-xs">
                                         <label className="label mb-0" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                             <LinkIcon size={16} className="muted" /> 
@@ -2697,7 +2698,7 @@ const ProductLibrary = () => {
                                         <span className="text-xs muted">Reference files, work paths, or templates.</span>
                                     </div>
                                     {isAdmin && (
-                                        <button type="button" className="btn btn-ghost btn-xs" onClick={addLink} style={{ borderRadius: '8px' }}>
+                                        <button type="button" className="btn btn-ghost btn-sm" onClick={addLink} style={{ borderRadius: '8px' }}>
                                             <Plus size={14} /> Add Asset
                                         </button>
                                     )}
@@ -2769,8 +2770,10 @@ const ProductLibrary = () => {
 
                             </fieldset>
                             {isAdmin && (
-                                <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
-                                    <button type="submit" className="btn btn-primary" style={{
+                                <div style={{ marginTop: '24px', width: '100%' }}>
+                                    <button type="submit" className="btn btn-primary btn--full" style={{
+                                        width: '100%',
+                                        justifyContent: 'center',
                                         opacity: isEditing && !hasProductChanges() ? 0.6 : 1,
                                         cursor: isEditing && !hasProductChanges() ? 'not-allowed' : 'pointer'
                                     }} disabled={saveLoading || (isEditing && !hasProductChanges())}>

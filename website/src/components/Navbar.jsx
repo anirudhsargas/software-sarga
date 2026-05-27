@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Menu, X, Printer } from 'lucide-react'
 import './Navbar.css'
+import CartIcon from './Cart/CartIcon'
 
 const navLinks = [
   { path: '/', label: 'Home' },
@@ -55,9 +56,12 @@ export default function Navbar() {
           </li>
         </ul>
 
-        <Link to="/contact" className="btn btn-primary btn-sm navbar__cta-desktop" id="nav-get-quote-desktop">
-          Get a Quote
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Link to="/contact" className="btn btn-primary btn-sm navbar__cta-desktop" id="nav-get-quote-desktop">
+            Get a Quote
+          </Link>
+          <CartIcon />
+        </div>
 
         <button
           className="navbar__toggle"

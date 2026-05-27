@@ -1,0 +1,38 @@
+.sarga-chatbot { position: fixed; right: 20px; bottom: 20px; z-index: 9999; }
+
+.chatbot-button { width: 60px; height: 60px; border-radius: 999px; background: #25D366; border: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(0,0,0,0.2); cursor: pointer; position: relative; }
+
+.unread-dot { position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; background: #FF4D4F; border-radius: 50%; }
+
+.chat-panel { width: 380px; height: 520px; background: white; border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column; margin-bottom: 10px; }
+
+.chat-header { background: #075E54; color: #fff; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; }
+.chat-title { font-weight: 700; }
+.chat-sub { font-size: 12px; opacity: 0.9; }
+.chat-close { background: transparent; border: none; color: #fff; cursor: pointer; }
+
+.chat-body { padding: 12px; background: #ECE5DD; flex: 1; overflow-y: auto; }
+.chat-bubble { max-width: 75%; margin: 8px 0; padding: 10px 12px; border-radius: 12px; position: relative; }
+.chat-bubble.bot { background: #fff; align-self: flex-start; }
+.chat-bubble.user { background: #DCF8C6; align-self: flex-end; }
+.chat-bubble .chat-time { font-size: 11px; opacity: 0.6; margin-top: 6px; }
+
+.chat-footer { padding: 10px; border-top: 1px solid rgba(0,0,0,0.05); background: #fff; }
+.input-row { display: flex; gap: 8px; }
+.input-row input { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #e6e6e6; }
+.send-btn { background: #25D366; border: none; color: #fff; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+
+.quick-replies { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 8px; }
+.quick-replies button { background: #fff; border: 1px solid #eee; padding: 6px 10px; border-radius: 20px; cursor: pointer; font-size: 13px; }
+
+.chat-bubble.typing { background: #fff; }
+.typing-dots { display: flex; gap: 4px; }
+.typing-dots span { width: 6px; height: 6px; background: #aaa; border-radius: 50%; display: inline-block; animation: blink 1.2s infinite; }
+.typing-dots span:nth-child(2) { animation-delay: 0.15s }
+.typing-dots span:nth-child(3) { animation-delay: 0.3s }
+
+@keyframes blink { 0% { opacity: 0.2 } 50% { opacity: 1 } 100% { opacity: 0.2 } }
+
+@media (max-width: 480px) {
+  .chat-panel { width: 100vw; height: 60vh; border-radius: 12px 12px 0 0; right: 0; left: 0; bottom: 0; }
+}

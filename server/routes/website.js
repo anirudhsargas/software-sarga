@@ -9,6 +9,10 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const logger = require('../helpers/logger');
+const chatService = require('../services/chatService');
+const chatStore = require('../services/chatStore');
+const { v4: uuidv4 } = require('uuid');
+const { uuidGuard, chatLimiter, inquiryLimiter } = require('../middleware/websiteSecurity');
 
 // ─── GET /api/website/branches ───
 // Returns public branch information (name, address, phone, email)
@@ -164,7 +168,7 @@ router.get('/track/:jobCode', async (req, res) => {
 
 // ─── POST /api/website/inquiry ───
 // Accepts customer inquiries (saved to DB for follow-up)
-router.post('/inquiry', async (req, res) => {
+router.post('/inquiry', inquiryLimiter, async (req, res) => {
   const { name, phone, email, service, message, branch } = req.body;
 
   if (!name || !phone || !message) {
@@ -198,6 +202,51 @@ router.post('/inquiry', async (req, res) => {
   } catch (err) {
     logger.error('[Website] Error saving inquiry:', err.message);
     res.status(500).json({ message: 'Unable to submit inquiry. Please try again.' });
+  }
+});
+
+
+// ─── POST /api/website/chat ───
+// Rule-based chatbot endpoint (fast, no external API required)
+router.post('/chat', chatLimiter, uuidGuard, async (req, res) => {
+  const { message } = req.body;
+
+  if (!message || typeof message !== 'string' || message.length > 500) {
+    return res.status(400).json({ error: 'Invalid message' });
+  }
+
+  try {
+    const response = await chatService.processMessage(message.trim());
+
+    // Ensure a UUID is present for analytics/tracking
+    let uuid = req.headers['x-sarga-uuid'];
+    if (!uuid) {
+      uuid = uuidv4();
+    }
+
+    try {
+      await chatStore.saveChat({ uuid, user_message: message, bot_response: response.text, rule_id: response.ruleId });
+    } catch (storeErr) {
+      logger.warn('[Website] Failed to persist chat message to store:', storeErr.message);
+    }
+
+    return res.json({ reply: response.text, confidence: response.confidence, source: response.source, uuid });
+  } catch (error) {
+    logger.error('[Website] Chat error:', error.message);
+    return res.status(500).json({ reply: "Sorry, something went wrong. Please try again or contact us directly.", confidence: 0, source: 'error' });
+  }
+});
+
+// ─── GET /api/website/chat/history ───
+// Optional query param: ?uuid=<uuid>&limit=50
+router.get('/chat/history', async (req, res) => {
+  const { uuid, limit } = req.query;
+  try {
+    const history = await chatStore.getHistory({ uuid: uuid || null, limit: limit ? Number(limit) : 50 });
+    return res.json({ history });
+  } catch (err) {
+    logger.error('[Website] Failed to load chat history:', err.message);
+    return res.status(500).json({ message: 'Unable to load chat history.' });
   }
 });
 

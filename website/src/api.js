@@ -10,6 +10,21 @@ const api = axios.create({
   },
 });
 
+// Attach X-Sarga-UUID header to all requests
+api.interceptors.request.use((config) => {
+  try {
+    let uuid = localStorage.getItem('sarga_uuid');
+    if (!uuid) {
+      uuid = crypto.randomUUID ? crypto.randomUUID() : ('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16);}));
+      localStorage.setItem('sarga_uuid', uuid);
+    }
+    config.headers['X-Sarga-UUID'] = uuid;
+  } catch (e) {
+    // ignore
+  }
+  return config;
+});
+
 // Public API calls (no auth needed for website)
 export const getProducts = () => api.get('/website/products');
 export const getServices = () => api.get('/website/services');

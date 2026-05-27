@@ -21,87 +21,48 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
 if (!JWT_SECRET) {
     logger.error('FATAL: JWT_SECRET environment variable is not defined. Refusing to start.');
-    process.exit(1);
-}
-if (JWT_SECRET === 'printing_shop_secret_key_2025' || JWT_SECRET.length < 32) {
-    logger.error('FATAL: JWT_SECRET is weak or default. Use a random 256-bit secret (at least 32 chars). Refusing to start.');
-    process.exit(1);
-}
+    if (process.env.NODE_ENV !== 'test') {
+        initDb().then(() => {
+            server = app.listen(PORT, '0.0.0.0', () => {
+                logger.info(`Server running on port ${PORT} (bound to 0.0.0.0)`);
+            });
+        }).catch((err) => {
+            logger.warn('[Startup] Database initialization failed. Starting server in degraded mode (file fallback enabled).', err.message);
+            server = app.listen(PORT, '0.0.0.0', () => {
+                logger.info(`Server running in degraded mode on port ${PORT} (DB unavailable)`);
+            });
+        }).finally(() => {
+            // The following startup tasks are safe to schedule even when DB is unavailable; they will log on failure.
+            try {
+                const { migrateUploadsToCloudinary } = require('./helpers/migrateUploads');
+                setTimeout(() => {
+                    migrateUploadsToCloudinary().catch(err => logger.error('[Migration] Upload migration failed:', err.message));
+                }, 15_000);
+                logger.info('[Migration] Upload-to-Cloudinary migration scheduled');
+            } catch (e) {
+                logger.warn('[Migration] Not loaded:', e.message);
+            }
 
-const jwtSecrets = [JWT_SECRET];
-if (JWT_SECRET_PREVIOUS && JWT_SECRET_PREVIOUS !== JWT_SECRET) {
-    jwtSecrets.push(JWT_SECRET_PREVIOUS);
-}
+            try {
+                require('./scripts/sendDailyReports');
+            } catch (e) {
+                logger.warn('[Warning] scripts/sendDailyReports not loaded:', e.message);
+            }
 
-const verifyWithAnySecret = (token) => {
-    let lastError;
-    for (const secret of jwtSecrets) {
-        try {
-            return jwt.verify(token, secret);
-        } catch (error) {
-            lastError = error;
-        }
-    }
-    throw lastError || new Error('Invalid token');
-};
-
-const app = express();
-const PORT = process.env.PORT || 5000;
-
-// Trust first proxy hop (ngrok/reverse proxy) so rate-limit can safely use client IP.
-app.set('trust proxy', 1);
-
-// Request logger (at the very top)
-app.use((req, res, next) => {
-    const start = Date.now();
-    res.on('finish', () => {
-        const duration = Date.now() - start;
-        logger.info(`${req.method} ${req.url} ${res.statusCode} - ${duration}ms`);
-    });
-    next();
-});
-
-let server; // Will hold the http.Server instance for graceful shutdown
-
-process.on('uncaughtException', (err) => {
-    logger.error('UNCAUGHT EXCEPTION! Shutting down...', err);
-    gracefulShutdown('uncaughtException');
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    logger.error('UNHANDLED REJECTION! Shutting down...', reason);
-    gracefulShutdown('unhandledRejection');
-});
-
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-function gracefulShutdown(signal) {
-    logger.info(`[${signal}] Graceful shutdown initiated...`);
-    if (server) {
-        server.close(() => {
-            logger.info('HTTP server closed.');
-            if (pool) pool.end().catch(() => { });
-            process.exit(signal === 'SIGTERM' || signal === 'SIGINT' ? 0 : 1);
+            try {
+                const cron = require('node-cron');
+                const { checkAnomalies } = require('./routes/anomalies');
+                cron.schedule('*/15 * * * *', () => {
+                    logger.info('[Cron] Running anomaly check…');
+                    checkAnomalies().catch(err => logger.error('[Cron] Anomaly check failed:', err.message));
+                });
+                setTimeout(() => checkAnomalies().catch(() => {}), 10_000);
+                logger.info('[Cron] Anomaly detection scheduled every 15 minutes');
+            } catch (e) {
+                logger.warn('[Warning] Anomaly cron not loaded:', e.message);
+            }
         });
-        // Force shutdown after 10 seconds
-        setTimeout(() => {
-            logger.error('Forced shutdown after timeout.');
-            process.exit(1);
-        }, 10000);
-    } else {
-        process.exit(1);
-    }
-}
-
-// --------------- Middleware ---------------
-
-// CORS - Strictly limited to CLIENT_URL and ALLOWED_ORIGINS
-const allowedOrigins = [
-    process.env.CLIENT_URL,
-    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : []),
-    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) : []),
-    'https://software-sarga.vercel.app',
+    
     'https://software-sarga-git-main-anirudhsargas-projects.vercel.app', // Common Vercel preview/branch URL
     'http://localhost:5174' // Sarga customer website dev server
 ].filter(Boolean).map(o => o.replace(/\/$/, '')); // Normalize by removing trailing slashes
