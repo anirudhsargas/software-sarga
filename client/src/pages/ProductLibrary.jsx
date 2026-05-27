@@ -1811,7 +1811,10 @@ const ProductLibrary = () => {
                             </div>
                         </form>
                     </div>
-{showProdModal && (
+                </div>
+            )}
+
+            {showProdModal && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '620px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         <button className="modal-close" onClick={() => { setShowProdModal(false); setIsEditing(false); resetProductForm(); }}><X size={20} /></button>
