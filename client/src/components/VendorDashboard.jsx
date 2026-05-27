@@ -275,7 +275,7 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
                   <td style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                        <Calendar size={12} style={{ color: new Date(inv.due_date) < new Date() ? 'var(--error)' : 'var(--muted)' }} />
-                       <span style={{ fontSize: '13px', fontWeight: 500, color: new Date(inv.due_date) < new Date() ? 'var(--error)' : 'inherit', fontWeight: new Date(inv.due_date) < new Date() ? 700 : 500 }}>
+                       <span style={{ fontSize: '13px', color: new Date(inv.due_date) < new Date() ? 'var(--error)' : 'inherit', fontWeight: new Date(inv.due_date) < new Date() ? 700 : 500 }}>
                          {new Date(inv.due_date).toLocaleDateString()}
                        </span>
                     </div>

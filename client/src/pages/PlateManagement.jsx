@@ -474,7 +474,6 @@ const PlateManagement = () => {
                                                 border: '2px solid var(--border)',
                                                 backgroundColor: 'var(--surface-alt)',
                                                 // Scale to fit in container
-                                                maxWidth: '100%',
                                                 aspectRatio: `${plateDimensions.width}/${plateDimensions.height}`,
                                                 width: '100%',
                                                 maxWidth: '500px',
