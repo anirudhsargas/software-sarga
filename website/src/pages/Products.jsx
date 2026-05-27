@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Search, Printer, Package, ChevronRight, Loader2, ArrowRight, ShoppingBag } from 'lucide-react'
 import { getCategories, getProducts } from '../api'
 import './Products.css'
+import { useCart } from '../context/CartContext'
 
 export default function Products() {
   const navigate = useNavigate()
+  const { addItem, openCart } = useCart()
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -148,13 +150,22 @@ export default function Products() {
                         <h3 className="product-card__title">{prod.name}</h3>
                         <p className="product-card__desc">{prod.description || 'Custom professional-grade product printed using top-tier machinery and precision binding.'}</p>
                         
-                        <button
-                          onClick={() => handleOrder(prod.name)}
-                          className="btn btn-primary btn-sm product-card__btn"
-                          style={{ width: '100%', marginTop: 'auto' }}
-                        >
-                          Order / Inquiry <ArrowRight size={14} style={{ marginLeft: '4px' }} />
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto', width: '100%' }}>
+                          <button
+                            onClick={() => { addItem({ service: prod.name, quantity: 1 }); openCart(); }}
+                            className="btn btn-primary btn-sm"
+                            style={{ width: '100%' }}
+                          >
+                            Add to Quote Cart
+                          </button>
+                          <button
+                            onClick={() => handleOrder(prod.name)}
+                            className="btn btn-outline btn-sm"
+                            style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px' }}
+                          >
+                            Direct Inquiry <ArrowRight size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}

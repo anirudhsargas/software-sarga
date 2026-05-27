@@ -7931,12 +7931,61 @@ select.badge option {
 }
 
 /* Ensure common badges have consistent naming and visibility */
-.badge-primary {
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.badge-primary,
+.badge--primary {
   background: var(--accent-soft);
   color: var(--accent);
 }
 
-.dark .badge-primary {
+.dark .badge-primary,
+.dark .badge--primary {
   background: rgba(var(--accent-rgb), 0.2);
   color: var(--accent);
+}
+
+.badge--success,
+.badge-success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.badge--danger,
+.badge--error,
+.badge-danger,
+.badge-error {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.badge--warning,
+.badge-warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.badge--info,
+.badge-info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.badge-ghost,
+.badge--ghost {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
 }

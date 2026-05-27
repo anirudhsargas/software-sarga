@@ -98,7 +98,7 @@ const StockPlanning = () => {
             <td>${item.unit}</td>
             <td>₹${(item.estimated_cost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
             <td>${item.vendor_name || '—'}</td>
-            <td class="${item.urgency === 'immediate' ? 'urgent' : ''}">${item.urgency === 'immediate' ? 'Immediate' : 'This Week'}</td>
+            <td class="${(item.urgency === 'immediate' || item.urgency === 'critical') ? 'urgent' : ''}">${(item.urgency === 'immediate' || item.urgency === 'critical') ? 'Immediate' : 'This Week'}</td>
         </tr>`).join('')}
         </tbody></table>
         <div class="total">Total Estimated Cost: ₹${totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
@@ -272,10 +272,10 @@ const StockPlanning = () => {
                                                 <td>
                                                     <span style={{
                                                         padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-                                                        background: item.urgency === 'immediate' ? '#fef2f2' : '#fffbeb',
-                                                        color: item.urgency === 'immediate' ? '#dc2626' : '#d97706',
+                                                        background: (item.urgency === 'immediate' || item.urgency === 'critical') ? '#fef2f2' : '#fffbeb',
+                                                        color: (item.urgency === 'immediate' || item.urgency === 'critical') ? '#dc2626' : '#d97706',
                                                     }}>
-                                                        {item.urgency === 'immediate' ? 'Immediate' : 'This Week'}
+                                                        {(item.urgency === 'immediate' || item.urgency === 'critical') ? 'Immediate' : 'This Week'}
                                                     </span>
                                                 </td>
                                             </tr>

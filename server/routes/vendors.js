@@ -374,29 +374,41 @@ router.get('/vendors/dashboard/stats', authenticateToken, async (req, res) => {
       LIMIT 10
     `);
 
-    // Monthly trend for last 6 months
+    // Monthly trend for last 6 months (single grouped query)
+    const startOfSixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().split('T')[0];
+    const endOfCurrentMonth = endOfMonth;
+
+    const [trendRows] = await pool.query(`
+      SELECT
+        DATE_FORMAT(vi.invoice_date, '%b %Y') as month,
+        YEAR(vi.invoice_date) as yr,
+        MONTH(vi.invoice_date) as mth,
+        vi.branch,
+        COALESCE(SUM(vi.amount), 0) as total_spend
+      FROM vendor_invoices vi
+      JOIN vendors v ON vi.vendor_id = v.id
+      WHERE vi.invoice_date BETWEEN ? AND ? AND v.is_active = TRUE
+      GROUP BY yr, mth, vi.branch
+      ORDER BY yr, mth
+    `, [startOfSixMonthsAgo, endOfCurrentMonth]);
+
+    // Build a map for quick lookup: map[month][branch] = total_spend
+    const map = {};
+    trendRows.forEach(r => {
+      const month = r.month;
+      if (!map[month]) map[month] = {};
+      map[month][r.branch] = Number(r.total_spend || 0);
+    });
+
     const monthlyTrend = [];
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const startDate = date.toISOString().split('T')[0];
-      const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
       const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-
-      const [trend] = await pool.query(`
-        SELECT
-          COALESCE(SUM(vi.amount), 0) as total_spend,
-          vi.branch
-        FROM vendor_invoices vi
-        JOIN vendors v ON vi.vendor_id = v.id
-        WHERE vi.invoice_date BETWEEN ? AND ? AND v.is_active = TRUE
-        GROUP BY vi.branch
-      `, [startDate, endDate]);
-
       monthlyTrend.push({
         month: monthName,
-        perambra: trend.find(t => t.branch === 'perambra')?.total_spend || 0,
-        meppayur: trend.find(t => t.branch === 'meppayur')?.total_spend || 0,
-        common: trend.find(t => t.branch === 'common')?.total_spend || 0
+        perambra: map[monthName]?.perambra || 0,
+        meppayur: map[monthName]?.meppayur || 0,
+        common: map[monthName]?.common || 0
       });
     }
 

@@ -52,6 +52,7 @@ const PaperLayoutGenerator = React.lazy(() => import('./PaperLayoutGenerator'));
 const JobPriority = React.lazy(() => import('./JobPriority'));
 const Accounts = React.lazy(() => import('./Accounts'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
+const SalesPrediction = React.lazy(() => import('./SalesPrediction'));
 const ProductionTracker = React.lazy(() => import('./ProductionTracker'));
 const PlateManagement = React.lazy(() => import('./PlateManagement'));
 const StockVerification = React.lazy(() => import('./StockVerification'));
@@ -62,6 +63,7 @@ const DesignerDashboard = React.lazy(() => import('./DesignerDashboard'));
 const CouponManagement = React.lazy(() => import('./CouponManagement'));
 const CCTVAttendance = React.lazy(() => import('./CCTVAttendance'));
 const CCTVManagement = React.lazy(() => import('./CCTVManagement'));
+const Reports = React.lazy(() => import('./Reports'));
 const ScheduleManagement = React.lazy(() => import('./ScheduleManagement'));
 const InternalBilling = React.lazy(() => import('./InternalBilling'));
 const InternalTransactions = React.lazy(() => import('./InternalTransactions'));
@@ -686,8 +688,7 @@ const Dashboard = () => {
                             <Route path="customer-payments" element={<CustomerPayments />} />
                             <Route path="payment-verification" element={<PaymentVerification />} />
                             <Route path="expenses" element={<ExpenseManager />} />
-                            <Route path="vendors" element={<Vendors />} />
-                            <Route path="vendors/:id" element={<VendorDetail />} />
+                            <Route path="vendors/*" element={<Vendors />} />
                             <Route path="machines" element={<MachineManagement />} />
                             <Route path="daily-report" element={<DailyReport />} />
                             <Route path="internal-transactions" element={<InternalTransactions />} />
@@ -698,9 +699,12 @@ const Dashboard = () => {
                             <Route path="design-check" element={<RequiresConnection feature="Design Checker"><DesignChecker /></RequiresConnection>} />
                             <Route path="paper-layout" element={<RequiresConnection feature="Paper Layout Generator"><PaperLayoutGenerator /></RequiresConnection>} />
                             <Route path="job-priority" element={<JobPriority />} />
+                                <Route path="sales-prediction" element={<RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection>} />
+                                <Route path="reports" element={<Reports />} />
                             <Route path="accounts" element={<RequiresConnection feature="Accounts & GST"><Accounts /></RequiresConnection>} />
                             <Route path="plates" element={<PlateManagement />} />
                             <Route path="order-predictions" element={<RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection>} />
+                            <Route path="predictions" element={<RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection>} />
                             <Route path="production-tracker" element={<RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection>} />
                             <Route path="coupons" element={<CouponManagement />} />
                             <Route path="cctv-attendance" element={<CCTVAttendance />} />

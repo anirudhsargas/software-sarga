@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import './CartDrawer.css';
 import { useCart } from '../../context/CartContext';
 import api from '../../api';
+import toast from 'react-hot-toast';
 
 const CartDrawer = () => {
   const { items, removeItem, updateQuantity, clearCart, open, closeCart } = useCart();
@@ -10,15 +11,15 @@ const CartDrawer = () => {
   const [phone, setPhone] = useState('');
 
   const requestQuote = async () => {
-    if (!name || !phone) return alert('Name and phone required');
+    if (!name || !phone) return toast.error('Name and phone required');
     setSubmitting(true);
     try {
       await api.post('/website/inquiry', { name, phone, email: null, service: 'Quote Cart', message: JSON.stringify(items), branch: 'Perambra' });
       clearCart();
-      alert('Quote requested successfully');
+      toast.success('Quote requested successfully!');
       closeCart();
     } catch (err) {
-      alert('Failed to submit. Try again.');
+      toast.error('Failed to submit. Try again.');
     } finally {
       setSubmitting(false);
     }

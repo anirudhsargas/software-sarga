@@ -1077,7 +1077,8 @@ const ProductLibrary = () => {
                 has_paper_rate: !!prod.has_paper_rate,
                 paper_rate: prod.paper_rate,
                 has_double_side_rate: !!prod.has_double_side_rate,
-                inventory_item_id: prod.inventory_item_id || '',
+                inventory_item_id: '',
+                isPhysicalProduct: prod.is_physical_product === 1 || prod.is_physical_product === true,
                 slabs: prod.slabs && prod.slabs.length > 0 ? prod.slabs.map(s => ({ ...s, id: undefined })) : [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
                 extras: prod.extras ? prod.extras.map(e => ({ ...e, id: undefined })) : [],
                 image_url: prod.image_url, // Retain image ref if possible, or leave blank if we want fresh upload. Usually better to copy.

@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import './Chatbot.css';
 import { MessageCircle, X } from 'lucide-react';
 import api from '../../api';
+import { useNavigate } from 'react-router-dom';
 
 const Chatbot = () => {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState(() => {
     try {
@@ -82,6 +84,16 @@ const Chatbot = () => {
   };
 
   const quickReply = (text) => {
+    if (text === 'Track Order') {
+      navigate('/track');
+      setOpen(false);
+      return;
+    }
+    if (text === 'Get a Quote') {
+      navigate('/contact');
+      setOpen(false);
+      return;
+    }
     sendMessage(text);
   };
 

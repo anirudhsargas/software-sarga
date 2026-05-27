@@ -17,6 +17,18 @@ const { initDb, pool } = require('./database');
 const { getTodayDate } = require('./helpers');
 const logger = require('./helpers/logger');
 
+// Express app and basic config
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Configure allowed CORS origins (normalize and remove trailing slashes)
+const allowedOrigins = [
+    process.env.CLIENT_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    'https://software-sarga-git-main-anirudhsargas-projects.vercel.app', // Common Vercel preview/branch URL
+    'http://localhost:5174' // Sarga customer website dev server
+].filter(Boolean).map(o => o.replace(/\/$/, ''));
+
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
 if (!JWT_SECRET) {
@@ -62,12 +74,8 @@ if (!JWT_SECRET) {
                 logger.warn('[Warning] Anomaly cron not loaded:', e.message);
             }
         });
-    
-    'https://software-sarga-git-main-anirudhsargas-projects.vercel.app', // Common Vercel preview/branch URL
-    'http://localhost:5174' // Sarga customer website dev server
-].filter(Boolean).map(o => o.replace(/\/$/, '')); // Normalize by removing trailing slashes
 
-logger.info('[CORS] Configured origins:', allowedOrigins);
+    logger.info('[CORS] Configured origins:', allowedOrigins);
 
 app.use(cors({
     origin: (origin, callback) => {
@@ -332,8 +340,12 @@ app.use('/api', require('./routes/inventory'));
 // Dev helper routes (only load when not in production)
 // Dev helper routes (temporary - allow local UI testing without auth)
 try {
-    app.use('/api/dev', require('./routes/devRoutes'));
-    logger.info('[DevRoutes] Loaded /api/dev routes');
+    if (!isProduction) {
+        app.use('/api/dev', require('./routes/devRoutes'));
+        logger.info('[DevRoutes] Loaded /api/dev routes');
+    } else {
+        logger.info('[DevRoutes] Skipped loading in production');
+    }
 } catch (e) {
     logger.warn('[DevRoutes] Not loaded:', (e && e.stack) ? e.stack : (e && e.message) ? e.message : e);
 }
@@ -468,6 +480,19 @@ if (process.env.NODE_ENV !== 'test') {
                 logger.info('[Migration] Upload-to-Cloudinary migration scheduled');
             } catch (e) {
                 logger.warn('[Migration] Not loaded:', e.message);
+            }
+
+            // One-time migration: separate duplicated inventory_item_id links
+            try {
+                const { cleanDuplicateInventoryLinks } = require('./helpers/migrateInventoryLinks');
+                setTimeout(() => {
+                    cleanDuplicateInventoryLinks().catch(err =>
+                        logger.error('[Migration] Inventory link deduplication failed:', err.message)
+                    );
+                }, 12_000); // Run 12s after startup to let DB warm up
+                logger.info('[Migration] Duplicate inventory links migration scheduled');
+            } catch (e) {
+                logger.warn('[Migration] Inventory link deduplication not loaded:', e.message);
             }
 
             // Start daily report auto-mailer cron job

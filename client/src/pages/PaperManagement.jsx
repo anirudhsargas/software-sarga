@@ -9,9 +9,11 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 const PaperManagement = () => {
     const navigate = useNavigate();
+    const { confirm } = useConfirm();
     const user = auth.getUser();
     const isAdmin = ['Admin', 'Accountant'].includes(user?.role);
     
@@ -21,6 +23,12 @@ const PaperManagement = () => {
     const [filterGsm, setFilterGsm] = useState('');
     const [filterSize, setFilterSize] = useState('');
     const [filterBranch, setFilterBranch] = useState('All');
+
+    // This page is legacy/duplicated. The application now uses the
+    // PaperStockDashboard/PaperInward/PaperOutward routes under
+    // `/dashboard/paper/*`. Avoid calling the old `/inventory/paper`
+    // endpoints which do not match the new `paperInventory` schema.
+    // Show a deprecation notice and provide a link to the correct pages.
     
     // Modal states
     const [showModal, setShowModal] = useState(false);
@@ -45,17 +53,13 @@ const PaperManagement = () => {
     const fetchPaperStock = async () => {
         setLoading(true);
         try {
-            const res = await api.get('/inventory/paper', {
-                params: {
-                    branch: filterBranch,
-                    gsm: filterGsm || undefined,
-                    size: filterSize || undefined,
-                    search: searchTerm || undefined
-                }
-            });
+            // Legacy page: use new paperInventory API route for read-only data.
+            // We avoid write operations from this page. Filters that require branch_id
+            // are not mapped here to keep this page safe as a deprecation bridge.
+            const res = await api.get('/paperInventory/stock');
             setPaperStock(res.data || []);
         } catch (err) {
-            toast.error('Failed to load paper inventory');
+            toast.error('Failed to load paper inventory (legacy page).');
         } finally {
             setLoading(false);
         }
@@ -120,53 +124,23 @@ const PaperManagement = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this paper item?')) return;
-        // Optimistic UI Update
-        setPaperStock(prev => prev.filter(item => item.id !== id));
-        try {
-            await api.delete(`/inventory/paper/${id}`);
-            toast.success('Deleted successfully');
-            fetchPaperStock();
-        } catch (err) {
-            toast.error('Failed to delete');
-            fetchPaperStock();
-        }
+        // Disabled on legacy page — redirect user to the new interface
+        toast.error('This legacy page is read-only. Manage papers from the Paper Stock Dashboard.');
+        navigate('/dashboard/paper/stock');
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        try {
-            if (modalMode === 'add') {
-                await api.post('/inventory/paper', formData);
-                toast.success('Paper item added');
-            } else {
-                // Optimistic UI Update for edit
-                const prevPaperStock = [...paperStock];
-                setPaperStock(prev => prev.map(p => p.id === selectedItem.id ? { ...p, ...formData } : p));
-                await api.put(`/inventory/paper/${selectedItem.id}`, formData);
-                toast.success('Paper item updated');
-            }
-            setShowModal(false);
-            fetchPaperStock();
-        } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to save');
-            fetchPaperStock();
-        }
+        toast.error('This legacy page is read-only. Create or edit paper types from the Paper Stock Dashboard.');
+        setShowModal(false);
+        navigate('/dashboard/paper/stock');
     };
 
     const handleAdjustSubmit = async (e) => {
         e.preventDefault();
-        try {
-            await api.put(`/inventory/paper/${adjustData.id}/adjust`, {
-                change_reams: Number(adjustData.change),
-                reason: adjustData.reason
-            });
-            toast.success('Stock adjusted');
-            setShowAdjustModal(false);
-            fetchPaperStock();
-        } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to adjust');
-        }
+        toast.error('Adjustments are disabled on this legacy page. Use the Paper Stock Dashboard.');
+        setShowAdjustModal(false);
+        navigate('/dashboard/paper/stock');
     };
 
     const gsmOptions = ['70', '80', '100', '130', '170', '210', '250', '300'];
@@ -174,6 +148,15 @@ const PaperManagement = () => {
 
     return (
         <div className="stack-lg p-md">
+            <div className="panel stack-md">
+                <h1 className="section-title">`PaperManagement` — Deprecated</h1>
+                <p className="section-subtitle">This page is a legacy duplicate. Use the new Paper Inventory pages instead.</p>
+                <div className="row gap-sm mt-md">
+                    <button className="btn btn-primary" onClick={() => navigate('/dashboard/paper/stock')}>Open Paper Stock Dashboard</button>
+                    <button className="btn btn-ghost" onClick={() => navigate('/dashboard/paper/inward')}>Go to Inward</button>
+                    <button className="btn btn-ghost" onClick={() => navigate('/dashboard/paper/outward')}>Go to Outward</button>
+                </div>
+            </div>
             {/* Header */}
             <div className="row space-between items-center">
                 <div>

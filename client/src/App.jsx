@@ -7,6 +7,8 @@ const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+const ServerError = lazy(() => import('./pages/ServerError'));
+const NetworkError = lazy(() => import('./pages/NetworkError'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const StaffSettingsPage = lazy(() => import('./pages/StaffSettingsPage'));
@@ -138,6 +140,8 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/error/server" element={<ServerError />} />
+              <Route path="/error/network" element={<NetworkError />} />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

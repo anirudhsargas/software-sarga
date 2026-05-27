@@ -18,6 +18,7 @@ import {
   Fingerprint,
 } from 'lucide-react'
 import './Services.css'
+import { useCart } from '../context/CartContext'
 
 const mainServices = [
   {
@@ -66,6 +67,8 @@ const additionalServices = [
 ]
 
 export default function Services() {
+  const { addItem, openCart } = useCart()
+
   return (
     <div className="services-page">
       {/* Header */}
@@ -106,11 +109,20 @@ export default function Services() {
                   ))}
                 </ul>
 
-                <div className="main-service-card__pricing-wrap" style={{ marginTop: 'auto', paddingTop: 'var(--space-md)', borderTop: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{service.price}</span>
-                  <Link to="/contact" style={{ fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    Get Quote <ArrowRight size={14} />
-                  </Link>
+                <div className="main-service-card__pricing-wrap" style={{ marginTop: 'auto', paddingTop: 'var(--space-md)', borderTop: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{service.price}</span>
+                    <Link to="/contact" style={{ fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      Get Custom Quote <ArrowRight size={14} />
+                    </Link>
+                  </div>
+                  <button 
+                    onClick={() => { addItem({ service: service.title, quantity: 1 }); openCart(); }}
+                    className="btn btn-outline btn-sm"
+                    style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px' }}
+                  >
+                    Add to Quote Cart
+                  </button>
                 </div>
               </div>
             ))}
@@ -128,17 +140,26 @@ export default function Services() {
 
           <div className="additional-grid">
             {additionalServices.map((service, i) => (
-              <div key={i} className="additional-card" id={`additional-service-${i}`}>
-                <div
-                  className="additional-card__icon"
-                  style={{ background: `${service.color}12`, color: service.color }}
+              <div key={i} className="additional-card" id={`additional-service-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-md)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+                  <div
+                    className="additional-card__icon"
+                    style={{ background: `${service.color}12`, color: service.color }}
+                  >
+                    {service.icon}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span className="additional-card__title">{service.title}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{service.price}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { addItem({ service: service.title, quantity: 1 }); openCart(); }}
+                  className="btn btn-outline btn-sm"
+                  style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', whiteSpace: 'nowrap' }}
                 >
-                  {service.icon}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span className="additional-card__title">{service.title}</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{service.price}</span>
-                </div>
+                  + Add
+                </button>
               </div>
             ))}
           </div>

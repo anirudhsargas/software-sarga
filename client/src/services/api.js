@@ -1,4 +1,5 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 // Centralized API URL for mobile/network access
 const getApiUrl = () => {
@@ -187,13 +188,51 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        if (error.response?.status === 401) {
+        // Network error (no response)
+        if (error.request && !error.response) {
+            // Show a toast and navigate to network error UI
+            try { toast.error('Network error — failed to reach server'); } catch (e) {}
+            if (window.location.pathname !== '/error/network') {
+                window.location.href = '/error/network';
+            }
+            return Promise.reject(error);
+        }
+
+        const status = error.response?.status;
+        if (status === 429) {
+            // Rate limited
+            try { toast.error('Too many requests. Please slow down.'); } catch (e) {}
+            return Promise.reject(error);
+        }
+
+        if (status === 403) {
+            try { toast.error('Access denied.'); } catch (e) {}
+            // If user is authenticated, redirect to dashboard; otherwise to login
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login';
+            } else if (window.location.pathname !== '/dashboard') {
+                window.location.href = '/dashboard';
+            }
+            return Promise.reject(error);
+        }
+
+        if (status >= 500) {
+            try { toast.error('Server error. Redirecting to error page.'); } catch (e) {}
+            if (window.location.pathname !== '/error/server') {
+                window.location.href = '/error/server';
+            }
+            return Promise.reject(error);
+        }
+
+        if (status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             if (window.location.pathname !== '/login') {
                 window.location.href = '/login';
             }
         }
+
         return Promise.reject(error);
     }
 );

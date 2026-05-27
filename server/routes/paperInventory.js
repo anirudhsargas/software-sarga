@@ -18,10 +18,12 @@ async function updateStockAndCheckAlerts(connection, paper_type_id, branch_id, q
 
     // 2. Check reorder level
     const [[summary]] = await connection.query(`
-        SELECT s.current_sheets, s.reorder_level, t.size_name, t.gsm, t.category, b.name as branch_name
+        SELECT s.current_sheets, s.reorder_level, t.size_name, t.gsm, t.category,
+               COALESCE(sb.name, b.name) as branch_name
         FROM paper_stock_summary s
         JOIN paper_types t ON s.paper_type_id = t.id
-        JOIN sarga_branches b ON s.branch_id = b.id
+        LEFT JOIN branches b ON s.branch_id = b.id
+        LEFT JOIN sarga_branches sb ON s.branch_id = sb.id
         WHERE s.paper_type_id = ? AND s.branch_id = ?
     `, [paper_type_id, branch_id]);
 
@@ -96,11 +98,13 @@ router.get('/stock', authenticateToken, async (req, res) => {
     try {
         const { branch_id, category } = req.query;
         let query = `
-            SELECT s.*, t.category, t.size_name, t.width_mm, t.height_mm, t.gsm, t.brand, b.name as branch_name
-            FROM paper_stock_summary s
-            JOIN paper_types t ON s.paper_type_id = t.id
-            JOIN sarga_branches b ON s.branch_id = b.id
-            WHERE 1=1
+            SELECT s.*, t.category, t.size_name, t.width_mm, t.height_mm, t.gsm, t.brand,
+                   COALESCE(sb.name, b.name) as branch_name
+                FROM paper_stock_summary s
+                JOIN paper_types t ON s.paper_type_id = t.id
+                LEFT JOIN branches b ON s.branch_id = b.id
+                LEFT JOIN sarga_branches sb ON s.branch_id = sb.id
+                WHERE 1=1
         `;
         const params = [];
 
@@ -278,10 +282,11 @@ router.get('/movements', authenticateToken, async (req, res) => {
     try {
         const { paper_type_id, branch_id, movement_type, limit = 50, offset = 0 } = req.query;
         let query = `
-            SELECT m.*, t.size_name, t.gsm, t.category, b.name as branch_name, s.name as staff_name, j.job_number
+            SELECT m.*, t.size_name, t.gsm, t.category, COALESCE(sb.name, b.name) as branch_name, s.name as staff_name, j.job_number
             FROM paper_stock_movements m
             JOIN paper_types t ON m.paper_type_id = t.id
-            JOIN sarga_branches b ON m.branch_id = b.id
+            LEFT JOIN branches b ON m.branch_id = b.id
+            LEFT JOIN sarga_branches sb ON m.branch_id = sb.id
             JOIN sarga_staff s ON m.created_by = s.id
             LEFT JOIN sarga_jobs j ON m.job_id = j.id
             WHERE 1=1

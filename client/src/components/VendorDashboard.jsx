@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import '../pages/Vendors.css';
 
-const VendorDashboard = () => {
+const VendorDashboard = ({ refreshKey = 0 }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,7 +17,7 @@ const VendorDashboard = () => {
 
   useEffect(() => {
     loadDashboardStats();
-  }, []);
+  }, [refreshKey]);
 
   const loadDashboardStats = async () => {
     try {

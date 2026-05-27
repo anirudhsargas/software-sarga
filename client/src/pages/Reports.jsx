@@ -41,6 +41,7 @@ export default function Reports() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [tooltip, setTooltip] = useState(null);
+    const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
     const fetchSeasonal = useCallback(async (refresh = false) => {
         setLoading(true);
@@ -135,6 +136,7 @@ export default function Reports() {
                                             key={month}
                                             onMouseEnter={() => setTooltip(tipText)}
                                             onMouseLeave={() => setTooltip(null)}
+                                            onMouseMove={(e) => setTooltipPos({ x: e.clientX, y: e.clientY })}
                                             style={{
                                                 position: 'relative',
                                                 background: bg,
@@ -177,11 +179,20 @@ export default function Reports() {
                             {/* Tooltip */}
                             {tooltip && (
                                 <div style={{
-                                    position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
-                                    background: 'var(--accent)', color: 'var(--on-accent)', padding: '6px 14px',
-                                    borderRadius: 8, fontSize: 12, whiteSpace: 'nowrap',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 10,
+                                    position: 'fixed',
+                                    top: tooltipPos.y - 45,
+                                    left: tooltipPos.x,
+                                    transform: 'translateX(-50%)',
+                                    background: 'var(--accent)',
+                                    color: 'var(--on-accent)',
+                                    padding: '6px 14px',
+                                    borderRadius: 8,
+                                    fontSize: 12,
+                                    whiteSpace: 'nowrap',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                                    zIndex: 9999,
                                     pointerEvents: 'none',
+                                    animation: 'fade-in 0.1s ease-out',
                                 }}>
                                     {tooltip}
                                 </div>

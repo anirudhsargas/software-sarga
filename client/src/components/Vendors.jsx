@@ -9,7 +9,7 @@ import VendorDetail from './VendorDetail';
 import { Search, Filter, Store, Tag, Eye, Edit, FileText, Trash2, User, Phone, ChevronRight } from 'lucide-react';
 import '../pages/Vendors.css';
 
-const Vendors = () => {
+const Vendors = ({ refreshKey = 0 }) => {
   const navigate = useNavigate();
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +24,7 @@ const Vendors = () => {
 
   useEffect(() => {
     loadVendors();
-  }, [searchTerm, categoryFilter]);
+  }, [searchTerm, categoryFilter, refreshKey]);
 
   const loadVendors = async () => {
     try {

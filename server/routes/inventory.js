@@ -774,6 +774,16 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
             );
         }
 
+        // Propagate updates to any linked products in sarga_products
+        await pool.query(
+            `UPDATE sarga_products
+             SET name = ?, product_code = ?
+             WHERE inventory_item_id = ?`,
+            [name, normalizedSku, id]
+        );
+
+        invalidateHierarchyCache();
+
         auditLog(req.user.id, 'INVENTORY_UPDATE', `Updated item ${id} (${name})`);
         res.json({ message: 'Inventory item updated' });
     } catch (err) {

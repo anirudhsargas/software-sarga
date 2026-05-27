@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
 import VendorsList from '../components/Vendors';
 import VendorDetail from '../components/VendorDetail';
 import VendorDashboard from '../components/VendorDashboard';
@@ -13,13 +13,20 @@ import './Vendors.css';
 
 const Vendors = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [editingVendor, setEditingVendor] = useState(null);
-  const [currentView, setCurrentView] = useState('dashboard');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const currentView = searchParams.get('view') || 'dashboard';
+
+  const setCurrentView = (view) => {
+    setSearchParams({ view });
+  };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -29,15 +36,15 @@ const Vendors = () => {
   };
 
   const getStatusBadge = (status) => {
-    const statusColors = {
-      paid: 'bg-green-100 text-green-800',
-      partial: 'bg-blue-100 text-blue-800',
-      overdue: 'bg-red-100 text-red-800',
-      pending: 'bg-yellow-100 text-yellow-800'
+    const statusClasses = {
+      paid: 'status-badge--success',
+      partial: 'status-badge--info',
+      overdue: 'status-badge--error',
+      pending: 'status-badge--warning'
     };
 
     return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[status] || 'bg-gray-100 text-gray-800'}`}>
+      <span className={`status-badge ${statusClasses[status] || 'status-badge--default'}`}>
         {status?.charAt(0).toUpperCase() + status?.slice(1)}
       </span>
     );
@@ -61,8 +68,8 @@ const Vendors = () => {
     try {
       await api.delete(`/vendors/${vendorId}`);
       toast.success('Vendor deleted successfully');
-      // Refresh the current view
-      window.location.reload();
+      // Refresh the current view without full reload
+      setRefreshKey(k => k + 1);
     } catch (error) {
       console.error('Error deleting vendor:', error);
       toast.error('Failed to delete vendor');
@@ -72,13 +79,12 @@ const Vendors = () => {
   const handleVendorSaved = () => {
     setShowVendorModal(false);
     setEditingVendor(null);
-    // Refresh the current view
-    window.location.reload();
+    setRefreshKey(k => k + 1);
   };
 
   const handleViewVendor = (vendor) => {
     setSelectedVendor(vendor);
-    navigate(`/dashboard/vendors/${vendor.id}`);
+    navigate(`/dashboard/vendors/${vendor.id}?view=list`);
   };
 
   const handleAddInvoice = (vendor) => {
@@ -94,20 +100,18 @@ const Vendors = () => {
   const handleInvoiceSaved = () => {
     setShowInvoiceModal(false);
     setSelectedVendor(null);
-    // Refresh the current view
-    window.location.reload();
+    setRefreshKey(k => k + 1);
   };
 
   const handlePaymentSaved = () => {
     setShowPaymentModal(false);
     setSelectedInvoice(null);
-    // Refresh the current view
-    window.location.reload();
+    setRefreshKey(k => k + 1);
   };
 
   const handleBackToList = () => {
     setSelectedVendor(null);
-    navigate('/dashboard/vendors');
+    navigate('/dashboard/vendors?view=list');
   };
 
   return (
@@ -153,18 +157,32 @@ const Vendors = () => {
 
       {/* Main Content Area */}
       <div>
-        {currentView === 'dashboard' ? (
-          <VendorDashboard />
-        ) : (
-          <VendorsList
-            onViewVendor={handleViewVendor}
-            onAddInvoice={handleAddInvoice}
-            onEditVendor={handleEditVendor}
-            onDeleteVendor={handleDeleteVendor}
-            formatCurrency={formatCurrency}
-            getStatusBadge={getStatusBadge}
-          />
-        )}
+        <Routes>
+          <Route path="/" element={
+            currentView === 'dashboard' ? (
+              <VendorDashboard refreshKey={refreshKey} />
+            ) : (
+              <VendorsList
+                refreshKey={refreshKey}
+                onViewVendor={handleViewVendor}
+                onAddInvoice={handleAddInvoice}
+                onEditVendor={handleEditVendor}
+                onDeleteVendor={handleDeleteVendor}
+                formatCurrency={formatCurrency}
+                getStatusBadge={getStatusBadge}
+              />
+            )
+          } />
+          <Route path="/:id" element={
+            <VendorDetail
+              onBack={handleBackToList}
+              onEditVendor={handleEditVendor}
+              onDeleteVendor={handleDeleteVendor}
+              formatCurrency={formatCurrency}
+              getStatusBadge={getStatusBadge}
+            />
+          } />
+        </Routes>
       </div>
 
       {/* Modals */}

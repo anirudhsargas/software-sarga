@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import InvoiceModal from './InvoiceModal';
@@ -19,6 +20,8 @@ const VendorDetail = ({
   formatCurrency,
   getStatusBadge
 }) => {
+  const { id: routeId } = useParams();
+  const vendorId = vendor?.id || routeId;
   const [vendorDetails, setVendorDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -31,7 +34,7 @@ const VendorDetail = ({
   useEffect(() => {
     loadVendorDetails();
     loadSpendTrend();
-  }, [vendor.id]);
+  }, [vendorId]);
 
   const getLatestRecordDate = (items, dateKey) => {
     if (!items?.length) return null;
@@ -39,11 +42,11 @@ const VendorDetail = ({
     return sorted[0]?.[dateKey] ? new Date(sorted[0][dateKey]).toLocaleDateString() : null;
   };
 
-  const latestInvoiceDate = getLatestRecordDate(vendorDetails?.invoices || vendor.invoices, 'invoice_date');
-  const latestPaymentDate = getLatestRecordDate(vendorDetails?.payments || vendor.payments, 'payment_date');
+  const latestInvoiceDate = getLatestRecordDate(vendorDetails?.invoices || vendor?.invoices, 'invoice_date');
+  const latestPaymentDate = getLatestRecordDate(vendorDetails?.payments || vendor?.payments, 'payment_date');
 
   const rawTransactions = [
-    ...(vendorDetails?.invoices || vendor.invoices || []).map((inv) => ({
+    ...(vendorDetails?.invoices || vendor?.invoices || []).map((inv) => ({
       id: inv.id,
       type: 'Debit',
       category: 'Purchase',
@@ -54,7 +57,7 @@ const VendorDetail = ({
       status: inv.status || 'Pending',
       note: inv.due_date ? `Due ${new Date(inv.due_date).toLocaleDateString()}` : 'No due date',
     })),
-    ...(vendorDetails?.payments || vendor.payments || []).map((pay) => ({
+    ...(vendorDetails?.payments || vendor?.payments || []).map((pay) => ({
       id: pay.id,
       type: 'Credit',
       category: 'Payment',
@@ -129,7 +132,7 @@ const VendorDetail = ({
   const loadVendorDetails = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/vendors/${vendor.id}`);
+      const response = await api.get(`/vendors/${vendorId}`);
       setVendorDetails(response.data.data);
     } catch (error) {
       console.error('Error loading vendor details:', error);
@@ -141,7 +144,7 @@ const VendorDetail = ({
 
   const loadSpendTrend = async () => {
     try {
-      const response = await api.get(`/vendors/${vendor.id}/spend-trend`);
+      const response = await api.get(`/vendors/${vendorId}/spend-trend`);
       setSpendTrend(response.data.data);
     } catch (error) {
       console.error('Error loading spend trend:', error);
@@ -176,7 +179,7 @@ const VendorDetail = ({
     );
   }
 
-  const details = vendorDetails || vendor;
+  const details = vendorDetails || vendor || {};
 
   return (
     <div className="detail-page-container">
