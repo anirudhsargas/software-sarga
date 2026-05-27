@@ -114,7 +114,7 @@ const ProductLibrary = () => {
 
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
-    const [editLoading, setEditLoading] = useState(false);
+    const [editLoading, setEditLoading] = useState(null);
     const [saveLoading, setSaveLoading] = useState(false);
     const [imageRequestSubmitting, setImageRequestSubmitting] = useState(false);
     const [pendingImageRequests, setPendingImageRequests] = useState([]);
@@ -888,7 +888,7 @@ const ProductLibrary = () => {
     };
 
     const startEditProduct = async (prodId) => {
-        setEditLoading(true);
+        setEditLoading(prodId);
         setSaveLoading(false);
         setImageRequestSubmitting(false);
         try {
@@ -927,7 +927,7 @@ const ProductLibrary = () => {
         } catch (err) {
             toast.error('Error fetching product details');
         } finally {
-            setEditLoading(false);
+            setEditLoading(null);
         }
     };
 
@@ -1607,8 +1607,8 @@ const ProductLibrary = () => {
                                 >
                                     {isPrivileged && (
                                     <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
-                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditProduct(prod.id); }} title="Edit Product" disabled={editLoading}>
-                                            {editLoading ? <Loader2 size={14} className="spin" /> : <Edit2 size={14} />}
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditProduct(prod.id); }} title="Edit Product" disabled={editLoading !== null}>
+                                            {editLoading === prod.id ? <Loader2 size={14} className="spin" /> : <Edit2 size={14} />}
                                         </button>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); handleDuplicateProduct(prod.id); }} title="Duplicate Product">
                                             <Copy size={14} />

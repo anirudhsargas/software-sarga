@@ -11,6 +11,7 @@ const { pool } = require('../database');
 const logger = require('../helpers/logger');
 const chatService = require('../services/chatService');
 const chatStore = require('../services/chatStore');
+const websiteCache = require('../services/websiteCache');
 const { v4: uuidv4 } = require('uuid');
 const { uuidGuard, chatLimiter, inquiryLimiter } = require('../middleware/websiteSecurity');
 
@@ -32,26 +33,7 @@ router.get('/branches', async (req, res) => {
 // Returns product categories with subcategories for public display
 router.get('/categories', async (req, res) => {
   try {
-    const [categories] = await pool.query(
-      `SELECT id, name, image_url
-       FROM sarga_product_categories
-       WHERE is_active = 1
-       ORDER BY position, name`
-    );
-
-    const [subcategories] = await pool.query(
-      `SELECT sc.id, sc.category_id, sc.name, sc.image_url
-       FROM sarga_product_subcategories sc
-       JOIN sarga_product_categories c ON sc.category_id = c.id
-       WHERE sc.is_active = 1 AND c.is_active = 1
-       ORDER BY sc.position, sc.name`
-    );
-
-    const result = categories.map((cat) => ({
-      ...cat,
-      subcategories: subcategories.filter((sc) => sc.category_id === cat.id),
-    }));
-
+    const result = await websiteCache.getCategories();
     res.json({ categories: result });
   } catch (err) {
     logger.error('[Website] Error fetching categories:', err.message);
@@ -63,17 +45,7 @@ router.get('/categories', async (req, res) => {
 // Returns active products for public display (with category info)
 router.get('/products', async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      `SELECT p.id, p.name, p.description, p.image_url,
-              sc.name AS subcategory_name,
-              c.name AS category_name
-       FROM sarga_products p
-       JOIN sarga_product_subcategories sc ON p.subcategory_id = sc.id
-       JOIN sarga_product_categories c ON sc.category_id = c.id
-       WHERE p.is_active = 1 AND sc.is_active = 1 AND c.is_active = 1
-       ORDER BY c.position, sc.position, p.position
-       LIMIT 100`
-    );
+    const rows = await websiteCache.getProducts();
     res.json({ products: rows });
   } catch (err) {
     logger.error('[Website] Error fetching products:', err.message);
@@ -247,6 +219,37 @@ router.get('/chat/history', async (req, res) => {
   } catch (err) {
     logger.error('[Website] Failed to load chat history:', err.message);
     return res.status(500).json({ message: 'Unable to load chat history.' });
+  }
+});
+
+// ─── POST /api/website/webhook/sync ───
+// Secure webhook for software to notify website about product/category changes.
+// Set WEBSITE_SYNC_SECRET in environment to a shared secret.
+router.post('/webhook/sync', async (req, res) => {
+  try {
+    const secret = req.headers['x-webhook-secret'] || req.query.secret;
+    if (!process.env.WEBSITE_SYNC_SECRET) {
+      logger.warn('[Webhook] WEBSITE_SYNC_SECRET not configured — rejecting webhook');
+      return res.status(403).json({ message: 'Webhook disabled' });
+    }
+    if (secret !== process.env.WEBSITE_SYNC_SECRET) {
+      logger.warn('[Webhook] Invalid webhook secret attempt');
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const { type } = req.body || {};
+    if (!type || (type !== 'products' && type !== 'categories' && type !== 'all')) {
+      return res.status(400).json({ message: 'Invalid type (expected products|categories|all)' });
+    }
+
+    if (type === 'all') websiteCache.invalidate();
+    else websiteCache.invalidate(type);
+
+    logger.info('[Webhook] Cache invalidated for', type);
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error('[Webhook] Error handling sync webhook:', err.message);
+    return res.status(500).json({ message: 'Webhook error' });
   }
 });
 

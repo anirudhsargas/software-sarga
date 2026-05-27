@@ -33,5 +33,12 @@ export const trackJob = (jobCode) => api.get(`/website/track/${jobCode}`);
 export const submitInquiry = (data) => api.post('/website/inquiry', data);
 export const getCategories = () => api.get('/website/categories');
 export const getStats = () => api.get('/website/stats');
+export const getChatHistory = (uuid, limit = 50) => {
+  const q = [];
+  if (uuid) q.push(`uuid=${encodeURIComponent(uuid)}`);
+  if (limit) q.push(`limit=${Number(limit)}`);
+  const qs = q.length ? `?${q.join('&')}` : '';
+  return api.get(`/website/chat/history${qs}`);
+};
 
 export default api;

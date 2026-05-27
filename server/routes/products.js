@@ -181,6 +181,66 @@ module.exports = (upload, removeUploadFile) => {
         console.log(`[AutoInventory] Created/linked inventory #${inventoryId} for product #${productId} (${productName})`);
     }
 
+    // Sync an existing linked inventory item from the updated product library data
+    async function syncInventoryFromProduct(connection, productId, productName, productCode, subcategoryId, slabs, companyName, companyCode, size, extraInv = {}) {
+        // Find if this product is linked to an inventory item
+        const [prodRows] = await connection.query('SELECT inventory_item_id FROM sarga_products WHERE id = ?', [productId]);
+        if (!prodRows || prodRows.length === 0) return;
+        const inventoryId = prodRows[0].inventory_item_id;
+        if (!inventoryId) return;
+
+        // Get subcategory name as category in inventory
+        const [subRows] = await connection.query(
+            `SELECT s.name AS sub_name
+             FROM sarga_product_subcategories s
+             WHERE s.id = ?`,
+            [subcategoryId]
+        );
+        const inventoryCategory = subRows.length > 0 ? subRows[0].sub_name : null;
+
+        // Extract sell_price from first slab unit_rate
+        let sellPrice = 0;
+        if (slabs && slabs.length > 0) {
+            sellPrice = Number(slabs[0].unit_rate) || Number(slabs[0].base_value) || 0;
+        }
+
+        // Use product_code as SKU, or auto-generate
+        let sku = productCode || null;
+        if (!sku) {
+            const c = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const p = String(productName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const s = String(size || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const parts = [c, p, s].filter(Boolean);
+            if (parts.length > 0) sku = parts.join('-');
+        }
+        if (!sku) {
+            const catPart = (inventoryCategory || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
+            sku = `${catPart}-${String(inventoryId).padStart(4, '0')}`;
+        }
+
+        const sourceCode = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || null;
+        const sizeCode = String(size || '').trim().toUpperCase() || null;
+
+        // Update the inventory item
+        await connection.query(
+            `UPDATE sarga_inventory 
+             SET name = ?, sku = ?, category = ?, unit = ?, cost_price = ?, sell_price = ?, source_code = ?, model_name = ?, size_code = ?, hsn = ?, gst_rate = ?, vendor_name = ?
+             WHERE id = ?`,
+            [
+                productName, sku, inventoryCategory,
+                extraInv.unit || 'pcs',
+                Number(extraInv.cost_price) || 0,
+                Number(extraInv.sell_price) || sellPrice,
+                sourceCode, productName, sizeCode,
+                extraInv.hsn || null,
+                Number(extraInv.gst_rate) || 0,
+                extraInv.vendor_name || null,
+                inventoryId
+            ]
+        );
+        console.log(`[SyncInventory] Synced inventory #${inventoryId} for product #${productId} (${productName})`);
+    }
+
     // --- PRODUCT HIERARCHY & PRICING ROUTES ---
 
     // List Categories
@@ -653,9 +713,10 @@ module.exports = (upload, removeUploadFile) => {
             }
         }
 
-        const { subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, inventory_item_id, isPhysicalProduct } = req.body;
+        const { subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, has_paper_rate, paper_rate, has_double_side_rate, inventory_item_id, isPhysicalProduct, extraInv } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
+        const parsedExtraInv = typeof extraInv === 'string' ? JSON.parse(extraInv) : (extraInv || {});
         let imageUrl = req.body.image_url;
         if (req.file) {
             const cloudinaryResult = await uploadToCloudinary(req.file.path, 'products');
@@ -709,8 +770,21 @@ module.exports = (upload, removeUploadFile) => {
                 }
             }
 
+            // Sync existing inventory linked item
+            await syncInventoryFromProduct(connection, id, String(name).trim(), product_code, subcategory_id, slabs, company_name, company_code, size, parsedExtraInv);
+
             await connection.commit();
             invalidateHierarchyCache();
+
+            // Auto-create inventory entry if not already linked and is marked physical product
+            if (isPhysicalProduct === 'true' || isPhysicalProduct === 1 || isPhysicalProduct === '1') {
+                try {
+                    await autoCreateInventoryFromProduct(id, String(name).trim(), product_code, subcategory_id, slabs, company_name, company_code, size, parsedExtraInv);
+                } catch (autoErr) {
+                    console.error('Auto-create inventory in PUT failed (non-blocking):', autoErr.message);
+                }
+            }
+
             auditLog(req.user.id, 'PRODUCT_UPDATE', `Updated product #${id}: ${name}`, { entity_type: 'product', entity_id: id });
             res.json({ message: 'Product updated successfully' });
         } catch (err) {
@@ -1285,6 +1359,26 @@ module.exports = (upload, removeUploadFile) => {
                             }
                         }
                     }
+
+                    // Sync inventory if product is linked
+                    const [updatedProd] = await connection.query('SELECT * FROM sarga_products WHERE id = ?', [prodId]);
+                    const upProd = updatedProd[0];
+                    if (upProd && upProd.inventory_item_id) {
+                        const slabsPayload = proposed.slabs || [];
+                        const extraInvPayload = proposed.extraInv || {};
+                        await syncInventoryFromProduct(
+                            connection,
+                            prodId,
+                            upProd.name,
+                            upProd.product_code,
+                            upProd.subcategory_id,
+                            slabsPayload,
+                            upProd.company_name,
+                            upProd.company_code,
+                            upProd.size,
+                            extraInvPayload
+                        );
+                    }
                 }
 
                 // Update request status
@@ -1296,6 +1390,32 @@ module.exports = (upload, removeUploadFile) => {
                 );
 
                 await connection.commit();
+
+                // Auto-create inventory if physical but not yet linked to an inventory item
+                if (action === 'approve') {
+                    const prodId = requestRow.product_id;
+                    try {
+                        const [updatedProd] = await pool.query('SELECT * FROM sarga_products WHERE id = ?', [prodId]);
+                        const upProd = updatedProd[0];
+                        if (upProd && (upProd.is_physical_product === 1 || upProd.is_physical_product === true) && !upProd.inventory_item_id) {
+                            const slabsPayload = proposed.slabs || [];
+                            const extraInvPayload = proposed.extraInv || {};
+                            await autoCreateInventoryFromProduct(
+                                prodId,
+                                upProd.name,
+                                upProd.product_code,
+                                upProd.subcategory_id,
+                                slabsPayload,
+                                upProd.company_name,
+                                upProd.company_code,
+                                upProd.size,
+                                extraInvPayload
+                            );
+                        }
+                    } catch (autoErr) {
+                        console.error('Auto-create inventory in approve failed (non-blocking):', autoErr.message);
+                    }
+                }
 
                 // Post-commit cleanup: remove old/proposed image files accordingly
                 try {

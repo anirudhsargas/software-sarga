@@ -11,7 +11,7 @@
 .chat-sub { font-size: 12px; opacity: 0.9; }
 .chat-close { background: transparent; border: none; color: #fff; cursor: pointer; }
 
-.chat-body { padding: 12px; background: #ECE5DD; flex: 1; overflow-y: auto; }
+.chat-body { padding: 12px; background: #ECE5DD; flex: 1; overflow-y: auto; scroll-behavior: smooth; }
 .chat-bubble { max-width: 75%; margin: 8px 0; padding: 10px 12px; border-radius: 12px; position: relative; }
 .chat-bubble.bot { background: #fff; align-self: flex-start; }
 .chat-bubble.user { background: #DCF8C6; align-self: flex-end; }
@@ -34,5 +34,20 @@
 @keyframes blink { 0% { opacity: 0.2 } 50% { opacity: 1 } 100% { opacity: 0.2 } }
 
 @media (max-width: 480px) {
-  .chat-panel { width: 100vw; height: 60vh; border-radius: 12px 12px 0 0; right: 0; left: 0; bottom: 0; }
+  .sarga-chatbot { right: 0; left: 0; bottom: 0; width: 100%; }
+  .chat-panel {
+    position: fixed;
+    width: 100vw;
+    height: 65vh;
+    border-radius: 16px 16px 0 0;
+    right: 0;
+    left: 0;
+    bottom: 70px;
+    margin-bottom: 0;
+  }
+  .chatbot-button {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+  }
 }

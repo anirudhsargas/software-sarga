@@ -26,6 +26,39 @@ const Chatbot = () => {
     }
   }, []);
 
+  // When the chat panel opens, preload history (DB or file-backed) for this UUID
+  useEffect(() => {
+    if (!open) return;
+
+    const loadHistory = async () => {
+      try {
+        const uuid = localStorage.getItem('sarga_uuid');
+        const qs = uuid ? `?uuid=${encodeURIComponent(uuid)}&limit=100` : '?limit=100';
+        const res = await api.get(`/website/chat/history${qs}`);
+        const rows = res.data.history || [];
+        if (!rows.length) return;
+
+        // Only replace messages if there is no existing conversation (or only greeting)
+        if (messages.length <= 1) {
+          // rows are returned newest-first; reverse to chronological order
+          const chronological = rows.slice().reverse();
+          const loaded = [];
+          chronological.forEach((r) => {
+            if (r.user_message) loaded.push({ role: 'user', text: r.user_message, timestamp: r.created_at });
+            if (r.bot_response) loaded.push({ role: 'bot', text: r.bot_response, timestamp: r.created_at });
+          });
+          if (loaded.length) setMessages(loaded);
+        }
+      } catch (err) {
+        // Non-fatal: history may be unavailable; continue with session greeting
+        // eslint-disable-next-line no-console
+        console.warn('[Chatbot] Failed to load chat history:', err && err.message ? err.message : err);
+      }
+    };
+
+    loadHistory();
+  }, [open, messages]);
+
   const sendMessage = async (text) => {
     if (!text || !text.trim()) return;
     const userMsg = { role: 'user', text, timestamp: new Date().toISOString() };
