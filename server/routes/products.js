@@ -542,7 +542,7 @@ module.exports = (upload, removeUploadFile) => {
             const { has_paper_rate, paper_rate, has_double_side_rate } = req.body;
             const [prodResult] = await connection.query(
                 "INSERT INTO sarga_products (subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [subcategory_id, String(name).trim(), product_code || null, company_name || null, company_code || null, size || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 ? 1 : 0, nextPos, inventory_item_id || null, isPhysicalProduct ? 1 : 0]
+                [subcategory_id, String(name).trim(), product_code || null, company_name || null, company_code || null, size || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 || has_paper_rate === '1' ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 || has_double_side_rate === '1' ? 1 : 0, nextPos, inventory_item_id || null, isPhysicalProduct === 'true' || isPhysicalProduct === 1 || isPhysicalProduct === '1' ? 1 : 0]
             );
             const productId = prodResult.insertId;
 
@@ -668,7 +668,7 @@ module.exports = (upload, removeUploadFile) => {
 
             await connection.query(
                 "UPDATE sarga_products SET subcategory_id = ?, name = ?, product_code = ?, company_name = ?, company_code = ?, size = ?, calculation_type = ?, description = ?, image_url = ?, has_paper_rate = ?, paper_rate = ?, has_double_side_rate = ?, inventory_item_id = ?, is_physical_product = ? WHERE id = ?",
-                [subcategory_id, String(name).trim(), product_code || null, company_name || null, company_code || null, size || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 ? 1 : 0, inventory_item_id || null, isPhysicalProduct === 'true' || isPhysicalProduct === 1 ? 1 : 0, id]
+                [subcategory_id, String(name).trim(), product_code || null, company_name || null, company_code || null, size || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 || has_paper_rate === '1' ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 || has_double_side_rate === '1' ? 1 : 0, inventory_item_id || null, isPhysicalProduct === 'true' || isPhysicalProduct === 1 || isPhysicalProduct === '1' ? 1 : 0, id]
             );
 
             // Update Slabs: DELETE and INSERT is cleaner

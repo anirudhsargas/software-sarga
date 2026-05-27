@@ -127,6 +127,7 @@ const ProductLibrary = () => {
     const [vendors, setVendors] = useState([]);
 
     const [showAdvancedInventory, setShowAdvancedInventory] = useState(false);
+    const [originalProduct, setOriginalProduct] = useState(null);
 
     const [newProduct, setNewProduct] = useState({
         name: '',
@@ -487,7 +488,15 @@ const ProductLibrary = () => {
         }, 400);
     }, []);
 
+    const hasProductChanges = () => {
+        if (!isEditing || !originalProduct) return true;
+        
+        // Check all fields for changes
+        return JSON.stringify(newProduct) !== JSON.stringify(originalProduct) || productImage !== null;
+    };
+
     const resetProductForm = () => {
+        setOriginalProduct(null);
         setNewProduct({
             name: '',
             product_code: '',
@@ -886,7 +895,7 @@ const ProductLibrary = () => {
             setEditId(prod.id);
             setSelectedSubId(prod.subcategory_id);
             setSelectedCatId(parentCategory?.id || null);
-            setNewProduct({
+            const productData = {
                 name: prod.name,
                 product_code: prod.product_code || '',
                 company_name: prod.company_name || '',
@@ -905,7 +914,9 @@ const ProductLibrary = () => {
                 isPhysicalProduct: prod.is_physical_product === 1 || prod.is_physical_product === true,
                 isManualCompanyCode: !!prod.company_code,
                 extraInv: prod.extraInv || { hsn: '', quantity: '', unit: 'pcs', gst_rate: '0', cost_price: '', sell_price: '', vendor_name: '' }
-            });
+            };
+            setOriginalProduct(productData);
+            setNewProduct(productData);
             setProductImage(null);
             setProductImagePreview(prod.image_url ? imgUrl(prod.image_url) : '');
             setShowProdModal(true);
@@ -2758,20 +2769,11 @@ const ProductLibrary = () => {
 
                             </fieldset>
                             {isAdmin && (
-                                <div style={{ marginTop: '16px', padding: '16px', borderRadius: '12px', background: 'var(--primary, #6366f1)', display: 'flex', justifyContent: 'center' }}>
-                                    <button type="submit" style={{ 
-                                        width: '100%',
-                                        background: 'transparent',
-                                        border: 'none',
-                                        color: 'white',
-                                        fontSize: '16px', 
-                                        fontWeight: 700,
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '8px'
-                                    }} disabled={saveLoading}>
+                                <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+                                    <button type="submit" className="btn btn-primary" style={{
+                                        opacity: isEditing && !hasProductChanges() ? 0.6 : 1,
+                                        cursor: isEditing && !hasProductChanges() ? 'not-allowed' : 'pointer'
+                                    }} disabled={saveLoading || (isEditing && !hasProductChanges())}>
                                         {saveLoading ? (
                                             <>
                                                 <Loader2 size={20} className="spin" />

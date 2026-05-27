@@ -102,7 +102,8 @@ const allowedOrigins = [
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : []),
     ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) : []),
     'https://software-sarga.vercel.app',
-    'https://software-sarga-git-main-anirudhsargas-projects.vercel.app' // Common Vercel preview/branch URL
+    'https://software-sarga-git-main-anirudhsargas-projects.vercel.app', // Common Vercel preview/branch URL
+    'http://localhost:5174' // Sarga customer website dev server
 ].filter(Boolean).map(o => o.replace(/\/$/, '')); // Normalize by removing trailing slashes
 
 logger.info('[CORS] Configured origins:', allowedOrigins);
@@ -447,6 +448,9 @@ app.use('/api', require('./routes/quotes'));
 app.use('/api', require('./routes/invoiceFeatures'));
 app.use('/api', require('./routes/passwordReset'));
 
+// Customer-facing Website Routes (public, no auth required — shares same DB)
+app.use('/api/website', require('./routes/website'));
+
 // Health check with DB ping (must be before the error handler)
 app.get('/api/ping', async (req, res) => {
     try {
@@ -458,25 +462,8 @@ app.get('/api/ping', async (req, res) => {
 });
 
 // --------------- Error Handling ---------------
-app.use((err, req, res, next) => {
-    logger.error(`[Error] ${req.method} ${req.url} - ${err.message}`);
-
-    if (err instanceof multer.MulterError) {
-        if (err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({ message: 'File too large. Max limit is 5MB.' });
-        }
-        return res.status(400).json({ message: err.message });
-    }
-
-    // Default to 500 if status code is not set
-    const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-    res.status(statusCode).json({
-        message: process.env.NODE_ENV === 'production'
-            ? 'Internal Server Error'
-            : (err.message || 'Internal Server Error'),
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-    });
-});
+const errorHandler = require('./middleware/errorHandler');
+app.use(errorHandler);
 
 // --------------- Start Server ---------------
 if (process.env.NODE_ENV !== 'test') {
