@@ -375,6 +375,51 @@ ul, ol {
 .animate-delay-3 { animation-delay: 0.3s; }
 .animate-delay-4 { animation-delay: 0.4s; }
 
+/* --- Animation Utilities (shared with client UI) --- */
+.animate-fade-up {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .36s cubic-bezier(.2,0,0,1), transform .36s cubic-bezier(.2,0,0,1);
+}
+.animate-fade-up.animate-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.animate-fade-in {
+  opacity: 0;
+  transition: opacity .22s ease-out;
+}
+.animate-fade-in.animate-in { opacity: 1; }
+
+.animate-scale-in {
+  opacity: 0;
+  transform: scale(.98);
+  transition: opacity .22s ease-out, transform .22s ease-out;
+}
+.animate-scale-in.animate-in { opacity: 1; transform: scale(1); }
+
+.stagger-item {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .32s ease, transform .32s ease;
+}
+.stagger-item.animate-in { opacity: 1; transform: translateY(0); }
+
+.hover-lift { transition: transform .22s ease, box-shadow .22s ease; }
+.hover-lift:hover { transform: translateY(-6px); box-shadow: 0 12px 36px rgba(0,0,0,0.08); }
+
+.btn-press {
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.btn-press:active { transform: translateY(1px) scale(.995); }
+
+.skeleton { background: linear-gradient(90deg, rgba(31,42,51,0.06) 25%, rgba(31,42,51,0.12) 50%, rgba(31,42,51,0.06) 75%); background-size: 200% 100%; animation: pulse-shimmer 1.5s infinite; border-radius: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up, .animate-fade-in, .animate-scale-in, .stagger-item, .skeleton { transition: none !important; animation: none !important; }
+}
+
 /* --- Scrollbar (matching software) --- */
 * {
   scrollbar-width: thin;
