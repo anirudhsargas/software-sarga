@@ -23,11 +23,13 @@ const PORT = process.env.PORT || 3000;
 
 // Configure allowed CORS origins (normalize and remove trailing slashes)
 const allowedOrigins = [
+    'https://software-sarga-git-main-anirudhsargas-projects.vercel.app',
+    'https://software-sarga.vercel.app',
+    'https://sargaoffset.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:5174',
     process.env.CLIENT_URL,
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
-    'https://sargaoffset.vercel.app',
-    'https://software-sarga-git-main-anirudhsargas-projects.vercel.app', // Common Vercel preview/branch URL
-    'http://localhost:5174' // Sarga customer website dev server
 ].filter(Boolean).map(o => o.replace(/\/$/, ''));
 
 const JWT_SECRET = process.env.JWT_SECRET;
