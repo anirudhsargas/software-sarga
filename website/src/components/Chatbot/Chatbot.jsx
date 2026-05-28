@@ -99,9 +99,29 @@ const Chatbot = () => {
 
   // Safely render message text without allowing raw HTML injection.
   // Supports simple **bold** markers and preserves newlines.
+  const decodeHtmlEntities = (str) => {
+    if (str == null) return '';
+    try {
+      if (typeof document !== 'undefined') {
+        const txt = document.createElement('textarea');
+        txt.innerHTML = String(str);
+        return txt.value;
+      }
+    } catch (e) {
+      // fallthrough to manual decode
+    }
+    return String(str)
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;|&#039;|&apos;/g, "'");
+  };
+
   const escapeHtml = (unsafe) => {
     if (!unsafe && unsafe !== '') return '';
-    return String(unsafe)
+    const decoded = decodeHtmlEntities(unsafe);
+    return String(decoded)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
