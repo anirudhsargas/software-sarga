@@ -25,6 +25,7 @@ const PORT = process.env.PORT || 3000;
 const allowedOrigins = [
     process.env.CLIENT_URL,
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    'https://sargaoffset.vercel.app',
     'https://software-sarga-git-main-anirudhsargas-projects.vercel.app', // Common Vercel preview/branch URL
     'http://localhost:5174' // Sarga customer website dev server
 ].filter(Boolean).map(o => o.replace(/\/$/, ''));
