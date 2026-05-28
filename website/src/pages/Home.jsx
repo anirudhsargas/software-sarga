@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { getStats } from '../api'
 import './Home.css'
+import useHead from '../utils/useHead'
 
 const services = [
   {
@@ -58,6 +59,8 @@ const features = [
 
 export default function Home() {
   const [jobsCount, setJobsCount] = useState('30K+')
+
+  useHead({ title: 'Sarga — Print & Design | Home', description: "Sarga - premium printing, binding and design services in Kerala. Get quotes, track orders and upload files for print.", ogImage: '/og-image.svg' })
 
   useEffect(() => {
     async function loadStats() {
