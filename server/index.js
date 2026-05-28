@@ -34,51 +34,13 @@ const allowedOrigins = [
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
+
 if (!JWT_SECRET) {
     logger.error('FATAL: JWT_SECRET environment variable is not defined. Refusing to start.');
-    if (process.env.NODE_ENV !== 'test') {
-        initDb().then(() => {
-            server = app.listen(PORT, '0.0.0.0', () => {
-                logger.info(`Server running on port ${PORT} (bound to 0.0.0.0)`);
-            });
-        }).catch((err) => {
-            logger.warn('[Startup] Database initialization failed. Starting server in degraded mode (file fallback enabled).', err.message);
-            server = app.listen(PORT, '0.0.0.0', () => {
-                logger.info(`Server running in degraded mode on port ${PORT} (DB unavailable)`);
-            });
-        }).finally(() => {
-            // The following startup tasks are safe to schedule even when DB is unavailable; they will log on failure.
-            try {
-                const { migrateUploadsToCloudinary } = require('./helpers/migrateUploads');
-                setTimeout(() => {
-                    migrateUploadsToCloudinary().catch(err => logger.error('[Migration] Upload migration failed:', err.message));
-                }, 15_000);
-                logger.info('[Migration] Upload-to-Cloudinary migration scheduled');
-            } catch (e) {
-                logger.warn('[Migration] Not loaded:', e.message);
-            }
+    process.exit(1);
+}
 
-            try {
-                require('./scripts/sendDailyReports');
-            } catch (e) {
-                logger.warn('[Warning] scripts/sendDailyReports not loaded:', e.message);
-            }
-
-            try {
-                const cron = require('node-cron');
-                const { checkAnomalies } = require('./routes/anomalies');
-                cron.schedule('*/15 * * * *', () => {
-                    logger.info('[Cron] Running anomaly check…');
-                    checkAnomalies().catch(err => logger.error('[Cron] Anomaly check failed:', err.message));
-                });
-                setTimeout(() => checkAnomalies().catch(() => {}), 10_000);
-                logger.info('[Cron] Anomaly detection scheduled every 15 minutes');
-            } catch (e) {
-                logger.warn('[Warning] Anomaly cron not loaded:', e.message);
-            }
-        });
-
-    logger.info('[CORS] Configured origins:', allowedOrigins);
+logger.info('[CORS] Configured origins:', allowedOrigins);
 
 app.use(cors({
     origin: (origin, callback) => {
