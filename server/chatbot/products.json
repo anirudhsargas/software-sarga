@@ -1,0 +1,38 @@
+[
+  {
+    "key": "visiting_cards",
+    "name": "Visiting Cards",
+    "category": "cards",
+    "aliases": ["visiting card", "visitingcards", "card"],
+    "basePrice": 0.6,
+    "units": "piece",
+    "notes": "Standard 300gsm art paper"
+  },
+  {
+    "key": "brochure",
+    "name": "Brochure",
+    "category": "print",
+    "aliases": ["brochure", "leaflet"],
+    "basePrice": 5,
+    "units": "piece",
+    "notes": "Folded brochure, per piece base"
+  },
+  {
+    "key": "banner",
+    "name": "Banner",
+    "category": "largeformat",
+    "aliases": ["banner", "flex", "flex board"],
+    "basePrice": 500,
+    "units": "sqft",
+    "notes": "PVC flex base price per sqft"
+  },
+  {
+    "key": "invitation",
+    "name": "Invitation",
+    "category": "cards",
+    "aliases": ["invitation", "wedding invitation", "invite"],
+    "basePrice": 30,
+    "units": "piece",
+    "notes": "Premium invitation base"
+  }
+]

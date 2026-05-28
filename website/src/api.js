@@ -1,4 +1,5 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -42,3 +43,38 @@ export const getChatHistory = (uuid, limit = 50) => {
 };
 
 export default api;
+
+// Response interceptor to surface server errors to users via toast
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    try {
+      // Network offline
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        toast.error('No internet connection.');
+      } else if (error.response) {
+        const status = error.response.status;
+        if (status === 429) {
+          toast.error('Too many requests. Please wait.');
+        } else if (status === 403) {
+          toast.error('Session error. Refreshing...');
+        } else if (status >= 500) {
+          toast.error('Server error. Please try again.');
+        } else if (status === 401) {
+          toast.error('Authentication required. Please sign in.');
+        } else {
+          const msg = (error.response.data && (error.response.data.error || error.response.data.message)) || `Request failed (${status})`;
+          toast.error(msg);
+        }
+      } else {
+        // Fallback network/CORS error
+        toast.error('Network error. Check your connection.');
+      }
+    } catch (e) {
+      // ignore toast errors
+      // eslint-disable-next-line no-console
+      console.warn('api interceptor error', e);
+    }
+    return Promise.reject(error);
+  }
+);

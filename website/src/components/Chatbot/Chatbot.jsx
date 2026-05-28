@@ -59,7 +59,7 @@ const Chatbot = () => {
     };
 
     loadHistory();
-  }, [open, messages]);
+  }, [open]);
 
   const sendMessage = async (text) => {
     if (!text || !text.trim()) return;

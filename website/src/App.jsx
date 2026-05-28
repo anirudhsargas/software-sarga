@@ -6,6 +6,9 @@ import Services from './pages/Services'
 import Products from './pages/Products'
 import TrackOrder from './pages/TrackOrder'
 import Contact from './pages/Contact'
+import NotFound from './pages/errors/NotFound'
+import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
 import Chatbot from './components/Chatbot/Chatbot'
 import { CartProvider } from './context/CartContext'
 import CartDrawer from './components/Cart/CartDrawer'
@@ -23,6 +26,9 @@ function App() {
             <Route path="/products" element={<Products />} />
             <Route path="/track" element={<TrackOrder />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
         <Chatbot />

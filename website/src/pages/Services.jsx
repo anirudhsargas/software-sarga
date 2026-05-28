@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import './Services.css'
 import { useCart } from '../context/CartContext'
+import toast from 'react-hot-toast'
 
 const mainServices = [
   {
@@ -154,11 +155,15 @@ export default function Services() {
                   </div>
                 </div>
                 <button
-                  onClick={() => { addItem({ service: service.title, quantity: 1 }); openCart(); }}
+                  onClick={() => {
+                    addItem({ service: service.title, quantity: 1, branch: 'Perambra', addedAt: new Date().toISOString() });
+                    toast.success(`${service.title} added to quote!`);
+                    openCart();
+                  }}
                   className="btn btn-outline btn-sm"
                   style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', whiteSpace: 'nowrap' }}
                 >
-                  + Add
+                  Add to Quote
                 </button>
               </div>
             ))}

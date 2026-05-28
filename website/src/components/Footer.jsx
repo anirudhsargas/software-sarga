@@ -81,8 +81,8 @@ export default function Footer() {
             &copy; {currentYear} Sarga (Since 1994). All rights reserved.
           </p>
           <div className="footer__bottom-links">
-            <a href="#" className="footer__link">Privacy Policy</a>
-            <a href="#" className="footer__link">Terms of Service</a>
+            <Link to="/privacy" className="footer__link">Privacy Policy</Link>
+            <Link to="/terms" className="footer__link">Terms of Service</Link>
           </div>
         </div>
       </div>
