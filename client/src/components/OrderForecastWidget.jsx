@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import useScrollAnimation from '../hooks/useScrollAnimation';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { TrendingUp, Calendar } from 'lucide-react';
 import api from '../services/api';
@@ -80,8 +81,10 @@ const OrderForecastWidget = ({ branchId }) => {
     }
     const branchCards = Object.values(branchGroups);
 
+    const ref = useScrollAnimation({ stagger: true, staggerSelector: 'div > *' });
+
     return (
-        <section className="summary-section" style={{ marginTop: 24 }}>
+        <section ref={ref} className="summary-section animate-fade-up" style={{ marginTop: 24 }}>
             <div className="summary-section__header">
                 <div>
                     <h2 className="section-title">Order Forecast — Next 7 Days</h2>
@@ -153,7 +156,7 @@ const OrderForecastWidget = ({ branchId }) => {
                         const branchPeak = bc.days.reduce((a, b) => a.predicted_orders > b.predicted_orders ? a : b, bc.days[0]);
                         const peakDt = new Date(branchPeak.date + 'T00:00:00');
                         return (
-                            <div key={bc.branch_id} style={{
+                            <div key={bc.branch_id} className="hover-lift" style={{
                                 padding: 14, borderRadius: 10,
                                 border: '1px solid var(--border, #e5e7eb)',
                                 background: 'var(--surface-lowest, #f8fafc)',
@@ -178,16 +181,16 @@ const OrderForecastWidget = ({ branchId }) => {
 };
 
 const SkeletonLoader = () => (
-    <section className="summary-section" style={{ marginTop: 24 }}>
+    <section className="summary-section animate-fade-up" style={{ marginTop: 24 }}>
         <div className="summary-section__header">
             <div>
-                <div style={{ width: 220, height: 16, borderRadius: 4, background: 'var(--border, #e5e7eb)' }} />
-                <div style={{ width: 140, height: 12, borderRadius: 4, background: 'var(--border, #e5e7eb)', marginTop: 8 }} />
+                <div className="skeleton" style={{ width: 220, height: 16, borderRadius: 4, background: 'var(--border, #e5e7eb)' }} />
+                <div className="skeleton" style={{ width: 140, height: 12, borderRadius: 4, background: 'var(--border, #e5e7eb)', marginTop: 8 }} />
             </div>
         </div>
         <div style={{ display: 'flex', gap: 8, height: 180, alignItems: 'flex-end', padding: '16px 0' }}>
             {Array.from({ length: 7 }).map((_, i) => (
-                <div key={i} style={{
+                <div key={i} className="skeleton" style={{
                     flex: 1, borderRadius: 4,
                     background: 'var(--border, #e5e7eb)',
                     height: `${30 + Math.random() * 60}%`,
@@ -198,7 +201,7 @@ const SkeletonLoader = () => (
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {[0, 1].map(i => (
-                <div key={i} style={{
+                <div key={i} className="skeleton" style={{
                     height: 80, borderRadius: 10,
                     background: 'var(--border, #e5e7eb)',
                     animation: 'pulse 1.5s ease-in-out infinite',

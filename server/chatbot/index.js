@@ -105,7 +105,7 @@ app.post('/chat', (req, res) => {
   if (/order\s*id|track|tracking|order status/i.test(message) || orderId) {
     const id = orderId || (text.match(/([A-Z0-9-]{4,})/) || [])[1];
     const key = id || phone;
-    if (!key) return res.json({ reply: 'Please provide order ID or phone number to lookup status.' });
+    if (!key) return res.json({ reply: 'Please enter your registered mobile number or job code to lookup status.' });
     const order = orders[key];
     if (order) return res.json({ reply: `Order ${key}: ${order.status}` , order });
     return res.json({ reply: 'Order not found. Would you like to create a support ticket?' });
@@ -118,6 +118,18 @@ app.post('/chat', (req, res) => {
     const lang = detectLanguage(message);
     const reply = translateResponse('I can generate an instant quote. Here is an approximate quote:', lang);
     return res.json({ reply, quote });
+  }
+
+  // Customer asked for categories/services explicitly
+  if (/\b(categories|services|our service|our services|show categories)\b/.test(text)) {
+    // Use local products.json to list available categories
+    try {
+      const cats = Array.from(new Set(products.map(p => p.category))).filter(Boolean);
+      const lines = cats.map((c, i) => `${i+1}. ${c}`);
+      return res.json({ reply: `📚 Available categories:\n\n${lines.join('\n')}\n\nReply with the category name or number to continue.` });
+    } catch (e) {
+      return res.json({ reply: 'Sorry, could not load categories right now.' });
+    }
   }
 
   // Product guidance

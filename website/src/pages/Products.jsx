@@ -13,16 +13,20 @@ export default function Products() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(12)
+  const [total, setTotal] = useState(0)
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [catRes, prodRes] = await Promise.all([getCategories(), getProducts()])
+        const [catRes, prodRes] = await Promise.all([getCategories(), getProducts({ page, limit })])
         if (catRes.data && catRes.data.categories) {
           setCategories(catRes.data.categories)
         }
         if (prodRes.data && prodRes.data.products) {
           setProducts(prodRes.data.products)
+          setTotal(prodRes.data.total || 0)
         }
       } catch (err) {
         console.error('Failed to load categories or products:', err)
@@ -53,12 +57,10 @@ export default function Products() {
     navigate(`/contact?product=${encodeURIComponent(productName)}`)
   }
 
-  // Filter products based on search query and category
+  // Filter products based on selected category (search handled server-side)
   const filteredProducts = products.filter((prod) => {
-    const matchesSearch = prod.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          prod.description?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = selectedCategory === 'All' || prod.category_name === selectedCategory
-    return matchesSearch && matchesCategory
+    return matchesCategory
   })
 
   return (
@@ -118,6 +120,7 @@ export default function Products() {
                   placeholder="Search products (e.g. stamps, mementos, cards)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); setLoading(true); getProducts({ page: 1, limit, q: e.target.value }).then(res => { setProducts(res.data.products || []); setTotal(res.data.total || 0); }).catch(() => {}).finally(()=>setLoading(false)); } }}
                 />
               </div>
 
@@ -171,6 +174,12 @@ export default function Products() {
                   ))}
                 </div>
               )}
+              {/* Pagination controls */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+                <button className="btn btn-ghost" onClick={async () => { if (page > 1) { setPage(p => p-1); setLoading(true); const res = await getProducts({ page: page-1, limit, q: searchQuery }); setProducts(res.data.products || []); setTotal(res.data.total || 0); setLoading(false); }}}>Prev</button>
+                <div style={{ alignSelf: 'center' }}>Page {page} / {Math.max(1, Math.ceil(total / limit))}</div>
+                <button className="btn btn-ghost" onClick={async () => { setPage(p => p+1); setLoading(true); const res = await getProducts({ page: page+1, limit, q: searchQuery }); setProducts(res.data.products || []); setTotal(res.data.total || 0); setLoading(false); }}>Next</button>
+              </div>
             </div>
 
           </div>

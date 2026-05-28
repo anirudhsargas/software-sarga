@@ -1,0 +1,119 @@
+[
+  {
+    "intent": "order_status",
+    "utterances": [
+      "എന്റെ ഓർഡർ റെഡി ആയോ?",
+      "order ready ആയിേ?",
+      "എന്നാ എന്റെ print status?",
+      "എന്റെ ഓർഡർ എപ്പോൾ ഡെലിവറി ആയിരിക്കും?",
+      "order ഉണ്ടോ?",
+      "എന്റെ ഓർഡർ നമ്പർ 1234, ഇനി എപ്പോള് കിട്ടും?",
+      "എന്റെ print തയാറായിട്ടുണ്ടോ?",
+      "എന്ത് സ്റ്റാറ്റസ് ആണ് എന്റെ ഓർഡർ?"
+    ]
+  },
+  {
+    "intent": "price_enquiry",
+    "utterances": [
+      "വിസിറ്റിംഗ് കാർഡ് rate എത്ര?",
+      "visiting card price എത്ര ഉള്ളൂ?",
+      "pamphlet cost എത്ര ആക്കുന്നു?",
+      "wedding card print ചാർജ് എന്ത്?",
+      "banner price കാണിക്കുമോ?",
+      "എനിക്ക് price list അയക്കാമോ?",
+      "printing charges എത്ര വരും?",
+      "print rate പറഞ്ഞു തരാമോ?"
+    ]
+  },
+  {
+    "intent": "delivery_query",
+    "utterances": [
+      "home delivery available ആണോ?",
+      "Meppayuril delivery ഉണ്ടോ?",
+      "Perambra ക്ക് deliver ചെയ്യാമോ?",
+      "can you deliver to my home?",
+      "delivery charges എത്ര?",
+      "delivery time എത്ര വൈകും?",
+      "എന്റെ locality ക്ക് deliver ചെയ്യുമോ?",
+      "COD available ആണോ delivery కోసం?"
+    ]
+  },
+  {
+    "intent": "reorder",
+    "utterances": [
+      "അതേ design വച്ച് വീണ്ടും order ചെയ്യാം?",
+      "same design നെയ്ത്തു reorder ചെയ്യണം",
+      "I want to repeat my last order",
+      "previous order പോലെ തന്നെ വേണമെങ്കിൽ എങ്ങനെ?",
+      "again same print ചെയ്യുമോ?",
+      "reorder ചെയ്യാൻ സാധിക്കുമോ?",
+      "pin code submit ചെയുവാൻ വേണ്ടേ reorder?",
+      "എന്റെ last order മറ്റു print ചെയ്യണം"
+    ]
+  },
+  {
+    "intent": "complaint",
+    "utterances": [
+      "print quality മോശമായിരിക്കുന്നു",
+      "wrong print കിട്ടി",
+      "delay ആയി, അധികം വൈകുന്നു",
+      "color mismatch ഉണ്ട്, റീഫണ്ട് വേണം",
+      "എന്റെ ഓർഡറിന് problem ഉണ്ട്",
+      "received damaged copy",
+      "quality issue ആണെന്ന് പറയുന്നു",
+      "ഞാൻ complaint submit ചെയ്യാം എങ്ങനെ?"
+    ]
+  },
+  {
+    "intent": "payment_query",
+    "utterances": [
+      "എപ്പോൾ payment due ആണ്?",
+      "balance എത്ര ബhydrate?",
+      "how to pay for order?",
+      "payment methods എന്തൊക്കെയാണ്?",
+      "Paddle/UPI accept ചെയ്യുമോ?",
+      "cash on delivery available ആണോ?",
+      "എന്റെ പണമടയ്ക്കാൻ link തരുമോ?",
+      "payment status confirm ചെയ്യണ്ടേ?"
+    ]
+  },
+  {
+    "intent": "branch_info",
+    "utterances": [
+      "Perambra branch open ആണോ?",
+      "Meppayur shop timing എന്താണ്?",
+      "branch contact number എന്ത്?",
+      "address വാങ്ങാം Perambra branch?",
+      "open hours എന്ത് സമയമാണ്?",
+      "Where is your Meppayur outlet?",
+      "branch ലെ contact share ചെയ്യാമോ?",
+      "shop രാവിലെ എത്ര മണി മുതൽ തുറക്കും?"
+    ]
+  },
+  {
+    "intent": "general_greeting",
+    "utterances": [
+      "ഹലോ",
+      "നമസ്കാരം",
+      "hi",
+      "hello",
+      "hey എന്താണ്?",
+      "ഹായ്, എനിക്ക് സഹായം വേണം",
+      "namaskaram, enquiry ഉണ്ട്",
+      "hiya, can you help?"
+    ]
+  },
+  {
+    "intent": "other",
+    "utterances": [
+      "അറിയില്ല",
+      "not sure",
+      "I don't understand",
+      "എന്തെന്നെകിലോ?",
+      "random question",
+      "can you repeat?",
+      "മറുപടി കിട്ടിയില്ല",
+      "help me with other things"
+    ]
+  }
+]

@@ -10,10 +10,10 @@ const SkeletonLoader = ({ type = 'cards', count = 6, columns }) => {
       <div className="skeleton-fo-stats">
         {Array.from({ length: count }).map((_, i) => (
           <div key={i} className="skeleton-fo-card">
-            <div className="skeleton-fo-card__icon skeleton-box"></div>
+            <div className="skeleton skeleton-fo-card__icon skeleton-box"></div>
             <div className="skeleton-fo-card__body">
-              <div className="skeleton-box skeleton-fo-card__value"></div>
-              <div className="skeleton-box skeleton-fo-card__label"></div>
+              <div className="skeleton skeleton-box skeleton-fo-card__value"></div>
+              <div className="skeleton skeleton-box skeleton-fo-card__label"></div>
             </div>
           </div>
         ))}
@@ -48,11 +48,11 @@ const SkeletonLoader = ({ type = 'cards', count = 6, columns }) => {
               {cols.map((col, ci) => (
                 <div key={ci} className={`skeleton-cell${col.lines === 2 ? ' skeleton-cell--stacked' : ''}`}>
                   {col.pill ? (
-                    <div className="skeleton-box skeleton-box--pill"></div>
+                    <div className="skeleton skeleton-box skeleton-box--pill"></div>
                   ) : (
                     <>
-                      <div className="skeleton-box skeleton-box--line"></div>
-                      {col.lines === 2 && <div className="skeleton-box skeleton-box--line skeleton-box--short"></div>}
+                      <div className="skeleton skeleton-box skeleton-box--line"></div>
+                      {col.lines === 2 && <div className="skeleton skeleton-box skeleton-box--line skeleton-box--short"></div>}
                     </>
                   )}
                 </div>
@@ -73,20 +73,20 @@ const SkeletonLoader = ({ type = 'cards', count = 6, columns }) => {
     return (
       <div className="skeleton-customer-list">
         {Array.from({ length: count }).map((_, i) => (
-          <div key={i} className="skeleton-customer-row">
-            <div className="skeleton-box skeleton-customer-avatar"></div>
+            <div key={i} className="skeleton-customer-row">
+            <div className="skeleton skeleton-box skeleton-customer-avatar"></div>
             <div className="skeleton-customer-info">
               <div className="skeleton-customer-name-row">
-                <div className="skeleton-box skeleton-customer-name"></div>
-                <div className="skeleton-box skeleton-customer-badge"></div>
+                <div className="skeleton skeleton-box skeleton-customer-name"></div>
+                <div className="skeleton skeleton-box skeleton-customer-badge"></div>
               </div>
-              <div className="skeleton-box skeleton-customer-phone"></div>
+              <div className="skeleton skeleton-box skeleton-customer-phone"></div>
             </div>
             <div className="skeleton-customer-actions">
-              <div className="skeleton-box skeleton-customer-btn"></div>
+              <div className="skeleton skeleton-box skeleton-customer-btn"></div>
               <div className="skeleton-customer-btn-row">
-                <div className="skeleton-box skeleton-customer-btn-sm"></div>
-                <div className="skeleton-box skeleton-customer-btn-sm"></div>
+                <div className="skeleton skeleton-box skeleton-customer-btn-sm"></div>
+                <div className="skeleton skeleton-box skeleton-customer-btn-sm"></div>
               </div>
             </div>
           </div>
@@ -106,10 +106,10 @@ const SkeletonLoader = ({ type = 'cards', count = 6, columns }) => {
         </div>
 
         {/* 4 Salary overview cards */}
-        <div className="skeleton-attendance-cards">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="skeleton-attendance-card">
-              <div className="skeleton-box" style={{ height: 11, width: 80, marginBottom: 6, opacity: 0.6 }}></div>
+              <div className="skeleton-attendance-card">
+              <div className="skeleton skeleton-box" style={{ height: 11, width: 80, marginBottom: 6, opacity: 0.6 }}></div>
+              <div className="skeleton skeleton-box" style={{ height: 20, width: 60, marginBottom: 6 }}></div>
+              <div className="skeleton skeleton-box" style={{ height: 12, width: 100, opacity: 0.5 }}></div>
               <div className="skeleton-box" style={{ height: 20, width: 60, marginBottom: 6 }}></div>
               <div className="skeleton-box" style={{ height: 12, width: 100, opacity: 0.5 }}></div>
             </div>
@@ -119,10 +119,10 @@ const SkeletonLoader = ({ type = 'cards', count = 6, columns }) => {
         {/* Calendar */}
         <div className="skeleton-calendar">
           {/* Month nav */}
-          <div className="skeleton-calendar-nav">
-            <div className="skeleton-box" style={{ width: 32, height: 32, borderRadius: 6 }}></div>
-            <div className="skeleton-box" style={{ width: 140, height: 18 }}></div>
-            <div className="skeleton-box" style={{ width: 32, height: 32, borderRadius: 6 }}></div>
+            <div className="skeleton-calendar-nav">
+            <div className="skeleton skeleton-box" style={{ width: 32, height: 32, borderRadius: 6 }}></div>
+            <div className="skeleton skeleton-box" style={{ width: 140, height: 18 }}></div>
+            <div className="skeleton skeleton-box" style={{ width: 32, height: 32, borderRadius: 6 }}></div>
           </div>
           {/* Day headers */}
           <div className="skeleton-calendar-grid" style={{ marginBottom: 4 }}>
@@ -134,7 +134,7 @@ const SkeletonLoader = ({ type = 'cards', count = 6, columns }) => {
           <div className="skeleton-calendar-grid">
             {Array.from({ length: 35 }).map((_, i) => (
               <div key={i} className="skeleton-calendar-cell">
-                <div className="skeleton-box" style={{ width: 16, height: 14 }}></div>
+                <div className="skeleton skeleton-box" style={{ width: 16, height: 14 }}></div>
               </div>
             ))}
           </div>
@@ -147,30 +147,30 @@ const SkeletonLoader = ({ type = 'cards', count = 6, columns }) => {
   if (type === 'form') {
     return (
       <div className="skeleton-form">
-        <div className="skeleton-form-row">
+            <div className="skeleton-form-row">
           <div className="skeleton-form-group skeleton-form-group--full">
-            <div className="skeleton-label"></div>
-            <div className="skeleton-input"></div>
+            <div className="skeleton skeleton-label"></div>
+            <div className="skeleton skeleton-input"></div>
           </div>
         </div>
         <div className="skeleton-form-row">
           <div className="skeleton-form-group">
-            <div className="skeleton-label"></div>
-            <div className="skeleton-input"></div>
+            <div className="skeleton skeleton-label"></div>
+            <div className="skeleton skeleton-input"></div>
           </div>
           <div className="skeleton-form-group">
-            <div className="skeleton-label"></div>
-            <div className="skeleton-input"></div>
+            <div className="skeleton skeleton-label"></div>
+            <div className="skeleton skeleton-input"></div>
           </div>
         </div>
         <div className="skeleton-form-row">
           <div className="skeleton-form-group skeleton-form-group--full">
-            <div className="skeleton-label"></div>
-            <div className="skeleton-input"></div>
+            <div className="skeleton skeleton-label"></div>
+            <div className="skeleton skeleton-input"></div>
           </div>
         </div>
         <div className="skeleton-form-row">
-          <div className="skeleton-button"></div>
+          <div className="skeleton skeleton-button"></div>
         </div>
       </div>
     );

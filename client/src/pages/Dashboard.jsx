@@ -78,6 +78,7 @@ const PaperTransfer = React.lazy(() => import('./PaperTransfer'));
 const Quotes = React.lazy(() => import('./Quotes'));
 const SettingsPage = React.lazy(() => import('./SettingsPage'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
+const ChatbotTraining = React.lazy(() => import('./admin/ChatbotTraining'));
 const PageLoader = () => (
     <div className="page-loader">
         <Loader2 size={20} className="animate-spin" /> Loading...
@@ -107,6 +108,7 @@ const Dashboard = () => {
     const [profileSaving, setProfileSaving] = useState(false);
     const [cropState, setCropState] = useState(null);
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+    const [chatbotUnlabeledCount, setChatbotUnlabeledCount] = useState(0);
     const [showInventoryScan, setShowInventoryScan] = useState(false);
     const [inventoryScanResult, setInventoryScanResult] = useState(null);
     const [inventoryScanLoading, setInventoryScanLoading] = useState(false);
@@ -245,6 +247,7 @@ const Dashboard = () => {
         { key: 'billing', name: t('quotes_estimates', 'Quotes & Estimates'), icon: Receipt, path: '/dashboard/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
         { key: 'finance', name: t('recurring_invoices', 'Recurring Invoices'), icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'finance' },
         { key: 'manage', name: t('settings', 'Settings'), icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'manage' },
+        { key: 'manage', name: '🤖 Chatbot Training', icon: Brain, path: '/dashboard/admin/chatbot-training', roles: ['Admin'], group: 'manage' },
     ];
 
     const filteredMenu = useMemo(() => {
@@ -390,6 +393,16 @@ const Dashboard = () => {
         }
     };
 
+    const fetchChatbotCounts = async () => {
+        if (user?.role !== 'Admin') return;
+        try {
+            const res = await api.get('chatbot/model-status');
+            setChatbotUnlabeledCount(res.data.unlabeled || 0);
+        } catch (e) {
+            // ignore
+        }
+    };
+
     useEffect(() => {
         if (!showProfileModal) return;
         setProfileName(user?.name || '');
@@ -406,6 +419,7 @@ const Dashboard = () => {
 
     const isAdminOrAccountant = user?.role === 'Admin' || user?.role === 'Accountant';
     usePolling(fetchPendingCount, 60000, isAdminOrAccountant);
+    usePolling(fetchChatbotCounts, 60000, user?.role === 'Admin');
 
     useEffect(() => {
         if (isAdminOrAccountant) {
@@ -566,9 +580,12 @@ const Dashboard = () => {
                                             <div className="nav-item-inner">
                                                 <item.icon size={20} />
                                                 <span className="nav-label">{item.name}</span>
-                                                {item.name === 'Requests' && pendingRequestsCount > 0 && (
-                                                    <span className="side-badge">{pendingRequestsCount}</span>
-                                                )}
+                                                    {item.name === 'Requests' && pendingRequestsCount > 0 && (
+                                                        <span className="side-badge">{pendingRequestsCount}</span>
+                                                    )}
+                                                    {item.path === '/dashboard/admin/chatbot-training' && chatbotUnlabeledCount > 0 && (
+                                                        <span className="side-badge">{chatbotUnlabeledCount}</span>
+                                                    )}
                                             </div>
                                         </NavLink>
                                     ))}
@@ -724,6 +741,7 @@ const Dashboard = () => {
                             <Route path="inventory/consumables" element={<ConsumablesManagement />} />
                             <Route path="recurring-invoices" element={<RecurringInvoices />} />
                             <Route path="settings" element={<SettingsPage />} />
+                            <Route path="admin/chatbot-training" element={<ChatbotTraining />} />
                             <Route path="*" element={<NotFound />} />
                         </Routes>
                     </Suspense>

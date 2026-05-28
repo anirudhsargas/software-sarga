@@ -196,8 +196,8 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="modal-backdrop" style={{ zIndex: 1000 }}>
-            <div className="modal" style={{ maxWidth: '460px', width: '92%', position: 'relative' }}>
+        <div className="modal-backdrop animate-fade-in" style={{ zIndex: 1000 }}>
+            <div className="modal animate-scale-in" style={{ maxWidth: '460px', width: '92%', position: 'relative' }}>
                 {/* Header */}
                 <div className="row gap-sm items-center mb-24">
                     <Camera size={18} />

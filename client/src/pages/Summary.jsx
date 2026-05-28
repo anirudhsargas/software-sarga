@@ -5,6 +5,9 @@ import { Loader2, Building2, Activity, Printer, AlertTriangle, Clock, Wallet, Us
 import api from '../services/api';
 import { formatCurrency as formatCurrencyShared } from '../constants';
 import OrderForecastWidget from '../components/OrderForecastWidget';
+import HeroBg3D from '../components/ui/HeroBg3D';
+import Marquee from '../components/ui/Marquee';
+import Card3DStack from '../components/ui/Card3DStack';
 
 const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
@@ -97,6 +100,9 @@ const Summary = () => {
 
     return (
         <div className="summary-page">
+            <div style={{position:'relative'}}>
+                <HeroBg3D />
+            </div>
             {/* Header */}
             <div className="page-header summary-header">
                 <div>
@@ -145,6 +151,9 @@ const Summary = () => {
 
             {activeTab === 'overview' && (
                 <>
+                    <div style={{marginTop:12, marginBottom:18}}>
+                        <Marquee items={[ 'Visiting Cards', 'Wedding Invitations', 'Annual Reports', 'Posters', 'Menus', 'Brochures' ]} />
+                    </div>
                     {/* ─── Section 1: Today's KPIs ─── */}
                     <section className="summary-section">
                         <div className="summary-section__header">
@@ -201,6 +210,14 @@ const Summary = () => {
                                 <div className="summary-tile__value">{fmt(statsOverall?.inventory?.total_value)}</div>
                                 <div className="summary-tile__meta">{fmtNum(statsOverall?.inventory?.total_items)} items · {fmtNum(statsOverall?.inventory?.low_stock_count)} low stock</div>
                             </div>
+                        </div>
+                    </section>
+
+                    {/* Product showcase */}
+                    <section className="summary-section" style={{marginTop:18}}>
+                        <h3 className="section-title">Featured Prints</h3>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+                            <Card3DStack />
                         </div>
                     </section>
 

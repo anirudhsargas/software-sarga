@@ -11,6 +11,8 @@
  * - Graceful fallback for unmatched queries
  */
 
+const websiteCache = require('./websiteCache');
+
 const RULES = [
   // ──────────────── TRACKING ────────────────
   {
@@ -20,7 +22,7 @@ const RULES = [
       /job code|order code|reference/i,
       /how long|how much time/i,
     ],
-    response: "🔍 **Track Your Order**\n\nVisit **sarga.in/track** and enter your job code (e.g., **PBA-20260527-001**).\n\nYour code starts with:\n- **PBA** = Perambra branch\n- **MPR** = Meppayur branch\n\nYou'll see real-time printing status!",
+    response: "🔍 Please enter your registered mobile number or job code to track your order (e.g. PBA-20260527-001).",
     confidence: 0.95
   },
 
@@ -55,6 +57,7 @@ const RULES = [
       /number|mobile|cell|landline/i,
     ],
     response: "📞 **Contact Sarga Prints**\n\n**📧 Email:**\n→ **sargapba@gmail.com** (Perambra)\n→ **sargaoffsetmpr@gmail.com** (Meppayur)\n\n**💬 WhatsApp:**\n→ **wa.me/+919496XXXXXX** (Perambra)\n\n**⏰ Hours:**\nMonday–Saturday, 9:00 AM – 7:00 PM IST\n(Closed Sundays & public holidays)\n\nWe respond within 24 hours! 😊",
+    response: "📞 **Contact Sarga Prints**\n\n**📧 Email:**\n→ **sargapba@gmail.com** (Perambra)\n→ **sargaoffsetmpr@gmail.com** (Meppayur)\n\n**📱 Call:**\n→ +91-9496XXXXX (tap to call)\n\n**💬 WhatsApp:**\n→ **wa.me/+919496XXXXXX** (Perambra)\n\n**⏰ Hours:**\nMonday–Saturday, 9:00 AM – 7:00 PM IST\n(Closed Sundays & public holidays)\n\nWe respond within 24 hours! 😊",
     confidence: 0.95
   },
 
@@ -192,6 +195,16 @@ const RULES = [
     confidence: 0.95
   },
 
+  // ──────────────── SERVICES - LIST (dynamic categories) ────────────────
+  {
+    id: 'services_list',
+    patterns: [
+      /our service|our services|services\b|show services|show categories|categories\b/i,
+    ],
+    response: "Fetching available services...",
+    confidence: 0.95
+  },
+
   // ──────────────── CUSTOM DESIGN ────────────────
   {
     id: 'design',
@@ -238,7 +251,7 @@ const RULES = [
     patterns: [
       /quote|inquiry|request|interested|want to|like to|thinking about/i,
     ],
-    response: "📋 **Ready to Request a Quote?**\n\n**Three ways to get started:**\n\n1️⃣ **Use our Quote Cart** (fastest)\n→ Browse services\n→ Add to cart\n→ Submit inquiry\n→ Get quote in 24 hours\n\n2️⃣ **Contact form**\n→ **sarga.in/contact**\n→ Tell us your requirements\n→ We'll reach back\n\n3️⃣ **Direct Contact**\n📧 **sargapba@gmail.com** (Perambra)\n📧 **sargaoffsetmpr@gmail.com** (Meppayur)\n💬 WhatsApp: **wa.me/+919496XXXXXX**\n\n✨ Let's create something amazing! 🎨",
+    response: "📋 I can help generate a quote. Reply with a category name, or type 'categories' to see available services.",
     confidence: 0.95
   },
 
@@ -266,9 +279,51 @@ async function processMessage(message) {
   }
 
   // Try to match against rules
+  // Handle simple numeric/category selections: if user sends a number or a category name,
+  // show matching category's subcategories (helps interactive quote flow).
+  const trimmed = message.trim();
+  if (/^\d+$/.test(trimmed)) {
+    try {
+      const idx = Number(trimmed) - 1;
+      const cats = await websiteCache.getCategories();
+      if (idx >= 0 && idx < cats.length) {
+        const cat = cats[idx];
+        const subs = (cat.subcategories || []).map((s, i) => `${i+1}. ${s.name}`);
+        const text = `📂 **${cat.name}**\n\nSubcategories:\n${subs.length ? subs.join('\n') : 'No subcategories available.'}\n\nReply with the subcategory name or number to see products.`;
+        return { text, confidence: 0.9, source: 'rule', ruleId: 'category_select', subcategories: cat.subcategories || [], category: cat };
+      }
+    } catch (e) {
+      // fallthrough to normal rules
+    }
+  }
+
+  // If user typed a category name directly, try to match and show its subcategories
+  try {
+    const catsForMatch = await websiteCache.getCategories();
+    const foundCat = catsForMatch.find(c => String(c.name || '').toLowerCase() === trimmed.toLowerCase());
+    if (foundCat) {
+      const subs = (foundCat.subcategories || []).map((s, i) => `${i+1}. ${s.name}`);
+      const text = `📂 **${foundCat.name}**\n\nSubcategories:\n${subs.length ? subs.join('\n') : 'No subcategories available.'}\n\nReply with the subcategory name or number to see products.`;
+      return { text, confidence: 0.9, source: 'rule', ruleId: 'category_select', subcategories: foundCat.subcategories || [], category: foundCat };
+    }
+  } catch (e) {
+    // ignore
+  }
   for (const rule of RULES) {
     for (const pattern of rule.patterns) {
       if (pattern.test(message)) {
+        // Dynamic: return category list from website cache when services_list triggered
+        if (rule.id === 'services_list') {
+          try {
+            const cats = await websiteCache.getCategories();
+            const lines = cats.map((c, i) => `${i+1}. ${c.name}`);
+            const text = `📚 **Our Services / Categories**\n\n${lines.join('\n')}\n\nReply with the category name or number to explore subcategories.`;
+            return { text, confidence: rule.confidence, source: 'rule', ruleId: rule.id, categories: cats };
+          } catch (e) {
+            return { text: 'Sorry, I could not load services right now. Please try again later.', confidence: 0.6, source: 'error', ruleId: rule.id };
+          }
+        }
+
         return {
           text: rule.response,
           confidence: rule.confidence,

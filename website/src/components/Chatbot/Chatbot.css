@@ -25,6 +25,9 @@
 .quick-replies { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 8px; }
 .quick-replies button { background: #fff; border: 1px solid #eee; padding: 6px 10px; border-radius: 20px; cursor: pointer; font-size: 13px; }
 
+.quick-options { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.quick-options button { background: #075E54; color: #fff; border: none; padding: 6px 10px; border-radius: 16px; cursor: pointer; font-size: 13px; }
+
 .chat-bubble.typing { background: #fff; }
 .typing-dots { display: flex; gap: 4px; }
 .typing-dots span { width: 6px; height: 6px; background: #aaa; border-radius: 50%; display: inline-block; animation: blink 1.2s infinite; }

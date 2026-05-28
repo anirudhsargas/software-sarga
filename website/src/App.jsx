@@ -5,6 +5,9 @@ import Home from './pages/Home'
 import Services from './pages/Services'
 import Products from './pages/Products'
 import TrackOrder from './pages/TrackOrder'
+import SignIn from './pages/SignIn'
+import PortalDashboard from './pages/PortalDashboard'
+import JobDetail from './pages/JobDetail'
 import Contact from './pages/Contact'
 import NotFound from './pages/errors/NotFound'
 import Privacy from './pages/Privacy'
@@ -25,6 +28,9 @@ function App() {
             <Route path="/services" element={<Services />} />
             <Route path="/products" element={<Products />} />
             <Route path="/track" element={<TrackOrder />} />
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/portal/dashboard" element={<PortalDashboard />} />
+            <Route path="/portal/job/:id" element={<JobDetail />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />

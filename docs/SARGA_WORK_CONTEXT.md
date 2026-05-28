@@ -5,6 +5,15 @@
 
 ---
 
+## COMPLETED (RECENT UI ENHANCEMENTS)
+
+- Installed `three` and added a lightweight 3D hero background (`HeroBg3D`) using <canvas> + Three.js for subtle layered plane sheets.
+- Added `useTilt` hook for card tilt interactions and `useMagnetic` hook for magnetic button CTAs.
+- Implemented `CustomCursor` (desktop only) and a `Marquee` component for hero/product names.
+- Added `Card3DStack` showcase component and updated `Summary` landing page to include these features.
+- Global CSS utilities added: `tilt-card`, cursor hiding, marquee styles, and GPU-accelerated 3D will-change helpers.
+
+
 ## 1. PROJECT OVERVIEW
 
 - **Business**: Sarga Prints — 30-year-old printing business
@@ -334,6 +343,13 @@
 - [x] Turnaround prediction — Gradient Boosted Regression (turnaround.py, aiTurnaround.js)
 - [x] Expense categorization — TF-IDF (expense_categorizer.py, expenseCategorizer.js)
 - [x] Business insights (insights.py, insights.js)
+
+---
+
+## Completed Recently
+
+- Chatbot NLP microservice (Flask) with training, prediction, continuous learning, and DB tables added under `ml_service/`.
+- Admin Chatbot Training UI: `client/src/pages/admin/ChatbotTraining.jsx` and `client/src/components/chatbot/ChatWidget.jsx` added to the frontend.
 
 ---
 

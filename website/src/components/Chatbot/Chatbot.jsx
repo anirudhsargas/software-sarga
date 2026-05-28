@@ -15,16 +15,26 @@ const Chatbot = () => {
     }
   });
   const [input, setInput] = useState('');
+  const [quickOptions, setQuickOptions] = useState([]); // categories / subcategories returned by server
   const [typing, setTyping] = useState(false);
 
   useEffect(() => {
     sessionStorage.setItem('sarga_chat', JSON.stringify(messages));
   }, [messages]);
+    setQuickOptions([]);
 
   useEffect(() => {
     if (messages.length === 0) {
       const greet = { role: 'bot', text: "Hi! I'm Sarga's assistant. How can I help you today? 😊", timestamp: new Date().toISOString() };
-      setMessages([greet]);
+      const botMsg = { role: 'bot', text: res.data.reply, timestamp: new Date().toISOString(), meta: { source: res.data.source } };
+      // If server returned categories/subcategories payload, expose as quick options
+      if (res.data.categories && Array.isArray(res.data.categories) && res.data.categories.length) {
+        setQuickOptions(res.data.categories.map((c, i) => ({ id: c.id || i, label: c.name, payload: c })));
+      } else if (res.data.subcategories && Array.isArray(res.data.subcategories) && res.data.subcategories.length) {
+        setQuickOptions(res.data.subcategories.map((s, i) => ({ id: s.id || i, label: s.name, payload: s })));
+      } else {
+        setQuickOptions([]);
+      }
     }
   }, []);
 
@@ -42,24 +52,39 @@ const Chatbot = () => {
 
         // Only replace messages if there is no existing conversation (or only greeting)
         if (messages.length <= 1) {
-          // rows are returned newest-first; reverse to chronological order
+      // open dialer on mobile / show call link
+      window.location.href = 'tel:+919496XXXXX';
           const chronological = rows.slice().reverse();
           const loaded = [];
           chronological.forEach((r) => {
             if (r.user_message) loaded.push({ role: 'user', text: r.user_message, timestamp: r.created_at });
-            if (r.bot_response) loaded.push({ role: 'bot', text: r.bot_response, timestamp: r.created_at });
-          });
-          if (loaded.length) setMessages(loaded);
-        }
-      } catch (err) {
+      // request categories from server
+      sendMessage('categories');
+      return;
+    }
+
+    // If user clicked a quick option object label, send its label or payload
+    if (typeof text === 'object' && text.label) {
+      sendMessage(text.label);
+      return;
+    }
+
+    sendMessage(text);
         // Non-fatal: history may be unavailable; continue with session greeting
         // eslint-disable-next-line no-console
-        console.warn('[Chatbot] Failed to load chat history:', err && err.message ? err.message : err);
-      }
-    };
-
-    loadHistory();
-  }, [open]);
+            <div className="quick-replies">
+              <button onClick={() => quickReply('Track Order')}>Track Order</button>
+              <button onClick={() => quickReply('Get a Quote')}>Get a Quote</button>
+              <button onClick={() => quickReply('Call Us')}>Call Us</button>
+              <button onClick={() => quickReply('Our Services')}>Our Services</button>
+              {quickOptions.length > 0 && (
+                <div className="quick-options">
+                  {quickOptions.map((opt) => (
+                    <button key={opt.id} onClick={() => quickReply(opt)}>{opt.label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
 
   const sendMessage = async (text) => {
     if (!text || !text.trim()) return;

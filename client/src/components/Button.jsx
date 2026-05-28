@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { addRipple } from '../utils/ripple';
 import { Loader2 } from 'lucide-react';
+import useMagnetic from '../hooks/useMagnetic';
 
 export const Button = React.memo(({
   children,
@@ -24,15 +25,18 @@ export const Button = React.memo(({
   const classes = useMemo(() => [
     'btn',
     `btn-${variant}`,
+    variant === 'primary' ? 'btn-press' : '',
     size !== 'md' ? `btn-${size}` : '',
     pill ? 'btn-pill' : '',
     full ? 'btn--full' : '',
     loading ? 'btn--loading' : '',
     className
   ].filter(Boolean).join(' '), [variant, size, pill, full, loading, className]);
+  const { ref: magneticRef } = useMagnetic();
 
   return (
     <button
+      ref={variant === 'primary' ? magneticRef : null}
       className={classes}
       onClick={handleClick}
       disabled={loading || props.disabled}

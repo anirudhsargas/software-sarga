@@ -14,6 +14,8 @@ const chatStore = require('../services/chatStore');
 const websiteCache = require('../services/websiteCache');
 const { v4: uuidv4 } = require('uuid');
 const { uuidGuard, chatLimiter, inquiryLimiter } = require('../middleware/websiteSecurity');
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../middleware/auth');
 
 // ─── GET /api/website/branches ───
 // Returns public branch information (name, address, phone, email)
@@ -45,8 +47,46 @@ router.get('/categories', async (req, res) => {
 // Returns active products for public display (with category info)
 router.get('/products', async (req, res) => {
   try {
-    const rows = await websiteCache.getProducts();
-    res.json({ products: rows });
+    const page = parseInt(req.query.page || '1', 10) || 1;
+    const limit = parseInt(req.query.limit || '24', 10) || 24;
+    const q = req.query.q && String(req.query.q).trim();
+
+    // If no query and default first page + limit >= 100, return cached snapshot for speed
+    if (!q && page === 1 && limit >= 100) {
+      const rows = await websiteCache.getProducts();
+      return res.json({ products: rows, page: 1, limit: rows.length, total: rows.length, total_pages: 1 });
+    }
+
+    const offset = (page - 1) * limit;
+    const params = [];
+    let where = 'WHERE p.is_active = 1 AND sc.is_active = 1 AND c.is_active = 1';
+    if (q) {
+      where += ' AND (p.name LIKE ? OR p.description LIKE ? OR sc.name LIKE ? OR c.name LIKE ?)';
+      const like = '%' + q + '%';
+      params.push(like, like, like, like);
+    }
+
+    try {
+      const [countRows] = await pool.query(`SELECT COUNT(*) AS cnt FROM sarga_products p JOIN sarga_product_subcategories sc ON p.subcategory_id = sc.id JOIN sarga_product_categories c ON sc.category_id = c.id ${where}`, params);
+      const total = countRows[0]?.cnt || 0;
+      const total_pages = Math.max(1, Math.ceil(total / limit));
+
+      const [rows] = await pool.query(
+        `SELECT p.id, p.name, p.description, p.image_url, sc.name AS subcategory_name, c.name AS category_name
+         FROM sarga_products p
+         JOIN sarga_product_subcategories sc ON p.subcategory_id = sc.id
+         JOIN sarga_product_categories c ON sc.category_id = c.id
+         ${where}
+         ORDER BY c.position, sc.position, p.position
+         LIMIT ? OFFSET ?`,
+        params.concat([limit, offset])
+      );
+
+      res.json({ products: rows, page, limit, total, total_pages });
+    } catch (err) {
+      logger.error('[Website] Error fetching products paginated:', err.message);
+      res.status(500).json({ message: 'Unable to load products.' });
+    }
   } catch (err) {
     logger.error('[Website] Error fetching products:', err.message);
     res.status(500).json({ message: 'Unable to load products.' });
@@ -202,12 +242,283 @@ router.post('/chat', chatLimiter, uuidGuard, async (req, res) => {
       logger.warn('[Website] Failed to persist chat message to store:', storeErr.message);
     }
 
-    return res.json({ reply: response.text, confidence: response.confidence, source: response.source, uuid });
+    // Include any extra payloads (like categories) returned by chatService
+    const payload = { reply: response.text, confidence: response.confidence, source: response.source, uuid };
+    if (response.categories) payload.categories = response.categories;
+    return res.json(payload);
   } catch (error) {
     logger.error('[Website] Chat error:', error.message);
     return res.status(500).json({ reply: "Sorry, something went wrong. Please try again or contact us directly.", confidence: 0, source: 'error' });
   }
 });
+
+// Legacy phone lookup login (kept for compatibility) — prefer OTP flow below
+router.post('/website/customer/login', asyncHandler(async (req, res) => {
+  const { phone } = req.body || {};
+  if (!phone) return res.status(400).json({ message: 'Phone number required' });
+  const [rows] = await pool.query('SELECT id, name, mobile, email FROM sarga_customers WHERE mobile = ? LIMIT 1', [phone]);
+  if (!rows || rows.length === 0) return res.status(404).json({ message: 'Customer not found' });
+  const customer = rows[0];
+  const token = jwt.sign({ id: customer.id, role: 'Customer', name: customer.name }, JWT_SECRET, { expiresIn: '7d' });
+  res.json({ message: 'Login successful', token, customerId: customer.id, customerName: customer.name });
+}));
+
+// ─── Email OTP Sign-in Flow ─────────────────────────────────────
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+
+// POST /api/website/customer/send-otp { email }
+router.post('/website/customer/send-otp', inquiryLimiter, asyncHandler(async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ message: 'Email is required' });
+
+  // Find customer by email
+  const [rows] = await pool.query('SELECT id, name, email FROM sarga_customers WHERE email = ? LIMIT 1', [email]);
+  if (!rows || rows.length === 0) return res.status(404).json({ message: 'Customer not found' });
+  const customer = rows[0];
+
+  // Ensure OTP table exists
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sarga_customer_otps (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT NOT NULL,
+      code_hash VARCHAR(128) NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (customer_id) REFERENCES sarga_customers(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Generate 6-digit OTP
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  const codeHash = crypto.createHash('sha256').update(otp).digest('hex');
+  const expiresAt = new Date(Date.now() + (10 * 60 * 1000)); // 10 minutes
+
+  // Upsert existing OTP for customer (simple approach: delete old ones)
+  await pool.query('DELETE FROM sarga_customer_otps WHERE customer_id = ?', [customer.id]);
+  await pool.query('INSERT INTO sarga_customer_otps (customer_id, code_hash, expires_at) VALUES (?, ?, ?)', [customer.id, codeHash, expiresAt]);
+
+  // Send email via nodemailer if configured
+  const smtpHost = process.env.SMTP_HOST;
+  let mailSent = false;
+  if (smtpHost && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+      });
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: customer.email,
+        subject: 'Your Sarga OTP',
+        text: `Your OTP for Sarga login is: ${otp}. It expires in 10 minutes.`
+      });
+      mailSent = true;
+    } catch (err) {
+      console.error('Failed to send OTP email:', err.message);
+    }
+  }
+
+  const debugExpose = process.env.DEBUG_EMAIL_OTPS === '1' || process.env.NODE_ENV !== 'production';
+  const resp = { message: 'OTP sent' };
+  if (!mailSent) {
+    resp.warning = 'Email not delivered by SMTP; check server SMTP settings.';
+  }
+  if (debugExpose) resp.otp = otp;
+
+  res.json(resp);
+}));
+
+// POST /api/website/customer/verify-otp { email, otp }
+router.post('/website/customer/verify-otp', asyncHandler(async (req, res) => {
+  const { email, otp } = req.body || {};
+  if (!email || !otp) return res.status(400).json({ message: 'Email and OTP required' });
+  const [rows] = await pool.query('SELECT id, name, email FROM sarga_customers WHERE email = ? LIMIT 1', [email]);
+  if (!rows || rows.length === 0) return res.status(404).json({ message: 'Customer not found' });
+  const customer = rows[0];
+
+  const [[otpRow]] = await pool.query('SELECT * FROM sarga_customer_otps WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1', [customer.id]);
+  if (!otpRow) return res.status(400).json({ message: 'No OTP found for this customer' });
+
+  const now = new Date();
+  if (new Date(otpRow.expires_at) < now) return res.status(400).json({ message: 'OTP expired' });
+
+  const hash = crypto.createHash('sha256').update(String(otp)).digest('hex');
+  if (hash !== otpRow.code_hash) return res.status(400).json({ message: 'Invalid OTP' });
+
+  // valid — issue token and cleanup
+  await pool.query('DELETE FROM sarga_customer_otps WHERE id = ?', [otpRow.id]);
+  const token = jwt.sign({ id: customer.id, role: 'Customer', name: customer.name }, JWT_SECRET, { expiresIn: '7d' });
+  res.json({ message: 'Authenticated', token, customerId: customer.id, customerName: customer.name });
+}));
+
+// Customer dashboard proxy: uses token issued above to fetch customer's dashboard
+router.get('/website/customer/dashboard', asyncHandler(async (req, res) => {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
+  if (!token) return res.status(401).json({ message: 'Missing token' });
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+
+  const customerId = decoded.id;
+  if (!customerId) return res.status(400).json({ message: 'Invalid token payload' });
+
+  // Reuse existing customers dashboard query from server/routes/customers.js
+  const [jobs] = await pool.query(
+    `SELECT j.* FROM sarga_jobs j WHERE j.customer_id = ? ORDER BY j.created_at DESC LIMIT 50`,
+    [customerId]
+  );
+
+  const [payments] = await pool.query(
+    `SELECT p.* FROM sarga_customer_payments p WHERE p.customer_id = ? ORDER BY p.created_at DESC LIMIT 50`,
+    [customerId]
+  );
+
+  res.json({ customerId, jobs, payments });
+}));
+
+// GET /api/website/job/:id — Customer-visible job details (requires customer token)
+router.get('/website/job/:id', asyncHandler(async (req, res) => {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
+  if (!token) return res.status(401).json({ message: 'Missing token' });
+  let decoded;
+  try { decoded = jwt.verify(token, JWT_SECRET); } catch (err) { return res.status(401).json({ message: 'Invalid token' }); }
+
+  const customerId = decoded.id;
+  const jobId = req.params.id;
+
+  const [[jobRow]] = await pool.query(
+    `SELECT j.*, COALESCE(c.name, 'Customer') as customer_name, c.mobile as customer_mobile, p.name as product_name
+     FROM sarga_jobs j
+     LEFT JOIN sarga_customers c ON j.customer_id = c.id
+     LEFT JOIN sarga_products p ON j.product_id = p.id
+     WHERE j.id = ?`,
+    [jobId]
+  );
+  if (!jobRow) return res.status(404).json({ message: 'Job not found' });
+  if (Number(jobRow.customer_id) !== Number(customerId)) return res.status(403).json({ message: 'Access denied' });
+
+  // status history
+  const [statusHistory] = await pool.query(
+    `SELECT ssh.*, s.name as staff_name FROM sarga_job_status_history ssh LEFT JOIN sarga_staff s ON s.id = ssh.staff_id WHERE ssh.job_id = ? ORDER BY ssh.changed_at DESC`,
+    [jobId]
+  );
+
+  // proofs (job proofs)
+  const [proofs] = await pool.query(
+    `SELECT p.id, p.version, p.file_url, p.status, p.designer_notes, p.customer_feedback, p.created_at, p.reviewed_at FROM sarga_job_proofs p WHERE p.job_id = ? ORDER BY p.version DESC`,
+    [jobId]
+  );
+
+  // designs attached to job
+  const [designs] = await pool.query(
+    `SELECT id, title, file_url, file_type, original_name, created_at FROM sarga_customer_designs WHERE job_id = ? ORDER BY created_at DESC`,
+    [jobId]
+  );
+
+  // invoices for this customer (limited list)
+  const [invoices] = await pool.query(
+    `SELECT id, invoice_number, total_amount, status, created_at FROM sarga_invoices WHERE customer_id = ? ORDER BY created_at DESC LIMIT 20`,
+    [customerId]
+  );
+
+  res.json({ job: jobRow, statusHistory, proofs, designs, invoices });
+}));
+
+// POST /api/website/jobs/:id/proofs/:proofId/review-customer — Customer review a proof
+router.post('/website/jobs/:id/proofs/:proofId/review-customer', asyncHandler(async (req, res) => {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
+  if (!token) return res.status(401).json({ message: 'Missing token' });
+  let decoded;
+  try { decoded = jwt.verify(token, JWT_SECRET); } catch (err) { return res.status(401).json({ message: 'Invalid token' }); }
+
+  const customerId = decoded.id;
+  const jobId = req.params.id;
+  const proofId = req.params.proofId;
+  const { status, customer_feedback } = req.body;
+
+  const valid = ['Approved', 'Rejected', 'Revision Requested'];
+  if (!valid.includes(status)) return res.status(400).json({ message: 'Invalid status' });
+
+  // verify job belongs to customer
+  const [jobRows] = await pool.query('SELECT id, customer_id, status as current_status FROM sarga_jobs WHERE id = ?', [jobId]);
+  if (!jobRows || jobRows.length === 0) return res.status(404).json({ message: 'Job not found' });
+  if (Number(jobRows[0].customer_id) !== Number(customerId)) return res.status(403).json({ message: 'Access denied' });
+
+  // update proof row: set status, customer_feedback, reviewed_at; reviewed_by left NULL for customer
+  await pool.query('UPDATE sarga_job_proofs SET status = ?, customer_feedback = ?, reviewed_at = NOW() WHERE id = ? AND job_id = ?', [status, customer_feedback || null, proofId, jobId]);
+
+  // Update job status based on proof decision (similar to staff flow but with null actor)
+  const current = jobRows[0].current_status;
+  if (status === 'Approved') {
+    if (!['Delivered', 'Cancelled'].includes(current)) {
+      await pool.query('UPDATE sarga_jobs SET status = ? WHERE id = ?', ['Processing', jobId]);
+      await pool.query('INSERT INTO sarga_job_status_history (job_id, status, staff_id) VALUES (?, ?, ?)', [jobId, 'Processing', null]);
+    }
+  } else if (status === 'Rejected' || status === 'Revision Requested') {
+    if (!['Delivered', 'Cancelled'].includes(current)) {
+      await pool.query('UPDATE sarga_jobs SET status = ? WHERE id = ?', ['Designing', jobId]);
+      await pool.query('INSERT INTO sarga_job_status_history (job_id, status, staff_id) VALUES (?, ?, ?)', [jobId, 'Designing', null]);
+    }
+  }
+
+  res.json({ message: `Proof ${status.toLowerCase()}` });
+}));
+
+// GET /api/website/invoices/:invoiceId/download — generate and stream invoice PDF to customer
+router.get('/website/invoices/:invoiceId/download', asyncHandler(async (req, res) => {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
+  if (!token) return res.status(401).json({ message: 'Missing token' });
+  let decoded;
+  try { decoded = jwt.verify(token, JWT_SECRET); } catch (err) { return res.status(401).json({ message: 'Invalid token' }); }
+
+  const customerId = decoded.id;
+  const invoiceId = req.params.invoiceId;
+
+  const [[invoice]] = await pool.query('SELECT i.*, c.name as customer_name, c.mobile as customer_mobile FROM sarga_invoices i LEFT JOIN sarga_customers c ON i.customer_id = c.id WHERE i.id = ?', [invoiceId]);
+  if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
+  if (Number(invoice.customer_id) !== Number(customerId)) return res.status(403).json({ message: 'Access denied' });
+
+  // Fetch related payment and job info when available
+  let payment = null;
+  if (invoice.payment_id) {
+    const [pRows] = await pool.query('SELECT * FROM sarga_customer_payments WHERE id = ?', [invoice.payment_id]);
+    payment = pRows[0] || null;
+  }
+
+  // Generate PDF with pdfkit
+  const PDFDocument = require('pdfkit');
+  const doc = new PDFDocument({ size: 'A4', margin: 50 });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoice_number || invoiceId}.pdf"`);
+  doc.pipe(res);
+
+  doc.fontSize(18).text(`Invoice: ${invoice.invoice_number || invoiceId}`, { align: 'left' });
+  doc.moveDown();
+  doc.fontSize(12).text(`Date: ${new Date(invoice.created_at).toLocaleDateString()}`);
+  doc.text(`Customer: ${invoice.customer_name || ''} (${invoice.customer_mobile || ''})`);
+  doc.moveDown();
+  doc.text(`Total: ₹${invoice.total_amount || '0.00'}`);
+  doc.text(`Tax: ₹${invoice.tax_amount || '0.00'}`);
+  doc.text(`Net: ₹${invoice.net_amount || '0.00'}`);
+  if (payment) {
+    doc.moveDown();
+    doc.text(`Payment ID: ${payment.id} — Mode: ${payment.payment_mode || ''} — Amount: ₹${payment.amount || payment.total_amount || 0}`);
+  }
+
+  doc.moveDown();
+  doc.fontSize(10).text('Thank you for your business.', { align: 'center' });
+  doc.end();
+}));
 
 // ─── GET /api/website/chat/history ───
 // Optional query param: ?uuid=<uuid>&limit=50

@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { fmt, thisMonth, fmtDate } from './expense-manager/constants';
 import './AccountantDashboard.css';
+import useScrollAnimation from '../hooks/useScrollAnimation';
 
 /* ─── Helpers ─── */
 const fmtCur = (n) => `₹${fmt(n)}`;
@@ -24,7 +25,7 @@ const monthLabel = (m) => {
 
 /* ─── KPI Card ─── */
 const KpiCard = ({ label, value, sub, color = '', icon: Icon, onClick }) => (
-  <div className={`acc-kpi ${color} ${onClick ? 'acc-kpi--clickable' : ''}`} onClick={onClick}>
+  <div className={`acc-kpi ${color} ${onClick ? 'acc-kpi--clickable' : ''} hover-lift`} onClick={onClick}>
     <div className="acc-kpi__icon">{Icon && <Icon size={20} />}</div>
     <div className="acc-kpi__body">
       <div className="acc-kpi__label">{label}</div>
@@ -35,21 +36,24 @@ const KpiCard = ({ label, value, sub, color = '', icon: Icon, onClick }) => (
 );
 
 /* ─── Section ─── */
-const Section = ({ title, icon: Icon, action, children }) => (
-  <div className="acc-section">
-    <div className="acc-section__header">
-      <h2 className="acc-section__title">
-        {Icon && <Icon size={17} />} {title}
-      </h2>
-      {action}
+const Section = ({ title, icon: Icon, action, children }) => {
+  const ref = useScrollAnimation({ stagger: true, staggerSelector: '.acc-section > *' });
+  return (
+    <div ref={ref} className="acc-section animate-fade-up">
+      <div className="acc-section__header">
+        <h2 className="acc-section__title">
+          {Icon && <Icon size={17} />} {title}
+        </h2>
+        {action}
+      </div>
+      {children}
     </div>
-    {children}
-  </div>
-);
+  );
+};
 
 /* ─── Alert Card ─── */
 const AlertCard = ({ icon, color, bg, title, desc, onAction }) => (
-  <div className="acc-alert" style={{ background: bg, borderColor: `${color}22` }}>
+  <div className="acc-alert hover-lift" style={{ background: bg, borderColor: `${color}22` }}>
     <div className="acc-alert__icon-wrap" style={{ background: `${color}18` }}>
       {icon ? React.createElement(icon, { size: 18, style: { color } }) : null}
     </div>
@@ -554,7 +558,7 @@ const AccountantDashboard = () => {
                     const color = branchColors[i % branchColors.length];
                     const isSelected = selectedBranches.length === 0 || selectedBranches.includes(String(b.branch_id));
                     return (
-                      <div key={i} className={`acc-branch-card ${!isSelected ? 'acc-branch-card--dim' : ''}`}
+                      <div key={i} className={`acc-branch-card ${!isSelected ? 'acc-branch-card--dim' : ''} hover-lift`}
                         style={{ borderTopColor: color }}>
                         <div className="acc-branch-card__header">
                           <Building2 size={16} style={{ color }} />

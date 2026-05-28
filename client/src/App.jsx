@@ -17,6 +17,7 @@ import { initServerTime } from './services/serverTime';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { AuthProvider } from './hooks/useAuth';
+import CustomCursor from './components/ui/CustomCursor';
 
 import { syncManager } from './services/syncWorkerManager';
 import { SyncStatusBar } from './components/SyncStatusBar';
@@ -83,6 +84,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <CustomCursor />
       <BrowserRouter>
         <AuthProvider>
         <ConfirmProvider>

@@ -23,11 +23,16 @@ api.interceptors.request.use((config) => {
   } catch (e) {
     // ignore
   }
+  // Attach customer token if present
+  try {
+    const token = localStorage.getItem('sarga_customer_token');
+    if (token) config.headers['Authorization'] = `Bearer ${token}`;
+  } catch (e) {}
   return config;
 });
 
 // Public API calls (no auth needed for website)
-export const getProducts = () => api.get('/website/products');
+export const getProducts = (params = {}) => api.get('/website/products', { params });
 export const getServices = () => api.get('/website/services');
 export const getBranches = () => api.get('/website/branches');
 export const trackJob = (jobCode) => api.get(`/website/track/${jobCode}`);
@@ -41,6 +46,15 @@ export const getChatHistory = (uuid, limit = 50) => {
   const qs = q.length ? `?${q.join('&')}` : '';
   return api.get(`/website/chat/history${qs}`);
 };
+
+// Customer auth + dashboard
+export const customerLogin = (phone) => api.post('/website/customer/login', { phone });
+export const getCustomerDashboard = (customerId) => api.get(`/customers/${customerId}/dashboard`);
+export const getWebsiteJob = (jobId) => api.get(`/website/job/${jobId}`);
+export const reviewProofCustomer = (jobId, proofId, payload) => api.post(`/website/jobs/${jobId}/proofs/${proofId}/review-customer`, payload);
+export const downloadInvoiceUrl = (invoiceId) => `${API_BASE}/api/website/invoices/${invoiceId}/download`;
+export const customerSendOtp = (email) => api.post('/website/customer/send-otp', { email });
+export const customerVerifyOtp = (email, otp) => api.post('/website/customer/verify-otp', { email, otp });
 
 export default api;
 
