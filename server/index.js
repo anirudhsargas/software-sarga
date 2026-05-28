@@ -28,8 +28,11 @@ const allowedOrigins = [
     'https://sargaoffset.vercel.app',
     'http://localhost:5173',
     'http://localhost:5174',
+    'http://localhost:3000',
     process.env.CLIENT_URL,
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    // Also include origins provided via CORS_ORIGIN (comma-separated)
+    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean) : []),
 ].filter(Boolean).map(o => o.replace(/\/$/, ''));
 
 const JWT_SECRET = process.env.JWT_SECRET;
