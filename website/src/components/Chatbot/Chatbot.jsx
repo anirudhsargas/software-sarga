@@ -15,33 +15,22 @@ const Chatbot = () => {
     }
   });
   const [input, setInput] = useState('');
-  const [quickOptions, setQuickOptions] = useState([]); // categories / subcategories returned by server
+  const [quickOptions, setQuickOptions] = useState([]);
   const [typing, setTyping] = useState(false);
 
   useEffect(() => {
     sessionStorage.setItem('sarga_chat', JSON.stringify(messages));
   }, [messages]);
-    setQuickOptions([]);
 
   useEffect(() => {
+    // greet if empty
     if (messages.length === 0) {
-      const greet = { role: 'bot', text: "Hi! I'm Sarga's assistant. How can I help you today? 😊", timestamp: new Date().toISOString() };
-      const botMsg = { role: 'bot', text: res.data.reply, timestamp: new Date().toISOString(), meta: { source: res.data.source } };
-      // If server returned categories/subcategories payload, expose as quick options
-      if (res.data.categories && Array.isArray(res.data.categories) && res.data.categories.length) {
-        setQuickOptions(res.data.categories.map((c, i) => ({ id: c.id || i, label: c.name, payload: c })));
-      } else if (res.data.subcategories && Array.isArray(res.data.subcategories) && res.data.subcategories.length) {
-        setQuickOptions(res.data.subcategories.map((s, i) => ({ id: s.id || i, label: s.name, payload: s })));
-      } else {
-        setQuickOptions([]);
-      }
+      setMessages([{ role: 'bot', text: "Hi! I'm Sarga's assistant. How can I help you today? 😊", timestamp: new Date().toISOString() }]);
     }
   }, []);
 
-  // When the chat panel opens, preload history (DB or file-backed) for this UUID
   useEffect(() => {
     if (!open) return;
-
     const loadHistory = async () => {
       try {
         const uuid = localStorage.getItem('sarga_uuid');
@@ -49,145 +38,76 @@ const Chatbot = () => {
         const res = await api.get(`/website/chat/history${qs}`);
         const rows = res.data.history || [];
         if (!rows.length) return;
-
-        // Only replace messages if there is no existing conversation (or only greeting)
-        if (messages.length <= 1) {
-      // open dialer on mobile / show call link
-      window.location.href = 'tel:+919496XXXXX';
-          const chronological = rows.slice().reverse();
-          const loaded = [];
-          chronological.forEach((r) => {
-            if (r.user_message) loaded.push({ role: 'user', text: r.user_message, timestamp: r.created_at });
-      // request categories from server
-      sendMessage('categories');
-      return;
-    }
-
-    // If user clicked a quick option object label, send its label or payload
-    if (typeof text === 'object' && text.label) {
-      sendMessage(text.label);
-      return;
-    }
-
-    sendMessage(text);
-        // Non-fatal: history may be unavailable; continue with session greeting
-        // eslint-disable-next-line no-console
-            <div className="quick-replies">
-              <button onClick={() => quickReply('Track Order')}>Track Order</button>
-              <button onClick={() => quickReply('Get a Quote')}>Get a Quote</button>
-              <button onClick={() => quickReply('Call Us')}>Call Us</button>
-              <button onClick={() => quickReply('Our Services')}>Our Services</button>
-              {quickOptions.length > 0 && (
-                <div className="quick-options">
-                  {quickOptions.map((opt) => (
-                    <button key={opt.id} onClick={() => quickReply(opt)}>{opt.label}</button>
-                  ))}
-                </div>
-              )}
-            </div>
+        // load most recent messages (chronological)
+        const chronological = rows.slice().reverse();
+        const loaded = chronological.map(r => ({ role: r.user_message ? 'user' : 'bot', text: r.user_message || r.bot_reply || '', timestamp: r.created_at }));
+        setMessages(loaded);
+      } catch (e) {
+        // ignore history errors
+      }
+    };
+    loadHistory();
+  }, [open]);
 
   const sendMessage = async (text) => {
-    if (!text || !text.trim()) return;
-    const userMsg = { role: 'user', text, timestamp: new Date().toISOString() };
+    // Accept either a string or an object quick option
+    let payloadText = text;
+    if (text && typeof text === 'object') {
+      // prefer label, fall back to payload.text or JSON
+      payloadText = text.label || (text.payload && text.payload.text) || JSON.stringify(text);
+    }
+    if (!payloadText || !String(payloadText).trim()) return;
+    const userMsg = { role: 'user', text: String(payloadText), timestamp: new Date().toISOString() };
     setMessages((m) => [...m, userMsg]);
     setInput('');
     setTyping(true);
 
     try {
-      const res = await api.post('/website/chat', { message: text });
-      const botMsg = { role: 'bot', text: res.data.reply, timestamp: new Date().toISOString(), meta: { source: res.data.source } };
-      // mimic typing delay
+      const res = await api.post('/website/chat', { message: payloadText });
+      const botReply = res?.data?.reply || "Sorry, I couldn't understand that.";
+      const botMsg = { role: 'bot', text: botReply, timestamp: new Date().toISOString() };
+      // Update quick options if provided
+      if (res?.data?.categories) {
+        setQuickOptions(res.data.categories.map((c, i) => ({ id: c.id || i, label: c.name, payload: c })));
+      } else if (res?.data?.subcategories) {
+        setQuickOptions(res.data.subcategories.map((s, i) => ({ id: s.id || i, label: s.name, payload: s })));
+      } else {
+        setQuickOptions([]);
+      }
+
       setTimeout(() => {
         setMessages((m) => [...m, botMsg]);
         setTyping(false);
-      }, 500);
+      }, 400);
     } catch (err) {
-      const botMsg = { role: 'bot', text: "Sorry, I'm having trouble connecting. Please call us directly.", timestamp: new Date().toISOString() };
-      setMessages((m) => [...m, botMsg]);
+      setMessages((m) => [...m, { role: 'bot', text: "Sorry, I'm having trouble connecting. Please call us directly.", timestamp: new Date().toISOString() }]);
       setTyping(false);
     }
   };
 
-  const quickReply = (text) => {
-    if (text === 'Track Order') {
-      navigate('/track');
-      setOpen(false);
+  const quickReply = (opt) => {
+    // opt may be a string or an object
+    if (!opt) return;
+    if (typeof opt === 'string') {
+      if (opt === 'Track Order') { navigate('/track'); setOpen(false); return; }
+      if (opt === 'Get a Quote') { navigate('/contact'); setOpen(false); return; }
+      if (opt === 'Call Us') { window.location.href = 'tel:+919496XXXXX'; return; }
+      sendMessage(opt);
       return;
     }
-    if (text === 'Get a Quote') {
-      navigate('/contact');
-      setOpen(false);
-      return;
-    }
-    sendMessage(text);
-  };
-
-  // Safely render message text without allowing raw HTML injection.
-  // Supports simple **bold** markers and preserves newlines.
-  const decodeHtmlEntities = (str) => {
-    if (str == null) return '';
-    try {
-      if (typeof document !== 'undefined') {
-        const txt = document.createElement('textarea');
-        txt.innerHTML = String(str);
-        return txt.value;
-      }
-    } catch (e) {
-      // fallthrough to manual decode
-    }
-    return String(str)
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;|&#039;|&apos;/g, "'");
-  };
-
-  const escapeHtml = (unsafe) => {
-    if (!unsafe && unsafe !== '') return '';
-    const decoded = decodeHtmlEntities(unsafe);
-    return String(decoded)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/\"/g, '&quot;');
+    // object
+    sendMessage(opt);
   };
 
   const renderMessageText = (text) => {
     if (text == null) return null;
-    // Escape HTML first
-    const escaped = escapeHtml(text);
-    // Handle **bold** markup by splitting and creating nodes
-    const parts = [];
-    const boldRegex = /\*\*(.+?)\*\*/g;
-    let lastIndex = 0;
-    let match;
-    while ((match = boldRegex.exec(escaped)) !== null) {
-      const idx = match.index;
-      if (idx > lastIndex) parts.push(escaped.slice(lastIndex, idx));
-      parts.push(<strong key={idx}>{match[1]}</strong>);
-      lastIndex = idx + match[0].length;
-    }
-    if (lastIndex < escaped.length) parts.push(escaped.slice(lastIndex));
-
-    // If no bold matches, parts will be single string; normalize to array
-    const normalized = parts.length ? parts : [escaped];
-
-    // Convert newlines to <br/> by splitting lines and inserting React elements
-    return normalized.flatMap((segment, si) => {
-      if (typeof segment === 'string') {
-        const lines = segment.split(/\n/);
-        return lines.map((ln, li) => (
-          <span key={`${si}-${li}`}>{ln}{li < lines.length - 1 ? <br /> : null}</span>
-        ));
-      }
-      // it's a React element (e.g., <strong>) — render and preserve newlines inside its text
-      const childrenText = String(segment.props.children || '');
-      const lines = childrenText.split(/\n/);
-      return lines.map((ln, li) => (
-        <span key={`${si}-${li}`}>{li === 0 ? segment : <>{ln}</>}{li < lines.length - 1 ? <br /> : null}</span>
-      ));
-    });
+    const escaped = String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // handle simple **bold**
+    const parts = escaped.split(/\*\*(.+?)\*\*/g);
+    return parts.map((p, i) => (i % 2 === 1 ? <strong key={i}>{p}</strong> : <span key={i} dangerouslySetInnerHTML={{ __html: p.replace(/\n/g, '<br/>') }} />));
   };
 
   return (
@@ -228,6 +148,13 @@ const Chatbot = () => {
               <button onClick={() => quickReply('Get a Quote')}>Get a Quote</button>
               <button onClick={() => quickReply('Call Us')}>Call Us</button>
               <button onClick={() => quickReply('Our Services')}>Our Services</button>
+              {quickOptions.length > 0 && (
+                <div className="quick-options">
+                  {quickOptions.map((opt) => (
+                    <button key={opt.id} onClick={() => quickReply(opt)}>{opt.label}</button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="input-row">
