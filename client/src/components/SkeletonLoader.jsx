@@ -106,12 +106,12 @@ const SkeletonLoader = ({ type = 'cards', count = 6, columns }) => {
         </div>
 
         {/* 4 Salary overview cards */}
-              <div className="skeleton-attendance-card">
+        <div className="skeleton-attendance-cards">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="skeleton-attendance-card">
               <div className="skeleton skeleton-box" style={{ height: 11, width: 80, marginBottom: 6, opacity: 0.6 }}></div>
               <div className="skeleton skeleton-box" style={{ height: 20, width: 60, marginBottom: 6 }}></div>
               <div className="skeleton skeleton-box" style={{ height: 12, width: 100, opacity: 0.5 }}></div>
-              <div className="skeleton-box" style={{ height: 20, width: 60, marginBottom: 6 }}></div>
-              <div className="skeleton-box" style={{ height: 12, width: 100, opacity: 0.5 }}></div>
             </div>
           ))}
         </div>

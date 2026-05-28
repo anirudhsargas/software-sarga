@@ -95,6 +95,11 @@ const ChatbotTraining = () => {
     return () => { mounted = false; clearInterval(iv); };
   }, [fetchStatus, fetchIntentDistribution, fetchUnlabeled, fetchModelVersions]);
 
+  // Normalized accuracy display (handles 0..1 and 0..100 formats)
+  const accuracyValue = modelMeta?.accuracy;
+  const accuracyPercent = typeof accuracyValue === 'number' ? (accuracyValue <= 1 ? accuracyValue * 100 : accuracyValue) : (accuracyValue ? Number(accuracyValue) : null);
+  const accuracyText = accuracyPercent != null && !Number.isNaN(accuracyPercent) ? `${Number(accuracyPercent).toFixed(2)}%` : '-';
+
   const handleRetrain = async (force = false) => {
     try {
       setRetraining(true);
@@ -170,14 +175,14 @@ const ChatbotTraining = () => {
             <div>
               <div className="card">
                 <h3>Model Status</h3>
-                <div className="row gap-sm">
-                  <div>Version: <strong>{modelMeta?.version || '-'}</strong></div>
-                  <div>Samples: <strong>{modelMeta?.sample_count || 0}</strong></div>
-                  <div>Accuracy: <strong>{(modelMeta?.accuracy*100 || modelMeta?.accuracy) ? `${(modelMeta?.accuracy*100||modelMeta?.accuracy).toFixed ? (modelMeta?.accuracy*100||modelMeta?.accuracy).toFixed(2) : modelMeta?.accuracy : modelMeta?.accuracy}%` : (modelMeta?.accuracy||0)}</strong></div>
-                  <div>Last trained: <strong>{modelMeta?.trained_at || '-'}</strong></div>
-                  <div>Pending labels: <strong>{unlabeledCount}</strong></div>
-                  <div>Ready to retrain: <strong>{pendingCount}</strong></div>
-                </div>
+                  <div className="row gap-sm">
+                    <div>Version: <strong>{modelMeta?.version || '-'}</strong></div>
+                    <div>Samples: <strong>{modelMeta?.sample_count || 0}</strong></div>
+                    <div>Accuracy: <strong>{accuracyText}</strong></div>
+                    <div>Last trained: <strong>{modelMeta?.trained_at || '-'}</strong></div>
+                    <div>Pending labels: <strong>{unlabeledCount}</strong></div>
+                    <div>Ready to retrain: <strong>{pendingCount}</strong></div>
+                  </div>
                 <div style={{ marginTop: 12 }}>
                   <button className="btn btn-primary" onClick={() => handleRetrain(false)} disabled={retraining}>{retraining ? 'Retraining…' : 'Retrain Now'}</button>
                   <button className="btn btn-ghost ml-8" onClick={() => handleRetrain(true)} disabled={retraining}>Force Retrain</button>
