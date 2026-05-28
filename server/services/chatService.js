@@ -12,6 +12,7 @@
  */
 
 const websiteCache = require('./websiteCache');
+const { callMLService } = require('../config/ml');
 
 const RULES = [
   // ──────────────── TRACKING ────────────────
@@ -335,6 +336,19 @@ async function processMessage(message) {
   }
 
   // Fallback if no match
+  // Optional NLP/LLM fallback when enabled
+  if (process.env.USE_NLP === '1' || process.env.GEMINI_API_KEY) {
+    try {
+      const mlResp = await callMLService('/nlp/chat', { message });
+      if (mlResp && !mlResp.fallback && mlResp.reply) {
+        return { text: mlResp.reply, confidence: mlResp.confidence || 0.6, source: 'nlp' };
+      }
+    } catch (e) {
+      // continue to rule-based fallback
+      console.error('[ChatService] NLP call failed:', e.message || e);
+    }
+  }
+
   return {
     text: "I'm not quite sure about that, but our team can help! 😊\n\n**Reach out directly:**\n📧 **sargapba@gmail.com** (Perambra)\n📧 **sargaoffsetmpr@gmail.com** (Meppayur)\n💬 WhatsApp: **wa.me/+919496XXXXXX**\n⏰ **Mon–Sat, 9AM–7PM IST**\n\nWe'll get back to you within 24 hours! ✅",
     confidence: 0.5,

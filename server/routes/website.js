@@ -17,6 +17,11 @@ const { uuidGuard, chatLimiter, inquiryLimiter } = require('../middleware/websit
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../middleware/auth');
 
+// Simple async wrapper to catch errors in async route handlers
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
 // ─── GET /api/website/branches ───
 // Returns public branch information (name, address, phone, email)
 router.get('/branches', async (req, res) => {
