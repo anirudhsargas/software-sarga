@@ -16,7 +16,7 @@ export default function ProofReviewModal({ open, proof, onClose, onSubmit }) {
     // If data URI or absolute path, just embed. Support images and PDFs.
     const isImage = /(\.jpg|\.jpeg|\.png|\.webp|\.gif|image\/)/i.test(url) || /data:image\//.test(url);
     const isPdf = /\.pdf$|data:application\/pdf/.test(url);
-    if (isImage) return <img src={url} alt={`Proof v${proof.version}`} style={{ maxWidth: '100%', maxHeight: '60vh' }} />;
+    if (isImage) return <img src={url} alt={`Proof v${proof.version}`} style={{ maxWidth: '100%', maxHeight: '60vh' }} onError={(e) => { e.target.parentElement.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted)">Image not available</div>`; }} />;
     if (isPdf) return <object data={url} type="application/pdf" width="100%" height="600">PDF preview not available</object>;
     // fallback link
     return <a href={url} target="_blank" rel="noreferrer">Open file</a>;

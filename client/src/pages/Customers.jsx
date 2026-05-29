@@ -469,6 +469,7 @@ const Customers = () => {
             </div>
 
             <div className="card p-0 overflow-hidden shadow-sm">
+                <div className="customer-list" style={{ display: 'flex', flexDirection: 'column' }}>
                 {loading && customers.length === 0 ? (
                     <SkeletonLoader type="customer-list" count={8} />
                 ) : error && customers.length === 0 ? (
@@ -558,6 +559,7 @@ const Customers = () => {
                         </div>
                     </div>
                 ))}
+                </div>
             </div>
             <Pagination
                 page={page}

@@ -1,21 +1,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FileQuestion } from 'lucide-react';
+import ErrorPage from '../components/ErrorPage';
 
 const NotFound = () => {
   const navigate = useNavigate();
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', minHeight: '60vh', textAlign: 'center', padding: '2rem'
-    }}>
-      <h1 style={{ fontSize: '4rem', fontWeight: 800, color: 'var(--text-light, var(--muted))', margin: 0 }}>404</h1>
-      <p style={{ fontSize: '1.1rem', color: 'var(--text-muted, var(--muted))', marginBottom: '1.5rem' }}>
-        Page not found. The page you're looking for doesn't exist.
-      </p>
-      <button className="btn btn-primary" onClick={() => navigate('/dashboard')}>
-        Go to Dashboard
-      </button>
-    </div>
+    <ErrorPage
+      icon={FileQuestion}
+      title="404 — Page Not Found"
+      message="The page you're looking for doesn't exist or has been moved."
+      suggestion="Check the URL for typos or go back to the dashboard."
+      actions={[
+        { label: 'Go to Dashboard', onClick: () => navigate('/dashboard') },
+        { label: 'Go Back', onClick: () => navigate(-1), variant: 'ghost' },
+      ]}
+    />
   );
 };
 

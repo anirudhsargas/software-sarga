@@ -14,6 +14,9 @@ const OrderForecastWidget = ({ branchId }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
 
+    // Call hooks unconditionally to preserve hook ordering across renders
+    const ref = useScrollAnimation({ stagger: true, staggerSelector: 'div > *' });
+
     useEffect(() => {
         (async () => {
             setLoading(true);
@@ -80,8 +83,6 @@ const OrderForecastWidget = ({ branchId }) => {
         branchGroups[key].days.push(p);
     }
     const branchCards = Object.values(branchGroups);
-
-    const ref = useScrollAnimation({ stagger: true, staggerSelector: 'div > *' });
 
     return (
         <section ref={ref} className="summary-section animate-fade-up" style={{ marginTop: 24 }}>

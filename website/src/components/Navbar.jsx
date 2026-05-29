@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, X, Printer } from 'lucide-react'
+import { Menu, X, Printer, Palette } from 'lucide-react'
 import './Navbar.css'
 import CartIcon from './Cart/CartIcon'
 
@@ -8,6 +8,7 @@ const navLinks = [
   { path: '/', label: 'Home' },
   { path: '/services', label: 'Services' },
   { path: '/products', label: 'Products' },
+  { path: '/design', label: 'Design', icon: Palette },
   { path: '/track', label: 'Track Order' },
   { path: '/contact', label: 'Contact' },
 ]
@@ -28,7 +29,7 @@ export default function Navbar() {
   }, [location])
 
   return (
-    <nav className={`navbar ${scrolled ? 'navbar--scrolled' : ''}`} id="main-navbar">
+    <nav className={`navbar ${scrolled ? 'navbar--scrolled' : ''} ${location.pathname === '/' ? 'navbar--hero' : ''}`} id="main-navbar">
       <div className="navbar__inner container">
         <Link to="/" className="navbar__logo" id="logo-link">
           <div className="navbar__logo-icon">
@@ -49,14 +50,12 @@ export default function Navbar() {
               </Link>
             </li>
           ))}
-          <li className="navbar__links-cta">
-            <Link to="/contact" className="btn btn-primary btn-sm" id="nav-get-quote">
-              Get a Quote
-            </Link>
-          </li>
         </ul>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Link to="/signin" className="btn btn-outline btn-sm navbar__cta-desktop" id="nav-sign-in-desktop">
+            Sign In
+          </Link>
           <Link to="/contact" className="btn btn-primary btn-sm navbar__cta-desktop" id="nav-get-quote-desktop">
             Get a Quote
           </Link>

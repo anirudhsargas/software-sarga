@@ -6,7 +6,6 @@
  * only public/customer-safe data. No authentication required.
  */
 const express = require('express');
-const router = express.Router();
 const { pool } = require('../database');
 const logger = require('../helpers/logger');
 const chatService = require('../services/chatService');
@@ -17,10 +16,23 @@ const { uuidGuard, chatLimiter, inquiryLimiter } = require('../middleware/websit
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../middleware/auth');
 
-// Simple async wrapper to catch errors in async route handlers
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
+// Export a factory so we can accept the multer `upload` instance from index.js
+module.exports = (upload) => {
+  const router = express.Router();
+
+  // Simple async wrapper to catch errors in async route handlers
+  const asyncHandler = (fn) => (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+
+  // Debugging: log incoming POST paths for website router
+  router.use((req, res, next) => {
+    if (req.method === 'POST') {
+      // eslint-disable-next-line no-console
+      console.log(`[Website Debug] ${req.method} ${req.path}`);
+    }
+    next();
+  });
 
 // ─── GET /api/website/branches ───
 // Returns public branch information (name, address, phone, email)
@@ -258,14 +270,102 @@ router.post('/chat', chatLimiter, uuidGuard, async (req, res) => {
 });
 
 // Legacy phone lookup login (kept for compatibility) — prefer OTP flow below
-router.post('/website/customer/login', asyncHandler(async (req, res) => {
-  const { phone } = req.body || {};
+router.post('/customer/login', asyncHandler(async (req, res) => {
+  const { phone, countryCode } = req.body || {};
   if (!phone) return res.status(400).json({ message: 'Phone number required' });
-  const [rows] = await pool.query('SELECT id, name, mobile, email FROM sarga_customers WHERE mobile = ? LIMIT 1', [phone]);
-  if (!rows || rows.length === 0) return res.status(404).json({ message: 'Customer not found' });
+
+  // Normalize incoming phone using helpers if available (E.164 preferred)
+  const { normalizeMobileWithCountry } = require('../helpers');
+  const normalized = normalizeMobileWithCountry(phone, countryCode) || String(phone).replace(/\D/g, '').slice(-10);
+
+  const [rows] = await pool.query('SELECT id, name, mobile, email FROM sarga_customers WHERE mobile = ? OR RIGHT(mobile,10) = ? LIMIT 1', [normalized, String(normalized).slice(-10)]);
+  if (!rows || rows.length === 0) {
+    // Return a clear payload so frontend can show a Register option and autofill normalized mobile
+    return res.status(404).json({ message: 'Customer not found', canRegister: true, suggestedMobile: normalized });
+  }
   const customer = rows[0];
   const token = jwt.sign({ id: customer.id, role: 'Customer', name: customer.name }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ message: 'Login successful', token, customerId: customer.id, customerName: customer.name });
+  res.json({ message: 'Login successful', token, customerId: customer.id, customerName: customer.name, customer });
+}));
+
+// Customer lookup for autofill: GET /api/website/customer/lookup?mobile=...
+router.get('/customer/lookup', asyncHandler(async (req, res) => {
+  const { mobile, countryCode } = req.query || {};
+  if (!mobile) return res.status(400).json({ message: 'mobile query param required' });
+  const { normalizeMobileWithCountry } = require('../helpers');
+  const normalized = normalizeMobileWithCountry(mobile, countryCode) || String(mobile).replace(/\D/g, '').slice(-10);
+  const [rows] = await pool.query('SELECT id, name, mobile, email, address FROM sarga_customers WHERE mobile = ? OR RIGHT(mobile,10) = ? LIMIT 1', [normalized, String(normalized).slice(-10)]);
+  if (!rows || rows.length === 0) return res.status(404).json({ message: 'Customer not found' });
+  res.json({ customer: rows[0] });
+}));
+
+// Register customer from website (mobile-first). Issues token on success.
+router.post('/customer/register', asyncHandler(async (req, res) => {
+  const { mobile, countryCode, name, email, address } = req.body || {};
+  if (!mobile) return res.status(400).json({ message: 'Mobile is required' });
+  const { normalizeMobileWithCountry } = require('../helpers');
+  const normalized = normalizeMobileWithCountry(mobile, countryCode) || String(mobile).replace(/\D/g, '').slice(-10);
+
+  // Ensure customers table exists and mobile unique constraint handled by DB
+  try {
+    const [existing] = await pool.query('SELECT id FROM sarga_customers WHERE mobile = ? OR RIGHT(mobile,10) = ? LIMIT 1', [normalized, String(normalized).slice(-10)]);
+    if (existing && existing.length > 0) return res.status(409).json({ message: 'Customer already exists' });
+
+    const branchId = 1; // default public branch — frontend may pass branch later
+    const [result] = await pool.query('INSERT INTO sarga_customers (mobile, name, email, address, branch_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())', [normalized, name || null, email || null, address || null, branchId]);
+    const newId = result.insertId;
+    const [rows] = await pool.query('SELECT id, name, mobile, email FROM sarga_customers WHERE id = ? LIMIT 1', [newId]);
+    const customer = rows[0];
+    const token = jwt.sign({ id: customer.id, role: 'Customer', name: customer.name }, JWT_SECRET, { expiresIn: '7d' });
+    res.status(201).json({ message: 'Registered', token, customer });
+  } catch (err) {
+    logger.error('[Website] Customer register error:', err.message || err);
+    if (err && err.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'Mobile already exists' });
+    res.status(500).json({ message: 'Registration failed' });
+  }
+}));
+
+// Google Sign-In for website: accept `id_token` from client and verify with Google's tokeninfo endpoint.
+router.post('/customer/google-signin', asyncHandler(async (req, res) => {
+  const { id_token } = req.body || {};
+  if (!id_token) return res.status(400).json({ message: 'id_token is required' });
+
+  // Verify token via Google's tokeninfo endpoint (use axios, already in dependencies)
+  const axios = require('axios');
+  try {
+    const resp = await axios.get('https://oauth2.googleapis.com/tokeninfo', { params: { id_token } });
+    const payload = resp.data;
+    // payload contains email, email_verified, name, picture, phone_number (optional)
+    const { email, email_verified, name, phone_number } = payload;
+    if (!email || !email_verified) return res.status(400).json({ message: 'Google account email not available or not verified' });
+
+    // Try find customer by email or phone
+    let found = null;
+    if (phone_number) {
+      const [byPhone] = await pool.query('SELECT id, name, mobile, email FROM sarga_customers WHERE mobile = ? OR RIGHT(mobile,10) = ? LIMIT 1', [phone_number, String(phone_number).slice(-10)]);
+      if (byPhone && byPhone.length > 0) found = byPhone[0];
+    }
+    if (!found) {
+      const [byEmail] = await pool.query('SELECT id, name, mobile, email FROM sarga_customers WHERE email = ? LIMIT 1', [email]);
+      if (byEmail && byEmail.length > 0) found = byEmail[0];
+    }
+
+    if (!found) {
+      // Create a minimal customer record
+      const branchId = 1;
+      const mobileVal = phone_number || null;
+      const [ins] = await pool.query('INSERT INTO sarga_customers (mobile, name, email, branch_id, created_at) VALUES (?, ?, ?, ?, NOW())', [mobileVal, name || null, email, branchId]);
+      const newId = ins.insertId;
+      const [rows] = await pool.query('SELECT id, name, mobile, email FROM sarga_customers WHERE id = ? LIMIT 1', [newId]);
+      found = rows[0];
+    }
+
+    const token = jwt.sign({ id: found.id, role: 'Customer', name: found.name }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ message: 'Authenticated', token, customer: found });
+  } catch (err) {
+    logger.error('[Website] Google signin error:', err && err.message ? err.message : err);
+    res.status(500).json({ message: 'Google signin failed' });
+  }
 }));
 
 // ─── Email OTP Sign-in Flow ─────────────────────────────────────
@@ -273,7 +373,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
 // POST /api/website/customer/send-otp { email }
-router.post('/website/customer/send-otp', inquiryLimiter, asyncHandler(async (req, res) => {
+router.post('/customer/send-otp', inquiryLimiter, asyncHandler(async (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ message: 'Email is required' });
 
@@ -337,7 +437,7 @@ router.post('/website/customer/send-otp', inquiryLimiter, asyncHandler(async (re
 }));
 
 // POST /api/website/customer/verify-otp { email, otp }
-router.post('/website/customer/verify-otp', asyncHandler(async (req, res) => {
+router.post('/customer/verify-otp', asyncHandler(async (req, res) => {
   const { email, otp } = req.body || {};
   if (!email || !otp) return res.status(400).json({ message: 'Email and OTP required' });
   const [rows] = await pool.query('SELECT id, name, email FROM sarga_customers WHERE email = ? LIMIT 1', [email]);
@@ -359,8 +459,26 @@ router.post('/website/customer/verify-otp', asyncHandler(async (req, res) => {
   res.json({ message: 'Authenticated', token, customerId: customer.id, customerName: customer.name });
 }));
 
+// POST /api/website/upload-design (multipart/form-data)
+router.post('/upload-design', upload.array('files', 10), asyncHandler(async (req, res) => {
+  const files = req.files || [];
+  const { needDesign, notes } = req.body || {};
+
+  if ((!files || files.length === 0) && (!needDesign || needDesign === '0')) {
+    return res.status(400).json({ message: 'No files uploaded and design support not requested' });
+  }
+
+  // For now, just acknowledge receipt and return file info. Files are saved by multer to uploads/.
+  const fileInfos = (files || []).map(f => ({ originalName: f.originalname, filename: f.filename, size: f.size, path: `/uploads/${f.filename}` }));
+
+  logger.info('[Website] Received design upload', { count: fileInfos.length, needDesign: !!(needDesign === '1' || needDesign === 'true') });
+
+  // Optionally, persist a record or send to email — left as future enhancement
+  res.json({ message: 'Files received', files: fileInfos, needDesign: !!(needDesign === '1' || needDesign === 'true'), notes: notes || '' });
+}));
+
 // Customer dashboard proxy: uses token issued above to fetch customer's dashboard
-router.get('/website/customer/dashboard', asyncHandler(async (req, res) => {
+router.get('/customer/dashboard', asyncHandler(async (req, res) => {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
   if (!token) return res.status(401).json({ message: 'Missing token' });
@@ -389,7 +507,7 @@ router.get('/website/customer/dashboard', asyncHandler(async (req, res) => {
 }));
 
 // GET /api/website/job/:id — Customer-visible job details (requires customer token)
-router.get('/website/job/:id', asyncHandler(async (req, res) => {
+router.get('/job/:id', asyncHandler(async (req, res) => {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
   if (!token) return res.status(401).json({ message: 'Missing token' });
@@ -438,7 +556,7 @@ router.get('/website/job/:id', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/website/jobs/:id/proofs/:proofId/review-customer — Customer review a proof
-router.post('/website/jobs/:id/proofs/:proofId/review-customer', asyncHandler(async (req, res) => {
+router.post('/jobs/:id/proofs/:proofId/review-customer', asyncHandler(async (req, res) => {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
   if (!token) return res.status(401).json({ message: 'Missing token' });
@@ -479,7 +597,7 @@ router.post('/website/jobs/:id/proofs/:proofId/review-customer', asyncHandler(as
 }));
 
 // GET /api/website/invoices/:invoiceId/download — generate and stream invoice PDF to customer
-router.get('/website/invoices/:invoiceId/download', asyncHandler(async (req, res) => {
+router.get('/invoices/:invoiceId/download', asyncHandler(async (req, res) => {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
   if (!token) return res.status(401).json({ message: 'Missing token' });
@@ -569,4 +687,5 @@ router.post('/webhook/sync', async (req, res) => {
   }
 });
 
-module.exports = router;
+  return router;
+};

@@ -4,6 +4,23 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+const loadSchemaFiles = async (connection) => {
+  const schemaDir = path.join(__dirname, 'schemas');
+  if (!fs.existsSync(schemaDir)) return;
+  const files = fs.readdirSync(schemaDir).filter(f => f.endsWith('.sql')).sort();
+  for (const file of files) {
+    const sql = fs.readFileSync(path.join(schemaDir, file), 'utf8');
+    const statements = sql.split(';').filter(s => s.trim());
+    for (const stmt of statements) {
+      try {
+        await connection.query(stmt);
+      } catch (e) {
+        if (e.code !== 'ER_TABLE_EXISTS_ERROR' && e.code !== 'ER_DUP_KEYNAME') throw e;
+      }
+    }
+  }
+};
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
@@ -32,6 +49,8 @@ const initDb = async () => {
   };
 
   try {
+    // Load table schemas from server/schemas/*.sql (source of truth for CREATE TABLE)
+    await loadSchemaFiles(connection);
     // Branch Table
     await connection.query(`
       CREATE TABLE IF NOT EXISTS sarga_branches (

@@ -1,21 +1,21 @@
 import React from 'react';
-import { WifiOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { WifiOff } from 'lucide-react';
+import ErrorPage from '../components/ErrorPage';
 
 const NetworkError = () => {
   const navigate = useNavigate();
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', padding: 24 }}>
-      <WifiOff size={48} className="text-warning" />
-      <h1 style={{ fontSize: 28, marginTop: 12 }}>Network Error</h1>
-      <p style={{ color: 'var(--text-muted)', maxWidth: 560, textAlign: 'center' }}>
-        We couldn't reach the server. Check your internet connection and try again.
-      </p>
-      <div style={{ marginTop: 16 }}>
-        <button className="btn btn-primary" onClick={() => window.location.reload()}>Retry</button>
-        <button className="btn btn-ghost" style={{ marginLeft: 8 }} onClick={() => navigate('/', { replace: true })}>Go Home</button>
-      </div>
-    </div>
+    <ErrorPage
+      icon={WifiOff}
+      title="Network Error"
+      message="Unable to reach the server. Your internet connection may be down or the server is temporarily unavailable."
+      suggestion="Check your connection, then try again. Any unsaved data will be restored when you reconnect."
+      actions={[
+        { label: 'Retry', onClick: () => window.location.reload() },
+        { label: 'Go Home', onClick: () => navigate('/', { replace: true }), variant: 'ghost' },
+      ]}
+    />
   );
 };
 

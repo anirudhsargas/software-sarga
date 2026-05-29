@@ -32,6 +32,21 @@
   gap: var(--space-xs);
 }
 
+.subcategory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 8px;
+  margin-top: 6px;
+}
+
+.sidebar-btn--sub {
+  padding-left: 18px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 .sidebar-btn {
   width: 100%;
   text-align: left;
@@ -48,14 +63,14 @@
 }
 
 .sidebar-btn:hover {
-  background: rgba(31, 42, 51, 0.03);
+  background: rgba(0, 0, 0, 0.03);
   color: var(--accent);
 }
 
 .sidebar-btn--active {
   background: var(--accent) !important;
-  color: #fff !important;
-  box-shadow: 0 4px 12px rgba(31, 42, 51, 0.15);
+  color: var(--on-accent) !important;
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2);
 }
 
 /* --- Content --- */
@@ -155,7 +170,7 @@
 .product-card__icon-wrap {
   height: 160px;
   width: 100%;
-  background: linear-gradient(135deg, rgba(31, 42, 51, 0.02) 0%, rgba(31, 42, 51, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.06) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -196,6 +211,54 @@
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* --- Pagination --- */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-2xl);
+  flex-wrap: wrap;
+}
+
+.pagination__btn {
+  padding: 8px 16px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.pagination__btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pagination__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination__btn--num {
+  min-width: 40px;
+  padding: 8px 0;
+  text-align: center;
+}
+
+.pagination__btn--active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.pagination__btn--active:hover {
+  color: var(--on-accent) !important;
 }
 
 /* --- Responsive --- */

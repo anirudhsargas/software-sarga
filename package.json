@@ -7,16 +7,11 @@
     "fix:laser-booktype:apply": "cd server && node scripts/fix-laser-book-type.js --apply --confirm=LASER"
   },
   "engines": {
-    "node": ">=18 <21"
+    "node": ">=18"
   },
   "dependencies": {
-    "docx": "^9.6.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.1",
-    "pdfkit": "^0.17.2",
-    "three": "^0.184.0"
-  },
-  "devDependencies": {
-    "terser": "^5.48.0"
+    "pdfkit": "^0.17.2"
   }
 }

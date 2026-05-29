@@ -28,7 +28,7 @@ const mainServices = [
     desc: 'Professional high-volume offset runs and quick-turnaround digital prints. Perfect for books, magazines, brochures, leaflets, and letterheads.',
     features: ['Books & Magazines', 'Brochures & Flyers', 'Letterheads & Envelopes', 'Menu Cards & Calendars'],
     price: 'Starting from ₹0.80 / page',
-    color: '#1f2a33',
+    color: '#1a1a1a',
   },
   {
     icon: <FileText size={32} />,
@@ -36,7 +36,7 @@ const mainServices = [
     desc: 'High-speed high-quality photocopying (photostat) services in black & white and full color. Bulk discounts available for schools, colleges, and offices.',
     features: ['A4 & A3 Photocopying', 'Color Photostat', 'Document Scanning', 'Bulk Printing Runs'],
     price: 'Starting from ₹1.00 / copy',
-    color: '#2f3b46',
+    color: '#2a2a2a',
   },
   {
     icon: <Palette size={32} />,
@@ -44,7 +44,7 @@ const mainServices = [
     desc: 'Premium custom-made mementos, appreciation plaques, shields, trophy engraving, and custom photo framing for achievements, events, and memories.',
     features: ['Wooden & Acrylic Mementos', 'Custom Photo Framing', 'Plaques & Certificates', 'Appreciation Shields'],
     price: 'Starting from ₹150 / unit',
-    color: '#1f2a33',
+    color: '#1a1a1a',
   },
   {
     icon: <Layers size={32} />,
@@ -52,7 +52,7 @@ const mainServices = [
     desc: 'Give your books, theses, projects, or documents a premium finish. Professional binding options matching university and industry standards.',
     features: ['Academic Hard Binding', 'Spiral Binding', 'Wire-O Binding', 'Matte & Gloss Lamination'],
     price: 'Starting from ₹15 / book',
-    color: '#2f3b46',
+    color: '#2a2a2a',
   },
 ]
 
@@ -91,7 +91,7 @@ export default function Services() {
         <div className="container">
           <div className="main-services-grid">
             {mainServices.map((service, i) => (
-              <div key={i} className="main-service-card glass-card" id={`main-service-${i}`}>
+              <div key={i} className={`main-service-card glass-card reveal reveal-delay-${i+1}`} id={`main-service-${i}`}>
                 <div
                   className="main-service-card__icon"
                   style={{ background: `${service.color}12`, color: service.color }}
@@ -141,7 +141,7 @@ export default function Services() {
 
           <div className="additional-grid">
             {additionalServices.map((service, i) => (
-              <div key={i} className="additional-card" id={`additional-service-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-md)' }}>
+              <div key={i} className="additional-card reveal" id={`additional-service-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-md)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
                   <div
                     className="additional-card__icon"
@@ -174,7 +174,7 @@ export default function Services() {
       {/* CTA */}
       <section className="section" id="services-cta">
         <div className="container">
-          <div className="services-cta-card glass-card">
+          <div className="services-cta-card glass-card reveal">
             <h2>Need a custom bulk project quote?</h2>
             <p>We offer customized commercial pricing for schools, universities, offices, and large organizations.</p>
             <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center', flexWrap: 'wrap' }}>

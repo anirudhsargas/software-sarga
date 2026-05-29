@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { MapPin, Phone, Mail, Clock, Send, Loader2, CheckCircle, MessageSquare } from 'lucide-react'
+import { MapPin, Phone, Mail, Clock, Send, Loader2, CheckCircle, MessageSquare, ExternalLink } from 'lucide-react'
 import { submitInquiry } from '../api'
 import toast from 'react-hot-toast'
 import './Contact.css'
@@ -86,7 +86,7 @@ export default function Contact() {
       <section className="section" id="contact-content">
         <div className="container">
           <div className="contact-grid">
-            <div className="contact-form-wrapper glass-card" id="contact-form-wrapper">
+            <div className="contact-form-wrapper glass-card reveal" id="contact-form-wrapper">
               {submitted ? (
                 <div className="contact-success" id="contact-success">
                   <div className="contact-success__icon"><CheckCircle size={48} style={{ color: 'var(--success)' }} /></div>
@@ -150,15 +150,17 @@ export default function Contact() {
 
             <div className="contact-branches">
               {branches.map((branch, i) => (
-                <div key={i} className="branch-card glass-card" id={`branch-${i}`} style={{ overflow: 'hidden', padding: 0 }}>
+                <div key={i} className={`branch-card glass-card reveal reveal-delay-${i+1}`} id={`branch-${i}`} style={{ overflow: 'hidden', padding: 0 }}>
                   <div style={{ padding: 'var(--space-lg)' }}>
                     <h3 className="branch-card__name" style={{ marginBottom: 'var(--space-sm)' }}>{branch.name}</h3>
                     <ul className="branch-card__info" style={{ marginBottom: 'var(--space-md)' }}>
                       <li><MapPin size={16} /><span>{branch.address}</span></li>
                       <li><Phone size={16} /><a href={`tel:${branch.phone.replace(/\s/g, '')}`}>{branch.phone}</a></li>
+                      <li><MessageSquare size={16} style={{ color: '#25D366' }} /><a href={`https://wa.me/${branch.phone.replace(/\s/g, '')}`} target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
                       <li><Mail size={16} /><a href={`mailto:${branch.email}`}>{branch.email}</a></li>
                       <li><Clock size={16} /><span>{branch.hours}</span></li>
                     </ul>
+                    <a href={`https://wa.me/${branch.phone.replace(/\s/g, '')}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm" style={{ background: '#25D366', borderColor: '#25D366', color: '#fff', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><MessageSquare size={14} /> Chat on WhatsApp</a>
                   </div>
                   {/* Google Maps Iframe Embed */}
                   <div className="branch-card__map" style={{ height: '180px', width: '100%', borderTop: '1px solid var(--glass-border)' }}>
@@ -175,7 +177,7 @@ export default function Contact() {
                   </div>
                 </div>
               ))}
-              <div className="quick-contact glass-card" id="quick-contact">
+              <div className="quick-contact glass-card reveal" id="quick-contact">
                 <h3>Need immediate support?</h3>
                 <p>Chat directly with our manager on WhatsApp for pricing and delivery timelines.</p>
                 <a

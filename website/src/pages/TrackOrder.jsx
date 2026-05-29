@@ -109,17 +109,17 @@ export default function TrackOrder() {
       {/* Search */}
       <section className="section" id="track-search">
         <div className="container">
-          <form className="track-search-box glass-card" onSubmit={(e) => handleTrack(e)} id="track-form">
+          <form className="track-search-box glass-card reveal" onSubmit={(e) => handleTrack(e)} id="track-form">
             <div className="track-search-box__input-wrap">
               <Search size={20} className="track-search-box__icon" />
-              <input
-                type="text"
-                className="input track-search-box__input"
-                placeholder="Enter Job Code (e.g., PBA-20260527-001) or Mobile Number"
-                value={jobCode}
-                onChange={(e) => setJobCode(e.target.value)}
-                id="track-input"
-              />
+<input
+                 type="text"
+                 className="input track-search-box__input"
+                 placeholder="Enter Job Code (e.g., PBA-250529-001) or Mobile Number"
+                 value={jobCode}
+                 onChange={(e) => setJobCode(e.target.value)}
+                 id="track-input"
+               />
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
               <button type="submit" className="btn btn-primary" disabled={loading} id="track-submit">
@@ -141,7 +141,7 @@ export default function TrackOrder() {
 
           {/* Skeleton Loader */}
           {loading && (
-            <div className="track-result glass-card" style={{ opacity: 0.8 }} id="track-skeleton">
+            <div className="track-result glass-card reveal" style={{ opacity: 0.8 }} id="track-skeleton">
               <div className="track-result__header">
                 <div style={{ width: '100%' }}>
                   <div className="skeleton-line" style={{ width: '160px', height: '24px', marginBottom: '8px' }}></div>
@@ -174,7 +174,7 @@ export default function TrackOrder() {
 
           {/* Result */}
           {jobData && !loading && (
-            <div className="track-result glass-card" id="track-result">
+            <div className="track-result glass-card reveal" id="track-result">
               <div className="track-result__header">
                 <div>
                   <h3 className="track-result__code">{jobData.job_code || jobData.id}</h3>
@@ -255,7 +255,7 @@ export default function TrackOrder() {
 
           {/* Help text */}
           {!jobData && !error && !loading && (
-            <div className="track-help" id="track-help">
+            <div className="track-help reveal" id="track-help">
               <h3>Where to find your tracking detail?</h3>
               <p>You can track using your registered <strong>Mobile Number</strong> or the unique <strong>Job Code</strong> printed on your receipt (e.g., PBA-20260527-001 or MPR-20260527-002).</p>
               <p>Can't find your order? Click on the <strong>Try Demo</strong> button above to preview the tracker UX instantly, or <a href="/contact" className="track-help__link">Contact us</a> for manual assistance.</p>

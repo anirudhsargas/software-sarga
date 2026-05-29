@@ -52,95 +52,128 @@ async function computeStaffBaselines() {
             )
         `);
 
-        const [staffList] = await conn.query('SELECT id FROM sarga_staff');
+        // Fetch list of staff with their branch ids
+        const [staffList] = await conn.query('SELECT id, branch_id FROM sarga_staff');
+        if (!staffList.length) return { success: true, profiles: 0 };
 
-        for (const staff of staffList) {
-            const staffId = staff.id;
+        // Aggregate login hours per staff
+        const [loginAgg] = await conn.query(
+            `SELECT user_id_internal AS staff_id,
+                    AVG(HOUR(timestamp)) AS avg_login_hour,
+                    STDDEV_POP(HOUR(timestamp)) AS std_login_hour
+             FROM sarga_audit_logs
+             WHERE action = 'LOGIN' AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+             GROUP BY user_id_internal`
+        );
 
-            // Login hours (from audit log)
-            const [loginRows] = await conn.query(
-                `SELECT HOUR(timestamp) AS login_hour
-                 FROM sarga_audit_logs
-                 WHERE user_id_internal = ? AND action = 'LOGIN'
-                   AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
-                [staffId]
-            );
-            const loginHours = loginRows.map(r => r.login_hour);
+        // Aggregate discount requests per staff
+        const [discReqAgg] = await conn.query(
+            `SELECT requester_id AS staff_id,
+                    AVG(discount_percent) AS avg_discount_pct,
+                    STDDEV_POP(discount_percent) AS std_discount_pct
+             FROM sarga_discount_requests
+             WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+             GROUP BY requester_id`
+        );
 
-            // Discount percentages (from jobs)
-            const [discountRows] = await conn.query(
-                `SELECT 
-                    CASE WHEN total_amount > 0 
-                         THEN ((total_amount - balance_amount - advance_paid) / total_amount * 100)
-                         ELSE 0 END AS discount_pct
-                 FROM sarga_jobs
-                 WHERE branch_id IN (SELECT branch_id FROM sarga_staff WHERE id = ?)
-                   AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-                   AND total_amount > 0`,
-                [staffId]
-            );
-            // For discounts, look at discount_requests made by this staff
-            const [discReqs] = await conn.query(
-                `SELECT discount_percent FROM sarga_discount_requests
-                 WHERE requester_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
-                [staffId]
-            );
-            const discounts = discReqs.map(r => parseFloat(r.discount_percent) || 0);
+        // Aggregate job-derived discount per staff via staff->branch join
+        const [jobDiscAgg] = await conn.query(
+            `SELECT s.id AS staff_id,
+                    AVG(CASE WHEN j.total_amount > 0 THEN ((j.total_amount - j.balance_amount - j.advance_paid) / j.total_amount * 100) ELSE 0 END) AS avg_discount_pct,
+                    STDDEV_POP(CASE WHEN j.total_amount > 0 THEN ((j.total_amount - j.balance_amount - j.advance_paid) / j.total_amount * 100) ELSE 0 END) AS std_discount_pct
+             FROM sarga_jobs j
+             JOIN sarga_staff s ON j.branch_id = s.branch_id
+             WHERE j.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND j.total_amount > 0
+             GROUP BY s.id`
+        );
 
-            // Order values
-            const [orderRows] = await conn.query(
-                `SELECT total_amount FROM sarga_customer_payments
-                 WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-                   AND branch_id IN (SELECT branch_id FROM sarga_staff WHERE id = ?)`,
-                [staffId]
-            );
-            const orderValues = orderRows.map(r => parseFloat(r.total_amount) || 0);
+        // Aggregate order values per staff (via branch)
+        const [orderAgg] = await conn.query(
+            `SELECT s.id AS staff_id,
+                    AVG(cp.total_amount) AS avg_order_value,
+                    STDDEV_POP(cp.total_amount) AS std_order_value
+             FROM sarga_customer_payments cp
+             JOIN sarga_staff s ON cp.branch_id = s.branch_id
+             WHERE cp.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+             GROUP BY s.id`
+        );
 
-            // Daily action counts
-            const [actionRows] = await conn.query(
-                `SELECT DATE(timestamp) AS d, COUNT(*) AS cnt
-                 FROM sarga_audit_logs
-                 WHERE user_id_internal = ?
-                   AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-                 GROUP BY DATE(timestamp)`,
-                [staffId]
-            );
-            const dailyActions = actionRows.map(r => r.cnt);
+        // Average daily actions and stddev per staff
+        const [dailyAgg] = await conn.query(
+            `SELECT t.staff_id,
+                    AVG(t.cnt) AS avg_daily_actions,
+                    STDDEV_POP(t.cnt) AS std_daily_actions
+             FROM (
+               SELECT user_id_internal AS staff_id, DATE(timestamp) AS d, COUNT(*) AS cnt
+               FROM sarga_audit_logs
+               WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+               GROUP BY user_id_internal, DATE(timestamp)
+             ) t
+             GROUP BY t.staff_id`
+        );
 
-            // Known devices (from activity log if exists)
-            const [deviceRows] = await conn.query(
-                `SELECT DISTINCT device_info FROM sarga_staff_activity_log
-                 WHERE staff_id = ? AND device_info IS NOT NULL
-                   AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
-                [staffId]
-            ).catch(() => [[]]);
-            const knownDevices = deviceRows.map(r => r.device_info).filter(Boolean);
+        // Known devices per staff
+        const [deviceAgg] = await conn.query(
+            `SELECT staff_id, GROUP_CONCAT(DISTINCT device_info SEPARATOR '||') AS devices
+             FROM sarga_staff_activity_log
+             WHERE device_info IS NOT NULL AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+             GROUP BY staff_id`
+        );
 
-            await conn.query(
-                `INSERT INTO sarga_staff_behavior_profile 
-                    (staff_id, avg_login_hour, std_login_hour, avg_discount_pct, std_discount_pct,
-                     avg_order_value, std_order_value, avg_daily_actions, std_daily_actions, known_devices)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE
-                    avg_login_hour = VALUES(avg_login_hour),
-                    std_login_hour = VALUES(std_login_hour),
-                    avg_discount_pct = VALUES(avg_discount_pct),
-                    std_discount_pct = VALUES(std_discount_pct),
-                    avg_order_value = VALUES(avg_order_value),
-                    std_order_value = VALUES(std_order_value),
-                    avg_daily_actions = VALUES(avg_daily_actions),
-                    std_daily_actions = VALUES(std_daily_actions),
-                    known_devices = VALUES(known_devices)`,
-                [
-                    staffId,
-                    mean(loginHours), stdDev(loginHours),
-                    mean(discounts), stdDev(discounts),
-                    mean(orderValues), stdDev(orderValues),
-                    Math.round(mean(dailyActions)), Math.round(stdDev(dailyActions)),
-                    JSON.stringify(knownDevices)
-                ]
-            );
+        // Build maps for quick lookup
+        const loginMap = new Map(loginAgg.map(r => [r.staff_id, r]));
+        const discReqMap = new Map(discReqAgg.map(r => [r.staff_id, r]));
+        const jobDiscMap = new Map(jobDiscAgg.map(r => [r.staff_id, r]));
+        const orderMap = new Map(orderAgg.map(r => [r.staff_id, r]));
+        const dailyMap = new Map(dailyAgg.map(r => [r.staff_id, r]));
+        const deviceMap = new Map(deviceAgg.map(r => [r.staff_id, r]));
+
+        // Prepare rows for bulk upsert
+        const values = [];
+        const placeholders = [];
+        for (const s of staffList) {
+            const sid = s.id;
+            const l = loginMap.get(sid) || {};
+            // Prefer discount requests aggregation, fallback to job-based
+            const dr = discReqMap.get(sid);
+            const jd = jobDiscMap.get(sid);
+            const avgDisc = dr ? parseFloat(dr.avg_discount_pct || 0) : (jd ? parseFloat(jd.avg_discount_pct || 0) : 0);
+            const stdDisc = dr ? parseFloat(dr.std_discount_pct || 0) : (jd ? parseFloat(jd.std_discount_pct || 0) : 0);
+            const ord = orderMap.get(sid) || {};
+            const dy = dailyMap.get(sid) || {};
+            const dv = deviceMap.get(sid) || {};
+
+            const avgLogin = l.avg_login_hour != null ? parseFloat(l.avg_login_hour) : 0;
+            const stdLogin = l.std_login_hour != null ? parseFloat(l.std_login_hour) : 0;
+            const avgOrder = ord.avg_order_value != null ? parseFloat(ord.avg_order_value) : 0;
+            const stdOrder = ord.std_order_value != null ? parseFloat(ord.std_order_value) : 0;
+            const avgDaily = dy.avg_daily_actions != null ? Math.round(parseFloat(dy.avg_daily_actions)) : 0;
+            const stdDaily = dy.std_daily_actions != null ? Math.round(parseFloat(dy.std_daily_actions)) : 0;
+            const knownDevices = dv.devices ? dv.devices.split('||').filter(Boolean) : [];
+
+            placeholders.push('(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            values.push(sid, avgLogin, stdLogin, avgDisc, stdDisc, avgOrder, stdOrder, avgDaily, stdDaily, JSON.stringify(knownDevices));
         }
+
+        if (values.length) {
+            const sql = `INSERT INTO sarga_staff_behavior_profile
+                (staff_id, avg_login_hour, std_login_hour, avg_discount_pct, std_discount_pct,
+                 avg_order_value, std_order_value, avg_daily_actions, std_daily_actions, known_devices)
+             VALUES ${placeholders.join(',')}
+             ON DUPLICATE KEY UPDATE
+                avg_login_hour = VALUES(avg_login_hour),
+                std_login_hour = VALUES(std_login_hour),
+                avg_discount_pct = VALUES(avg_discount_pct),
+                std_discount_pct = VALUES(std_discount_pct),
+                avg_order_value = VALUES(avg_order_value),
+                std_order_value = VALUES(std_order_value),
+                avg_daily_actions = VALUES(avg_daily_actions),
+                std_daily_actions = VALUES(std_daily_actions),
+                known_devices = VALUES(known_devices)`;
+
+            await conn.query(sql, values);
+        }
+
         return { success: true, profiles: staffList.length };
     } finally {
         conn.release();
@@ -278,14 +311,14 @@ async function saveAlerts(alerts) {
     if (!alerts.length) return;
     const conn = await pool.getConnection();
     try {
+        const placeholders = [];
+        const values = [];
         for (const alert of alerts) {
-            await conn.query(
-                `INSERT INTO sarga_fraud_alerts 
-                    (staff_id, alert_type, severity, details, message)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [alert.staff_id, alert.alert_type, alert.severity, alert.details, alert.message]
-            );
+            placeholders.push('(?, ?, ?, ?, ?)');
+            values.push(alert.staff_id, alert.alert_type, alert.severity, alert.details, alert.message);
         }
+        const sql = `INSERT INTO sarga_fraud_alerts (staff_id, alert_type, severity, details, message) VALUES ${placeholders.join(',')}`;
+        await conn.query(sql, values);
     } finally {
         conn.release();
     }

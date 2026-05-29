@@ -188,9 +188,12 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        // Network error (no response)
+        const data = error.response?.data;
+        const serverError = data?.error;
+        const userMsg = serverError?.userMessage;
+        const suggestion = serverError?.suggestion;
+
         if (error.request && !error.response) {
-            // Show a toast and navigate to network error UI
             try { toast.error('Network error — failed to reach server'); } catch (e) {}
             if (window.location.pathname !== '/error/network') {
                 window.location.href = '/error/network';
@@ -199,15 +202,14 @@ api.interceptors.response.use(
         }
 
         const status = error.response?.status;
+
         if (status === 429) {
-            // Rate limited
-            try { toast.error('Too many requests. Please slow down.'); } catch (e) {}
+            try { toast.error(userMsg || 'Too many requests. Please slow down.'); } catch (e) {}
             return Promise.reject(error);
         }
 
         if (status === 403) {
-            try { toast.error('Access denied.'); } catch (e) {}
-            // If user is authenticated, redirect to dashboard; otherwise to login
+            try { toast.error(userMsg || 'Access denied.'); } catch (e) {}
             const token = localStorage.getItem('token');
             if (!token) {
                 window.location.href = '/login';
@@ -218,7 +220,7 @@ api.interceptors.response.use(
         }
 
         if (status >= 500) {
-            try { toast.error('Server error. Redirecting to error page.'); } catch (e) {}
+            try { toast.error(userMsg || 'Server error. Redirecting to error page.'); } catch (e) {}
             if (window.location.pathname !== '/error/server') {
                 window.location.href = '/error/server';
             }
@@ -231,6 +233,10 @@ api.interceptors.response.use(
             if (window.location.pathname !== '/login') {
                 window.location.href = '/login';
             }
+        }
+
+        if (status === 422 && userMsg) {
+            try { toast.error(userMsg); } catch (e) {}
         }
 
         return Promise.reject(error);

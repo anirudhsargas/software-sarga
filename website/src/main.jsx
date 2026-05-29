@@ -4,6 +4,10 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import App from './App'
 import './index.css'
+import theme from './theme'
+
+// initialize theme early so data-theme is set before render
+try{ theme.init() }catch(e){console.warn('theme init failed',e)}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -3,7 +3,7 @@ import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store,
-    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText
+    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
@@ -79,6 +79,7 @@ const Quotes = React.lazy(() => import('./Quotes'));
 const SettingsPage = React.lazy(() => import('./SettingsPage'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
 const ChatbotTraining = React.lazy(() => import('./admin/ChatbotTraining'));
+const WebInquiries = React.lazy(() => import('./WebInquiries'));
 const PageLoader = () => (
     <div className="page-loader">
         <Loader2 size={20} className="animate-spin" /> Loading...
@@ -248,6 +249,7 @@ const Dashboard = () => {
         { key: 'finance', name: t('recurring_invoices', 'Recurring Invoices'), icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'finance' },
         { key: 'manage', name: t('settings', 'Settings'), icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'manage' },
         { key: 'manage', name: '🤖 Chatbot Training', icon: Brain, path: '/dashboard/admin/chatbot-training', roles: ['Admin'], group: 'manage' },
+        { key: 'operations', name: 'Web Inquiries', icon: MessageSquare, path: '/dashboard/web-inquiries', roles: ['Admin', 'Front Office'], group: 'business' },
     ];
 
     const filteredMenu = useMemo(() => {
@@ -742,6 +744,7 @@ const Dashboard = () => {
                             <Route path="recurring-invoices" element={<RecurringInvoices />} />
                             <Route path="settings" element={<SettingsPage />} />
                             <Route path="admin/chatbot-training" element={<ChatbotTraining />} />
+                            <Route path="web-inquiries" element={<WebInquiries />} />
                             <Route path="*" element={<NotFound />} />
                         </Routes>
                     </Suspense>

@@ -8,3 +8,14 @@
   flex: 1;
   padding-top: 72px; /* Navbar height */
 }
+
+/* Smooth page content transitions */
+.main-content > div,
+.main-content > section:first-child {
+  animation: pageIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Spinning animation for loading states */
+.spinning {
+  animation: spin 0.8s linear infinite;
+}

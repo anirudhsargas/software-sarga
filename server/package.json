@@ -19,6 +19,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.16.3",
+    "pg": "^8.11.0",
     "net-snmp": "^3.26.1",
     "node-cache": "^5.1.2",
     "node-cron": "^4.2.1",

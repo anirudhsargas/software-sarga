@@ -1,2 +1,0 @@
-﻿total_count	new_today
-28	1

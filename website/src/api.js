@@ -48,13 +48,17 @@ export const getChatHistory = (uuid, limit = 50) => {
 };
 
 // Customer auth + dashboard
-export const customerLogin = (phone) => api.post('/website/customer/login', { phone });
+export const customerLogin = ({ phone, countryCode } = {}) => api.post('/website/customer/login', { phone, countryCode });
 export const getCustomerDashboard = (customerId) => api.get(`/customers/${customerId}/dashboard`);
 export const getWebsiteJob = (jobId) => api.get(`/website/job/${jobId}`);
 export const reviewProofCustomer = (jobId, proofId, payload) => api.post(`/website/jobs/${jobId}/proofs/${proofId}/review-customer`, payload);
 export const downloadInvoiceUrl = (invoiceId) => `${API_BASE}/api/website/invoices/${invoiceId}/download`;
 export const customerSendOtp = (email) => api.post('/website/customer/send-otp', { email });
 export const customerVerifyOtp = (email, otp) => api.post('/website/customer/verify-otp', { email, otp });
+export const uploadDesign = (formData) => api.post('/website/upload-design', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const customerLookup = ({ mobile, countryCode } = {}) => api.get('/website/customer/lookup', { params: { mobile, countryCode } });
+export const customerRegister = (payload) => api.post('/website/customer/register', payload);
+export const customerGoogleSignIn = (id_token) => api.post('/website/customer/google-signin', { id_token });
 
 export default api;
 

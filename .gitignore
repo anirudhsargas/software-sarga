@@ -3,18 +3,31 @@ node_modules/
 server/node_modules/
 client/node_modules/
 
-# Environment variables - NEVER commit these
+# Environment variables - NEVER commit secrets
 .env
 .env.local
 .env.*.local
-.env*.local
+.env.bak
 
 # Build outputs
 dist/
 build/
+dev-dist/
+client/dev-dist/
 *.log
+runtime-errors*.log
+server/*.log
+server/*.txt
+server/*.err
+stats.html
+sarga_db_backup.sql
 .vercel
 .vercel/
+
+# Temp data directories
+server/data/
+server/backups/
+website/docs/
 
 # IDE
 .vscode/
@@ -32,7 +45,6 @@ dev-scripts/
 
 # ML model artifacts
 ml-service/models/
-ml_service/models/
 
 
 # Development temp files

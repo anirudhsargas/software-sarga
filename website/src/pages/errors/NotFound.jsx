@@ -1,54 +1,52 @@
-import React from 'react'
 import { Link } from 'react-router-dom'
-import { Printer } from 'lucide-react'
+import { ArrowLeft, Home } from 'lucide-react'
 
 export default function NotFound() {
-  const style = {
-    container: {
-      minHeight: '70vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '1.25rem',
-      color: 'var(--text-primary)'
-    },
-    code: {
-      fontSize: '6rem',
-      color: 'var(--text-muted)',
-      opacity: 0.12,
-      fontWeight: 800,
-      margin: 0,
-    },
-    iconWrap: {
-      background: 'var(--glass-bg)',
-      borderRadius: '12px',
-      padding: '1rem',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      boxShadow: 'var(--glass-shadow)'
-    },
-    actions: { display: 'flex', gap: '0.75rem', marginTop: '0.5rem' },
-    small: { marginTop: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.95rem' }
-  }
-
   return (
-    <div style={style.container}>
-      <div style={style.iconWrap} aria-hidden>
-        <Printer size={36} />
-      </div>
-      <h1 style={style.code}>404</h1>
-      <h2 style={{ margin: 0 }}>Page Not Found</h2>
-      <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Looks like this page didn't make it to print.</p>
-
-      <div style={style.actions}>
-        <Link to="/" className="btn btn-outline">Go Home</Link>
-        <Link to="/contact" className="btn btn-primary">Contact Us</Link>
-      </div>
-
-      <div style={style.small}>
-        <Link to="/track">Track your order →</Link>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center',
+      padding: '2rem',
+      background: 'var(--bg)',
+    }}>
+      <div style={{ maxWidth: '480px' }}>
+        <div style={{
+          fontSize: 'clamp(6rem, 15vw, 10rem)',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 800,
+          lineHeight: 1,
+          letterSpacing: '-0.04em',
+          background: 'linear-gradient(135deg, var(--accent) 0%, #B22222 50%, var(--text-disabled) 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          marginBottom: '1rem',
+        }}>404</div>
+        <h1 style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: '1.5rem',
+          fontWeight: 700,
+          color: 'var(--text)',
+          marginBottom: '0.75rem',
+          letterSpacing: '-0.02em',
+        }}>Page Not Found</h1>
+        <p style={{
+          color: 'var(--text-muted)',
+          fontSize: '1rem',
+          lineHeight: 1.7,
+          marginBottom: '2rem',
+        }}>The page you're looking for doesn't exist or has been moved. Let's get you back on track.</p>
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link to="/" className="btn btn-primary" style={{ gap: '6px' }}>
+            <Home size={16} /> Back to Home
+          </Link>
+          <Link to="/contact" className="btn btn-outline" style={{ gap: '6px' }}>
+            Contact Us
+          </Link>
+        </div>
       </div>
     </div>
   )

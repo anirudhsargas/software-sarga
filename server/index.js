@@ -12,10 +12,10 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const rateLimit = require('express-rate-limit');
-const jwt = require('jsonwebtoken');
 const { initDb, pool } = require('./database');
 const { getTodayDate } = require('./helpers');
 const logger = require('./helpers/logger');
+const { verifyWithAnySecret } = require('./middleware/auth');
 
 // Express app and basic config
 const app = express();
@@ -318,6 +318,7 @@ try {
     logger.warn('[DevRoutes] Not loaded:', (e && e.stack) ? e.stack : (e && e.message) ? e.message : e);
 }
 app.use('/api', require('./routes/frontOffice'));
+app.use('/api', require('./routes/websiteInquiries'));
 app.use('/api', require('./routes/expenses'));
 app.use('/api', require('./routes/finance'));
 app.use('/api', require('./routes/expenses-extended'));
@@ -390,7 +391,8 @@ app.use('/api', require('./routes/invoiceFeatures'));
 app.use('/api', require('./routes/passwordReset'));
 
 // Customer-facing Website Routes (public, no auth required — shares same DB)
-app.use('/api/website', require('./routes/website'));
+app.use('/api/website', require('./routes/website')(upload));
+app.use('/api/website', require('./routes/websiteDesigns'));
 
 // Health check with DB ping (must be before the error handler)
 app.get('/api/ping', async (req, res) => {
@@ -403,13 +405,15 @@ app.get('/api/ping', async (req, res) => {
 });
 
 // --------------- Error Handling ---------------
+const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
+app.use(notFound);
 app.use(errorHandler);
 
 // --------------- Start Server ---------------
 if (process.env.NODE_ENV !== 'test') {
     initDb().then(() => {
-        server = app.listen(PORT, '0.0.0.0', () => {
+        const server = app.listen(PORT, '0.0.0.0', () => {
             logger.info(`Server running on port ${PORT} (bound to 0.0.0.0)`);
 
             // DEV: list registered routes to help debugging missing endpoints

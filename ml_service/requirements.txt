@@ -1,9 +1,0 @@
-sentence-transformers
-scikit-learn
-schedule
-mysql-connector-python
-flask-cors
-numpy
-pickle5
-python-dotenv
-flask

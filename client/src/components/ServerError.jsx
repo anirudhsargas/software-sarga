@@ -24,7 +24,7 @@ const ServerError = ({
           <AlertTriangle size={24} />
         </div>
         <div className="server-error__content">
-          <h2 className="server-error__title">❌ {message}</h2>
+          <h2 className="server-error__title">{message}</h2>
           <p className="server-error__description">
             We're having trouble connecting to the server. Your data may not be up-to-date.
           </p>
