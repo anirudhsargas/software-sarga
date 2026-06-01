@@ -48,6 +48,27 @@ router.get('/branches', async (req, res) => {
   }
 });
 
+// ─── GET /api/website/translations/:lang ───
+// Returns translations for a specific language
+router.get('/translations/:lang', async (req, res) => {
+  try {
+    const lang = req.params.lang || 'en';
+    const [rows] = await pool.query(
+      'SELECT namespace, `key_name`, `value` FROM sarga_translations WHERE lang = ?',
+      [lang]
+    );
+    const grouped = {};
+    for (const r of rows) {
+      if (!grouped[r.namespace]) grouped[r.namespace] = {};
+      grouped[r.namespace][r.key_name] = r.value;
+    }
+    res.json({ translations: grouped, lang });
+  } catch (err) {
+    logger.error('[Website] Error fetching translations:', err.message);
+    res.status(500).json({ message: 'Unable to load translations.' });
+  }
+});
+
 // ─── GET /api/website/categories ───
 // Returns product categories with subcategories for public display
 router.get('/categories', async (req, res) => {
@@ -89,7 +110,7 @@ router.get('/products', async (req, res) => {
       const total_pages = Math.max(1, Math.ceil(total / limit));
 
       const [rows] = await pool.query(
-        `SELECT p.id, p.name, p.description, p.image_url, sc.name AS subcategory_name, c.name AS category_name
+        `SELECT p.id, p.name, p.description, p.image_url, sc.name AS subcategory_name, c.name AS category_name, p.starting_price
          FROM sarga_products p
          JOIN sarga_product_subcategories sc ON p.subcategory_id = sc.id
          JOIN sarga_product_categories c ON sc.category_id = c.id

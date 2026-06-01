@@ -1,0 +1,188 @@
+import { useState, useEffect } from 'react'
+import { Plus, Edit3, Trash2, Eye, EyeOff, Star, Search, X, Loader2, Upload } from 'lucide-react'
+import api from '../../services/api'
+import toast from 'react-hot-toast'
+import './PortfolioManager.css'
+
+const CATEGORIES = ['Wedding Cards', 'Mementos', 'Photo Frames', 'Offset Books', 'Business Cards', 'Certificates', 'Custom Projects']
+
+export default function PortfolioManager() {
+  const [projects, setProjects] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState({ title: '', description: '', category: 'Custom Projects', cover_image: '', gallery_images: [], featured: false, published: true, position: 0 })
+  const [search, setSearch] = useState('')
+  const [uploading, setUploading] = useState(false)
+
+  useEffect(() => { loadProjects() }, [])
+
+  const loadProjects = async () => {
+    setLoading(true)
+    try {
+      const res = await api.get('/portfolio')
+      setProjects(res.data.projects || [])
+    } catch (e) {
+      toast.error('Failed to load projects')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const fd = new FormData()
+    fd.append('image', file)
+    try {
+      const res = await api.post('/portfolio/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      return res.data.url
+    } catch (e) {
+      toast.error('Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleImageUpload = async (e) => {
+    const url = await handleUpload(e)
+    if (url) setForm(f => ({ ...f, cover_image: url }))
+  }
+
+  const handleGalleryUpload = async (e) => {
+    const url = await handleUpload(e)
+    if (url) setForm(f => ({ ...f, gallery_images: [...f.gallery_images, url] }))
+  }
+
+  const removeGalleryImage = (idx) => {
+    setForm(f => ({ ...f, gallery_images: f.gallery_images.filter((_, i) => i !== idx) }))
+  }
+
+  const saveProject = async () => {
+    if (!form.title.trim()) { toast.error('Title is required'); return }
+    try {
+      if (editing) {
+        await api.put(`/portfolio/${editing}`, form)
+        toast.success('Project updated')
+      } else {
+        const res = await api.post('/portfolio', form)
+        toast.success('Project created')
+      }
+      setShowForm(false)
+      setEditing(null)
+      setForm({ title: '', description: '', category: 'Custom Projects', cover_image: '', gallery_images: [], featured: false, published: true, position: 0 })
+      loadProjects()
+    } catch (e) {
+      toast.error('Failed to save')
+    }
+  }
+
+  const editProject = async (id) => {
+    try {
+      const res = await api.get(`/portfolio/${id}`)
+      setForm(res.data.project)
+      setEditing(id)
+      setShowForm(true)
+    } catch (e) { toast.error('Failed to load project') }
+  }
+
+  const deleteProject = async (id) => {
+    if (!confirm('Delete this project?')) return
+    try {
+      await api.delete(`/portfolio/${id}`)
+      toast.success('Project deleted')
+      loadProjects()
+    } catch (e) { toast.error('Failed to delete') }
+  }
+
+  const toggleFeature = async (id, current) => {
+    try {
+      await api.put(`/portfolio/${id}`, { featured: !current })
+      loadProjects()
+    } catch (e) { toast.error('Failed') }
+  }
+
+  const togglePublish = async (id, current) => {
+    try {
+      await api.put(`/portfolio/${id}`, { published: !current })
+      loadProjects()
+    } catch (e) { toast.error('Failed') }
+  }
+
+  const filtered = projects.filter(p =>
+    p.title.toLowerCase().includes(search.toLowerCase()) ||
+    p.category.toLowerCase().includes(search.toLowerCase())
+  )
+
+  if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>
+
+  return (
+    <div className="portfolio-mgr">
+      <div className="mgr-header">
+        <h2>Portfolio Management</h2>
+        <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ title: '', description: '', category: 'Custom Projects', cover_image: '', gallery_images: [], featured: false, published: true, position: 0 }); setShowForm(true) }}>
+          <Plus size={16} /> New Project
+        </button>
+      </div>
+
+      <div className="mgr-search"><Search size={16} /><input className="input" placeholder="Search projects..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+
+      {showForm && (
+        <div className="mgr-form-overlay">
+          <div className="mgr-form">
+            <div className="mgr-form-header"><h3>{editing ? 'Edit Project' : 'New Project'}<button className="btn btn-sm btn-ghost" onClick={() => setShowForm(false)}><X size={18} /></button></h3></div>
+            <div className="mgr-form-body">
+              <div className="form-group"><label>Title *</label><input className="input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
+              <div className="form-group"><label>Description</label><textarea className="input" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
+              <div className="form-group"><label>Category</label><select className="input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+              <div className="form-group">
+                <label>Cover Image</label>
+                <div className="mgr-upload-row">
+                  <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                  {uploading && <Loader2 size={16} className="spinning" />}
+                </div>
+                {form.cover_image && <img src={form.cover_image} alt="" className="mgr-preview" />}
+              </div>
+              <div className="form-group">
+                <label>Gallery Images</label>
+                <input type="file" accept="image/*" onChange={handleGalleryUpload} disabled={uploading} />
+                <div className="mgr-gallery-preview">
+                  {form.gallery_images.map((img, i) => (
+                    <div key={i} className="mgr-gallery-item"><img src={img} alt="" /><button onClick={() => removeGalleryImage(i)}><X size={14} /></button></div>
+                  ))}
+                </div>
+              </div>
+              <div className="form-row">
+                <label><input type="checkbox" checked={form.featured} onChange={e => setForm(f => ({ ...f, featured: e.target.checked }))} /> Featured</label>
+                <label><input type="checkbox" checked={form.published} onChange={e => setForm(f => ({ ...f, published: e.target.checked }))} /> Published</label>
+              </div>
+              <button className="btn btn-primary" onClick={saveProject}>{editing ? 'Update' : 'Create'} Project</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mgr-table-wrap">
+        <table className="mgr-table">
+          <thead><tr><th>Image</th><th>Title</th><th>Category</th><th>Featured</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            {filtered.map(p => (
+              <tr key={p.id}>
+                <td>{p.cover_image ? <img src={p.cover_image} alt="" className="mgr-thumb" /> : '-'}</td>
+                <td>{p.title}</td>
+                <td>{p.category}</td>
+                <td><button className="btn btn-sm btn-ghost" onClick={() => toggleFeature(p.id, p.featured)}><Star size={16} className={p.featured ? 'star-filled' : ''} /></button></td>
+                <td><button className="btn btn-sm btn-ghost" onClick={() => togglePublish(p.id, p.published)}>{p.published ? <Eye size={16} /> : <EyeOff size={16} />}</button></td>
+                <td className="mgr-actions">
+                  <button className="btn btn-sm btn-ghost" onClick={() => editProject(p.id)}><Edit3 size={16} /></button>
+                  <button className="btn btn-sm btn-ghost txt-danger" onClick={() => deleteProject(p.id)}><Trash2 size={16} /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}

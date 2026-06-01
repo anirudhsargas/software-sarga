@@ -1,0 +1,140 @@
+/* Design Bookings CRM CMS Styles */
+
+.bookings-cms {
+  padding: 16px;
+  background: var(--bg-main, #fcfcfd);
+  color: var(--text-main, #1d2939);
+}
+
+/* CRM Metrics Row Widget */
+.crm-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.metric-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #eaecf0);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 6px -2px rgba(16, 24, 40, 0.03);
+}
+
+.metric-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.metric-icon.total { background: #eff8ff; color: #175cd3; }
+.metric-icon.confirmed { background: #fef8f3; color: #b93815; }
+.metric-icon.conversion { background: #ecfdf3; color: #027a48; }
+.metric-icon.pipeline { background: #f9f5ff; color: #6941c6; }
+
+.metric-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #667085);
+  text-transform: uppercase;
+}
+
+.metric-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-main, #1d2939);
+}
+
+.category-pill {
+  font-weight: 600;
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #e0f2fe;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 0.8rem;
+}
+
+.designer-assigned {
+  font-weight: 600;
+  color: #4f46e5;
+  background: #e0e7ff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+}
+
+.quote-badge {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.quote-badge.success {
+  background: #ecfdf3;
+  color: #027a48;
+  border: 1px solid #a7f3d0;
+}
+
+.quote-badge.pending {
+  background: #f2f4f7;
+  color: #475467;
+  border: 1px solid #d0d5dd;
+}
+
+/* Dark mode overrides */
+html[data-theme="dark"] .bookings-cms {
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .metric-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .metric-value {
+  color: #f8fafc;
+}
+
+html[data-theme="dark"] .metric-icon.total { background: #1e3a8a; color: #93c5fd; }
+html[data-theme="dark"] .metric-icon.confirmed { background: #7c2d12; color: #fde68a; }
+html[data-theme="dark"] .metric-icon.conversion { background: #064e3b; color: #a7f3d0; }
+html[data-theme="dark"] .metric-icon.pipeline { background: #311042; color: #e9d5ff; }
+
+html[data-theme="dark"] .category-pill {
+  color: #7dd3fc;
+  background: #0c4a6e;
+  border-color: #0c4a6e;
+}
+
+html[data-theme="dark"] .designer-assigned {
+  color: #c7d2fe;
+  background: #312e81;
+}
+
+html[data-theme="dark"] .quote-badge.success {
+  background: #064e3b;
+  color: #a7f3d0;
+  border-color: #059669;
+}
+
+html[data-theme="dark"] .quote-badge.pending {
+  background: #334155;
+  color: #cbd5e1;
+  border-color: #4b5563;
+}

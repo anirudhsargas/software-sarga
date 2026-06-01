@@ -1,0 +1,18 @@
+{
+  "nav": {
+    "home": "Home",
+    "products": "Products",
+    "pricing": "Pricing",
+    "blog": "Blog",
+    "contact": "Contact",
+    "faq": "FAQ"
+  },
+  "home": {
+    "headline": "High quality printing — made local",
+    "cta": "Shop Wedding Cards"
+  },
+  "seo": {
+    "title": "Sarga Printing — Professional Printing Services",
+    "description": "Sarga Printing offers wedding cards, business cards, brochures, and more in Kerala."
+  }
+}

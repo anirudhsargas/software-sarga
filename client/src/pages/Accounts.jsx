@@ -28,6 +28,12 @@ const Accounts = () => {
     const [tab, setTab] = useState('gst');
     const [branches, setBranches] = useState([]);
     const [branchId, setBranchId] = useState('');
+    const formatApiError = (err) => {
+        const raw = err?.response?.data?.error ?? err?.response?.data?.message ?? null;
+        if (typeof raw === 'string') return raw;
+        if (typeof raw === 'object' && raw !== null) return raw.userMessage || raw.message || JSON.stringify(raw);
+        return err?.message || String(err) || 'Server error';
+    };
 
     useEffect(() => {
         api.get('/branches').then(r => setBranches(r.data)).catch(() => {});
@@ -1041,7 +1047,7 @@ const UploadBillTab = ({ onUploaded }) => {
                 related_tab: response.data.category_suggestions?.[0]?.related_tab || ''
             }));
         } catch (err) {
-            setError(err.response?.data?.error || err.message || 'Failed to extract bill details');
+            setError(formatApiError(err) || 'Failed to extract bill details');
         } finally { setLoading(false); }
     };
 
@@ -1065,7 +1071,7 @@ const UploadBillTab = ({ onUploaded }) => {
             toast.success('Bill uploaded successfully!');
             setStep('done');
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to upload bill');
+            setError(formatApiError(err) || 'Failed to upload bill');
         } finally { setLoading(false); }
     };
 

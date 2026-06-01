@@ -1,0 +1,10 @@
+{
+  "contact": {
+    "subject": "Subject",
+    "message": "Message",
+    "send": "Send"
+  },
+  "search": {
+    "placeholder": "Search products or articles"
+  }
+}

@@ -3,7 +3,8 @@ import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store,
-    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare
+    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare, Star, Upload,
+    Image, Calendar, Truck, Globe, Calculator
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
@@ -80,7 +81,19 @@ const SettingsPage = React.lazy(() => import('./SettingsPage'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
 const ChatbotTraining = React.lazy(() => import('./admin/ChatbotTraining'));
 const WebInquiries = React.lazy(() => import('./WebInquiries'));
+const ReviewsManagement = React.lazy(() => import('./admin/ReviewsManagement'));
+const BlogCMS = React.lazy(() => import('./BlogCMS'));
+const ArtworkManager = React.lazy(() => import('./admin/ArtworkManager'));
+const PortfolioManager = React.lazy(() => import('./admin/PortfolioManager'));
+const PromotionsManager = React.lazy(() => import('./admin/PromotionsManager'));
+const PickupBookings = React.lazy(() => import('./admin/PickupBookings'));
+const DeliveryRulesManager = React.lazy(() => import('./admin/DeliveryRulesManager'));
+const TranslationsManager = React.lazy(() => import('./admin/TranslationsManager'));
+const SampleRequestsCMS = React.lazy(() => import('./SampleRequestsCMS'));
+const DesignBookingsCMS = React.lazy(() => import('./DesignBookingsCMS'));
+const RateCalculator = React.lazy(() => import('./RateCalculator'));
 const PageLoader = () => (
+
     <div className="page-loader">
         <Loader2 size={20} className="animate-spin" /> Loading...
     </div>
@@ -221,6 +234,7 @@ const Dashboard = () => {
         { key: 'operations', name: t('machine_management', 'Machine Management'), icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'operations' },
         { key: 'operations', name: t('paper_layout', 'Paper Layout'), icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'operations' },
         { key: 'operations', name: t('production_tracker', 'Production Tracker'), icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'operations' },
+        { key: 'operations', name: 'Rate Calculator', icon: Calculator, path: '/dashboard/rate-calculator', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
         // Staff & HR
         { key: 'manage', name: t('staff', 'Staff'), icon: Users, path: '/dashboard/staff', roles: ['Front Office'], group: 'manage' },
         { key: 'manage', name: t('staff_management', 'Staff Management'), icon: Users, path: '/dashboard/staff', roles: ['Admin', 'Accountant'], group: 'manage' },
@@ -249,7 +263,17 @@ const Dashboard = () => {
         { key: 'finance', name: t('recurring_invoices', 'Recurring Invoices'), icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'finance' },
         { key: 'manage', name: t('settings', 'Settings'), icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'manage' },
         { key: 'manage', name: '🤖 Chatbot Training', icon: Brain, path: '/dashboard/admin/chatbot-training', roles: ['Admin'], group: 'manage' },
+        { key: 'manage', name: 'Reviews', icon: Star, path: '/dashboard/admin/reviews', roles: ['Admin'], group: 'manage' },
+        { key: 'manage', name: 'Artwork Uploads', icon: Upload, path: '/dashboard/admin/artwork', roles: ['Admin'], group: 'manage' },
+        { key: 'manage', name: 'Portfolio', icon: Image, path: '/dashboard/admin/portfolio', roles: ['Admin'], group: 'manage' },
+        { key: 'manage', name: 'Promotions', icon: Tag, path: '/dashboard/admin/promotions', roles: ['Admin'], group: 'manage' },
+        { key: 'manage', name: 'Pickup Bookings', icon: Calendar, path: '/dashboard/admin/pickup-bookings', roles: ['Admin'], group: 'manage' },
+        { key: 'manage', name: 'Delivery Rules', icon: Truck, path: '/dashboard/admin/delivery-rules', roles: ['Admin'], group: 'manage' },
+        { key: 'manage', name: 'Translations', icon: Globe, path: '/dashboard/admin/translations', roles: ['Admin'], group: 'manage' },
         { key: 'operations', name: 'Web Inquiries', icon: MessageSquare, path: '/dashboard/web-inquiries', roles: ['Admin', 'Front Office'], group: 'business' },
+        { key: 'operations', name: 'Blog Journal CMS', icon: BookOpen, path: '/dashboard/blog-cms', roles: ['Admin', 'Front Office', 'Designer'], group: 'business' },
+        { key: 'sample_requests', name: 'Sample Requests', icon: FileCheck, path: '/dashboard/sample-requests', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
+        { key: 'design_bookings', name: 'Design Bookings', icon: ClipboardList, path: '/dashboard/design-bookings', roles: ['Admin', 'Front Office', 'Designer'], group: 'business' },
     ];
 
     const filteredMenu = useMemo(() => {
@@ -725,6 +749,7 @@ const Dashboard = () => {
                             <Route path="order-predictions" element={<RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection>} />
                             <Route path="predictions" element={<RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection>} />
                             <Route path="production-tracker" element={<RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection>} />
+                            <Route path="rate-calculator" element={<RateCalculator />} />
                             <Route path="coupons" element={<CouponManagement />} />
                             <Route path="cctv-attendance" element={<CCTVAttendance />} />
                             <Route path="cctv-management" element={<CCTVManagement />} />
@@ -744,8 +769,19 @@ const Dashboard = () => {
                             <Route path="recurring-invoices" element={<RecurringInvoices />} />
                             <Route path="settings" element={<SettingsPage />} />
                             <Route path="admin/chatbot-training" element={<ChatbotTraining />} />
+                            <Route path="admin/reviews" element={<ReviewsManagement />} />
+                            <Route path="admin/artwork" element={<ArtworkManager />} />
+                            <Route path="admin/portfolio" element={<PortfolioManager />} />
+                            <Route path="admin/promotions" element={<PromotionsManager />} />
+                            <Route path="admin/pickup-bookings" element={<PickupBookings />} />
+                            <Route path="admin/delivery-rules" element={<DeliveryRulesManager />} />
+                            <Route path="admin/translations" element={<TranslationsManager />} />
                             <Route path="web-inquiries" element={<WebInquiries />} />
+                            <Route path="blog-cms" element={<BlogCMS />} />
+                            <Route path="sample-requests" element={<SampleRequestsCMS />} />
+                            <Route path="design-bookings" element={<DesignBookingsCMS />} />
                             <Route path="*" element={<NotFound />} />
+
                         </Routes>
                     </Suspense>
                 </div>

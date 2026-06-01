@@ -70,6 +70,22 @@
   --toast-bg: #fbfaf7;
   --toast-text: #171717;
   --on-accent: #ffffff;
+
+  /* ── Unified Sarga Token System ── */
+  --text-h1: 3.5rem;
+  --text-h2: 2.5rem;
+  --text-h3: 2rem;
+  --text-h4: 1.5rem;
+  --text-h5: 1.25rem;
+  --text-h6: 1.125rem;
+  --text-body-lg: 1.125rem;
+  --text-caption: 0.875rem;
+
+  --z-navbar: 100;
+  --z-drawer: 200;
+  --z-modal: 300;
+  --z-tooltip: 400;
+  --z-toast: 500;
 }
 
 .dark {
@@ -524,6 +540,17 @@ select.input-field {
 
 .dark .btn-ghost:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.btn-outline:hover {
+  background: var(--accent);
+  color: #fff;
 }
 
 .btn-danger {

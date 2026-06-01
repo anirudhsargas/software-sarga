@@ -1,22 +1,36 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import * as THREE from 'three'
+import SEO from '../components/SEO'
+import ReviewsWidget from '../components/ReviewsWidget/ReviewsWidget'
+import PromoBanner from '../components/PromoBanner'
+import axios from 'axios'
+import api from '../api'
 import './Home.css'
 
 export default function Home() {
   const canvasRef = useRef(null)
+  const [latestPosts, setLatestPosts] = useState([])
+
+  useEffect(() => {
+    api.get('/blog/posts', { params: { limit: 3 } })
+      .then(res => { if (res.data?.posts) setLatestPosts(res.data.posts) })
+      .catch(err => console.log('Failed to fetch home blog:', err))
+  }, [])
 
   /* ── CURSOR ── */
   useEffect(() => {
     const isMobile = window.innerWidth < 768
-    if (isMobile) return
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (isMobile || prefersReduced) return
 
-    // Scope cursor:none to home page only
-    document.body.classList.add('home-cursor')
-
-    const dot  = document.getElementById('cdot')
+    const dot = document.getElementById('cdot')
     const ring = document.getElementById('cring')
     if (!dot || !ring) return
+
+    const root = document.getElementById('root')
+    if (!root) return
+    root.classList.add('home-cursor')
 
     let mx = 0, my = 0, rx = 0, ry = 0
     const onMove = e => {
@@ -45,7 +59,7 @@ export default function Home() {
     })
 
     return () => {
-      document.body.classList.remove('home-cursor')
+      root.classList.remove('home-cursor')
       document.removeEventListener('mousemove', onMove)
       cancelAnimationFrame(rafId)
     }
@@ -236,31 +250,84 @@ export default function Home() {
 
   return (
     <>
+      <SEO 
+        title="Premium Printing & Design Studio in Kozhikode"
+        description="Kozhikode's premier offset and digital printing studio since 1994. Wedding cards, mementos, rubber stamps, photo frames, hard binding, and award-winning custom design tools."
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "LocalBusiness",
+          "name": "Sarga Prints",
+          "image": "https://sarga.in/og-image.jpg",
+          "@id": "https://sarga.in",
+          "url": "https://sarga.in",
+          "telephone": "+919495177283",
+          "description": "Premium offset & digital printing studio since 1994. Wedding cards, mementos, photo frames, business cards, and custom design tools.",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Perambra & Meppayur",
+            "addressLocality": "Kozhikode",
+            "addressRegion": "Kerala",
+            "addressCountry": "IN"
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 11.5695,
+            "longitude": 75.7485
+          },
+          "openingHoursSpecification": [{
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
+            "opens": "09:00",
+            "closes": "19:00"
+          }],
+          "sameAs": [
+            "https://facebook.com/sargaprints",
+            "https://instagram.com/sargaprints"
+          ],
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "bestRating": "5",
+            "ratingCount": "500"
+          }
+        }}
+      />
       {/* Custom cursor — home only */}
       <div className="cur-dot" id="cdot" />
       <div className="cur-ring" id="cring" />
 
       {/* ── HERO ── */}
-      <section className="hero" id="hero">
-        <canvas id="bg-canvas" ref={canvasRef} />
+      <section className="hero" id="hero" style={{ padding: 'var(--space-4xl) 0', position: 'relative' }}>
+        <canvas id="bg-canvas" ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1, opacity: 0.5 }} />
         <div className="hero-grain" />
-        <div className="hero-content">
-          <div className="hero-badge">30 Years · Kozhikode · Kerala</div>
-          <h1 className="hero-title">
-            <span className="word"><span>Print</span></span>
-            <span className="word"><span>Beyond</span></span>
-            <br />
-            <span className="word"><span>the</span></span>
-            <span className="word"><span>Ordinary</span></span>
-          </h1>
-          <p className="hero-sub">Offset · Digital · Mementos · Wedding Cards — Perambur &amp; Meppayur</p>
-          <div className="hero-actions">
-            <a href="/design" className="mag-btn mag-fill">Design Now →</a>
-            <a href="/contact" className="mag-btn mag-ghost">Place an Order</a>
-            <a href="/services" className="mag-btn mag-ghost">Explore Services</a>
+        <div className="container hero-content-grid" style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '800px', margin: '0 auto' }}>
+          <div className="hero-text">
+            <div className="trust-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: 'var(--radius-full)', marginBottom: 'var(--space-md)', fontSize: '0.85rem', fontWeight: 600 }}>
+              <span className="stars" style={{ color: '#FFB800' }}>★★★★★</span> 4.8/5 (500+ Reviews) | 30 Years
+            </div>
+            <h1 className="hero-title" style={{ fontSize: 'clamp(2.5rem, 6vw, 4rem)', lineHeight: 1.1, marginBottom: 'var(--space-md)' }}>
+              Premium Printing Solutions for Businesses, Events & Brands
+            </h1>
+            <p className="hero-sub" style={{ fontSize: '1.125rem', color: 'var(--text-muted)', marginBottom: 'var(--space-xl)' }}>
+              From high-volume corporate offset to luxurious gold-foil wedding invitations. Kerala's most trusted print studio since 1994.
+            </p>
+            <div className="hero-actions" style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link to="/products" className="btn btn-primary" style={{ padding: '14px 28px', fontSize: '1.1rem' }}>Get Instant Quote</Link>
+              <button className="btn btn-outline" style={{ padding: '14px 28px', fontSize: '1.1rem' }} onClick={() => { const el = document.getElementById('bestsellers'); if (el) el.scrollIntoView({ behavior: 'smooth' }) }}>Browse Products</button>
+            </div>
+            
+            {/* Customer Logos / Trust Indicators */}
+            <div className="hero-trust-logos" style={{ marginTop: 'var(--space-3xl)', borderTop: '1px solid var(--border)', paddingTop: 'var(--space-lg)' }}>
+              <p className="text-caption" style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-md)', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.75rem' }}>Trusted by 5,000+ businesses across Kerala</p>
+              <div style={{ display: 'flex', gap: '24px', justifyContent: 'center', opacity: 0.6, flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 700, fontSize: '1.2rem' }}>Corporate Clients</span>
+                <span style={{ fontWeight: 700, fontSize: '1.2rem' }}>Event Planners</span>
+                <span style={{ fontWeight: 700, fontSize: '1.2rem' }}>Institutions</span>
+                <span style={{ fontWeight: 700, fontSize: '1.2rem' }}>Local Brands</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="hero-scroll"><span>Scroll</span><div className="scroll-bar" /></div>
       </section>
 
       {/* ── STATS ── */}
@@ -270,6 +337,42 @@ export default function Home() {
         <div className="stat-item"><div className="stat-num" data-target="2">0</div><div className="stat-label">Branches in Kerala</div></div>
         <div className="stat-item"><div className="stat-num" data-target="24">0</div><div className="stat-label">Hour Turnaround</div></div>
       </section>
+
+      {/* ── BESTSELLERS ── */}
+      <section className="bestsellers section" id="bestsellers">
+        <div className="container">
+          <div className="sec-header reveal">
+            <span className="sec-eyebrow">Top Picks</span>
+            <h2 className="sec-h">Bestselling Products</h2>
+          </div>
+          <div className="tilt-grid" style={{ marginTop: 'var(--space-2xl)' }}>
+            <Link to="/products?category=Offset%20Printing" className="tilt-card glass-card hover-lift reveal reveal-delay-1" style={{ display: 'block', textDecoration: 'none' }}>
+              <div className="tilt-icon">💍</div>
+              <h3 className="tilt-name" style={{ fontSize: '1.2rem', marginBottom: '8px' }}>Premium Wedding Cards</h3>
+              <p className="tilt-desc">Gold-foil and die-cut invitations crafted for your special day.</p>
+              <div className="tilt-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 17L17 7M7 7h10v10"/></svg></div>
+            </Link>
+            <Link to="/products?category=Mementos%20%26%20Frames" className="tilt-card glass-card hover-lift reveal reveal-delay-2" style={{ display: 'block', textDecoration: 'none' }}>
+              <div className="tilt-icon">🏆</div>
+              <h3 className="tilt-name" style={{ fontSize: '1.2rem', marginBottom: '8px' }}>Corporate Mementos</h3>
+              <p className="tilt-desc">Crystal and wooden awards customized for institutional events.</p>
+              <div className="tilt-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 17L17 7M7 7h10v10"/></svg></div>
+            </Link>
+            <Link to="/products?category=Digital%20Printing" className="tilt-card glass-card hover-lift reveal reveal-delay-3" style={{ display: 'block', textDecoration: 'none' }}>
+              <div className="tilt-icon">🪪</div>
+              <h3 className="tilt-name" style={{ fontSize: '1.2rem', marginBottom: '8px' }}>PVC ID Cards</h3>
+              <p className="tilt-desc">Thermal printed smartcards with customized lanyards.</p>
+              <div className="tilt-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 17L17 7M7 7h10v10"/></svg></div>
+            </Link>
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 'var(--space-2xl)' }} className="reveal reveal-delay-4">
+            <Link to="/products" className="mag-btn mag-ghost">View All Products</Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Promotions Banner ── */}
+      <PromoBanner />
 
       {/* ── 3D CARD SHOWCASE ── */}
       <section className="showcase-wrap">
@@ -373,7 +476,7 @@ export default function Home() {
           <div className="story-step" data-step="3">
             <div className="step-tag">03 — Deliver</div>
             <h2 className="step-title">On Time,<br />Every Time</h2>
-            <p className="step-body">Quick turnaround across Perambur and Meppayur. Track your order live and receive it exactly when you need it.</p>
+            <p className="step-body">Quick turnaround across Perambra and Meppayur. Track your order live and receive it exactly when you need it.</p>
           </div>
         </div>
       </section>
@@ -399,10 +502,13 @@ export default function Home() {
         <div className="depth-row">
           <div className="depth-item"><div className="depth-big" data-shadow="30"><span className="dc" data-t="30">0</span><span className="depth-unit">+</span></div><div className="depth-label">Years of unbroken craft in Kozhikode</div></div>
           <div className="depth-item"><div className="depth-big" data-shadow="5K"><span className="dc" data-t="5000">0</span><span className="depth-unit">+</span></div><div className="depth-label">Clients across North Kerala</div></div>
-          <div className="depth-item"><div className="depth-big" data-shadow="2"><span className="dc" data-t="2">0</span></div><div className="depth-label">Modern branches — Perambur &amp; Meppayur</div></div>
+          <div className="depth-item"><div className="depth-big" data-shadow="2"><span className="dc" data-t="2">0</span></div><div className="depth-label">Modern branches — Perambra &amp; Meppayur</div></div>
           <div className="depth-item"><div className="depth-big" data-shadow="24h"><span className="dc" data-t="24">0</span><span className="depth-unit">h</span></div><div className="depth-label">Average digital order turnaround</div></div>
         </div>
       </section>
+
+      {/* ── GOOGLE REVIEWS ── */}
+      <ReviewsWidget />
 
       {/* ── MARQUEE ── */}
       <div className="marquee-wrap">
@@ -428,17 +534,53 @@ export default function Home() {
         <div className="parallax-content" id="pxcontent">
           <span className="parallax-eyebrow">Since 1994</span>
           <h2 className="parallax-title">Three Decades of<br /><em>Ink &amp; Integrity</em></h2>
-          <p className="parallax-sub">From a single press in Perambur to a modern multi-branch printing studio trusted by thousands across Kozhikode.</p>
-          <a href="/contact" className="mag-btn mag-fill">Our Story →</a>
+          <p className="parallax-sub">From a single press in Perambra to a modern multi-branch printing studio trusted by thousands across Kozhikode.</p>
+          <Link to="/contact" className="mag-btn mag-fill">Our Story →</Link>
         </div>
       </section>
+
+      {/* ── LATEST POSTS FROM JOURNAL ── */}
+      {latestPosts.length > 0 && (
+        <section className="home-blog-section section" id="home-blog" style={{ background: '#0a0a0a', borderTop: '1px solid var(--border)', paddingBottom: 'var(--space-2xl)' }}>
+          <div className="container">
+            <div className="sec-header">
+              <span className="sec-eyebrow">Knowledge Center</span>
+              <h2 className="sec-h" style={{ color: '#fff' }}>Latest from our<br /><em>Design &amp; Print Journal</em></h2>
+            </div>
+            
+            <div className="home-blog-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-xl)', marginTop: 'var(--space-2xl)' }}>
+              {latestPosts.map((post) => (
+                <div key={post.id} className="home-blog-card glass-card reveal" style={{ display: 'flex', flexDirection: 'column', padding: 'var(--space-lg)', minHeight: '260px' }}>
+                  <div className="home-blog-card__meta" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
+                    <span className="home-blog-card__category" style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--accent)' }}>{post.category}</span>
+                    <span className="home-blog-card__read-time" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{post.read_time} min read</span>
+                  </div>
+                  <h3 className="home-blog-card__title" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 'var(--space-sm)', color: '#fff', lineHeight: 1.3 }}>
+                    <Link to={`/blog/${post.slug}`} style={{ color: '#fff' }}>{post.title}</Link>
+                  </h3>
+                  <p className="home-blog-card__excerpt" style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 'var(--space-md)', flexGrow: 1 }}>{post.excerpt}</p>
+                  <Link to={`/blog/${post.slug}`} className="home-blog-card__link" style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginTop: 'auto' }}>
+                    Read Full Article →
+                  </Link>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: 'var(--space-3xl)' }}>
+              <Link to="/blog" className="mag-btn mag-ghost" style={{ display: 'inline-flex' }}>
+                Visit the Full Blog
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── FOOTER CTA ── */}
       <section className="footer-cta" id="cta">
         <h2 className="fc-title">Ready to Print<br />Something Beautiful?</h2>
         <p className="fc-sub">Talk to our team today — free consultation, fast quote, guaranteed quality.</p>
         <div className="fc-btns">
-          <a href="/contact" className="mag-btn btn-dark" style={{ marginRight: '.8rem' }}>Place an Order →</a>
+          <Link to="/contact" className="mag-btn btn-dark" style={{ marginRight: '.8rem' }}>Place an Order →</Link>
           <a href="tel:+919495177283" className="mag-btn btn-border">Call Us</a>
         </div>
       </section>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { customerSendOtp, customerVerifyOtp, customerLookup, customerLogin, customerRegister, customerGoogleSignIn } from '../api';
+import SEO from '../components/SEO';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -177,13 +178,20 @@ export default function SignIn() {
 
   return (
     <div className="container" style={{ maxWidth: 560, marginTop: 40 }}>
+      <SEO 
+        title="Customer Sign In" 
+        description="Sign in to the Sarga Prints customer portal to manage orders, review design proofs, and view active order statuses." 
+      />
       <h2>Customer Sign In</h2>
+      <div style={{ marginBottom: 12 }}>
+        <small>New customer? <a href="/contact">Request access</a></small>
+      </div>
 
       <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
         <button className={`btn ${mode === 'email' ? 'active' : ''}`} type="button" onClick={() => setMode('email')}>Email OTP</button>
         <button className={`btn ${mode === 'mobile' ? 'active' : ''}`} type="button" onClick={() => setMode('mobile')}>Mobile</button>
         <div id="g_id_signin" />
-        <button className="btn" type="button" onClick={() => { if (window.google && window.google.accounts && window.google.accounts.id) window.google.accounts.id.prompt(); else toast.error('Google Identity not loaded'); }}>Google (prompt)</button>
+        <button className="btn btn-primary" type="button" onClick={() => { if (window.google && window.google.accounts && window.google.accounts.id) window.google.accounts.id.prompt(); else toast.error('Google Identity not loaded'); }}>Google (prompt)</button>
       </div>
 
       {mode === 'email' && (
@@ -192,21 +200,21 @@ export default function SignIn() {
             <form onSubmit={sendOtp}>
               <div style={{ marginBottom: 12 }}>
                 <label>Registered email</label>
-                <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@domain.com" />
+                <input className="form-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@domain.com" />
               </div>
-              <button className="btn" disabled={loading}>{loading ? 'Sending...' : 'Send OTP'}</button>
+              <button className="btn btn-primary" disabled={loading}>{loading ? 'Sending...' : 'Send OTP'}</button>
             </form>
           ) : (
             <form onSubmit={verify}>
               <div style={{ marginBottom: 12 }}>
                 <label>Enter OTP</label>
-                <input className="input" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6-digit code" />
+                <input className="form-input" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6-digit code" />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button className="btn" disabled={loading}>{loading ? 'Verifying...' : 'Verify OTP'}</button>
-                <button className="btn" type="button" onClick={() => { setStep('enter'); setOtp(''); }}>Back</button>
+                <button className="btn btn-primary" disabled={loading}>{loading ? 'Verifying...' : 'Verify OTP'}</button>
+                <button className="btn btn-primary" type="button" onClick={() => { setStep('enter'); setOtp(''); }}>Back</button>
                 <div style={{ marginLeft: 12 }}>
-                  <button className="btn" type="button" onClick={resend} disabled={resendTimer > 0 || loading}>{resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}</button>
+                  <button className="btn btn-primary" type="button" onClick={resend} disabled={resendTimer > 0 || loading}>{resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}</button>
                 </div>
               </div>
             </form>
@@ -220,31 +228,31 @@ export default function SignIn() {
             <form onSubmit={lookupMobile}>
               <div style={{ marginBottom: 12 }}>
                 <label>Mobile number</label>
-                <input className="input" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="e.g. +919876543210 or 9876543210" />
+                <input className="form-input" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="e.g. +919876543210 or 9876543210" />
               </div>
               <div style={{ marginBottom: 12 }}>
                 <label>Country code (optional)</label>
-                <input className="input" value={countryCode} onChange={(e) => setCountryCode(e.target.value)} placeholder="e.g. IN or +91" />
+                <input className="form-input" value={countryCode} onChange={(e) => setCountryCode(e.target.value)} placeholder="e.g. IN or +91" />
               </div>
-              <button className="btn">Continue</button>
+              <button className="btn btn-primary">Continue</button>
             </form>
           ) : (
             <form onSubmit={submitRegister}>
               <div style={{ marginBottom: 12 }}>
                 <label>Mobile</label>
-                <input className="input" value={mobile} onChange={(e) => setMobile(e.target.value)} />
+                <input className="form-input" value={mobile} onChange={(e) => setMobile(e.target.value)} />
               </div>
               <div style={{ marginBottom: 12 }}>
                 <label>Name</label>
-                <input className="input" value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="Full name" />
+                <input className="form-input" value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="Full name" />
               </div>
               <div style={{ marginBottom: 12 }}>
                 <label>Email (optional)</label>
-                <input className="input" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} placeholder="you@domain.com" />
+                <input className="form-input" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} placeholder="you@domain.com" />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" disabled={loading}>{loading ? 'Registering...' : 'Register & Sign in'}</button>
-                <button className="btn" type="button" onClick={() => { setRegistering(false); setRegName(''); setRegEmail(''); }}>Back</button>
+                <button className="btn btn-primary" disabled={loading}>{loading ? 'Registering...' : 'Register & Sign in'}</button>
+                <button className="btn btn-primary" type="button" onClick={() => { setRegistering(false); setRegName(''); setRegEmail(''); }}>Back</button>
               </div>
             </form>
           )}

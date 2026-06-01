@@ -1,0 +1,12 @@
+{
+  "title": "Checkout",
+  "placeholders": {
+    "name": "Full name",
+    "address": "Delivery address",
+    "phone": "Phone number"
+  },
+  "buttons": {
+    "pay": "Proceed to payment",
+    "whatsapp": "Contact via WhatsApp"
+  }
+}

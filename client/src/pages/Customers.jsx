@@ -42,6 +42,8 @@ const Customers = () => {
     const [searchInput, setSearchInput] = useState('');
     const searchQuery = useDebounce(searchInput, 300);
     const [typeFilter, setTypeFilter] = useState('');
+    const [sortField, setSortField] = useState('name');
+    const [sortDir, setSortDir] = useState('asc');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
@@ -131,6 +133,20 @@ const Customers = () => {
     // --- EFFECTS ---
     useEffect(() => { fetchCustomers(1); }, []);
     useEffect(() => { fetchCustomers(1); }, [searchQuery, typeFilter]);
+
+    const displayedCustomers = useMemo(() => {
+        const list = Array.isArray(customers) ? [...customers] : [];
+        if (sortField === 'name') {
+            list.sort((a, b) => {
+                const an = (a.name || '').toLowerCase();
+                const bn = (b.name || '').toLowerCase();
+                if (an < bn) return sortDir === 'asc' ? -1 : 1;
+                if (an > bn) return sortDir === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return list;
+    }, [customers, sortField, sortDir]);
     useEffect(() => {
         const handleBeforeUnload = (event) => {
             if (!hasUnsavedChanges) return;
@@ -452,8 +468,22 @@ const Customers = () => {
                         style={{ paddingLeft: 32, width: '100%', height: 36, fontSize: 14 }}
                         value={searchInput}
                         onChange={e => setSearchInput(e.target.value)}
+                        aria-label="Search customers by name or mobile"
+                        onKeyDown={(e) => { if (e.key === 'Escape') setSearchInput(''); }}
                     />
+                    {searchInput && (
+                        <button
+                            aria-label="Clear search"
+                            title="Clear search"
+                            className="btn btn-ghost"
+                            style={{ position: 'absolute', right: 6, height: 28, width: 28, display: 'grid', placeItems: 'center' }}
+                            onClick={() => setSearchInput('')}
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
                 </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 4px 0 8px', height: 36, flexShrink: 0 }}>
                     <Filter size={13} style={{ color: 'var(--muted)' }} />
                     <select
@@ -465,6 +495,15 @@ const Customers = () => {
                         <option value="">All Types</option>
                         {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
+                    <button
+                        className="btn btn-ghost"
+                        title={`Sort by ${sortField} (${sortDir})`}
+                        aria-label="Toggle sort by name"
+                        onClick={() => { setSortField('name'); setSortDir(prev => prev === 'asc' ? 'desc' : 'asc'); }}
+                        style={{ marginLeft: 6, fontSize: 13 }}
+                    >
+                        Sort: {sortField} {sortDir === 'asc' ? '↑' : '↓'}
+                    </button>
                 </div>
             </div>
 
@@ -476,15 +515,20 @@ const Customers = () => {
                     <ServerError onRetry={fetchCustomers} message={error} />
                 ) : customers.length === 0 ? (
                     <div className="text-center p-40 muted">No customers found.</div>
-                ) : customers.map((c, idx) => (
+                ) : displayedCustomers.length === 0 ? (
+                    <div className="text-center p-40 muted">No customers match the filters.</div>
+                ) : displayedCustomers.map((c, idx) => (
                     <div
                         key={c.id}
                         style={{
                             display: 'flex', alignItems: 'center', gap: 12,
                             padding: '12px 14px',
-                            borderBottom: idx < customers.length - 1 ? '1px solid var(--border)' : 'none',
+                            borderBottom: idx < displayedCustomers.length - 1 ? '1px solid var(--border)' : 'none',
                             cursor: 'pointer', transition: 'background 0.15s'
                         }}
+                        tabIndex={0}
+                        role="button"
+                        onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/dashboard/customers/${c.id}`); }}
                         {...(isTouchDevice()
                             ? { onClick: () => navigate(`/dashboard/customers/${c.id}`) }
                             : { onDoubleClick: () => navigate(`/dashboard/customers/${c.id}`) }

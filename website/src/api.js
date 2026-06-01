@@ -60,6 +60,54 @@ export const customerLookup = ({ mobile, countryCode } = {}) => api.get('/websit
 export const customerRegister = (payload) => api.post('/website/customer/register', payload);
 export const customerGoogleSignIn = (id_token) => api.post('/website/customer/google-signin', { id_token });
 
+// Google Reviews
+export const getReviews = () => api.get('/website/reviews');
+export const getReviewStats = () => api.get('/website/reviews/stats');
+
+// Portfolio
+export const getPortfolio = (params) => api.get('/website/portfolio', { params });
+export const getPortfolioProject = (slug) => api.get(`/website/portfolio/${slug}`);
+export const getPortfolioCategories = () => api.get('/website/portfolio/categories/list');
+
+// Artwork Upload
+export const uploadArtwork = (formData, onProgress) => api.post('/website/artwork/upload', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' },
+  onUploadProgress: onProgress
+});
+export const trackArtwork = (orderNumber) => api.get(`/website/artwork/track/${orderNumber}`);
+export const getMyArtworkUploads = () => api.get('/website/artwork/my-uploads');
+
+// Artwork (customer facing)
+export const submitArtwork = uploadArtwork;
+export const getArtworkStatus = trackArtwork;
+export const getMyArtworks = getMyArtworkUploads;
+
+// WhatsApp
+export const logWhatsAppClick = (data) => api.post('/whatsapp/log', data);
+
+// Delivery Estimate
+export const getDeliveryEstimate = (params) => api.get('/delivery/estimate', { params });
+
+// Pickup
+export const getPickupSlots = (params) => api.get('/website/pickup/slots', { params });
+export const bookPickupSlot = (data) => api.post('/website/pickup/book', data);
+export const getPickupBooking = (ref) => api.get(`/website/pickup/booking/${ref}`);
+
+// Promotions
+export const getPromotions = () => api.get('/website/promotions');
+export const getPromotionBanners = () => api.get('/website/promotions/banners');
+
+// Translations
+export const getTranslations = (lang) => api.get(`/website/translations/${lang}`);
+
+// Proofs
+export const getJobProofs = (jobId) => api.get(`/website/proofs/${jobId}`);
+export const reviewProof = (proofId, data) => api.post(`/website/proofs/${proofId}/review`, data);
+
+// Sample Requests for portal
+export const getMySampleRequests = () => api.get('/website/sample-requests/my');
+export const getMyConsultations = () => api.get('/website/design-consultations/my');
+
 export default api;
 
 // Response interceptor to surface server errors to users via toast
@@ -81,7 +129,19 @@ api.interceptors.response.use(
         } else if (status === 401) {
           toast.error('Authentication required. Please sign in.');
         } else {
-          const msg = (error.response.data && (error.response.data.error || error.response.data.message)) || `Request failed (${status})`;
+          // Normalize server error objects to a user-friendly string
+          const respData = error.response.data || {};
+          const rawErr = respData.error || respData.message || null;
+          let msg = `Request failed (${status})`;
+          if (rawErr) {
+            if (typeof rawErr === 'string') {
+              msg = rawErr;
+            } else if (typeof rawErr === 'object') {
+              msg = rawErr.userMessage || rawErr.message || JSON.stringify(rawErr);
+            } else {
+              msg = String(rawErr);
+            }
+          }
           toast.error(msg);
         }
       } else {

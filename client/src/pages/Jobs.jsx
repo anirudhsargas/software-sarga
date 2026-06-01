@@ -284,6 +284,14 @@ const Jobs = () => {
         return colors[status] || 'badge--default';
     };
 
+    const shortenBranchName = (name) => {
+        if (!name) return 'Main';
+        const n = (name || '').toLowerCase();
+        if (n.includes('perambra')) return 'PBA';
+        if (n.includes('meppayur')) return 'MPR';
+        return name;
+    };
+
     return (
         <div className="stack-lg">
             <div className="page-header">
@@ -325,7 +333,7 @@ const Jobs = () => {
                                 style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', cursor: 'pointer', minWidth: 0 }}
                             >
                                 <option value="">All Branches</option>
-                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                {branches.map(b => <option key={b.id} value={b.id}>{shortenBranchName(b.name)}</option>)}
                             </select>
                             <ChevronDown size={14} className="muted" style={{ flexShrink: 0, pointerEvents: 'none' }} />
                         </div>
@@ -378,10 +386,10 @@ const Jobs = () => {
                     <table className="table">
                         <thead>
                             <tr>
-                                <th>Job Details</th>
-                                <th>Customer</th>
-                                <th>Branch</th>
-                                <th>Status</th>
+                                <th style={{ width: '22%' }}>Job Details</th>
+                                <th style={{ width: '15%' }}>Customer</th>
+                                <th style={{ width: '8%' }}>Branch</th>
+                                <th style={{ width: '8%' }}>Status</th>
                                 {sortByPriority && <th>Priority</th>}
                                 <th>Production</th>
                                 {isFinancialsVisible && <th>Amount</th>}
@@ -499,10 +507,10 @@ const Jobs = () => {
                                                     ) : (
                                                         <>
                                                             <div className="row items-center gap-xs">
-                                                                <span className="font-bold text-sm">{j.job_number}</span>
-                                                                <span className="text-xs muted" style={{ opacity: 0.7 }}>• {j.product_name || 'Service'}</span>
+                                                                <span className="font-bold text-sm td-truncate" title={j.job_number}>{j.job_number}</span>
+                                                                <span className="text-xs muted td-truncate" title={j.product_name || 'Service'} style={{ opacity: 0.7, maxWidth: '35%' }}>• {j.product_name || 'Service'}</span>
                                                             </div>
-                                                            <span className="text-sm font-medium">{j.job_name}</span>
+                                                            <span className="text-sm font-medium td-truncate" title={j.job_name}>{j.job_name}</span>
                                                             
                                                             {/* Extra Tags for Dashboard List */}
                                                             {j.description && (
@@ -563,12 +571,12 @@ const Jobs = () => {
                                             </td>
                                             <td>
                                                 <div className="stack-xs">
-                                                    <span className="text-sm font-medium">{j.customer_name}</span>
+                                                    <span className="text-sm font-medium td-truncate" title={j.customer_name}>{j.customer_name}</span>
                                                     <span className="text-xs muted">{formatForDisplay(j.customer_mobile)}</span>
                                                 </div>
                                             </td>
                                             <td className="text-sm">
-                                                {j.branch_name || 'Main'}
+                                                {shortenBranchName(j.branch_name)}
                                             </td>
                                             <td>
                                                 {isSummaryRow ? (
@@ -664,7 +672,7 @@ const Jobs = () => {
                                                             title="View Details"
                                                             onClick={() => navigate(`/dashboard/jobs/${j.id}`)}
                                                         >
-                                                            <FileText size={16} />
+                                                            <FileText size={18} />
                                                         </button>
                                                         {['Admin', 'Front Office', 'front office'].includes(userRole) && (
                                                             <button
@@ -673,7 +681,7 @@ const Jobs = () => {
                                                                 title="Repeat Order"
                                                                 onClick={(e) => { e.stopPropagation(); handleRepeatOrder(j.id); }}
                                                             >
-                                                                <RotateCcw size={16} />
+                                                                <RotateCcw size={18} />
                                                             </button>
                                                         )}
                                                         {['Admin', 'Accountant'].includes(userRole) && (
@@ -683,7 +691,7 @@ const Jobs = () => {
                                                                 title="Delete Job"
                                                                 onClick={(e) => handleDeleteJob(e, j.id)}
                                                             >
-                                                                <Trash2 size={16} />
+                                                                <Trash2 size={18} />
                                                             </button>
                                                         )}
                                                     </div>

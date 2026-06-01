@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+const logger = require('./helpers/logger');
 
 const loadSchemaFiles = async (connection) => {
   const schemaDir = path.join(__dirname, 'schemas');
@@ -2010,6 +2011,56 @@ const initDb = async () => {
     `);
     try { await connection.query("ALTER TABLE sarga_customer_designs MODIFY COLUMN file_url LONGTEXT"); } catch (e) { }
 
+    // ─── Google Reviews ───────────────────────────────────────
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_reviews (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        reviewer_name VARCHAR(200) NOT NULL,
+        profile_image_url VARCHAR(500) DEFAULT '',
+        rating DECIMAL(2,1) NOT NULL DEFAULT 5.0,
+        review_text TEXT,
+        review_date DATE DEFAULT NULL,
+        source VARCHAR(50) DEFAULT 'google',
+        google_review_id VARCHAR(200) DEFAULT NULL,
+        is_featured TINYINT(1) DEFAULT 0,
+        is_active TINYINT(1) DEFAULT 1,
+        sort_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    try { await connection.query("ALTER TABLE sarga_reviews ADD UNIQUE INDEX idx_google_review_id (google_review_id)"); } catch (e) { }
+    try { await connection.query("ALTER TABLE sarga_reviews ADD INDEX idx_reviews_active (is_active, sort_order)"); } catch (e) { }
+
+    // ─── Artwork Uploads (Customer File Submission) ──────────────
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_artwork_uploads (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        order_number VARCHAR(20) NOT NULL UNIQUE,
+        customer_id INT DEFAULT NULL,
+        customer_name VARCHAR(200) NOT NULL,
+        customer_email VARCHAR(255) DEFAULT NULL,
+        customer_phone VARCHAR(50) DEFAULT NULL,
+        product_type VARCHAR(100) DEFAULT NULL,
+        quantity INT DEFAULT NULL,
+        size VARCHAR(100) DEFAULT NULL,
+        printing_side ENUM('single','double') DEFAULT 'single',
+        special_instructions TEXT,
+        delivery_requirement TEXT,
+        files JSON DEFAULT NULL,
+        status ENUM('uploaded','under_review','proof_sent','approved','printing','completed','cancelled') DEFAULT 'uploaded',
+        assigned_designer_id INT DEFAULT NULL,
+        assigned_at TIMESTAMP NULL,
+        notes TEXT,
+        tracking_token VARCHAR(100) DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (assigned_designer_id) REFERENCES sarga_staff(id) ON DELETE SET NULL
+      )
+    `);
+    try { await connection.query("ALTER TABLE sarga_artwork_uploads ADD INDEX idx_artwork_status (status)"); } catch (e) { }
+    try { await connection.query("ALTER TABLE sarga_artwork_uploads ADD INDEX idx_artwork_customer (customer_id)"); } catch (e) { }
+
     // ─── Job Proofs (Proof Approval Workflow) ────────────────────
     await connection.query(`
       CREATE TABLE IF NOT EXISTS sarga_job_proofs (
@@ -2524,6 +2575,75 @@ const initDb = async () => {
       }
     } catch (err) {
       logger.warn('Warning: Could not initialize sample vendor data:', err.message);
+    }
+
+    // Ensure translations table exists, then seed Malayalam translations
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_translations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        lang VARCHAR(10) NOT NULL,
+        namespace VARCHAR(100) NOT NULL DEFAULT 'common',
+        key_name VARCHAR(255) NOT NULL,
+        value TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_translation (lang, namespace, key_name)
+      )
+    `);
+
+    // Seed Malayalam translations
+    try {
+      const [[langCount]] = await connection.query("SELECT COUNT(*) as cnt FROM sarga_translations WHERE lang = 'ml'");
+      if (langCount.cnt === 0) {
+        const mlTranslations = [
+          ['ml', 'common', 'nav.home', 'ഹോം'],
+          ['ml', 'common', 'nav.services', 'സേവനങ്ങൾ'],
+          ['ml', 'common', 'nav.products', 'ഉൽപ്പന്നങ്ങൾ'],
+          ['ml', 'common', 'nav.portfolio', 'പോർട്ട്ഫോളിയോ'],
+          ['ml', 'common', 'nav.blog', 'ബ്ലോഗ്'],
+          ['ml', 'common', 'nav.samples', 'സാമ്പിളുകൾ'],
+          ['ml', 'common', 'nav.consultation', 'സൗജന്യ കൺസൾട്ടേഷൻ'],
+          ['ml', 'common', 'nav.track', 'ഓർഡർ ട്രാക്ക് ചെയ്യുക'],
+          ['ml', 'common', 'nav.upload', 'ആർട്ട്‌വർക്ക് അപ്‌ലോഡ്'],
+          ['ml', 'common', 'nav.pickup', 'പിക്കപ്പ് ഷെഡ്യൂൾ ചെയ്യുക'],
+          ['ml', 'common', 'nav.contact', 'കോൺടാക്റ്റ്'],
+          ['ml', 'common', 'nav.signin', 'സൈൻ ഇൻ'],
+          ['ml', 'common', 'nav.design', 'ഡിസൈൻ ഹബ്'],
+          ['ml', 'common', 'nav.get_quote', 'കോട്ടേഷൻ നേടുക'],
+          ['ml', 'common', 'cart.add', 'കാർട്ടിലേക്ക് ചേർക്കുക'],
+          ['ml', 'common', 'cart.checkout', 'ചെക്കൗട്ടിലേക്ക് പോകുക'],
+          ['ml', 'common', 'cart.empty', 'നിങ്ങളുടെ കാർട്ട് ശൂന്യമാണ്'],
+          ['ml', 'common', 'cart.title', 'കാർട്ട്'],
+          ['ml', 'common', 'checkout.title', 'ചെക്കൗട്ട്'],
+          ['ml', 'common', 'checkout.place_order', 'ഓർഡർ ചെയ്യുക'],
+          ['ml', 'common', 'pricing.title', 'വില കാൽക്കുലേറ്റർ'],
+          ['ml', 'common', 'pricing.quantity', 'അളവ്'],
+          ['ml', 'common', 'pricing.total', 'ആകെ'],
+          ['ml', 'common', 'pricing.gst', 'ജിഎസ്ടി'],
+          ['ml', 'common', 'pricing.unit_price', 'യൂണിറ്റ് വില'],
+          ['ml', 'common', 'pricing.setup_fee', 'സെറ്റപ്പ് ഫീ'],
+          ['ml', 'common', 'pricing.finishes', 'അധിക ഫിനിഷുകൾ'],
+          ['ml', 'common', 'product.pricing', 'വില കാണുക'],
+          ['ml', 'common', 'order.track', 'ഓർഡർ ട്രാക്ക് ചെയ്യുക'],
+          ['ml', 'common', 'common.loading', 'ലോഡ് ചെയ്യുന്നു...'],
+          ['ml', 'common', 'common.error', 'പിശക്'],
+          ['ml', 'common', 'common.submit', 'സമർപ്പിക്കുക'],
+          ['ml', 'common', 'common.cancel', 'റദ്ദാക്കുക'],
+          ['ml', 'common', 'common.save', 'സേവ് ചെയ്യുക'],
+          ['ml', 'common', 'common.search', 'തിരയുക'],
+          ['ml', 'common', 'hero.title', '1994 മുതൽ പ്രൊഫഷണൽ പ്രിന്റിംഗ്'],
+          ['ml', 'common', 'hero.subtitle', 'ഓഫ്‌സെറ്റ് & ഡിജിറ്റൽ പ്രിന്റിംഗ്, ഡിസൈൻ, ബൈൻഡിംഗ് — എല്ലാം ഒരു കുടക്കീഴിൽ'],
+          ['ml', 'common', 'hero.cta', 'സേവനങ്ങൾ കാണുക'],
+        ];
+        for (const [lang, ns, key, val] of mlTranslations) {
+          await connection.query(
+            'INSERT IGNORE INTO sarga_translations (lang, namespace, key_name, value) VALUES (?, ?, ?, ?)',
+            [lang, ns, key, val]
+          );
+        }
+        console.log('Malayalam translations seeded');
+      }
+    } catch (err) {
+      logger.warn('Translation seeding issue:', err.message);
     }
 
     // Performance indexes for frequently queried tables

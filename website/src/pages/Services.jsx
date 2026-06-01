@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import SEO from '../components/SEO'
 import {
   Printer,
   Zap,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react'
 import './Services.css'
 import { useCart } from '../context/CartContext'
+import WhatsAppButton from '../components/WhatsAppButton'
 import toast from 'react-hot-toast'
 
 const mainServices = [
@@ -72,6 +74,10 @@ export default function Services() {
 
   return (
     <div className="services-page">
+      <SEO 
+        title="Printing & Document Services" 
+        description="Explore Sarga Prints' comprehensive offset and digital printing, photostat document runs, hard binding, and custom trophy mementos." 
+      />
       {/* Header */}
       <section className="page-header" id="services-header">
         <div className="page-header__bg" />
@@ -117,13 +123,22 @@ export default function Services() {
                       Get Custom Quote <ArrowRight size={14} />
                     </Link>
                   </div>
-                  <button 
-                    onClick={() => { addItem({ service: service.title, quantity: 1 }); openCart(); }}
-                    className="btn btn-outline btn-sm"
-                    style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px' }}
-                  >
-                    Add to Quote Cart
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px', width: '100%' }}>
+                    <button 
+                      onClick={() => { addItem({ service: service.title, quantity: 1, price: service.price }); openCart(); }}
+                      className="btn btn-outline btn-sm"
+                      style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px' }}
+                    >
+                      Add to Cart
+                    </button>
+                    <WhatsAppButton
+                      phoneNumber="919895410035"
+                      productName={service.title}
+                      type="quote"
+                      className="btn-sm"
+                      style={{ fontSize: '0.8rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -154,17 +169,26 @@ export default function Services() {
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{service.price}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    addItem({ service: service.title, quantity: 1, branch: 'Perambra', addedAt: new Date().toISOString() });
-                    toast.success(`${service.title} added to quote!`);
-                    openCart();
-                  }}
-                  className="btn btn-outline btn-sm"
-                  style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', whiteSpace: 'nowrap' }}
-                >
-                  Add to Quote
-                </button>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <button
+                    onClick={() => {
+                      addItem({ service: service.title, quantity: 1, branch: 'Perambra', price: service.price, addedAt: new Date().toISOString() });
+                      toast.success(`${service.title} added to cart!`);
+                      openCart();
+                    }}
+                    className="btn btn-outline btn-sm"
+                    style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', whiteSpace: 'nowrap' }}
+                  >
+                    Add to Cart
+                  </button>
+                  <WhatsAppButton
+                    phoneNumber="919895410035"
+                    productName={service.title}
+                    type="quote"
+                    className="btn-sm"
+                    style={{ padding: '4px 8px', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                  />
+                </div>
               </div>
             ))}
           </div>

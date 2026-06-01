@@ -37,6 +37,12 @@ const InternalUsageReport = () => {
         to: todayStr(),
         department: 'all',
     });
+    const formatApiError = (err) => {
+        const raw = err?.response?.data?.error ?? err?.response?.data?.message ?? null;
+        if (typeof raw === 'string') return raw;
+        if (typeof raw === 'object' && raw !== null) return raw.userMessage || raw.message || JSON.stringify(raw);
+        return err?.message || String(err) || 'Server error';
+    };
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -49,7 +55,7 @@ const InternalUsageReport = () => {
             setSummary(res.data.summary || {});
             setTrend(res.data.trend || []);
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to fetch data');
+            setError(formatApiError(err) || 'Failed to fetch data');
         } finally {
             setLoading(false);
         }

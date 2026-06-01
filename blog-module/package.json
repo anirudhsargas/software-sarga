@@ -1,0 +1,17 @@
+{
+  "name": "sarga-blog-module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "publish-scheduled": "node scripts/publish_scheduled.js"
+  },
+  "dependencies": {
+    "next": "13.4.10",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "pg": "8.11.0"
+  }
+}

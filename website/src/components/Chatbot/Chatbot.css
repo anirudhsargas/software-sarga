@@ -1,4 +1,4 @@
-.sarga-chatbot { position: fixed; right: 20px; bottom: 20px; z-index: 9999; }
+.sarga-chatbot { position: fixed; right: 20px; bottom: 100px; z-index: 9998; }
 
 .chatbot-button { width: 60px; height: 60px; border-radius: 999px; background: #25D366; border: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(0,0,0,0.2); cursor: pointer; position: relative; }
 

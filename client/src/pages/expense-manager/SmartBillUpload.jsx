@@ -7,6 +7,12 @@ import localDb from '../../services/localDb';
 import './SmartBillUpload.css';
 
 const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, defaultRelatedTab }) => {
+  const formatApiError = (err) => {
+    const raw = err?.response?.data?.error ?? err?.response?.data?.message ?? null;
+    if (typeof raw === 'string') return raw;
+    if (typeof raw === 'object' && raw !== null) return raw.userMessage || raw.message || JSON.stringify(raw);
+    return err?.message || String(err) || 'Server error';
+  };
   const [step, setStep] = useState('upload'); // upload | extracting | suggestions | pricing | linking | confirming
   const [file, setFile] = useState(null);
   const [extractedData, setExtractedData] = useState(null);
@@ -372,10 +378,9 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     } catch (err) {
       console.error('[SmartBillUpload] Extraction failed:', err);
       const isTimeout = String(err?.code || '').toUpperCase() === 'ECONNABORTED';
-      const errorMsg = isTimeout
-        ? 'Extraction is taking too long. Please try a smaller/clearer file or retry in a moment.'
-        : (err.response?.data?.error || err.response?.data?.details || err.message || 'Failed to extract bill details');
-      setError(errorMsg);
+      const timeoutMsg = 'Extraction is taking too long. Please try a smaller/clearer file or retry in a moment.';
+      const apiMsg = formatApiError(err) || err.response?.data?.details;
+      setError(isTimeout ? timeoutMsg : (apiMsg || 'Failed to extract bill details'));
       onError?.(err);
     } finally {
       setLoading(false);
@@ -613,7 +618,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
         }).catch(() => {});
       }
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to upload bill');
+      setError(formatApiError(err) || 'Failed to upload bill');
     } finally {
       setLoading(false);
     }
