@@ -7,17 +7,10 @@ import LanguageSwitcher from './LanguageSwitcher'
 import { useI18n } from '../context/I18nContext'
 
 const navLinks = [
-  { path: '/', label: 'Home' },
   { path: '/services', label: 'Services' },
   { path: '/products', label: 'Products' },
   { path: '/portfolio', label: 'Portfolio' },
   { path: '/blog', label: 'Blog' },
-  { path: '/samples', label: 'Samples' },
-  { path: '/book', label: 'Free Consultation' },
-  { path: '/track', label: 'Track Order' },
-  { path: '/artwork-upload', label: 'Upload Artwork' },
-  { path: '/pickup', label: 'Schedule Pickup' },
-  { path: '/contact', label: 'Contact' },
 ]
 
 export default function Navbar() {

@@ -156,20 +156,20 @@ export default function Services() {
 
           <div className="additional-grid">
             {additionalServices.map((service, i) => (
-              <div key={i} className="additional-card reveal" id={`additional-service-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-md)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+              <div key={i} className="additional-card glass-card reveal" id={`additional-service-${i}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-lg)', padding: 'var(--space-xl)', height: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-md)', width: '100%' }}>
                   <div
                     className="additional-card__icon"
                     style={{ background: `${service.color}12`, color: service.color }}
                   >
                     {service.icon}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span className="additional-card__title">{service.title}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{service.price}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span className="additional-card__title" style={{ fontSize: '1.05rem', lineHeight: '1.3' }}>{service.title}</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>{service.price}</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: 'auto' }}>
                   <button
                     onClick={() => {
                       addItem({ service: service.title, quantity: 1, branch: 'Perambra', price: service.price, addedAt: new Date().toISOString() });
@@ -177,7 +177,7 @@ export default function Services() {
                       openCart();
                     }}
                     className="btn btn-outline btn-sm"
-                    style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', whiteSpace: 'nowrap' }}
+                    style={{ flex: 1, padding: '8px', fontSize: '0.8rem', borderRadius: '6px', display: 'flex', justifyContent: 'center' }}
                   >
                     Add to Cart
                   </button>
@@ -185,8 +185,9 @@ export default function Services() {
                     phoneNumber="919895410035"
                     productName={service.title}
                     type="quote"
+                    label="Get Quote"
                     className="btn-sm"
-                    style={{ padding: '4px 8px', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                    style={{ flex: 1, padding: '8px', fontSize: '0.8rem', borderRadius: '6px', display: 'flex', justifyContent: 'center' }}
                   />
                 </div>
               </div>

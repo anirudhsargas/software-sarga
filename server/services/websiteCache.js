@@ -1,5 +1,6 @@
 const { pool } = require('../database');
 const logger = require('../helpers/logger');
+const { getCloudinaryUrl } = require('../helpers/cloudinaryUpload');
 
 const TTL = process.env.WEBSITE_CACHE_TTL_MS ? Number(process.env.WEBSITE_CACHE_TTL_MS) : 30_000;
 
@@ -54,9 +55,11 @@ if (process.env.REDIS_URL) {
 
 async function loadProducts() {
   const [rows] = await pool.query(
-    `SELECT p.id, p.name, p.description, p.image_url,
-            sc.name AS subcategory_name,
-            c.name AS category_name
+        `SELECT p.id, p.name, p.description, p.image_url,
+          p.calculation_type, p.has_paper_rate, p.paper_rate, p.has_double_side_rate,
+          sc.name AS subcategory_name,
+          c.name AS category_name,
+          COALESCE(p.paper_rate, (SELECT MIN(unit_rate) FROM sarga_product_slabs sps WHERE sps.product_id = p.id AND sps.unit_rate IS NOT NULL), 0) AS starting_price
      FROM sarga_products p
      JOIN sarga_product_subcategories sc ON p.subcategory_id = sc.id
      JOIN sarga_product_categories c ON sc.category_id = c.id
@@ -64,7 +67,48 @@ async function loadProducts() {
      ORDER BY c.position, sc.position, p.position
      LIMIT 100`
   );
-  return rows;
+
+  // Normalize image URLs: prefer absolute URLs, otherwise try Cloudinary when configured
+  const mapped = rows.map((r) => {
+    let image = r.image_url || null;
+    try {
+      if (image && typeof image === 'string') {
+        const trimmed = image.trim();
+        // Already a full URL
+        if (/^https?:\/\//i.test(trimmed) || /^\/\//.test(trimmed) || trimmed.includes('res.cloudinary.com')) {
+          image = trimmed;
+        } else if (process.env.CLOUDINARY_CLOUD_NAME) {
+          // Try to construct a Cloudinary URL. Normalize stored value to a plausible public_id
+          let publicId = trimmed.replace(/^\//, '');
+          // If path contains uploads/keep as-is, otherwise assume uploads/<name> may be used
+          if (!publicId) publicId = '';
+          try {
+            image = getCloudinaryUrl(publicId || trimmed);
+          } catch (e) {
+            // fallback to original stored value
+            image = trimmed;
+          }
+        } else {
+          // fallback to local uploads path
+          image = trimmed.startsWith('/') ? trimmed : `/uploads/${trimmed}`;
+        }
+      }
+    } catch (e) {
+      logger.warn('[WebsiteCache] Failed to normalize product image url:', e.message);
+    }
+
+    return {
+      ...r,
+      image_url: image,
+      starting_price: Number(r.starting_price) || 0,
+      has_paper_rate: !!r.has_paper_rate,
+      paper_rate: Number(r.paper_rate) || 0,
+      has_double_side_rate: !!r.has_double_side_rate,
+      calculation_type: r.calculation_type || 'Normal'
+    };
+  });
+
+  return mapped;
 }
 
 async function loadCategories() {

@@ -10,6 +10,8 @@ export default function PricingCalculator({ product, preSelectedFinish, onAddToC
   const { addItem, openCart } = useCart()
   const [quantity, setQuantity] = useState(100)
   const [selectedFinishes, setSelectedFinishes] = useState([])
+  const [isDoubleSide, setIsDoubleSide] = useState(false)
+  const [paperRate, setPaperRate] = useState('')
   const [pricing, setPricing] = useState(null)
   const [finishes, setFinishes] = useState([])
   const [loading, setLoading] = useState(false)
@@ -22,6 +24,12 @@ export default function PricingCalculator({ product, preSelectedFinish, onAddToC
           if (res.data?.finishes) setFinishes(res.data.finishes)
         })
         .catch(() => {})
+      // initialize paper rate from product metadata if present
+      if (product?.has_paper_rate) {
+        setPaperRate(product.paper_rate ? String(product.paper_rate) : '')
+      } else {
+        setPaperRate('')
+      }
     }
   }, [product?.id])
 
@@ -37,6 +45,8 @@ export default function PricingCalculator({ product, preSelectedFinish, onAddToC
       if (selectedFinishes.length > 0) {
         params.finish_ids = selectedFinishes.join(',')
       }
+      if (isDoubleSide) params.is_double_side = true
+      if (product?.has_paper_rate && paperRate !== '') params.paper_rate = Number(paperRate)
       const res = await api.get('/pricing/calculate', { params })
       setPricing(res.data)
     } catch (err) {
@@ -45,7 +55,7 @@ export default function PricingCalculator({ product, preSelectedFinish, onAddToC
     } finally {
       setLoading(false)
     }
-  }, [product?.id, selectedFinishes])
+  }, [product?.id, selectedFinishes, isDoubleSide, paperRate])
 
   useEffect(() => {
     const timer = setTimeout(() => calculatePrice(quantity), 300)
@@ -102,6 +112,30 @@ export default function PricingCalculator({ product, preSelectedFinish, onAddToC
             onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
           />
         </div>
+
+        {/* Double-side and Paper Rate Options */}
+        {(product?.has_double_side_rate || product?.has_paper_rate) && (
+          <div style={{ marginTop: 12, marginBottom: 8 }}>
+            {product?.has_double_side_rate && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <input type="checkbox" checked={isDoubleSide} onChange={(e) => setIsDoubleSide(e.target.checked)} />
+                <span style={{ fontSize: '0.9rem' }}>Double-sided printing</span>
+              </label>
+            )}
+            {product?.has_paper_rate && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <label style={{ fontSize: '0.9rem', minWidth: 90 }}>Paper rate</label>
+                <input
+                  type="number"
+                  value={paperRate}
+                  onChange={(e) => setPaperRate(e.target.value)}
+                  placeholder={product.paper_rate ? String(product.paper_rate) : 'e.g. 12.50'}
+                  style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid #e6eef6' }}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Finishes */}
         {finishes.length > 0 && (

@@ -36,7 +36,6 @@ import Chatbot from './components/Chatbot/Chatbot'
 import { CartProvider } from './context/CartContext'
 import { I18nProvider } from './context/I18nContext'
 import CartDrawer from './components/Cart/CartDrawer'
-import StickyQuoteWidget from './components/StickyQuoteWidget'
 import './App.css'
 
 // Simple auth guard for customer portal routes
@@ -116,7 +115,6 @@ function AppLayout() {
         </Suspense>
       </main>
       {!isDesignTool && <Chatbot />}
-      {!isDesignTool && <StickyQuoteWidget />}
       {!isDesignTool && <CartDrawer />}
       {!isDesignTool && <Footer />}
     </div>

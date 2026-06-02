@@ -110,7 +110,7 @@ router.get('/products', async (req, res) => {
       const total_pages = Math.max(1, Math.ceil(total / limit));
 
       const [rows] = await pool.query(
-        `SELECT p.id, p.name, p.description, p.image_url, sc.name AS subcategory_name, c.name AS category_name, p.starting_price
+        `SELECT p.id, p.name, p.description, p.image_url, sc.name AS subcategory_name, c.name AS category_name, COALESCE(p.paper_rate, 0) AS starting_price
          FROM sarga_products p
          JOIN sarga_product_subcategories sc ON p.subcategory_id = sc.id
          JOIN sarga_product_categories c ON sc.category_id = c.id

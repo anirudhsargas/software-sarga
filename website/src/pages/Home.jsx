@@ -297,7 +297,7 @@ export default function Home() {
       <div className="cur-ring" id="cring" />
 
       {/* ── HERO ── */}
-      <section className="hero" id="hero" style={{ padding: 'var(--space-4xl) 0', position: 'relative' }}>
+      <section className="hero" id="hero" style={{ paddingTop: 'calc(var(--space-4xl) + 60px)', paddingBottom: 'var(--space-4xl)', position: 'relative' }}>
         <canvas id="bg-canvas" ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1, opacity: 0.5 }} />
         <div className="hero-grain" />
         <div className="container hero-content-grid" style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '800px', margin: '0 auto' }}>

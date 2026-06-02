@@ -19,6 +19,7 @@ function roundTo(n, places = 2) {
 router.get('/pricing/products', asyncHandler(async (req, res) => {
   const [products] = await pool.query(
     `SELECT p.id, p.name, p.size, p.calculation_type, p.description, p.image_url,
+            p.has_paper_rate, p.paper_rate, p.has_double_side_rate,
             sc.name AS subcategory_name, c.name AS category_name
      FROM sarga_products p
      JOIN sarga_product_subcategories sc ON p.subcategory_id = sc.id
@@ -144,32 +145,91 @@ router.get('/pricing/calculate', asyncHandler(async (req, res) => {
       gstRate = Number(matchingTiers[0].gst_rate);
       priceSource = 'tier';
     } else {
-      // 3. Fall back to legacy slab system
+      // 3. Fall back to legacy slab system (improved: support Normal/Range/Slab interpolation,
+      //    paper-rate add-on and double-side/offset rates)
       const [slabs] = await pool.query(
-        'SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC',
+        'SELECT id, product_id, min_qty, max_qty, unit_rate, base_value, offset_unit_rate, double_side_unit_rate FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC',
         [product_id]
       );
 
       if (slabs.length > 0) {
+        // Support optional query flags from frontend
+        const isDoubleSide = req.query.is_double_side === '1' || req.query.is_double_side === 'true' || req.query.is_double_side === true;
+        const isOffset = req.query.is_offset === '1' || req.query.is_offset === 'true' || req.query.is_offset === true;
+        const paperRateOverride = (req.query.paper_rate !== undefined && req.query.paper_rate !== null) ? Number(req.query.paper_rate) : undefined;
+
+        const resolveUnitRate = (slab) => {
+          if (!slab) return 0;
+          if (isDoubleSide && slab.double_side_unit_rate != null) return Number(slab.double_side_unit_rate) || 0;
+          if (isOffset && slab.offset_unit_rate != null) return Number(slab.offset_unit_rate) || 0;
+          return Number(slab.unit_rate) || 0;
+        };
+
         if (product.calculation_type === 'Normal') {
-          unitPrice = Number(slabs[0].unit_rate);
+          const first = slabs[0];
+          unitPrice = resolveUnitRate(first);
           setupFee = 0;
         } else if (product.calculation_type === 'Range') {
           const matched = slabs.find(s => {
             const maxQty = s.max_qty == null ? Infinity : Number(s.max_qty);
             return qty >= Number(s.min_qty) && qty <= maxQty;
           }) || slabs[slabs.length - 1];
-          unitPrice = Number(matched.unit_rate);
+          unitPrice = resolveUnitRate(matched);
           setupFee = 0;
         } else if (product.calculation_type === 'Slab') {
-          const sorted = [...slabs].sort((a, b) => a.min_qty - b.min_qty);
-          const last = sorted[sorted.length - 1];
-          unitPrice = Number(last.unit_rate) || (Number(last.base_value) / Number(last.min_qty));
+          const sorted = [...slabs].sort((a, b) => Number(a.min_qty) - Number(b.min_qty));
+          let totalFromSlabs = 0;
+
+          if (sorted.length > 0) {
+            const exactMatch = sorted.find(s => Number(s.min_qty) === qty);
+            if (exactMatch) {
+              totalFromSlabs = Number(exactMatch.base_value) || (resolveUnitRate(exactMatch) * qty);
+            } else if (qty < Number(sorted[0].min_qty)) {
+              totalFromSlabs = Number(sorted[0].base_value) || (resolveUnitRate(sorted[0]) * qty);
+            } else if (qty > Number(sorted[sorted.length - 1].min_qty)) {
+              const last = sorted[sorted.length - 1];
+              const lastMin = Number(last.min_qty) || 0;
+              const lastBase = Number(last.base_value) || 0;
+              const lastUnit = lastMin > 0 ? (lastBase / lastMin) : resolveUnitRate(last);
+              totalFromSlabs = lastUnit * qty;
+            } else {
+              for (let i = 0; i < sorted.length - 1; i++) {
+                const s1 = sorted[i];
+                const s2 = sorted[i + 1];
+                if (qty > Number(s1.min_qty) && qty < Number(s2.min_qty)) {
+                  const ratio = (qty - Number(s1.min_qty)) / (Number(s2.min_qty) - Number(s1.min_qty));
+                  totalFromSlabs = Number(s1.base_value) + ratio * (Number(s2.base_value) - Number(s1.base_value));
+                  break;
+                }
+              }
+            }
+          }
+
+          unitPrice = qty > 0 ? (Number(totalFromSlabs) || 0) / qty : 0;
           setupFee = 0;
+
+          // Paper rate add-on (if product stores a paper_rate or override provided)
+          const effectivePaperRate = paperRateOverride !== undefined ? paperRateOverride : (product.paper_rate ? Number(product.paper_rate) : 0);
+          if (product.has_paper_rate) {
+            totalFromSlabs += effectivePaperRate * qty;
+            unitPrice = qty > 0 ? totalFromSlabs / qty : 0;
+          }
+
+          // Double-side add-on
+          if (product.has_double_side_rate && isDoubleSide) {
+            const dsRate = Number(sorted[0]?.double_side_unit_rate) || 0;
+            if (dsRate > 0) {
+              totalFromSlabs += dsRate * qty;
+              unitPrice = qty > 0 ? totalFromSlabs / qty : 0;
+            }
+          }
+
+          // Ensure subtotal will be computed correctly later from unitPrice
         }
+
         priceSource = 'slab';
       } else {
-        // 4. Last resort
+        // 4. Last resort default
         unitPrice = 10;
         setupFee = 0;
       }
