@@ -99,6 +99,68 @@ const PageLoader = () => (
     </div>
 );
 
+const SuspenseFallback = () => {
+    const location = useLocation();
+    const path = location.pathname || '';
+    // Jobs table skeleton
+    if (path.includes('/dashboard/jobs')) {
+        const cols = [
+            { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
+            { key: 'customer', header: 'Customer', width: '1.5fr', lines: 2 },
+            { key: 'branch', header: 'Branch', width: '1fr' },
+            { key: 'status', header: 'Status', width: '1fr', pill: true },
+            { key: 'production', header: 'Production', width: '1fr', lines: 2 },
+            { key: 'delivery', header: 'Delivery', width: '1fr' },
+            { key: 'actions', header: 'Actions', width: '0.8fr' }
+        ];
+        return (
+            <div className="skeleton-wrapper skeleton-wrapper--table">
+                <SkeletonLoader type="table" count={6} columns={cols} />
+            </div>
+        );
+    }
+
+    // Customers list skeleton
+    if (path.includes('/dashboard/customers')) {
+        return (
+            <div className="skeleton-wrapper skeleton-wrapper--list">
+                <SkeletonLoader type="customer-list" count={8} />
+            </div>
+        );
+    }
+
+    // Billing skeleton
+    if (path.includes('/dashboard/billing')) {
+        return (
+            <div className="skeleton-wrapper skeleton-wrapper--table">
+                <SkeletonLoader type="form" />
+            </div>
+        );
+    }
+
+    // Default dashboard home skeleton
+    if (path === '/dashboard' || path === '/dashboard/') {
+        return (
+            <div className="skeleton-wrapper skeleton-wrapper--list">
+                <SkeletonLoader type="cards" count={4} />
+            </div>
+        );
+    }
+
+    return PageLoader();
+};
+
+const DashboardHome = () => {
+    const { user } = useAuth();
+    if (!user?.role) return <Summary />;
+    if (user.role === 'Admin') return <Summary />;
+    if (user.role === 'Front Office') return <FrontOffice />;
+    if (user.role === 'Accountant') return <AccountantDashboard />;
+    if (user.role === 'Other Staff') return <OtherStaffDashboard />;
+    if (user.role === 'Designer') return <DesignerDashboard />;
+    return <Jobs />;
+};
+
 const Dashboard = () => {
     const { user, logout, updateUser } = useAuth();
     const { confirm } = useConfirm();
@@ -160,56 +222,6 @@ const Dashboard = () => {
     }, []);
 
     const { t } = useTranslation();
-
-    const SuspenseFallback = () => {
-        const path = location.pathname || '';
-        // Jobs table skeleton
-        if (path.includes('/dashboard/jobs')) {
-            const cols = [
-                { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
-                { key: 'customer', header: 'Customer', width: '1.5fr', lines: 2 },
-                { key: 'branch', header: 'Branch', width: '1fr' },
-                { key: 'status', header: 'Status', width: '1fr', pill: true },
-                { key: 'production', header: 'Production', width: '1fr', lines: 2 },
-                { key: 'delivery', header: 'Delivery', width: '1fr' },
-                { key: 'actions', header: 'Actions', width: '0.8fr' }
-            ];
-            return (
-                <div className="skeleton-wrapper skeleton-wrapper--table">
-                    <SkeletonLoader type="table" count={6} columns={cols} />
-                </div>
-            );
-        }
-
-        // Customers list skeleton
-        if (path.includes('/dashboard/customers')) {
-            return (
-                <div className="skeleton-wrapper skeleton-wrapper--list">
-                    <SkeletonLoader type="customer-list" count={8} />
-                </div>
-            );
-        }
-
-        // Billing skeleton
-        if (path.includes('/dashboard/billing')) {
-            return (
-                <div className="skeleton-wrapper skeleton-wrapper--table">
-                    <SkeletonLoader type="form" />
-                </div>
-            );
-        }
-
-        // Default dashboard home skeleton
-        if (path === '/dashboard' || path === '/dashboard/') {
-            return (
-                <div className="skeleton-wrapper skeleton-wrapper--list">
-                    <SkeletonLoader type="cards" count={4} />
-                </div>
-            );
-        }
-
-        return PageLoader();
-    };
 
     const menuItems = [
         // Main dashboards
@@ -531,16 +543,6 @@ const Dashboard = () => {
     const openCropper = (file) => {
         if (!file) return;
         setCropState({ file });
-    };
-
-    const DashboardHome = () => {
-        if (!user?.role) return <Summary />;
-        if (user.role === 'Admin') return <Summary />;
-        if (user.role === 'Front Office') return <FrontOffice />;
-        if (user.role === 'Accountant') return <AccountantDashboard />;
-        if (user.role === 'Other Staff') return <OtherStaffDashboard />;
-        if (user.role === 'Designer') return <DesignerDashboard />;
-        return <Jobs />;
     };
 
     const handleCropCancel = () => {

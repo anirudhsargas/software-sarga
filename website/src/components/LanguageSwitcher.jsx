@@ -1,7 +1,7 @@
 import { useI18n } from '../context/I18nContext'
 
 export default function LanguageSwitcher() {
-  const { lang, setLang } = useI18n()
+  const { lang, setLang, t } = useI18n()
 
   return (
     <div className="lang-switcher" style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
@@ -15,9 +15,9 @@ export default function LanguageSwitcher() {
           color: lang === 'en' ? '#fff' : 'var(--text-primary, #1a1a2e)',
           transition: 'all 0.2s'
         }}
-        aria-label="Switch to English"
+        aria-label={t('language.switch_to_en')}
       >
-        EN
+        {t('language.en')}
       </button>
       <button
         onClick={() => setLang('ml')}
@@ -29,9 +29,9 @@ export default function LanguageSwitcher() {
           color: lang === 'ml' ? '#fff' : 'var(--text-primary, #1a1a2e)',
           transition: 'all 0.2s'
         }}
-        aria-label="Switch to Malayalam"
+        aria-label={t('language.switch_to_ml')}
       >
-        മല
+        {t('language.ml')}
       </button>
     </div>
   )

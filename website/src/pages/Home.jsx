@@ -6,11 +6,13 @@ import ReviewsWidget from '../components/ReviewsWidget/ReviewsWidget'
 import PromoBanner from '../components/PromoBanner'
 import axios from 'axios'
 import api from '../api'
+import { useI18n } from '../context/I18nContext'
 import './Home.css'
 
 export default function Home() {
   const canvasRef = useRef(null)
   const [latestPosts, setLatestPosts] = useState([])
+  const { t } = useI18n()
 
   useEffect(() => {
     api.get('/blog/posts', { params: { limit: 3 } })
@@ -492,11 +494,11 @@ export default function Home() {
 
       {/* ── LATEST POSTS FROM JOURNAL ── */}
       {latestPosts.length > 0 && (
-        <section className="home-blog-section section" id="home-blog" style={{ background: '#0a0a0a', borderTop: '1px solid var(--border)', paddingBottom: 'var(--space-2xl)' }}>
+        <section className="home-blog-section section" id="home-blog" style={{ background: 'var(--bg)', borderTop: '1px solid var(--border)', paddingBottom: 'var(--space-2xl)' }}>
           <div className="container">
             <div className="sec-header">
               <span className="sec-eyebrow">Knowledge Center</span>
-              <h2 className="sec-h" style={{ color: '#fff' }}>Latest from our<br /><em>Design &amp; Print Journal</em></h2>
+              <h2 className="sec-h">Latest from our<br /><em>Design &amp; Print Journal</em></h2>
             </div>
             
             <div className="home-blog-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-xl)', marginTop: 'var(--space-2xl)' }}>
@@ -506,8 +508,8 @@ export default function Home() {
                     <span className="home-blog-card__category" style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--accent)' }}>{post.category}</span>
                     <span className="home-blog-card__read-time" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{post.read_time} min read</span>
                   </div>
-                  <h3 className="home-blog-card__title" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 'var(--space-sm)', color: '#fff', lineHeight: 1.3 }}>
-                    <Link to={`/blog/${post.slug}`} style={{ color: '#fff' }}>{post.title}</Link>
+                  <h3 className="home-blog-card__title" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 'var(--space-sm)', color: 'var(--text)', lineHeight: 1.3 }}>
+                    <Link to={`/blog/${post.slug}`} style={{ color: 'var(--text)' }}>{post.title}</Link>
                   </h3>
                   <p className="home-blog-card__excerpt" style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 'var(--space-md)', flexGrow: 1 }}>{post.excerpt}</p>
                   <Link to={`/blog/${post.slug}`} className="home-blog-card__link" style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginTop: 'auto' }}>

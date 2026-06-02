@@ -86,13 +86,7 @@ const Summary = () => {
         }
     };
 
-    if (loading && !statsToday && !statsOverall) {
-        return (
-            <div className="flex items-center justify-center p-40">
-                <Loader2 className="animate-spin text-accent" size={48} />
-            </div>
-        );
-    }
+    const showLoader = loading && !statsToday && !statsOverall;
 
     const lowStockItems = statsOverall?.low_stock || [];
     const topCustomers = statsOverall?.top_customers || [];
@@ -100,9 +94,15 @@ const Summary = () => {
 
     return (
         <div className="summary-page">
-            <div style={{position:'relative'}}>
-                <HeroBg3D />
-            </div>
+            {showLoader ? (
+                <div className="flex items-center justify-center p-40" style={{ minHeight: '60vh' }}>
+                    <Loader2 className="animate-spin text-accent" size={48} />
+                </div>
+            ) : (
+                <>
+                    <div style={{position:'relative'}}>
+                        <HeroBg3D />
+                    </div>
             {/* Header */}
             <div className="page-header summary-header">
                 <div>
@@ -535,6 +535,8 @@ const Summary = () => {
                 <Suspense fallback={<div className="flex items-center justify-center p-40"><Loader2 className="animate-spin text-accent" size={32} /></div>}>
                     <OrderPredictions />
                 </Suspense>
+            )}
+                </>
             )}
         </div>
     );

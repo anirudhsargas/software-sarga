@@ -6,18 +6,19 @@ import CartIcon from './Cart/CartIcon'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useI18n } from '../context/I18nContext'
 
-const navLinks = [
-  { path: '/services', label: 'Services' },
-  { path: '/products', label: 'Products' },
-  { path: '/portfolio', label: 'Portfolio' },
-  { path: '/blog', label: 'Blog' },
-]
+  const navLinks = [
+    { path: '/services', labelKey: 'nav.services' },
+    { path: '/products', labelKey: 'nav.products' },
+    { path: '/portfolio', labelKey: 'nav.portfolio' },
+    { path: '/blog', labelKey: 'nav.blog' },
+  ]
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [theme, setTheme] = useState('light')
   const location = useLocation()
+  const { lang, t } = useI18n()
 
   useEffect(() => {
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
@@ -64,56 +65,60 @@ export default function Navbar() {
               <Link
                 to={link.path}
                 className={`navbar__link ${location.pathname === link.path ? 'navbar__link--active' : ''}`}
-                id={`nav-${link.label.toLowerCase().replace(' ', '-')}`}
+                id={`nav-${link.path.replace('/', '')}`}
               >
-                {link.label}
+                {t(link.labelKey)}
               </Link>
             </li>
           ))}
           {/* Mobile-only Design Hub CTA inside the menu */}
-          <li className="navbar__links-cta navbar__links-cta--design">
-            <Link to="/design" className="navbar__mobile-design-btn">
-              <Palette size={18} />
-              <span>Launch Design Hub</span>
-              <span className="navbar__badge-pulse">Live</span>
+           <li className="navbar__links-cta navbar__links-cta--design">
+             <Link to="/design" className="navbar__mobile-design-btn">
+               <Palette size={18} />
+               <span>{t('nav.design')}</span>
+               <span className="navbar__badge-pulse">Live</span>
             </Link>
           </li>
           {/* Mobile-only CTA Buttons */}
           <li className="navbar__links-cta">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 20px', width: '100%' }}>
-              <Link to="/signin" className="btn btn-outline" style={{ width: '100%' }}>Sign In</Link>
-              <Link to="/contact" className="btn btn-primary" style={{ width: '100%' }}>Get a Quote</Link>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 20px', width: '100%' }}>
+               <Link to="/signin" className="btn btn-outline" style={{ width: '100%' }}>
+                 {t('nav.signin')}
+               </Link>
+               <Link to="/contact" className="btn btn-primary" style={{ width: '100%' }}>
+                 {t('nav.get_quote')}
+               </Link>
             </div>
           </li>
         </ul>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* Desktop Design Hub featured Badge */}
-          <Link to="/design" className="navbar__design-badge navbar__cta-desktop" id="nav-design-desktop">
-            <Palette size={15} /> 
-            <span>Design</span>
-            <span className="navbar__design-badge-dot"></span>
-          </Link>
+           <Link to="/design" className="navbar__design-badge navbar__cta-desktop" id="nav-design-desktop">
+             <Palette size={15} /> 
+             <span>{t('nav.design')}</span>
+             <span className="navbar__design-badge-dot"></span>
+           </Link>
 
-          <Link to="/signin" className="btn btn-outline btn-sm navbar__cta-desktop" id="nav-sign-in-desktop">
-            Sign In
-          </Link>
-          <Link to="/contact" className="btn btn-primary btn-sm navbar__cta-desktop" id="nav-get-quote-desktop">
-            Get a Quote
-          </Link>
+           <Link to="/signin" className="btn btn-outline btn-sm navbar__cta-desktop" id="nav-sign-in-desktop">
+             {t('nav.signin')}
+           </Link>
+           <Link to="/contact" className="btn btn-primary btn-sm navbar__cta-desktop" id="nav-get-quote-desktop">
+             {t('nav.get_quote')}
+           </Link>
 
           {/* Language Switcher */}
           <LanguageSwitcher />
 
-          {/* Theme Toggle Button */}
-          <button 
-            className="navbar__theme-toggle" 
-            onClick={toggleTheme} 
-            aria-label="Toggle dark/light theme"
-            title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
-          >
-            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-          </button>
+           {/* Theme Toggle Button */}
+           <button 
+             className="navbar__theme-toggle" 
+             onClick={toggleTheme} 
+             aria-label={t('theme.toggle_aria_label')}
+             title={t(`theme.toggle_title_${theme === 'light' ? 'dark' : 'light'}`)}
+           >
+             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+           </button>
 
           <CartIcon />
         </div>
