@@ -5,17 +5,6 @@
    Uses design tokens from index.css
    ============================================================ */
 
-/* ── CURSOR (home page only — class added/removed by JS on #root) ── */
-#root.home-cursor { cursor: none !important; }
-#root.home-cursor a,
-#root.home-cursor button,
-#root.home-cursor .mag-btn { cursor: none !important; }
-
-.cur-dot { position: fixed; width: 10px; height: 10px; background: var(--accent); border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); transition: width .15s, height .15s, opacity .2s; will-change: transform; }
-.cur-ring { position: fixed; width: 38px; height: 38px; border: 1px solid rgba(var(--accent-rgb),.35); border-radius: 50%; pointer-events: none; z-index: 9998; transform: translate(-50%, -50%); transition: width .4s cubic-bezier(0.16,1,0.3,1), height .4s cubic-bezier(0.16,1,0.3,1), border-color .2s, border-style .2s; will-change: transform; }
-.cur-dot.link { width: 6px; height: 6px; background: rgba(var(--accent-rgb),.5); }
-.cur-ring.link { width: 60px; height: 60px; border-color: var(--accent); }
-.cur-ring.card { width: 80px; height: 80px; border-style: dashed; border-color: rgba(var(--accent-rgb),.5); }
 
 /* ── HERO ── */
 .hero {

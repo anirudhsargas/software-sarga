@@ -18,52 +18,6 @@ export default function Home() {
       .catch(err => console.log('Failed to fetch home blog:', err))
   }, [])
 
-  /* ── CURSOR ── */
-  useEffect(() => {
-    const isMobile = window.innerWidth < 768
-    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (isMobile || prefersReduced) return
-
-    const dot = document.getElementById('cdot')
-    const ring = document.getElementById('cring')
-    if (!dot || !ring) return
-
-    const root = document.getElementById('root')
-    if (!root) return
-    root.classList.add('home-cursor')
-
-    let mx = 0, my = 0, rx = 0, ry = 0
-    const onMove = e => {
-      mx = e.clientX; my = e.clientY
-      dot.style.left = mx + 'px'; dot.style.top = my + 'px'
-    }
-    document.addEventListener('mousemove', onMove)
-
-    let rafId
-    const rl = () => {
-      rx += (mx - rx) * .11; ry += (my - ry) * .11
-      ring.style.left = rx + 'px'; ring.style.top = ry + 'px'
-      rafId = requestAnimationFrame(rl)
-    }
-    rl()
-
-    const allLinks = document.querySelectorAll('a,button,.mag-btn')
-    allLinks.forEach(el => {
-      el.addEventListener('mouseenter', () => { dot.classList.add('link'); ring.classList.add('link') })
-      el.addEventListener('mouseleave', () => { dot.classList.remove('link'); ring.classList.remove('link') })
-    })
-    const allCards = document.querySelectorAll('.tilt-card')
-    allCards.forEach(el => {
-      el.addEventListener('mouseenter', () => ring.classList.add('card'))
-      el.addEventListener('mouseleave', () => ring.classList.remove('card'))
-    })
-
-    return () => {
-      root.classList.remove('home-cursor')
-      document.removeEventListener('mousemove', onMove)
-      cancelAnimationFrame(rafId)
-    }
-  }, [])
 
   /* ── THREE.JS HERO ── */
   useEffect(() => {
@@ -292,9 +246,6 @@ export default function Home() {
           }
         }}
       />
-      {/* Custom cursor — home only */}
-      <div className="cur-dot" id="cdot" />
-      <div className="cur-ring" id="cring" />
 
       {/* ── HERO ── */}
       <section className="hero" id="hero" style={{ paddingTop: 'calc(var(--space-4xl) + 60px)', paddingBottom: 'var(--space-4xl)', position: 'relative' }}>
