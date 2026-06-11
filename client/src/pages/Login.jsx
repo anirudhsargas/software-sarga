@@ -8,6 +8,7 @@ const Login = () => {
     const [userId, setUserId] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const navigate = useNavigate();
@@ -42,7 +43,7 @@ const Login = () => {
         setLoading(true);
         setError('');
         try {
-            const data = await login(cleanedUserId, password);
+            const data = await login(cleanedUserId, password, rememberMe);
             if (data.user.is_first_login) {
                 navigate('/change-password', { replace: true });
             } else {
@@ -126,7 +127,7 @@ const Login = () => {
 
                     <div className="form-actions">
                         <div className="checkbox-row">
-                            <input type="checkbox" id="remember" />
+                            <input type="checkbox" id="remember" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
                             <label htmlFor="remember">Remember Me</label>
                         </div>
                         <a href="/forgot-password" className="forgot-link">Forgot Password?</a>

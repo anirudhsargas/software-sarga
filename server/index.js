@@ -266,8 +266,11 @@ const invalidateCache = (pattern) => {
 };
 
 // Export cache utilities for use in routes
+app.cacheMiddleware = cacheMiddleware;
+app.invalidateCache = invalidateCache;
 module.exports.cacheMiddleware = cacheMiddleware;
 module.exports.invalidateCache = invalidateCache;
+
 
 // --------------- Route Modules ---------------
 
@@ -319,6 +322,7 @@ try {
 }
 app.use('/api', require('./routes/frontOffice'));
 app.use('/api', require('./routes/websiteInquiries'));
+app.use('/api/chatbot', require('./routes/chatbot'));
 app.use('/api', require('./routes/expenses'));
 app.use('/api', require('./routes/finance'));
 app.use('/api', require('./routes/expenses-extended'));

@@ -6,8 +6,8 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => auth.getUser());
 
-    const login = useCallback(async (userId, password) => {
-        const data = await auth.login(userId, password);
+    const login = useCallback(async (userId, password, rememberMe = true) => {
+        const data = await auth.login(userId, password, rememberMe);
         setUser(data.user);
         return data;
     }, [setUser]);

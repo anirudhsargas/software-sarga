@@ -153,6 +153,7 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
 
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
+  const isOnlyAdmin = user?.role === 'Admin';
 
   // Add Inventory Item (from vendor side panel)
   const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
@@ -319,6 +320,10 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
   };
 
   const handleDeleteVendor = async (v) => {
+    if (!isOnlyAdmin) {
+      toast.error('Access denied. Insufficient permissions.');
+      return;
+    }
     const isConfirmed = await confirm({
       title: 'Delete Vendor',
       message: `Are you sure you want to delete vendor "${v.name}"? This cannot be undone.`,
@@ -1074,10 +1079,10 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
                       <IndianRupee size={14} /> Pay
                     </button>
                     {isAdmin && (
-                      <>
-                        <button className="btn btn-ghost btn-icon btn-sm" title="Edit" onClick={(e) => { e.stopPropagation(); openEditForm(v); }}><Pencil size={14} /></button>
-                        <button className="btn btn-ghost btn-icon btn-sm" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteVendor(v); }}><Trash2 size={14} /></button>
-                      </>
+                      <button className="btn btn-ghost btn-icon btn-sm" title="Edit" onClick={(e) => { e.stopPropagation(); openEditForm(v); }}><Pencil size={14} /></button>
+                    )}
+                    {isOnlyAdmin && (
+                      <button className="btn btn-ghost btn-icon btn-sm" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteVendor(v); }}><Trash2 size={14} /></button>
                     )}
                     {expandedVendor === v.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                   </div>

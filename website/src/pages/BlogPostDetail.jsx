@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Clock, User, Calendar, ArrowLeft, Facebook, Twitter, Link2, ChevronRight } from 'lucide-react'
-import axios from 'axios'
+import api from '../api'
 import SEO from '../components/SEO'
 import toast from 'react-hot-toast'
 import './BlogPostDetail.css'
@@ -11,33 +11,33 @@ export default function BlogPostDetail() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchPost = async () => {
-      setLoading(true)
-      try {
-        const response = await axios.get(`/api/blog/posts/${slug}`)
-        if (response.data) {
-          setData(response.data)
+    useEffect(() => {
+      const fetchPost = async () => {
+        setLoading(true)
+        try {
+          const response = await api.get(`/blog/posts/${slug}`)
+          if (response.data) {
+            setData(response.data)
+          }
+        } catch (err) {
+          console.error('Failed to load blog article:', err)
+        } finally {
+          setLoading(false)
         }
-      } catch (err) {
-        console.error('Failed to load blog article:', err)
-      } finally {
-        setLoading(false)
       }
-    }
 
-    fetchPost()
-  }, [slug])
+      fetchPost()
+    }, [slug])
 
-  // Share tracking helper
-  const trackShare = async (eventType) => {
-    if (!data?.post?.id) return
-    try {
-      await axios.post(`/api/blog/posts/${data.post.id}/track`, { eventType })
-    } catch (e) {
-      console.warn('Analytics failure:', e.message)
-    }
-  }
+   // Share tracking helper
+   const trackShare = async (eventType) => {
+     if (!data?.post?.id) return
+     try {
+       await api.post(`/blog/posts/${data.post.id}/track`, { eventType })
+     } catch (e) {
+       console.warn('Analytics failure:', e.message)
+     }
+   }
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href)

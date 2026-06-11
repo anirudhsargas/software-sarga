@@ -1,12 +1,35 @@
-# Render service configuration for the backend.
-# Update the fields below (envVars, build/start commands) to match your server setup.
+# Render service configuration for the full-stack application.
+# Place this file at the repository root.
+
 services:
+  # Python ML Microservice
+  - type: web
+    name: sarga-ml-service
+    env: python
+    branch: main
+    plan: starter
+    rootDir: ml-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT app:app
+    envVars:
+      - key: FLASK_DEBUG
+        value: "0"
+      - key: DB_HOST
+        fromSecret: DB_HOST
+      - key: DB_USER
+        fromSecret: DB_USER
+      - key: DB_PASSWORD
+        fromSecret: DB_PASSWORD
+      - key: DB_NAME
+        fromSecret: DB_NAME
+
+  # Node.js Backend
   - type: web
     name: sarga-backend
     env: node
     branch: main
     plan: starter
-    # Build/start commands assume the repository has a 'server' folder with package.json
+    rootDir: server
     buildCommand: cd server && npm ci
     startCommand: cd server && npm run start
     envVars:
@@ -30,6 +53,8 @@ services:
         value: "https://software-sarga-2.onrender.com/api"
       - key: CORS_ORIGIN
         value: "https://software-sarga.vercel.app"
+      - key: ML_SERVICE_URL
+        value: "https://sarga-ml-service.onrender.com"
       - key: JWT_SECRET
         fromSecret: JWT_SECRET
       - key: CLOUDINARY_CLOUD_NAME
@@ -38,7 +63,3 @@ services:
         fromSecret: CLOUDINARY_API_KEY
       - key: CLOUDINARY_API_SECRET
         fromSecret: CLOUDINARY_API_SECRET
-      # Add production secrets (DB, JWT, third-party keys) as Render secrets instead
-      # Example using a secret reference:
-      # - key: DATABASE_URL
-      #   fromSecret: database_url

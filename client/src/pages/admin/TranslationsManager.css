@@ -1,0 +1,116 @@
+.tr__filters {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+
+.tr__table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.tr__table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.tr__table th {
+  background: var(--surface-2);
+  padding: 14px 18px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.tr__table td {
+  padding: 14px 18px;
+  font-size: 0.88rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.tr__table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.tr__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tr__table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.tr__lang-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: 99px;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.tr__loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  gap: 12px;
+  color: var(--text-muted);
+}
+
+.tr__row {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 320ms ease, transform 320ms ease;
+}
+
+.tr__row.animate-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tr__code {
+  background: var(--surface-2);
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  color: var(--accent);
+  word-break: break-all;
+}
+
+.tr__value {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.5;
+  font-size: 0.88rem;
+}
+
+.tr__count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.tr__empty {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-muted);
+}

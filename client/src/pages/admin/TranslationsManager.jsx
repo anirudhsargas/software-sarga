@@ -1,7 +1,27 @@
-import { useState, useEffect } from 'react'
-import { Loader2, Plus, Edit2, Search, Trash2 } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Loader2, Plus, Edit2, Search, Trash2, X, Globe, Check } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
+import './TranslationsManager.css'
+
+const LANGUAGES = [
+  { value: 'ml', label: 'Malayalam' },
+  { value: 'en', label: 'English' },
+  { value: 'hi', label: 'Hindi' },
+]
+
+const NAMESPACES = [
+  { value: 'common', label: 'Common' },
+  { value: 'nav', label: 'Navigation' },
+  { value: 'home', label: 'Home' },
+  { value: 'products', label: 'Products' },
+]
+
+const staggerEnter = (el, i) => {
+  if (!el) return
+  el.style.transitionDelay = `${i * 30}ms`
+  requestAnimationFrame(() => el.classList.add('animate-in'))
+}
 
 export default function TranslationsManager() {
   const [entries, setEntries] = useState([])
@@ -12,6 +32,8 @@ export default function TranslationsManager() {
   const [showForm, setShowForm] = useState(false)
   const [editEntry, setEditEntry] = useState(null)
   const [form, setForm] = useState({ lang: 'ml', namespace: 'common', key_name: '', value: '' })
+  const [saving, setSaving] = useState(false)
+  const tbodyRef = useRef(null)
 
   useEffect(() => { loadEntries() }, [lang, namespace])
 
@@ -23,85 +45,229 @@ export default function TranslationsManager() {
       if (namespace !== 'all') params.namespace = namespace
       const res = await api.get('/translations', { params })
       setEntries(res.data.translations || [])
-    } catch (e) { toast.error('Failed to load') }
-    finally { setLoading(false) }
+      setTimeout(() => {
+        if (tbodyRef.current) {
+          tbodyRef.current.querySelectorAll('tr.tr__row').forEach((el, i) => staggerEnter(el, i))
+        }
+      }, 50)
+    } catch {
+      toast.error('Failed to load translations')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const openNew = () => { setEditEntry(null); setForm({ lang: 'ml', namespace: 'common', key_name: '', value: '' }); setShowForm(true) }
+  const openNew = () => {
+    setEditEntry(null)
+    setForm({ lang: 'ml', namespace: 'common', key_name: '', value: '' })
+    setShowForm(true)
+  }
 
-  const openEdit = (e) => { setEditEntry(e); setForm({ lang: e.lang, namespace: e.namespace, key_name: e.key_name, value: e.value }); setShowForm(true) }
+  const openEdit = (e) => {
+    setEditEntry(e)
+    setForm({ lang: e.lang, namespace: e.namespace, key_name: e.key_name, value: e.value })
+    setShowForm(true)
+  }
 
   const save = async () => {
+    setSaving(true)
     try {
       await api.post('/translations', form)
       toast.success('Translation saved')
-      setShowForm(false); loadEntries()
-    } catch (e) { toast.error('Failed to save') }
+      setShowForm(false)
+      loadEntries()
+    } catch {
+      toast.error('Failed to save translation')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const remove = async (id) => {
     if (!confirm('Delete this translation?')) return
-    try { await api.delete(`/translations/${id}`); toast.success('Deleted'); loadEntries() }
-    catch (e) { toast.error('Failed to delete') }
+    try {
+      await api.delete(`/translations/${id}`)
+      toast.success('Deleted')
+      loadEntries()
+    } catch {
+      toast.error('Failed to delete')
+    }
   }
 
-  if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>
+  const filtered = entries.filter(
+    e => !search || e.key_name?.toLowerCase().includes(search.toLowerCase()) || e.value?.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const langLabel = (code) => LANGUAGES.find(l => l.value === code)?.label || code
+
+  if (loading) {
+    return (
+      <div>
+        <div className="tr__loader">
+          <Loader2 size={20} className="spin" />
+          <span>Loading translations...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="portfolio-mgr">
-      <div className="mgr-header"><h2>Translations</h2><button className="btn" onClick={openNew}><Plus size={16} /> Add Entry</button></div>
-      <div className="mgr-filters">
-        <select className="input" value={lang} onChange={e => setLang(e.target.value)}>
-          <option value="all">All Languages</option>
-          <option value="en">English</option>
-          <option value="ml">Malayalam</option>
-          <option value="hi">Hindi</option>
-        </select>
-        <select className="input" value={namespace} onChange={e => setNamespace(e.target.value)}>
-          <option value="all">All Namespaces</option>
-          <option value="common">Common</option>
-          <option value="nav">Navigation</option>
-          <option value="home">Home</option>
-          <option value="products">Products</option>
-        </select>
-        <div className="mgr-search"><Search size={16} /><input className="input" placeholder="Search keys..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+    <div>
+      <div className="page-header">
+        <div>
+          <h1 className="section-title">Translations</h1>
+          <p className="muted" style={{ fontSize: 13 }}>Manage multilingual content keys for the website.</p>
+        </div>
+        <button className="btn btn-primary" onClick={openNew}>
+          <Plus size={16} />
+          <span>Add Entry</span>
+        </button>
       </div>
-      <div className="mgr-table-wrap">
-        <table className="mgr-table">
-          <thead><tr><th>Key</th><th>Lang</th><th>Namespace</th><th>Value</th><th>Actions</th></tr></thead>
-          <tbody>
-            {entries
-              .filter(e => !search || e.key_name?.toLowerCase().includes(search.toLowerCase()) || e.value?.toLowerCase().includes(search.toLowerCase()))
-              .map(e => (
-              <tr key={e.id}>
-                <td><code>{e.key_name}</code></td>
-                <td><span className="status-badge">{e.lang}</span></td>
-                <td>{e.namespace}</td>
-                <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.value}</td>
-                <td className="mgr-actions">
-                  <button className="btn btn-sm" onClick={() => openEdit(e)}><Edit2 size={14} /></button>
-                  <button className="btn btn-sm btn-danger" onClick={() => remove(e.id)}><Trash2 size={14} /></button>
-                </td>
+
+      <div className="stack-md">
+        <div className="tr__filters row gap-md wrap items-center">
+          <div className="flex-1" style={{ minWidth: 220 }}>
+            <div className="search-wrapper">
+              <Search size={16} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search keys or values..."
+                className="input-field"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <select
+            className="input-field"
+            style={{ width: 160 }}
+            value={lang}
+            onChange={e => setLang(e.target.value)}
+          >
+            <option value="all">All Languages</option>
+            {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </select>
+          <select
+            className="input-field"
+            style={{ width: 160 }}
+            value={namespace}
+            onChange={e => setNamespace(e.target.value)}
+          >
+            <option value="all">All Namespaces</option>
+            {NAMESPACES.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
+          </select>
+        </div>
+
+        <div className="tr__table-wrap">
+          <table className="tr__table">
+            <thead>
+              <tr>
+                <th style={{ width: '30%' }}>Key</th>
+                <th style={{ width: 80 }}>Lang</th>
+                <th style={{ width: 100 }}>Namespace</th>
+                <th>Value</th>
+                <th style={{ width: 80 }}></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+              <tbody ref={tbodyRef}>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="tr__empty">
+                    No translations found.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((e, i) => (
+                  <tr key={e.id} className="tr__row" ref={el => el && staggerEnter(el, i)}>
+                    <td>
+                      <code className="tr__code">{e.key_name}</code>
+                    </td>
+                    <td>
+                      <span className="tr__lang-pill">
+                        <Globe size={12} />
+                        {langLabel(e.lang)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="text-xs muted">{e.namespace}</span>
+                    </td>
+                    <td style={{ maxWidth: 360 }}>
+                      <span className="tr__value">{e.value}</span>
+                    </td>
+                    <td>
+                      <div className="row gap-xs" style={{ flexWrap: 'nowrap' }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(e)} title="Edit">
+                          <Edit2 size={13} />
+                        </button>
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => remove(e.id)} title="Delete">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="tr__count">
+          {filtered.length} of {entries.length} entries
+        </div>
       </div>
 
       {showForm && (
         <div className="modal-backdrop" onClick={() => setShowForm(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>{editEntry ? 'Edit' : 'New'} Translation</h3>
-            <div className="stack-md">
-              <label>Language <select className="input" value={form.lang} onChange={e => setForm({ ...form, lang: e.target.value })}>
-                <option value="en">English</option>
-                <option value="ml">Malayalam</option>
-                <option value="hi">Hindi</option>
-              </select></label>
-              <label>Namespace <input className="input" value={form.namespace} onChange={e => setForm({ ...form, namespace: e.target.value })} /></label>
-              <label>Key <input className="input" value={form.key_name} onChange={e => setForm({ ...form, key_name: e.target.value })} /></label>
-              <label>Value <textarea className="input" rows={3} value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} /></label>
-              <div className="row gap-sm"><button className="btn btn-primary" onClick={save}>Save</button><button className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button></div>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <div className="modal-header">
+              <h2>{editEntry ? 'Edit' : 'New'} Translation</h2>
+              <button className="modal-close" onClick={() => setShowForm(false)}><X size={20} /></button>
+            </div>
+            <div className="modal-body stack-md">
+              <div>
+                <label className="label">Language</label>
+                <select
+                  className="input-field"
+                  value={form.lang}
+                  onChange={e => setForm({ ...form, lang: e.target.value })}
+                >
+                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Namespace</label>
+                <input
+                  className="input-field"
+                  value={form.namespace}
+                  onChange={e => setForm({ ...form, namespace: e.target.value })}
+                  placeholder="e.g. common, nav, home"
+                />
+              </div>
+              <div>
+                <label className="label">Key</label>
+                <input
+                  className="input-field"
+                  value={form.key_name}
+                  onChange={e => setForm({ ...form, key_name: e.target.value })}
+                  placeholder="e.g. welcome_message"
+                />
+              </div>
+              <div>
+                <label className="label">Value</label>
+                <textarea
+                  className="input-field textarea"
+                  rows={3}
+                  value={form.value}
+                  onChange={e => setForm({ ...form, value: e.target.value })}
+                  placeholder="Translated text"
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={save} disabled={saving}>
+                {saving ? <><Loader2 size={15} className="spin" /> Saving...</> : <><Check size={15} /> Save</>}
+              </button>
             </div>
           </div>
         </div>

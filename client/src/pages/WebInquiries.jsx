@@ -170,61 +170,63 @@ const WebInquiries = () => {
                                 </span>
                             </div>
 
-                            <div className="detail-contact-grid">
-                                {selectedInquiry.phone && (
+                            <div className="detail-scrollable">
+                                <div className="detail-contact-grid">
+                                    {selectedInquiry.phone && (
+                                        <div className="contact-item">
+                                            <Phone size={16} />
+                                            <span>{selectedInquiry.phone}</span>
+                                        </div>
+                                    )}
+                                    {selectedInquiry.email && (
+                                        <div className="contact-item">
+                                            <Mail size={16} />
+                                            <span>{selectedInquiry.email}</span>
+                                        </div>
+                                    )}
+                                    {selectedInquiry.service && (
+                                        <div className="contact-item">
+                                            <ExternalLink size={16} />
+                                            <span>Interested in: <strong>{selectedInquiry.service}</strong></span>
+                                        </div>
+                                    )}
                                     <div className="contact-item">
-                                        <Phone size={16} />
-                                        <span>{selectedInquiry.phone}</span>
+                                        <Calendar size={16} />
+                                        <span>{new Date(selectedInquiry.created_at).toLocaleString('en-IN')}</span>
                                     </div>
-                                )}
-                                {selectedInquiry.email && (
-                                    <div className="contact-item">
-                                        <Mail size={16} />
-                                        <span>{selectedInquiry.email}</span>
-                                    </div>
-                                )}
-                                {selectedInquiry.service && (
-                                    <div className="contact-item">
-                                        <ExternalLink size={16} />
-                                        <span>Interested in: <strong>{selectedInquiry.service}</strong></span>
-                                    </div>
-                                )}
-                                <div className="contact-item">
-                                    <Calendar size={16} />
-                                    <span>{new Date(selectedInquiry.created_at).toLocaleString('en-IN')}</span>
+                                    {selectedInquiry.branch && selectedInquiry.branch !== 'General' && (
+                                        <div className="contact-item">
+                                            <User size={16} />
+                                            <span>Branch: {selectedInquiry.branch}</span>
+                                        </div>
+                                    )}
                                 </div>
-                                {selectedInquiry.branch && selectedInquiry.branch !== 'General' && (
-                                    <div className="contact-item">
-                                        <User size={16} />
-                                        <span>Branch: {selectedInquiry.branch}</span>
+
+                                <div className="detail-message-box">
+                                    <h4>Message from Customer:</h4>
+                                    <div className="message-content">
+                                        {selectedInquiry.message || "No message provided."}
                                     </div>
-                                )}
-                            </div>
-
-                            <div className="detail-message-box">
-                                <h4>Message from Customer:</h4>
-                                <div className="message-content">
-                                    {selectedInquiry.message || "No message provided."}
                                 </div>
-                            </div>
 
-                            <div className="detail-actions">
-                                <h4>Quick Reply</h4>
-                                <div className="row gap-md">
-                                    <button 
-                                        className="btn btn-outline btn--whatsapp" 
-                                        onClick={() => handleWhatsApp(selectedInquiry.phone)}
-                                        disabled={!selectedInquiry.phone}
-                                    >
-                                        <MessageCircle size={18} className="mr-8" /> WhatsApp
-                                    </button>
-                                    <button 
-                                        className="btn btn-outline btn--email" 
-                                        onClick={() => handleEmail(selectedInquiry.email, selectedInquiry.service)}
-                                        disabled={!selectedInquiry.email}
-                                    >
-                                        <Mail size={18} className="mr-8" /> Email
-                                    </button>
+                                <div className="detail-actions">
+                                    <h4>Quick Reply</h4>
+                                    <div className="row gap-md">
+                                        <button 
+                                            className="btn btn-outline btn--whatsapp" 
+                                            onClick={() => handleWhatsApp(selectedInquiry.phone)}
+                                            disabled={!selectedInquiry.phone}
+                                        >
+                                            <MessageCircle size={18} className="mr-8" /> WhatsApp
+                                        </button>
+                                        <button 
+                                            className="btn btn-outline btn--email" 
+                                            onClick={() => handleEmail(selectedInquiry.email, selectedInquiry.service)}
+                                            disabled={!selectedInquiry.email}
+                                        >
+                                            <Mail size={18} className="mr-8" /> Email
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 

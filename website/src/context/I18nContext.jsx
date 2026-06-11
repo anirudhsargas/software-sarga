@@ -75,8 +75,7 @@ const FALLBACK = {
       'service_mementos_frames': 'Souvenirs & Cadres Photo',
       'service_hard_spiral_binding': 'Hard & Spiral Binding',
       'service_rubber_seals_stamps': 'Rubber Seals & Stamps'
-    }
-  },
+
   ml: {
     common: {
       'nav.home': 'ഹോം',
@@ -148,53 +147,11 @@ const FALLBACK = {
       'service_mementos_frames': 'സമ്മемentos & ഫോട്ടോ ফ্রെയിംുകൾ',
       'service_hard_spiral_binding': 'ഹാര്‍ഡ് & ಸ್ಪൈറല്‍ ബൈн딩',
       'service_rubber_seals_stamps': 'റബ്ബർ സീലുകള്‍ & സ്റ്റाम്പുകൾ'
-    }
-  }
+
+
 }
-  },
-  ml: {
-    common: {
-      'nav.home': 'ഹോം',
-      'nav.services': 'സേവനങ്ങൾ',
-      'nav.products': 'ഉൽപ്പന്നങ്ങൾ',
-      'nav.portfolio': 'പോർട്ട്ഫോളിയോ',
-      'nav.blog': 'ബ്ലോഗ്',
-      'nav.samples': 'സാമ്പിളുകൾ',
-      'nav.consultation': 'സൗജന്യ കൺസൾട്ടേഷൻ',
-      'nav.track': 'ഓർഡർ ട്രാക്ക് ചെയ്യുക',
-      'nav.upload': 'ആർട്ട്‌വർക്ക് അപ്‌ലോഡ്',
-      'nav.pickup': 'പിക്കപ്പ് ഷെഡ്യൂൾ ചെയ്യുക',
-      'nav.contact': 'കോൺടാക്റ്റ്',
-      'nav.signin': 'സൈൻ ഇൻ',
-      'nav.design': 'ഡിസൈൻ ഹബ്',
-      'nav.get_quote': 'കോട്ടേഷൻ നേടുക',
-      'cart.add': 'കാർട്ടിലേക്ക് ചേർക്കുക',
-      'cart.checkout': 'ചെക്കൗട്ടിലേക്ക് പോകുക',
-      'cart.empty': 'നിങ്ങളുടെ കാർട്ട് ശൂന്യമാണ്',
-      'cart.title': 'കാർട്ട്',
-      'checkout.title': 'ചെക്കൗട്ട്',
-      'checkout.place_order': 'ഓർഡർ ചെയ്യുക',
-      'pricing.title': 'വില കാൽക്കുലേറ്റർ',
-      'pricing.quantity': 'അളവ്',
-      'pricing.total': 'ആകെ',
-      'pricing.gst': 'ജിഎസ്ടി',
-      'pricing.unit_price': 'യൂണിറ്റ് വില',
-      'pricing.setup_fee': 'സെറ്റപ്പ് ഫീ',
-      'pricing.finishes': 'അധിക ഫിനിഷുകൾ',
-      'product.pricing': 'വില കാണുക',
-      'order.track': 'ഓർഡർ ട്രാക്ക് ചെയ്യുക',
-      'common.loading': 'ലോഡ് ചെയ്യുന്നു...',
-      'common.error': 'പിശക്',
-      'common.submit': 'സമർപ്പിക്കുക',
-      'common.cancel': 'റദ്ദാക്കുക',
-      'common.save': 'സേവ് ചെയ്യുക',
-      'common.search': 'തിരയുക',
-      'hero.title': '1994 മുതൽ പ്രൊഫഷണൽ പ്രിന്റിംഗ്',
-      'hero.subtitle': 'ഓഫ്‌സെറ്റ് & ഡിജിറ്റൽ പ്രിന്റിംഗ്, ഡിസൈൻ, ബൈൻഡിംഗ് — എല്ലാം ഒരു കുടക്കീഴിൽ',
-      'hero.cta': 'സേവനങ്ങൾ കാണുക',
-    }
-  }
 }
+
 
 export function I18nProvider({ children }) {
   const [lang, setLangState] = useState(() => {

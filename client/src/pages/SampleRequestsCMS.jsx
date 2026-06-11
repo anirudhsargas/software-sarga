@@ -1,31 +1,33 @@
-import { useState, useEffect } from 'react';
-import { Package, Truck, Store, Check, X, Edit2, Plus, Clock, Search, AlertCircle, Eye } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Package, Truck, Store, Check, X, Edit2, Plus, Clock, Search, AlertCircle, Eye, Mail } from 'lucide-react';
 import api from '../services/api';
 import './SampleRequestsCMS.css';
+
+const staggerEnter = (el, i) => {
+  if (!el) return;
+  el.style.transitionDelay = `${i * 40}ms`;
+  requestAnimationFrame(() => el.classList.add('animate-in'));
+};
 
 export default function SampleRequestsCMS() {
   const [requests, setRequests] = useState([]);
   const [samples, setSamples] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('requests'); // 'requests' | 'inventory'
-  
-  // Search & Filter
+  const [activeTab, setActiveTab] = useState('requests');
+
   const [reqSearch, setReqSearch] = useState('');
-  const [reqFilter, setReqFilter] = useState('All'); // 'All' | 'Pending' | 'Approved' | 'Dispatched' | 'Completed'
+  const [reqFilter, setReqFilter] = useState('All');
   const [invSearch, setInvSearch] = useState('');
 
-  // Selected Request detail Modal
   const [selectedReq, setSelectedReq] = useState(null);
   const [updatingReq, setUpdatingReq] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Inventory Modals
   const [editingSample, setEditingSample] = useState(null);
   const [addingSample, setAddingSample] = useState(false);
-  
-  // Inventory Form states
+
   const [sampleName, setSampleName] = useState('');
   const [sampleCategory, setSampleCategory] = useState('Paper Stock');
   const [sampleDescription, setSampleDescription] = useState('');
@@ -33,7 +35,9 @@ export default function SampleRequestsCMS() {
   const [sampleActive, setSampleActive] = useState(true);
   const [savingSample, setSavingSample] = useState(false);
 
-  // Fetch initial data
+  const reqTableRef = useRef(null);
+  const matGridRef = useRef(null);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -43,6 +47,14 @@ export default function SampleRequestsCMS() {
       ]);
       setRequests(reqsRes.data.requests || []);
       setSamples(invRes.data.samples || []);
+      setTimeout(() => {
+        if (reqTableRef.current) {
+          reqTableRef.current.querySelectorAll('tbody tr.stagger-item').forEach(staggerEnter);
+        }
+        if (matGridRef.current) {
+          matGridRef.current.querySelectorAll('.material-card.stagger-item').forEach(staggerEnter);
+        }
+      }, 50);
     } catch (err) {
       console.error('Failed to load admin sample data:', err);
     } finally {
@@ -54,7 +66,6 @@ export default function SampleRequestsCMS() {
     fetchData();
   }, []);
 
-  // Update request status
   const handleUpdateReqStatus = async (e) => {
     e.preventDefault();
     if (!selectedReq) return;
@@ -65,10 +76,9 @@ export default function SampleRequestsCMS() {
         tracking_number: trackingNumber,
         notes: notes
       });
-      // Toast notification (simulated via hot-toast if loaded, else standard alert)
       import('react-hot-toast').then(m => m.default.success('Request updated successfully!'));
       setSelectedReq(null);
-      fetchData(); // Refresh list
+      fetchData();
     } catch (err) {
       console.error('Failed to update request:', err);
       alert('Failed to update request.');
@@ -77,7 +87,6 @@ export default function SampleRequestsCMS() {
     }
   };
 
-  // Add new sample material
   const handleAddSample = async (e) => {
     e.preventDefault();
     setSavingSample(true);
@@ -99,7 +108,6 @@ export default function SampleRequestsCMS() {
     }
   };
 
-  // Save edited sample material
   const handleSaveEditSample = async (e) => {
     e.preventDefault();
     if (!editingSample) return;
@@ -152,9 +160,8 @@ export default function SampleRequestsCMS() {
     setNotes(req.notes || '');
   };
 
-  // Filters
   const filteredRequests = requests.filter(req => {
-    const matchesSearch = 
+    const matchesSearch =
       req.customer_name.toLowerCase().includes(reqSearch.toLowerCase()) ||
       req.customer_phone.includes(reqSearch) ||
       (req.id && String(req.id).includes(reqSearch));
@@ -162,30 +169,30 @@ export default function SampleRequestsCMS() {
     return matchesSearch && matchesFilter;
   });
 
-  const filteredSamples = samples.filter(sample => 
+  const filteredSamples = samples.filter(sample =>
     sample.name.toLowerCase().includes(invSearch.toLowerCase()) ||
     sample.category.toLowerCase().includes(invSearch.toLowerCase())
   );
 
   return (
     <div className="sample-cms reveal revealed">
-      <div className="cms-header mb-24">
+      <div className="page-header">
         <div>
-          <h1 className="section-title">Physical Sample Requests</h1>
-          <p className="muted">Manage customer material kits and monitor paper stock inventory.</p>
+          <h1 className="section-title">Sample Requests</h1>
+          <p className="page-subtitle">Manage customer material kits and monitor inventory stock.</p>
         </div>
         <div className="cms-tabs">
-          <button 
+          <button
             className={`cms-tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
             onClick={() => setActiveTab('requests')}
           >
-            Sample Requests ({requests.length})
+            Requests ({requests.length})
           </button>
-          <button 
+          <button
             className={`cms-tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
             onClick={() => setActiveTab('inventory')}
           >
-            Inventory Stock ({samples.length})
+            Inventory ({samples.length})
           </button>
         </div>
       </div>
@@ -193,25 +200,25 @@ export default function SampleRequestsCMS() {
       {loading ? (
         <div className="cms-loader">
           <div className="small-spinner"></div>
-          <span>Loading ledger data...</span>
+          <span>Loading...</span>
         </div>
       ) : activeTab === 'requests' ? (
-        
-        /* ──── REQUESTS VIEW ──── */
-        <div className="requests-container stack-md">
-          {/* Filters Bar */}
-          <div className="filters-bar row gap-md">
-            <div className="flex-1 search-wrapper">
-              <Search size={16} className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search by ID, name or phone number..."
-                className="input-field"
-                value={reqSearch}
-                onChange={(e) => setReqSearch(e.target.value)}
-              />
+
+        <div className="stack-md">
+          <div className="filters-bar row gap-md wrap">
+            <div className="flex-1" style={{ minWidth: 220 }}>
+              <div className="search-wrapper">
+                <Search size={16} className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search by ID, name or phone..."
+                  className="input-field"
+                  value={reqSearch}
+                  onChange={(e) => setReqSearch(e.target.value)}
+                />
+              </div>
             </div>
-            <div style={{ width: 200 }}>
+            <div style={{ width: 190 }}>
               <select
                 className="input-field"
                 value={reqFilter}
@@ -228,41 +235,49 @@ export default function SampleRequestsCMS() {
             </div>
           </div>
 
-          {/* Grid/Table */}
-          <div className="table-responsive">
+          <div className="table-responsive" ref={reqTableRef}>
             <table className="cms-table">
               <thead>
                 <tr>
-                  <th>Request ID</th>
-                  <th>Customer Name</th>
-                  <th>Contact Phone</th>
+                  <th>ID</th>
+                  <th>Customer</th>
+                  <th>Phone</th>
                   <th>Method</th>
-                  <th>Selected Samples</th>
+                  <th>Samples</th>
                   <th>Status</th>
-                  <th>Date Requested</th>
-                  <th>Actions</th>
+                  <th>Date</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRequests.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="text-center muted">No sample requests match your filters.</td>
+                    <td colSpan="8" className="text-center muted" style={{ padding: 40 }}>
+                      No sample requests match your filters.
+                    </td>
                   </tr>
                 ) : (
-                  filteredRequests.map(req => (
-                    <tr key={req.id}>
+                  filteredRequests.map((req, i) => (
+                    <tr key={req.id} className="stagger-item" ref={el => el && staggerEnter(el, i)}>
                       <td><strong>#{req.id}</strong></td>
-                      <td>{req.customer_name}</td>
-                      <td>{req.customer_phone}</td>
+                      <td>
+                        <div className="row gap-sm">
+                          <span>{req.customer_name}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="text-sm">{req.customer_phone}</span>
+                      </td>
                       <td>
                         <span className="method-pill">
-                          {req.delivery_method === 'Pickup' ? <Store size={14} className="mr-4" /> : <Truck size={14} className="mr-4" />}
+                          {req.delivery_method === 'Pickup' ? <Store size={13} /> : <Truck size={13} />}
                           {req.delivery_method}
                         </span>
                       </td>
                       <td>
                         <span className="samples-badge">
-                          {req.samples?.length || 0} Samples
+                          <Package size={12} className="mr-4" />
+                          {req.samples?.length || 0}
                         </span>
                       </td>
                       <td>
@@ -270,13 +285,15 @@ export default function SampleRequestsCMS() {
                           {req.status}
                         </span>
                       </td>
-                      <td>{new Date(req.created_at).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</td>
                       <td>
-                        <button 
-                          className="btn btn-ghost btn-sm" 
+                        <span className="text-sm text-muted">{new Date(req.created_at).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</span>
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-ghost btn-sm"
                           onClick={() => openReqModal(req)}
                         >
-                          <Eye size={14} className="mr-4" />
+                          <Eye size={14} />
                           <span>Details</span>
                         </button>
                       </td>
@@ -289,71 +306,80 @@ export default function SampleRequestsCMS() {
         </div>
 
       ) : (
-        
-        /* ──── INVENTORY VIEW ──── */
-        <div className="inventory-container stack-md">
-          {/* Toolbar */}
-          <div className="filters-bar row gap-md items-center">
-            <div className="flex-1 search-wrapper">
-              <Search size={16} className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search material catalog..."
-                className="input-field"
-                value={invSearch}
-                onChange={(e) => setInvSearch(e.target.value)}
-              />
+
+        <div className="stack-md">
+          <div className="filters-bar row gap-md wrap items-center">
+            <div className="flex-1" style={{ minWidth: 220 }}>
+              <div className="search-wrapper">
+                <Search size={16} className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search material catalog..."
+                  className="input-field"
+                  value={invSearch}
+                  onChange={(e) => setInvSearch(e.target.value)}
+                />
+              </div>
             </div>
             <button className="btn btn-primary" onClick={openAddSample}>
-              <Plus size={16} className="mr-8" />
-              <span>Add New Material</span>
+              <Plus size={16} />
+              <span>Add Material</span>
             </button>
           </div>
 
-          {/* Grid */}
-          <div className="materials-grid">
-            {filteredSamples.map(sample => (
-              <div key={sample.id} className={`material-card ${sample.is_active === 0 ? 'inactive' : ''}`}>
-                <div className="material-card__header">
-                  <span className="material-category">{sample.category}</span>
-                  <button className="icon-button" onClick={() => openEditSample(sample)}>
-                    <Edit2 size={14} />
-                  </button>
-                </div>
-                <h4 className="material-name">{sample.name}</h4>
-                <p className="material-desc">{sample.description || 'No description provided.'}</p>
-                <div className="material-card__footer">
-                  <div className="stock-level">
-                    <span className="muted text-xs">Stock Level:</span>
-                    <strong className={sample.stock_quantity <= 10 ? 'text-error' : 'text-success'}>
-                      {sample.stock_quantity} remaining
-                    </strong>
-                  </div>
-                  <span className={`status-dot ${sample.is_active === 1 ? 'active' : ''}`}></span>
-                </div>
+          <div className="materials-grid" ref={matGridRef}>
+            {filteredSamples.length === 0 ? (
+              <div className="text-center muted" style={{ gridColumn: '1/-1', padding: 60 }}>
+                No materials found.
               </div>
-            ))}
+            ) : (
+              filteredSamples.map((sample, i) => (
+                <div
+                  key={sample.id}
+                  className={`material-card stagger-item ${sample.is_active === 0 ? 'inactive' : ''}`}
+                  ref={el => el && staggerEnter(el, i)}
+                >
+                  <div className="material-card__header">
+                    <span className="material-category">{sample.category}</span>
+                    <button className="icon-button" onClick={() => openEditSample(sample)}>
+                      <Edit2 size={14} />
+                    </button>
+                  </div>
+                  <h4 className="material-name">{sample.name}</h4>
+                  <p className="material-desc">{sample.description || 'No description provided.'}</p>
+                  <div className="material-card__footer">
+                    <div className="stock-level">
+                      <span className="text-xs muted">Stock</span>
+                      <strong className={sample.stock_quantity <= 10 ? 'text-error' : 'text-success'}>
+                        {sample.stock_quantity} remaining
+                      </strong>
+                    </div>
+                    <span className={`status-dot ${sample.is_active === 1 ? 'active' : ''}`} title={sample.is_active === 1 ? 'Active' : 'Inactive'}></span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
 
-      {/* ──── REQUEST DETAIL MODAL ──── */}
       {selectedReq && (
-        <div className="modal-backdrop">
-          <div className="modal modal--large">
-            <button className="modal-close" onClick={() => setSelectedReq(null)}><X size={20} /></button>
-            <h2>Sample Request details: #{selectedReq.id}</h2>
-            <div className="modal-layout mt-16">
-              
+        <div className="modal-backdrop" onClick={() => setSelectedReq(null)}>
+          <div className="modal modal--large" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Sample Request #{selectedReq.id}</h2>
+              <button className="modal-close" onClick={() => setSelectedReq(null)}><X size={20} /></button>
+            </div>
+            <div className="modal-layout">
               <div className="modal-sidebar">
-                <h3>Selected Material Kit</h3>
-                <ul className="req-materials-list mt-8">
+                <h3 className="font-semibold mb-8">Selected Materials</h3>
+                <ul className="req-materials-list">
                   {selectedReq.samples?.map(sample => (
                     <li key={sample.sample_id} className="req-material-item">
-                      <Package size={16} className="mr-8 text-primary" />
+                      <Package size={16} className="text-accent" />
                       <div>
                         <strong>{sample.sample_name}</strong>
-                        <span className="block muted text-xs">{sample.sample_category}</span>
+                        <span className="block text-xs muted">{sample.sample_category}</span>
                       </div>
                     </li>
                   ))}
@@ -363,45 +389,51 @@ export default function SampleRequestsCMS() {
               <div className="modal-main stack-md">
                 <div className="details-card">
                   <h3>Customer Details</h3>
-                  <div className="grid grid--2 mt-8">
+                  <div className="grid grid--2 gap-sm">
                     <div>
-                      <span className="label muted">Customer Name:</span>
-                      <strong>{selectedReq.customer_name}</strong>
+                      <span className="text-xs muted">Name</span>
+                      <div className="font-semibold">{selectedReq.customer_name}</div>
                     </div>
                     <div>
-                      <span className="label muted">Phone Number:</span>
-                      <strong>{selectedReq.customer_phone}</strong>
+                      <span className="text-xs muted">Phone</span>
+                      <div className="font-semibold row gap-xs">
+                        <span>{selectedReq.customer_phone}</span>
+                      </div>
                     </div>
                     <div>
-                      <span className="label muted">Email Address:</span>
-                      <span>{selectedReq.customer_email || 'Not provided'}</span>
+                      <span className="text-xs muted">Email</span>
+                      <div className="row gap-xs">
+                        <Mail size={13} className="text-muted" />
+                        <span>{selectedReq.customer_email || 'Not provided'}</span>
+                      </div>
                     </div>
                     <div>
-                      <span className="label muted">Request Date:</span>
-                      <span>{new Date(selectedReq.created_at).toLocaleString('en-IN')}</span>
+                      <span className="text-xs muted">Requested On</span>
+                      <div>{new Date(selectedReq.created_at).toLocaleString('en-IN')}</div>
                     </div>
                   </div>
                 </div>
 
                 <div className="details-card">
-                  <h3>Delivery Information</h3>
-                  <div className="mt-8">
-                    <div className="row items-center mb-8">
+                  <h3>Delivery</h3>
+                  <div className="stack-sm">
+                    <div className="row gap-sm items-center">
                       <span className="method-pill">
-                        {selectedReq.delivery_method === 'Pickup' ? <Store size={14} className="mr-4" /> : <Truck size={14} className="mr-4" />}
+                        {selectedReq.delivery_method === 'Pickup' ? <Store size={13} /> : <Truck size={13} />}
                         {selectedReq.delivery_method}
                       </span>
                     </div>
                     {selectedReq.delivery_method === 'Pickup' ? (
-                      <p>
-                        <strong>Branch for Pickup:</strong> {selectedReq.branch_name || 'Selected branch'}
-                      </p>
+                      <div>
+                        <span className="text-xs muted">Branch</span>
+                        <div className="font-semibold">{selectedReq.branch_name || 'Selected branch'}</div>
+                      </div>
                     ) : (
                       <div className="shipping-address">
-                        <strong>Address:</strong>
-                        <p>{selectedReq.address_line1}</p>
-                        {selectedReq.address_line2 && <p>{selectedReq.address_line2}</p>}
-                        <p>{selectedReq.city}, {selectedReq.state} - <strong>{selectedReq.pincode}</strong></p>
+                        <span className="text-xs muted">Address</span>
+                        <div>{selectedReq.address_line1}</div>
+                        {selectedReq.address_line2 && <div>{selectedReq.address_line2}</div>}
+                        <div>{selectedReq.city}, {selectedReq.state} - <strong>{selectedReq.pincode}</strong></div>
                       </div>
                     )}
                   </div>
@@ -409,152 +441,144 @@ export default function SampleRequestsCMS() {
 
                 {selectedReq.notes && (
                   <div className="details-card">
-                    <h3>Project Notes</h3>
+                    <h3>Notes</h3>
                     <p className="note-text mt-8">{selectedReq.notes}</p>
                   </div>
                 )}
 
-                <form onSubmit={handleUpdateReqStatus} className="status-update-form stack-sm mt-16">
-                  <h3>Action Panel (Update Request)</h3>
-                  <div className="row gap-md items-end">
-                    <div className="flex-1">
-                      <label className="label">Change Status</label>
-                      <select
-                        className="input-field"
-                        value={newStatus}
-                        onChange={(e) => setNewStatus(e.target.value)}
-                        required
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Dispatched">Dispatched (Courier Only)</option>
-                        <option value="Ready for Pickup">Ready for Pickup (Pickup Only)</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-                    </div>
-
-                    {newStatus === 'Dispatched' && (
-                      <div className="flex-2">
-                        <label className="label">Carrier Tracking Number (e.g. DTDC #)</label>
-                        <input
-                          type="text"
+                <div className="details-card">
+                  <h3>Update Status</h3>
+                  <form onSubmit={handleUpdateReqStatus} className="stack-sm mt-8">
+                    <div className="row gap-md items-end wrap">
+                      <div className="flex-1" style={{ minWidth: 180 }}>
+                        <label className="label">Status</label>
+                        <select
                           className="input-field"
-                          placeholder="Enter tracking ID"
-                          value={trackingNumber}
-                          onChange={(e) => setTrackingNumber(e.target.value)}
-                        />
+                          value={newStatus}
+                          onChange={(e) => setNewStatus(e.target.value)}
+                          required
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Approved">Approved</option>
+                          <option value="Dispatched">Dispatched</option>
+                          <option value="Ready for Pickup">Ready for Pickup</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="mt-8">
-                    <label className="label">Internal Notes / Tracking Updates</label>
-                    <textarea
-                      className="input-field textarea"
-                      placeholder="Add dispatch logs or pickup location..."
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="row end gap-md mt-16">
-                    <button type="button" className="btn btn-ghost" onClick={() => setSelectedReq(null)}>Close</button>
-                    <button type="submit" className="btn btn-primary" disabled={updatingReq}>
-                      {updatingReq ? 'Saving...' : 'Save Updates'}
-                    </button>
-                  </div>
-                </form>
-
+                      {newStatus === 'Dispatched' && (
+                        <div className="flex-1" style={{ minWidth: 200 }}>
+                          <label className="label">Tracking Number</label>
+                          <input
+                            type="text"
+                            className="input-field"
+                            placeholder="e.g. DTDC #12345"
+                            value={trackingNumber}
+                            onChange={(e) => setTrackingNumber(e.target.value)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="label">Internal Notes</label>
+                      <textarea
+                        className="input-field textarea"
+                        placeholder="Add dispatch logs or pickup notes..."
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                      />
+                    </div>
+                    <div className="row end gap-md mt-8">
+                      <button type="button" className="btn btn-ghost" onClick={() => setSelectedReq(null)}>Cancel</button>
+                      <button type="submit" className="btn btn-primary" disabled={updatingReq}>
+                        {updatingReq ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ──── ADD/EDIT INVENTORY MODAL ──── */}
       {(editingSample || addingSample) && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <button className="modal-close" onClick={() => { setEditingSample(null); setAddingSample(false); resetSampleForm(); }}><X size={20} /></button>
-            <h2>{editingSample ? 'Edit Sample Details' : 'Add New Print Material'}</h2>
-            
-            <form onSubmit={editingSample ? handleSaveEditSample : handleAddSample} className="stack-md mt-16">
-              
-              <div>
-                <label className="label">Material Name *</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  value={sampleName}
-                  onChange={(e) => setSampleName(e.target.value)}
-                  placeholder="e.g. 350 GSM Velvet Matte Board"
-                  required
-                />
-              </div>
-
-              <div className="row gap-md">
-                <div className="flex-2">
-                  <label className="label">Category *</label>
-                  <select
-                    className="input-field"
-                    value={sampleCategory}
-                    onChange={(e) => setSampleCategory(e.target.value)}
-                    required
-                  >
-                    <option value="Paper Stock">Paper Stock</option>
-                    <option value="Special Finish">Special Finish</option>
-                    <option value="Business Card Materials">Business Card Materials</option>
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="label">Current Stock *</label>
+        <div className="modal-backdrop" onClick={() => { setEditingSample(null); setAddingSample(false); resetSampleForm(); }}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{editingSample ? 'Edit Material' : 'Add New Material'}</h2>
+              <button className="modal-close" onClick={() => { setEditingSample(null); setAddingSample(false); resetSampleForm(); }}><X size={20} /></button>
+            </div>
+            <form onSubmit={editingSample ? handleSaveEditSample : handleAddSample}>
+              <div className="modal-body stack-md">
+                <div>
+                  <label className="label">Material Name</label>
                   <input
-                    type="number"
+                    type="text"
                     className="input-field"
-                    value={sampleStock}
-                    onChange={(e) => setSampleStock(e.target.value)}
+                    value={sampleName}
+                    onChange={(e) => setSampleName(e.target.value)}
+                    placeholder="e.g. 350 GSM Velvet Matte Board"
                     required
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="label">Material Description</label>
-                <textarea
-                  className="input-field textarea"
-                  placeholder="Specify board grain, feel, weight, or special laminations highlights..."
-                  value={sampleDescription}
-                  onChange={(e) => setSampleDescription(e.target.value)}
-                />
-              </div>
-
-              {editingSample && (
+                <div className="row gap-md">
+                  <div className="flex-2" style={{ minWidth: 0 }}>
+                    <label className="label">Category</label>
+                    <select
+                      className="input-field"
+                      value={sampleCategory}
+                      onChange={(e) => setSampleCategory(e.target.value)}
+                      required
+                    >
+                      <option value="Paper Stock">Paper Stock</option>
+                      <option value="Special Finish">Special Finish</option>
+                      <option value="Business Card Materials">Business Card Materials</option>
+                    </select>
+                  </div>
+                  <div className="flex-1" style={{ minWidth: 0 }}>
+                    <label className="label">Stock</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      value={sampleStock}
+                      onChange={(e) => setSampleStock(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
                 <div>
+                  <label className="label">Description</label>
+                  <textarea
+                    className="input-field textarea"
+                    placeholder="Specify board grain, feel, weight, or special laminations..."
+                    value={sampleDescription}
+                    onChange={(e) => setSampleDescription(e.target.value)}
+                  />
+                </div>
+                {editingSample && (
                   <label className="checkbox-container">
                     <input
                       type="checkbox"
                       checked={sampleActive}
                       onChange={(e) => setSampleActive(e.target.checked)}
                     />
-                    <span className="checkbox-label">Material Active for Customers to Request</span>
+                    <span className="checkbox-label">Active for customers to request</span>
                   </label>
-                </div>
-              )}
-
-              <div className="row end gap-md mt-16">
-                <button 
-                  type="button" 
-                  className="btn btn-ghost" 
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-ghost"
                   onClick={() => { setEditingSample(null); setAddingSample(false); resetSampleForm(); }}
                 >
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={savingSample}>
-                  {savingSample ? 'Saving Material...' : 'Save Material'}
+                  {savingSample ? 'Saving...' : 'Save Material'}
                 </button>
               </div>
-
             </form>
           </div>
         </div>

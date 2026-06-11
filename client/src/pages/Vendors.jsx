@@ -7,12 +7,16 @@ import VendorModal from '../components/VendorModal';
 import InvoiceModal from '../components/InvoiceModal';
 import PaymentModal from '../components/PaymentModal';
 import api from '../services/api';
+import auth from '../services/auth';
 import { toast } from 'react-hot-toast';
 import { Plus, TrendingUp, List } from 'lucide-react';
 import './Vendors.css';
 
 const Vendors = () => {
   const navigate = useNavigate();
+  const user = auth.getUser();
+  const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
+  const isOnlyAdmin = user?.role === 'Admin';
   const [searchParams, setSearchParams] = useSearchParams();
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -56,11 +60,19 @@ const Vendors = () => {
   };
 
   const handleEditVendor = (vendor) => {
+    if (!isAdmin) {
+      toast.error('Access denied. Insufficient permissions.');
+      return;
+    }
     setEditingVendor(vendor);
     setShowVendorModal(true);
   };
 
   const handleDeleteVendor = async (vendorId) => {
+    if (!isOnlyAdmin) {
+      toast.error('Access denied. Insufficient permissions.');
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete this vendor? This action cannot be undone.')) {
       return;
     }

@@ -169,7 +169,7 @@ const ChatbotTraining = () => {
         </div>
       </div>
 
-      <div style={{ padding: 16 }}>
+      <div style={{ flex: 1, padding: 16 }}>
         {loading ? <SkeletonLoader type="cards" count={3} /> : (
           tab === 'dashboard' ? (
             <div>

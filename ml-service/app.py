@@ -22,11 +22,13 @@ logger = logging.getLogger(__name__)
 def create_app():
     application = Flask(__name__)
 
-    # CORS — allow the React dev server and any configured frontend URL
-    origins = ["http://localhost:5173"]
+    # CORS — allow the React dev server, backend service, and any configured frontend URL
+    origins = ["http://localhost:5173", "https://software-sarga-2.onrender.com", "https://sarga-backend.onrender.com"]
     frontend_url = os.environ.get("FRONTEND_URL")
     if frontend_url:
         origins.append(frontend_url)
+    ml_cors_origins = os.environ.get("ML_CORS_ORIGINS", "")
+    origins.extend([o.strip() for o in ml_cors_origins.split(",") if o.strip()])
     CORS(application, origins=origins)
 
     # ── Register blueprints ───────────────────────────────────────────────

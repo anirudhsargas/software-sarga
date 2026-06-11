@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Search, Clock, ArrowRight, User, Hash, AlertCircle, Loader2 } from 'lucide-react'
-import axios from 'axios'
 import api from '../api'
 import SEO from '../components/SEO'
 import './BlogList.css'
@@ -25,31 +24,33 @@ export default function BlogList() {
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'All')
   const [selectedTag, setSelectedTag] = useState(searchParams.get('tag') || '')
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      setLoading(true)
-      try {
-        const catParam = selectedCategory !== 'All' ? selectedCategory : ''
-        const response = await api.get('/blog/posts', {
-          params: {
-            category: catParam,
-            tag: selectedTag,
-            q: searchQuery,
-            limit: 20
+    useEffect(() => {
+      const fetchPosts = async () => {
+        setLoading(true)
+        try {
+          const params = { limit: 20 }
+          if (selectedCategory !== 'All') {
+            params.category = selectedCategory
           }
-        })
-        if (response.data && response.data.posts) {
-          setPosts(response.data.posts)
+          if (selectedTag) {
+            params.tag = selectedTag
+          }
+          if (searchQuery) {
+            params.q = searchQuery
+          }
+          const response = await api.get('/blog/posts', { params })
+          if (response.data && response.data.posts) {
+            setPosts(response.data.posts)
+          }
+        } catch (err) {
+          console.error('Failed to fetch blog posts:', err)
+        } finally {
+          setLoading(false)
         }
-      } catch (err) {
-        console.error('Failed to fetch blog posts:', err)
-      } finally {
-        setLoading(false)
       }
-    }
 
-    fetchPosts()
-  }, [selectedCategory, selectedTag, searchQuery])
+      fetchPosts()
+    }, [selectedCategory, selectedTag, searchQuery])
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()

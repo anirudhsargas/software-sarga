@@ -898,7 +898,6 @@ const Inventory = () => {
                                     <th>Category</th>
                                     <th>Qty</th>
                                     <th>Unit</th>
-                                    {!isFrontOffice && <th>Cost</th>}
                                     <th>Price</th>
                                     <th>GST %</th>
                                     <th>Status</th>
@@ -908,13 +907,13 @@ const Inventory = () => {
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={isFrontOffice ? 10 : 11} className="text-center muted table-empty">
+                                        <td colSpan={10} className="text-center muted table-empty">
                                             <Loader2 className="animate-spin" />
                                         </td>
                                     </tr>
                                 ) : items.length === 0 ? (
                                     <tr>
-                                        <td colSpan={isFrontOffice ? 10 : 11} className="text-center muted table-empty">
+                                        <td colSpan={10} className="text-center muted table-empty">
                                             No inventory items found.
                                         </td>
                                     </tr>
@@ -951,7 +950,6 @@ const Inventory = () => {
                                             <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.category || item.product_subcategory_name || '-'}</td>
                                             <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.quantity}</td>
                                             <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.unit}</td>
-                                            {!isFrontOffice && <td className="text-sm" onClick={() => openItemDetail(item.id)}>₹{Number(item.cost_price).toFixed(2)}</td>}
                                             <td className="text-sm" onClick={() => openItemDetail(item.id)}>₹{Number(item.sell_price || 0).toFixed(2)}</td>
                                             <td className="text-sm" onClick={() => openItemDetail(item.id)}>{item.gst_rate}%</td>
                                             <td onClick={() => openItemDetail(item.id)}>
@@ -1076,8 +1074,7 @@ const Inventory = () => {
                                         <button className="btn btn-ghost" onClick={() => openStockRequestModal(item)} title="Request from Another Branch"><ArrowLeftRight size={16} /></button>
                                     </div>
                                     <div style={{ fontSize: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
-                                        {!isFrontOffice && <div style={{ color: 'var(--muted)' }} title="Cost Price">C: ₹{Number(item.cost_price || 0).toFixed(2)}</div>}
-                                        <div style={{ fontWeight: 600, color: 'var(--accent-2)' }} title="Sell Price">₹{Number(item.sell_price || 0).toFixed(2)}</div>
+                                        <div style={{ fontWeight: 600, color: 'var(--accent-2)' }}>₹{Number(item.sell_price || 0).toFixed(2)}</div>
                                     </div>
                                 </div>
                             </div>

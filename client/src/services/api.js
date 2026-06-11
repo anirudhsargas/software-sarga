@@ -8,7 +8,7 @@ const getApiUrl = () => {
 
     // If we're on localhost, call backend directly to avoid occasional Vite proxy issues
     if (isLocal) {
-        return `${window.location.protocol}//localhost:5000/api/`;
+        return `${window.location.protocol}//localhost:3000/api/`;
     }
 
     if (envUrl) {
@@ -230,6 +230,8 @@ api.interceptors.response.use(
         if (status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
             if (window.location.pathname !== '/login') {
                 window.location.href = '/login';
             }

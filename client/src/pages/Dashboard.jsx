@@ -284,8 +284,8 @@ const Dashboard = () => {
         { key: 'manage', name: 'Translations', icon: Globe, path: '/dashboard/admin/translations', roles: ['Admin'], group: 'website' },
         { key: 'operations', name: 'Web Inquiries', icon: MessageSquare, path: '/dashboard/web-inquiries', roles: ['Admin', 'Front Office'], group: 'website' },
         { key: 'operations', name: 'Blog Journal CMS', icon: BookOpen, path: '/dashboard/blog-cms', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
-        { key: 'sample_requests', name: 'Sample Requests', icon: FileCheck, path: '/dashboard/sample-requests', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
-        { key: 'design_bookings', name: 'Design Bookings', icon: ClipboardList, path: '/dashboard/design-bookings', roles: ['Admin', 'Front Office', 'Designer'], group: 'business' },
+        { key: 'sample_requests', name: 'Sample Requests', icon: FileCheck, path: '/dashboard/sample-requests', roles: ['Admin', 'Front Office', 'Accountant'], group: 'website' },
+        { key: 'design_bookings', name: 'Design Bookings', icon: ClipboardList, path: '/dashboard/design-bookings', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
     ];
 
     const filteredMenu = useMemo(() => {

@@ -149,7 +149,7 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }}></div> Meppayur</span>
             </div>
           </div>
-          <div style={{ height: '320px' }}>
+          <div style={{ width: '100%', height: '320px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={stats.monthly_trend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-subtle)" />

@@ -2,7 +2,7 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const logger = require('./helpers/logger');
 
 const loadSchemaFiles = async (connection) => {
@@ -2666,6 +2666,191 @@ const initDb = async () => {
     await safeIndex('idx_paper_type_active', 'CREATE INDEX idx_paper_type_active ON paper_types (is_active)');
     await safeIndex('idx_stock_requests_status', 'CREATE INDEX idx_stock_requests_status ON sarga_stock_requests (status)');
     await safeIndex('idx_stock_requests_branch', 'CREATE INDEX idx_stock_requests_branch ON sarga_stock_requests (from_branch_id, to_branch_id)');
+
+    // --- Pickup Booking System ---
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_pickup_slots (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        branch_id INT NOT NULL,
+        slot_date DATE NOT NULL,
+        start_time TIME NOT NULL,
+        end_time TIME NOT NULL,
+        capacity INT DEFAULT 2,
+        booked INT DEFAULT 0,
+        is_active TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_pickup_bookings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        slot_id INT NOT NULL,
+        customer_id INT DEFAULT NULL,
+        customer_name VARCHAR(150) NOT NULL,
+        customer_phone VARCHAR(20) NOT NULL,
+        customer_email VARCHAR(100) DEFAULT NULL,
+        job_id INT DEFAULT NULL,
+        reference_number VARCHAR(50) UNIQUE NOT NULL,
+        status VARCHAR(20) DEFAULT 'confirmed',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (slot_id) REFERENCES sarga_pickup_slots(id) ON DELETE CASCADE,
+        FOREIGN KEY (customer_id) REFERENCES sarga_customers(id) ON DELETE SET NULL,
+        FOREIGN KEY (job_id) REFERENCES sarga_jobs(id) ON DELETE SET NULL
+      )
+    `);
+
+    // --- Delivery Rules System ---
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_delivery_rules (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        product_category VARCHAR(100) NOT NULL,
+        service_type VARCHAR(100) NOT NULL,
+        base_days INT DEFAULT 3,
+        capacity_per_day INT DEFAULT 50,
+        is_active TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS express_production_rules (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        product_id INT DEFAULT NULL,
+        product_category VARCHAR(100) DEFAULT NULL,
+        is_active TINYINT(1) DEFAULT 1,
+        turnaround_3hr TINYINT(1) DEFAULT 0,
+        max_qty_3hr INT DEFAULT 0,
+        turnaround_today TINYINT(1) DEFAULT 0,
+        max_qty_today INT DEFAULT 0,
+        turnaround_tomorrow TINYINT(1) DEFAULT 0,
+        max_qty_tomorrow INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Seed default delivery rule if empty
+    const [existingDeliveryRules] = await connection.query('SELECT COUNT(*) as count FROM sarga_delivery_rules');
+    if (existingDeliveryRules[0].count === 0) {
+      await connection.query(`
+        INSERT INTO sarga_delivery_rules (product_category, service_type, base_days, capacity_per_day, is_active)
+        VALUES ('General', 'General', 3, 50, 1)
+      `);
+    }
+
+    // --- Portfolio System ---
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_portfolio_projects (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) UNIQUE NOT NULL,
+        description TEXT,
+        category VARCHAR(100) DEFAULT 'Custom Projects',
+        cover_image TEXT,
+        gallery_images JSON,
+        featured TINYINT(1) DEFAULT 0,
+        published TINYINT(1) DEFAULT 1,
+        position INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // --- Promotions System ---
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_promotions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) UNIQUE NOT NULL,
+        description TEXT,
+        banner_image TEXT,
+        banner_mobile_image TEXT,
+        campaign_type VARCHAR(100) DEFAULT 'Custom',
+        start_date DATETIME NOT NULL,
+        end_date DATETIME NOT NULL,
+        discount_percent DECIMAL(5,2) DEFAULT 0.00,
+        discount_code VARCHAR(50) DEFAULT NULL,
+        link_url TEXT,
+        priority INT DEFAULT 0,
+        is_active TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // --- Reviews System ---
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_reviews (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        reviewer_name VARCHAR(150) NOT NULL,
+        profile_image_url TEXT,
+        rating INT NOT NULL,
+        review_text TEXT,
+        review_date DATE,
+        source VARCHAR(50) DEFAULT 'manual',
+        google_review_id VARCHAR(255) UNIQUE DEFAULT NULL,
+        is_featured TINYINT(1) DEFAULT 0,
+        is_active TINYINT(1) DEFAULT 1,
+        sort_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // --- Artwork Uploads System ---
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_artwork_uploads (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        order_number VARCHAR(50) UNIQUE NOT NULL,
+        customer_id INT DEFAULT NULL,
+        customer_name VARCHAR(150) NOT NULL,
+        customer_email VARCHAR(100) DEFAULT NULL,
+        customer_phone VARCHAR(20) DEFAULT NULL,
+        product_type VARCHAR(100) DEFAULT NULL,
+        quantity INT DEFAULT NULL,
+        size VARCHAR(50) DEFAULT NULL,
+        printing_side VARCHAR(20) DEFAULT 'single',
+        special_instructions TEXT DEFAULT NULL,
+        delivery_requirement TEXT DEFAULT NULL,
+        files JSON,
+        status VARCHAR(50) DEFAULT 'uploaded',
+        tracking_token VARCHAR(64) DEFAULT NULL,
+        notes TEXT DEFAULT NULL,
+        assigned_designer_id INT DEFAULT NULL,
+        assigned_at TIMESTAMP NULL DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (customer_id) REFERENCES sarga_customers(id) ON DELETE SET NULL,
+        FOREIGN KEY (assigned_designer_id) REFERENCES sarga_staff(id) ON DELETE SET NULL
+      )
+    `);
+
+    // --- Translations System ---
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_translations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        lang VARCHAR(10) NOT NULL,
+        namespace VARCHAR(50) DEFAULT 'common',
+        key_name VARCHAR(255) NOT NULL,
+        value TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_translation (lang, namespace, key_name)
+      )
+    `);
+
+    // --- Website Inquiries System ---
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_website_inquiries (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        email VARCHAR(100),
+        service VARCHAR(100),
+        message TEXT NOT NULL,
+        branch VARCHAR(50) DEFAULT 'Perambra',
+        status ENUM('New', 'Contacted', 'Closed') DEFAULT 'New',
+        internal_notes TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     console.log('Database initialized successfully');
   } catch (err) {
