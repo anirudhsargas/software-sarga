@@ -10,7 +10,7 @@ const ML_URL = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5001';
  * These endpoints are used for chatbot training, labeling, status updates, and logs.
  * All of them are protected by authenticateToken.
  */
-router.all('*', authenticateToken, async (req, res) => {
+router.all('/(.*)', authenticateToken, async (req, res) => {
   const targetUrl = `${ML_URL}/api/chatbot${req.path}`;
   try {
     const response = await axios({
