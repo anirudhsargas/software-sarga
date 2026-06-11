@@ -8,7 +8,7 @@ import {
   Calendar
 } from 'lucide-react';
 
-const VendorModal = ({ vendor, onClose, onSave }) => {
+const VendorModal = React.memo(({ vendor, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     name: '',
     vendor_code: '',
@@ -416,6 +416,6 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
       `}</style>
     </div>
   );
-};
+});
 
 export default VendorModal;

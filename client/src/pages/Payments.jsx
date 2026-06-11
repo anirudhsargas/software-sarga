@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { useLocation } from 'react-router-dom';
 import { Plus, X, Trash2, Filter, Receipt, Loader2, Calendar, User, CreditCard, ShoppingBag, ExternalLink, FileText, Search, PlusCircle, Building2 } from 'lucide-react';
@@ -55,20 +55,115 @@ const Payments = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
 
-    // Bill Recording State
     const [showBillModal, setShowBillModal] = useState(false);
     const [inventory, setInventory] = useState([]);
     const [billData, setBillData] = useState({
         vendor_id: '',
         bill_number: '',
         bill_date: serverToday(),
-        items: [] // { inventory_item_id, name, quantity, unit_cost, total_cost }
+        items: []
     });
     const [billSearch, setBillSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const debouncedSearch = useDebounce(searchInput, 300);
 
     const types = ['Vendor', 'Utility', 'Salary', 'Rent', 'Other'];
+
+    const paymentsRef = useRef(payments);
+    const branchesRef = useRef(branches);
+    const paymentMethodsRef = useRef(paymentMethods);
+    const vendorsRef = useRef(vendors);
+    const inventoryRef = useRef(inventory);
+    const staffListRef = useRef(staffList);
+
+    const fetchStaff = useCallback(async () => {
+        try {
+            const data = await localDb.getStaff();
+            if (JSON.stringify(data) !== JSON.stringify(staffListRef.current)) {
+                staffListRef.current = data;
+                setStaffList(data || []);
+            }
+        } catch (err) { console.error('Failed to fetch staff', err); }
+    }, []);
+
+    const fetchInventory = useCallback(async () => {
+        try {
+            const data = await localDb.getInventory();
+            if (JSON.stringify(data) !== JSON.stringify(inventoryRef.current)) {
+                inventoryRef.current = data;
+                setInventory(data || []);
+            }
+        } catch (err) { console.error('Failed to fetch inventory', err); }
+    }, []);
+
+    const fetchBranches = useCallback(async () => {
+        try {
+            const data = await localDb.getBranches();
+            if (JSON.stringify(data) !== JSON.stringify(branchesRef.current)) {
+                branchesRef.current = data;
+                setBranches(data || []);
+                if (data.length > 0) {
+                    setFormData(prev => ({ ...prev, branch_id: data[0].id }));
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch branches');
+        }
+    }, []);
+
+    const fetchPaymentMethods = useCallback(async () => {
+        try {
+            const data = await localDb.getPaymentMethods();
+            if (JSON.stringify(data) !== JSON.stringify(paymentMethodsRef.current)) {
+                paymentMethodsRef.current = data;
+                setPaymentMethods(data || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch payment methods');
+        }
+    }, []);
+
+    const fetchVendors = useCallback(async (type = '') => {
+        try {
+            const data = await localDb.getVendors({ type });
+            if (JSON.stringify(data) !== JSON.stringify(vendorsRef.current)) {
+                vendorsRef.current = data;
+                setVendors(data || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch vendors');
+        }
+    }, []);
+
+    const fetchPayments = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await localDb.getPayments(filters);
+            if (JSON.stringify(data) !== JSON.stringify(paymentsRef.current)) {
+                paymentsRef.current = data;
+                setPayments(data || []);
+                setTotal(data.length);
+                setTotalPages(1);
+            }
+        } catch (err) {
+            setError('Failed to fetch payments from local storage');
+        } finally {
+            setLoading(false);
+        }
+    }, [filters]);
+
+    const fetchPayeeStatement = useCallback(async (payeeId) => {
+        setLoading(true);
+        try {
+            const response = await api.get(`/vendors/${payeeId}/statement`);
+            setPayeeStatement(response.data);
+            setShowStatementModal(true);
+        } catch (err) {
+            setError('Failed to fetch statement');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         fetchPayments();
@@ -77,25 +172,11 @@ const Payments = () => {
         fetchVendors();
         fetchInventory();
         fetchStaff();
-    }, []);
+    }, [fetchBranches, fetchPaymentMethods, fetchVendors, fetchInventory, fetchStaff]);
 
     useEffect(() => {
         fetchPayments();
-    }, [page, debouncedSearch]);
-
-    const fetchStaff = async () => {
-        try {
-            const data = await localDb.getStaff();
-            setStaffList(data || []);
-        } catch (err) { console.error('Failed to fetch staff', err); }
-    };
-
-    const fetchInventory = async () => {
-        try {
-            const data = await localDb.getInventory();
-            setInventory(data || []);
-        } catch (err) { console.error('Failed to fetch inventory', err); }
-    };
+    }, [page, debouncedSearch, fetchPayments]);
 
     useEffect(() => {
         if (!location.state?.paymentPrefill) return;
@@ -112,67 +193,9 @@ const Payments = () => {
         }));
     }, [location.state]);
 
-    const fetchBranches = async () => {
-        try {
-            const data = await localDb.getBranches();
-            setBranches(data || []);
-            if (data.length > 0) {
-                setFormData(prev => ({ ...prev, branch_id: data[0].id }));
-            }
-        } catch (err) {
-            console.error('Failed to fetch branches');
-        }
-    };
-
-    const fetchPaymentMethods = async () => {
-        try {
-            const data = await localDb.getPaymentMethods();
-            setPaymentMethods(data || []);
-        } catch (err) {
-            console.error('Failed to fetch payment methods');
-        }
-    };
-
-    const fetchVendors = async (type = '') => {
-        try {
-            const data = await localDb.getVendors({ type });
-            setVendors(data || []);
-        } catch (err) {
-            console.error('Failed to fetch vendors');
-        }
-    };
-
-    const fetchPayeeStatement = async (payeeId) => {
-        setLoading(true);
-        try {
-            const response = await api.get(`/vendors/${payeeId}/statement`);
-            setPayeeStatement(response.data);
-            setShowStatementModal(true);
-        } catch (err) {
-            setError('Failed to fetch statement');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchPayments = async () => {
-        setLoading(true);
-        try {
-            const data = await localDb.getPayments(filters);
-            setPayments(data || []);
-            setTotal(data.length);
-            setTotalPages(1); // Offline pagination simplified
-        } catch (err) {
-            setError('Failed to fetch payments from local storage');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
 
-        // Validate "Both" payment method
         if (formData.payment_method === 'Both') {
             const cash = Number(formData.cash_amount) || 0;
             const upi = Number(formData.upi_amount) || 0;
@@ -229,9 +252,9 @@ const Payments = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [formData, branches, confirm, fetchPayments]);
 
-    const handleBillSubmit = async (e) => {
+    const handleBillSubmit = useCallback(async (e) => {
         e.preventDefault();
         if (!billData.items.length) {
             setError('Please add at least one item to the bill');
@@ -258,15 +281,15 @@ const Payments = () => {
                 setShowBillModal(false);
             }, 1500);
             setBillData({ vendor_id: '', bill_number: '', bill_date: serverToday(), items: [] });
-            await fetchVendors(); 
+            await fetchVendors();
         } catch (err) {
             setError('Failed to record bill locally');
         } finally {
             setLoading(false);
         }
-    };
+    }, [billData, confirm, fetchVendors]);
 
-    const addBillItem = (invItem) => {
+    const addBillItem = useCallback((invItem) => {
         const existing = billData.items.find(i => i.inventory_item_id === invItem.id);
         if (existing) return;
 
@@ -281,25 +304,25 @@ const Payments = () => {
             }]
         });
         setBillSearch('');
-    };
+    }, [billData]);
 
-    const updateBillItem = (index, field, value) => {
+    const updateBillItem = useCallback((index, field, value) => {
         const newItems = [...billData.items];
         newItems[index][field] = value;
         if (field === 'quantity' || field === 'unit_cost') {
             newItems[index].total_cost = (Number(newItems[index].quantity) || 0) * (Number(newItems[index].unit_cost) || 0);
         }
         setBillData({ ...billData, items: newItems });
-    };
+    }, [billData]);
 
-    const removeBillItem = (index) => {
+    const removeBillItem = useCallback((index) => {
         setBillData({
             ...billData,
             items: billData.items.filter((_, i) => i !== index)
         });
-    };
+    }, [billData]);
 
-    const handleAddPaymentMethod = async () => {
+    const handleAddPaymentMethod = useCallback(async () => {
         if (!newMethodName.trim()) {
             setError('Payment method name is required');
             return;
@@ -317,9 +340,9 @@ const Payments = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [newMethodName, formData, fetchPaymentMethods]);
 
-    const handleAddVendor = async (e) => {
+    const handleAddVendor = useCallback(async (e) => {
         e.preventDefault();
         if (!newVendor.name.trim()) {
             setError('Vendor name is required');
@@ -342,9 +365,9 @@ const Payments = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [newVendor, fetchVendors, formData]);
 
-    const handleDelete = async (id) => {
+    const handleDelete = useCallback(async (id) => {
         const isConfirmed = await confirm({
             title: 'Delete Payment',
             message: 'Are you sure you want to delete this payment record?',
@@ -352,7 +375,6 @@ const Payments = () => {
             type: 'danger'
         });
         if (!isConfirmed) return;
-        // Optimistic UI Update
         setPayments(prev => prev.filter(p => p.id !== id));
         setTotal(prev => Math.max(0, prev - 1));
         try {
@@ -362,9 +384,8 @@ const Payments = () => {
             setError('Failed to delete payment');
             fetchPayments();
         }
-    };
+    }, [confirm, fetchPayments]);
 
-    // Memoized filtered payments
     const filteredPayments = useMemo(() => {
         if (!debouncedSearch) return payments;
         const q = debouncedSearch.toLowerCase();
@@ -402,7 +423,6 @@ const Payments = () => {
                 </div>
             </div>
 
-            {/* Filters */}
             <div className="panel panel--tight">
                 <div className="row gap-sm" style={{ flexWrap: 'wrap' }}>
                     <input
@@ -671,7 +691,6 @@ const Payments = () => {
                             )}
 
                             <div className="row gap-sm">
-                                {/* Amount and DateTime row merged for normal view, but datetime hidden now */}
                                 <div className="flex-1">
                                     <label className="label">Amount (₹)</label>
                                     <input
@@ -684,7 +703,6 @@ const Payments = () => {
                                 </div>
                             </div>
 
-                            {/* Partial Payment Section - for Rent, Vendor, and Salary types */}
                             {['Rent', 'Vendor', 'Salary'].includes(formData.type) && (
                                 <div className="stack-sm bg-light p-12 rounded" style={{ borderLeft: '3px solid var(--accent)' }}>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '500' }}>
@@ -1388,10 +1406,10 @@ const Payments = () => {
                                                                         onClick={() => {
                                                                             setFormData(prev => ({
                                                                                 ...prev,
-                                                                                type: v.type, // Use v.type here
+                                                                                type: v.type,
                                                                                 payee_name: v.name,
-                                                                                vendor_id: v.id, // Set vendor_id for Vendor/Utility types
-                                                                                staff_id: '', // Clear staff_id
+                                                                                vendor_id: v.id,
+                                                                                staff_id: '',
                                                                                 branch_id: v.branch_id || (branches[0]?.id || ''),
                                                                                 amount: '',
                                                                                 description: ''
@@ -1431,5 +1449,4 @@ const Payments = () => {
     )
 }
 
-
-export default Payments;
+export default React.memo(Payments);

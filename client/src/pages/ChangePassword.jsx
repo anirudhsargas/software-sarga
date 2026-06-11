@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import auth from '../services/auth';
@@ -16,17 +16,17 @@ const ChangePassword = () => {
     const navigate = useNavigate();
 
     // Password complexity requirements
-    const requirements = {
+    const requirements = useMemo(() => ({
         minLength: newPassword.length >= 8,
         hasUppercase: /[A-Z]/.test(newPassword),
         hasLowercase: /[a-z]/.test(newPassword),
         hasNumber: /[0-9]/.test(newPassword),
         hasSpecial: /[^A-Za-z0-9]/.test(newPassword)
-    };
+    }), [newPassword]);
 
-    const allRequirementsMet = Object.values(requirements).every(val => val);
+    const allRequirementsMet = useMemo(() => Object.values(requirements).every(val => val), [requirements]);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         
         if (newPassword !== confirmPassword) {
@@ -70,7 +70,7 @@ const ChangePassword = () => {
         } finally {
             setLoading(false);
         }
-    };
+    });
 
     if (success) {
         return (
@@ -204,4 +204,4 @@ const ChangePassword = () => {
     );
 };
 
-export default ChangePassword;
+export default React.memo(ChangePassword);

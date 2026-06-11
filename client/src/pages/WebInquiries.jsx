@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Mail, MessageCircle, Phone, Search, Filter, MessageSquare, ExternalLink, Calendar, User, Save, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import usePolling from '../hooks/usePolling';
 import '../styles/WebInquiries.css';
 
-const WebInquiries = () => {
+const WebInquiries = React.memo(() => {
+    const inquiriesRef = useRef([]);
+
     const [inquiries, setInquiries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('All');
@@ -14,17 +16,25 @@ const WebInquiries = () => {
     const [updating, setUpdating] = useState(false);
     const [noteDraft, setNoteDraft] = useState('');
 
-    const fetchInquiries = async () => {
+    const setInquiriesSmart = useCallback((data) => {
+        const str = JSON.stringify(data);
+        if (str !== JSON.stringify(inquiriesRef.current)) {
+            inquiriesRef.current = data;
+            setInquiries(data);
+        }
+    }, []);
+
+    const fetchInquiries = useCallback(async () => {
         try {
             const { data } = await api.get(`/website-inquiries?status=${filterStatus}`);
-            setInquiries(data.data || []);
+            setInquiriesSmart(data.data || []);
         } catch (error) {
             console.error('Failed to fetch inquiries:', error);
             toast.error('Could not load website inquiries');
         } finally {
             setLoading(false);
         }
-    };
+    }, [filterStatus, setInquiriesSmart]);
 
     // Auto-refresh every 60 seconds
     usePolling(fetchInquiries, 60000);
@@ -32,9 +42,9 @@ const WebInquiries = () => {
     useEffect(() => {
         setLoading(true);
         fetchInquiries();
-    }, [filterStatus]);
+    }, [fetchInquiries]);
 
-    const handleStatusUpdate = async (id, newStatus, internalNotes) => {
+    const handleStatusUpdate = useCallback(async (id, newStatus, internalNotes) => {
         setUpdating(true);
         try {
             await api.patch(`/website-inquiries/${id}/status`, { 
@@ -52,35 +62,34 @@ const WebInquiries = () => {
         } finally {
             setUpdating(false);
         }
-    };
+    }, [fetchInquiries, selectedInquiry?.id]);
 
-    const handleWhatsApp = (phone) => {
+    const handleWhatsApp = useCallback((phone) => {
         if (!phone) return toast.error("No phone number provided");
-        // Simple clean for India format if missing
         let cleanPhone = phone.replace(/\D/g, '');
         if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
         window.open(`https://wa.me/${cleanPhone}`, '_blank');
-    };
+    }, []);
 
-    const handleEmail = (email, subject) => {
+    const handleEmail = useCallback((email, subject) => {
         if (!email) return toast.error("No email provided");
         window.open(`mailto:${email}?subject=Re: Your Inquiry with SARGA Offset`, '_blank');
-    };
+    }, []);
 
-    const filteredInquiries = inquiries.filter(iq => 
+    const filteredInquiries = useMemo(() => inquiries.filter(iq => 
         (iq.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
          iq.phone?.includes(searchTerm) ||
          iq.email?.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    ), [inquiries, searchTerm]);
 
-    const getStatusClass = (status) => {
+    const getStatusClass = useCallback((status) => {
         switch(status) {
             case 'New': return 'status-badge--new';
             case 'Contacted': return 'status-badge--contacted';
             case 'Closed': return 'status-badge--closed';
             default: return '';
         }
-    };
+    }, []);
 
     return (
         <div className="web-inquiries-container">
@@ -267,6 +276,6 @@ const WebInquiries = () => {
             </div>
         </div>
     );
-};
+});
 
 export default WebInquiries;

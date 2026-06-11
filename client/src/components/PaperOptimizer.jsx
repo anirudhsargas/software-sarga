@@ -29,7 +29,7 @@ const s = {
   closeBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted, var(--muted))', padding: 4 },
 };
 
-const WasteBar = ({ percent }) => {
+const WasteBar = React.memo(({ percent }) => {
   const utilization = 100 - percent;
   const color = utilization >= 80 ? 'var(--success)' : utilization >= 60 ? 'var(--warning)' : 'var(--error)';
   return (
@@ -43,9 +43,9 @@ const WasteBar = ({ percent }) => {
       </div>
     </div>
   );
-};
+});
 
-const SheetVisual = ({ result }) => {
+const SheetVisual = React.memo(({ result }) => {
   if (!result || result.error) return null;
   const { sheetW, sheetH, itemW, itemH, cols, rows, layout } = result;
 
@@ -94,9 +94,9 @@ const SheetVisual = ({ result }) => {
       </div>
     </div>
   );
-};
+});
 
-const PaperOptimizer = ({ isOpen, onClose, onApply }) => {
+const PaperOptimizer = React.memo(({ isOpen, onClose, onApply }) => {
   const [sheetSize, setSheetSize] = useState('A3');
   const [itemSize, setItemSize] = useState('A5');
   const [itemCount, setItemCount] = useState(100);
@@ -365,6 +365,6 @@ const PaperOptimizer = ({ isOpen, onClose, onApply }) => {
       </div>
     </div>
   );
-};
+});
 
 export default PaperOptimizer;

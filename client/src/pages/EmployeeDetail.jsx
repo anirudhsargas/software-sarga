@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, IndianRupee, User, Clock, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
 import auth from '../services/auth';
@@ -164,7 +164,7 @@ const EmployeeDetail = () => {
         fetchSalaryCalculation();
     }, [staffId, currentMonth]);
 
-    const fetchEmployeeData = async () => {
+    const fetchEmployeeData = useCallback(async () => {
         try {
             setLoading(true);
             const [workRes, salaryRes] = await Promise.all([
@@ -185,9 +185,9 @@ const EmployeeDetail = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [staffId, currentMonth]);
 
-    const fetchAttendanceData = async () => {
+    const fetchAttendanceData = useCallback(async () => {
         try {
             setAttendanceError('');
             const response = await api.get(`/staff/${staffId}/attendance/${currentMonth}`);
@@ -206,17 +206,17 @@ const EmployeeDetail = () => {
             setAttendanceError(`Failed to load attendance: ${err.response?.data?.message || err.message}`);
             setAttendance([]);
         }
-    };
+    }, [staffId, currentMonth]);
 
     // Helper: today's attendance record (if any)
-    const todayRecord = attendance.find(a => {
+    const todayRecord = useMemo(() => attendance.find(a => {
         const attDate = toLocalDateKey(a.attendance_date);
         return attDate === serverToday();
-    });
+    }), [attendance]);
 
     // Today's displayed in/out times (normalized)
-    const todayInTime = getInTime(todayRecord);
-    const todayOutTime = getOutTime(todayRecord);
+    const todayInTime = useMemo(() => getInTime(todayRecord), [todayRecord]);
+    const todayOutTime = useMemo(() => getOutTime(todayRecord), [todayRecord]);
 
     // Quick mark gone time now (optimistic)
     const markGoneNow = async () => {
@@ -276,7 +276,7 @@ const EmployeeDetail = () => {
         setTodayStatus(todayRecord.status || 'Present');
     };
 
-    const fetchSalaryCalculation = async () => {
+    const fetchSalaryCalculation = useCallback(async () => {
         try {
             setSalaryCalculationError('');
             const response = await api.get(`/staff/${staffId}/salary-calculation/${currentMonth}`);
@@ -287,7 +287,7 @@ const EmployeeDetail = () => {
             setSalaryCalculationError(`Failed to calculate salary: ${err.response?.data?.message || err.message}`);
             setSalaryCalculation(null);
         }
-    };
+    }, [staffId, currentMonth]);
 
     const handlePaySalary = async (e) => {
         e.preventDefault();
@@ -393,8 +393,8 @@ const EmployeeDetail = () => {
         );
     }
 
-    const salaryTotal = (salaryInfo?.staff?.base_salary || 0);
-    const pendingPayment = salaryTotal - (salaryInfo?.recentPayments?.reduce((sum, p) => sum + Number(p.payment_amount), 0) || 0);
+    const salaryTotal = useMemo(() => (salaryInfo?.staff?.base_salary || 0), [salaryInfo]);
+    const pendingPayment = useMemo(() => salaryTotal - (salaryInfo?.recentPayments?.reduce((sum, p) => sum + Number(p.payment_amount), 0) || 0), [salaryTotal, salaryInfo]);
 
     return (
         <div className="employee-detail">
@@ -1251,4 +1251,4 @@ const EmployeeDetail = () => {
     );
 };
 
-export default EmployeeDetail;
+export default React.memo(EmployeeDetail);

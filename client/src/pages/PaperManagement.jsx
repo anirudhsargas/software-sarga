@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   FileText, Package, AlertTriangle, TrendingUp, Plus, 
   Search, RefreshCcw, Layout, FileSearch, ArrowRight,
@@ -23,16 +23,9 @@ const PaperManagement = () => {
     const [filterGsm, setFilterGsm] = useState('');
     const [filterSize, setFilterSize] = useState('');
     const [filterBranch, setFilterBranch] = useState('All');
-
-    // This page is legacy/duplicated. The application now uses the
-    // PaperStockDashboard/PaperInward/PaperOutward routes under
-    // `/dashboard/paper/*`. Avoid calling the old `/inventory/paper`
-    // endpoints which do not match the new `paperInventory` schema.
-    // Show a deprecation notice and provide a link to the correct pages.
     
-    // Modal states
     const [showModal, setShowModal] = useState(false);
-    const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
+    const [modalMode, setModalMode] = useState('add');
     const [selectedItem, setSelectedItem] = useState(null);
     const [showAdjustModal, setShowAdjustModal] = useState(false);
     const [adjustData, setAdjustData] = useState({ id: null, name: '', change: '', reason: '' });
@@ -49,13 +42,21 @@ const PaperManagement = () => {
         branch: 'Perambra',
         notes: ''
     });
+    const formDataRef = useRef(formData);
+    const setFormDataSmart = useCallback((updates) => {
+        setFormData(prev => {
+            const next = { ...prev, ...updates };
+            if (JSON.stringify(next) !== JSON.stringify(formDataRef.current)) {
+                formDataRef.current = next;
+                return next;
+            }
+            return prev;
+        });
+    }, []);
 
-    const fetchPaperStock = async () => {
+    const fetchPaperStock = useCallback(async () => {
         setLoading(true);
         try {
-            // Legacy page: use new paperInventory API route for read-only data.
-            // We avoid write operations from this page. Filters that require branch_id
-            // are not mapped here to keep this page safe as a deprecation bridge.
             const res = await api.get('/paperInventory/stock');
             setPaperStock(res.data || []);
         } catch (err) {
@@ -63,11 +64,11 @@ const PaperManagement = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchPaperStock();
-    }, [filterBranch, filterGsm, filterSize, searchTerm]);
+    }, [filterBranch, filterGsm, filterSize, searchTerm, fetchPaperStock]);
 
     const stats = useMemo(() => {
         const items = paperStock;
@@ -83,7 +84,7 @@ const PaperManagement = () => {
         };
     }, [paperStock]);
 
-    const handleOpenAdd = () => {
+    const handleOpenAdd = useCallback(() => {
         setModalMode('add');
         setFormData({
             paper_name: '',
@@ -98,9 +99,9 @@ const PaperManagement = () => {
             notes: ''
         });
         setShowModal(true);
-    };
+    }, [user]);
 
-    const handleOpenEdit = (item) => {
+    const handleOpenEdit = useCallback((item) => {
         setModalMode('edit');
         setSelectedItem(item);
         setFormData({
@@ -116,32 +117,31 @@ const PaperManagement = () => {
             notes: item.notes || ''
         });
         setShowModal(true);
-    };
+    }, []);
 
-    const handleOpenAdjust = (item) => {
+    const handleOpenAdjust = useCallback((item) => {
         setAdjustData({ id: item.id, name: item.paper_name, change: '', reason: '' });
         setShowAdjustModal(true);
-    };
+    }, []);
 
-    const handleDelete = async (id) => {
-        // Disabled on legacy page — redirect user to the new interface
+    const handleDelete = useCallback(async (id) => {
         toast.error('This legacy page is read-only. Manage papers from the Paper Stock Dashboard.');
         navigate('/dashboard/paper/stock');
-    };
+    }, [navigate]);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         toast.error('This legacy page is read-only. Create or edit paper types from the Paper Stock Dashboard.');
         setShowModal(false);
         navigate('/dashboard/paper/stock');
-    };
+    }, [navigate]);
 
-    const handleAdjustSubmit = async (e) => {
+    const handleAdjustSubmit = useCallback(async (e) => {
         e.preventDefault();
         toast.error('Adjustments are disabled on this legacy page. Use the Paper Stock Dashboard.');
         setShowAdjustModal(false);
         navigate('/dashboard/paper/stock');
-    };
+    }, [navigate]);
 
     const gsmOptions = ['70', '80', '100', '130', '170', '210', '250', '300'];
     const sizeOptions = ['A4', 'A3', 'SRA3', '12x18', '13x19', 'Legal', 'Custom'];
@@ -157,7 +157,6 @@ const PaperManagement = () => {
                     <button className="btn btn-ghost" onClick={() => navigate('/dashboard/paper/outward')}>Go to Outward</button>
                 </div>
             </div>
-            {/* Header */}
             <div className="row space-between items-center">
                 <div>
                     <h1 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -174,7 +173,6 @@ const PaperManagement = () => {
                 </div>
             </div>
 
-            {/* Stats Grid */}
             <div className="grid grid--4 mt-md">
                 <div className="panel stack-xs" style={{ borderLeft: '4px solid var(--primary)', background: 'linear-gradient(to right, var(--primary-light), transparent)' }}>
                     <span className="muted text-xs font-bold uppercase tracking-wider">Active Stocks</span>
@@ -211,7 +209,6 @@ const PaperManagement = () => {
                 </div>
             </div>
 
-            {/* Filters & Search */}
             <div className="panel stack-md">
                 <div className="row gap-md items-center wrap">
                     <div className="flex-1 min-w-[200px]" style={{ position: 'relative' }}>
@@ -339,7 +336,6 @@ const PaperManagement = () => {
                 </div>
             </div>
 
-            {/* Add/Edit Modal */}
             {showModal && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '600px' }}>
@@ -355,13 +351,13 @@ const PaperManagement = () => {
                                         className="input-field" 
                                         required 
                                         value={formData.paper_name} 
-                                        onChange={e => setFormData({...formData, paper_name: e.target.value})} 
+                                        onChange={e => setFormDataSmart({ paper_name: e.target.value })} 
                                         placeholder="e.g. Sona Magic White"
                                     />
                                 </div>
                                 <div>
                                     <label className="label">Size</label>
-                                    <select className="input-field" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})}>
+                                    <select className="input-field" value={formData.size} onChange={e => setFormDataSmart({ size: e.target.value })}>
                                         <option value="">Select Size</option>
                                         {sizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
@@ -372,13 +368,13 @@ const PaperManagement = () => {
                                         type="number" 
                                         className="input-field" 
                                         value={formData.gsm} 
-                                        onChange={e => setFormData({...formData, gsm: e.target.value})} 
+                                        onChange={e => setFormDataSmart({ gsm: e.target.value })} 
                                         placeholder="e.g. 170"
                                     />
                                 </div>
                                 <div>
                                     <label className="label">Branch *</label>
-                                    <select className="input-field" required value={formData.branch} onChange={e => setFormData({...formData, branch: e.target.value})}>
+                                    <select className="input-field" required value={formData.branch} onChange={e => setFormDataSmart({ branch: e.target.value })}>
                                         <option value="Perambra">Perambra</option>
                                         <option value="Meppayur">Meppayur</option>
                                     </select>
@@ -390,7 +386,7 @@ const PaperManagement = () => {
                                         step="0.01" 
                                         className="input-field" 
                                         value={formData.purchase_price_per_ream} 
-                                        onChange={e => setFormData({...formData, purchase_price_per_ream: e.target.value})} 
+                                        onChange={e => setFormDataSmart({ purchase_price_per_ream: e.target.value })} 
                                         placeholder="0.00"
                                     />
                                 </div>
@@ -400,7 +396,7 @@ const PaperManagement = () => {
                                         type="number" 
                                         className="input-field" 
                                         value={formData.ream_count} 
-                                        onChange={e => setFormData({...formData, ream_count: Number(e.target.value)})} 
+                                        onChange={e => setFormDataSmart({ ream_count: Number(e.target.value) })} 
                                     />
                                 </div>
                                 <div>
@@ -409,7 +405,7 @@ const PaperManagement = () => {
                                         type="number" 
                                         className="input-field" 
                                         value={formData.sheets_per_ream} 
-                                        onChange={e => setFormData({...formData, sheets_per_ream: Number(e.target.value)})} 
+                                        onChange={e => setFormDataSmart({ sheets_per_ream: Number(e.target.value) })} 
                                     />
                                 </div>
                                 <div>
@@ -418,7 +414,7 @@ const PaperManagement = () => {
                                         type="number" 
                                         className="input-field" 
                                         value={formData.reorder_level_reams} 
-                                        onChange={e => setFormData({...formData, reorder_level_reams: Number(e.target.value)})} 
+                                        onChange={e => setFormDataSmart({ reorder_level_reams: Number(e.target.value) })} 
                                     />
                                 </div>
                                 <div>
@@ -426,7 +422,7 @@ const PaperManagement = () => {
                                     <input 
                                         className="input-field" 
                                         value={formData.supplier_name} 
-                                        onChange={e => setFormData({...formData, supplier_name: e.target.value})} 
+                                        onChange={e => setFormDataSmart({ supplier_name: e.target.value })} 
                                         placeholder="e.g. ABC Paper House"
                                     />
                                 </div>
@@ -436,7 +432,7 @@ const PaperManagement = () => {
                                         className="input-field" 
                                         rows="2" 
                                         value={formData.notes} 
-                                        onChange={e => setFormData({...formData, notes: e.target.value})}
+                                        onChange={e => setFormDataSmart({ notes: e.target.value })}
                                     ></textarea>
                                 </div>
                             </div>
@@ -449,7 +445,6 @@ const PaperManagement = () => {
                 </div>
             )}
 
-            {/* Quick Adjust Modal */}
             {showAdjustModal && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '400px' }}>
@@ -501,4 +496,4 @@ const PaperManagement = () => {
     );
 };
 
-export default PaperManagement;
+export default React.memo(PaperManagement);

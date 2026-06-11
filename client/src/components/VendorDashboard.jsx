@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import '../pages/Vendors.css';
 
-const VendorDashboard = ({ refreshKey = 0 }) => {
+const VendorDashboard = React.memo(({ refreshKey = 0 }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -305,6 +305,6 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
       </div>
     </div>
   );
-};
+});
 
 export default VendorDashboard;

@@ -231,7 +231,7 @@ const initDb = async () => {
         gst_rate DECIMAL(5, 2) DEFAULT 0,
         source_code VARCHAR(3),
         model_name VARCHAR(100),
-        size_code VARCHAR(10),
+        size_code VARCHAR(100),
         item_type ENUM('Retail', 'Consumable') DEFAULT 'Retail',
         vendor_name VARCHAR(255),
         vendor_contact VARCHAR(255),
@@ -242,7 +242,8 @@ const initDb = async () => {
     // Add columns if upgrading existing DB
     try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN source_code VARCHAR(3)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
     try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN model_name VARCHAR(100)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
-    try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN size_code VARCHAR(10)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN size_code VARCHAR(100)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+    try { await connection.query('ALTER TABLE sarga_inventory MODIFY COLUMN size_code VARCHAR(100)'); } catch (e) { logger.error('[Migration] Failed to modify size_code length:', e); }
     try { await connection.query("ALTER TABLE sarga_inventory ADD COLUMN item_type ENUM('Retail', 'Consumable') DEFAULT 'Retail'"); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
     try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN vendor_name VARCHAR(255)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
     try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN vendor_contact VARCHAR(255)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }

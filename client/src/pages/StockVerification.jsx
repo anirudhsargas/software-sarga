@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import useAuth from '../hooks/useAuth';
 import api from '../services/api';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -6,7 +6,7 @@ import { Save, CheckCircle, Search, Calendar, FileText, AlertTriangle } from 'lu
 import toast from 'react-hot-toast';
 import './StockVerification.css';
 
-const StockVerification = () => {
+const StockVerification = React.memo(() => {
     const { user } = useAuth();
     const { confirm } = useConfirm();
     const [month, setMonth] = useState(() => {
@@ -16,13 +16,28 @@ const StockVerification = () => {
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [verification, setVerification] = useState(null);
-    const [items, setItems] = useState([]);
+    const verificationRef = useRef(null);
+    const [verification, setVerificationState] = useState(null);
+    const setVerification = useCallback((v) => {
+      const n = typeof v === 'function' ? v(verificationRef.current) : v;
+      if (JSON.stringify(verificationRef.current) !== JSON.stringify(n)) { verificationRef.current = n; setVerificationState(n); }
+    }, []);
+    const itemsRef = useRef([]);
+    const [items, setItemsState] = useState([]);
+    const setItems = useCallback((v) => {
+      const n = typeof v === 'function' ? v(itemsRef.current) : v;
+      if (JSON.stringify(itemsRef.current) !== JSON.stringify(n)) { itemsRef.current = n; setItemsState(n); }
+    }, []);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 50;
 
-    const [history, setHistory] = useState([]);
+    const historyRef = useRef([]);
+    const [history, setHistoryState] = useState([]);
+    const setHistory = useCallback((v) => {
+      const n = typeof v === 'function' ? v(historyRef.current) : v;
+      if (JSON.stringify(historyRef.current) !== JSON.stringify(n)) { historyRef.current = n; setHistoryState(n); }
+    }, []);
     const [showHistory, setShowHistory] = useState(false);
 
     useEffect(() => {
@@ -34,7 +49,7 @@ const StockVerification = () => {
         fetchHistory();
     }, [month]);
 
-    const fetchVerification = async () => {
+    const fetchVerification = useCallback(async () => {
         if (!month) return;
         setLoading(true);
         try {
@@ -47,18 +62,18 @@ const StockVerification = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [month]);
 
-    const fetchHistory = async () => {
+    const fetchHistory = useCallback(async () => {
         try {
             const res = await api.get('/stock-verification/history/list');
             setHistory(res.data);
         } catch (err) {
             console.error(err);
         }
-    };
+    }, []);
 
-    const handleQtyChange = (inventoryItemId, value) => {
+    const handleQtyChange = useCallback((inventoryItemId, value) => {
         if (verification?.status === 'Completed') return;
 
         setItems(prev => prev.map(item => {
@@ -67,9 +82,9 @@ const StockVerification = () => {
             }
             return item;
         }));
-    };
+    }, [verification?.status]);
 
-    const handleNotesChange = (inventoryItemId, value) => {
+    const handleNotesChange = useCallback((inventoryItemId, value) => {
         if (verification?.status === 'Completed') return;
 
         setItems(prev => prev.map(item => {
@@ -78,9 +93,9 @@ const StockVerification = () => {
             }
             return item;
         }));
-    };
+    }, [verification?.status]);
 
-    const handleSave = async (status) => {
+    const handleSave = useCallback(async (status) => {
         if (status === 'Completed') {
             const isConfirmed = await confirm({
                 title: 'Complete Verification?',
@@ -107,18 +122,21 @@ const StockVerification = () => {
         } finally {
             setSaving(false);
         }
-    };
+    }, [month, items, fetchVerification, fetchHistory, confirm]);
 
-    const filteredItems = items.filter(item => {
+    const filteredItems = useMemo(() => items.filter(item => {
         if (!searchTerm) return true;
         const s = searchTerm.toLowerCase();
         return (item.name?.toLowerCase().includes(s)) ||
             (item.sku?.toLowerCase().includes(s)) ||
             (item.category?.toLowerCase().includes(s));
-    });
+    }), [items, searchTerm]);
 
-    const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
-    const paginatedItems = filteredItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    const totalPages = useMemo(() => Math.ceil(filteredItems.length / ITEMS_PER_PAGE), [filteredItems]);
+    const paginatedItems = useMemo(() => filteredItems.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    ), [filteredItems, currentPage]);
 
     const isCompleted = verification?.status === 'Completed';
 
@@ -340,6 +358,6 @@ const StockVerification = () => {
             )}
         </div>
     );
-};
+});
 
-export default StockVerification;
+export default React.memo(StockVerification);

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-export default function CustomCursor() {
+const CustomCursor = React.memo(function CustomCursor() {
   const dotRef = useRef(null);
   const ringRef = useRef(null);
   const rafRef = useRef(null);
@@ -100,4 +100,6 @@ export default function CustomCursor() {
       <div ref={ringRef} style={{...ringStyle, width: hoverState.overInteractive ? 56 : 36, height: hoverState.overInteractive ? 56 : 36, borderStyle: hoverState.overTilt ? 'dashed' : 'solid'}} />
     </>
   );
-}
+});
+
+export default CustomCursor;

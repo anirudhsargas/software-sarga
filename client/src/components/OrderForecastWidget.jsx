@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import useScrollAnimation from '../hooks/useScrollAnimation';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { TrendingUp, Calendar } from 'lucide-react';
@@ -9,13 +9,14 @@ const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 
 const BAR_COLOR = 'var(--primary, #6366f1)';
 const PEAK_COLOR = '#f59e0b';
 
-const OrderForecastWidget = ({ branchId }) => {
+const OrderForecastWidget = React.memo(({ branchId }) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
 
     // Call hooks unconditionally to preserve hook ordering across renders
     const ref = useScrollAnimation({ stagger: true, staggerSelector: 'div > *' });
+    const prevDataRef = useRef(null);
 
     useEffect(() => {
         (async () => {
@@ -27,7 +28,10 @@ const OrderForecastWidget = ({ branchId }) => {
                         horizon: 7 
                     } 
                 });
-                setData(res.data);
+                if (JSON.stringify(res.data) !== JSON.stringify(prevDataRef.current)) {
+                    setData(res.data);
+                    prevDataRef.current = res.data;
+                }
                 setError(false);
             } catch {
                 setError(true);
@@ -37,23 +41,24 @@ const OrderForecastWidget = ({ branchId }) => {
         })();
     }, [branchId]);
 
-    if (loading) return <SkeletonLoader />;
-    if (error || !data) return null;
+    const predictions = data?.predictions || [];
+    const peakDay = data?.peak_day_this_week;
+    const modelType = data?.model_type;
 
-    const { predictions = [], peak_day_this_week: peak, model_type } = data;
-
-    // Aggregate across branches per day
-    const dayMap = {};
-    for (const p of predictions) {
-        if (!dayMap[p.date]) {
-            dayMap[p.date] = { date: p.date, predicted_orders: 0, low: 0, high: 0 };
+    const dayMap = useMemo(() => {
+        const map = {};
+        for (const p of predictions) {
+            if (!map[p.date]) {
+                map[p.date] = { date: p.date, predicted_orders: 0, low: 0, high: 0 };
+            }
+            map[p.date].predicted_orders += p.predicted_orders;
+            map[p.date].low += p.confidence_interval?.[0] || 0;
+            map[p.date].high += p.confidence_interval?.[1] || 0;
         }
-        dayMap[p.date].predicted_orders += p.predicted_orders;
-        dayMap[p.date].low += p.confidence_interval?.[0] || 0;
-        dayMap[p.date].high += p.confidence_interval?.[1] || 0;
-    }
+        return map;
+    }, [predictions]);
 
-    const chartData = Object.values(dayMap)
+    const chartData = useMemo(() => Object.values(dayMap)
         .sort((a, b) => a.date.localeCompare(b.date))
         .map(d => {
             const dt = new Date(d.date + 'T00:00:00');
@@ -63,26 +68,32 @@ const OrderForecastWidget = ({ branchId }) => {
                 fullDay: FULL_DAY_NAMES[dt.getDay()],
                 dateStr: `${dt.getDate()}/${dt.getMonth() + 1}`,
                 predicted_orders: Math.round(d.predicted_orders),
-                isPeak: peak && d.date === peak.date,
+                isPeak: peakDay && d.date === peakDay.date,
             };
-        });
+        }), [dayMap, peakDay]);
 
-    const peakEntry = chartData.find(d => d.isPeak);
-    const peakLabel = peakEntry
+    const peakEntry = useMemo(() => chartData.find(d => d.isPeak), [chartData]);
+    const peakLabel = useMemo(() => peakEntry
         ? `${peakEntry.fullDay} · ~${peakEntry.predicted_orders} jobs expected`
-        : null;
+        : null, [peakEntry]);
 
     // Per-branch forecasts for the cards
-    const branchGroups = {};
-    for (const p of predictions) {
-        const key = p.branch_id;
-        if (!branchGroups[key]) {
-            branchGroups[key] = { branch_id: key, branch_name: p.branch_name || `Branch ${key}`, branch_short: p.branch_short, total: 0, days: [] };
+    const branchGroups = useMemo(() => {
+        const groups = {};
+        for (const p of predictions) {
+            const key = p.branch_id;
+            if (!groups[key]) {
+                groups[key] = { branch_id: key, branch_name: p.branch_name || `Branch ${key}`, branch_short: p.branch_short, total: 0, days: [] };
+            }
+            groups[key].total += p.predicted_orders;
+            groups[key].days.push(p);
         }
-        branchGroups[key].total += p.predicted_orders;
-        branchGroups[key].days.push(p);
-    }
-    const branchCards = Object.values(branchGroups);
+        return groups;
+    }, [predictions]);
+    const branchCards = useMemo(() => Object.values(branchGroups), [branchGroups]);
+
+    if (loading) return <SkeletonLoader />;
+    if (error || !data) return null;
 
     return (
         <section ref={ref} className="summary-section animate-fade-up" style={{ marginTop: 24 }}>
@@ -90,7 +101,7 @@ const OrderForecastWidget = ({ branchId }) => {
                 <div>
                     <h2 className="section-title">Order Forecast — Next 7 Days</h2>
                     <p className="section-subtitle">
-                        {model_type ? `${model_type} model` : 'AI prediction'}
+                        {modelType ? `${modelType} model` : 'AI prediction'}
                         {data.model_accuracy != null && <> · MAE {data.model_accuracy}</>}
                     </p>
                 </div>
@@ -179,9 +190,9 @@ const OrderForecastWidget = ({ branchId }) => {
             )}
         </section>
     );
-};
+});
 
-const SkeletonLoader = () => (
+const SkeletonLoader = React.memo(() => (
     <section className="summary-section animate-fade-up" style={{ marginTop: 24 }}>
         <div className="summary-section__header">
             <div>
@@ -210,6 +221,6 @@ const SkeletonLoader = () => (
             ))}
         </div>
     </section>
-);
+));
 
 export default OrderForecastWidget;

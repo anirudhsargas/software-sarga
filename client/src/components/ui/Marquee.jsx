@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Marquee({ items = [], speed = 18 }) {
+const Marquee = React.memo(function Marquee({ items = [], speed = 18 }) {
   const content = items.join(' \u00B7 ');
   const style = {
     '--marquee-duration': `${speed}s`
@@ -14,4 +14,6 @@ export default function Marquee({ items = [], speed = 18 }) {
       </div>
     </div>
   );
-}
+});
+
+export default Marquee;

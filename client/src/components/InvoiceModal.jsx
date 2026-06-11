@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { X } from 'lucide-react';
 import Button from './Button';
 
-const InvoiceModal = ({ vendor, onClose, onSave }) => {
+const InvoiceModal = React.memo(({ vendor, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     vendor_id: '',
     invoice_number: '',
@@ -255,6 +255,6 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
       </div>
     </div>
   );
-};
+});
 
 export default InvoiceModal;

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import { Loader2, Plus, Edit2, Search, Trash2, X, Globe, Check } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
@@ -23,7 +24,7 @@ const staggerEnter = (el, i) => {
   requestAnimationFrame(() => el.classList.add('animate-in'))
 }
 
-export default function TranslationsManager() {
+function TranslationsManager() {
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [lang, setLang] = useState('all')
@@ -35,9 +36,7 @@ export default function TranslationsManager() {
   const [saving, setSaving] = useState(false)
   const tbodyRef = useRef(null)
 
-  useEffect(() => { loadEntries() }, [lang, namespace])
-
-  const loadEntries = async () => {
+  const loadEntries = useCallback(async () => {
     setLoading(true)
     try {
       const params = {}
@@ -55,21 +54,23 @@ export default function TranslationsManager() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [lang, namespace])
 
-  const openNew = () => {
+  useEffect(() => { loadEntries() }, [loadEntries])
+
+  const openNew = useCallback(() => {
     setEditEntry(null)
     setForm({ lang: 'ml', namespace: 'common', key_name: '', value: '' })
     setShowForm(true)
-  }
+  }, [])
 
-  const openEdit = (e) => {
+  const openEdit = useCallback((e) => {
     setEditEntry(e)
     setForm({ lang: e.lang, namespace: e.namespace, key_name: e.key_name, value: e.value })
     setShowForm(true)
-  }
+  }, [])
 
-  const save = async () => {
+  const save = useCallback(async () => {
     setSaving(true)
     try {
       await api.post('/translations', form)
@@ -81,9 +82,9 @@ export default function TranslationsManager() {
     } finally {
       setSaving(false)
     }
-  }
+  }, [form])
 
-  const remove = async (id) => {
+  const remove = useCallback(async (id) => {
     if (!confirm('Delete this translation?')) return
     try {
       await api.delete(`/translations/${id}`)
@@ -92,11 +93,11 @@ export default function TranslationsManager() {
     } catch {
       toast.error('Failed to delete')
     }
-  }
+  }, [])
 
-  const filtered = entries.filter(
+  const filtered = useMemo(() => entries.filter(
     e => !search || e.key_name?.toLowerCase().includes(search.toLowerCase()) || e.value?.toLowerCase().includes(search.toLowerCase())
-  )
+  ), [entries, search])
 
   const langLabel = (code) => LANGUAGES.find(l => l.value === code)?.label || code
 
@@ -275,3 +276,5 @@ export default function TranslationsManager() {
     </div>
   )
 }
+
+export default React.memo(TranslationsManager)

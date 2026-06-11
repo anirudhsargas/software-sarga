@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
+import React, { useCallback } from 'react'
 import { Plus, Edit3, Trash2, Loader2, X } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 
 const CAMPAIGN_TYPES = ['Onam', 'Vishu', 'Christmas', 'New Year', 'School Admission', 'Wedding Season', 'Custom']
 
-export default function PromotionsManager() {
+function PromotionsManager() {
   const [promotions, setPromotions] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -16,18 +17,18 @@ export default function PromotionsManager() {
     discount_percent: 0, discount_code: '', link_url: '', priority: 0, is_active: true
   })
 
-  useEffect(() => { loadPromotions() }, [])
-
-  const loadPromotions = async () => {
+  const loadPromotions = useCallback(async () => {
     setLoading(true)
     try {
       const res = await api.get('/promotions')
       setPromotions(res.data.promotions || [])
     } catch (e) { toast.error('Failed to load') }
     finally { setLoading(false) }
-  }
+  }, [])
 
-  const savePromotion = async () => {
+  useEffect(() => { loadPromotions() }, [loadPromotions])
+
+  const savePromotion = useCallback(async () => {
     if (!form.title.trim()) { toast.error('Title required'); return }
     if (!form.start_date || !form.end_date) { toast.error('Start and end dates required'); return }
     try {
@@ -42,19 +43,19 @@ export default function PromotionsManager() {
       setForm({ title: '', description: '', banner_image: '', banner_mobile_image: '', campaign_type: 'Custom', start_date: '', end_date: '', discount_percent: 0, discount_code: '', link_url: '', priority: 0, is_active: true })
       loadPromotions()
     } catch (e) { toast.error('Failed to save') }
-  }
+  }, [editing, form])
 
-  const editPromotion = (p) => {
+  const editPromotion = useCallback((p) => {
     setForm({ ...p, start_date: p.start_date?.slice(0, 16) || '', end_date: p.end_date?.slice(0, 16) || '' })
     setEditing(p.id)
     setShowForm(true)
-  }
+  }, [])
 
-  const deletePromotion = async (id) => {
+  const deletePromotion = useCallback(async (id) => {
     if (!confirm('Delete?')) return
     try { await api.delete(`/promotions/${id}`); toast.success('Deleted'); loadPromotions() }
     catch (e) { toast.error('Failed') }
-  }
+  }, [])
 
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>
 
@@ -119,3 +120,5 @@ export default function PromotionsManager() {
     </div>
   )
 }
+
+export default React.memo(PromotionsManager)

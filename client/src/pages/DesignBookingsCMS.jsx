@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Calendar, Clock, Video, Phone, Users, Check, X, Tag, DollarSign, Award, AlertTriangle, Search, Filter } from 'lucide-react';
 import api from '../services/api';
 import './DesignBookingsCMS.css';
 
-export default function DesignBookingsCMS() {
+function DesignBookingsCMS() {
   const [bookings, setBookings] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +27,7 @@ export default function DesignBookingsCMS() {
   const [conflictWarning, setConflictWarning] = useState('');
 
   // Fetch initial data
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const [bookingsRes, designersRes] = await Promise.all([
@@ -40,14 +41,14 @@ export default function DesignBookingsCMS() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Helper to check overlapping bookings for a designer on staff assignment change
-  const handleDesignerChange = (staffId) => {
+  const handleDesignerChange = useCallback((staffId) => {
     setAssignedStaffId(staffId);
     setConflictWarning('');
 
@@ -83,9 +84,9 @@ export default function DesignBookingsCMS() {
     if (hasConflict) {
       setConflictWarning('⚠️ Warning: This designer has an overlapping consultation booked at this time.');
     }
-  };
+  }, [selectedBooking, bookings]);
 
-  const handleOpenModal = (booking) => {
+  const handleOpenModal = useCallback((booking) => {
     setSelectedBooking(booking);
     setStatus(booking.status);
     setAssignedStaffId(booking.assigned_staff_id || '');
@@ -93,9 +94,9 @@ export default function DesignBookingsCMS() {
     setQuoteIssued(booking.quote_issued === 1);
     setQuoteAmount(booking.quote_amount || '');
     setConflictWarning('');
-  };
+  }, []);
 
-  const handleUpdateBooking = async (e) => {
+  const handleUpdateBooking = useCallback(async (e) => {
     e.preventDefault();
     if (!selectedBooking) return;
     setUpdating(true);
@@ -116,10 +117,10 @@ export default function DesignBookingsCMS() {
     } finally {
       setUpdating(false);
     }
-  };
+  }, [selectedBooking, status, assignedStaffId, notes, quoteIssued, quoteAmount, fetchData]);
 
   // CRM Analytics Metrics
-  const metrics = (() => {
+  const metrics = useMemo(() => {
     const total = bookings.length;
     const confirmed = bookings.filter(b => b.status === 'Confirmed').length;
     const completedBookings = bookings.filter(b => b.status === 'Completed');
@@ -136,7 +137,7 @@ export default function DesignBookingsCMS() {
   })();
 
   // Filter Bookings
-  const filteredBookings = bookings.filter(b => {
+  const filteredBookings = useMemo(() => bookings.filter(b => {
     const matchesSearch = 
       b.customer_name.toLowerCase().includes(search.toLowerCase()) ||
       b.customer_phone.includes(search) ||
@@ -144,7 +145,7 @@ export default function DesignBookingsCMS() {
     const matchesStatus = statusFilter === 'All' || b.status === statusFilter;
     const matchesType = typeFilter === 'All' || b.consultation_type === typeFilter;
     return matchesSearch && matchesStatus && matchesType;
-  });
+  }), [bookings, search, statusFilter, typeFilter]);
 
   return (
     <div className="bookings-cms reveal revealed">
@@ -487,3 +488,5 @@ export default function DesignBookingsCMS() {
     </div>
   );
 }
+
+export default React.memo(DesignBookingsCMS);

@@ -1,9 +1,9 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import auth from '../services/auth';
 
 const AuthContext = createContext(null);
 
-export const AuthProvider = ({ children }) => {
+export const AuthProvider = React.memo(({ children }) => {
     const [user, setUser] = useState(() => auth.getUser());
 
     const login = useCallback(async (userId, password, rememberMe = true) => {
@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
             {children}
         </AuthContext.Provider>
     );
-};
+});
 
 const useAuth = () => {
     const context = useContext(AuthContext);

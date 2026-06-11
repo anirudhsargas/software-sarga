@@ -1,11 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import api from '../services/api';
 
 function formatCurrency(n) {
   return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function RateCalculator() {
+const RateCalculator = React.memo(function RateCalculator() {
+  const productsRef = useRef([]);
+  const finishesRef = useRef([]);
+  const calculationRef = useRef(null);
+
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [quantity, setQuantity] = useState(100);
@@ -18,27 +22,45 @@ export default function RateCalculator() {
 
   useEffect(() => {
     api.get('/pricing/products').then(({ data }) => {
-      setProducts(data.products || []);
+      const newProducts = data.products || [];
+      const str = JSON.stringify(newProducts);
+      if (str !== JSON.stringify(productsRef.current)) {
+        productsRef.current = newProducts;
+        setProducts(newProducts);
+      }
     }).catch(() => {});
     api.get('/pricing/finishes').then(({ data }) => {
-      setFinishes(data.finishes || []);
+      const newFinishes = data.finishes || [];
+      const str = JSON.stringify(newFinishes);
+      if (str !== JSON.stringify(finishesRef.current)) {
+        finishesRef.current = newFinishes;
+        setFinishes(newFinishes);
+      }
     }).catch(() => {});
     api.get('/pricing/express').then(({ data }) => {
       if (data.rules) setExpressInfo(data.rules);
     }).catch(() => {});
   }, []);
 
+  const setCalculationSmart = useCallback((data) => {
+    const str = JSON.stringify(data);
+    if (str !== JSON.stringify(calculationRef.current)) {
+      calculationRef.current = data;
+      setCalculation(data);
+    }
+  }, []);
+
   const handleProductChange = useCallback(async (e) => {
     const pid = e.target.value;
     setSelectedProduct(pid);
     setSelectedFinishes([]);
-    setCalculation(null);
+    setCalculationSmart(null);
     if (!pid) { setAvailableFinishes([]); return; }
     try {
       const { data } = await api.get(`/pricing/product/${pid}/finishes`);
       setAvailableFinishes(data.finishes || []);
     } catch { setAvailableFinishes([]); }
-  }, []);
+  }, [setCalculationSmart]);
 
   const toggleFinish = useCallback((fid) => {
     setSelectedFinishes(prev => prev.includes(fid) ? prev.filter(f => f !== fid) : [...prev, fid]);
@@ -51,15 +73,15 @@ export default function RateCalculator() {
       const { data } = await api.get('/pricing/calculate', {
         params: { product_id: selectedProduct, quantity, finishes: selectedFinishes.join(',') }
       });
-      setCalculation(data);
+      setCalculationSmart(data);
     } catch (err) {
-      setCalculation({ error: err.response?.data?.error || 'Calculation failed' });
+      setCalculationSmart({ error: err.response?.data?.error || 'Calculation failed' });
     } finally { setLoading(false); }
-  }, [selectedProduct, quantity, selectedFinishes]);
+  }, [selectedProduct, quantity, selectedFinishes, setCalculationSmart]);
 
-  const quickQtys = [50, 100, 200, 500, 1000, 5000];
+  const quickQtys = useMemo(() => [50, 100, 200, 500, 1000, 5000], []);
 
-  const product = products.find(p => String(p.id) === String(selectedProduct));
+  const product = useMemo(() => products.find(p => String(p.id) === String(selectedProduct)), [products, selectedProduct]);
 
   return (
     <div className="page-container" style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
@@ -192,7 +214,9 @@ export default function RateCalculator() {
       )}
     </div>
   );
-}
+});
+
+export default RateCalculator;
 
 const labelStyle = { display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 };
 const inputStyle = {

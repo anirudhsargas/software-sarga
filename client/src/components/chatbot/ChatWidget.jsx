@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
-const ChatWidget = () => {
+const ChatWidget = React.memo(() => {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
@@ -52,6 +52,6 @@ const ChatWidget = () => {
       </div>
     </div>
   );
-};
+});
 
 export default ChatWidget;

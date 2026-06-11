@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Lock, ArrowLeft, Loader2, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-export default function ResetPassword() {
+const ResetPassword = React.memo(() => {
     const [searchParams] = useSearchParams();
     const token = searchParams.get('token');
 
@@ -16,6 +16,8 @@ export default function ResetPassword() {
     const [valid, setValid] = useState(false);
     const [done, setDone] = useState(false);
     const [error, setError] = useState('');
+    const loadingRef = useRef(null);
+    const errorRef = useRef(null);
 
     useEffect(() => {
         if (!token) { setVerifying(false); return; }
@@ -24,12 +26,13 @@ export default function ResetPassword() {
             .catch(() => setVerifying(false));
     }, [token]);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
-        setError('');
-        if (password.length < 6) return setError('Password must be at least 6 characters');
-        if (password !== confirm) return setError('Passwords do not match');
-        setLoading(true);
+        const es = JSON.stringify(''); if (es !== errorRef.current) { errorRef.current = es; setError(''); }
+        if (password.length < 6) { const es = JSON.stringify('Password must be at least 6 characters'); if (es !== errorRef.current) { errorRef.current = es; setError('Password must be at least 6 characters'); } return; }
+        if (password !== confirm) { const es = JSON.stringify('Passwords do not match'); if (es !== errorRef.current) { errorRef.current = es; setError('Passwords do not match'); } return; }
+        const ls = JSON.stringify(true);
+        if (ls !== loadingRef.current) { loadingRef.current = ls; setLoading(true); }
         try {
             const res = await fetch(`${API}/auth/reset-password`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -38,27 +41,27 @@ export default function ResetPassword() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || 'Reset failed');
             setDone(true);
-        } catch (err) { setError(err.message); }
-        finally { setLoading(false); }
-    };
+        } catch (err) { const es = JSON.stringify(err.message); if (es !== errorRef.current) { errorRef.current = es; setError(err.message); } }
+        finally { const ls = JSON.stringify(false); if (ls !== loadingRef.current) { loadingRef.current = ls; setLoading(false); } }
+    }, [password, confirm, token]);
 
-    const containerStyle = {
+    const containerStyle = useMemo(() => ({
         minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: 20
-    };
-    const cardStyle = {
+    }), []);
+    const cardStyle = useMemo(() => ({
         background: '#fff', borderRadius: 16, padding: 40, maxWidth: 420, width: '100%',
         boxShadow: '0 20px 60px rgba(0,0,0,0.15)'
-    };
-    const inputStyle = {
+    }), []);
+    const inputStyle = useMemo(() => ({
         width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid #d1d5db',
         fontSize: 15, outline: 'none', boxSizing: 'border-box'
-    };
-    const btnStyle = {
+    }), []);
+    const btnStyle = useMemo(() => ({
         width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: '#6366f1',
         color: '#fff', fontSize: 16, fontWeight: 600, cursor: 'pointer', display: 'flex',
         alignItems: 'center', justifyContent: 'center', gap: 8
-    };
+    }), []);
 
     if (verifying) return <div style={containerStyle}><div style={cardStyle}><Loader2 size={24} className="animate-spin" style={{ margin: '0 auto', display: 'block' }} /></div></div>;
 
@@ -131,4 +134,6 @@ export default function ResetPassword() {
             </div>
         </div>
     );
-}
+});
+
+export default React.memo(ResetPassword);

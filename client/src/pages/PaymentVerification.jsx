@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   ShieldCheck, ShieldX, ShieldAlert, Clock, Search, Filter,
   Calendar, Receipt, Loader2, FileX, ChevronDown, ChevronUp,
@@ -38,10 +38,16 @@ const PaymentVerification = () => {
   const [noteText, setNoteText] = useState('');
   const [verifying, setVerifying] = useState(null);
 
+  const paymentsRef = useRef(payments);
+  const statsRef = useRef(stats);
+
   const fetchStats = useCallback(async () => {
     try {
       const res = await api.get('/customer-payments/verification-stats');
-      setStats(res.data);
+      if (JSON.stringify(res.data) !== JSON.stringify(statsRef.current)) {
+        statsRef.current = res.data;
+        setStats(res.data);
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -54,9 +60,12 @@ const PaymentVerification = () => {
       if (search.trim()) params.set('search', search.trim());
       const res = await api.get(`/customer-payments/pending-verification?${params}`);
       const data = res.data;
-      setPayments(data.data || []);
-      setTotal(data.total || 0);
-      setTotalPages(data.totalPages || 1);
+      if (JSON.stringify(data.data) !== JSON.stringify(paymentsRef.current)) {
+        paymentsRef.current = data.data;
+        setPayments(data.data || []);
+        setTotal(data.total || 0);
+        setTotalPages(data.totalPages || 1);
+      }
     } catch {
       toast.error('Failed to load payments');
     } finally {
@@ -68,7 +77,7 @@ const PaymentVerification = () => {
   useEffect(() => { setPage(1); }, [activeTab, search, dateRange]);
   useEffect(() => { fetchPayments(page); }, [page, fetchPayments]);
 
-  const handleVerify = async (id, status) => {
+  const handleVerify = useCallback(async (id, status) => {
     setVerifying(id);
     try {
       await api.patch(`/customer-payments/${id}/verify`, { status, note: noteText || undefined });
@@ -82,21 +91,20 @@ const PaymentVerification = () => {
     } finally {
       setVerifying(null);
     }
-  };
+  }, [noteText, fetchPayments, fetchStats, page]);
 
   const formatDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   const fmt = (n) => formatCurrencyDecimal(Number(n) || 0);
 
-  const statCards = [
+  const statCards = useMemo(() => [
     { key: 'Pending', count: stats?.pending || 0, amount: stats?.pending_amount || 0 },
     { key: 'Verified', count: stats?.verified || 0, amount: stats?.verified_amount || 0 },
     { key: 'Not in Statement', count: stats?.not_in_statement || 0, amount: stats?.not_in_statement_amount || 0 },
     { key: 'Rejected', count: stats?.rejected || 0, amount: stats?.rejected_amount || 0 },
-  ];
+  ], [stats]);
 
   return (
     <div className="pv-page">
-      {/* Header */}
       <div className="pv-header">
         <div>
           <h1 className="pv-title">Payment Verification</h1>
@@ -104,7 +112,6 @@ const PaymentVerification = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="pv-stats-row">
         {statCards.map(s => {
           const cfg = STATUS_CONFIG[s.key];
@@ -128,7 +135,6 @@ const PaymentVerification = () => {
         })}
       </div>
 
-      {/* Filters */}
       <div className="pv-filters">
         <div className="pv-search-wrap">
           <Search size={16} className="pv-search-icon" />
@@ -150,7 +156,6 @@ const PaymentVerification = () => {
         </div>
       </div>
 
-      {/* Payment Cards */}
       <div className="pv-list">
         {loading ? (
           <div className="pv-empty">
@@ -173,13 +178,11 @@ const PaymentVerification = () => {
             return (
               <div key={p.id} className={`pv-card ${isExpanded ? 'pv-card--expanded' : ''}`}>
                 <div className="pv-card-main" onClick={() => setExpandedId(isExpanded ? null : p.id)}>
-                  {/* Left: method icon */}
                   <div className="pv-card-method">
                     <span className="pv-method-emoji">{METHOD_ICONS[p.payment_method] || '💰'}</span>
                     <span className="pv-method-label">{p.payment_method}</span>
                   </div>
 
-                  {/* Center: details */}
                   <div className="pv-card-details">
                     <div className="pv-card-name">{p.customer_name}</div>
                     <div className="pv-card-meta">
@@ -189,7 +192,6 @@ const PaymentVerification = () => {
                     </div>
                   </div>
 
-                  {/* Right: amount + status */}
                   <div className="pv-card-right">
                     <div className="pv-card-amount">₹{fmt(p.advance_paid)}</div>
                     <div className="pv-card-status" style={{ color: cfg.color, background: cfg.bg }}>
@@ -202,7 +204,6 @@ const PaymentVerification = () => {
                   </div>
                 </div>
 
-                {/* Expanded section */}
                 {isExpanded && (
                   <div className="pv-card-expand">
                     <div className="pv-expand-grid">
@@ -248,7 +249,6 @@ const PaymentVerification = () => {
                       )}
                     </div>
 
-                    {/* Action area */}
                     {isPending && (
                       <div className="pv-actions">
                         <div className="pv-note-row">
@@ -317,4 +317,4 @@ const PaymentVerification = () => {
   );
 };
 
-export default PaymentVerification;
+export default React.memo(PaymentVerification);

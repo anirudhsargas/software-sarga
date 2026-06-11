@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Users, Plus, IndianRupee, Loader2, ArrowLeft,
   Calendar, CheckCircle, AlertTriangle,
@@ -12,6 +12,8 @@ const DEFAULT_BULK_FORM = { payment_method: 'Cash', payment_date: today(), refer
 
 const StaffExpensesTab = ({ onPayment, onError }) => {
   const [staffList, setStaffList] = useState([]);
+  const staffRef = useRef(null);
+  const salaryRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -57,7 +59,9 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
       params.append('page', pageNum);
       params.append('limit', limit);
       const r = await api.get(`/staff?${params.toString()}`);
-      setStaffList(r.data.data || []);
+      const data = r.data.data || [];
+      const str = JSON.stringify(data);
+      if (str !== staffRef.current) { staffRef.current = str; setStaffList(data); }
       setPage(r.data.page || 1);
     } catch {
       setStaffList([]);
@@ -73,7 +77,8 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
     setLoadingInfo(true);
     try {
       const r = await api.get(`/staff/${staff.id}/salary-info`);
-      setSalaryInfo(r.data);
+      const str = JSON.stringify(r.data);
+      if (str !== salaryRef.current) { salaryRef.current = str; setSalaryInfo(r.data); }
     } catch { setSalaryInfo(null); }
     finally { setLoadingInfo(false); }
   }, []);
@@ -369,4 +374,4 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
   );
 };
 
-export default StaffExpensesTab;
+export default React.memo(StaffExpensesTab);

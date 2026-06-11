@@ -37,7 +37,7 @@ function getRecordLink(a) {
     return null;
 }
 
-export default function AnomalyPanel() {
+const AnomalyPanel = React.memo(function AnomalyPanel() {
     const [data, setData] = useState({ anomalies: [], checkedAt: null });
     const [expanded, setExpanded] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -150,4 +150,6 @@ export default function AnomalyPanel() {
             )}
         </div>
     );
-}
+});
+
+export default AnomalyPanel;

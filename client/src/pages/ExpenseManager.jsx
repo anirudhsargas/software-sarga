@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import usePolling from '../hooks/usePolling';
 import {
@@ -11,7 +11,6 @@ import './ExpenseManager.css';
 import ServerError from '../components/ServerError';
 import toast from 'react-hot-toast';
 
-/* ── Tab Components ── */
 import DashboardTab from './expense-manager/DashboardTab';
 import VendorsTab from './expense-manager/VendorsTab';
 import RentTab from './expense-manager/RentTab';
@@ -26,7 +25,6 @@ import OfficeTab from './expense-manager/OfficeTab';
 import PaymentModal from './expense-manager/PaymentModal';
 import { defaultPayForm } from './expense-manager/paymentDefaults';
 
-/* ══════════ Tab definitions ══════════ */
 const tabs = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'finance', label: 'Finance', icon: Landmark },
@@ -39,41 +37,61 @@ const tabs = [
   { key: 'staff-expenses', label: 'Staff & Salary', icon: Users },
 ];
 
-/* ══════════ Main Component ══════════ */
 const VALID_TABS = new Set(tabs.map(t => t.key).concat('reports'));
 
 const ExpenseManager = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabFromUrl = searchParams.get('tab');
-  const activeTab = (tabFromUrl && VALID_TABS.has(tabFromUrl)) ? tabFromUrl : 'dashboard';
-  const setActiveTab = (tab) => {
-    setSearchParams({ tab }, { replace: tab === 'dashboard' });
-  };
   const [error, setError] = useState('');
   const [branches, setBranches] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [fabOpen, setFabOpen] = useState(false);
   const [showBillsPanel, setShowBillsPanel] = useState(false);
-
-  // Shared dashboard data for Utilities tab
   const [dashboard, setDashboard] = useState(null);
-
-  // Payment modal state
   const [showPayModal, setShowPayModal] = useState(false);
   const [payForm, setPayForm] = useState(defaultPayForm);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  /* ── Shared fetchers ── */
+  const activeTab = useMemo(() => {
+    const tabFromUrl = searchParams.get('tab');
+    return (tabFromUrl && VALID_TABS.has(tabFromUrl)) ? tabFromUrl : 'dashboard';
+  }, [searchParams]);
+
+  const setActiveTab = useCallback((tab) => {
+    setSearchParams({ tab }, { replace: tab === 'dashboard' });
+  }, [setSearchParams]);
+
+  const branchesRef = useRef(branches);
+  const vendorsRef = useRef(vendors);
+  const dashboardRef = useRef(dashboard);
+
   const fetchBranches = useCallback(async () => {
-    try { const data = await localDb.getBranches(); setBranches(data || []); } catch (err) { void err; }
+    try {
+      const data = await localDb.getBranches();
+      if (JSON.stringify(data) !== JSON.stringify(branchesRef.current)) {
+        branchesRef.current = data;
+        setBranches(data || []);
+      }
+    } catch (err) { void err; }
   }, []);
 
   const fetchVendors = useCallback(async () => {
-    try { const data = await localDb.getVendors(); setVendors(data || []); } catch (err) { void err; }
+    try {
+      const data = await localDb.getVendors();
+      if (JSON.stringify(data) !== JSON.stringify(vendorsRef.current)) {
+        vendorsRef.current = data;
+        setVendors(data || []);
+      }
+    } catch (err) { void err; }
   }, []);
 
   const fetchDashboardForUtilities = useCallback(async () => {
-    try { const data = await localDb.getExpenseDashboard(); setDashboard(data); } catch (err) { void err; }
+    try {
+      const data = await localDb.getExpenseDashboard();
+      if (JSON.stringify(data) !== JSON.stringify(dashboardRef.current)) {
+        dashboardRef.current = data;
+        setDashboard(data);
+      }
+    } catch (err) { void err; }
   }, []);
 
   useEffect(() => {
@@ -91,11 +109,9 @@ const ExpenseManager = () => {
     return () => clearTimeout(t);
   }, [activeTab, fetchDashboardForUtilities]);
 
-  /* ── Auto-refresh every 60s (pauses when tab hidden) ── */
   usePolling(() => setRefreshKey(k => k + 1), 60000);
 
-  /* ── Payment submit ── */
-  const submitPayment = async (e) => {
+  const submitPayment = useCallback(async (e) => {
     e.preventDefault(); setError('');
     try {
       const body = { ...payForm, amount: Number(payForm.amount) };
@@ -105,22 +121,18 @@ const ExpenseManager = () => {
       }
       await localDb.saveExpensePayment(body);
       setShowPayModal(false); setPayForm(defaultPayForm);
-      setRefreshKey(k => k + 1); // trigger child refreshes
+      setRefreshKey(k => k + 1);
       toast.success('Payment recorded locally');
     } catch { setError('Payment failed locally'); }
-  };
+  }, [payForm]);
 
-  /* ── Open payment modal with pre-fill ── */
-  const openPayment = (prefill = {}) => {
+  const openPayment = useCallback((prefill = {}) => {
     setPayForm({ ...defaultPayForm, ...prefill });
     setShowPayModal(true);
-  };
+  }, []);
 
-  /* ── Refresh current tab ── */
-  /* ══════════ RENDER ══════════ */
   return (
     <div className="em-page">
-      {/* Header */}
       <div className="em-header">
         <div className="em-header__left">
           <h1 className="em-title">Expense Manager</h1>
@@ -133,10 +145,8 @@ const ExpenseManager = () => {
         </div>
       </div>
 
-      {/* Error */}
       {error && <ServerError onRetry={() => setError('')} message={error} />}
 
-      {/* Tabs */}
       <div className="em-tabs">
         {tabs.map(t => (
           <button key={t.key} className={`em-tab ${activeTab === t.key ? 'em-tab--active' : ''}`} onClick={() => setActiveTab(t.key)}>
@@ -145,7 +155,6 @@ const ExpenseManager = () => {
         ))}
       </div>
 
-      {/* ═══════ Tab Content ═══════ */}
       {activeTab === 'dashboard' && <DashboardTab key={`dash-${refreshKey}`} branches={branches} onPayment={openPayment} />}
       {activeTab === 'vendors' && <VendorsTab key={`vnd-${refreshKey}`} vendors={vendors} onPayment={openPayment} onRefreshVendors={fetchVendors} />}
       {activeTab === 'rent' && <RentTab key={`rent-${refreshKey}`} branches={branches} onPayment={openPayment} onError={setError} />}
@@ -157,7 +166,6 @@ const ExpenseManager = () => {
       {activeTab === 'staff-expenses' && <StaffExpensesTab key={`staff-${refreshKey}`} onPayment={openPayment} onError={setError} />}
       {activeTab === 'reports' && <ReportsTab key={`rpt-${refreshKey}`} branches={branches} onError={setError} />}
 
-      {/* ═══════ Bills & Docs Side Panel ═══════ */}
       {showBillsPanel && (
         <div className="em-sidepanel-backdrop" onClick={() => setShowBillsPanel(false)}>
           <div className="em-sidepanel" onClick={(e) => e.stopPropagation()}>
@@ -172,7 +180,6 @@ const ExpenseManager = () => {
         </div>
       )}
 
-      {/* ═══════ Shared Payment Modal ═══════ */}
       {showPayModal && (
         <PaymentModal
           form={payForm}
@@ -184,7 +191,6 @@ const ExpenseManager = () => {
         />
       )}
 
-      {/* ═══════ Floating Action Button ═══════ */}
       <button className="em-fab" onClick={() => setFabOpen(f => !f)} title="Quick Actions">
         {fabOpen ? <X size={24} /> : <Plus size={24} />}
       </button>
@@ -199,4 +205,4 @@ const ExpenseManager = () => {
   );
 };
 
-export default ExpenseManager;
+export default React.memo(ExpenseManager);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
     Plus, ArrowLeft, Package, MapPin, Layers, 
     Calendar, User, FileText, ShoppingCart, Info
@@ -23,6 +23,17 @@ const PaperInward = () => {
         supplier_name: '',
         notes: ''
     });
+    const formDataRef = useRef(formData);
+    const setFormDataSmart = useCallback((updates) => {
+        setFormData(prev => {
+            const next = { ...prev, ...updates };
+            if (JSON.stringify(next) !== JSON.stringify(formDataRef.current)) {
+                formDataRef.current = next;
+                return next;
+            }
+            return prev;
+        });
+    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -40,14 +51,15 @@ const PaperInward = () => {
         fetchData();
     }, []);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
+            const current = formDataRef.current;
             await api.post('/paperInventory/inward', {
-                ...formData,
-                quantity: Number(formData.quantity),
-                purchase_rate: Number(formData.purchase_rate) || 0
+                ...current,
+                quantity: Number(current.quantity),
+                purchase_rate: Number(current.purchase_rate) || 0
             });
             toast.success('Stock inward recorded');
             navigate('/dashboard/paper/stock');
@@ -56,13 +68,15 @@ const PaperInward = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [navigate]);
 
-    const selectedPaper = paperTypes.find(t => t.id === Number(formData.paper_type_id));
+    const selectedPaper = useMemo(() => 
+        paperTypes.find(t => t.id === Number(formData.paper_type_id)),
+        [paperTypes, formData.paper_type_id]
+    );
 
     return (
         <div className="stack-lg p-md" style={{ maxWidth: '800px', margin: '0 auto' }}>
-            {/* Header */}
             <div className="row items-center gap-md">
                 <button className="btn btn-ghost p-sm" onClick={() => navigate(-1)}>
                     <ArrowLeft size={20} />
@@ -88,7 +102,7 @@ const PaperInward = () => {
                                 className="input-field" 
                                 required
                                 value={formData.paper_type_id}
-                                onChange={(e) => setFormData({...formData, paper_type_id: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ paper_type_id: e.target.value })}
                             >
                                 <option value="">-- Select Paper Type --</option>
                                 {paperTypes.map(t => (
@@ -105,7 +119,7 @@ const PaperInward = () => {
                                 className="input-field" 
                                 required
                                 value={formData.branch_id}
-                                onChange={(e) => setFormData({...formData, branch_id: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ branch_id: e.target.value })}
                             >
                                 <option value="">-- Select Branch --</option>
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -118,7 +132,7 @@ const PaperInward = () => {
                                 className="input-field" 
                                 placeholder="e.g. ABC Paper Mill"
                                 value={formData.supplier_name}
-                                onChange={(e) => setFormData({...formData, supplier_name: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ supplier_name: e.target.value })}
                             />
                         </div>
 
@@ -131,7 +145,7 @@ const PaperInward = () => {
                                 required
                                 placeholder="0"
                                 value={formData.quantity}
-                                onChange={(e) => setFormData({...formData, quantity: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ quantity: e.target.value })}
                             />
                         </div>
 
@@ -141,7 +155,7 @@ const PaperInward = () => {
                                 className="input-field" 
                                 required
                                 value={formData.unit}
-                                onChange={(e) => setFormData({...formData, unit: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ unit: e.target.value })}
                             >
                                 <option value="Reams">Reams (500 sheets)</option>
                                 <option value="Packets">Packets (100 sheets)</option>
@@ -160,7 +174,7 @@ const PaperInward = () => {
                                     style={{ paddingLeft: 30 }}
                                     placeholder="0.00"
                                     value={formData.purchase_rate}
-                                    onChange={(e) => setFormData({...formData, purchase_rate: e.target.value})}
+                                    onChange={(e) => setFormDataSmart({ purchase_rate: e.target.value })}
                                 />
                             </div>
                         </div>
@@ -172,7 +186,7 @@ const PaperInward = () => {
                                 rows="3"
                                 placeholder="Enter any notes or bill reference..."
                                 value={formData.notes}
-                                onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ notes: e.target.value })}
                             ></textarea>
                         </div>
                     </div>
@@ -207,4 +221,4 @@ const PaperInward = () => {
     );
 };
 
-export default PaperInward;
+export default React.memo(PaperInward);

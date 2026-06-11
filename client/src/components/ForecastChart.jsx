@@ -8,7 +8,7 @@ import api from '../services/api';
 
 const fmt = (n) => '₹' + (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = React.memo(({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
         <div style={{
@@ -26,9 +26,9 @@ const CustomTooltip = ({ active, payload, label }) => {
             ))}
         </div>
     );
-};
+});
 
-export default function ForecastChart() {
+const ForecastChart = React.memo(function ForecastChart() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [range, setRange] = useState(30); // 7 or 30
@@ -237,4 +237,6 @@ export default function ForecastChart() {
             )}
         </div>
     );
-}
+});
+
+export default ForecastChart;

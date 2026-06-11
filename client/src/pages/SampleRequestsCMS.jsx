@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Package, Truck, Store, Check, X, Edit2, Plus, Clock, Search, AlertCircle, Eye, Mail } from 'lucide-react';
 import api from '../services/api';
 import './SampleRequestsCMS.css';
@@ -9,7 +9,10 @@ const staggerEnter = (el, i) => {
   requestAnimationFrame(() => el.classList.add('animate-in'));
 };
 
-export default function SampleRequestsCMS() {
+export default React.memo(function SampleRequestsCMS() {
+  const requestsRef = useRef([]);
+  const samplesRef = useRef([]);
+
   const [requests, setRequests] = useState([]);
   const [samples, setSamples] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,15 +41,31 @@ export default function SampleRequestsCMS() {
   const reqTableRef = useRef(null);
   const matGridRef = useRef(null);
 
-  const fetchData = async () => {
+  const setRequestsSmart = useCallback((data) => {
+    const str = JSON.stringify(data);
+    if (str !== JSON.stringify(requestsRef.current)) {
+      requestsRef.current = data;
+      setRequests(data);
+    }
+  }, []);
+
+  const setSamplesSmart = useCallback((data) => {
+    const str = JSON.stringify(data);
+    if (str !== JSON.stringify(samplesRef.current)) {
+      samplesRef.current = data;
+      setSamples(data);
+    }
+  }, []);
+
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const [reqsRes, invRes] = await Promise.all([
         api.get('/admin/sample-requests'),
         api.get('/admin/samples/inventory')
       ]);
-      setRequests(reqsRes.data.requests || []);
-      setSamples(invRes.data.samples || []);
+      setRequestsSmart(reqsRes.data.requests || []);
+      setSamplesSmart(invRes.data.samples || []);
       setTimeout(() => {
         if (reqTableRef.current) {
           reqTableRef.current.querySelectorAll('tbody tr.stagger-item').forEach(staggerEnter);
@@ -60,13 +79,13 @@ export default function SampleRequestsCMS() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setRequestsSmart, setSamplesSmart]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
-  const handleUpdateReqStatus = async (e) => {
+  const handleUpdateReqStatus = useCallback(async (e) => {
     e.preventDefault();
     if (!selectedReq) return;
     setUpdatingReq(true);
@@ -85,9 +104,9 @@ export default function SampleRequestsCMS() {
     } finally {
       setUpdatingReq(false);
     }
-  };
+  }, [selectedReq, newStatus, trackingNumber, notes, fetchData]);
 
-  const handleAddSample = async (e) => {
+  const handleAddSample = useCallback(async (e) => {
     e.preventDefault();
     setSavingSample(true);
     try {
@@ -106,9 +125,9 @@ export default function SampleRequestsCMS() {
     } finally {
       setSavingSample(false);
     }
-  };
+  }, [sampleName, sampleCategory, sampleDescription, sampleStock, fetchData]);
 
-  const handleSaveEditSample = async (e) => {
+  const handleSaveEditSample = useCallback(async (e) => {
     e.preventDefault();
     if (!editingSample) return;
     setSavingSample(true);
@@ -129,50 +148,50 @@ export default function SampleRequestsCMS() {
     } finally {
       setSavingSample(false);
     }
-  };
+  }, [editingSample, sampleName, sampleCategory, sampleDescription, sampleStock, fetchData]);
 
-  const resetSampleForm = () => {
+  const resetSampleForm = useCallback(() => {
     setSampleName('');
     setSampleCategory('Paper Stock');
     setSampleDescription('');
     setSampleStock(50);
     setSampleActive(true);
-  };
+  }, []);
 
-  const openEditSample = (sample) => {
+  const openEditSample = useCallback((sample) => {
     setEditingSample(sample);
     setSampleName(sample.name);
     setSampleCategory(sample.category);
     setSampleDescription(sample.description || '');
     setSampleStock(sample.stock_quantity);
     setSampleActive(sample.is_active === 1);
-  };
+  }, []);
 
-  const openAddSample = () => {
+  const openAddSample = useCallback(() => {
     resetSampleForm();
     setAddingSample(true);
-  };
+  }, [resetSampleForm]);
 
-  const openReqModal = (req) => {
+  const openReqModal = useCallback((req) => {
     setSelectedReq(req);
     setNewStatus(req.status);
     setTrackingNumber(req.tracking_number || '');
     setNotes(req.notes || '');
-  };
+  }, []);
 
-  const filteredRequests = requests.filter(req => {
+  const filteredRequests = useMemo(() => requests.filter(req => {
     const matchesSearch =
       req.customer_name.toLowerCase().includes(reqSearch.toLowerCase()) ||
       req.customer_phone.includes(reqSearch) ||
       (req.id && String(req.id).includes(reqSearch));
     const matchesFilter = reqFilter === 'All' || req.status === reqFilter;
     return matchesSearch && matchesFilter;
-  });
+  }), [requests, reqSearch, reqFilter]);
 
-  const filteredSamples = samples.filter(sample =>
+  const filteredSamples = useMemo(() => samples.filter(sample =>
     sample.name.toLowerCase().includes(invSearch.toLowerCase()) ||
     sample.category.toLowerCase().includes(invSearch.toLowerCase())
-  );
+  ), [samples, invSearch]);
 
   return (
     <div className="sample-cms reveal revealed">
@@ -585,4 +604,4 @@ export default function SampleRequestsCMS() {
       )}
     </div>
   );
-}
+});

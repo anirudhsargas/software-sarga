@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import usePolling from '../hooks/usePolling';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, Clock, Calendar, Search, RefreshCw, FileText, FileDown, Copy, AlertCircle, IndianRupee, Layers, Package, Phone, User, Building2, Shield, CheckCircle2, ChevronDown, Trash2, Upload, Eye, ThumbsUp, ThumbsDown, RotateCcw, MessageSquare, CreditCard, XCircle, Activity, Loader2, Users, Plus, Image } from 'lucide-react';
@@ -27,7 +27,7 @@ const paymentColors = {
     Unpaid: 'var(--error)',
 };
 
-const Badge = ({ label, color }) => {
+const Badge = React.memo(({ label, color }) => {
     const isVar = color?.startsWith('var(');
     return (
         <span style={{
@@ -43,9 +43,9 @@ const Badge = ({ label, color }) => {
             border: `1px solid ${isVar ? `color-mix(in srgb, ${color}, transparent 80%)` : (color + '33')}`,
         }}>{label}</span>
     );
-};
+});
 
-const InfoRow = ({ icon: Icon, label, value, isPhone, whatsappOptions }) => (
+const InfoRow = React.memo(({ icon: Icon, label, value, isPhone, whatsappOptions }) => (
     <div className="job-info-row">
         <Icon size={16} />
         <span className="job-info-label">{label}</span>
@@ -63,9 +63,9 @@ const InfoRow = ({ icon: Icon, label, value, isPhone, whatsappOptions }) => (
             )}
         </div>
     </div>
-);
+));
 
-const WhatsAppDropdown = ({ mobile, options }) => {
+const WhatsAppDropdown = React.memo(({ mobile, options }) => {
     const [open, setOpen] = React.useState(false);
     const btnRef = React.useRef(null);
     const [dropPos, setDropPos] = React.useState({ top: 0, left: 0 });
@@ -83,6 +83,7 @@ const WhatsAppDropdown = ({ mobile, options }) => {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
+
     return (
         <div className="whatsapp-dropdown">
             <button
@@ -112,9 +113,9 @@ const WhatsAppDropdown = ({ mobile, options }) => {
             )}
         </div>
     );
-};
+});
 
-const Section = ({ title, icon: Icon, children }) => (
+const Section = React.memo(({ title, icon: Icon, children }) => (
     <div className="job-section">
         <div className="job-section-header">
             <Icon size={18} />
@@ -122,9 +123,9 @@ const Section = ({ title, icon: Icon, children }) => (
         </div>
         {children}
     </div>
-);
+));
 
-const StatCard = ({ label, value, icon: Icon, color, subValue }) => (
+const StatCard = React.memo(({ label, value, icon: Icon, color, subValue }) => (
     <div className="job-stat-card-inner">
         <div className="job-stat-card-header">
             <span className="job-stat-card-label">{label}</span>
@@ -135,14 +136,14 @@ const StatCard = ({ label, value, icon: Icon, color, subValue }) => (
         <div className="stat-value">{value}</div>
         {subValue && <div className="job-stat-subvalue">{subValue}</div>}
     </div>
-);
+));
 
 import { useOptimistic } from '../hooks/useOptimistic';
 
 const JobDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const userRole = auth.getUser()?.role;
+    const userRole = useMemo(() => auth.getUser()?.role, []);
     const { data, setData, optimisticUpdate } = useOptimistic(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -159,7 +160,6 @@ const JobDetail = () => {
     const [branchUpiId, setBranchUpiId] = useState('');
     const [branchesData, setBranchesData] = useState([]);
 
-    // Paper tracking state
     const [paperLogs, setPaperLogs] = useState([]);
     const [paperSummary, setPaperSummary] = useState({ required_sheets: 0, used_sheets: 0, paper_size: null, waste_sheets: 0, waste_percent: '0' });
     const [paperLogModal, setPaperLogModal] = useState(false);
@@ -168,41 +168,48 @@ const JobDetail = () => {
     const [editingRequired, setEditingRequired] = useState(false);
     const [requiredInput, setRequiredInput] = useState('');
 
-    // Job designs state
     const [jobDesigns, setJobDesigns] = useState([]);
     const [uploadingDesign, setUploadingDesign] = useState(false);
     const designFileRef = React.useRef(null);
 
-    // Matter images state
     const [matterImages, setMatterImages] = useState([]);
     const [uploadingMatter, setUploadingMatter] = useState(false);
     const matterUploadRef = React.useRef(null);
     const matterCaptureRef = React.useRef(null);
 
-    // Proof approval state
     const [proofs, setProofs] = useState([]);
     const [proofModal, setProofModal] = useState(false);
     const [proofNotes, setProofNotes] = useState('');
     const [uploadingProof, setUploadingProof] = useState(false);
     const proofFileRef = React.useRef(null);
-    const [reviewModal, setReviewModal] = useState(null); // holds proof object being reviewed
+    const [reviewModal, setReviewModal] = useState(null);
     const [reviewFeedback, setReviewFeedback] = useState('');
     const [reviewing, setReviewing] = useState(false);
 
-    // Plate count state
     const [editingPlates, setEditingPlates] = useState(false);
     const [plateInput, setPlateInput] = useState('');
 
-    const isFrontOffice = userRole === 'Front Office';
+    const prevPaperLogsRef = useRef(null);
+    const prevProofsRef = useRef(null);
+    const prevDesignsRef = useRef(null);
+    const prevMatterRef = useRef(null);
+    const prevBranchesRef = useRef(null);
 
-    const fetchJob = async () => {
+    const isFrontOffice = useMemo(() => userRole === 'Front Office', [userRole]);
+    const isFinancialsVisible = useMemo(() => ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole), [userRole]);
+
+    const fetchJob = useCallback(async () => {
         try {
             setLoading(true);
             const details = await localDb.getJobDetails(id);
             if (details) {
                 setData(details);
-                setPaperLogs(details.paper_logs || []);
-                // Simple summary calculation if not provided by backend
+                const nextLogs = details.paper_logs || [];
+                const nextLogsStr = JSON.stringify(nextLogs);
+                if (nextLogsStr !== prevPaperLogsRef.current) {
+                    prevPaperLogsRef.current = nextLogsStr;
+                    setPaperLogs(nextLogs);
+                }
                 const req = details.job?.required_sheets || 0;
                 const used = (details.paper_logs || []).reduce((sum, log) => sum + (log.sheets_used || 0), 0);
                 const wasted = (details.paper_logs || []).reduce((sum, log) => sum + (log.sheets_wasted || 0), 0);
@@ -213,7 +220,6 @@ const JobDetail = () => {
                     waste_percent: req > 0 ? ((wasted / req) * 100).toFixed(1) : '0'
                 });
             } else {
-                // Fallback: try server when not present in local IndexedDB
                 try {
                     const resp = await api.get(`/jobs/${id}`);
                     const srv = resp.data || {};
@@ -227,19 +233,20 @@ const JobDetail = () => {
                             payments: srv.payments || [],
                             statusHistory: srv.statusHistory || []
                         });
-                        // Cache the server job locally for offline availability
                         try {
                             await localDb.cacheJob(srv.job);
-                            // also cache related details if helper exists
                             if (srv.assignments || srv.paper_logs || srv.designs || srv.proofs) {
                                 if (typeof localDb.cacheJobDetails === 'function') {
                                     try { await localDb.cacheJobDetails(srv.job.id, { assignments: srv.assignments, paper_logs: srv.paper_logs, designs: srv.designs, proofs: srv.proofs }); } catch(e) {}
                                 }
                             }
-                        } catch (e) {
-                            // caching failure shouldn't block UI
+                        } catch (e) {}
+                        const nextLogs = srv.paper_logs || [];
+                        const nextLogsStr = JSON.stringify(nextLogs);
+                        if (nextLogsStr !== prevPaperLogsRef.current) {
+                            prevPaperLogsRef.current = nextLogsStr;
+                            setPaperLogs(nextLogs);
                         }
-                        setPaperLogs(srv.paper_logs || []);
                         const req = srv.job?.required_sheets || 0;
                         const used = (srv.paper_logs || []).reduce((sum, log) => sum + (log.sheets_used || 0), 0);
                         const wasted = (srv.paper_logs || []).reduce((sum, log) => sum + (log.sheets_wasted || 0), 0);
@@ -263,11 +270,11 @@ const JobDetail = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id, setData]);
 
-    const fetchPaperLogs = () => fetchJob(); // Unified in getJobDetails
+    const fetchPaperLogs = useCallback(() => fetchJob(), [fetchJob]);
 
-    const handleLogPaper = async () => {
+    const handleLogPaper = useCallback(async () => {
         if (!paperForm.stage) return toast.error('Select a production stage');
         const used = Number(paperForm.sheets_used) || 0;
         const wasted = Number(paperForm.sheets_wasted) || 0;
@@ -284,11 +291,10 @@ const JobDetail = () => {
         } finally {
             setLoggingPaper(false);
         }
-    };
+    }, [paperForm, id, fetchJob]);
 
-    const handleDeletePaperLog = async (logId) => {
+    const handleDeletePaperLog = useCallback(async (logId) => {
         if (!confirm('Delete this paper log entry?')) return;
-        // Optimistic UI Update
         setPaperLogs(prev => prev.filter(log => log.id !== logId));
         try {
             await api.delete(`/jobs/${id}/paper-logs/${logId}`);
@@ -298,9 +304,9 @@ const JobDetail = () => {
             toast.error('Failed to delete log');
             fetchPaperLogs();
         }
-    };
+    }, [id, fetchPaperLogs]);
 
-    const handleUpdateRequired = async () => {
+    const handleUpdateRequired = useCallback(async () => {
         const val = Math.max(0, Math.round(Number(requiredInput) || 0));
         try {
             await localDb.updateJobStatus(id, null, { required_sheets: val });
@@ -310,17 +316,31 @@ const JobDetail = () => {
         } catch (err) {
             toast.error('Failed to update');
         }
-    };
+    }, [requiredInput, id, fetchJob]);
 
-    const fetchDesigns = () => {
-        api.get(`/jobs/${id}/designs`).then(res => setJobDesigns(res.data || [])).catch(() => { });
-    };
+    const fetchDesigns = useCallback(() => {
+        api.get(`/jobs/${id}/designs`).then(res => {
+            const next = res.data || [];
+            const nextStr = JSON.stringify(next);
+            if (nextStr !== prevDesignsRef.current) {
+                prevDesignsRef.current = nextStr;
+                setJobDesigns(next);
+            }
+        }).catch(() => {});
+    }, [id]);
 
-    const fetchMatter = () => {
-        api.get(`/jobs/${id}/matter`).then(res => setMatterImages(res.data || [])).catch(() => { });
-    };
+    const fetchMatter = useCallback(() => {
+        api.get(`/jobs/${id}/matter`).then(res => {
+            const next = res.data || [];
+            const nextStr = JSON.stringify(next);
+            if (nextStr !== prevMatterRef.current) {
+                prevMatterRef.current = nextStr;
+                setMatterImages(next);
+            }
+        }).catch(() => {});
+    }, [id]);
 
-    const handleUploadMatter = async (file, isCamera = false) => {
+    const handleUploadMatter = useCallback(async (file, isCamera = false) => {
         if (!file) return;
         setUploadingMatter(true);
         try {
@@ -335,11 +355,10 @@ const JobDetail = () => {
         } finally {
             setUploadingMatter(false);
         }
-    };
+    }, [id, fetchMatter]);
 
-    const handleDeleteMatter = async (matterId) => {
+    const handleDeleteMatter = useCallback(async (matterId) => {
         if (!confirm('Delete this matter image?')) return;
-        // Optimistic UI Update
         setMatterImages(prev => prev.filter(img => img.id !== matterId));
         try {
             await api.delete(`/jobs/${id}/matter/${matterId}`);
@@ -349,13 +368,20 @@ const JobDetail = () => {
             toast.error('Failed to delete');
             fetchMatter();
         }
-    };
+    }, [id, fetchMatter]);
 
-    const fetchProofs = () => {
-        api.get(`/jobs/${id}/proofs`).then(res => setProofs(res.data || [])).catch(() => { });
-    };
+    const fetchProofs = useCallback(() => {
+        api.get(`/jobs/${id}/proofs`).then(res => {
+            const next = res.data || [];
+            const nextStr = JSON.stringify(next);
+            if (nextStr !== prevProofsRef.current) {
+                prevProofsRef.current = nextStr;
+                setProofs(next);
+            }
+        }).catch(() => {});
+    }, [id]);
 
-    const handleDesignUpload = async (e) => {
+    const handleDesignUpload = useCallback(async (e) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
         setUploadingDesign(true);
@@ -378,11 +404,10 @@ const JobDetail = () => {
             setUploadingDesign(false);
             if (designFileRef.current) designFileRef.current.value = '';
         }
-    };
+    }, [id, fetchDesigns]);
 
-    const handleDeleteDesign = async (designId) => {
+    const handleDeleteDesign = useCallback(async (designId) => {
         if (!confirm('Delete this design file?')) return;
-        // Optimistic UI Update
         setJobDesigns(prev => prev.filter(design => design.id !== designId));
         try {
             await api.delete(`/jobs/${id}/designs/${designId}`);
@@ -392,9 +417,9 @@ const JobDetail = () => {
             toast.error('Failed to delete design');
             fetchDesigns();
         }
-    };
+    }, [id, fetchDesigns]);
 
-    const handleUploadProof = async (e) => {
+    const handleUploadProof = useCallback(async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         setUploadingProof(true);
@@ -405,7 +430,6 @@ const JobDetail = () => {
             const res = await api.post(`/jobs/${id}/proofs`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             toast.success(res.data.message || 'Proof uploaded');
 
-            // Show design check result if available
             const dc = res.data.designCheck;
             if (dc && !dc.error) {
                 if (dc.passed) {
@@ -427,9 +451,9 @@ const JobDetail = () => {
             setUploadingProof(false);
             if (proofFileRef.current) proofFileRef.current.value = '';
         }
-    };
+    }, [id, proofNotes, fetchProofs, fetchJob]);
 
-    const handleReviewProof = async (status) => {
+    const handleReviewProof = useCallback(async (status) => {
         if (!reviewModal) return;
         setReviewing(true);
         try {
@@ -444,11 +468,10 @@ const JobDetail = () => {
         } finally {
             setReviewing(false);
         }
-    };
+    }, [id, reviewModal, reviewFeedback, fetchProofs, fetchJob]);
 
-    const handleDeleteProof = async (proofId) => {
+    const handleDeleteProof = useCallback(async (proofId) => {
         if (!confirm('Delete this proof?')) return;
-        // Optimistic UI Update
         setProofs(prev => prev.filter(proof => proof.id !== proofId));
         try {
             await api.delete(`/jobs/${id}/proofs/${proofId}`);
@@ -458,9 +481,9 @@ const JobDetail = () => {
             toast.error('Failed to delete proof');
             fetchProofs();
         }
-    };
+    }, [id, fetchProofs]);
 
-    const handleUpdatePlates = async () => {
+    const handleUpdatePlates = useCallback(async () => {
         const val = Math.max(0, Math.round(Number(plateInput) || 0));
         try {
             await localDb.updateJobStatus(id, null, { plate_count: val });
@@ -468,9 +491,7 @@ const JobDetail = () => {
             setEditingPlates(false);
             fetchJob();
         } catch { toast.error('Failed to update'); }
-    };
-
-
+    }, [plateInput, id, fetchJob]);
 
     useEffect(() => {
         fetchJob();
@@ -479,25 +500,24 @@ const JobDetail = () => {
         fetchProofs();
         fetchMatter();
 
-        // Fetch branch UPI for invoice QR code
         api.get('/branches').then(res => {
-            setBranchesData(res.data || []);
-        }).catch(() => { });
+            const next = res.data || [];
+            const nextStr = JSON.stringify(next);
+            if (nextStr !== prevBranchesRef.current) {
+                prevBranchesRef.current = nextStr;
+                setBranchesData(next);
+            }
+        }).catch(() => {});
 
-        // Listen for global payment updates
-        const handlePaymentUpdate = () => {
-            fetchJob();
-        };
+        const handlePaymentUpdate = () => { fetchJob(); };
         window.addEventListener('paymentRecorded', handlePaymentUpdate);
 
         return () => {
             window.removeEventListener('paymentRecorded', handlePaymentUpdate);
         };
-    }, [id]);
+    }, [id, fetchJob, fetchPaperLogs, fetchDesigns, fetchProofs, fetchMatter]);
 
-    const isFinancialsVisible = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
-
-    const handleRepeatOrder = async () => {
+    const handleRepeatOrder = useCallback(async () => {
         try {
             const res = await api.post(`/jobs/${id}/repeat`);
             toast.success(res.data.message || 'Order repeated!');
@@ -505,9 +525,9 @@ const JobDetail = () => {
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to repeat order');
         }
-    };
+    }, [id, navigate]);
 
-    const handleAssignmentStatus = async (aid, newStatus) => {
+    const handleAssignmentStatus = useCallback(async (aid, newStatus) => {
         optimisticUpdate({
             updateFn: (prev) => ({
                 ...prev,
@@ -527,23 +547,20 @@ const JobDetail = () => {
             successMsg: `Assignment status: ${newStatus}`,
             errorMsg: 'Failed to update assignment'
         });
-    };
+    }, [optimisticUpdate]);
 
-    const handleUpdateStatus = async (newStatus) => {
+    const handleUpdateStatus = useCallback(async (newStatus) => {
         optimisticUpdate({
             updateFn: (prev) => ({ ...prev, job: { ...prev.job, status: newStatus }, _updating: true }),
             serverFn: async () => {
                 await localDb.updateJobStatus(id, newStatus);
 
-                // Auto-log paper usage when a job is marked Completed/Delivered
                 try {
                     if (newStatus === 'Completed' || newStatus === 'Delivered') {
-                        // Fetch latest local job record
                         const jobRec = await localDb.getJobById(id);
                         if (jobRec) {
                             const required = Number(jobRec.required_sheets || 0);
                             const used = Number(jobRec.used_sheets || 0);
-                            // Only auto-log the remaining required sheets (avoid double-logging)
                             const toLog = Math.max(0, required - used);
                             if (toLog > 0) {
                                 const paperSize = jobRec.paper_size || jobRec.size || null;
@@ -571,13 +588,12 @@ const JobDetail = () => {
             successMsg: `Status: ${newStatus}`,
             errorMsg: 'Failed to update status'
         });
-    };
+    }, [id, optimisticUpdate]);
 
-    const handleRecordPayment = () => {
+    const handleRecordPayment = useCallback(() => {
         if (!paymentAmount || isNaN(paymentAmount)) return toast.success('Enter valid amount');
         setPaymentModal(false);
         setPaymentAmount('');
-        // Navigate to customer payment section with prefilled details
         navigate('/dashboard/customer-payments', {
             state: {
                 customer_id: data.job.customer_id,
@@ -587,14 +603,14 @@ const JobDetail = () => {
                 amount: paymentAmount
             }
         });
-    };
+    }, [paymentAmount, data, navigate]);
 
-    const handleCancelOrder = async () => {
+    const handleCancelOrder = useCallback(async () => {
         if (!cancelReason.trim()) return toast.error('Please provide a cancellation reason');
         setCancelling(true);
         try {
-            await localDb.updateJobStatus(id, 'Cancelled', { 
-                description: `${data.job.description ? data.job.description + '\n' : ''}[CANCELLED] ${cancelReason.trim()}` 
+            await localDb.updateJobStatus(id, 'Cancelled', {
+                description: `${data.job.description ? data.job.description + '\n' : ''}[CANCELLED] ${cancelReason.trim()}`
             });
             toast.success('Order cancelled locally');
             setCancelModal(false);
@@ -605,9 +621,9 @@ const JobDetail = () => {
         } finally {
             setCancelling(false);
         }
-    };
+    }, [cancelReason, id, data, fetchJob]);
 
-    const handleRefund = async () => {
+    const handleRefund = useCallback(async () => {
         const amt = Number(refundAmount);
         if (!amt || amt <= 0) return toast.error('Enter a valid refund amount');
         const maxRefundable = Number(data.job.advance_paid) || 0;
@@ -632,10 +648,9 @@ const JobDetail = () => {
         } finally {
             setRefunding(false);
         }
-    };
+    }, [refundAmount, refundMethod, refundNote, data, id, fetchJob]);
 
-    // Navigate back safely: prefer history back, fallback to Jobs list
-    const handleBackClick = () => {
+    const handleBackClick = useCallback(() => {
         try {
             if (window.history && window.history.length > 1) {
                 navigate(-1);
@@ -645,7 +660,17 @@ const JobDetail = () => {
         } catch (e) {
             navigate('/dashboard/jobs');
         }
-    };
+    }, [navigate]);
+
+    const fmt = useCallback((v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`, []);
+    const fmtDate = useCallback((d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—', []);
+    const fmtDateTime = useCallback((d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—', []);
+
+    const currentUserAssignment = useMemo(() => {
+        if (!data) return null;
+        return data.assignments?.find(a => a.staff_id === auth.getUser()?.id)
+            || data.assignments?.find(a => a.staff_id === null && a.role === auth.getUser()?.role);
+    }, [data]);
 
     if (loading) {
         return (
@@ -671,20 +696,12 @@ const JobDetail = () => {
     }
 
     const { job, assignments, payments, statusHistory } = data;
-    const fmt = (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
-    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-    const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-
     const balance = Number(job.balance_amount || 0);
     const statusColor = statusColors[job.status] || 'var(--muted)';
     const payColor = paymentColors[job.payment_status] || 'var(--muted)';
 
-    const currentUserAssignment = assignments?.find(a => a.staff_id === auth.getUser()?.id)
-        || assignments?.find(a => a.staff_id === null && a.role === auth.getUser()?.role);
-
     return (
         <div className="job-detail-container">
-            {/* Header / Dashboard Toolbar */}
             <div className="job-detail-header">
                 <div>
                     <button
@@ -722,7 +739,6 @@ const JobDetail = () => {
                         </button>
                     )}
 
-                    {/* Download Invoice Button */}
                     {['Admin', 'Front Office', 'front office'].includes(userRole) && (
                         <button
                             className="btn"
@@ -780,7 +796,6 @@ const JobDetail = () => {
                         </button>
                     )}
 
-                    {/* Repeat Order Button */}
                     {['Admin', 'Front Office', 'front office'].includes(userRole) && (
                         <button
                             className="btn"
@@ -791,7 +806,6 @@ const JobDetail = () => {
                         </button>
                     )}
 
-                    {/* Cancel Order Button */}
                     {['Admin', 'Front Office', 'front office'].includes(userRole) && !['Cancelled', 'Delivered'].includes(job.status) && (
                         <button
                             className="btn"
@@ -802,7 +816,6 @@ const JobDetail = () => {
                         </button>
                     )}
 
-                    {/* Refund Button */}
                     {isFinancialsVisible && Number(job.advance_paid) > 0 && ['Cancelled'].includes(job.status) && (
                         <button
                             className="btn"
@@ -813,7 +826,6 @@ const JobDetail = () => {
                         </button>
                     )}
 
-                    {/* Staff Action Buttons */}
                     {currentUserAssignment && (
                         <div className="job-staff-actions">
                             {currentUserAssignment.status === 'Pending' && !['Completed', 'Delivered', 'Cancelled'].includes(job.status) && (
@@ -898,7 +910,6 @@ const JobDetail = () => {
                 </div>
             </div>
 
-            {/* Dashboard Overview Cards */}
             <div className="job-stat-cards-row">
                 {isFinancialsVisible && (
                     <>
@@ -938,7 +949,6 @@ const JobDetail = () => {
 
             <div className="job-detail-main-grid">
                 <div className="stack-lg">
-                    {/* Main Info */}
                     <Section title="Order Overview" icon={FileText}>
                         <div className="job-detail-info-grid">
                             <div className="stack-xs">
@@ -946,7 +956,6 @@ const JobDetail = () => {
                                 <InfoRow icon={Package} label="Product Type" value={job.product_name} />
                                 <InfoRow icon={Building2} label="Production Branch" value={job.branch_name || 'Main Office'} />
                                 <InfoRow icon={Clock} label="Planned Qty" value={job.quantity} />
-                                {/* Offset Plate Count — inline editable */}
                                 <div className="job-info-row">
                                     <Shield size={16} />
                                     <span className="job-info-label">Plate Count</span>
@@ -986,11 +995,11 @@ const JobDetail = () => {
                                         const [label, ...rest] = isTagged ? part.split(':') : ['', part];
                                         const value = isTagged ? rest.join(':').trim() : part.trim();
                                         const tagLabel = isTagged ? label.trim().toLowerCase() : '';
-                                        
+
                                         const isColour = tagLabel === 'colour' || tagLabel === 'color';
                                         const isNumbering = tagLabel === 'numbering' || tagLabel.includes('from') || tagLabel.includes('to');
                                         const isMatter = tagLabel === 'matter';
-                                        
+
                                         return (
                                             <span key={i} className={`job-tag ${isColour ? 'job-tag--colour' : ''} ${isNumbering ? 'job-tag--numbering' : ''} ${isMatter ? 'job-tag--matter' : ''}`}>
                                                 {isColour && <span className="tag-emoji">🎨</span>}
@@ -1005,14 +1014,12 @@ const JobDetail = () => {
                             </div>
                         )}
 
-                        {/* Matter Images */}
                         <div className="matter-images-section">
                             <div className="matter-images-header">
                                 <div className="matter-images-title">
                                     Matter ({matterImages.length})
                                 </div>
                                 <div className="matter-images-actions">
-                                    {/* Hidden inputs */}
                                     <input ref={matterCaptureRef} type="file" accept="image/*" capture="environment" className="hidden-input"
                                         onChange={(e) => { handleUploadMatter(e.target.files?.[0], true); e.target.value = ''; }} />
                                     <input ref={matterUploadRef} type="file" accept="image/*,.pdf" className="hidden-input"
@@ -1068,7 +1075,6 @@ const JobDetail = () => {
                         </div>
                     </Section>
 
-                    {/* Workforce Tracking */}
                     <Section title="Workforce & Production Status" icon={Users}>
                         {assignments?.length > 0 ? (
                             <div className="job-workforce-grid">
@@ -1112,7 +1118,6 @@ const JobDetail = () => {
                         )}
                     </Section>
 
-                    {/* Applied Extras */}
                     {job.applied_extras && (() => {
                         try {
                             const extras = typeof job.applied_extras === 'string' ? JSON.parse(job.applied_extras) : job.applied_extras;
@@ -1133,7 +1138,6 @@ const JobDetail = () => {
                         } catch (e) { } return null;
                     })()}
 
-                    {/* Cost Breakdown - Hidden for Front Office and Production Staff */}
                     {isFinancialsVisible && !isFrontOffice && (
                         <Section title="Internal Cost Analysis" icon={Activity}>
                             <div className="job-detail-cost-grid job-detail-cost-grid--3">
@@ -1153,7 +1157,6 @@ const JobDetail = () => {
                         </Section>
                     )}
 
-                    {/* Paper Consumption Tracking */}
                     <Section title="Paper Consumption" icon={Layers}>
                         {(() => {
                             const req = Number(paperSummary.required_sheets) || 0;
@@ -1164,7 +1167,6 @@ const JobDetail = () => {
 
                             return (
                                 <>
-                                    {/* Summary Cards */}
                                     <div className="paper-summary-grid">
                                         <div className="paper-summary-card">
                                             <div className="paper-summary-label">Required</div>
@@ -1196,7 +1198,6 @@ const JobDetail = () => {
                                         </div>
                                     </div>
 
-                                    {/* Waste Bar */}
                                     {req > 0 && used > 0 && (
                                         <div className="paper-waste-bar">
                                             <div className="paper-waste-bar-track">
@@ -1210,14 +1211,12 @@ const JobDetail = () => {
                                         </div>
                                     )}
 
-                                    {/* Log Button */}
                                     <div className="paper-log-button-container">
                                         <button onClick={() => setPaperLogModal(true)} className="btn btn-outline btn-sm">
                                             <Plus size={14} /> Log Paper Usage
                                         </button>
                                     </div>
 
-                                    {/* Paper Usage Log Table */}
                                     {paperLogs.length > 0 && (
                                         <div className="paper-logs-table-container">
                                             <table className="table paper-logs-table">
@@ -1263,9 +1262,7 @@ const JobDetail = () => {
                         })()}
                     </Section>
 
-                    {/* ─── Proof Approval Workflow ─── */}
                     <Section title={`Proof Approval${proofs.length ? ` (${proofs.length})` : ''}`} icon={Eye}>
-                        {/* Upload Button — only Designers can upload proofs */}
                         {userRole === 'Designer' && (
                             <div className="paper-log-button-container">
                                 <button onClick={() => setProofModal(true)} className="btn btn-outline btn-sm">
@@ -1285,7 +1282,6 @@ const JobDetail = () => {
                                     return (
                                         <div key={p.id} className="proof-card">
                                             <div className="proof-card-content">
-                                                {/* Thumbnail */}
                                                 <a href={proofUrl} target="_blank" rel="noopener noreferrer"
                                                     className="proof-thumbnail">
                                                     {isImg ? (
@@ -1298,7 +1294,6 @@ const JobDetail = () => {
                                                     )}
                                                 </a>
 
-                                                {/* Info */}
                                                 <div className="proof-info">
                                                     <div className="proof-info-header">
                                                         <div className="proof-info-title">
@@ -1314,7 +1309,6 @@ const JobDetail = () => {
                                                     <div className="proof-info-meta">
                                                         Uploaded by {p.uploaded_by_name || 'Unknown'} — {fmtDateTime(p.created_at)}
                                                     </div>
-                                                    {/* Auto Design Check Result */}
                                                     {p.designCheck && (
                                                         <div className="design-check-result" style={{
                                                             background: p.designCheck.passed ? 'rgba(47,125,74,0.08)' : (p.designCheck.critical_issues > 0 ? 'rgba(176,58,46,0.08)' : 'rgba(179,107,0,0.08)'),
@@ -1349,7 +1343,6 @@ const JobDetail = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Action Bar — show approve/reject for Pending proofs */}
                                             {p.status === 'Pending' && ['Admin', 'Front Office', 'front office'].includes(userRole) && (
                                                 <div className="proof-action-bar">
                                                     <button onClick={() => { setReviewModal(p); setReviewFeedback(''); }}
@@ -1370,7 +1363,6 @@ const JobDetail = () => {
                         )}
                     </Section>
 
-                    {/* Payment History */}
                     {isFinancialsVisible && (
                         <Section title="Transaction Ledger" icon={CreditCard}>
                             {(payments?.length > 0 || job.advance_paid > 0) ? (
@@ -1411,7 +1403,6 @@ const JobDetail = () => {
                     )}
                 </div>
 
-                {/* Sidebar: Timeline */}
                 <div className="stack-md">
                     <Section title="Activity Logs" icon={Activity}>
                         <div className="activity-timeline">
@@ -1429,9 +1420,7 @@ const JobDetail = () => {
                         </div>
                     </Section>
 
-                    {/* Job Designs — with upload */}
                     <Section title={`Design Files${jobDesigns.length ? ` (${jobDesigns.length})` : ''}`} icon={Image}>
-                        {/* Hidden file input */}
                         <input type="file" ref={designFileRef} onChange={handleDesignUpload} multiple accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.ai,.eps,.psd,.cdr,.indd,.tiff,.tif,.bmp,.zip,.rar" className="hidden-input" />
                         <div className="paper-log-button-container">
                             <button onClick={() => designFileRef.current?.click()} disabled={uploadingDesign}
@@ -1479,7 +1468,6 @@ const JobDetail = () => {
                 </div>
             </div>
 
-            {/* Record Payment Modal */}
             {paymentModal && (
                 <div className="modal-overlay">
                     <div className="modal modal--dark">
@@ -1506,7 +1494,6 @@ const JobDetail = () => {
                 </div>
             )}
 
-            {/* Cancel Order Modal */}
             {cancelModal && (
                 <div className="modal-overlay">
                     <div className="modal modal--dark">
@@ -1551,7 +1538,6 @@ const JobDetail = () => {
                 </div>
             )}
 
-            {/* Paper Usage Log Modal */}
             {paperLogModal && (
                 <div className="modal-overlay">
                     <div className="modal modal--dark modal--wide">
@@ -1624,8 +1610,8 @@ const JobDetail = () => {
 
                         <div className="modal-actions">
                             <button className="btn btn-ghost flex-1" onClick={() => { setPaperLogModal(false); setPaperForm({ stage: '', paper_size: '', sheets_used: '', sheets_wasted: '', notes: '' }); }}>Cancel</button>
-                            <LoadingButton 
-                                onClick={handleLogPaper} 
+                            <LoadingButton
+                                onClick={handleLogPaper}
                                 loading={loggingPaper}
                                 className="btn btn-primary flex-1"
                             >
@@ -1636,7 +1622,6 @@ const JobDetail = () => {
                 </div>
             )}
 
-            {/* Proof Upload Modal */}
             {proofModal && (
                 <div className="modal-overlay">
                     <div className="modal modal--dark modal--wide">
@@ -1674,7 +1659,6 @@ const JobDetail = () => {
                 </div>
             )}
 
-            {/* Proof Review Modal */}
             {reviewModal && (
                 <div className="modal-overlay">
                     <div className="modal modal--wide modal--light">
@@ -1685,7 +1669,6 @@ const JobDetail = () => {
                             <h2 className="modal-title">Review Proof v{reviewModal.version}</h2>
                         </div>
 
-                        {/* Preview */}
                         {(() => {
                             const pUrl = imgUrl(reviewModal.file_url);
                             return reviewModal.file_type === 'image' ? (
@@ -1734,7 +1717,6 @@ const JobDetail = () => {
                 </div>
             )}
 
-            {/* Refund Modal */}
             {refundModal && (
                 <div className="modal-overlay">
                     <div className="modal modal--wide modal--light">
@@ -1787,16 +1769,8 @@ const JobDetail = () => {
                             />
                         </div>
                         <div className="modal-actions">
-                            <button className="btn btn-ghost flex-1" onClick={() => { setRefundModal(false); setRefundAmount(''); setRefundNote(''); }}>Cancel</button>
-                            <LoadingButton
-                                onClick={handleRefund}
-                                loading={refunding}
-                                disabled={!refundAmount || Number(refundAmount) <= 0}
-                                className="btn btn-warning flex-1"
-                                style={{ opacity: !refundAmount || Number(refundAmount) <= 0 ? 0.5 : 1 }}
-                            >
-                                Refund ₹{Number(refundAmount || 0).toLocaleString('en-IN')}
-                            </LoadingButton>
+                            <button className="btn btn-ghost" onClick={() => { setRefundModal(false); setRefundAmount(''); setRefundMethod('Cash'); setRefundNote(''); }}>Cancel</button>
+                            <LoadingButton onClick={handleRefund} loading={refunding} className="btn btn-warning">Process Refund</LoadingButton>
                         </div>
                     </div>
                 </div>
@@ -1805,4 +1779,4 @@ const JobDetail = () => {
     );
 };
 
-export default JobDetail;
+export default React.memo(JobDetail);

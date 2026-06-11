@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     Plus, Edit2, Trash2, Power, PowerOff, Loader2, Building2, Settings,
     Users, UserPlus, X, Eye, Hash, Gauge, IndianRupee, ClipboardList,
@@ -14,19 +14,39 @@ import { syncManager } from '../services/syncWorkerManager';
 import MeterVerification from '../components/MeterVerification';
 import './MachineManagement.css';
 
-const MachineManagement = () => {
+const MachineManagement = React.memo(() => {
     const { confirm } = useConfirm();
     const user = auth.getUser();
     const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
 
-    const [machines, setMachines] = useState([]);
-    const [branches, setBranches] = useState([]);
-    const [staffList, setStaffList] = useState([]);
+    const machinesRef = useRef([]);
+    const [machines, setMachinesState] = useState([]);
+    const setMachines = useCallback((v) => {
+      const n = typeof v === 'function' ? v(machinesRef.current) : v;
+      if (JSON.stringify(machinesRef.current) !== JSON.stringify(n)) { machinesRef.current = n; setMachinesState(n); }
+    }, []);
+    const branchesRef = useRef([]);
+    const [branches, setBranchesState] = useState([]);
+    const setBranches = useCallback((v) => {
+      const n = typeof v === 'function' ? v(branchesRef.current) : v;
+      if (JSON.stringify(branchesRef.current) !== JSON.stringify(n)) { branchesRef.current = n; setBranchesState(n); }
+    }, []);
+    const staffListRef = useRef([]);
+    const [staffList, setStaffListState] = useState([]);
+    const setStaffList = useCallback((v) => {
+      const n = typeof v === 'function' ? v(staffListRef.current) : v;
+      if (JSON.stringify(staffListRef.current) !== JSON.stringify(n)) { staffListRef.current = n; setStaffListState(n); }
+    }, []);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingMachine, setEditingMachine] = useState(null);
     const [selectedMachine, setSelectedMachine] = useState(null);
-    const [machineDetails, setMachineDetails] = useState(null);
+    const machineDetailsRef = useRef(null);
+    const [machineDetails, setMachineDetailsState] = useState(null);
+    const setMachineDetails = useCallback((v) => {
+      const n = typeof v === 'function' ? v(machineDetailsRef.current) : v;
+      if (JSON.stringify(machineDetailsRef.current) !== JSON.stringify(n)) { machineDetailsRef.current = n; setMachineDetailsState(n); }
+    }, []);
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailTab, setDetailTab] = useState('work');
     const [showAssignModal, setShowAssignModal] = useState(false);
@@ -34,28 +54,62 @@ const MachineManagement = () => {
     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
     const [showWorkModal, setShowWorkModal] = useState(false);
     const [workSaving, setWorkSaving] = useState(false);
-    const [formData, setFormData] = useState({
+    const formDataRef = useRef({
         machine_name: '', machine_type: 'Offset', counter_type: 'Manual',
         branch_id: '', location: '', ip_address: '', is_active: true,
         snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: '',
         book_type: 'Offset'
     });
-    const [workForm, setWorkForm] = useState({
+    const [formData, setFormDataState] = useState({
+        machine_name: '', machine_type: 'Offset', counter_type: 'Manual',
+        branch_id: '', location: '', ip_address: '', is_active: true,
+        snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: '',
+        book_type: 'Offset'
+    });
+    const setFormData = useCallback((v) => {
+      const n = typeof v === 'function' ? v(formDataRef.current) : v;
+      if (JSON.stringify(formDataRef.current) !== JSON.stringify(n)) { formDataRef.current = n; setFormDataState(n); }
+    }, []);
+    const workFormRef = useRef({
         customer_name: '', work_details: '', copies: '', payment_type: 'Cash',
         cash_amount: '', upi_amount: '', credit_amount: '', total_amount: '', remarks: '',
         waste_copies: '', proof_copies: ''
     });
-    const [readingForm, setReadingForm] = useState({ opening_count: '', closing_count: '', waste_prints: '', proof_prints: '', notes: '' });
+    const [workForm, setWorkFormState] = useState({
+        customer_name: '', work_details: '', copies: '', payment_type: 'Cash',
+        cash_amount: '', upi_amount: '', credit_amount: '', total_amount: '', remarks: '',
+        waste_copies: '', proof_copies: ''
+    });
+    const setWorkForm = useCallback((v) => {
+      const n = typeof v === 'function' ? v(workFormRef.current) : v;
+      if (JSON.stringify(workFormRef.current) !== JSON.stringify(n)) { workFormRef.current = n; setWorkFormState(n); }
+    }, []);
+    const readingFormRef = useRef({ opening_count: '', closing_count: '', waste_prints: '', proof_prints: '', notes: '' });
+    const [readingForm, setReadingFormState] = useState({ opening_count: '', closing_count: '', waste_prints: '', proof_prints: '', notes: '' });
+    const setReadingForm = useCallback((v) => {
+      const n = typeof v === 'function' ? v(readingFormRef.current) : v;
+      if (JSON.stringify(readingFormRef.current) !== JSON.stringify(n)) { readingFormRef.current = n; setReadingFormState(n); }
+    }, []);
     const [filterType, setFilterType] = useState('All');
     const [readingSaving, setReadingSaving] = useState(false);
-    const [countRequests, setCountRequests] = useState([]);
+    const countRequestsRef = useRef([]);
+    const [countRequests, setCountRequestsState] = useState([]);
+    const setCountRequests = useCallback((v) => {
+      const n = typeof v === 'function' ? v(countRequestsRef.current) : v;
+      if (JSON.stringify(countRequestsRef.current) !== JSON.stringify(n)) { countRequestsRef.current = n; setCountRequestsState(n); }
+    }, []);
     const [countRequestWorking, setCountRequestWorking] = useState(false);
     const [liveCount, setLiveCount] = useState(null);
     const [liveCountLoading, setLiveCountLoading] = useState(false);
     const [selectedBranch, setSelectedBranch] = useState('All');
 
     // Book assignments (Offset / Laser / Other)
-    const [bookAssignments, setBookAssignments] = useState({ Offset: [], Laser: [], Other: [] });
+    const bookAssignmentsRef = useRef({ Offset: [], Laser: [], Other: [] });
+    const [bookAssignments, setBookAssignmentsState] = useState({ Offset: [], Laser: [], Other: [] });
+    const setBookAssignments = useCallback((v) => {
+      const n = typeof v === 'function' ? v(bookAssignmentsRef.current) : v;
+      if (JSON.stringify(bookAssignmentsRef.current) !== JSON.stringify(n)) { bookAssignmentsRef.current = n; setBookAssignmentsState(n); }
+    }, []);
     const [showBookAssignModal, setShowBookAssignModal] = useState(false);
     const [bookAssignType, setBookAssignType] = useState(null);   // 'Offset' | 'Laser' | 'Other'
     const [bookAssignBranchId, setBookAssignBranchId] = useState('');
@@ -79,21 +133,21 @@ const MachineManagement = () => {
         }
     }, [selectedBranch]);
 
-    const fetchBranches = async () => {
+    const fetchBranches = useCallback(async () => {
         try {
             const res = await api.get('/branches');
             setBranches(res.data);
         } catch (e) { console.error('Error fetching branches:', e); }
-    };
+    }, []);
 
-    const fetchStaff = async () => {
+    const fetchStaff = useCallback(async () => {
         try {
             const res = await api.get('/staff');
             setStaffList(Array.isArray(res.data) ? res.data : res.data.data || []);
         } catch (e) { console.error('Error fetching staff:', e); }
-    };
+    }, []);
 
-    const fetchMachines = async () => {
+    const fetchMachines = useCallback(async () => {
         try {
             setLoading(true);
             const user = auth.getUser();
@@ -112,16 +166,16 @@ const MachineManagement = () => {
             setMachines(res.data);
         } catch (e) { console.error('Error fetching machines:', e); }
         finally { setLoading(false); }
-    };
+    }, [selectedBranch]);
 
-    const fetchBookAssignments = async () => {
+    const fetchBookAssignments = useCallback(async () => {
         try {
             const res = await api.get('/machines/book-assignments');
             setBookAssignments(res.data || { Offset: [], Laser: [], Other: [] });
         } catch (e) { console.error('Error fetching book assignments:', e); }
-    };
+    }, []);
 
-    const fetchLiveCount = async (machineId, ipAddress) => {
+    const fetchLiveCount = useCallback(async (machineId, ipAddress) => {
         if (!ipAddress) { setLiveCount(null); return; }
         try {
             setLiveCountLoading(true);
@@ -132,9 +186,9 @@ const MachineManagement = () => {
         } finally {
             setLiveCountLoading(false);
         }
-    };
+    }, []);
 
-    const openBookAssignModal = (bookType) => {
+    const openBookAssignModal = useCallback((bookType) => {
         const defaultBranch = branches.length > 0 ? String(branches[0].id) : '';
         const bid = defaultBranch;
         setBookAssignType(bookType);
@@ -144,17 +198,17 @@ const MachineManagement = () => {
             .map(s => s.staff_id);
         setBookAssignStaffIds(current);
         setShowBookAssignModal(true);
-    };
+    }, [branches, bookAssignments]);
 
-    const handleModalBranchChange = (branchId) => {
+    const handleModalBranchChange = useCallback((branchId) => {
         setBookAssignBranchId(branchId);
         const current = (bookAssignments[bookAssignType] || [])
             .filter(s => String(s.branch_id) === String(branchId))
             .map(s => s.staff_id);
         setBookAssignStaffIds(current);
-    };
+    }, [bookAssignments, bookAssignType]);
 
-    const handleSaveBookAssignment = async () => {
+    const handleSaveBookAssignment = useCallback(async () => {
         if (!bookAssignBranchId) { toast.error('Select a branch first'); return; }
         setSavingBookAssign(true);
         try {
@@ -168,13 +222,13 @@ const MachineManagement = () => {
             toast.success(`${bookAssignType} staff assigned`);
         } catch (e) { toast.error(e.response?.data?.error || 'Failed to save'); }
         finally { setSavingBookAssign(false); }
-    };
+    }, [bookAssignBranchId, bookAssignType, bookAssignStaffIds, fetchBookAssignments]);
 
-    const toggleBookStaff = (staffId) => {
+    const toggleBookStaff = useCallback((staffId) => {
         setBookAssignStaffIds(prev =>
             prev.includes(staffId) ? prev.filter(id => id !== staffId) : [...prev, staffId]
         );
-    };
+    }, []);
 
     const fetchMachineDetails = useCallback(async (id) => {
         try {
@@ -209,7 +263,7 @@ const MachineManagement = () => {
     }, []);
 
     // ─── Handlers ────────────────────────────────────────────────
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         try {
             if (editingMachine) {
@@ -230,9 +284,9 @@ const MachineManagement = () => {
             toast.error(e.response?.data?.error || 'Failed to save machine');
             fetchMachines();
         }
-    };
+    }, [editingMachine, machines, formData, fetchMachines]);
 
-    const handleEdit = (machine, e) => {
+    const handleEdit = useCallback((machine, e) => {
         if (e) e.stopPropagation();
         setEditingMachine(machine);
         setFormData({
@@ -246,9 +300,9 @@ const MachineManagement = () => {
             book_type: machine.book_type || 'Offset'
         });
         setShowModal(true);
-    };
+    }, []);
 
-    const handleToggleActive = async (machine, e) => {
+    const handleToggleActive = useCallback(async (machine, e) => {
         if (e) e.stopPropagation();
         const newState = machine.is_active === 1 ? 'Inactive' : 'Active';
 
@@ -266,9 +320,9 @@ const MachineManagement = () => {
             // Invalidate machines cache so billing page gets fresh data
             syncManager.invalidateCache('machines');
         } catch (e) { toast.error(e.response?.data?.error || 'Failed to update machine'); }
-    };
+    }, [confirm, fetchMachines]);
 
-    const handleDelete = async (machine, e) => {
+    const handleDelete = useCallback(async (machine, e) => {
         if (e) e.stopPropagation();
 
         const isConfirmed = await confirm({
@@ -290,46 +344,46 @@ const MachineManagement = () => {
             toast.error(e.response?.data?.error || 'Failed to delete machine');
             fetchMachines();
         }
-    };
+    }, [confirm, fetchMachines]);
 
-    const resetForm = () => {
+    const resetForm = useCallback(() => {
         setFormData({ machine_name: '', machine_type: 'Offset', counter_type: 'Manual', branch_id: '', location: '', ip_address: '', is_active: true, snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: '', book_type: 'Offset' });
         setEditingMachine(null);
-    };
+    }, []);
 
-    const handleCardDoubleClick = (machine) => {
+    const handleCardDoubleClick = useCallback((machine) => {
         setSelectedMachine(machine);
         setDetailTab('work');
         setLiveCount(null);
         fetchMachineDetails(machine.id);
         fetchLiveCount(machine.id, machine.ip_address);
-    };
+    }, [fetchMachineDetails, fetchLiveCount]);
 
     // ─── Staff Assignment ────────────────────────────────────────
-    const openAssignModal = (machine, e) => {
+    const openAssignModal = useCallback((machine, e) => {
         if (e) e.stopPropagation();
         setAssignMachineId(machine.id);
         setSelectedStaffIds(machine.assigned_staff_ids || []);
         setShowAssignModal(true);
-    };
+    }, []);
 
-    const handleAssignStaff = async () => {
+    const handleAssignStaff = useCallback(async () => {
         try {
             await api.post(`/machines/${assignMachineId}/assign-staff`, { staff_ids: selectedStaffIds });
             setShowAssignModal(false);
             fetchMachines();
             if (selectedMachine?.id === assignMachineId) fetchMachineDetails(assignMachineId);
         } catch (e) { toast.error(e.response?.data?.error || 'Failed to assign staff'); }
-    };
+    }, [assignMachineId, selectedStaffIds, selectedMachine, fetchMachines, fetchMachineDetails]);
 
-    const toggleStaff = (staffId) => {
+    const toggleStaff = useCallback((staffId) => {
         setSelectedStaffIds(prev =>
             prev.includes(staffId) ? prev.filter(id => id !== staffId) : [...prev, staffId]
         );
-    };
+    }, []);
 
     // ─── Reading ─────────────────────────────────────────────────
-    const handleSaveReading = async () => {
+    const handleSaveReading = useCallback(async () => {
         if (!selectedMachine) return;
         setReadingSaving(true);
         try {
@@ -351,10 +405,10 @@ const MachineManagement = () => {
         } catch (e) {
             toast.error(e.response?.data?.error || 'Failed to save reading');
         } finally { setReadingSaving(false); }
-    };
+    }, [selectedMachine, readingForm, fetchMachineDetails]);
 
     // ─── Count Request Review (Admin) ──────────────────────────
-    const handleCountRequestReview = async (reqId, status, adminNote) => {
+    const handleCountRequestReview = useCallback(async (reqId, status, adminNote) => {
         setCountRequestWorking(true);
         try {
             await api.put(`/machines/count-requests/${reqId}`, { status, admin_note: adminNote || null });
@@ -363,10 +417,10 @@ const MachineManagement = () => {
         } catch (e) {
             toast.error(e.response?.data?.error || 'Failed to review request');
         } finally { setCountRequestWorking(false); }
-    };
+    }, [selectedMachine, fetchMachineDetails]);
 
     // ─── Work Entry ──────────────────────────────────────────────
-    const handleAddWork = async (e) => {
+    const handleAddWork = useCallback(async (e) => {
         e.preventDefault();
         if (!selectedMachine) return;
         setWorkSaving(true);
@@ -388,9 +442,9 @@ const MachineManagement = () => {
             fetchMachineDetails(selectedMachine.id);
         } catch (e) { toast.error(e.response?.data?.error || 'Failed to add work'); }
         finally { setWorkSaving(false); }
-    };
+    }, [selectedMachine, workForm, fetchMachineDetails]);
 
-    const handleDeleteWork = async (entryId) => {
+    const handleDeleteWork = useCallback(async (entryId) => {
         const isConfirmed = await confirm({
             title: 'Delete Work Entry',
             message: 'Are you sure you want to delete this work entry?',
@@ -403,7 +457,7 @@ const MachineManagement = () => {
             await api.delete(`/machines/${selectedMachine.id}/work/${entryId}`);
             fetchMachineDetails(selectedMachine.id);
         } catch (e) { toast.error(e.response?.data?.error || 'Failed to delete'); }
-    };
+    }, [confirm, selectedMachine, fetchMachineDetails]);
 
     // ─── Helpers ─────────────────────────────────────────────────
     const getTypeColor = (type) => {
@@ -418,11 +472,14 @@ const MachineManagement = () => {
     const fmt = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 });
     const fmtCur = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
-    const filteredMachines = filterType === 'All'
-        ? machines
-        : filterType === 'Others'
-            ? machines.filter(m => m.machine_type !== 'Offset' && m.machine_type !== 'Laser')
-            : machines.filter(m => m.machine_type === filterType);
+    const filteredMachines = useMemo(() =>
+        filterType === 'All'
+            ? machines
+            : filterType === 'Others'
+                ? machines.filter(m => m.machine_type !== 'Offset' && m.machine_type !== 'Laser')
+                : machines.filter(m => m.machine_type === filterType),
+    [filterType, machines]
+    );
 
     // ─── Detail View ─────────────────────────────────────────────
     if (selectedMachine) {
@@ -1523,6 +1580,6 @@ const MachineManagement = () => {
             })()}
         </div>
     );
-};
+});
 
 export default MachineManagement;

@@ -603,6 +603,8 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
     const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link } = req.body;
     const normalizedSku = normalizeSkuInput(sku);
 
+    const cleanSizeCode = size_code ? String(size_code).trim().substring(0, 100) : null;
+
     try {
         // 1. Check if an item with the same SKU already exists
         let existingItem = null;
@@ -641,7 +643,7 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
                     Number(gst_rate) || 0,
                     source_code || null,
                     model_name || null,
-                    size_code || null,
+                    cleanSizeCode,
                     item_type || 'Retail',
                     vendor_name || null,
                     vendor_contact || null,
@@ -689,7 +691,7 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
                 Number(gst_rate) || 0,
                 source_code || null,
                 model_name || null,
-                size_code || null,
+                cleanSizeCode,
                 item_type || 'Retail',
                 vendor_name || null,
                 vendor_contact || null,
@@ -702,7 +704,7 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
         // Auto-generate SKU if none was provided
         let finalSku = normalizedSku;
         if (!finalSku) {
-            finalSku = generateAutoSku(category, inventoryId, source_code, model_name, size_code, name);
+            finalSku = generateAutoSku(category, inventoryId, source_code, model_name, cleanSizeCode, name);
             await pool.query("UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL", [finalSku, inventoryId]);
         }
 
@@ -737,6 +739,8 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
     const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link } = req.body;
     const normalizedSku = normalizeSkuInput(sku);
 
+    const cleanSizeCode = size_code ? String(size_code).trim().substring(0, 100) : null;
+
     try {
         await pool.query(
             `UPDATE sarga_inventory
@@ -757,7 +761,7 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
                 Number(gst_rate) || 0,
                 source_code || null,
                 model_name || null,
-                size_code || null,
+                cleanSizeCode,
                 item_type || 'Retail',
                 vendor_name || null,
                 vendor_contact || null,

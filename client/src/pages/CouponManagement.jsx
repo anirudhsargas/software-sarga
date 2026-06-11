@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { Tag, Plus, X, Trash2, ToggleLeft, ToggleRight, Loader2, Edit3, CheckCircle, Clock, Infinity as InfinityIcon } from 'lucide-react';
@@ -21,7 +21,7 @@ const CouponManagement = () => {
     expiry_date: ''
   });
 
-  const fetchCoupons = async () => {
+  const fetchCoupons = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/coupons');
@@ -31,18 +31,18 @@ const CouponManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchCoupons(); }, []);
+  useEffect(() => { fetchCoupons(); }, [fetchCoupons]);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setForm({ code: '', discount_type: 'percent', discount_value: '', usage_type: 'unlimited', max_uses: '', min_order_amount: '', expiry_date: '' });
     setEditing(null);
-  };
+  }, []);
 
-  const openCreate = () => { resetForm(); setShowModal(true); };
+  const openCreate = useCallback(() => { resetForm(); setShowModal(true); }, [resetForm]);
 
-  const openEdit = (coupon) => {
+  const openEdit = useCallback((coupon) => {
     setEditing(coupon);
     setForm({
       code: coupon.code,
@@ -54,9 +54,9 @@ const CouponManagement = () => {
       expiry_date: coupon.expiry_date ? coupon.expiry_date.split('T')[0] : ''
     });
     setShowModal(true);
-  };
+  }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!form.code.trim()) { toast.error('Enter a coupon code'); return; }
     if (!form.discount_value || Number(form.discount_value) <= 0) { toast.error('Enter a valid discount value'); return; }
     if (form.discount_type === 'percent' && Number(form.discount_value) > 100) { toast.error('Percentage cannot exceed 100%'); return; }
@@ -79,9 +79,9 @@ const CouponManagement = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [editing, form, fetchCoupons]);
 
-  const toggleActive = async (coupon) => {
+  const toggleActive = useCallback(async (coupon) => {
     try {
       await api.put(`/coupons/${coupon.id}`, {
         ...coupon,
@@ -92,9 +92,9 @@ const CouponManagement = () => {
     } catch {
       toast.error('Failed to update coupon');
     }
-  };
+  }, [fetchCoupons]);
 
-  const deleteCoupon = async (coupon) => {
+  const deleteCoupon = useCallback(async (coupon) => {
     if (!window.confirm(`Deactivate coupon "${coupon.code}"?`)) return;
     try {
       await api.delete(`/coupons/${coupon.id}`);
@@ -103,14 +103,14 @@ const CouponManagement = () => {
     } catch {
       toast.error('Failed to deactivate coupon');
     }
-  };
+  }, [fetchCoupons]);
 
-  const isExpired = (d) => {
+  const isExpired = useCallback((d) => {
     if (!d) return false;
     return new Date(d) < new Date(new Date().toISOString().split('T')[0]);
-  };
+  }, []);
 
-  const isExhausted = (c) => c.max_uses !== null && c.used_count >= c.max_uses;
+  const isExhausted = useCallback((c) => c.max_uses !== null && c.used_count >= c.max_uses, []);
 
   return (
     <div className="stack-lg" style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
@@ -343,4 +343,4 @@ const CouponManagement = () => {
   );
 };
 
-export default CouponManagement;
+export default React.memo(CouponManagement);

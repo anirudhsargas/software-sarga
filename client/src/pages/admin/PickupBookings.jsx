@@ -1,22 +1,21 @@
 import { useState, useEffect } from 'react'
+import React, { useCallback } from 'react'
 import { Loader2, Search, Calendar, Filter } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 
-export default function PickupBookings() {
+function PickupBookings() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState({ branch_id: '', date: '', status: '' })
   const [search, setSearch] = useState('')
   const [branches, setBranches] = useState([])
 
-  useEffect(() => { loadBranches(); loadBookings() }, [])
-
-  const loadBranches = async () => {
+  const loadBranches = useCallback(async () => {
     try { const r = await api.get('/branches'); setBranches(r.data || []) } catch (e) {}
-  }
+  }, [])
 
-  const loadBookings = async () => {
+  const loadBookings = useCallback(async () => {
     setLoading(true)
     try {
       const params = {}
@@ -27,15 +26,17 @@ export default function PickupBookings() {
       setBookings(res.data.bookings || [])
     } catch (e) { toast.error('Failed to load') }
     finally { setLoading(false) }
-  }
+  }, [])
 
-  const updateStatus = async (id, status) => {
+  useEffect(() => { loadBranches(); loadBookings() }, [loadBranches, loadBookings])
+
+  const updateStatus = useCallback(async (id, status) => {
     try {
       await api.put(`/pickup/bookings/${id}/status`, { status })
       toast.success(`Marked as ${status}`)
       loadBookings()
     } catch (e) { toast.error('Failed') }
-  }
+  }, [])
 
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>
 
@@ -85,3 +86,5 @@ export default function PickupBookings() {
     </div>
   )
 }
+
+export default React.memo(PickupBookings)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import usePolling from '../hooks/usePolling';
 import { Clock, Search, FileText, User, Loader2, Plus, X, Edit2, Trash2, IndianRupee, Calendar, CheckCircle2, Building2, RotateCcw, ArrowUpDown, Zap, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -13,7 +13,6 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import { formatForDisplay, telHref } from '../utils/phone';
 
-// ── Priority helpers ──
 const URGENCY_CONFIG = {
     critical: { label: 'Critical', color: 'var(--error)', bg: 'rgba(176,58,46,0.10)', border: 'rgba(176,58,46,0.25)', icon: '🔴' },
     high: { label: 'High', color: 'var(--warning)', bg: 'rgba(179,107,0,0.10)', border: 'rgba(179,107,0,0.25)', icon: '🟠' },
@@ -24,20 +23,15 @@ const URGENCY_CONFIG = {
 function computeClientPriority(job) {
     let score = 0;
     const now = new Date();
-    // Delivery urgency (0-60)
     if (job.delivery_date) {
         const hrs = (new Date(job.delivery_date) - now) / 36e5;
         score += hrs <= 0 ? 60 : hrs <= 3 ? 55 : hrs <= 6 ? 50 : hrs <= 12 ? 40 : hrs <= 24 ? 30 : hrs <= 48 ? 20 : hrs <= 72 ? 10 : 5;
     } else { score += 15; }
-    // Amount (0-20)
     const amt = Number(job.total_amount) || 0;
     score += amt >= 10000 ? 20 : amt >= 5000 ? 15 : amt >= 1000 ? 10 : 5;
-    // Priority override (0-25)
     const p = (job.priority || 'Medium').toLowerCase();
     score += p === 'urgent' ? 25 : p === 'high' ? 18 : p === 'medium' ? 10 : 3;
-    // Payment (0-10)
     score += job.payment_status === 'Paid' ? 10 : job.payment_status === 'Partial' ? 5 : 0;
-    // Age (0-10)
     if (job.created_at) {
         const age = (now - new Date(job.created_at)) / 36e5;
         score += age > 72 ? 10 : age > 48 ? 7 : age > 24 ? 4 : 0;
@@ -46,14 +40,14 @@ function computeClientPriority(job) {
     return { score, urgency };
 }
 
-const UrgencyBadge = ({ urgency }) => {
+const UrgencyBadge = React.memo(({ urgency }) => {
     const c = URGENCY_CONFIG[urgency] || URGENCY_CONFIG.medium;
     return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 600, background: c.bg, color: c.color, border: `1px solid ${c.border}`, whiteSpace: 'nowrap' }}>
             {c.icon} {c.label}
         </span>
     );
-};
+});
 
 const Jobs = () => {
     const navigate = useNavigate();
@@ -65,7 +59,7 @@ const Jobs = () => {
     const [categoryFilter, setCategoryFilter] = useState('');
     const [branches, setBranches] = useState([]);
     const [error, setError] = useState('');
-    const [activeTab, setActiveTab] = useState('active'); // active, completed, delivered, due, overdue, payments
+    const [activeTab, setActiveTab] = useState('active');
     const [sortByPriority, setSortByPriority] = useState(false);
     const [deliveryDueModal, setDeliveryDueModal] = useState({
         isOpen: false,
@@ -75,37 +69,34 @@ const Jobs = () => {
     });
     const [creditRequesting, setCreditRequesting] = useState(false);
     const [expandedPayments, setExpandedPayments] = useState(new Set());
-
-    // Pagination state
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
     const LIMIT = 20;
 
-    const userRole = auth.getUser()?.role;
-    const isFinancialsVisible = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
-    const statuses = ['Pending', 'Processing', 'Approval Pending', 'Completed', 'Delivered', 'Cancelled'];
+    const prevJobsRef = useRef(null);
+    const prevBranchesRef = useRef(null);
+    const prevDeliveryModalRef = useRef(null);
 
-    const fetchJobs = async (pageNum = 1) => {
+    const userRole = useMemo(() => auth.getUser()?.role, []);
+    const isFinancialsVisible = useMemo(() => ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole), [userRole]);
+    const statuses = useMemo(() => ['Pending', 'Processing', 'Approval Pending', 'Completed', 'Delivered', 'Cancelled'], []);
+    const isFrontOffice = useMemo(() => ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole), [userRole]);
+
+    const fetchJobs = useCallback(async (pageNum = 1) => {
         setLoading(true);
         setError('');
         try {
             const params = new URLSearchParams();
             params.append('page', pageNum);
             params.append('limit', LIMIT);
-            
-            // Filters
             if (searchQuery) params.append('search', searchQuery);
             if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
             if (branchFilter) params.append('branch_id', branchFilter);
             if (categoryFilter) params.append('category', categoryFilter);
-            
-            // Tab support (for backend server-side filtering)
-            const isFrontOffice = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
             if (isFrontOffice) {
                 params.append('tab', activeTab);
             } else {
-                // For staff, adjust tab if needed (backend handles staff visibility)
                 params.append('tab', activeTab === 'active' ? 'active' : 'history');
             }
 
@@ -113,11 +104,21 @@ const Jobs = () => {
             const res = response.data;
 
             if (res.data && res.total !== undefined) {
-                setJobs(res.data);
+                const nextJobs = res.data;
+                const nextJobsStr = JSON.stringify(nextJobs);
+                if (nextJobsStr !== prevJobsRef.current) {
+                    prevJobsRef.current = nextJobsStr;
+                    setJobs(nextJobs);
+                }
                 setTotal(res.total);
                 setTotalPages(res.totalPages || Math.ceil(res.total / LIMIT));
             } else if (Array.isArray(res)) {
-                setJobs(res);
+                const nextJobs = res;
+                const nextJobsStr = JSON.stringify(nextJobs);
+                if (nextJobsStr !== prevJobsRef.current) {
+                    prevJobsRef.current = nextJobsStr;
+                    setJobs(nextJobs);
+                }
                 setTotal(res.length);
                 setTotalPages(1);
             } else {
@@ -135,36 +136,41 @@ const Jobs = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchQuery, statusFilter, branchFilter, categoryFilter, activeTab, isFrontOffice]);
 
-    const goToPage = (pageNum) => {
+    const goToPage = useCallback((pageNum) => {
         if (pageNum < 1 || pageNum > totalPages) return;
         fetchJobs(pageNum);
-    };
+    }, [totalPages, fetchJobs]);
 
-    const fetchBranches = async () => {
+    const fetchBranches = useCallback(async () => {
         try {
             const data = await localDb.getBranches();
-            setBranches(data || []);
+            const next = data || [];
+            const nextStr = JSON.stringify(next);
+            if (nextStr !== prevBranchesRef.current) {
+                prevBranchesRef.current = nextStr;
+                setBranches(next);
+            }
         } catch (error) {
             console.error('Error fetching branches:', error);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchBranches();
         fetchJobs(1);
-    }, []);
+    }, [fetchBranches, fetchJobs]);
 
     useEffect(() => {
         fetchJobs(1);
-    }, [searchQuery, statusFilter, branchFilter, categoryFilter, activeTab]);
+    }, [searchQuery, statusFilter, branchFilter, categoryFilter, activeTab, fetchJobs]);
 
     useEffect(() => {
         const handlePaymentUpdate = () => fetchJobs(page);
         window.addEventListener('paymentRecorded', handlePaymentUpdate);
         return () => window.removeEventListener('paymentRecorded', handlePaymentUpdate);
-    }, [page]);
+    }, [page, fetchJobs]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -176,7 +182,16 @@ const Jobs = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [deliveryDueModal.isOpen]);
 
-    const handleUpdateStatus = async (job, newStatus) => {
+    const closeDeliveryDueModal = useCallback(() => {
+        const next = { isOpen: false, job: null, remaining: 0, message: '' };
+        const nextStr = JSON.stringify(next);
+        if (nextStr !== prevDeliveryModalRef.current) {
+            prevDeliveryModalRef.current = nextStr;
+            setDeliveryDueModal(next);
+        }
+    }, []);
+
+    const handleUpdateStatus = useCallback(async (job, newStatus) => {
         const balance = Number(job.balance_amount) || 0;
         if (newStatus === 'Delivered' && balance > 0) {
             setDeliveryDueModal({
@@ -189,7 +204,7 @@ const Jobs = () => {
         }
 
         await optimisticUpdate({
-            updateFn: (prev) => prev.map(j => 
+            updateFn: (prev) => prev.map(j =>
                 j.id === job.id ? { ...j, status: newStatus, _updating: true } : j
             ),
             serverFn: async () => {
@@ -199,16 +214,11 @@ const Jobs = () => {
             successMsg: `Job status updated to ${newStatus}`,
             errorMsg: 'Failed to update job status'
         });
-        
-        // Re-fetch so server-side tab filtering removes the job from the current tab
+
         fetchJobs(page);
-    };
+    }, [optimisticUpdate, fetchJobs, page]);
 
-    const closeDeliveryDueModal = () => {
-        setDeliveryDueModal({ isOpen: false, job: null, remaining: 0, message: '' });
-    };
-
-    const handlePayRemainingDue = () => {
+    const handlePayRemainingDue = useCallback(() => {
         const job = deliveryDueModal.job;
         if (!job) return;
         closeDeliveryDueModal();
@@ -219,9 +229,9 @@ const Jobs = () => {
                 amount: Number(deliveryDueModal.remaining) || Number(job.balance_amount) || 0
             }
         });
-    };
+    }, [deliveryDueModal, closeDeliveryDueModal, navigate]);
 
-    const handleRequestAdminCredit = async () => {
+    const handleRequestAdminCredit = useCallback(async () => {
         const job = deliveryDueModal.job;
         if (!job) return;
         const totalAmt = Number(job.total_amount) || 0;
@@ -243,9 +253,9 @@ const Jobs = () => {
         } finally {
             setCreditRequesting(false);
         }
-    };
+    }, [deliveryDueModal, closeDeliveryDueModal]);
 
-    const handleRepeatOrder = async (jobId) => {
+    const handleRepeatOrder = useCallback(async (jobId) => {
         try {
             const res = await api.post(`/jobs/${jobId}/repeat`);
             toast.success(res.data.message || 'Order repeated!');
@@ -254,12 +264,11 @@ const Jobs = () => {
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to repeat order');
         }
-    };
+    }, [fetchJobs, navigate]);
 
-    const handleDeleteJob = async (e, jobId) => {
+    const handleDeleteJob = useCallback(async (e, jobId) => {
         e.stopPropagation();
         if (!window.confirm('Delete this job permanently?\n\nThis will also delete all associated payments, proofs, staff assignments, and other linked records.\n\nThis cannot be undone.')) return;
-        // Optimistic UI Update
         setJobs(prev => prev.filter(job => job.id !== jobId));
         setTotal(prev => Math.max(0, prev - 1));
         try {
@@ -270,9 +279,9 @@ const Jobs = () => {
             toast.error(err.response?.data?.message || 'Failed to delete job');
             fetchJobs(page);
         }
-    };
+    }, [fetchJobs, page]);
 
-    const getStatusColor = (status) => {
+    const getStatusColor = useCallback((status) => {
         const colors = {
             'Pending': 'badge--warning',
             'Processing': 'badge--info',
@@ -282,15 +291,296 @@ const Jobs = () => {
             'Cancelled': 'badge--danger'
         };
         return colors[status] || 'badge--default';
-    };
+    }, []);
 
-    const shortenBranchName = (name) => {
+    const shortenBranchName = useCallback((name) => {
         if (!name) return 'Main';
         const n = (name || '').toLowerCase();
         if (n.includes('perambra')) return 'PBA';
         if (n.includes('meppayur')) return 'MPR';
         return name;
-    };
+    }, []);
+
+    const displayJobs = useMemo(() => {
+        let arr = [...jobs];
+        if (sortByPriority) {
+            arr = arr.map(j => {
+                const { score, urgency } = computeClientPriority(j);
+                return { ...j, _score: score, _urgency: urgency };
+            }).sort((a, b) => b._score - a._score);
+        }
+        const groupMap = new Map();
+        const standalones = [];
+        arr.forEach(j => {
+            if (j.payment_id) {
+                if (!groupMap.has(j.payment_id)) groupMap.set(j.payment_id, []);
+                groupMap.get(j.payment_id).push(j);
+            } else {
+                standalones.push(j);
+            }
+        });
+        const seen = new Set();
+        const renderList = [];
+        arr.forEach(j => {
+            if (!j.payment_id) {
+                renderList.push({ type: 'single', job: j });
+            } else if (!seen.has(j.payment_id)) {
+                seen.add(j.payment_id);
+                const grpJobs = groupMap.get(j.payment_id);
+                if (grpJobs.length === 1) {
+                    renderList.push({ type: 'single', job: grpJobs[0] });
+                } else {
+                    renderList.push({ type: 'group', paymentId: j.payment_id, jobs: grpJobs });
+                }
+            }
+        });
+        return renderList;
+    }, [jobs, sortByPriority]);
+
+    const renderJobRow = useCallback((j, opts = {}) => {
+        const { isSubRow = false, isSummaryRow = false, groupJobs = null } = opts;
+        const totalCols = 6 + (sortByPriority ? 1 : 0) + (isFinancialsVisible ? 2 : 0);
+        return (
+            <tr
+                key={j.id}
+                onDoubleClick={() => !isSummaryRow && navigate(`/dashboard/jobs/${j.id}`)}
+                style={{
+                    cursor: 'pointer',
+                    ...(isSubRow ? { background: 'var(--surface2, rgba(255,255,255,0.03))' } : {}),
+                }}
+            >
+                <td>
+                    <div className="stack-xs" style={isSubRow ? { paddingLeft: 18, borderLeft: '3px solid var(--border)' } : {}}>
+                        {isSummaryRow ? (
+                            <>
+                                <div className="row items-center gap-xs">
+                                    <button
+                                        className="btn btn-ghost"
+                                        style={{ padding: '2px 4px', minWidth: 0 }}
+                                        title={expandedPayments.has(j.payment_id) ? 'Collapse' : 'Expand'}
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            setExpandedPayments(prev => {
+                                                const next = new Set(prev);
+                                                next.has(j.payment_id) ? next.delete(j.payment_id) : next.add(j.payment_id);
+                                                return next;
+                                            });
+                                        }}
+                                    >
+                                        <ChevronDown size={14} style={{ transform: expandedPayments.has(j.payment_id) ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+                                    </button>
+                                    <span className="font-bold text-sm">{groupJobs.map(g => g.job_number).join(', ')}</span>
+                                </div>
+                                <span className="text-xs muted">{groupJobs.length} jobs · single bill</span>
+                            </>
+                        ) : (
+                            <>
+                                <div className="row items-center gap-xs">
+                                    <span className="font-bold text-sm td-truncate" title={j.job_number}>{j.job_number}</span>
+                                    <span className="text-xs muted td-truncate" title={j.product_name || 'Service'} style={{ opacity: 0.7, maxWidth: '35%' }}>• {j.product_name || 'Service'}</span>
+                                </div>
+                                <span className="text-sm font-medium td-truncate" title={j.job_name}>{j.job_name}</span>
+
+                                {j.description && (
+                                    <div className="row wrap gap-xs mt-4" style={{ marginTop: 4 }}>
+                                        {j.description.split(' | ').filter(p => p && p.trim()).map((part, i) => {
+                                            const isTagged = part.includes(':');
+                                            const [label, ...rest] = isTagged ? part.split(':') : ['', part];
+                                            const value = isTagged ? rest.join(':').trim() : part.trim();
+                                            const tagLabel = isTagged ? label.trim().toLowerCase() : '';
+
+                                            const isColour = tagLabel === 'colour' || tagLabel === 'color';
+                                            const isNumbering = tagLabel === 'numbering' || tagLabel.includes('from') || tagLabel.includes('to');
+                                            const isMatter = tagLabel === 'matter';
+
+                                            return (
+                                                <span key={i} style={{
+                                                    fontSize: '10px',
+                                                    padding: '1px 6px',
+                                                    borderRadius: '4px',
+                                                    background: isColour ? 'rgba(146, 64, 14, 0.1)' : isNumbering ? 'rgba(30, 64, 175, 0.1)' : isMatter ? 'rgba(124, 58, 237, 0.1)' : 'rgba(108, 117, 125, 0.1)',
+                                                    color: isColour ? '#92400e' : isNumbering ? '#1e40af' : isMatter ? '#7c3aed' : 'var(--text-muted)',
+                                                    border: `1px solid ${isColour ? 'rgba(146, 64, 14, 0.2)' : isNumbering ? 'rgba(30, 64, 175, 0.2)' : isMatter ? 'rgba(124, 58, 237, 0.2)' : 'rgba(108, 117, 125, 0.2)'}`,
+                                                    fontWeight: 600,
+                                                    maxWidth: '120px',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    {isColour && '🎨 '}
+                                                    {isNumbering && '🔢 '}
+                                                    {isMatter && '📝 '}
+                                                    {tagLabel && <span style={{ textTransform: 'capitalize' }}>{tagLabel}: </span>}
+                                                    {value}
+                                                </span>
+                                            );
+                                        })}
+
+                                        {(() => {
+                                            try {
+                                                const extras = typeof j.applied_extras === 'string' ? JSON.parse(j.applied_extras) : j.applied_extras;
+                                                if (Array.isArray(extras) && extras.length > 0) {
+                                                    return (
+                                                        <span style={{ fontSize: '9px', color: 'var(--accent)', fontWeight: 700, background: 'var(--accent-soft)', padding: '1px 4px', borderRadius: '4px' }}>
+                                                            +{extras.length} Extras
+                                                        </span>
+                                                    );
+                                                }
+                                            } catch(e) {}
+                                            return null;
+                                        })()}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </td>
+                <td>
+                    <div className="stack-xs">
+                        <span className="text-sm font-medium td-truncate" title={j.customer_name}>{j.customer_name}</span>
+                        <span className="text-xs muted">{formatForDisplay(j.customer_mobile)}</span>
+                    </div>
+                </td>
+                <td className="text-sm">
+                    {shortenBranchName(j.branch_name)}
+                </td>
+                <td>
+                    {isSummaryRow ? (
+                        <div className="stack-xs">
+                            {[...new Set(groupJobs.map(g => g.status))].map(s => (
+                                <span key={s} className={`badge ${getStatusColor(s)}`} style={{ fontSize: 10 }}>{s}</span>
+                            ))}
+                        </div>
+                    ) : (
+                        <>
+                            {['Admin', 'Front Office', 'front office'].includes(userRole) ? (
+                                <select
+                                    className={`badge ${getStatusColor(j.status)}`}
+                                    style={{ border: 'none', cursor: 'pointer', outline: 'none' }}
+                                    value={j.status}
+                                    onChange={(e) => handleUpdateStatus(j, e.target.value)}
+                                >
+                                    {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            ) : (
+                                <span className={`badge ${getStatusColor(j.status)}`}>{j.status}</span>
+                            )}
+                            {j._updating && <Loader2 size={12} className="animate-spin ml-4 inline-block" style={{ verticalAlign: 'middle' }} />}
+                        </>
+                    )}
+                </td>
+                {sortByPriority && (
+                    <td>
+                        <UrgencyBadge urgency={j._urgency || 'medium'} />
+                    </td>
+                )}
+                <td>
+                    {Number(j.used_sheets) > 0 ? (() => {
+                        const req = Number(j.required_sheets) || 0;
+                        const used = Number(j.used_sheets) || 0;
+                        const waste = req > 0 ? Math.max(0, used - req) : 0;
+                        const pct = req > 0 ? ((waste / req) * 100).toFixed(0) : null;
+                        const color = pct === null ? 'var(--muted)' : Number(pct) <= 3 ? 'var(--success)' : Number(pct) <= 8 ? 'var(--warning)' : 'var(--error)';
+                        return (
+                            <div className="stack-xs">
+                                <span style={{ fontSize: '11px', fontWeight: 600, color }}>
+                                    {used} / {req} sheets
+                                </span>
+                                {pct !== null && (
+                                    <span style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                                        {pct}% waste
+                                    </span>
+                                )}
+                            </div>
+                        );
+                    })() : (
+                        <span className="muted text-xs">—</span>
+                    )}
+                </td>
+                {isFinancialsVisible && (
+                    <td>
+                        <div className="row items-center gap-xs text-sm">
+                            <IndianRupee size={12} />
+                            {isSummaryRow
+                                ? groupJobs.reduce((s, g) => s + (Number(g.total_amount) || 0), 0).toFixed(2)
+                                : j.total_amount}
+                        </div>
+                    </td>
+                )}
+                {isFinancialsVisible && (
+                    <td>
+                        {isSummaryRow ? (() => {
+                            const bal = groupJobs.reduce((s, g) => s + (Number(g.balance_amount) || 0), 0);
+                            return (
+                                <div className={`row items-center gap-xs text-sm font-bold ${bal > 0 ? 'text-danger' : 'text-success'}`}>
+                                    <IndianRupee size={12} />{bal.toFixed(2)}
+                                </div>
+                            );
+                        })() : (
+                            <div className={`row items-center gap-xs text-sm font-bold ${j.balance_amount > 0 ? 'text-danger' : 'text-success'}`}>
+                                <IndianRupee size={12} />
+                                {j.balance_amount}
+                            </div>
+                        )}
+                    </td>
+                )}
+                <td className="text-sm muted">
+                    {j.delivery_date ? new Date(j.delivery_date).toLocaleDateString() : 'Not Set'}
+                </td>
+                <td>
+                    {isSummaryRow ? (
+                        <span className="text-xs muted">expand ↑↓</span>
+                    ) : (
+                        <div className="row gap-sm">
+                            <button
+                                className="btn btn-ghost btn-danger"
+                                style={{ padding: '6px' }}
+                                title="View Details"
+                                onClick={() => navigate(`/dashboard/jobs/${j.id}`)}
+                            >
+                                <FileText size={18} />
+                            </button>
+                            {['Admin', 'Front Office', 'front office'].includes(userRole) && (
+                                <button
+                                    className="btn btn-ghost"
+                                    style={{ padding: '6px', color: 'var(--accent)' }}
+                                    title="Repeat Order"
+                                    onClick={(e) => { e.stopPropagation(); handleRepeatOrder(j.id); }}
+                                >
+                                    <RotateCcw size={18} />
+                                </button>
+                            )}
+                            {['Admin', 'Accountant'].includes(userRole) && (
+                                <button
+                                    className="btn btn-ghost"
+                                    style={{ padding: '6px', color: 'var(--error)' }}
+                                    title="Delete Job"
+                                    onClick={(e) => handleDeleteJob(e, j.id)}
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </td>
+            </tr>
+        );
+    }, [sortByPriority, isFinancialsVisible, navigate, expandedPayments, userRole, statuses, handleUpdateStatus, handleRepeatOrder, handleDeleteJob, getStatusColor, shortenBranchName]);
+
+    const tableColumns = useMemo(() => [
+        { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
+        { key: 'customer', header: 'Customer', width: '1.5fr', lines: 2 },
+        { key: 'branch', header: 'Branch', width: '1fr' },
+        { key: 'status', header: 'Status', width: '1fr', pill: true },
+        ...(sortByPriority ? [{ key: 'priority', header: 'Priority', width: '0.8fr', pill: true }] : []),
+        { key: 'production', header: 'Production', width: '1fr', lines: 2 },
+        ...(isFinancialsVisible ? [
+            { key: 'amount', header: 'Amount', width: '0.8fr' },
+            { key: 'balance', header: 'Balance', width: '0.8fr' }
+        ] : []),
+        { key: 'delivery', header: 'Delivery', width: '1fr' },
+        { key: 'actions', header: 'Actions', width: '0.8fr' }
+    ], [sortByPriority, isFinancialsVisible]);
 
     return (
         <div className="stack-lg">
@@ -399,313 +689,23 @@ const Jobs = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {(() => {
-                                let displayJobs = [...jobs];
-                                if (sortByPriority) {
-                                    displayJobs = displayJobs.map(j => {
-                                        const { score, urgency } = computeClientPriority(j);
-                                        return { ...j, _score: score, _urgency: urgency };
-                                    }).sort((a, b) => b._score - a._score);
-                                }
-
-                                if (loading && jobs.length === 0) {
-                                    const cols = [
-                                      { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
-                                      { key: 'customer', header: 'Customer', width: '1.5fr', lines: 2 },
-                                      { key: 'branch', header: 'Branch', width: '1fr' },
-                                      { key: 'status', header: 'Status', width: '1fr', pill: true },
-                                      ...(sortByPriority ? [{ key: 'priority', header: 'Priority', width: '0.8fr', pill: true }] : []),
-                                      { key: 'production', header: 'Production', width: '1fr', lines: 2 },
-                                      ...(isFinancialsVisible ? [
-                                        { key: 'amount', header: 'Amount', width: '0.8fr' },
-                                        { key: 'balance', header: 'Balance', width: '0.8fr' }
-                                      ] : []),
-                                      { key: 'delivery', header: 'Delivery', width: '1fr' },
-                                      { key: 'actions', header: 'Actions', width: '0.8fr' }
-                                    ];
-                                    return (
-                                        <tr>
-                                            <td colSpan={cols.length} style={{ textAlign: 'center', padding: '20px' }}>
-                                                <SkeletonLoader type="table" count={6} columns={cols} />
-                                            </td>
-                                        </tr>
-                                    );
-                                }
-                                if (error && jobs.length === 0) {
-                                    return (
-                                        <tr>
-                                            <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
-                                                <ServerError onRetry={() => fetchJobs(1)} message={error} />
-                                            </td>
-                                        </tr>
-                                    );
-                                }
-                                // Group jobs by payment_id (null = standalone)
-                                const groupMap = new Map(); // payment_id -> [jobs]
-                                const standalones = [];
-                                displayJobs.forEach(j => {
-                                    if (j.payment_id) {
-                                        if (!groupMap.has(j.payment_id)) groupMap.set(j.payment_id, []);
-                                        groupMap.get(j.payment_id).push(j);
-                                    } else {
-                                        standalones.push(j);
-                                    }
-                                });
-                                // Build ordered render list: preserve original order, show group once at first occurrence
-                                const seen = new Set();
-                                const renderList = []; // [{type:'single',job} | {type:'group',paymentId,jobs}]
-                                displayJobs.forEach(j => {
-                                    if (!j.payment_id) {
-                                        renderList.push({ type: 'single', job: j });
-                                    } else if (!seen.has(j.payment_id)) {
-                                        seen.add(j.payment_id);
-                                        const grpJobs = groupMap.get(j.payment_id);
-                                        if (grpJobs.length === 1) {
-                                            renderList.push({ type: 'single', job: grpJobs[0] });
-                                        } else {
-                                            renderList.push({ type: 'group', paymentId: j.payment_id, jobs: grpJobs });
-                                        }
-                                    }
-                                });
-
-                                const renderJobRow = (j, opts = {}) => {
-                                    const { isSubRow = false, isSummaryRow = false, groupJobs = null } = opts;
-                                    const totalCols = 6 + (sortByPriority ? 1 : 0) + (isFinancialsVisible ? 2 : 0);
-                                    return (
-                                        <tr
-                                            key={j.id}
-                                            onDoubleClick={() => !isSummaryRow && navigate(`/dashboard/jobs/${j.id}`)}
-                                            style={{
-                                                cursor: 'pointer',
-                                                ...(isSubRow ? { background: 'var(--surface2, rgba(255,255,255,0.03))' } : {}),
-                                            }}
-                                        >
-                                            <td>
-                                                <div className="stack-xs" style={isSubRow ? { paddingLeft: 18, borderLeft: '3px solid var(--border)' } : {}}>
-                                                    {isSummaryRow ? (
-                                                        <>
-                                                            <div className="row items-center gap-xs">
-                                                                <button
-                                                                    className="btn btn-ghost"
-                                                                    style={{ padding: '2px 4px', minWidth: 0 }}
-                                                                    title={expandedPayments.has(j.payment_id) ? 'Collapse' : 'Expand'}
-                                                                    onClick={e => {
-                                                                        e.stopPropagation();
-                                                                        setExpandedPayments(prev => {
-                                                                            const next = new Set(prev);
-                                                                            next.has(j.payment_id) ? next.delete(j.payment_id) : next.add(j.payment_id);
-                                                                            return next;
-                                                                        });
-                                                                    }}
-                                                                >
-                                                                    <ChevronDown size={14} style={{ transform: expandedPayments.has(j.payment_id) ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
-                                                                </button>
-                                                                <span className="font-bold text-sm">{groupJobs.map(g => g.job_number).join(', ')}</span>
-                                                            </div>
-                                                            <span className="text-xs muted">{groupJobs.length} jobs · single bill</span>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <div className="row items-center gap-xs">
-                                                                <span className="font-bold text-sm td-truncate" title={j.job_number}>{j.job_number}</span>
-                                                                <span className="text-xs muted td-truncate" title={j.product_name || 'Service'} style={{ opacity: 0.7, maxWidth: '35%' }}>• {j.product_name || 'Service'}</span>
-                                                            </div>
-                                                            <span className="text-sm font-medium td-truncate" title={j.job_name}>{j.job_name}</span>
-                                                            
-                                                            {/* Extra Tags for Dashboard List */}
-                                                            {j.description && (
-                                                                <div className="row wrap gap-xs mt-4" style={{ marginTop: 4 }}>
-                                                                    {j.description.split(' | ').filter(p => p && p.trim()).map((part, i) => {
-                                                                        const isTagged = part.includes(':');
-                                                                        const [label, ...rest] = isTagged ? part.split(':') : ['', part];
-                                                                        const value = isTagged ? rest.join(':').trim() : part.trim();
-                                                                        const tagLabel = isTagged ? label.trim().toLowerCase() : '';
-                                                                        
-                                                                        // Color coding for common tags
-                                                                        const isColour = tagLabel === 'colour' || tagLabel === 'color';
-                                                                        const isNumbering = tagLabel === 'numbering' || tagLabel.includes('from') || tagLabel.includes('to');
-                                                                        const isMatter = tagLabel === 'matter';
-                                                                        
-                                                                        return (
-                                                                            <span key={i} style={{
-                                                                                fontSize: '10px',
-                                                                                padding: '1px 6px',
-                                                                                borderRadius: '4px',
-                                                                                background: isColour ? 'rgba(146, 64, 14, 0.1)' : isNumbering ? 'rgba(30, 64, 175, 0.1)' : isMatter ? 'rgba(124, 58, 237, 0.1)' : 'rgba(108, 117, 125, 0.1)',
-                                                                                color: isColour ? '#92400e' : isNumbering ? '#1e40af' : isMatter ? '#7c3aed' : 'var(--text-muted)',
-                                                                                border: `1px solid ${isColour ? 'rgba(146, 64, 14, 0.2)' : isNumbering ? 'rgba(30, 64, 175, 0.2)' : isMatter ? 'rgba(124, 58, 237, 0.2)' : 'rgba(108, 117, 125, 0.2)'}`,
-                                                                                fontWeight: 600,
-                                                                                maxWidth: '120px',
-                                                                                overflow: 'hidden',
-                                                                                textOverflow: 'ellipsis',
-                                                                                whiteSpace: 'nowrap'
-                                                                            }}>
-                                                                                {isColour && '🎨 '}
-                                                                                {isNumbering && '🔢 '}
-                                                                                {isMatter && '📝 '}
-                                                                                {tagLabel && <span style={{ textTransform: 'capitalize' }}>{tagLabel}: </span>}
-                                                                                {value}
-                                                                            </span>
-                                                                        );
-                                                                    })}
-                                                                    
-                                                                    {/* Applied Extras Badge count */}
-                                                                    {(() => {
-                                                                        try {
-                                                                            const extras = typeof j.applied_extras === 'string' ? JSON.parse(j.applied_extras) : j.applied_extras;
-                                                                            if (Array.isArray(extras) && extras.length > 0) {
-                                                                                return (
-                                                                                    <span style={{ fontSize: '9px', color: 'var(--accent)', fontWeight: 700, background: 'var(--accent-soft)', padding: '1px 4px', borderRadius: '4px' }}>
-                                                                                        +{extras.length} Extras
-                                                                                    </span>
-                                                                                );
-                                                                            }
-                                                                        } catch(e) {}
-                                                                        return null;
-                                                                    })()}
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div className="stack-xs">
-                                                    <span className="text-sm font-medium td-truncate" title={j.customer_name}>{j.customer_name}</span>
-                                                    <span className="text-xs muted">{formatForDisplay(j.customer_mobile)}</span>
-                                                </div>
-                                            </td>
-                                            <td className="text-sm">
-                                                {shortenBranchName(j.branch_name)}
-                                            </td>
-                                            <td>
-                                                {isSummaryRow ? (
-                                                    <div className="stack-xs">
-                                                        {[...new Set(groupJobs.map(g => g.status))].map(s => (
-                                                            <span key={s} className={`badge ${getStatusColor(s)}`} style={{ fontSize: 10 }}>{s}</span>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        {['Admin', 'Front Office', 'front office'].includes(userRole) ? (
-                                                            <select
-                                                                className={`badge ${getStatusColor(j.status)}`}
-                                                                style={{ border: 'none', cursor: 'pointer', outline: 'none' }}
-                                                                value={j.status}
-                                                                onChange={(e) => handleUpdateStatus(j, e.target.value)}
-                                                            >
-                                                                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                                                            </select>
-                                                        ) : (
-                                                            <span className={`badge ${getStatusColor(j.status)}`}>{j.status}</span>
-                                                        )}
-                                                        {j._updating && <Loader2 size={12} className="animate-spin ml-4 inline-block" style={{ verticalAlign: 'middle' }} />}
-                                                    </>
-                                                )}
-                                            </td>
-                                            {sortByPriority && (
-                                                <td>
-                                                    <UrgencyBadge urgency={j._urgency || 'medium'} />
-                                                </td>
-                                            )}
-                                            <td>
-                                                {Number(j.used_sheets) > 0 ? (() => {
-                                                    const req = Number(j.required_sheets) || 0;
-                                                    const used = Number(j.used_sheets) || 0;
-                                                    const waste = req > 0 ? Math.max(0, used - req) : 0;
-                                                    const pct = req > 0 ? ((waste / req) * 100).toFixed(0) : null;
-                                                    const color = pct === null ? 'var(--muted)' : Number(pct) <= 3 ? 'var(--success)' : Number(pct) <= 8 ? 'var(--warning)' : 'var(--error)';
-                                                    return (
-                                                        <div className="stack-xs">
-                                                            <span style={{ fontSize: '11px', fontWeight: 600, color }}>
-                                                                {used} / {req} sheets
-                                                            </span>
-                                                            {pct !== null && (
-                                                                <span style={{ fontSize: '10px', color: 'var(--muted)' }}>
-                                                                    {pct}% waste
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })() : (
-                                                    <span className="muted text-xs">—</span>
-                                                )}
-                                            </td>
-                                            {isFinancialsVisible && (
-                                                <td>
-                                                    <div className="row items-center gap-xs text-sm">
-                                                        <IndianRupee size={12} />
-                                                        {isSummaryRow
-                                                            ? groupJobs.reduce((s, g) => s + (Number(g.total_amount) || 0), 0).toFixed(2)
-                                                            : j.total_amount}
-                                                    </div>
-                                                </td>
-                                            )}
-                                            {isFinancialsVisible && (
-                                                <td>
-                                                    {isSummaryRow ? (() => {
-                                                        const bal = groupJobs.reduce((s, g) => s + (Number(g.balance_amount) || 0), 0);
-                                                        return (
-                                                            <div className={`row items-center gap-xs text-sm font-bold ${bal > 0 ? 'text-danger' : 'text-success'}`}>
-                                                                <IndianRupee size={12} />{bal.toFixed(2)}
-                                                            </div>
-                                                        );
-                                                    })() : (
-                                                        <div className={`row items-center gap-xs text-sm font-bold ${j.balance_amount > 0 ? 'text-danger' : 'text-success'}`}>
-                                                            <IndianRupee size={12} />
-                                                            {j.balance_amount}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            )}
-                                            <td className="text-sm muted">
-                                                {j.delivery_date ? new Date(j.delivery_date).toLocaleDateString() : 'Not Set'}
-                                            </td>
-                                            <td>
-                                                {isSummaryRow ? (
-                                                    <span className="text-xs muted">expand ↑↓</span>
-                                                ) : (
-                                                    <div className="row gap-sm">
-                                                        <button
-                                                            className="btn btn-ghost btn-danger"
-                                                            style={{ padding: '6px' }}
-                                                            title="View Details"
-                                                            onClick={() => navigate(`/dashboard/jobs/${j.id}`)}
-                                                        >
-                                                            <FileText size={18} />
-                                                        </button>
-                                                        {['Admin', 'Front Office', 'front office'].includes(userRole) && (
-                                                            <button
-                                                                className="btn btn-ghost"
-                                                                style={{ padding: '6px', color: 'var(--accent)' }}
-                                                                title="Repeat Order"
-                                                                onClick={(e) => { e.stopPropagation(); handleRepeatOrder(j.id); }}
-                                                            >
-                                                                <RotateCcw size={18} />
-                                                            </button>
-                                                        )}
-                                                        {['Admin', 'Accountant'].includes(userRole) && (
-                                                            <button
-                                                                className="btn btn-ghost"
-                                                                style={{ padding: '6px', color: 'var(--error)' }}
-                                                                title="Delete Job"
-                                                                onClick={(e) => handleDeleteJob(e, j.id)}
-                                                            >
-                                                                <Trash2 size={18} />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                };
-
-                                return renderList.flatMap(item => {
+                            {loading && jobs.length === 0 ? (
+                                <tr>
+                                    <td colSpan={tableColumns.length} style={{ textAlign: 'center', padding: '20px' }}>
+                                        <SkeletonLoader type="table" count={6} columns={tableColumns} />
+                                    </td>
+                                </tr>
+                            ) : error && jobs.length === 0 ? (
+                                <tr>
+                                    <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
+                                        <ServerError onRetry={() => fetchJobs(1)} message={error} />
+                                    </td>
+                                </tr>
+                            ) : (
+                                displayJobs.flatMap(item => {
                                     if (item.type === 'single') {
                                         return [renderJobRow(item.job)];
                                     }
-                                    // Group: summary row + optional sub-rows
                                     const rep = item.jobs[0];
                                     const isExpanded = expandedPayments.has(item.paymentId);
                                     const rows = [renderJobRow(rep, { isSummaryRow: true, groupJobs: item.jobs })];
@@ -713,13 +713,13 @@ const Jobs = () => {
                                         item.jobs.forEach(gj => rows.push(renderJobRow(gj, { isSubRow: true })));
                                     }
                                     return rows;
-                                });
-                            })()}
+                                })
+                            )}
                         </tbody>
                     </table>
                 </div>
             </div>
-            
+
             <Pagination
                 page={page}
                 totalPages={totalPages}
@@ -773,4 +773,4 @@ const Jobs = () => {
     );
 };
 
-export default Jobs;
+export default React.memo(Jobs);

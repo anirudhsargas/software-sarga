@@ -3,7 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import jsQR from 'jsqr';
 import { X, Camera, Upload } from 'lucide-react';
 
-const ScannerModal = ({ isOpen, onClose, onScan }) => {
+const ScannerModal = React.memo(({ isOpen, onClose, onScan }) => {
     const scannerRef = useRef(null);
     const isStartedRef = useRef(false);   // true only after .start() resolves
     const isStoppingRef = useRef(false);  // guard against double-stop
@@ -303,7 +303,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
             </div>
         </div>
     );
-};
+});
 
 export default ScannerModal;
 

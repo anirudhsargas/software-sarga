@@ -23,7 +23,7 @@ const buildCroppedFileName = (originalName, mimeType) => {
   return `${base}-crop.${getFileExtension(mimeType)}`;
 };
 
-const ImageCropModal = ({ file, title = 'Crop Image', outputSize = 512, onCancel, onComplete }) => {
+const ImageCropModal = React.memo(({ file, title = 'Crop Image', outputSize = 512, onCancel, onComplete }) => {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
@@ -107,6 +107,6 @@ const ImageCropModal = ({ file, title = 'Crop Image', outputSize = 512, onCancel
       </div>
     </div>
   );
-};
+});
 
 export default ImageCropModal;

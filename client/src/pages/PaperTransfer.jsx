@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
     Repeat, ArrowLeft, Package, MapPin, Layers, 
     RefreshCcw, Info, ArrowRight
@@ -23,6 +23,17 @@ const PaperTransfer = () => {
         unit: 'Sheets',
         notes: ''
     });
+    const formDataRef = useRef(formData);
+    const setFormDataSmart = useCallback((updates) => {
+        setFormData(prev => {
+            const next = { ...prev, ...updates };
+            if (JSON.stringify(next) !== JSON.stringify(formDataRef.current)) {
+                formDataRef.current = next;
+                return next;
+            }
+            return prev;
+        });
+    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -42,17 +53,18 @@ const PaperTransfer = () => {
         fetchData();
     }, []);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
-        if (formData.from_branch_id === formData.to_branch_id) {
+        const current = formDataRef.current;
+        if (current.from_branch_id === current.to_branch_id) {
             return toast.error('Source and destination branches must be different');
         }
 
         setLoading(true);
         try {
             await api.post('/paperInventory/transfer', {
-                ...formData,
-                quantity: Number(formData.quantity)
+                ...current,
+                quantity: Number(current.quantity)
             });
             toast.success('Stock transfer successful');
             navigate('/dashboard/paper/stock');
@@ -61,20 +73,23 @@ const PaperTransfer = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [navigate]);
 
-    const currentStockItem = stockSummary.find(s => s.paper_type_id === Number(formData.paper_type_id) && s.branch_id === Number(formData.from_branch_id));
-    const availableSheets = currentStockItem ? currentStockItem.current_sheets : 0;
-    
-    const requestedSheets = formData.unit === 'Reams' ? (Number(formData.quantity) * 500) : 
-                           formData.unit === 'Packets' ? (Number(formData.quantity) * 100) : 
-                           Number(formData.quantity) || 0;
-
-    const isInsufficient = requestedSheets > availableSheets;
+    const { availableSheets, requestedSheets, isInsufficient } = useMemo(() => {
+        const item = stockSummary.find(s => s.paper_type_id === Number(formData.paper_type_id) && s.branch_id === Number(formData.from_branch_id));
+        const available = item ? item.current_sheets : 0;
+        const requested = formData.unit === 'Reams' ? (Number(formData.quantity) * 500) : 
+                         formData.unit === 'Packets' ? (Number(formData.quantity) * 100) : 
+                         Number(formData.quantity) || 0;
+        return {
+            availableSheets: available,
+            requestedSheets: requested,
+            isInsufficient: requested > available
+        };
+    }, [stockSummary, formData.paper_type_id, formData.from_branch_id, formData.unit, formData.quantity]);
 
     return (
         <div className="stack-lg p-md" style={{ maxWidth: '800px', margin: '0 auto' }}>
-            {/* Header */}
             <div className="row items-center gap-md">
                 <button className="btn btn-ghost p-sm" onClick={() => navigate(-1)}>
                     <ArrowLeft size={20} />
@@ -100,7 +115,7 @@ const PaperTransfer = () => {
                                 className="input-field" 
                                 required
                                 value={formData.paper_type_id}
-                                onChange={(e) => setFormData({...formData, paper_type_id: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ paper_type_id: e.target.value })}
                             >
                                 <option value="">-- Select Paper Type --</option>
                                 {paperTypes.map(t => (
@@ -117,7 +132,7 @@ const PaperTransfer = () => {
                                 className="input-field" 
                                 required
                                 value={formData.from_branch_id}
-                                onChange={(e) => setFormData({...formData, from_branch_id: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ from_branch_id: e.target.value })}
                             >
                                 <option value="">-- Select Source --</option>
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -133,7 +148,7 @@ const PaperTransfer = () => {
                                 className="input-field" 
                                 required
                                 value={formData.to_branch_id}
-                                onChange={(e) => setFormData({...formData, to_branch_id: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ to_branch_id: e.target.value })}
                             >
                                 <option value="">-- Select Destination --</option>
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -149,7 +164,7 @@ const PaperTransfer = () => {
                                 required
                                 placeholder="0"
                                 value={formData.quantity}
-                                onChange={(e) => setFormData({...formData, quantity: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ quantity: e.target.value })}
                             />
                         </div>
 
@@ -159,7 +174,7 @@ const PaperTransfer = () => {
                                 className="input-field" 
                                 required
                                 value={formData.unit}
-                                onChange={(e) => setFormData({...formData, unit: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ unit: e.target.value })}
                             >
                                 <option value="Sheets">Sheets</option>
                                 <option value="Reams">Reams (500 sheets)</option>
@@ -174,7 +189,7 @@ const PaperTransfer = () => {
                                 rows="2"
                                 placeholder="Reason for transfer..."
                                 value={formData.notes}
-                                onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                                onChange={(e) => setFormDataSmart({ notes: e.target.value })}
                             ></textarea>
                         </div>
                     </div>
@@ -220,4 +235,4 @@ const PaperTransfer = () => {
     );
 };
 
-export default PaperTransfer;
+export default React.memo(PaperTransfer);

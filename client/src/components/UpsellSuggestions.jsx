@@ -11,7 +11,7 @@ import api from '../services/api';
  *   branchId: number|null
  *   onAdd: (serviceName: string) => void — called when user clicks a chip
  */
-const UpsellSuggestions = ({ currentServices, branchId, onAdd }) => {
+const UpsellSuggestions = React.memo(({ currentServices, branchId, onAdd }) => {
     const [suggestions, setSuggestions] = useState([]);
     const [dismissed, setDismissed] = useState(new Set());
     const [loading, setLoading] = useState(false);
@@ -103,6 +103,6 @@ const UpsellSuggestions = ({ currentServices, branchId, onAdd }) => {
             `}</style>
         </div>
     );
-};
+});
 
 export default UpsellSuggestions;

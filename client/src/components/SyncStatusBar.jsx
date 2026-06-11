@@ -1,7 +1,8 @@
+import React from 'react';
 import { useSyncStatus } from '../hooks/useSyncStatus';
 import { RefreshCw, Wifi, WifiOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
-export const SyncStatusBar = () => {
+export const SyncStatusBar = React.memo(() => {
   const { status, lastSyncText, pendingCount, syncNow } = useSyncStatus();
   const isOnline = navigator.onLine;
 
@@ -45,4 +46,4 @@ export const SyncStatusBar = () => {
       )}
     </div>
   );
-};
+});

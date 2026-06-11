@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Lock, User, Loader2, AlertCircle } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
@@ -22,14 +22,14 @@ const Login = () => {
         }
     }, []);
 
-    const validateMobile = (value) => {
+    const validateMobile = useCallback((value) => {
         return value.replace(/\D/g, '').slice(-10);
-    };
+    }, []);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
-
         const cleanedUserId = validateMobile(userId);
+
         if (cleanedUserId.length !== 10) {
             setError('Please enter a valid 10-digit mobile number');
             return;
@@ -54,7 +54,7 @@ const Login = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [userId, password, rememberMe, validateMobile, login, navigate]);
 
     return (
         <div className="auth-shell">
@@ -155,4 +155,4 @@ const Login = () => {
     );
 };
 
-export default Login;
+export default React.memo(Login);

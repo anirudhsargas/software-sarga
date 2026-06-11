@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Wallet, Plus, Edit2, Trash2, Download, TrendingUp, TrendingDown,
   Receipt, X, Calendar, ArrowUpRight, ArrowDownRight, Loader2, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight
@@ -24,6 +24,8 @@ const PettyCashTab = ({ onError }) => {
   const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(1);
   const [formDirty, setFormDirty] = useState(false);
+  const dashRef = useRef(null);
+  const ledgerRef = useRef(null);
 
   const hasUnsavedChanges = showForm && formDirty && !submitting;
 
@@ -45,7 +47,8 @@ const PettyCashTab = ({ onError }) => {
   const fetchDashboard = useCallback(async () => {
     try {
       const r = await api.get('/petty-cash-dashboard');
-      setDashboard(r.data);
+      const str = JSON.stringify(r.data);
+      if (str !== dashRef.current) { dashRef.current = str; setDashboard(r.data); }
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Failed to load petty cash dashboard');
     }
@@ -54,7 +57,8 @@ const PettyCashTab = ({ onError }) => {
     setLoading(true);
     try {
       const r = await api.get('/petty-cash-ledger');
-      setLedger(r.data);
+      const str = JSON.stringify(r.data);
+      if (str !== ledgerRef.current) { ledgerRef.current = str; setLedger(r.data); }
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Failed to load petty cash ledger');
     }
@@ -116,20 +120,20 @@ const PettyCashTab = ({ onError }) => {
   };
 
   // Filter ledger by month
-  const filteredLedger = ledger.filter(r => {
+  const filteredLedger = useMemo(() => ledger.filter(r => {
     if (!filterMonth) return true;
     return r.transaction_date?.startsWith(filterMonth);
-  });
+  }), [ledger, filterMonth]);
 
-  const totalPages = Math.ceil(filteredLedger.length / PAGE_SIZE);
-  const pagedLedger = filteredLedger.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = useMemo(() => Math.ceil(filteredLedger.length / PAGE_SIZE), [filteredLedger]);
+  const pagedLedger = useMemo(() => filteredLedger.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filteredLedger, page]);
 
   // Calculate opening/closing balance for filtered period
-  const openingBalance = ledger.length > 0 ? (() => {
+  const openingBalance = useMemo(() => ledger.length > 0 ? (() => {
     const beforeMonthEntries = ledger.filter(r => r.transaction_date < `${filterMonth}-01`);
     return beforeMonthEntries.length > 0 ? Number(beforeMonthEntries[beforeMonthEntries.length - 1]?.balance_after || 0) : 0;
-  })() : 0;
-  const closingBalance = filteredLedger.length > 0 ? Number(filteredLedger[filteredLedger.length - 1]?.balance_after || 0) : openingBalance;
+  })() : 0, [ledger, filterMonth]);
+  const closingBalance = useMemo(() => filteredLedger.length > 0 ? Number(filteredLedger[filteredLedger.length - 1]?.balance_after || 0) : openingBalance, [filteredLedger, openingBalance]);
 
   return (
     <div className="em-section">
@@ -291,4 +295,4 @@ const PettyCashTab = ({ onError }) => {
   );
 };
 
-export default PettyCashTab;
+export default React.memo(PettyCashTab);

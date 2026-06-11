@@ -112,8 +112,46 @@ export default api;
 
 // Response interceptor to surface server errors to users via toast
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response.config?.__toastId) {
+      toast.dismiss(response.config.__toastId);
+    }
+    return response;
+  },
   (error) => {
+    const config = error.config;
+    const isNetworkOrTimeout = !error.response && (
+      error.code === 'ECONNABORTED' || 
+      (error.message && error.message.toLowerCase().includes('timeout')) || 
+      (error.message && error.message.toLowerCase().includes('network error')) || 
+      !error.status
+    );
+    const isSleepingServer = !error.response && typeof navigator !== 'undefined' && navigator.onLine && isNetworkOrTimeout;
+
+    if (isSleepingServer && config && !config._noRetry) {
+      config.__retryCount = config.__retryCount || 0;
+      if (config.__retryCount < 12) {
+        config.__retryCount += 1;
+        config.timeout = 10000; // Shorten timeout for subsequent retries to poll faster
+        if (config.__retryCount === 1) {
+          config.__toastId = toast.loading('Starting server... Please wait (20-60s)', {
+            duration: Infinity
+          });
+        }
+        return new Promise((resolve) => {
+          setTimeout(() => resolve(api(config)), 5000);
+        });
+      } else {
+        if (config.__toastId) {
+          toast.dismiss(config.__toastId);
+        }
+      }
+    } else {
+      if (config?.__toastId) {
+        toast.dismiss(config.__toastId);
+      }
+    }
+
     try {
       // Network offline
       if (typeof navigator !== 'undefined' && !navigator.onLine) {

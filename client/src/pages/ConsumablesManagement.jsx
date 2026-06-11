@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
     Package,
     AlertTriangle,
@@ -71,7 +71,7 @@ const ConsumablesManagement = () => {
     const [adjustData, setAdjustData] = useState({ id: null, name: '', quantity_delta: '', reason: '' });
     const [formData, setFormData] = useState(emptyForm);
 
-    const fetchConsumables = async () => {
+    const fetchConsumables = useCallback(async () => {
         setLoading(true);
         try {
             const res = await api.get(devFallback('/inventory/consumables'), {
@@ -89,13 +89,9 @@ const ConsumablesManagement = () => {
                 return;
             }
             toast.error('Failed to load consumables inventory');
-        } finally {
+    } finally {
             setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        fetchConsumables();
     }, [categoryFilter, branchFilter, searchTerm]);
 
     const stats = useMemo(() => {
@@ -108,7 +104,7 @@ const ConsumablesManagement = () => {
         };
     }, [items]);
 
-    const handleOpenAdd = () => {
+    const handleOpenAdd = useCallback(() => {
         setModalMode('add');
         setSelectedItem(null);
         setFormData({
@@ -116,9 +112,9 @@ const ConsumablesManagement = () => {
             branch: user?.branch_name || 'Perambra'
         });
         setShowModal(true);
-    };
+    }, []);
 
-    const handleOpenEdit = (item) => {
+    const handleOpenEdit = useCallback((item) => {
         setModalMode('edit');
         setSelectedItem(item);
         setFormData({
@@ -133,14 +129,14 @@ const ConsumablesManagement = () => {
             notes: item.notes || ''
         });
         setShowModal(true);
-    };
+    }, []);
 
-    const handleOpenAdjust = (item) => {
+    const handleOpenAdjust = useCallback((item) => {
         setAdjustData({ id: item.id, name: item.name, quantity_delta: '', reason: '' });
         setShowAdjustModal(true);
-    };
+    }, []);
 
-    const handleDelete = async (id) => {
+    const handleDelete = useCallback(async (id) => {
         if (!window.confirm('Are you sure you want to delete this consumable item?')) return;
         try {
             await api.delete(`/inventory/consumables/${id}`);
@@ -149,9 +145,9 @@ const ConsumablesManagement = () => {
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to delete consumable');
         }
-    };
+    }, [fetchConsumables]);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         try {
             if (modalMode === 'add') {
@@ -170,9 +166,9 @@ const ConsumablesManagement = () => {
             toast.error(err.response?.data?.message || 'Failed to save consumable item');
             fetchConsumables();
         }
-    };
+    }, [modalMode, formData, selectedItem, fetchConsumables]);
 
-    const handleAdjustSubmit = async (e) => {
+    const handleAdjustSubmit = useCallback(async (e) => {
         e.preventDefault();
         try {
             await api.put(`/inventory/consumables/${adjustData.id}/adjust`, {
@@ -185,9 +181,9 @@ const ConsumablesManagement = () => {
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to adjust stock');
         }
-    };
+    }, [adjustData, fetchConsumables]);
 
-    const handleExportCsv = () => {
+    const handleExportCsv = useCallback(() => {
         if (!items.length) {
             toast.error('No data to export');
             return;
@@ -216,7 +212,7 @@ const ConsumablesManagement = () => {
         link.download = `consumables_inventory_${new Date().toISOString().slice(0, 10)}.csv`;
         link.click();
         URL.revokeObjectURL(link.href);
-    };
+    }, [items]);
 
     return (
         <div className="stack-lg p-md">
@@ -547,4 +543,4 @@ const ConsumablesManagement = () => {
     );
 };
 
-export default ConsumablesManagement;
+export default React.memo(ConsumablesManagement);

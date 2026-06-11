@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Plus, Edit3, Trash2, Eye, EyeOff, Star, Search, X, Loader2, Upload } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
@@ -6,7 +6,7 @@ import './PortfolioManager.css'
 
 const CATEGORIES = ['Wedding Cards', 'Mementos', 'Photo Frames', 'Offset Books', 'Business Cards', 'Certificates', 'Custom Projects']
 
-export default function PortfolioManager() {
+function PortfolioManager() {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -15,9 +15,7 @@ export default function PortfolioManager() {
   const [search, setSearch] = useState('')
   const [uploading, setUploading] = useState(false)
 
-  useEffect(() => { loadProjects() }, [])
-
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     setLoading(true)
     try {
       const res = await api.get('/portfolio')
@@ -27,9 +25,11 @@ export default function PortfolioManager() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const handleUpload = async (e) => {
+  useEffect(() => { loadProjects() }, [loadProjects])
+
+  const handleUpload = useCallback(async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
@@ -43,23 +43,23 @@ export default function PortfolioManager() {
     } finally {
       setUploading(false)
     }
-  }
+  }, [])
 
-  const handleImageUpload = async (e) => {
+  const handleImageUpload = useCallback(async (e) => {
     const url = await handleUpload(e)
     if (url) setForm(f => ({ ...f, cover_image: url }))
-  }
+  }, [handleUpload])
 
-  const handleGalleryUpload = async (e) => {
+  const handleGalleryUpload = useCallback(async (e) => {
     const url = await handleUpload(e)
     if (url) setForm(f => ({ ...f, gallery_images: [...f.gallery_images, url] }))
-  }
+  }, [handleUpload])
 
-  const removeGalleryImage = (idx) => {
+  const removeGalleryImage = useCallback((idx) => {
     setForm(f => ({ ...f, gallery_images: f.gallery_images.filter((_, i) => i !== idx) }))
-  }
+  }, [])
 
-  const saveProject = async () => {
+  const saveProject = useCallback(async () => {
     if (!form.title.trim()) { toast.error('Title is required'); return }
     try {
       if (editing) {
@@ -76,44 +76,39 @@ export default function PortfolioManager() {
     } catch (e) {
       toast.error('Failed to save')
     }
-  }
+  }, [editing, form])
 
-  const editProject = async (id) => {
+  const editProject = useCallback(async (id) => {
     try {
       const res = await api.get(`/portfolio/${id}`)
       setForm(res.data.project)
       setEditing(id)
       setShowForm(true)
     } catch (e) { toast.error('Failed to load project') }
-  }
+  }, [])
 
-  const deleteProject = async (id) => {
+  const deleteProject = useCallback(async (id) => {
     if (!confirm('Delete this project?')) return
     try {
       await api.delete(`/portfolio/${id}`)
       toast.success('Project deleted')
       loadProjects()
     } catch (e) { toast.error('Failed to delete') }
-  }
+  }, [])
 
-  const toggleFeature = async (id, current) => {
+  const toggleFeature = useCallback(async (id, current) => {
     try {
       await api.put(`/portfolio/${id}`, { featured: !current })
       loadProjects()
     } catch (e) { toast.error('Failed') }
-  }
+  }, [])
 
-  const togglePublish = async (id, current) => {
+  const togglePublish = useCallback(async (id, current) => {
     try {
       await api.put(`/portfolio/${id}`, { published: !current })
       loadProjects()
     } catch (e) { toast.error('Failed') }
-  }
-
-  const filtered = projects.filter(p =>
-    p.title.toLowerCase().includes(search.toLowerCase()) ||
-    p.category.toLowerCase().includes(search.toLowerCase())
-  )
+  }, [])
 
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>
 
@@ -186,3 +181,5 @@ export default function PortfolioManager() {
     </div>
   )
 }
+
+export default React.memo(PortfolioManager)

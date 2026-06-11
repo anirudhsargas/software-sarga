@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import usePolling from '../hooks/usePolling';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
@@ -116,7 +116,7 @@ const CustomerDetails = () => {
   const [previewDesign, setPreviewDesign] = useState(null);
 
   /* ───── fetch ───── */
-  const fetchDashboard = async (silent = false) => {
+  const fetchDashboard = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
       else setRefreshing(true);
@@ -146,27 +146,27 @@ const CustomerDetails = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [id, isOnline, paymentsPage, paymentsLimit]);
 
-  useEffect(() => { fetchDashboard(); }, [id, isOnline, paymentsPage, paymentsLimit]);
+  useEffect(() => { fetchDashboard(); }, [id, isOnline, paymentsPage, paymentsLimit, fetchDashboard]);
   useEffect(() => {
     if (location.state?.fromPayment) fetchDashboard(true);
-  }, [location.state]);
+  }, [location.state, fetchDashboard]);
 
 
   // Fetch designs when tab switches to designs
-  const fetchDesigns = async () => {
+  const fetchDesigns = useCallback(async () => {
     setDesignsLoading(true);
     try {
       const res = await api.get(`/customers/${id}/designs`);
       setDesigns(res.data || []);
     } catch { setDesigns([]); }
     finally { setDesignsLoading(false); }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (tab === 'designs') fetchDesigns();
-  }, [tab, id]);
+  }, [tab, id, fetchDesigns]);
 
   /* ── Auto-refresh every 30s (pauses when tab hidden) ── */
 
@@ -200,7 +200,7 @@ const CustomerDetails = () => {
   };
   const handlePayment = () => navigate('/dashboard/customer-payments', { state: { customer: data?.customer } });
 
-  const handleRepeatOrder = async (jobId) => {
+  const handleRepeatOrder = useCallback(async (jobId) => {
     try {
       const res = await api.post(`/jobs/${jobId}/repeat`);
       toast.success(res.data.message || 'Order repeated!');
@@ -209,9 +209,9 @@ const CustomerDetails = () => {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to repeat order');
     }
-  };
+  }, [fetchDashboard, navigate]);
 
-  const handleUploadDesigns = async () => {
+  const handleUploadDesigns = useCallback(async () => {
     if (uploadFiles.length === 0) return toast.error('Select at least one file');
     setUploading(true);
     try {
@@ -245,9 +245,9 @@ const CustomerDetails = () => {
     } finally {
       setUploading(false);
     }
-  };
+  }, [uploadFiles, uploadTitle, uploadNotes, uploadTags, uploadJobId, id, fetchDesigns]);
 
-  const handleDeleteDesign = async (designId) => {
+  const handleDeleteDesign = useCallback(async (designId) => {
     if (!confirm('Delete this design file permanently?')) return;
     try {
       await api.delete(`/customers/${id}/designs/${designId}`);
@@ -256,7 +256,7 @@ const CustomerDetails = () => {
     } catch {
       toast.error('Failed to delete');
     }
-  };
+  }, [id]);
 
   const getServerBase = () => {
     const base = api.defaults.baseURL || '';
@@ -276,21 +276,21 @@ const CustomerDetails = () => {
   // Render skeleton placeholders while `data` loads. Provide safe defaults
   // so the page shell can render immediately and individual sections
   // replace themselves when the data becomes available.
-  const customer = data?.customer || {};
-  const summary = data?.summary || { totalOrders: 0, totalSpent: 0, pendingOrders: 0, processingOrders: 0, completedOrders: 0, cancelledOrders: 0, lastOrderDate: null };
-  const payments = data?.payments || { outstandingBalance: 0 };
-  const paymentRecords = payments.records || [];
-  const paymentsTotal = payments.total || paymentRecords.length || 0;
-  const paymentsTotalPages = Math.max(1, Math.ceil(paymentsTotal / (paymentsLimit || 1)));
-  const paginatedPayments = payments.total ? paymentRecords : paymentRecords.slice((paymentsPage - 1) * paymentsLimit, paymentsPage * paymentsLimit);
+  const customer = useMemo(() => data?.customer || {}, [data]);
+  const summary = useMemo(() => data?.summary || { totalOrders: 0, totalSpent: 0, pendingOrders: 0, processingOrders: 0, completedOrders: 0, cancelledOrders: 0, lastOrderDate: null }, [data]);
+  const payments = useMemo(() => data?.payments || { outstandingBalance: 0 }, [data]);
+  const paymentRecords = useMemo(() => payments.records || [], [payments]);
+  const paymentsTotal = useMemo(() => payments.total || paymentRecords.length || 0, [payments, paymentRecords]);
+  const paymentsTotalPages = useMemo(() => Math.max(1, Math.ceil(paymentsTotal / (paymentsLimit || 1))), [paymentsTotal, paymentsLimit]);
+  const paginatedPayments = useMemo(() => payments.total ? paymentRecords : paymentRecords.slice((paymentsPage - 1) * paymentsLimit, paymentsPage * paymentsLimit), [payments, paymentRecords, paymentsPage, paymentsLimit]);
   // Reset payments page when customer or online state changes
   useEffect(() => {
     setPaymentsPage(1);
   }, [id, isOnline]);
-  const reorderItems = data?.reorderItems || [];
-  const customerDisplayPhone = formatForDisplay(customer?.mobile);
-  const customerTelHref = telHref(customer?.mobile);
-  const initials = (customer.name || '??').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const reorderItems = useMemo(() => data?.reorderItems || [], [data]);
+  const customerDisplayPhone = useMemo(() => formatForDisplay(customer?.mobile), [customer]);
+  const customerTelHref = useMemo(() => telHref(customer?.mobile), [customer]);
+  const initials = useMemo(() => (customer.name || '??').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2), [customer]);
 
   /* ═══════ RENDER ═══════ */
   return (
@@ -961,4 +961,4 @@ const CustomerDetails = () => {
   );
 };
 
-export default CustomerDetails;
+export default React.memo(CustomerDetails);

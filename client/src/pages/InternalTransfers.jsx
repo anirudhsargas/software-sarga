@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BookOpen, Building2, ArrowRightCircle } from 'lucide-react';
 import api from '../services/api';
 import auth from '../services/auth';
@@ -22,6 +22,8 @@ const InternalTransfers = () => {
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [transfers, setTransfers] = useState([]);
+  const prevBranchesRef = useRef(null);
+  const prevTransfersRef = useRef(null);
 
   useEffect(() => {
     if (isAdmin) fetchBranches();
@@ -29,25 +31,33 @@ const InternalTransfers = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchBranches = async () => {
+  const fetchBranches = useCallback(async () => {
     try {
       const res = await api.get('/branches');
-      setBranches(res.data || []);
+      const newBranches = res.data || [];
+      if (JSON.stringify(newBranches) !== JSON.stringify(prevBranchesRef.current)) {
+        prevBranchesRef.current = newBranches;
+        setBranches(newBranches);
+      }
     } catch (e) {
       console.error('Failed to load branches', e);
     }
-  };
+  }, []);
 
-  const fetchTransfers = async () => {
+  const fetchTransfers = useCallback(async () => {
     try {
       const res = await api.get('/internal-transfers', { params: { branch_id: branchId || undefined } });
-      setTransfers(res.data || []);
+      const newTransfers = res.data || [];
+      if (JSON.stringify(newTransfers) !== JSON.stringify(prevTransfersRef.current)) {
+        prevTransfersRef.current = newTransfers;
+        setTransfers(newTransfers);
+      }
     } catch (e) {
       console.error('Failed to load transfers', e);
     }
-  };
+  }, [branchId]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (!amount || Number(amount) <= 0) {
       toast.error('Enter a positive amount');
@@ -75,7 +85,7 @@ const InternalTransfers = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [amount, fromBook, toBook, note, branchId, fetchTransfers]);
 
   return (
     <div className="panel">
@@ -166,4 +176,4 @@ const InternalTransfers = () => {
   );
 };
 
-export default InternalTransfers;
+export default React.memo(InternalTransfers);

@@ -289,7 +289,13 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
     const manualCategory = String(subcategory_name || category_name || '').trim();
     const inferredCategory = manualCategory || inferInventoryCategory(item_name, hsn_sac);
 
-    const sizeCode = extractSizeCode(item_name);
+    let sizeCode = extractSizeCode(item_name);
+    if (sizeCode) {
+      sizeCode = String(sizeCode).trim();
+      if (sizeCode.length > 100) {
+        sizeCode = sizeCode.substring(0, 100);
+      }
+    }
     const sourceCode = toCode(String(vendorName || '').split(/\s+/).slice(0, 2).join(''), 3)
       || toCode(inferredCategory || 'INV', 3)
       || 'INV';

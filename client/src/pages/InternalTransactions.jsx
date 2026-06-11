@@ -16,4 +16,4 @@ const InternalTransactions = () => {
   );
 };
 
-export default InternalTransactions;
+export default React.memo(InternalTransactions);

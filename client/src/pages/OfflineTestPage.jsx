@@ -1,25 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { RefreshCw, Download, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { runAllOfflineTests } from '../tests/offlineTest';
 import toast from 'react-hot-toast';
 import './OfflineTestPage.css';
+
+const testResultsRef = useRef(null);
 
 const OfflineTestPage = () => {
   const [testResults, setTestResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
 
-  // Auto-run tests on page load
-  useEffect(() => {
-    runTests();
+  const setTestResultsSmart = useCallback((data) => {
+    const str = JSON.stringify(data);
+    if (str !== JSON.stringify(testResultsRef.current)) {
+      testResultsRef.current = data;
+      setTestResults(data);
+    }
   }, []);
 
-  const runTests = async () => {
+  const runTests = useCallback(async () => {
     setRunning(true);
     setLoading(true);
     try {
       const results = await runAllOfflineTests();
-      setTestResults(results);
+      setTestResultsSmart(results);
       if (results.error) {
         toast.error('Tests failed: ' + results.error);
       } else {
@@ -28,14 +33,19 @@ const OfflineTestPage = () => {
     } catch (err) {
       console.error('Error running tests:', err);
       toast.error('Failed to run tests');
-      setTestResults({ error: err.message });
+      setTestResultsSmart({ error: err.message });
     } finally {
       setRunning(false);
       setLoading(false);
     }
-  };
+  }, [setTestResultsSmart]);
 
-  const downloadReport = () => {
+  // Auto-run tests on page load
+  useEffect(() => {
+    runTests();
+  }, [runTests]);
+
+  const downloadReport = useCallback(() => {
     if (!testResults) {
       toast.error('No test results to download');
       return;
@@ -52,7 +62,12 @@ const OfflineTestPage = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     toast.success('Report downloaded');
-  };
+  }, [testResults]);
+
+  const summaryItems = useMemo(() => {
+    if (!testResults || testResults.error) return null;
+    return testResults.summary;
+  }, [testResults]);
 
   if (testResults?.error) {
     return (
@@ -215,4 +230,4 @@ const OfflineTestPage = () => {
   );
 };
 
-export default OfflineTestPage;
+export default React.memo(OfflineTestPage);

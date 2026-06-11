@@ -2,7 +2,7 @@ import React from 'react';
 import { AlertTriangle, RotateCw } from 'lucide-react';
 import './ServerError.css';
 
-const ServerError = ({ 
+const ServerError = React.memo(({ 
   onRetry, 
   lastUpdated = null,
   message = 'Server is currently unavailable'
@@ -46,6 +46,6 @@ const ServerError = ({
       </button>
     </div>
   );
-};
+});
 
 export default ServerError;

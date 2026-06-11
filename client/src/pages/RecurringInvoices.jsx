@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { RefreshCw, Plus, Edit2, Trash2, Play, Pause, Loader2, Calendar, Clock, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
-export default function RecurringInvoices() {
+const RecurringInvoices = React.memo(function RecurringInvoices() {
+    const itemsRef = useRef([]);
+    const customersRef = useRef([]);
+
     const [items, setItems] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -17,23 +20,39 @@ export default function RecurringInvoices() {
         is_active: true
     });
 
+    const setItemsSmart = useCallback((data) => {
+        const str = JSON.stringify(data);
+        if (str !== JSON.stringify(itemsRef.current)) {
+            itemsRef.current = data;
+            setItems(data);
+        }
+    }, []);
+
+    const setCustomersSmart = useCallback((data) => {
+        const str = JSON.stringify(data);
+        if (str !== JSON.stringify(customersRef.current)) {
+            customersRef.current = data;
+            setCustomers(data);
+        }
+    }, []);
+
     const fetch = useCallback(async () => {
         try {
             const [{ data }, { data: custs }] = await Promise.all([
                 api.get('/recurring-invoices'),
                 api.get('/customers?limit=1000')
             ]);
-            setItems(data);
-            setCustomers(Array.isArray(custs) ? custs : (custs.data || []));
+            setItemsSmart(data);
+            setCustomersSmart(Array.isArray(custs) ? custs : (custs.data || []));
         } catch (err) {
             console.error('Fetch error:', err);
             toast.error('Failed to load data');
         }
         setLoading(false);
-    }, []);
+    }, [setItemsSmart, setCustomersSmart]);
     useEffect(() => { fetch(); }, [fetch]);
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         if (!form.customer_id || !form.total) return toast.error('Customer and amount required');
         try {
             const payload = { ...form, subtotal: form.total }; // Simple mapping for now
@@ -42,9 +61,9 @@ export default function RecurringInvoices() {
             toast.success('Saved');
             setShowForm(false); setEditingId(null); fetch();
         } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
-    };
+    }, [form, editingId, fetch]);
 
-    const handleEdit = (r) => {
+    const handleEdit = useCallback((r) => {
         setForm({
             customer_id: r.customer_id, customer_name: r.customer_name || '',
             customer_mobile: r.customer_mobile || '', customer_email: r.customer_email || '',
@@ -54,9 +73,9 @@ export default function RecurringInvoices() {
             is_active: !!r.is_active
         });
         setEditingId(r.id); setShowForm(true);
-    };
+    }, []);
 
-    const handleDelete = async (id) => {
+    const handleDelete = useCallback(async (id) => {
         if (!confirm('Delete this recurring invoice?')) return;
         // Optimistic UI Update
         setItems(prev => prev.filter(item => item.id !== id));
@@ -68,9 +87,9 @@ export default function RecurringInvoices() {
             toast.error('Failed');
             fetch();
         }
-    };
+    }, [fetch]);
 
-    const toggleActive = async (r) => {
+    const toggleActive = useCallback(async (r) => {
         // Optimistic UI Update
         setItems(prev => prev.map(item => item.id === r.id ? { ...item, is_active: r.is_active ? 0 : 1 } : item));
         try {
@@ -81,7 +100,7 @@ export default function RecurringInvoices() {
             toast.error('Failed');
             fetch();
         }
-    };
+    }, [fetch]);
 
     const processNow = async () => {
         setProcessing(true);
@@ -216,4 +235,6 @@ export default function RecurringInvoices() {
             )}
         </div>
     );
-}
+});
+
+export default RecurringInvoices;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { FileText, Upload, Search, Eye, Trash2, Loader2, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import localDb from '../../services/localDb';
@@ -17,6 +17,7 @@ const BillsDocsTab = ({ onError }) => {
   const { user } = useAuth();
   const canDelete = user?.role === 'Admin' || user?.role === 'Accountant';
   const [docs, setDocs] = useState([]);
+  const docsRef = useRef(null);
   const [filter, setFilter] = useState({ document_type: '', vendor_name: '' });
   const [search, setSearch] = useState('');
   const [showUpload, setShowUpload] = useState(false);
@@ -28,8 +29,10 @@ const BillsDocsTab = ({ onError }) => {
 
   const fetchDocs = useCallback(async () => {
     try {
-      const docs = await localDb.getBillsDocuments({ document_type: filter.document_type || undefined, vendor_name: filter.vendor_name || undefined });
-      setDocs(docs); setPage(1);
+      const docsData = await localDb.getBillsDocuments({ document_type: filter.document_type || undefined, vendor_name: filter.vendor_name || undefined });
+      const str = JSON.stringify(docsData);
+      if (str !== docsRef.current) { docsRef.current = str; setDocs(docsData); }
+      setPage(1);
     } catch {
       setDocs([]);
       setPage(1);
@@ -219,4 +222,4 @@ const BillsDocsTab = ({ onError }) => {
   );
 };
 
-export default BillsDocsTab;
+export default React.memo(BillsDocsTab);

@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
  * LoadingButton Component
  * A consistent button component that handles loading states with a spinner.
  */
-const LoadingButton = ({ 
+const LoadingButton = React.memo(({ 
   loading, 
   children, 
   loadingText, 
@@ -53,6 +53,6 @@ const LoadingButton = ({
       )}
     </button>
   );
-};
+});
 
 export default LoadingButton;

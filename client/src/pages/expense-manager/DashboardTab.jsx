@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   BarChart3, Receipt, IndianRupee, TrendingUp,
   TrendingDown, AlertTriangle, Loader2, Calendar,
@@ -14,19 +14,24 @@ const DashboardTab = ({ branches, onPayment }) => {
   const [month, setMonth] = useState(thisMonth());
   const [branchFilter, setBranchFilter] = useState('');
   const [cashVsBank, setCashVsBank] = useState(null);
+  const dashRef = useRef(null);
+  const cvbRef = useRef(null);
 
   const fetchDashboard = useCallback(async () => {
     try {
       setLoading(true);
       const data = await localDb.getExpenseDashboard({ month, branch_id: branchFilter || undefined });
-      setDashboard(data);
+      const dashStr = JSON.stringify(data);
+      if (dashStr !== dashRef.current) { dashRef.current = dashStr; setDashboard(data); }
       if (data.cash_vs_bank) {
-        setCashVsBank({
+        const cvb = {
           cash_total: data.cash_vs_bank.cash_total || 0,
           upi_total: data.cash_vs_bank.upi_total || 0,
           bank_total: data.cash_vs_bank.bank_total || 0,
           other_total: data.cash_vs_bank.other_total || 0
-        });
+        };
+        const cvbStr = JSON.stringify(cvb);
+        if (cvbStr !== cvbRef.current) { cvbRef.current = cvbStr; setCashVsBank(cvb); }
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
@@ -45,8 +50,6 @@ const DashboardTab = ({ branches, onPayment }) => {
       </span>
     );
   };
-
-  /* ── Empty State ── */
   if (!loading && !dashboard) {
     return (
       <div className="em-section">
@@ -69,12 +72,12 @@ const DashboardTab = ({ branches, onPayment }) => {
   if (loading) return <div className="em-loading"><Loader2 className="spin" size={20} /> Loading dashboard...</div>;
 
   const d = dashboard;
-  const prevMonthTotal = d.monthly_trend?.length >= 2 ? d.monthly_trend[d.monthly_trend.length - 2]?.total : null;
-  const cashTotal = Number(cashVsBank?.cash_total || 0);
-  const upiTotal = Number(cashVsBank?.upi_total || 0);
-  const bankTotal = Number(cashVsBank?.bank_total || 0);
-  const otherTotal = Number(cashVsBank?.other_total || 0);
-  const paymentTotal = cashTotal + upiTotal + bankTotal + otherTotal || 1;
+  const prevMonthTotal = useMemo(() => d.monthly_trend?.length >= 2 ? d.monthly_trend[d.monthly_trend.length - 2]?.total : null, [d.monthly_trend]);
+  const cashTotal = useMemo(() => Number(cashVsBank?.cash_total || 0), [cashVsBank?.cash_total]);
+  const upiTotal = useMemo(() => Number(cashVsBank?.upi_total || 0), [cashVsBank?.upi_total]);
+  const bankTotal = useMemo(() => Number(cashVsBank?.bank_total || 0), [cashVsBank?.bank_total]);
+  const otherTotal = useMemo(() => Number(cashVsBank?.other_total || 0), [cashVsBank?.other_total]);
+  const paymentTotal = useMemo(() => cashTotal + upiTotal + bankTotal + otherTotal || 1, [cashTotal, upiTotal, bankTotal, otherTotal]);
 
   return (
     <div className="em-section">
@@ -361,4 +364,4 @@ const DashboardTab = ({ branches, onPayment }) => {
   );
 };
 
-export default DashboardTab;
+export default React.memo(DashboardTab);

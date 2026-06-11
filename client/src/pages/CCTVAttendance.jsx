@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Camera, Loader2, Plus, X, User, Clock, RefreshCw } from 'lucide-react';
 import api from '../services/api';
 import SecureImage from '../components/SecureImage';
@@ -28,6 +28,9 @@ const formatTime = (ts) => {
   return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 };
 
+const summaryRef = useRef(null);
+const staffListRef = useRef([]);
+
 const CCTVAttendance = () => {
   const [branch, setBranch] = useState('perambra');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -52,11 +55,19 @@ const CCTVAttendance = () => {
     return Math.abs(curH * 60 + curM - (entH * 60 + entM));
   };
 
+  const setSummarySmart = useCallback((data) => {
+    const str = JSON.stringify(data);
+    if (str !== JSON.stringify(summaryRef.current)) {
+      summaryRef.current = data;
+      setSummary(data);
+    }
+  }, []);
+
   const fetchSummary = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await api.get(`cctv/attendance/summary?branch=${branch}&date=${date}`);
-      setSummary(data);
+      setSummarySmart(data);
       setLastRefresh(new Date());
     } catch (err) {
       console.error('Failed to fetch attendance summary:', err);
@@ -64,12 +75,12 @@ const CCTVAttendance = () => {
     } finally {
       setLoading(false);
     }
-  }, [branch, date]);
+  }, [branch, date, setSummarySmart]);
 
   // Initial load + auto-refresh every 30 seconds
   useEffect(() => {
     fetchSummary();
-    const interval = setInterval(fetchSummary, 30000);
+    const interval = setInterval(fetchSummary, 60000);
     return () => clearInterval(interval);
   }, [fetchSummary]);
 
@@ -90,7 +101,12 @@ const CCTVAttendance = () => {
     const fetchStaff = async () => {
       try {
         const { data } = await api.get('staff?all=true&limit=200');
-        setStaffList(data.data || data || []);
+        const staff = data.data || data || [];
+        const str = JSON.stringify(staff);
+        if (str !== JSON.stringify(staffListRef.current)) {
+          staffListRef.current = staff;
+          setStaffList(staff);
+        }
       } catch {
         // Silently fail — modal will show empty dropdown
       }
@@ -98,7 +114,7 @@ const CCTVAttendance = () => {
     fetchStaff();
   }, []);
 
-  const openManualModal = () => {
+  const openManualModal = useCallback(() => {
     setManualStaffId('');
     setManualBranch(branch);
     setManualEventType('entry');
@@ -107,9 +123,9 @@ const CCTVAttendance = () => {
     setManualTime(nowStr);
     setCurrentTimeOnOpen(nowStr);
     setShowManual(true);
-  };
+  }, []);
 
-  const handleManualSubmit = async (e) => {
+  const handleManualSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (!manualStaffId || !manualBranch || !manualEventType || !manualTime) {
       toast.error('Please fill all fields');
@@ -134,7 +150,9 @@ const CCTVAttendance = () => {
     } finally {
       setManualSaving(false);
     }
-  };
+  }, [date, branch, fetchSummary]);
+
+  const timeDiffMinutes = useMemo(() => getTimeDiffMinutes(), [currentTimeOnOpen, manualTime]);
 
   return (
     <div>
@@ -368,7 +386,7 @@ const CCTVAttendance = () => {
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
                   Current time: <strong>{currentTimeOnOpen}</strong>
                 </div>
-                {getTimeDiffMinutes() > 30 && (
+                {timeDiffMinutes > 30 && (
                   <div style={{
                     marginTop: 6,
                     padding: '6px 10px',
@@ -382,7 +400,7 @@ const CCTVAttendance = () => {
                     gap: 6,
                   }}>
                     ⚠ Entered time differs from current time by{' '}
-                    <strong>{getTimeDiffMinutes()} min</strong>. This will be flagged for admin review.
+                    <strong>{timeDiffMinutes} min</strong>. This will be flagged for admin review.
                   </div>
                 )}
               </div>
@@ -403,4 +421,4 @@ const CCTVAttendance = () => {
   );
 };
 
-export default CCTVAttendance;
+export default React.memo(CCTVAttendance);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Package, AlertTriangle, CheckCircle, ShoppingCart, Download, Loader2, RefreshCw, X } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -9,11 +9,26 @@ const STATUS_CONFIG = {
     ok:       { color: 'var(--success)', bg: 'var(--success-bg)', label: 'OK',       icon: '🟢' },
 };
 
-const StockPlanning = () => {
-    const [stockStatus, setStockStatus] = useState([]);
-    const [purchaseList, setPurchaseList] = useState([]);
+const StockPlanning = React.memo(() => {
+    const stockStatusRef = useRef([]);
+    const [stockStatus, setStockStatusState] = useState([]);
+    const setStockStatus = useCallback((v) => {
+      const n = typeof v === 'function' ? v(stockStatusRef.current) : v;
+      if (JSON.stringify(stockStatusRef.current) !== JSON.stringify(n)) { stockStatusRef.current = n; setStockStatusState(n); }
+    }, []);
+    const purchaseListRef = useRef([]);
+    const [purchaseList, setPurchaseListState] = useState([]);
+    const setPurchaseList = useCallback((v) => {
+      const n = typeof v === 'function' ? v(purchaseListRef.current) : v;
+      if (JSON.stringify(purchaseListRef.current) !== JSON.stringify(n)) { purchaseListRef.current = n; setPurchaseListState(n); }
+    }, []);
     const [totalCost, setTotalCost] = useState(0);
-    const [generatedAt, setGeneratedAt] = useState('');
+    const generatedAtRef = useRef('');
+    const [generatedAt, setGeneratedAtState] = useState('');
+    const setGeneratedAt = useCallback((v) => {
+      const n = typeof v === 'function' ? v(generatedAtRef.current) : v;
+      if (JSON.stringify(generatedAtRef.current) !== JSON.stringify(n)) { generatedAtRef.current = n; setGeneratedAtState(n); }
+    }, []);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -22,7 +37,7 @@ const StockPlanning = () => {
     const [sortDir, setSortDir] = useState('asc');
     const modalContentRef = useRef(null);
 
-    const fetchStockStatus = async (refresh = false) => {
+    const fetchStockStatus = useCallback(async (refresh = false) => {
         try {
             if (refresh) setRefreshing(true); else setLoading(true);
             const res = await api.get('/ai/stock-planning/stock-status', { params: refresh ? { refresh: 'true' } : {} });
@@ -34,9 +49,9 @@ const StockPlanning = () => {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, []);
 
-    const fetchPurchaseList = async () => {
+    const fetchPurchaseList = useCallback(async () => {
         try {
             const res = await api.get('/ai/stock-planning/purchase-list');
             setPurchaseList(res.data.purchase_list || []);
@@ -44,16 +59,16 @@ const StockPlanning = () => {
         } catch {
             toast.error('Failed to load purchase list');
         }
-    };
+    }, []);
 
-    useEffect(() => { fetchStockStatus(); }, []);
+    useEffect(() => { fetchStockStatus(); }, [fetchStockStatus]);
 
-    const handleGeneratePurchaseList = async () => {
+    const handleGeneratePurchaseList = useCallback(async () => {
         await fetchPurchaseList();
         setShowModal(true);
-    };
+    }, [fetchPurchaseList]);
 
-    const handleApprove = async () => {
+    const handleApprove = useCallback(async () => {
         if (purchaseList.length === 0) return;
         setApproving(true);
         try {
@@ -68,9 +83,9 @@ const StockPlanning = () => {
         } finally {
             setApproving(false);
         }
-    };
+    }, [purchaseList]);
 
-    const handleDownloadPDF = () => {
+    const handleDownloadPDF = useCallback(() => {
         if (!modalContentRef.current) return;
         const printWin = window.open('', '_blank');
         if (!printWin) { toast.error('Pop-up blocked. Please allow pop-ups.'); return; }
@@ -106,25 +121,24 @@ const StockPlanning = () => {
         printWin.document.close();
         printWin.focus();
         printWin.print();
-    };
+    }, [generatedAt, purchaseList, totalCost]);
 
-    // Sorting
-    const sorted = [...stockStatus].sort((a, b) => {
+    const sorted = useMemo(() => [...stockStatus].sort((a, b) => {
         let av = a[sortField], bv = b[sortField];
         if (typeof av === 'string') { av = av.toLowerCase(); bv = (bv || '').toLowerCase(); }
         if (av < bv) return sortDir === 'asc' ? -1 : 1;
         if (av > bv) return sortDir === 'asc' ? 1 : -1;
         return 0;
-    });
+    }), [stockStatus, sortField, sortDir]);
 
-    const toggleSort = (field) => {
+    const toggleSort = useCallback((field) => {
         if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
         else { setSortField(field); setSortDir('asc'); }
-    };
+    }, [sortField]);
 
-    const criticalCount = stockStatus.filter(s => s.status === 'critical').length;
-    const lowCount = stockStatus.filter(s => s.status === 'low').length;
-    const okCount = stockStatus.filter(s => s.status === 'ok').length;
+    const criticalCount = useMemo(() => stockStatus.filter(s => s.status === 'critical').length, [stockStatus]);
+    const lowCount = useMemo(() => stockStatus.filter(s => s.status === 'low').length, [stockStatus]);
+    const okCount = useMemo(() => stockStatus.filter(s => s.status === 'ok').length, [stockStatus]);
 
     if (loading) {
         return (
@@ -308,7 +322,7 @@ const StockPlanning = () => {
             )}
         </div>
     );
-};
+});
 
 /** Sortable table header */
 const SortTh = ({ field, current, dir, onClick, children }) => (
@@ -317,4 +331,4 @@ const SortTh = ({ field, current, dir, onClick, children }) => (
     </th>
 );
 
-export default StockPlanning;
+export default React.memo(StockPlanning);

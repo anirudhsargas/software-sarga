@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { Star, Trash2, Edit3, Plus, RefreshCw, ExternalLink, Star as StarIcon, Search } from 'lucide-react';
@@ -18,7 +18,7 @@ function StarDisplay({ rating, interactive, onChange }) {
   );
 }
 
-export default function ReviewsManagement() {
+function ReviewsManagement() {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -39,7 +39,7 @@ export default function ReviewsManagement() {
 
   useEffect(() => { fetchReviews(); }, [fetchReviews]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!form.reviewer_name.trim()) return toast.error('Reviewer name is required');
     try {
       if (editing) {
@@ -55,14 +55,14 @@ export default function ReviewsManagement() {
     } catch (e) {
       toast.error('Failed to save review');
     }
-  };
+  }, [editing, form, fetchReviews]);
 
-  const handleEdit = (r) => {
+  const handleEdit = useCallback((r) => {
     setEditing(r.id);
     setForm({ reviewer_name: r.reviewer_name, rating: r.rating, review_text: r.review_text || '', source: r.source || 'manual', is_featured: !!r.is_featured, is_active: !!r.is_active, sort_order: r.sort_order || 0, review_date: r.review_date || '' });
-  };
+  }, []);
 
-  const handleDelete = async (id) => {
+  const handleDelete = useCallback(async (id) => {
     if (!window.confirm('Delete this review?')) return;
     try {
       await api.delete(`/reviews/${id}`);
@@ -71,9 +71,9 @@ export default function ReviewsManagement() {
     } catch (e) {
       toast.error('Failed to delete');
     }
-  };
+  }, [fetchReviews]);
 
-  const handleToggleFeature = async (id) => {
+  const handleToggleFeature = useCallback(async (id) => {
     try {
       const res = await api.put(`/reviews/${id}/feature`);
       toast.success(res.data.message);
@@ -81,9 +81,9 @@ export default function ReviewsManagement() {
     } catch (e) {
       toast.error('Failed to toggle feature');
     }
-  };
+  }, [fetchReviews]);
 
-  const handleImportGoogle = async () => {
+  const handleImportGoogle = useCallback(async () => {
     setImporting(true);
     try {
       const res = await api.post('/website/reviews/fetch-google');
@@ -94,11 +94,7 @@ export default function ReviewsManagement() {
     } finally {
       setImporting(false);
     }
-  };
-
-  const filtered = reviews.filter(r =>
-    !searchQuery || r.reviewer_name?.toLowerCase().includes(searchQuery.toLowerCase()) || r.review_text?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  }, [fetchReviews]);
 
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading reviews...</div>;
 
@@ -218,3 +214,5 @@ export default function ReviewsManagement() {
     </div>
   );
 }
+
+export default React.memo(ReviewsManagement);

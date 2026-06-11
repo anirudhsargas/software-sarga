@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { HelpCircle, Plus, Edit2, Trash2, Download, IndianRupee, Receipt, Repeat, X, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, MISC_CATEGORIES } from './constants';
@@ -10,7 +10,9 @@ const PAGE_SIZE = 50;
 const MiscTab = ({ onError }) => {
   const { confirm } = useConfirm();
   const [dashboard, setDashboard] = useState(null);
+  const dashRef = useRef(null);
   const [expenses, setExpenses] = useState([]);
+  const expRef = useRef(null);
   const [total, setTotal] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -40,7 +42,8 @@ const MiscTab = ({ onError }) => {
   const fetchDashboard = useCallback(async () => {
     try {
       const r = await api.get('/misc-dashboard');
-      setDashboard(r.data);
+      const str = JSON.stringify(r.data);
+      if (str !== dashRef.current) { dashRef.current = str; setDashboard(r.data); }
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Failed to load misc dashboard');
     }
@@ -48,7 +51,9 @@ const MiscTab = ({ onError }) => {
   const fetchExpenses = useCallback(async (pageNum = 1) => {
     try {
       const r = await api.get(`/misc-expenses?page=${pageNum}&limit=${PAGE_SIZE}`);
-      setExpenses(r.data.data || []);
+      const data = r.data.data || [];
+      const str = JSON.stringify(data);
+      if (str !== expRef.current) { expRef.current = str; setExpenses(data); }
       setTotal(r.data.total || 0);
       setPage(pageNum);
     } catch (err) {
@@ -203,4 +208,4 @@ const MiscTab = ({ onError }) => {
   );
 };
 
-export default MiscTab;
+export default React.memo(MiscTab);

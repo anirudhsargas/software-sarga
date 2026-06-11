@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertCircle, AlertTriangle, Info } from 'lucide-react';
 
-const ConfirmModal = ({ isOpen, title, message, confirmText, cancelText, type, onConfirm, onCancel }) => {
+const ConfirmModal = React.memo(({ isOpen, title, message, confirmText, cancelText, type, onConfirm, onCancel }) => {
     if (!isOpen) return null;
 
     const Icon = type === 'danger' ? AlertCircle : type === 'warning' ? AlertTriangle : Info;
@@ -25,6 +25,6 @@ const ConfirmModal = ({ isOpen, title, message, confirmText, cancelText, type, o
             </div>
         </div>
     );
-};
+});
 
 export default ConfirmModal;

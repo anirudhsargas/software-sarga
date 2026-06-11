@@ -92,12 +92,12 @@ const TranslationsManager = React.lazy(() => import('./admin/TranslationsManager
 const SampleRequestsCMS = React.lazy(() => import('./SampleRequestsCMS'));
 const DesignBookingsCMS = React.lazy(() => import('./DesignBookingsCMS'));
 const RateCalculator = React.lazy(() => import('./RateCalculator'));
-const PageLoader = () => (
 
+const PageLoader = React.memo(() => (
     <div className="page-loader">
         <Loader2 size={20} className="animate-spin" /> Loading...
     </div>
-);
+));
 
 const SuspenseFallback = () => {
     const location = useLocation();
@@ -147,10 +147,10 @@ const SuspenseFallback = () => {
         );
     }
 
-    return PageLoader();
+    return <PageLoader />;
 };
 
-const DashboardHome = () => {
+const DashboardHome = React.memo(() => {
     const { user } = useAuth();
     if (!user?.role) return <Summary />;
     if (user.role === 'Admin') return <Summary />;
@@ -159,7 +159,75 @@ const DashboardHome = () => {
     if (user.role === 'Other Staff') return <OtherStaffDashboard />;
     if (user.role === 'Designer') return <DesignerDashboard />;
     return <Jobs />;
-};
+});
+
+const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, chatbotUnlabeledCount }) => (
+    <NavLink
+        to={item.path}
+        end={item.path === '/dashboard'}
+        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+        onClick={closeSidebar}
+        title={item.name}
+    >
+        <div className="nav-item-inner">
+            <item.icon size={20} />
+            <span className="nav-label">{item.name}</span>
+            {item.name === 'Requests' && pendingRequestsCount > 0 && (
+                <span className="side-badge">{pendingRequestsCount}</span>
+            )}
+            {item.path === '/dashboard/admin/chatbot-training' && chatbotUnlabeledCount > 0 && (
+                <span className="side-badge">{chatbotUnlabeledCount}</span>
+            )}
+        </div>
+    </NavLink>
+));
+
+const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleGroup, closeSidebar, pendingRequestsCount, chatbotUnlabeledCount }) => {
+    const showLabel = group.label && group.items.length > 1;
+    return (
+        <div className="sidebar-group">
+            {showLabel && (
+                <button className="sidebar-group-toggle" onClick={() => toggleGroup(group.key)}>
+                    <span className="sidebar-group-label">{group.label}</span>
+                    <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} />
+                </button>
+            )}
+            {(!isCollapsed || sidebarCollapsed) && group.items.map(item => (
+                <SidebarNavItem key={item.name} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} />
+            ))}
+        </div>
+    );
+});
+
+const SimpleNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount }) => (
+    <NavLink
+        to={item.path}
+        end={item.path === '/dashboard'}
+        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+        onClick={closeSidebar}
+        title={item.name}
+    >
+        <div className="nav-item-inner">
+            <item.icon size={20} />
+            <span className="nav-label">{item.name}</span>
+            {item.name === 'Requests' && pendingRequestsCount > 0 && (
+                <span className="side-badge">{pendingRequestsCount}</span>
+            )}
+        </div>
+    </NavLink>
+));
+
+const sidebarGroupDefs = [
+    { key: 'main', label: null },
+    { key: 'business', label: 'Business' },
+    { key: 'inventory', label: 'Inventory' },
+    { key: 'internal', label: 'Internal' },
+    { key: 'finance', label: 'Finance' },
+    { key: 'manage', label: 'Administration' },
+    { key: 'analytics', label: 'Analytics' },
+    { key: 'operations', label: 'Operations' },
+    { key: 'website', label: 'Website' },
+];
 
 const Dashboard = () => {
     const { user, logout, updateUser } = useAuth();
@@ -197,16 +265,17 @@ const Dashboard = () => {
         try {
             const { data } = await api.get('/company-settings');
             if (data?.company_name) {
-                setCompanyInfo({
-                    name: data.company_name.toUpperCase(),
-                    logo: data.company_logo_url
+                setCompanyInfo(prev => {
+                    const next = { name: data.company_name.toUpperCase(), logo: data.company_logo_url };
+                    if (prev.name === next.name && prev.logo === next.logo) return prev;
+                    return next;
                 });
             }
         } catch (err) { /* ignore */ }
     }, []);
 
-    const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
-    const closeSidebar = () => setSidebarOpen(false);
+    const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
+    const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
     // On tablets/phones, keep sidebar expanded so labels are always visible.
     useEffect(() => {
@@ -223,7 +292,7 @@ const Dashboard = () => {
 
     const { t } = useTranslation();
 
-    const menuItems = [
+    const menuItems = useMemo(() => [
         // Main dashboards
         { key: 'dashboard', name: t('summary', 'Summary'), icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
         { key: 'dashboard', name: t('front_office', 'Front Office'), icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
@@ -286,7 +355,7 @@ const Dashboard = () => {
         { key: 'operations', name: 'Blog Journal CMS', icon: BookOpen, path: '/dashboard/blog-cms', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
         { key: 'sample_requests', name: 'Sample Requests', icon: FileCheck, path: '/dashboard/sample-requests', roles: ['Admin', 'Front Office', 'Accountant'], group: 'website' },
         { key: 'design_bookings', name: 'Design Bookings', icon: ClipboardList, path: '/dashboard/design-bookings', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
-    ];
+    ], [t]);
 
     const filteredMenu = useMemo(() => {
         let items = menuItems.filter(item => item.roles.includes(user?.role));
@@ -306,20 +375,7 @@ const Dashboard = () => {
             }
         }
         return items;
-    }, [user, t]);
-
-    // Collapsible sidebar groups for Admin
-    const sidebarGroupDefs = [
-        { key: 'main', label: null },
-        { key: 'business', label: 'Business' },
-        { key: 'inventory', label: 'Inventory' },
-        { key: 'internal', label: 'Internal' },
-        { key: 'finance', label: 'Finance' },
-        { key: 'manage', label: 'Administration' },
-        { key: 'analytics', label: 'Analytics' },
-        { key: 'operations', label: 'Operations' },
-        { key: 'website', label: 'Website' },
-    ];
+    }, [user, menuItems]);
 
     const [collapsedGroups, setCollapsedGroups] = useState(() => {
         try {
@@ -402,7 +458,7 @@ const Dashboard = () => {
         return () => document.removeEventListener('keydown', handleScannerKey);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const handleInventoryScan = async (scannedCode) => {
+    const handleInventoryScan = useCallback(async (scannedCode) => {
         setShowInventoryScan(false);
         setInventoryScanLoading(true);
         setInventoryScanResult(null);
@@ -415,32 +471,39 @@ const Dashboard = () => {
         } finally {
             setInventoryScanLoading(false);
         }
-    };
+    }, []);
 
-    const handleLogout = () => {
+    const handleLogout = useCallback(() => {
         logout();
         navigate('/login', { replace: true });
-    };
+    }, [logout, navigate]);
 
-    const fetchPendingCount = async () => {
+    const fetchPendingCount = useCallback(async () => {
         if (user?.role !== 'Admin' && user?.role !== 'Accountant') return;
         try {
             const response = await api.get('/requests/pending-count');
-            setPendingRequestsCount(response.data.pending_count);
+            setPendingRequestsCount(prev => {
+                if (prev === response.data.pending_count) return prev;
+                return response.data.pending_count;
+            });
         } catch (err) {
             console.error('Failed to fetch pending requests count:', err);
         }
-    };
+    }, [user?.role]);
 
-    const fetchChatbotCounts = async () => {
+    const fetchChatbotCounts = useCallback(async () => {
         if (user?.role !== 'Admin') return;
         try {
             const res = await api.get('chatbot/model-status');
-            setChatbotUnlabeledCount(res.data.unlabeled || 0);
+            setChatbotUnlabeledCount(prev => {
+                const next = res.data.unlabeled || 0;
+                if (prev === next) return prev;
+                return next;
+            });
         } catch (e) {
             // ignore
         }
-    };
+    }, [user?.role]);
 
     useEffect(() => {
         if (!showProfileModal) return;
@@ -495,7 +558,7 @@ const Dashboard = () => {
         return () => window.removeEventListener('companySettingsUpdated', fetchCompanyInfo);
     }, [fetchCompanyInfo]);
 
-    const handleProfileSave = async (e) => {
+    const handleProfileSave = useCallback(async (e) => {
         e.preventDefault();
         setProfileSaving(true);
         try {
@@ -514,9 +577,9 @@ const Dashboard = () => {
         } finally {
             setProfileSaving(false);
         }
-    };
+    }, [profileName, profileImage, user, updateUser]);
 
-    const handleRemoveProfileImage = async () => {
+    const handleRemoveProfileImage = useCallback(async () => {
         const isConfirmed = await confirm({
             title: 'Remove Profile Photo',
             message: 'Remove your profile photo?',
@@ -538,21 +601,21 @@ const Dashboard = () => {
         } finally {
             setProfileSaving(false);
         }
-    };
+    }, [confirm, user, updateUser]);
 
-    const openCropper = (file) => {
+    const openCropper = useCallback((file) => {
         if (!file) return;
         setCropState({ file });
-    };
+    }, []);
 
-    const handleCropCancel = () => {
+    const handleCropCancel = useCallback(() => {
         setCropState(null);
-    };
+    }, []);
 
-    const handleCropComplete = (croppedFile) => {
+    const handleCropComplete = useCallback((croppedFile) => {
         setProfileImage(croppedFile);
         setCropState(null);
-    };
+    }, []);
 
     return (
         <div className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
@@ -587,58 +650,12 @@ const Dashboard = () => {
                             const showLabel = group.label && group.items.length > 1;
                             const isCollapsed = showLabel && collapsedGroups.has(group.key);
                             return (
-                                <div key={group.key} className="sidebar-group">
-                                    {showLabel && (
-                                        <button
-                                            className="sidebar-group-toggle"
-                                            onClick={() => toggleGroup(group.key)}
-                                        >
-                                            <span className="sidebar-group-label">{group.label}</span>
-                                            <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} />
-                                        </button>
-                                    )}
-                                    {(!isCollapsed || sidebarCollapsed) && group.items.map(item => (
-                                        <NavLink
-                                            key={item.name}
-                                            to={item.path}
-                                            end={item.path === '/dashboard'}
-                                            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                                            onClick={closeSidebar}
-                                            title={item.name}
-                                        >
-                                            <div className="nav-item-inner">
-                                                <item.icon size={20} />
-                                                <span className="nav-label">{item.name}</span>
-                                                    {item.name === 'Requests' && pendingRequestsCount > 0 && (
-                                                        <span className="side-badge">{pendingRequestsCount}</span>
-                                                    )}
-                                                    {item.path === '/dashboard/admin/chatbot-training' && chatbotUnlabeledCount > 0 && (
-                                                        <span className="side-badge">{chatbotUnlabeledCount}</span>
-                                                    )}
-                                            </div>
-                                        </NavLink>
-                                    ))}
-                                </div>
+                                <SidebarGroup key={group.key} group={group} isCollapsed={isCollapsed} sidebarCollapsed={sidebarCollapsed} toggleGroup={toggleGroup} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} />
                             );
                         })
                     ) : (
                         filteredMenu.map(item => (
-                            <NavLink
-                                key={item.path}
-                                to={item.path}
-                                end={item.path === '/dashboard'}
-                                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                                onClick={closeSidebar}
-                                title={item.name}
-                            >
-                                <div className="nav-item-inner">
-                                    <item.icon size={20} />
-                                    <span className="nav-label">{item.name}</span>
-                                    {item.name === 'Requests' && pendingRequestsCount > 0 && (
-                                        <span className="side-badge">{pendingRequestsCount}</span>
-                                    )}
-                                </div>
-                            </NavLink>
+                            <SimpleNavItem key={item.path} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} />
                         ))
                     )}
                     {['Admin', 'Front Office', 'Accountant'].includes(user?.role) && (
@@ -984,4 +1001,4 @@ const Dashboard = () => {
     );
 };
 
-export default Dashboard;
+export default React.memo(Dashboard);

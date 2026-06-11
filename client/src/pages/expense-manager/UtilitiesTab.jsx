@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   Zap, Wifi, Phone, Droplets, ArrowLeft,
   Calendar, TrendingUp, TrendingDown, AlertTriangle, Loader2,
@@ -22,6 +22,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
   const { confirm } = useConfirm();
   const [selectedUtility, setSelectedUtility] = useState(null);
   const [statement, setStatement] = useState(null);
+  const stmtRef = useRef(null);
   const [loadingStmt, setLoadingStmt] = useState(false);
   const [showAddType, setShowAddType] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
@@ -274,7 +275,8 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
       const payments = (r.data?.payments || r.data?.rows || []).map(p => ({ ...p, _entry_type: 'Payment', _date: p.payment_date }));
       const bills = (r.data?.bills || []).map(b => ({ ...b, _entry_type: 'Bill', _date: b.bill_date }));
       const combined = [...payments, ...bills].sort((a, b) => new Date(b._date) - new Date(a._date));
-      setStatement({ rows: combined, payments, bills });
+      const stmtStr = JSON.stringify({ rows: combined, payments, bills });
+      if (stmtStr !== stmtRef.current) { stmtRef.current = stmtStr; setStatement({ rows: combined, payments, bills }); }
     } catch { setStatement({ rows: [], payments: [], bills: [] }); }
     finally { setLoadingStmt(false); }
   }, []);
@@ -290,7 +292,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
   };
 
   /* ══════════ Utility Detail Sub-Dashboard ══════════ */
-  const renderUtilityDashboard = () => {
+  const renderUtilityDashboard = useCallback(() => {
     const rows = statement?.rows || [];
     const payments = statement?.payments || [];
     const bills = statement?.bills || [];
@@ -411,10 +413,10 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
         </div>
       </div>
     );
-  };
+  }, [selectedUtility, statement, loadingStmt]);
 
   /* ══════════ Utility Overview Grid ══════════ */
-  const renderOverviewGrid = () => (
+  const renderOverviewGrid = useCallback(() => (
     <div className="em-section">
       <div className="em-filter-row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div className="em-section-title"><Zap size={18} /> Utility Payments</div>
@@ -499,7 +501,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
         </div>
       )}
     </div>
-  );
+  ), [selectedUtility, statement, loadingStmt, UTILITY_TYPES, customTypes, hierarchyOptions, connections, fetchingEmail, isAdmin, onPayment, onRefresh, fetchHierarchyOptions, fetchConnections, handleBillSubmit, openBillForm, openUtilityDetail, setShowAddType, setShowRequestType, addConnection, deleteConnection, handleDeleteBill, handleDeletePayment, getSummaryForType, handleUtilityCardClick, handleRemoveType, billForm, setBillForm, billError, billSuccess, billSaving, billEntries, multipleConsumers, connectionsLoading, newConnection, setNewConnection, connectionSaving, fetchReport, showFetchReport, setShowFetchReport, showConnectionsModal, setShowConnectionsModal, requestTypeName, setRequestTypeName, requestReason, setRequestReason, requestError, requestSaving, submitRequestType, showRequestType, setShowRequestType, showAddType, setShowAddType, newTypeName, setNewTypeName, handleAddType]);
 
   return (
     <>
@@ -719,4 +721,4 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
   );
 };
 
-export default UtilitiesTab;
+export default React.memo(UtilitiesTab);

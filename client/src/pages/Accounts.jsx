@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Loader2, Search, Download, Building2, FileText,
     ArrowUpRight, ArrowDownRight, Receipt, IndianRupee,
@@ -704,19 +704,19 @@ const BillsDocsTab = () => {
     const [uploadForm, setUploadForm] = useState({ document_type: 'Invoice', related_tab: '', vendor_name: '', bill_number: '', bill_date: new Date().toISOString().split('T')[0], amount: '', description: '', file: null });
     const [uploadDirty, setUploadDirty] = useState(false);
 
-    const openUploadModal = () => {
+    const openUploadModal = useCallback(() => {
         setUploadDirty(false);
         setShowUploadModal(true);
-    };
+    }, []);
 
-    const closeUploadModal = (force = false) => {
+    const closeUploadModal = useCallback((force = false) => {
         if (!force && uploadDirty && !uploading) {
             const shouldClose = window.confirm('You have unsaved upload form changes. Discard them?');
             if (!shouldClose) return;
         }
         setShowUploadModal(false);
         setUploadDirty(false);
-    };
+    }, [uploadDirty, uploading]);
 
     useEffect(() => {
         const handleBeforeUnload = (event) => {
@@ -747,10 +747,9 @@ const BillsDocsTab = () => {
 
     useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
-    const handleDelete = async (id) => {
+    const handleDelete = useCallback(async (id) => {
         const ok = await confirm({ title: 'Delete Document', message: 'Are you sure you want to delete this document?', confirmText: 'Delete', type: 'danger' });
         if (!ok) return;
-        // Optimistic UI Update
         setDocs(prev => prev.filter(d => d.id !== id));
         setDocsTotal(prev => Math.max(0, prev - 1));
         try {
@@ -761,9 +760,9 @@ const BillsDocsTab = () => {
             toast.error('Delete failed');
             fetchDocs();
         }
-    };
+    }, [confirm, fetchDocs]);
 
-    const handleUpload = async (e) => {
+    const handleUpload = useCallback(async (e) => {
         e.preventDefault();
         setUploading(true);
         try {
@@ -784,21 +783,21 @@ const BillsDocsTab = () => {
             fetchDocs();
         } catch (err) { toast.error(err.response?.data?.message || 'Upload failed'); }
         finally { setUploading(false); }
-    };
+    }, [uploadForm, closeUploadModal, fetchDocs]);
 
     const startEdit = (doc) => {
         setEditingDoc(doc.id);
         setEditForm({ vendor_name: doc.vendor_name || '', bill_number: doc.bill_number || '', amount: doc.amount || '', description: doc.description || '' });
     };
 
-    const saveEdit = async (id) => {
+    const saveEdit = useCallback(async (id) => {
         try {
             await api.put(`/bills-documents/${id}`, editForm);
             toast.success('Updated');
             setEditingDoc(null);
             fetchDocs();
         } catch { toast.error('Update failed'); }
-    };
+    }, [editForm, fetchDocs]);
 
     const getFileUrl = (path) => {
         if (!path) return '';
@@ -806,7 +805,7 @@ const BillsDocsTab = () => {
         return `${base}${path}`;
     };
 
-    const totalAmount = docs.reduce((s, d) => s + Number(d.amount || 0), 0);
+    const totalAmount = useMemo(() => docs.reduce((s, d) => s + Number(d.amount || 0), 0), [docs]);
 
     return (
         <div className="acc-stack">
@@ -1284,4 +1283,4 @@ const parseItems = (items) => {
     try { return JSON.parse(items); } catch { return []; }
 };
 
-export default Accounts;
+export default React.memo(Accounts);

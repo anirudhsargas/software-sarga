@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Mail, Search, Filter, BookOpen, ExternalLink, Calendar, User, Save, RefreshCw, Plus, Trash2, Edit3, Eye, Share2, EyeOff, Sparkles, Layout } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
@@ -13,6 +13,10 @@ const CATEGORIES = [
   'Marketing Materials',
   'School & College Printing'
 ];
+
+const postsRef = useRef([]);
+const authorsRef = useRef([]);
+const analyticsRef = useRef(null);
 
 const BlogCMS = () => {
   const [posts, setPosts] = useState([]);
@@ -56,34 +60,58 @@ const BlogCMS = () => {
   const [saving, setSaving] = useState(false);
   const [editorTab, setEditorTab] = useState('edit'); // 'edit' | 'preview'
 
-  const fetchBlogData = async () => {
+  const setPostsSmart = useCallback((data) => {
+    const str = JSON.stringify(data);
+    if (str !== JSON.stringify(postsRef.current)) {
+      postsRef.current = data;
+      setPosts(data);
+    }
+  }, []);
+
+  const setAuthorsSmart = useCallback((data) => {
+    const str = JSON.stringify(data);
+    if (str !== JSON.stringify(authorsRef.current)) {
+      authorsRef.current = data;
+      setAuthors(data);
+    }
+  }, []);
+
+  const setAnalyticsSmart = useCallback((data) => {
+    const str = JSON.stringify(data);
+    if (str !== JSON.stringify(analyticsRef.current)) {
+      analyticsRef.current = data;
+      setAnalytics(data);
+    }
+  }, []);
+
+  const fetchBlogData = useCallback(async () => {
     setLoading(true);
     try {
       // 1. Fetch Posts
       const postsRes = await api.get('/blog/admin/posts');
-      setPosts(postsRes.data.posts || []);
+      setPostsSmart(postsRes.data.posts || []);
 
       // 2. Fetch Authors
       const authorsRes = await api.get('/blog/admin/authors');
-      setAuthors(authorsRes.data.authors || []);
+      setAuthorsSmart(authorsRes.data.authors || []);
 
       // 3. Fetch Analytics
       const analyticsRes = await api.get('/blog/admin/analytics');
-      setAnalytics(analyticsRes.data);
+      setAnalyticsSmart(analyticsRes.data);
     } catch (error) {
       console.error('Failed to fetch blog CMS data:', error);
       toast.error('Could not load blog management data.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [setPostsSmart, setAuthorsSmart, setAnalyticsSmart]);
 
   useEffect(() => {
     fetchBlogData();
-  }, []);
+  }, [fetchBlogData]);
 
   // Sync title to slug automatically when creating
-  const handleTitleChange = (val) => {
+  const handleTitleChange = useCallback((val) => {
     setPostForm(prev => {
       const updated = { ...prev, title: val };
       if (!editingPostId) {
@@ -95,9 +123,9 @@ const BlogCMS = () => {
       }
       return updated;
     });
-  };
+  }, [editingPostId]);
 
-  const handleEditClick = (post) => {
+  const handleEditClick = useCallback((post) => {
     setEditingPostId(post.id);
     // Fetch full post to edit content
     setSaving(true);
@@ -123,9 +151,9 @@ const BlogCMS = () => {
       })
       .catch(() => toast.error('Failed to load full post content.'))
       .finally(() => setSaving(false));
-  };
+  }, []);
 
-  const handleNewPostClick = () => {
+  const handleNewPostClick = useCallback(() => {
     setEditingPostId(null);
     setPostForm({
       title: '',
@@ -143,9 +171,9 @@ const BlogCMS = () => {
     });
     setEditorTab('edit');
     setShowPostModal(true);
-  };
+  }, [authors]);
 
-  const handleSavePost = async (e) => {
+  const handleSavePost = useCallback(async (e) => {
     e.preventDefault();
     if (!postForm.title || !postForm.slug || !postForm.content || !postForm.excerpt) {
       return toast.error('Please fill in all required post fields.');
@@ -166,9 +194,9 @@ const BlogCMS = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [postForm, editingPostId, fetchBlogData]);
 
-  const handleDeletePost = async (id, title) => {
+  const handleDeletePost = useCallback(async (id, title) => {
     if (!window.confirm(`Are you absolutely sure you want to delete the article: "${title}"?`)) return;
     try {
       await api.delete(`/blog/admin/posts/${id}`);
@@ -177,9 +205,9 @@ const BlogCMS = () => {
     } catch {
       toast.error('Failed to delete article.');
     }
-  };
+  }, [fetchBlogData]);
 
-  const handleSaveAuthor = async (e) => {
+  const handleSaveAuthor = useCallback(async (e) => {
     e.preventDefault();
     if (!authorForm.name || !authorForm.role) {
       return toast.error('Author Name and Role are required.');
@@ -196,14 +224,14 @@ const BlogCMS = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [authorForm, fetchBlogData]);
 
-  const filteredPosts = posts.filter(post => {
+  const filteredPosts = useMemo(() => posts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           post.category.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'All' || post.status === filterStatus;
     return matchesSearch && matchesStatus;
-  });
+  }), [posts, searchTerm, filterStatus]);
 
   return (
     <div className="blog-cms-container">
@@ -596,4 +624,4 @@ const BlogCMS = () => {
   );
 };
 
-export default BlogCMS;
+export default React.memo(BlogCMS);

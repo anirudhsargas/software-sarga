@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Briefcase, Plus, Edit2, Trash2, Download, IndianRupee, Receipt, X, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, OFFICE_EXPENSE_TYPES } from './constants';
@@ -10,7 +10,9 @@ const PAGE_SIZE = 50;
 const OfficeTab = ({ onError }) => {
   const { confirm } = useConfirm();
   const [dashboard, setDashboard] = useState(null);
+  const dashRef = useRef(null);
   const [expenses, setExpenses] = useState([]);
+  const expRef = useRef(null);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingExpenses, setLoadingExpenses] = useState(false);
@@ -42,7 +44,8 @@ const OfficeTab = ({ onError }) => {
   const fetchDashboard = useCallback(async () => {
     try {
       const r = await api.get('/office-dashboard');
-      setDashboard(r.data);
+      const str = JSON.stringify(r.data);
+      if (str !== dashRef.current) { dashRef.current = str; setDashboard(r.data); }
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Failed to load office dashboard');
     }
@@ -54,7 +57,9 @@ const OfficeTab = ({ onError }) => {
       params.append('page', pageNum);
       params.append('limit', PAGE_SIZE);
       const r = await api.get(`/office-expenses?${params.toString()}`);
-      setExpenses(r.data.data || []);
+      const data = r.data.data || [];
+      const str = JSON.stringify(data);
+      if (str !== expRef.current) { expRef.current = str; setExpenses(data); }
       setTotal(r.data.total || 0);
       setTotalPages(r.data.totalPages || 1);
       setPage(r.data.page || 1);
@@ -228,4 +233,4 @@ const OfficeTab = ({ onError }) => {
   );
 };
 
-export default OfficeTab;
+export default React.memo(OfficeTab);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Package, ArrowRight, Building2, Search, History, Loader2, 
   ChevronRight, AlertCircle, CheckCircle2, QrCode, SendIcon, 
@@ -10,7 +10,7 @@ import auth from '../services/auth';
 import toast from 'react-hot-toast';
 import './StockTransfer.css';
 
-const StockTransfer = () => {
+const StockTransfer = React.memo(() => {
     const user = auth.getUser();
     const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
     const myBranchId = user?.branch_id;
@@ -21,10 +21,30 @@ const StockTransfer = () => {
     const [saving, setSaving] = useState(false);
     
     // Master data
-    const [branches, setBranches] = useState([]);
-    const [inventory, setInventory] = useState([]);
-    const [history, setHistory] = useState([]);
-    const [requests, setRequests] = useState([]); // All active/pending requests
+    const branchesRef = useRef([]);
+    const [branches, setBranchesState] = useState([]);
+    const setBranches = useCallback((v) => {
+      const n = typeof v === 'function' ? v(branchesRef.current) : v;
+      if (JSON.stringify(branchesRef.current) !== JSON.stringify(n)) { branchesRef.current = n; setBranchesState(n); }
+    }, []);
+    const inventoryRef = useRef([]);
+    const [inventory, setInventoryState] = useState([]);
+    const setInventory = useCallback((v) => {
+      const n = typeof v === 'function' ? v(inventoryRef.current) : v;
+      if (JSON.stringify(inventoryRef.current) !== JSON.stringify(n)) { inventoryRef.current = n; setInventoryState(n); }
+    }, []);
+    const historyRef = useRef([]);
+    const [history, setHistoryState] = useState([]);
+    const setHistory = useCallback((v) => {
+      const n = typeof v === 'function' ? v(historyRef.current) : v;
+      if (JSON.stringify(historyRef.current) !== JSON.stringify(n)) { historyRef.current = n; setHistoryState(n); }
+    }, []);
+    const requestsRef = useRef([]);
+    const [requests, setRequestsState] = useState([]);
+    const setRequests = useCallback((v) => {
+      const n = typeof v === 'function' ? v(requestsRef.current) : v;
+      if (JSON.stringify(requestsRef.current) !== JSON.stringify(n)) { requestsRef.current = n; setRequestsState(n); }
+    }, []);
 
     // Form state
     const [selectedItem, setSelectedItem] = useState(null);
@@ -35,13 +55,18 @@ const StockTransfer = () => {
     const [searchQuery, setSearchQuery] = useState('');
 
     // Availability data
-    const [branchStockMap, setBranchStockMap] = useState({});
+    const branchStockMapRef = useRef({});
+    const [branchStockMap, setBranchStockMapState] = useState({});
+    const setBranchStockMap = useCallback((v) => {
+      const n = typeof v === 'function' ? v(branchStockMapRef.current) : v;
+      if (JSON.stringify(branchStockMapRef.current) !== JSON.stringify(n)) { branchStockMapRef.current = n; setBranchStockMapState(n); }
+    }, []);
 
     useEffect(() => {
         fetchInitialData();
     }, []);
 
-    const fetchInitialData = async () => {
+    const fetchInitialData = useCallback(async () => {
         try {
             setLoading(true);
             const [branchRes, invRes] = await Promise.all([
@@ -55,9 +80,9 @@ const StockTransfer = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const fetchAllData = async () => {
+    const fetchAllData = useCallback(async () => {
         try {
             const res = await api.get('/stock-requests'); 
             const data = res.data || [];
@@ -67,7 +92,7 @@ const StockTransfer = () => {
         } catch (err) {
             console.error('Data fetch failed', err);
         }
-    };
+    }, []);
 
     useEffect(() => {
         if (activeTab === 'history' || activeTab === 'requests') fetchAllData();
@@ -81,7 +106,7 @@ const StockTransfer = () => {
         }
     }, [selectedItem]);
 
-    const fetchBranchAvailability = async (itemId) => {
+    const fetchBranchAvailability = useCallback(async (itemId) => {
         try {
             const res = await api.get(`/branch-stock/${itemId}`);
             const map = res.data.reduce((acc, curr) => {
@@ -92,7 +117,7 @@ const StockTransfer = () => {
         } catch (err) {
             console.error('Failed to fetch branch stock', err);
         }
-    };
+    }, []);
 
     const filteredInventory = useMemo(() => {
         if (!searchQuery) return [];
@@ -102,7 +127,7 @@ const StockTransfer = () => {
         ).slice(0, 10);
     }, [inventory, searchQuery]);
 
-    const handleAction = async () => {
+    const handleAction = useCallback(async () => {
         if (!selectedItem) { toast.error('Please select an item'); return; }
         if (!toBranchId) { toast.error('Please select destination branch'); return; }
         if (transferMode === 'direct' && !fromBranchId) { toast.error('Please select source branch'); return; }
@@ -149,45 +174,45 @@ const StockTransfer = () => {
         } finally {
             setSaving(false);
         }
-    };
+    }, [selectedItem, toBranchId, transferMode, fromBranchId, quantity, branchStockMap, notes]);
 
     // Request Processing Actions
-    const approveRequest = async (id) => {
+    const approveRequest = useCallback(async (id) => {
         try {
             await api.put(`/stock-requests/${id}/approve`, { action: 'approve' });
             toast.success('Request approved');
             fetchAllData();
         } catch (e) { toast.error(e.response?.data?.message || 'Failed to approve'); }
-    }
+    }, [fetchAllData]);
 
-    const rejectRequest = async (id) => {
+    const rejectRequest = useCallback(async (id) => {
         try {
             await api.put(`/stock-requests/${id}/approve`, { action: 'reject' });
             toast.success('Request rejected');
             fetchAllData();
         } catch (e) { toast.error('Failed to reject'); }
-    }
+    }, [fetchAllData]);
 
-    const sendStock = async (id) => {
+    const sendStock = useCallback(async (id) => {
         try {
             await api.put(`/stock-requests/${id}/send`);
             toast.success('Goods dispatched. Source stock updated.');
             fetchAllData();
         } catch (e) { toast.error(e.response?.data?.message || 'Failed to send goods'); }
-    }
+    }, [fetchAllData]);
 
-    const receiveStock = async (id) => {
+    const receiveStock = useCallback(async (id) => {
         try {
             await api.put(`/stock-requests/${id}/receive`);
             toast.success('Goods received. Destination stock updated.');
             fetchAllData();
         } catch (e) { toast.error(e.response?.data?.message || 'Failed to receive goods'); }
-    }
+    }, [fetchAllData]);
 
     if (loading) return <div className="panel flex-center" style={{ minHeight: 400 }}><Loader2 className="animate-spin" size={32} /></div>;
 
-    const inboundReqs = requests.filter(r => String(r.to_branch_id) === String(myBranchId));
-    const outboundReqs = requests.filter(r => String(r.from_branch_id) === String(myBranchId));
+    const inboundReqs = useMemo(() => requests.filter(r => String(r.to_branch_id) === String(myBranchId)), [requests, myBranchId]);
+    const outboundReqs = useMemo(() => requests.filter(r => String(r.from_branch_id) === String(myBranchId)), [requests, myBranchId]);
 
     const getStatusBadge = (status) => {
         let color = 'var(--muted)';
@@ -496,6 +521,6 @@ const StockTransfer = () => {
             )}
         </div>
     );
-};
+});
 
-export default StockTransfer;
+export default React.memo(StockTransfer);

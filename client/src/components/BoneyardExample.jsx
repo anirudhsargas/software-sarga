@@ -1,3 +1,4 @@
+import React from 'react';
 import { Skeleton } from 'boneyard-js/react';
 
 /**
@@ -13,7 +14,7 @@ import { Skeleton } from 'boneyard-js/react';
  * 3. The boneyard plugin will automatically capture the component's structure
  * 4. Bones are saved to ./bones/registry
  */
-export const BoneyardExample = ({ data, isLoading }) => {
+export const BoneyardExample = React.memo(({ data, isLoading }) => {
   return (
     <Skeleton name="example-card" loading={isLoading}>
       {data && (
@@ -24,6 +25,6 @@ export const BoneyardExample = ({ data, isLoading }) => {
       )}
     </Skeleton>
   );
-};
+});
 
 export default BoneyardExample;

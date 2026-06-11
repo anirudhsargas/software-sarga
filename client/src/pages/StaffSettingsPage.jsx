@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Settings as SettingsIcon, UserSquare, Loader2 } from 'lucide-react';
 import './SettingsPage.css';
 import useAuth from '../hooks/useAuth';
@@ -24,7 +24,7 @@ const sidebarOptions = [
     { key: 'internal', label: 'Internal Books' },
 ];
 
-function SidebarVisibilitySettings() {
+const SidebarVisibilitySettings = React.memo(function SidebarVisibilitySettings() {
     const { user, updateUser } = useAuth();
     const [loading, setLoading] = useState(false);
     const [visibleItems, setVisibleItems] = useState(() => {
@@ -36,7 +36,7 @@ function SidebarVisibilitySettings() {
         }
     });
 
-    const toggleItem = async (key) => {
+    const toggleItem = useCallback(async (key) => {
         const oldItems = { ...visibleItems };
         const newVisible = { ...visibleItems, [key]: !visibleItems[key] };
         setVisibleItems(newVisible);
@@ -55,7 +55,7 @@ function SidebarVisibilitySettings() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [visibleItems, user, updateUser]);
 
     return (
         <div className="sp-card">
@@ -81,9 +81,9 @@ function SidebarVisibilitySettings() {
             </div>
         </div>
     );
-}
+});
 
-export default function StaffSettingsPage() {
+export default React.memo(function StaffSettingsPage() {
     const [activeTab, setActiveTab] = useState('profile');
 
     return (
@@ -126,4 +126,4 @@ export default function StaffSettingsPage() {
             </main>
         </div>
     );
-}
+});

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Briefcase, FileText, Search, ChevronDown, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
@@ -11,6 +11,8 @@ const DesignerDashboard = () => {
   const user = auth.getUser();
   const staffId = user?.id;
   const { isOnline } = useOfflineSync();
+  const prevWorkHistoryRef = useRef(null);
+  const prevBranchesRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [workHistory, setWorkHistory] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -28,8 +30,16 @@ const DesignerDashboard = () => {
         localDb.getStaffWorkHistory(staffId),
         localDb.getBranches()
       ]);
-      setWorkHistory(history || []);
-      setBranches(branchList || []);
+      const newHistory = history || [];
+      if (JSON.stringify(newHistory) !== JSON.stringify(prevWorkHistoryRef.current)) {
+        prevWorkHistoryRef.current = newHistory;
+        setWorkHistory(newHistory);
+      }
+      const newBranches = branchList || [];
+      if (JSON.stringify(newBranches) !== JSON.stringify(prevBranchesRef.current)) {
+        prevBranchesRef.current = newBranches;
+        setBranches(newBranches);
+      }
     } catch (err) {
       console.error('Dashboard fetch error:', err);
     } finally {
@@ -53,9 +63,9 @@ const DesignerDashboard = () => {
     return () => window.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [fetchDashboard]);
 
-  const handleJobClick = (jobId) => {
+  const handleJobClick = useCallback((jobId) => {
     navigate(`/dashboard/jobs/${jobId}`);
-  };
+  }, [navigate]);
 
   const getBranchName = useCallback((branchId) => {
     if (!branches || branches.length === 0) return `Branch ${branchId}`;
@@ -529,4 +539,4 @@ const DesignerDashboard = () => {
   );
 };
 
-export default DesignerDashboard;
+export default React.memo(DesignerDashboard);

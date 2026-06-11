@@ -1,31 +1,31 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Loader2, Plus, Edit2, Trash2 } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 
-export default function DeliveryRulesManager() {
+function DeliveryRulesManager() {
   const [rules, setRules] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editRule, setEditRule] = useState(null)
   const [form, setForm] = useState({ product_category: '', service_type: 'standard', base_days: 3, capacity_per_day: 50 })
 
-  useEffect(() => { loadRules() }, [])
-
-  const loadRules = async () => {
+  const loadRules = useCallback(async () => {
     setLoading(true)
     try {
       const res = await api.get('/delivery/rules')
       setRules(res.data.rules || [])
     } catch (e) { toast.error('Failed to load delivery rules') }
     finally { setLoading(false) }
-  }
+  }, [])
 
-  const openNew = () => { setEditRule(null); setForm({ product_category: '', service_type: 'standard', base_days: 3, capacity_per_day: 50 }); setShowForm(true) }
+  useEffect(() => { loadRules() }, [loadRules])
 
-  const openEdit = (r) => { setEditRule(r); setForm({ product_category: r.product_category, service_type: r.service_type, base_days: r.base_days, capacity_per_day: r.capacity_per_day }); setShowForm(true) }
+  const openNew = useCallback(() => { setEditRule(null); setForm({ product_category: '', service_type: 'standard', base_days: 3, capacity_per_day: 50 }); setShowForm(true) }, [])
 
-  const save = async () => {
+  const openEdit = useCallback((r) => { setEditRule(r); setForm({ product_category: r.product_category, service_type: r.service_type, base_days: r.base_days, capacity_per_day: r.capacity_per_day }); setShowForm(true) }, [])
+
+  const save = useCallback(async () => {
     try {
       if (editRule) {
         await api.put(`/delivery/rules/${editRule.id}`, form)
@@ -36,13 +36,13 @@ export default function DeliveryRulesManager() {
       }
       setShowForm(false); loadRules()
     } catch (e) { toast.error('Failed to save') }
-  }
+  }, [])
 
-  const remove = async (id) => {
+  const remove = useCallback(async (id) => {
     if (!confirm('Delete this rule?')) return
     try { await api.delete(`/delivery/rules/${id}`); toast.success('Deleted'); loadRules() }
     catch (e) { toast.error('Failed to delete') }
-  }
+  }, [])
 
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>
 
@@ -83,3 +83,5 @@ export default function DeliveryRulesManager() {
     </div>
   )
 }
+
+export default React.memo(DeliveryRulesManager)

@@ -13,7 +13,7 @@ import {
 import auth from '../services/auth';
 import '../pages/Vendors.css';
 
-const VendorDetail = ({
+const VendorDetail = React.memo(({
   vendor,
   onBack,
   onEditVendor,
@@ -492,6 +492,6 @@ const VendorDetail = ({
       )}
     </div>
   );
-};
+});
 
 export default VendorDetail;

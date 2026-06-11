@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import api from '../services/api';
 import { Calendar, Save, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
-const HolidayCalendar = ({ onSuccess }) => {
+const HolidayCalendar = React.memo(({ onSuccess }) => {
   const [selectedDate, setSelectedDate] = useState('');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
@@ -125,6 +125,6 @@ const HolidayCalendar = ({ onSuccess }) => {
       </form>
     </div>
   );
-};
+});
 
 export default HolidayCalendar;

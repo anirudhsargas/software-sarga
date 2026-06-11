@@ -1,8 +1,9 @@
+import React from 'react';
 import { useRef, useEffect } from 'react';
 import { Phone, Shield, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react';
 import { useOTP } from '../hooks/useOTP';
 
-const OTPVerification = ({
+const OTPVerification = React.memo(({
   onVerified,      // Called with Firebase user when verified
   phoneNumber,     // Pre-fill phone number
   autoSend = false // Auto send OTP on mount
@@ -180,6 +181,6 @@ const OTPVerification = ({
       )}
     </div>
   );
-};
+});
 
 export default OTPVerification;

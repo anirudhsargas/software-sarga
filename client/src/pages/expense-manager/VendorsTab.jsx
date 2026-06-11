@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDebounce } from '../../hooks/useDebounce';
 import {
@@ -103,12 +103,14 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
   const debouncedSearchTerm = useDebounce(searchInput, 300);
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [vendorLedger, setVendorLedger] = useState(null);
+  const ledgerRef = useRef(null);
   const [loadingLedger, setLoadingLedger] = useState(false);
   const [statementFrom, setStatementFrom] = useState('');
   const [statementTo, setStatementTo] = useState('');
   const [fullBillState, setFullBillState] = useState({ open: false, vendorBillId: null });
   // Pagination state
   const [paginatedVendors, setPaginatedVendors] = useState([]);
+  const paginatedVendorsRef = useRef(null);
   const [page, setPage] = useState(1);
   const limit = 20;
   const [total, setTotal] = useState(0);
@@ -170,7 +172,9 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
       params.append('limit', limit);
       if (search) params.append('search', search);
       const r = await api.get(`/vendors?${params.toString()}`);
-      setPaginatedVendors(r.data.data || []);
+      const data = r.data.data || [];
+      const vendStr = JSON.stringify(data);
+      if (vendStr !== paginatedVendorsRef.current) { paginatedVendorsRef.current = vendStr; setPaginatedVendors(data); }
       setTotal(r.data.total || 0);
       setTotalPages(r.data.totalPages || 1);
       setPage(r.data.page || 1);
@@ -207,7 +211,6 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
       }
 
       if (!ledgerData) {
-        // fallback to local DB
         try {
           ledgerData = await localDb.getVendorLedger(vendor.id);
         } catch (err) {
@@ -215,7 +218,6 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
         }
       }
 
-      // filter by date range if provided
       const fromDate = from ? new Date(from) : null;
       const toDate = to ? new Date(new Date(to).setHours(23,59,59,999)) : null;
 
@@ -232,11 +234,12 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
         });
       };
 
-      const rows = filterByRange(ledgerData.rows || ledgerData.rows || [], ['_date','bill_date','payment_date']);
+      const rows = filterByRange(ledgerData.rows || [], ['_date','bill_date','payment_date']);
       const payments = filterByRange(ledgerData.payments || [], ['payment_date','created_at']);
       const purchases = filterByRange(ledgerData.purchases || [], ['bill_date','created_at']);
 
-      setVendorLedger({ rows, payments, purchases });
+      const ledgerStr = JSON.stringify({ rows, payments, purchases });
+      if (ledgerStr !== ledgerRef.current) { ledgerRef.current = ledgerStr; setVendorLedger({ rows, payments, purchases }); }
     } finally { setLoadingLedger(false); }
   }, []);
 
@@ -1400,7 +1403,7 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
         </div>
       )}
     </div>
-  );
+    );
 };
 
-export default VendorsTab;
+export default React.memo(VendorsTab);

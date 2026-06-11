@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../services/api';
 import localDb from '../services/localDb';
@@ -158,7 +158,7 @@ const Billing = () => {
   const matterCameraRef = useRef(null);
   const paymentTimerRef = useRef(null);
 
-  const resetBillingState = () => {
+  const resetBillingState = useCallback(() => {
     setForm({
       type: 'Walk-in',
       mobile: '',
@@ -217,13 +217,12 @@ const Billing = () => {
     setCouponInput('');
     setAppliedCoupon(null);
     setCouponError('');
-  };
+  }, []);
 
-  const loadStaffOptions = async () => {
+  const loadStaffOptions = useCallback(async () => {
     if (staffOptions.length > 0) return;
     try {
       const allStaff = await localDb.getStaff() || [];
-      // Sort: current user's branch staff first
       const userBranchId = auth.getUser()?.branch_id;
       allStaff.sort((a, b) => {
         const aMatch = a.branch_id === userBranchId ? 0 : 1;
@@ -234,9 +233,9 @@ const Billing = () => {
     } catch (err) {
       console.error('Failed to load staff options:', err);
     }
-  };
+  }, [staffOptions]);
 
-  const loadRoleSuggestions = async (jobsToAssign, role) => {
+  const loadRoleSuggestions = useCallback(async (jobsToAssign, role) => {
     if (!role || roleSuggestions[role]) return roleSuggestions[role];
     const productIds = jobsToAssign
       .map((job) => Number(job.product_id))
@@ -250,7 +249,7 @@ const Billing = () => {
     const suggestions = response.data?.suggestions || {};
     setRoleSuggestions((prev) => ({ ...prev, [role]: suggestions }));
     return suggestions;
-  };
+  }, [roleSuggestions]);
 
   useEffect(() => {
     if (!showAssignModal) return;
@@ -493,11 +492,11 @@ const Billing = () => {
     }, 0);
   }, [payment.selectedMethods, payment.methodAmounts]);
 
-  const handleChange = (key, value) => {
+  const handleChange = useCallback((key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  }, []);
 
-  const handleMobileChange = (value) => {
+  const handleMobileChange = useCallback((value) => {
     const cleaned = value.replace(/\D/g, '').slice(0, 10);
     handleChange('mobile', cleaned);
     if (cleaned.length > 0) {
@@ -508,9 +507,9 @@ const Billing = () => {
     } else {
       setFieldErrors((prev) => { const { mobile: _mobile, ...rest } = prev; return rest; });
     }
-  };
+  }, []);
 
-  const handleSelectCustomer = (customer) => {
+  const handleSelectCustomer = useCallback((customer) => {
     setExistingCustomer(customer);
     setCustomerMatches([]);
     setForm((prev) => ({
@@ -522,7 +521,7 @@ const Billing = () => {
       address: customer.address || '',
       gst: customer.gst || ''
     }));
-  };
+  }, []);
 
   const validateEmail = (email) => {
     if (!email) return true;
@@ -595,7 +594,7 @@ const Billing = () => {
     setExistingCustomer(customer);
     return customer;
   };
-  const handleAddOrder = async () => {
+  const handleAddOrder = useCallback(async () => {
     if (!canProceed) {
       setError('Enter required customer details before continuing.');
       return;
@@ -797,7 +796,7 @@ const Billing = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [canProceed, orderLines, totals, isWalkIn, advancePaid, discountRequest, form, payment, isAdmin, selectedBranchId, appliedCoupon, branchUpiId, resetBillingState]);
 
   // Normalize code: remove BOM, trim, remove all whitespace, toUpperCase
   const normalizeCode = (value) => {
@@ -3294,4 +3293,4 @@ const Billing = () => {
   );
 };
 
-export default Billing;
+export default React.memo(Billing);

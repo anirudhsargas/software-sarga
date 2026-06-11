@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../services/api';
 import {
     AlertTriangle, Clock, RefreshCw, ChevronDown, ChevronUp, Printer,
@@ -32,8 +32,7 @@ const formatCurrency = (v) => {
     return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
-// ────────────── Summary Cards ──────────────
-const SummaryCards = ({ summary }) => {
+const SummaryCards = React.memo(({ summary }) => {
     const cards = [
         { label: 'Active Jobs', value: summary.total_active_jobs, icon: <Printer size={18} />, color: 'var(--accent)' },
         { label: 'Critical', value: summary.critical, icon: <AlertTriangle size={18} />, color: 'var(--error)' },
@@ -59,10 +58,9 @@ const SummaryCards = ({ summary }) => {
             ))}
         </div>
     );
-};
+});
 
-// ────────────── Priority Badge ──────────────
-const UrgencyBadge = ({ urgency }) => {
+const UrgencyBadge = React.memo(({ urgency }) => {
     const config = URGENCY_CONFIG[urgency] || URGENCY_CONFIG.medium;
     return (
         <span style={{
@@ -74,10 +72,9 @@ const UrgencyBadge = ({ urgency }) => {
             {config.icon} {config.label}
         </span>
     );
-};
+});
 
-// ────────────── Score Bar ──────────────
-const ScoreBar = ({ score, max = 140 }) => {
+const ScoreBar = React.memo(({ score, max = 140 }) => {
     const pct = Math.min((score / max) * 100, 100);
     const color = score >= 100 ? 'var(--error)' : score >= 75 ? 'var(--warning)' : score >= 50 ? 'var(--muted)' : 'var(--success)';
     return (
@@ -88,20 +85,19 @@ const ScoreBar = ({ score, max = 140 }) => {
             <span style={{ fontSize: '12px', fontWeight: 600, color, fontFamily: "'Space Grotesk', sans-serif", minWidth: '24px' }}>{score}</span>
         </div>
     );
-};
+});
 
-// ────────────── Job Row ──────────────
-const JobRow = ({ job, position, onPriorityChange }) => {
+const JobRow = React.memo(({ job, position, onPriorityChange }) => {
     const [changing, setChanging] = useState(false);
 
-    const handlePriorityChange = async (newPriority) => {
+    const handlePriorityChange = useCallback(async (newPriority) => {
         setChanging(true);
         try {
             await api.post('/job-priority/override', { job_id: job.id, priority: newPriority });
             onPriorityChange();
         } catch { /* ignore */ }
         setChanging(false);
-    };
+    }, [job.id, onPriorityChange]);
 
     const urgencyConfig = URGENCY_CONFIG[job.urgency] || URGENCY_CONFIG.medium;
 
@@ -120,7 +116,6 @@ const JobRow = ({ job, position, onPriorityChange }) => {
             onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
             onMouseLeave={e => e.currentTarget.style.background = job.urgency === 'critical' ? 'rgba(176,58,46,0.03)' : 'transparent'}
         >
-            {/* Position */}
             <div style={{
                 width: '28px', height: '28px', borderRadius: '50%', display: 'flex',
                 alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700,
@@ -131,7 +126,6 @@ const JobRow = ({ job, position, onPriorityChange }) => {
                 {position}
             </div>
 
-            {/* Job info */}
             <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 600, fontSize: '13px' }}>#{job.job_number || job.id}</span>
@@ -146,26 +140,21 @@ const JobRow = ({ job, position, onPriorityChange }) => {
                 </div>
             </div>
 
-            {/* Delivery */}
             <div style={{ fontSize: '12px', color: job.urgency === 'critical' ? 'var(--error)' : 'var(--muted)', fontWeight: job.urgency === 'critical' ? 600 : 400 }}>
                 <CalendarClock size={13} style={{ marginRight: '4px', verticalAlign: '-2px' }} />
                 {formatDate(job.delivery_date)}
             </div>
 
-            {/* Amount */}
             <div style={{ fontSize: '13px', fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
                 {formatCurrency(job.total_amount)}
             </div>
 
-            {/* Quantity */}
             <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
                 {job.quantity} pcs
             </div>
 
-            {/* Score */}
             <ScoreBar score={job.priority_score} />
 
-            {/* Priority Override */}
             <select
                 value={job.priority || 'Medium'}
                 onChange={e => handlePriorityChange(e.target.value)}
@@ -183,19 +172,18 @@ const JobRow = ({ job, position, onPriorityChange }) => {
             </select>
         </div>
     );
-};
+});
 
-// ────────────── Machine Queue Card ──────────────
-const MachineQueueCard = ({ queue, onRefresh }) => {
+const MachineQueueCard = React.memo(({ queue, onRefresh }) => {
     const [expanded, setExpanded] = useState(true);
     const jobCount = queue.jobs.length;
-    const criticalCount = queue.jobs.filter(j => j.urgency === 'critical').length;
-    const highCount = queue.jobs.filter(j => j.urgency === 'high').length;
+    const criticalCount = useMemo(() => queue.jobs.filter(j => j.urgency === 'critical').length, [queue.jobs]);
+    const highCount = useMemo(() => queue.jobs.filter(j => j.urgency === 'high').length, [queue.jobs]);
 
-    const typeColors = {
+    const typeColors = useMemo(() => ({
         'Digital': 'var(--accent)', 'Offset': 'var(--accent-2)', 'Binding': 'var(--success)',
         'Lamination': 'var(--warning)', 'Cutting': 'var(--error)', 'Other': 'var(--muted)'
-    };
+    }), []);
     const machineColor = typeColors[queue.machine_type] || 'var(--muted)';
 
     return (
@@ -203,7 +191,6 @@ const MachineQueueCard = ({ queue, onRefresh }) => {
             background: 'var(--surface)', borderRadius: 'var(--radius)',
             border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '16px'
         }}>
-            {/* Machine Header */}
             <div
                 onClick={() => setExpanded(p => !p)}
                 style={{
@@ -250,11 +237,9 @@ const MachineQueueCard = ({ queue, onRefresh }) => {
                 </div>
             </div>
 
-            {/* Jobs List */}
             {expanded && (
                 jobCount > 0 ? (
                     <div>
-                        {/* Column headers */}
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: '36px 1fr 120px 100px 90px 110px 100px',
@@ -284,13 +269,12 @@ const MachineQueueCard = ({ queue, onRefresh }) => {
             )}
         </div>
     );
-};
+});
 
-// ────────────── Performance Stats Panel ──────────────
-const StatsPanel = ({ stats }) => {
+const StatsPanel = React.memo(({ stats }) => {
     if (!stats) return null;
     const perf = stats.delivery_performance || {};
-    const onTimePct = perf.total_delivered > 0 ? Math.round((perf.on_time / perf.total_delivered) * 100) : 0;
+    const onTimePct = useMemo(() => perf.total_delivered > 0 ? Math.round((perf.on_time / perf.total_delivered) * 100) : 0, [perf]);
 
     return (
         <div style={{
@@ -303,7 +287,6 @@ const StatsPanel = ({ stats }) => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
-                {/* On-time Delivery */}
                 <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--bg)' }}>
                     <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>On-Time Delivery</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
@@ -316,7 +299,6 @@ const StatsPanel = ({ stats }) => {
                     </div>
                 </div>
 
-                {/* Avg Completion by Machine Type */}
                 {(stats.avg_completion_by_type || []).map(m => (
                     <div key={m.machine_type} style={{ padding: '12px', borderRadius: '10px', background: 'var(--bg)' }}>
                         <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>{m.machine_type} Avg</div>
@@ -331,7 +313,6 @@ const StatsPanel = ({ stats }) => {
                     </div>
                 ))}
 
-                {/* Machine Load */}
                 {(stats.machine_load || []).slice(0, 4).map(m => (
                     <div key={m.machine_id} style={{ padding: '12px', borderRadius: '10px', background: 'var(--bg)' }}>
                         <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>{m.machine_name}</div>
@@ -348,9 +329,8 @@ const StatsPanel = ({ stats }) => {
             </div>
         </div>
     );
-};
+});
 
-// ────────────── Main Component ──────────────
 const JobPriority = () => {
     const [data, setData] = useState(null);
     const [stats, setStats] = useState(null);
@@ -360,11 +340,19 @@ const JobPriority = () => {
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [lastUpdate, setLastUpdate] = useState(null);
 
+    const prevDataRef = useRef(null);
+    const prevStatsRef = useRef(null);
+
     const fetchQueue = useCallback(async () => {
         try {
             setError('');
             const res = await api.get('/job-priority/queue');
-            setData(res.data);
+            const next = res.data;
+            const nextStr = JSON.stringify(next);
+            if (nextStr !== prevDataRef.current) {
+                prevDataRef.current = nextStr;
+                setData(next);
+            }
             setLastUpdate(new Date());
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to load priority queue');
@@ -376,7 +364,12 @@ const JobPriority = () => {
     const fetchStats = useCallback(async () => {
         try {
             const res = await api.get('/job-priority/stats?days=30');
-            setStats(res.data);
+            const next = res.data;
+            const nextStr = JSON.stringify(next);
+            if (nextStr !== prevStatsRef.current) {
+                prevStatsRef.current = nextStr;
+                setStats(next);
+            }
         } catch { /* non-critical */ }
     }, []);
 
@@ -385,7 +378,6 @@ const JobPriority = () => {
         fetchStats();
     }, [fetchQueue, fetchStats]);
 
-    // Auto-refresh every 30 seconds
     useEffect(() => {
         if (!autoRefresh) return;
         const interval = setInterval(fetchQueue, 30000);
@@ -398,6 +390,16 @@ const JobPriority = () => {
         return [...fromQueues, ...(data.unassigned || [])].sort((a, b) => b.priority_score - a.priority_score);
     }, [data]);
 
+    const summary = useMemo(() => data?.summary, [data]);
+    const queues = useMemo(() => data?.queues || [], [data]);
+    const unassigned = useMemo(() => data?.unassigned || [], [data]);
+
+    const handleRefresh = useCallback(() => {
+        setLoading(true);
+        fetchQueue();
+        fetchStats();
+    }, [fetchQueue, fetchStats]);
+
     if (loading) {
         return (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: '8px', color: 'var(--muted)' }}>
@@ -408,7 +410,6 @@ const JobPriority = () => {
 
     return (
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
                 <div>
                     <h1 style={{ fontSize: '22px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -445,7 +446,7 @@ const JobPriority = () => {
                         <BarChart3 size={15} /> Stats
                     </button>
 
-                    <button onClick={() => { setLoading(true); fetchQueue(); fetchStats(); }} style={{
+                    <button onClick={handleRefresh} style={{
                         display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
                         borderRadius: '10px', border: 'none', background: 'var(--accent)', color: 'var(--on-accent)',
                         fontSize: '13px', fontWeight: 500, cursor: 'pointer'
@@ -465,13 +466,10 @@ const JobPriority = () => {
                 </div>
             )}
 
-            {/* Summary Cards */}
-            {data?.summary && <SummaryCards summary={data.summary} />}
+            {summary && <SummaryCards summary={summary} />}
 
-            {/* Performance Stats */}
             {showStats && <StatsPanel stats={stats} />}
 
-            {/* Score Legend */}
             <div style={{
                 display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap',
                 padding: '10px 16px', borderRadius: '10px', background: 'var(--surface)',
@@ -501,13 +499,11 @@ const JobPriority = () => {
                 </span>
             </div>
 
-            {/* Machine Queues */}
-            {(data?.queues || []).map(q => (
+            {queues.map(q => (
                 <MachineQueueCard key={q.machine_id} queue={q} onRefresh={fetchQueue} />
             ))}
 
-            {/* Unassigned Jobs */}
-            {data?.unassigned?.length > 0 && (
+            {unassigned.length > 0 && (
                 <div style={{
                     background: 'var(--surface)', borderRadius: 'var(--radius)',
                     border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '16px'
@@ -526,7 +522,7 @@ const JobPriority = () => {
                         <div>
                             <div style={{ fontWeight: 600, fontSize: '14px' }}>Unassigned Jobs</div>
                             <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                                {data.unassigned.length} job{data.unassigned.length !== 1 ? 's' : ''} need machine assignment
+                                {unassigned.length} job{unassigned.length !== 1 ? 's' : ''} need machine assignment
                             </div>
                         </div>
                     </div>
@@ -547,14 +543,13 @@ const JobPriority = () => {
                             <span>AI Score</span>
                             <span>Priority</span>
                         </div>
-                        {data.unassigned.map((job, idx) => (
+                        {unassigned.map((job, idx) => (
                             <JobRow key={job.id} job={job} position={idx + 1} onPriorityChange={fetchQueue} />
                         ))}
                     </div>
                 </div>
             )}
 
-            {/* Empty state */}
             {allJobs.length === 0 && (
                 <div style={{
                     textAlign: 'center', padding: '48px 24px',
@@ -569,4 +564,4 @@ const JobPriority = () => {
     );
 };
 
-export default JobPriority;
+export default React.memo(JobPriority);

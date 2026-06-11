@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import usePolling from '../hooks/usePolling';
 import {
     BookOpen, Printer, Package, RefreshCw, TrendingUp, TrendingDown,
@@ -324,10 +324,9 @@ const DailyReport = () => {
     }, [reportDate]);
 
     // ─── Save Opening Prompt ────────────────────────────────────
-    const handleSavePrompt = async () => {
+    const handleSavePrompt = useCallback(async () => {
         setSavingPrompt(true);
         try {
-            // Save balances — ignore 403 (already locked from a prior attempt)
             for (const bookType of Object.keys(promptBalances)) {
                 try {
                     await api.put('/daily-report/opening-balance', {
@@ -338,7 +337,6 @@ const DailyReport = () => {
                 }
             }
 
-            // Save machine readings — ignore 403 (already locked), fail on others
             for (const m of promptMachines.filter(m => m.opening_count !== '' && m.opening_count !== null)) {
                 try {
                     await api.post(`/machines/${m.id}/readings`, {
@@ -347,6 +345,7 @@ const DailyReport = () => {
                 } catch (err) {
                     if (err.response?.status !== 403) throw err;
                 }
+
             }
 
             setShowOpeningPrompt(false);
@@ -356,7 +355,7 @@ const DailyReport = () => {
             console.error('Error saving opening data:', err);
             toast.error(err.response?.data?.error || 'Failed to save opening data. Please try again.');
         } finally { setSavingPrompt(false); }
-    };
+    }, [reportDate, promptBalances, promptMachines, loadAllData]);
 
     // ─── Fetch Opening Balances ─────────────────────────────────
     const fetchOpeningBalances = useCallback(async () => {
@@ -373,7 +372,7 @@ const DailyReport = () => {
     }, [reportDate, selectedBranch]);
 
     // ─── Save Opening Balance (inline edit) ─────────────────────
-    const saveOpeningBalance = async (bookType, value) => {
+    const saveOpeningBalance = useCallback(async (bookType, value) => {
         try {
             const res = await api.put('/daily-report/opening-balance', {
                 date: reportDate, book_type: bookType, cash_opening: parseFloat(value) || 0, ...branchParam
@@ -392,11 +391,10 @@ const DailyReport = () => {
             }
             setEditingBalance(null);
         }
-    };
+    }, [reportDate, branchParam, loadTabData]);
 
     // ─── Save Machine Reading ───────────────────────────────────
-    const saveMachineReading = async (machineId) => {
-        // Find previous closing count for this machine
+    const saveMachineReading = useCallback(async (machineId) => {
         const machine = laserData.machines.find(m => m.id === machineId);
         const prevClosing = machine?.prev_closing_count !== undefined ? Number(machine.prev_closing_count) : null;
         const enteredOpening = parseInt(machineReadingTemp.opening_count) || 0;
@@ -425,10 +423,10 @@ const DailyReport = () => {
             }
             setEditingMachine(null);
         }
-    };
+    }, [reportDate, laserData, machineReadingTemp, isAdmin, loadTabData]);
 
     // ─── Submit Change Request ──────────────────────────────────
-    const submitChangeRequest = async () => {
+    const submitChangeRequest = useCallback(async () => {
         if (!showChangeRequest) return;
         setSubmittingRequest(true);
         try {
@@ -446,7 +444,7 @@ const DailyReport = () => {
         } catch (err) {
             toast.error(err.response?.data?.error || 'Failed to submit change request');
         } finally { setSubmittingRequest(false); }
-    };
+    }, [showChangeRequest, reportDate, changeRequestValue, changeRequestNote, branchParam]);
 
     // ─── Fetch Attendance Data ──────────────────────────────────
     const fetchAttendanceData = useCallback(async () => {
@@ -599,13 +597,13 @@ const DailyReport = () => {
     const manualRefresh = () => { loadAllData(); };
 
     // Credit totals for today's quick view
-    const creditTotals = (creditTransactions || []).reduce((acc, t) => {
+    const creditTotals = useMemo(() => (creditTransactions || []).reduce((acc, t) => {
         if (!t) return acc;
         const typ = String(t.transaction_type || '').toLowerCase();
         if (typ.includes('in')) acc.in += Number(t.amount || 0);
         else acc.out += Number(t.amount || 0);
         return acc;
-    }, { in: 0, out: 0 });
+    }, { in: 0, out: 0 }), [creditTransactions]);
 
     // ─── PDF Export ─────────────────────────────────────────────
     const generatePDF = () => {
@@ -2045,4 +2043,4 @@ const DailyReport = () => {
     );
 };
 
-export default DailyReport;
+export default React.memo(DailyReport);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { Search, ExternalLink, RefreshCw, Loader2, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
@@ -13,7 +13,7 @@ const STATUSES = [
   { value: 'cancelled', label: 'Cancelled', color: '#c62828' },
 ];
 
-export default function ArtworkManager() {
+function ArtworkManager() {
   const [uploads, setUploads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -63,7 +63,7 @@ export default function ArtworkManager() {
     if (selected) fetchDetail(selected);
   }, [selected, fetchDetail]);
 
-  const handleStatusChange = async (id, status) => {
+  const handleStatusChange = useCallback(async (id, status) => {
     try {
       await api.put(`/artwork/${id}/status`, { status });
       toast.success('Status updated');
@@ -72,9 +72,9 @@ export default function ArtworkManager() {
     } catch (e) {
       toast.error('Failed to update status');
     }
-  };
+  }, [detail, fetchList]);
 
-  const handleAssignDesigner = async (id, designer_id) => {
+  const handleAssignDesigner = useCallback(async (id, designer_id) => {
     try {
       await api.put(`/artwork/${id}/assign-designer`, { designer_id: Number(designer_id) || null });
       toast.success('Designer assigned');
@@ -86,9 +86,9 @@ export default function ArtworkManager() {
     } catch (e) {
       toast.error('Failed to assign designer');
     }
-  };
+  }, [detail, designers, fetchList]);
 
-  const handleSaveNotes = async () => {
+  const handleSaveNotes = useCallback(async () => {
     if (!detail) return;
     try {
       await api.put(`/artwork/${detail.id}/notes`, { notes: detail.notes || '' });
@@ -96,9 +96,9 @@ export default function ArtworkManager() {
     } catch (e) {
       toast.error('Failed to save notes');
     }
-  };
+  }, [detail]);
 
-  const handleDelete = async (id) => {
+  const handleDelete = useCallback(async (id) => {
     if (!window.confirm('Delete this artwork upload and its files?')) return;
     try {
       await api.delete(`/artwork/${id}`);
@@ -108,9 +108,9 @@ export default function ArtworkManager() {
     } catch (e) {
       toast.error('Failed to delete');
     }
-  };
+  }, [selected, fetchList]);
 
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = useMemo(() => Math.ceil(total / limit), [total]);
 
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading artwork uploads...</div>;
 
@@ -297,3 +297,5 @@ export default function ArtworkManager() {
     </div>
   );
 }
+
+export default React.memo(ArtworkManager);

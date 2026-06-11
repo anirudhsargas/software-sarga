@@ -10,7 +10,7 @@ import { Search, Filter, Store, Tag, Eye, Edit, FileText, Trash2, User, Phone, C
 import auth from '../services/auth';
 import '../pages/Vendors.css';
 
-const Vendors = ({ refreshKey = 0 }) => {
+const Vendors = React.memo(({ refreshKey = 0 }) => {
   const navigate = useNavigate();
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
@@ -329,6 +329,6 @@ const Vendors = ({ refreshKey = 0 }) => {
       )}
     </>
   );
-};
+});
 
 export default Vendors;

@@ -3,7 +3,7 @@ import { X, Package, Minus, Plus } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
-export default function PaperSidePanel({ open, onClose }) {
+const PaperSidePanel = React.memo(function PaperSidePanel({ open, onClose }) {
     const [loading, setLoading] = useState(false);
     const [papers, setPapers] = useState([]);
     const [filter, setFilter] = useState('all'); // all | category name
@@ -325,4 +325,6 @@ export default function PaperSidePanel({ open, onClose }) {
             </div>
         </div>
     );
-}
+});
+
+export default PaperSidePanel;
