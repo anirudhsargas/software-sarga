@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Calendar, CreditCard, Receipt, Loader2, Plus, Wallet,
@@ -46,7 +46,7 @@ const CustomerPayments = () => {
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [filterPendingOnly, setFilterPendingOnly] = useState(true);
-  const customerDropdownRef = useRef(null);
+  const customerDropdownRef = React.useRef(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [currentReceiptData, setCurrentReceiptData] = useState(null);
   const [statementRange, setStatementRange] = useState({
@@ -244,14 +244,16 @@ const CustomerPayments = () => {
     return bal < 1 ? 0 : bal;
   };
 
-  const fetchPayments = useCallback(async (page = paymentsPage) => {
+  const fetchPayments = async (page = paymentsPage) => {
     setLoading(true);
     try {
       if (isOnline) {
+        // Fetch from server with pagination
         const res = await api.get('/customer-payments', {
           params: { page, limit: 20 }
         });
         
+        // Handle both raw array and paginated object response
         const data = res.data.data || res.data;
         const total = res.data.total || data.length;
         const totalPages = res.data.totalPages || 1;
@@ -260,6 +262,7 @@ const CustomerPayments = () => {
         setPaymentsTotal(total);
         setPaymentsTotalPages(totalPages);
       } else {
+        // Fetch from local IndexedDB with pagination
         const result = await localDb.getPayments({ 
           type: 'Customer',
           page,
@@ -273,6 +276,7 @@ const CustomerPayments = () => {
     } catch (err) {
       console.error('[CustomerPayments] Fetch error:', err);
       setError('Failed to fetch customer payments');
+      // If server fails, try local as fallback
       try {
         const result = await localDb.getPayments({ type: 'Customer', page, limit: 20 });
         setPayments(result.data || []);
@@ -284,9 +288,9 @@ const CustomerPayments = () => {
     } finally {
       setLoading(false);
     }
-  }, [paymentsPage, isOnline]);
+  };
 
-  const handleVerify = useCallback(async (paymentId, status) => {
+  const handleVerify = async (paymentId, status) => {
     try {
       await api.patch(`/customer-payments/${paymentId}/verify`, { status });
       toast.success(`Payment ${status.toLowerCase()} successfully`);
@@ -294,9 +298,9 @@ const CustomerPayments = () => {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Verification failed');
     }
-  }, [fetchPayments, paymentsPage]);
+  };
 
-  const needsVerification = useCallback((p) => p.payment_method !== 'Cash' && (!p.verification_status || p.verification_status === 'Pending'), []);
+  const needsVerification = (p) => p.payment_method !== 'Cash' && (!p.verification_status || p.verification_status === 'Pending');
 
   const filteredPayments = useMemo(() => {
     if (verifyFilter === 'all') return payments;
@@ -306,16 +310,16 @@ const CustomerPayments = () => {
     return payments;
   }, [payments, verifyFilter]);
 
-  const fetchCustomers = useCallback(async () => {
+  const fetchCustomers = async () => {
     try {
       const data = await localDb.getCustomers();
       setCustomers(data || []);
     } catch {
       setError('Failed to fetch customers from local storage');
     }
-  }, []);
+  };
 
-  const fetchCustomerJobs = useCallback(async (customerId) => {
+  const fetchCustomerJobs = async (customerId) => {
     try {
       const jobs = await localDb.getCustomerJobs(customerId);
       setCustomerJobs(jobs || []);
@@ -334,7 +338,7 @@ const CustomerPayments = () => {
       setCustomerJobs([]);
       setSelectedJobId(null);
     }
-  }, [location.state]);
+  };
 
   const filteredCustomers = useMemo(() => {
     let list = customers;
@@ -349,7 +353,7 @@ const CustomerPayments = () => {
     );
   }, [customers, customerSearch, filterPendingOnly]);
 
-  const handleCustomerSelect = useCallback((customerId) => {
+  const handleCustomerSelect = (customerId) => {
     const selected = customers.find((c) => String(c.id) === String(customerId));
     if (!selected) return;
     setCustomerSearch(selected.name);
@@ -368,7 +372,7 @@ const CustomerPayments = () => {
     }));
     setOrderLines([]);
     fetchCustomerJobs(selected.id);
-  }, [customers, fetchCustomerJobs]);
+  };
 
   const handleReview = (e) => {
     e.preventDefault();
@@ -1522,4 +1526,4 @@ const CustomerPayments = () => {
   );
 };
 
-export default React.memo(CustomerPayments);
+export default CustomerPayments;

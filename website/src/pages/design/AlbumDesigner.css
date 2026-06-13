@@ -279,7 +279,7 @@
 }
 
 .album-designer__color-swatch.active {
-  outline: 2.5px solid var(--accent);
+  outline: 2.5px solid #db2777;
   outline-offset: 3px;
 }
 
@@ -342,8 +342,8 @@
 }
 
 .album-designer__layer-remove:hover {
-  background: rgba(0,0,0,0.06);
-  color: var(--text);
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
 }
 
 .album-designer__layer-empty {

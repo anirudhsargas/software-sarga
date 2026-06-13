@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, Loader2, AlertCircle, X, User, Edit, Trash2 } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
@@ -6,14 +6,9 @@ import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 
-const Requests = React.memo(() => {
+const Requests = () => {
     const { confirm } = useConfirm();
     const user = auth.getUser();
-    const allRequestsRef = useRef([]);
-    const idRequestsRef = useRef([]);
-    const customerRequestsRef = useRef([]);
-    const vendorRequestsRef = useRef([]);
-
     const [idRequests, setIdRequests] = useState([]);
     const [customerRequests, setCustomerRequests] = useState([]);
     const [vendorRequests, setVendorRequests] = useState([]);
@@ -25,53 +20,31 @@ const Requests = React.memo(() => {
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
 
-    const setAllRequestsSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(allRequestsRef.current)) {
-            allRequestsRef.current = data;
-            setAllRequests(data);
+    useEffect(() => {
+        if (user.role === 'Admin') {
+            fetchAllRequests();
+        } else if (user.role === 'Accountant') {
+            fetchDiscountRequestsForAccountant();
+        } else {
+            setFetching(false);
         }
     }, []);
 
-    const setIdRequestsSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(idRequestsRef.current)) {
-            idRequestsRef.current = data;
-            setIdRequests(data);
-        }
-    }, []);
-
-    const setCustomerRequestsSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(customerRequestsRef.current)) {
-            customerRequestsRef.current = data;
-            setCustomerRequests(data);
-        }
-    }, []);
-
-    const setVendorRequestsSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(vendorRequestsRef.current)) {
-            vendorRequestsRef.current = data;
-            setVendorRequests(data);
-        }
-    }, []);
-
-    const fetchDiscountRequestsForAccountant = useCallback(async () => {
+    const fetchDiscountRequestsForAccountant = async () => {
         setFetching(true);
         try {
             const res = await api.get('/requests/discount');
             const dataArray = res.data.data || (Array.isArray(res.data) ? res.data : []);
             const combined = dataArray.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' }));
-            setAllRequestsSmart(combined);
+            setAllRequests(combined);
         } catch (err) {
             console.error('Failed to fetch discount requests:', err);
         } finally {
             setFetching(false);
         }
-    }, [setAllRequestsSmart]);
+    };
 
-    const fetchAllRequests = useCallback(async () => {
+    const fetchAllRequests = async () => {
         setFetching(true);
         try {
             const fallbackResponse = { data: { data: [] } };
@@ -91,9 +64,9 @@ const Requests = React.memo(() => {
             const attendanceData = attendanceResponse.data.data || (Array.isArray(attendanceResponse.data) ? attendanceResponse.data : []);
             const discountData = discountResponse.data.data || (Array.isArray(discountResponse.data) ? discountResponse.data : []);
 
-            setIdRequestsSmart(idData);
-            setCustomerRequestsSmart(customerData);
-            setVendorRequestsSmart(vendorData);
+            setIdRequests(idData);
+            setCustomerRequests(customerData);
+            setVendorRequests(vendorData);
 
             // Combine and sort all requests by created_at
             const combined = [
@@ -105,25 +78,15 @@ const Requests = React.memo(() => {
                 ...discountData.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' }))
             ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-            setAllRequestsSmart(combined);
+            setAllRequests(combined);
         } catch (err) {
             console.error('Failed to fetch requests:', err);
         } finally {
             setFetching(false);
         }
-    }, [setIdRequestsSmart, setCustomerRequestsSmart, setVendorRequestsSmart, setAllRequestsSmart]);
+    };
 
-    useEffect(() => {
-        if (user.role === 'Admin') {
-            fetchAllRequests();
-        } else if (user.role === 'Accountant') {
-            fetchDiscountRequestsForAccountant();
-        } else {
-            setFetching(false);
-        }
-    }, [user.role, fetchAllRequests, fetchDiscountRequestsForAccountant]);
-
-    const handleSubmitRequest = useCallback(async (e) => {
+    const handleSubmitRequest = async (e) => {
         e.preventDefault();
         const isConfirmed = await confirm({
             title: 'Submit Request',
@@ -145,14 +108,14 @@ const Requests = React.memo(() => {
         } finally {
             setLoading(false);
         }
-    }, [newId, confirm]);
+    };
 
-    const handleRowDoubleClick = useCallback((request) => {
+    const handleRowDoubleClick = (request) => {
         setSelectedRequest(request);
         setShowDetailModal(true);
-    }, []);
+    };
 
-    const handleReview = useCallback(async (request, action) => {
+    const handleReview = async (request, action) => {
         const actionUpper = action.toUpperCase();
         const label = actionUpper === 'APPROVE' ? 'Approve' : 'Reject';
         const typeLabel = request.request_type === 'ID_CHANGE'
@@ -203,9 +166,9 @@ const Requests = React.memo(() => {
         } catch (err) {
             toast.error(err.response?.data?.message || 'Action failed');
         }
-    }, [confirm, user.role, fetchDiscountRequestsForAccountant, fetchAllRequests]);
+    };
 
-    const getRequestTypeBadge = useCallback((type) => {
+    const getRequestTypeBadge = (type) => {
         if (type === 'ID_CHANGE') {
             return <span className="badge" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent)' }}>ID Change</span>;
         }
@@ -225,7 +188,7 @@ const Requests = React.memo(() => {
             return <span className="badge" style={{ backgroundColor: 'var(--warning)', color: 'var(--on-accent)' }}>Discount Approval</span>;
         }
         return <span className="badge">{type}</span>;
-    }, [selectedRequest?.action]);
+    };
 
     if (user.role !== 'Admin' && user.role !== 'Accountant') {
         return (
@@ -602,6 +565,6 @@ const Requests = React.memo(() => {
             )}
         </div>
     );
-});
+};
 
 export default Requests;

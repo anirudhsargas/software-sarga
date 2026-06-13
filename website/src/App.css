@@ -4,14 +4,9 @@
   min-height: 100vh;
 }
 
-.app-main {
+.main-content {
   flex: 1;
-  padding-top: 90px; /* Navbar height + breathing room */
-}
-
-.app-main.home-mode,
-.app-main.design-mode {
-  padding-top: 0;
+  padding-top: 72px; /* Navbar height */
 }
 
 /* Smooth page content transitions */

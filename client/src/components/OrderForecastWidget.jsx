@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import useScrollAnimation from '../hooks/useScrollAnimation';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { TrendingUp, Calendar } from 'lucide-react';
@@ -9,14 +9,13 @@ const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 
 const BAR_COLOR = 'var(--primary, #6366f1)';
 const PEAK_COLOR = '#f59e0b';
 
-const OrderForecastWidget = React.memo(({ branchId }) => {
+const OrderForecastWidget = ({ branchId }) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
 
     // Call hooks unconditionally to preserve hook ordering across renders
     const ref = useScrollAnimation({ stagger: true, staggerSelector: 'div > *' });
-    const prevDataRef = useRef(null);
 
     useEffect(() => {
         (async () => {
@@ -28,10 +27,7 @@ const OrderForecastWidget = React.memo(({ branchId }) => {
                         horizon: 7 
                     } 
                 });
-                if (JSON.stringify(res.data) !== JSON.stringify(prevDataRef.current)) {
-                    setData(res.data);
-                    prevDataRef.current = res.data;
-                }
+                setData(res.data);
                 setError(false);
             } catch {
                 setError(true);
@@ -41,24 +37,23 @@ const OrderForecastWidget = React.memo(({ branchId }) => {
         })();
     }, [branchId]);
 
-    const predictions = data?.predictions || [];
-    const peakDay = data?.peak_day_this_week;
-    const modelType = data?.model_type;
+    if (loading) return <SkeletonLoader />;
+    if (error || !data) return null;
 
-    const dayMap = useMemo(() => {
-        const map = {};
-        for (const p of predictions) {
-            if (!map[p.date]) {
-                map[p.date] = { date: p.date, predicted_orders: 0, low: 0, high: 0 };
-            }
-            map[p.date].predicted_orders += p.predicted_orders;
-            map[p.date].low += p.confidence_interval?.[0] || 0;
-            map[p.date].high += p.confidence_interval?.[1] || 0;
+    const { predictions = [], peak_day_this_week: peak, model_type } = data;
+
+    // Aggregate across branches per day
+    const dayMap = {};
+    for (const p of predictions) {
+        if (!dayMap[p.date]) {
+            dayMap[p.date] = { date: p.date, predicted_orders: 0, low: 0, high: 0 };
         }
-        return map;
-    }, [predictions]);
+        dayMap[p.date].predicted_orders += p.predicted_orders;
+        dayMap[p.date].low += p.confidence_interval?.[0] || 0;
+        dayMap[p.date].high += p.confidence_interval?.[1] || 0;
+    }
 
-    const chartData = useMemo(() => Object.values(dayMap)
+    const chartData = Object.values(dayMap)
         .sort((a, b) => a.date.localeCompare(b.date))
         .map(d => {
             const dt = new Date(d.date + 'T00:00:00');
@@ -68,32 +63,26 @@ const OrderForecastWidget = React.memo(({ branchId }) => {
                 fullDay: FULL_DAY_NAMES[dt.getDay()],
                 dateStr: `${dt.getDate()}/${dt.getMonth() + 1}`,
                 predicted_orders: Math.round(d.predicted_orders),
-                isPeak: peakDay && d.date === peakDay.date,
+                isPeak: peak && d.date === peak.date,
             };
-        }), [dayMap, peakDay]);
+        });
 
-    const peakEntry = useMemo(() => chartData.find(d => d.isPeak), [chartData]);
-    const peakLabel = useMemo(() => peakEntry
+    const peakEntry = chartData.find(d => d.isPeak);
+    const peakLabel = peakEntry
         ? `${peakEntry.fullDay} · ~${peakEntry.predicted_orders} jobs expected`
-        : null, [peakEntry]);
+        : null;
 
     // Per-branch forecasts for the cards
-    const branchGroups = useMemo(() => {
-        const groups = {};
-        for (const p of predictions) {
-            const key = p.branch_id;
-            if (!groups[key]) {
-                groups[key] = { branch_id: key, branch_name: p.branch_name || `Branch ${key}`, branch_short: p.branch_short, total: 0, days: [] };
-            }
-            groups[key].total += p.predicted_orders;
-            groups[key].days.push(p);
+    const branchGroups = {};
+    for (const p of predictions) {
+        const key = p.branch_id;
+        if (!branchGroups[key]) {
+            branchGroups[key] = { branch_id: key, branch_name: p.branch_name || `Branch ${key}`, branch_short: p.branch_short, total: 0, days: [] };
         }
-        return groups;
-    }, [predictions]);
-    const branchCards = useMemo(() => Object.values(branchGroups), [branchGroups]);
-
-    if (loading) return <SkeletonLoader />;
-    if (error || !data) return null;
+        branchGroups[key].total += p.predicted_orders;
+        branchGroups[key].days.push(p);
+    }
+    const branchCards = Object.values(branchGroups);
 
     return (
         <section ref={ref} className="summary-section animate-fade-up" style={{ marginTop: 24 }}>
@@ -101,7 +90,7 @@ const OrderForecastWidget = React.memo(({ branchId }) => {
                 <div>
                     <h2 className="section-title">Order Forecast — Next 7 Days</h2>
                     <p className="section-subtitle">
-                        {modelType ? `${modelType} model` : 'AI prediction'}
+                        {model_type ? `${model_type} model` : 'AI prediction'}
                         {data.model_accuracy != null && <> · MAE {data.model_accuracy}</>}
                     </p>
                 </div>
@@ -109,8 +98,8 @@ const OrderForecastWidget = React.memo(({ branchId }) => {
             </div>
 
             {/* Chart */}
-            <div style={{ width: '100%', height: 220, marginBottom: 4 }}>
-                <ResponsiveContainer width="100%" height="100%">
+            <div style={{ width: '100%', height: 220, marginBottom: 4, minWidth: 0 }}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border, #e5e7eb)" />
                         <XAxis
@@ -190,9 +179,9 @@ const OrderForecastWidget = React.memo(({ branchId }) => {
             )}
         </section>
     );
-});
+};
 
-const SkeletonLoader = React.memo(() => (
+const SkeletonLoader = () => (
     <section className="summary-section animate-fade-up" style={{ marginTop: 24 }}>
         <div className="summary-section__header">
             <div>
@@ -221,6 +210,6 @@ const SkeletonLoader = React.memo(() => (
             ))}
         </div>
     </section>
-));
+);
 
 export default OrderForecastWidget;

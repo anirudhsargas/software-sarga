@@ -4,7 +4,7 @@ import { Printer, X, CheckCircle, Smartphone, Banknote, FileText, Building2 } fr
 import './ReceiptModal.css';
 import { normalizeToE164 } from '../utils/phone';
 
-const ReceiptModal = React.memo(({ isOpen, onClose, paymentData, branchInfo }) => {
+const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
     React.useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -185,6 +185,6 @@ const ReceiptModal = React.memo(({ isOpen, onClose, paymentData, branchInfo }) =
     );
 
     return createPortal(modalContent, document.body);
-});
+};
 
 export default ReceiptModal;

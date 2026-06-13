@@ -11,7 +11,7 @@ import { useOnlineStatus } from '../hooks/useOffline';
  *     <AIMonitoring />
  *   </RequiresConnection>
  */
-const RequiresConnection = React.memo(({ children, feature = 'This feature' }) => {
+const RequiresConnection = ({ children, feature = 'This feature' }) => {
     const isOnline = useOnlineStatus();
 
     if (!isOnline) {
@@ -55,6 +55,6 @@ const RequiresConnection = React.memo(({ children, feature = 'This feature' }) =
     }
 
     return children;
-});
+};
 
 export default RequiresConnection;

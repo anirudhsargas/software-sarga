@@ -10,10 +10,9 @@ import {
   Phone, Mail, MapPin, Calendar, 
   ShieldCheck, AlertCircle, Info, ChevronRight 
 } from 'lucide-react';
-import auth from '../services/auth';
 import '../pages/Vendors.css';
 
-const VendorDetail = React.memo(({
+const VendorDetail = ({
   vendor,
   onBack,
   onEditVendor,
@@ -22,9 +21,6 @@ const VendorDetail = React.memo(({
   getStatusBadge
 }) => {
   const { id: routeId } = useParams();
-  const user = auth.getUser();
-  const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
-  const isOnlyAdmin = user?.role === 'Admin';
   const vendorId = vendor?.id || routeId;
   const [vendorDetails, setVendorDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -232,16 +228,12 @@ const VendorDetail = React.memo(({
           <button onClick={handleAddInvoice} className="btn btn-primary btn-sm">
             <Plus size={16} /> New Invoice
           </button>
-          {isAdmin && (
-            <button onClick={() => onEditVendor(details)} className="btn btn-ghost btn-sm">
-              <Edit size={16} /> Edit Profile
-            </button>
-          )}
-          {isOnlyAdmin && (
-            <button onClick={() => onDeleteVendor(details.id)} className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }}>
-              <Trash2 size={16} /> Terminate
-            </button>
-          )}
+          <button onClick={() => onEditVendor(details)} className="btn btn-ghost btn-sm">
+            <Edit size={16} /> Edit Profile
+          </button>
+          <button onClick={() => onDeleteVendor(details.id)} className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }}>
+            <Trash2 size={16} /> Terminate
+          </button>
         </div>
       </div>
 
@@ -492,6 +484,6 @@ const VendorDetail = React.memo(({
       )}
     </div>
   );
-});
+};
 
 export default VendorDetail;

@@ -37,12 +37,9 @@ const useApiRequest = (url, options = {}) => {
 
       const responseData = response.data || null;
       
-      // Only update state if data actually changed (prevents unnecessary re-renders on polling)
-      if (JSON.stringify(responseData) !== JSON.stringify(lastDataRef.current)) {
-        setData(responseData);
-        lastDataRef.current = responseData;
-        setLastUpdated(new Date());
-      }
+      setData(responseData);
+      lastDataRef.current = responseData;
+      setLastUpdated(new Date());
       setError(false);
 
       return responseData;

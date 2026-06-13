@@ -3,8 +3,7 @@ import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store,
-    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare, Star, Upload,
-    Image, Calendar, Truck, Globe, Calculator
+    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
@@ -32,6 +31,7 @@ const ProductLibrary = React.lazy(() => import('./ProductLibrary'));
 const ProductRequests = React.lazy(() => import('./ProductRequests'));
 const IDChangeRequests = React.lazy(() => import('./Requests'));
 const Inventory = React.lazy(() => import('./Inventory'));
+const InventoryLayout = React.lazy(() => import('./InventoryLayout'));
 const InventoryOverview = React.lazy(() => import('./InventoryOverview'));
 const Branches = React.lazy(() => import('./Branches'));
 const CustomerPayments = React.lazy(() => import('./CustomerPayments'));
@@ -80,154 +80,11 @@ const Quotes = React.lazy(() => import('./Quotes'));
 const SettingsPage = React.lazy(() => import('./SettingsPage'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
 const ChatbotTraining = React.lazy(() => import('./admin/ChatbotTraining'));
-const WebInquiries = React.lazy(() => import('./WebInquiries'));
-const ReviewsManagement = React.lazy(() => import('./admin/ReviewsManagement'));
-const BlogCMS = React.lazy(() => import('./BlogCMS'));
-const ArtworkManager = React.lazy(() => import('./admin/ArtworkManager'));
-const PortfolioManager = React.lazy(() => import('./admin/PortfolioManager'));
-const PromotionsManager = React.lazy(() => import('./admin/PromotionsManager'));
-const PickupBookings = React.lazy(() => import('./admin/PickupBookings'));
-const DeliveryRulesManager = React.lazy(() => import('./admin/DeliveryRulesManager'));
-const TranslationsManager = React.lazy(() => import('./admin/TranslationsManager'));
-const SampleRequestsCMS = React.lazy(() => import('./SampleRequestsCMS'));
-const DesignBookingsCMS = React.lazy(() => import('./DesignBookingsCMS'));
-const RateCalculator = React.lazy(() => import('./RateCalculator'));
-
-const PageLoader = React.memo(() => (
+const PageLoader = () => (
     <div className="page-loader">
         <Loader2 size={20} className="animate-spin" /> Loading...
     </div>
-));
-
-const SuspenseFallback = () => {
-    const location = useLocation();
-    const path = location.pathname || '';
-    // Jobs table skeleton
-    if (path.includes('/dashboard/jobs')) {
-        const cols = [
-            { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
-            { key: 'customer', header: 'Customer', width: '1.5fr', lines: 2 },
-            { key: 'branch', header: 'Branch', width: '1fr' },
-            { key: 'status', header: 'Status', width: '1fr', pill: true },
-            { key: 'production', header: 'Production', width: '1fr', lines: 2 },
-            { key: 'delivery', header: 'Delivery', width: '1fr' },
-            { key: 'actions', header: 'Actions', width: '0.8fr' }
-        ];
-        return (
-            <div className="skeleton-wrapper skeleton-wrapper--table">
-                <SkeletonLoader type="table" count={6} columns={cols} />
-            </div>
-        );
-    }
-
-    // Customers list skeleton
-    if (path.includes('/dashboard/customers')) {
-        return (
-            <div className="skeleton-wrapper skeleton-wrapper--list">
-                <SkeletonLoader type="customer-list" count={8} />
-            </div>
-        );
-    }
-
-    // Billing skeleton
-    if (path.includes('/dashboard/billing')) {
-        return (
-            <div className="skeleton-wrapper skeleton-wrapper--table">
-                <SkeletonLoader type="form" />
-            </div>
-        );
-    }
-
-    // Default dashboard home skeleton
-    if (path === '/dashboard' || path === '/dashboard/') {
-        return (
-            <div className="skeleton-wrapper skeleton-wrapper--list">
-                <SkeletonLoader type="cards" count={4} />
-            </div>
-        );
-    }
-
-    return <PageLoader />;
-};
-
-const DashboardHome = React.memo(() => {
-    const { user } = useAuth();
-    if (!user?.role) return <Summary />;
-    if (user.role === 'Admin') return <Summary />;
-    if (user.role === 'Front Office') return <FrontOffice />;
-    if (user.role === 'Accountant') return <AccountantDashboard />;
-    if (user.role === 'Other Staff') return <OtherStaffDashboard />;
-    if (user.role === 'Designer') return <DesignerDashboard />;
-    return <Jobs />;
-});
-
-const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, chatbotUnlabeledCount }) => (
-    <NavLink
-        to={item.path}
-        end={item.path === '/dashboard'}
-        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-        onClick={closeSidebar}
-        title={item.name}
-    >
-        <div className="nav-item-inner">
-            <item.icon size={20} />
-            <span className="nav-label">{item.name}</span>
-            {item.name === 'Requests' && pendingRequestsCount > 0 && (
-                <span className="side-badge">{pendingRequestsCount}</span>
-            )}
-            {item.path === '/dashboard/admin/chatbot-training' && chatbotUnlabeledCount > 0 && (
-                <span className="side-badge">{chatbotUnlabeledCount}</span>
-            )}
-        </div>
-    </NavLink>
-));
-
-const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleGroup, closeSidebar, pendingRequestsCount, chatbotUnlabeledCount }) => {
-    const showLabel = group.label && group.items.length > 1;
-    return (
-        <div className="sidebar-group">
-            {showLabel && (
-                <button className="sidebar-group-toggle" onClick={() => toggleGroup(group.key)}>
-                    <span className="sidebar-group-label">{group.label}</span>
-                    <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} />
-                </button>
-            )}
-            {(!isCollapsed || sidebarCollapsed) && group.items.map(item => (
-                <SidebarNavItem key={item.name} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} />
-            ))}
-        </div>
-    );
-});
-
-const SimpleNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount }) => (
-    <NavLink
-        to={item.path}
-        end={item.path === '/dashboard'}
-        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-        onClick={closeSidebar}
-        title={item.name}
-    >
-        <div className="nav-item-inner">
-            <item.icon size={20} />
-            <span className="nav-label">{item.name}</span>
-            {item.name === 'Requests' && pendingRequestsCount > 0 && (
-                <span className="side-badge">{pendingRequestsCount}</span>
-            )}
-        </div>
-    </NavLink>
-));
-
-const sidebarGroupDefs = [
-    { key: 'main', label: null },
-    { key: 'business', label: 'Business' },
-    { key: 'inventory', label: 'Inventory' },
-    { key: 'internal', label: 'Internal' },
-    { key: 'finance', label: 'Finance' },
-    { key: 'manage', label: 'Administration' },
-    { key: 'analytics', label: 'Analytics' },
-    { key: 'operations', label: 'Operations' },
-    { key: 'website', label: 'Website' },
-];
+);
 
 const Dashboard = () => {
     const { user, logout, updateUser } = useAuth();
@@ -259,23 +116,23 @@ const Dashboard = () => {
     const [showPaperPanel, setShowPaperPanel] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
     const [anomalyCount, setAnomalyCount] = useState(0);
+
     const [companyInfo, setCompanyInfo] = useState({ name: 'SARGA', logo: null });
 
     const fetchCompanyInfo = useCallback(async () => {
         try {
             const { data } = await api.get('/company-settings');
             if (data?.company_name) {
-                setCompanyInfo(prev => {
-                    const next = { name: data.company_name.toUpperCase(), logo: data.company_logo_url };
-                    if (prev.name === next.name && prev.logo === next.logo) return prev;
-                    return next;
+                setCompanyInfo({
+                    name: data.company_name.toUpperCase(),
+                    logo: data.company_logo_url
                 });
             }
         } catch (err) { /* ignore */ }
     }, []);
 
-    const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
-    const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+    const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+    const closeSidebar = () => setSidebarOpen(false);
 
     // On tablets/phones, keep sidebar expanded so labels are always visible.
     useEffect(() => {
@@ -292,7 +149,57 @@ const Dashboard = () => {
 
     const { t } = useTranslation();
 
-    const menuItems = useMemo(() => [
+    const SuspenseFallback = () => {
+        const path = location.pathname || '';
+        // Jobs table skeleton
+        if (path.includes('/dashboard/jobs')) {
+            const cols = [
+                { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
+                { key: 'customer', header: 'Customer', width: '1.5fr', lines: 2 },
+                { key: 'branch', header: 'Branch', width: '1fr' },
+                { key: 'status', header: 'Status', width: '1fr', pill: true },
+                { key: 'production', header: 'Production', width: '1fr', lines: 2 },
+                { key: 'delivery', header: 'Delivery', width: '1fr' },
+                { key: 'actions', header: 'Actions', width: '0.8fr' }
+            ];
+            return (
+                <div className="skeleton-wrapper skeleton-wrapper--table">
+                    <SkeletonLoader type="table" count={6} columns={cols} />
+                </div>
+            );
+        }
+
+        // Customers list skeleton
+        if (path.includes('/dashboard/customers')) {
+            return (
+                <div className="skeleton-wrapper skeleton-wrapper--list">
+                    <SkeletonLoader type="customer-list" count={8} />
+                </div>
+            );
+        }
+
+        // Billing skeleton
+        if (path.includes('/dashboard/billing')) {
+            return (
+                <div className="skeleton-wrapper skeleton-wrapper--table">
+                    <SkeletonLoader type="form" />
+                </div>
+            );
+        }
+
+        // Default dashboard home skeleton
+        if (path === '/dashboard' || path === '/dashboard/') {
+            return (
+                <div className="skeleton-wrapper skeleton-wrapper--list">
+                    <SkeletonLoader type="cards" count={4} />
+                </div>
+            );
+        }
+
+        return PageLoader();
+    };
+
+    const menuItems = [
         // Main dashboards
         { key: 'dashboard', name: t('summary', 'Summary'), icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
         { key: 'dashboard', name: t('front_office', 'Front Office'), icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
@@ -305,8 +212,6 @@ const Dashboard = () => {
         { key: 'customers', name: t('customer_payments', 'Customer Payments'), icon: Receipt, path: '/dashboard/customer-payments', roles: ['Admin', 'Front Office'], group: 'business' },
         // Inventory & Operations
         { key: 'inventory', name: t('inventory', 'Inventory'), icon: Box, path: '/dashboard/inventory', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
-        { key: 'inventory', name: t('paper_inventory', 'Paper Inventory'), icon: FileText, path: '/dashboard/paper/stock', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
-        { key: 'inventory', name: t('inventory', 'Consumables Inventory'), icon: Package, path: '/dashboard/inventory/consumables', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
         { key: 'operations', name: t('stock_verification', 'Stock Verification'), icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'operations' },
         { key: 'operations', name: t('stock_planning', 'Stock Planning'), icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
         { key: 'operations', name: t('product_library', 'Product Library'), icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'operations' },
@@ -315,7 +220,6 @@ const Dashboard = () => {
         { key: 'operations', name: t('machine_management', 'Machine Management'), icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'operations' },
         { key: 'operations', name: t('paper_layout', 'Paper Layout'), icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'operations' },
         { key: 'operations', name: t('production_tracker', 'Production Tracker'), icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'operations' },
-        { key: 'operations', name: 'Rate Calculator', icon: Calculator, path: '/dashboard/rate-calculator', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
         // Staff & HR
         { key: 'manage', name: t('staff', 'Staff'), icon: Users, path: '/dashboard/staff', roles: ['Front Office'], group: 'manage' },
         { key: 'manage', name: t('staff_management', 'Staff Management'), icon: Users, path: '/dashboard/staff', roles: ['Admin', 'Accountant'], group: 'manage' },
@@ -343,19 +247,8 @@ const Dashboard = () => {
         { key: 'billing', name: t('quotes_estimates', 'Quotes & Estimates'), icon: Receipt, path: '/dashboard/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
         { key: 'finance', name: t('recurring_invoices', 'Recurring Invoices'), icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'finance' },
         { key: 'manage', name: t('settings', 'Settings'), icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'manage' },
-        { key: 'manage', name: 'Chatbot Training', icon: Brain, path: '/dashboard/admin/chatbot-training', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Reviews', icon: Star, path: '/dashboard/admin/reviews', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Artwork Uploads', icon: Upload, path: '/dashboard/admin/artwork', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Portfolio', icon: Image, path: '/dashboard/admin/portfolio', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Promotions', icon: Tag, path: '/dashboard/admin/promotions', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Pickup Bookings', icon: Calendar, path: '/dashboard/admin/pickup-bookings', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Delivery Rules', icon: Truck, path: '/dashboard/admin/delivery-rules', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Translations', icon: Globe, path: '/dashboard/admin/translations', roles: ['Admin'], group: 'website' },
-        { key: 'operations', name: 'Web Inquiries', icon: MessageSquare, path: '/dashboard/web-inquiries', roles: ['Admin', 'Front Office'], group: 'website' },
-        { key: 'operations', name: 'Blog Journal CMS', icon: BookOpen, path: '/dashboard/blog-cms', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
-        { key: 'sample_requests', name: 'Sample Requests', icon: FileCheck, path: '/dashboard/sample-requests', roles: ['Admin', 'Front Office', 'Accountant'], group: 'website' },
-        { key: 'design_bookings', name: 'Design Bookings', icon: ClipboardList, path: '/dashboard/design-bookings', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
-    ], [t]);
+        { key: 'manage', name: '🤖 Chatbot Training', icon: Brain, path: '/dashboard/admin/chatbot-training', roles: ['Admin'], group: 'manage' },
+    ];
 
     const filteredMenu = useMemo(() => {
         let items = menuItems.filter(item => item.roles.includes(user?.role));
@@ -375,7 +268,19 @@ const Dashboard = () => {
             }
         }
         return items;
-    }, [user, menuItems]);
+    }, [user, t]);
+
+    // Collapsible sidebar groups for Admin
+    const sidebarGroupDefs = [
+        { key: 'main', label: null },
+        { key: 'business', label: 'Business' },
+        { key: 'inventory', label: 'Inventory' },
+        { key: 'internal', label: 'Internal' },
+        { key: 'finance', label: 'Finance' },
+        { key: 'manage', label: 'Administration' },
+        { key: 'analytics', label: 'Analytics' },
+        { key: 'operations', label: 'Operations' },
+    ];
 
     const [collapsedGroups, setCollapsedGroups] = useState(() => {
         try {
@@ -458,7 +363,7 @@ const Dashboard = () => {
         return () => document.removeEventListener('keydown', handleScannerKey);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const handleInventoryScan = useCallback(async (scannedCode) => {
+    const handleInventoryScan = async (scannedCode) => {
         setShowInventoryScan(false);
         setInventoryScanLoading(true);
         setInventoryScanResult(null);
@@ -471,39 +376,32 @@ const Dashboard = () => {
         } finally {
             setInventoryScanLoading(false);
         }
-    }, []);
+    };
 
-    const handleLogout = useCallback(() => {
+    const handleLogout = () => {
         logout();
         navigate('/login', { replace: true });
-    }, [logout, navigate]);
+    };
 
-    const fetchPendingCount = useCallback(async () => {
+    const fetchPendingCount = async () => {
         if (user?.role !== 'Admin' && user?.role !== 'Accountant') return;
         try {
             const response = await api.get('/requests/pending-count');
-            setPendingRequestsCount(prev => {
-                if (prev === response.data.pending_count) return prev;
-                return response.data.pending_count;
-            });
+            setPendingRequestsCount(response.data.pending_count);
         } catch (err) {
             console.error('Failed to fetch pending requests count:', err);
         }
-    }, [user?.role]);
+    };
 
-    const fetchChatbotCounts = useCallback(async () => {
+    const fetchChatbotCounts = async () => {
         if (user?.role !== 'Admin') return;
         try {
             const res = await api.get('chatbot/model-status');
-            setChatbotUnlabeledCount(prev => {
-                const next = res.data.unlabeled || 0;
-                if (prev === next) return prev;
-                return next;
-            });
+            setChatbotUnlabeledCount(res.data.unlabeled || 0);
         } catch (e) {
             // ignore
         }
-    }, [user?.role]);
+    };
 
     useEffect(() => {
         if (!showProfileModal) return;
@@ -558,7 +456,7 @@ const Dashboard = () => {
         return () => window.removeEventListener('companySettingsUpdated', fetchCompanyInfo);
     }, [fetchCompanyInfo]);
 
-    const handleProfileSave = useCallback(async (e) => {
+    const handleProfileSave = async (e) => {
         e.preventDefault();
         setProfileSaving(true);
         try {
@@ -577,9 +475,9 @@ const Dashboard = () => {
         } finally {
             setProfileSaving(false);
         }
-    }, [profileName, profileImage, user, updateUser]);
+    };
 
-    const handleRemoveProfileImage = useCallback(async () => {
+    const handleRemoveProfileImage = async () => {
         const isConfirmed = await confirm({
             title: 'Remove Profile Photo',
             message: 'Remove your profile photo?',
@@ -601,21 +499,31 @@ const Dashboard = () => {
         } finally {
             setProfileSaving(false);
         }
-    }, [confirm, user, updateUser]);
+    };
 
-    const openCropper = useCallback((file) => {
+    const openCropper = (file) => {
         if (!file) return;
         setCropState({ file });
-    }, []);
+    };
 
-    const handleCropCancel = useCallback(() => {
+    const DashboardHome = () => {
+        if (!user?.role) return <Summary />;
+        if (user.role === 'Admin') return <Summary />;
+        if (user.role === 'Front Office') return <FrontOffice />;
+        if (user.role === 'Accountant') return <AccountantDashboard />;
+        if (user.role === 'Other Staff') return <OtherStaffDashboard />;
+        if (user.role === 'Designer') return <DesignerDashboard />;
+        return <Jobs />;
+    };
+
+    const handleCropCancel = () => {
         setCropState(null);
-    }, []);
+    };
 
-    const handleCropComplete = useCallback((croppedFile) => {
+    const handleCropComplete = (croppedFile) => {
         setProfileImage(croppedFile);
         setCropState(null);
-    }, []);
+    };
 
     return (
         <div className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
@@ -650,12 +558,58 @@ const Dashboard = () => {
                             const showLabel = group.label && group.items.length > 1;
                             const isCollapsed = showLabel && collapsedGroups.has(group.key);
                             return (
-                                <SidebarGroup key={group.key} group={group} isCollapsed={isCollapsed} sidebarCollapsed={sidebarCollapsed} toggleGroup={toggleGroup} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} />
+                                <div key={group.key} className="sidebar-group">
+                                    {showLabel && (
+                                        <button
+                                            className="sidebar-group-toggle"
+                                            onClick={() => toggleGroup(group.key)}
+                                        >
+                                            <span className="sidebar-group-label">{group.label}</span>
+                                            <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} />
+                                        </button>
+                                    )}
+                                    {(!isCollapsed || sidebarCollapsed) && group.items.map(item => (
+                                        <NavLink
+                                            key={item.name}
+                                            to={item.path}
+                                            end={item.path === '/dashboard'}
+                                            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                                            onClick={closeSidebar}
+                                            title={item.name}
+                                        >
+                                            <div className="nav-item-inner">
+                                                <item.icon size={20} />
+                                                <span className="nav-label">{item.name}</span>
+                                                    {item.name === 'Requests' && pendingRequestsCount > 0 && (
+                                                        <span className="side-badge">{pendingRequestsCount}</span>
+                                                    )}
+                                                    {item.path === '/dashboard/admin/chatbot-training' && chatbotUnlabeledCount > 0 && (
+                                                        <span className="side-badge">{chatbotUnlabeledCount}</span>
+                                                    )}
+                                            </div>
+                                        </NavLink>
+                                    ))}
+                                </div>
                             );
                         })
                     ) : (
                         filteredMenu.map(item => (
-                            <SimpleNavItem key={item.path} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} />
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                end={item.path === '/dashboard'}
+                                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                                onClick={closeSidebar}
+                                title={item.name}
+                            >
+                                <div className="nav-item-inner">
+                                    <item.icon size={20} />
+                                    <span className="nav-label">{item.name}</span>
+                                    {item.name === 'Requests' && pendingRequestsCount > 0 && (
+                                        <span className="side-badge">{pendingRequestsCount}</span>
+                                    )}
+                                </div>
+                            </NavLink>
                         ))
                     )}
                     {['Admin', 'Front Office', 'Accountant'].includes(user?.role) && (
@@ -744,7 +698,11 @@ const Dashboard = () => {
                             <Route path="jobs" element={<Jobs />} />
                             <Route path="jobs/:id" element={<JobDetail />} />
                             <Route path="requests" element={<IDChangeRequests />} />
-                            <Route path="inventory" element={<Inventory />} />
+                            <Route path="inventory" element={<InventoryLayout />}>
+                                <Route index element={<Inventory />} />
+                                <Route path="paper" element={<PaperStockDashboard />} />
+                                <Route path="consumables" element={<ConsumablesManagement />} />
+                            </Route>
                             <Route path="inventory/overview" element={<InventoryOverview />} />
                             <Route path="stock-verification" element={<StockVerification />} />
                             <Route path="stock-planning" element={<RequiresConnection feature="Stock Planning"><StockPlanning /></RequiresConnection>} />
@@ -769,7 +727,6 @@ const Dashboard = () => {
                             <Route path="order-predictions" element={<RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection>} />
                             <Route path="predictions" element={<RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection>} />
                             <Route path="production-tracker" element={<RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection>} />
-                            <Route path="rate-calculator" element={<RateCalculator />} />
                             <Route path="coupons" element={<CouponManagement />} />
                             <Route path="cctv-attendance" element={<CCTVAttendance />} />
                             <Route path="cctv-management" element={<CCTVManagement />} />
@@ -785,23 +742,13 @@ const Dashboard = () => {
                             <Route path="paper/movements" element={<PaperMovementHistory />} />
                             <Route path="paper/alerts" element={<PaperAlerts />} />
                             <Route path="paper/transfer" element={<PaperTransfer />} />
+                            {/* Old routes kept for backward compat */}
+                            <Route path="paper/stock" element={<PaperStockDashboard />} />
                             <Route path="inventory/consumables" element={<ConsumablesManagement />} />
                             <Route path="recurring-invoices" element={<RecurringInvoices />} />
                             <Route path="settings" element={<SettingsPage />} />
                             <Route path="admin/chatbot-training" element={<ChatbotTraining />} />
-                            <Route path="admin/reviews" element={<ReviewsManagement />} />
-                            <Route path="admin/artwork" element={<ArtworkManager />} />
-                            <Route path="admin/portfolio" element={<PortfolioManager />} />
-                            <Route path="admin/promotions" element={<PromotionsManager />} />
-                            <Route path="admin/pickup-bookings" element={<PickupBookings />} />
-                            <Route path="admin/delivery-rules" element={<DeliveryRulesManager />} />
-                            <Route path="admin/translations" element={<TranslationsManager />} />
-                            <Route path="web-inquiries" element={<WebInquiries />} />
-                            <Route path="blog-cms" element={<BlogCMS />} />
-                            <Route path="sample-requests" element={<SampleRequestsCMS />} />
-                            <Route path="design-bookings" element={<DesignBookingsCMS />} />
                             <Route path="*" element={<NotFound />} />
-
                         </Routes>
                     </Suspense>
                 </div>
@@ -1001,4 +948,4 @@ const Dashboard = () => {
     );
 };
 
-export default React.memo(Dashboard);
+export default Dashboard;

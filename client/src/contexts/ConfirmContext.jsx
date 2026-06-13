@@ -20,7 +20,7 @@ export const useConfirm = () => {
     return context;
 };
 
-export const ConfirmProvider = React.memo(({ children }) => {
+export const ConfirmProvider = ({ children }) => {
     const [modalState, setModalState] = useState({
         isOpen: false,
         title: 'Confirm Action',
@@ -75,4 +75,4 @@ export const ConfirmProvider = React.memo(({ children }) => {
             />
         </ConfirmContext.Provider>
     );
-});
+};

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, RefreshCw, Building2, Hash, FileText, Calendar, Filter } from 'lucide-react';
 import api from '../services/api';
 
@@ -37,15 +37,6 @@ const InternalUsageReport = () => {
         to: todayStr(),
         department: 'all',
     });
-    const prevBillsRef = useRef(null);
-    const prevSummaryRef = useRef(null);
-    const prevTrendRef = useRef(null);
-    const formatApiError = (err) => {
-        const raw = err?.response?.data?.error ?? err?.response?.data?.message ?? null;
-        if (typeof raw === 'string') return raw;
-        if (typeof raw === 'object' && raw !== null) return raw.userMessage || raw.message || JSON.stringify(raw);
-        return err?.message || String(err) || 'Server error';
-    };
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -54,23 +45,11 @@ const InternalUsageReport = () => {
             const params = new URLSearchParams({ from: filters.from, to: filters.to });
             if (filters.department !== 'all') params.set('department', filters.department);
             const res = await api.get(`/daily-report/internal-usage?${params}`);
-            const newBills = res.data.bills || [];
-            if (JSON.stringify(newBills) !== JSON.stringify(prevBillsRef.current)) {
-                prevBillsRef.current = newBills;
-                setBills(newBills);
-            }
-            const newSummary = res.data.summary || {};
-            if (JSON.stringify(newSummary) !== JSON.stringify(prevSummaryRef.current)) {
-                prevSummaryRef.current = newSummary;
-                setSummary(newSummary);
-            }
-            const newTrend = res.data.trend || [];
-            if (JSON.stringify(newTrend) !== JSON.stringify(prevTrendRef.current)) {
-                prevTrendRef.current = newTrend;
-                setTrend(newTrend);
-            }
+            setBills(res.data.bills || []);
+            setSummary(res.data.summary || {});
+            setTrend(res.data.trend || []);
         } catch (err) {
-            setError(formatApiError(err) || 'Failed to fetch data');
+            setError(err.response?.data?.error || 'Failed to fetch data');
         } finally {
             setLoading(false);
         }
@@ -80,19 +59,19 @@ const InternalUsageReport = () => {
         fetchData();
     }, [fetchData]);
 
-    const totalPrints = useMemo(() => bills.reduce((s, b) => s + (b.prints || 0), 0), [bills]);
-    const totalJobs = useMemo(() => bills.length, [bills]);
+    const totalPrints = bills.reduce((s, b) => s + (b.prints || 0), 0);
+    const totalJobs = bills.length;
 
     // Build trend months list for the bar chart (last 6 months order)
-    const trendMonths = useMemo(() => [...new Set(trend.map(t => t.month))].sort(), [trend]);
-    const trendByMonth = useMemo(() => trendMonths.map(month => {
+    const trendMonths = [...new Set(trend.map(t => t.month))].sort();
+    const trendByMonth = trendMonths.map(month => {
         const depts = {};
         trend.filter(t => t.month === month).forEach(t => {
             depts[t.department] = { prints: Number(t.prints) || 0, jobs: Number(t.jobs) || 0 };
         });
         return { month, depts };
-    }), [trend, trendMonths]);
-    const maxPrintsInTrend = useMemo(() => Math.max(1, ...trendByMonth.map(m => Object.values(m.depts).reduce((s, d) => s + d.prints, 0))), [trendByMonth]);
+    });
+    const maxPrintsInTrend = Math.max(1, ...trendByMonth.map(m => Object.values(m.depts).reduce((s, d) => s + d.prints, 0)));
 
     return (
         <div className="page-container" style={{ maxWidth: 1100 }}>
@@ -329,4 +308,4 @@ function hexToRgb(hex) {
     return `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`;
 }
 
-export default React.memo(InternalUsageReport);
+export default InternalUsageReport;

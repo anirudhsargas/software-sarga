@@ -8,7 +8,7 @@ import api from '../services/api';
 
 const fmt = (n) => '₹' + (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
-const CustomTooltip = React.memo(({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
         <div style={{
@@ -26,9 +26,9 @@ const CustomTooltip = React.memo(({ active, payload, label }) => {
             ))}
         </div>
     );
-});
+};
 
-const ForecastChart = React.memo(function ForecastChart() {
+export default function ForecastChart() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [range, setRange] = useState(30); // 7 or 30
@@ -152,7 +152,7 @@ const ForecastChart = React.memo(function ForecastChart() {
                     No forecast data available yet
                 </div>
             ) : (
-                <ResponsiveContainer width="100%" height={260}>
+                <ResponsiveContainer width="100%" height={260} minWidth={0}>
                     <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis
@@ -237,6 +237,4 @@ const ForecastChart = React.memo(function ForecastChart() {
             )}
         </div>
     );
-});
-
-export default ForecastChart;
+}

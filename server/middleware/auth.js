@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 const { pool } = require('../database');
-const logger = require('../helpers/logger');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
@@ -36,13 +35,7 @@ const authenticateToken = (req, res, next) => {
         req.user = user;
         next();
     } catch (err) {
-        // Handle expired tokens specially so clients can react (refresh/login)
-        if (err && err.name === 'TokenExpiredError') {
-            logger.warn('[Auth] Token expired for request', { url: req.originalUrl || req.url, expiredAt: err.expiredAt });
-            return res.status(401).json({ message: 'Token expired', code: 'TOKEN_EXPIRED', expiredAt: err.expiredAt });
-        }
-
-        return res.status(401).json({ message: 'Invalid or expired token.', code: 'INVALID_TOKEN' });
+        return res.status(401).json({ message: 'Invalid or expired token.' });
     }
 };
 
@@ -79,16 +72,11 @@ const authenticate = async (req, res, next) => {
         req.user = users[0];
         // Debug log: help trace which user is authenticated for incoming requests
         try {
-            logger.debug(`[Auth] user loaded id=${req.user.id} role=${req.user.role} branch_id=${req.user.branch_id}`);
+            console.log(`[Auth] user loaded id=${req.user.id} role=${req.user.role} branch_id=${req.user.branch_id}`);
         } catch (e) { }
         next();
     } catch (error) {
-        if (error && error.name === 'TokenExpiredError') {
-            logger.warn('Auth error: token expired', { url: req.originalUrl || req.url, expiredAt: error.expiredAt });
-            return res.status(401).json({ error: 'TOKEN_EXPIRED', message: 'Token expired', expiredAt: error.expiredAt });
-        }
-
-        logger.error('Auth error:', { error: error && (error.message || String(error)), url: req.originalUrl || req.url });
+        console.error('Auth error:', error);
         return res.status(401).json({ error: 'Invalid or expired token' });
     }
 };

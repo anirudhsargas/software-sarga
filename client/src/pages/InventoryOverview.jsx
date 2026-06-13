@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { File, FileText, Package, Inbox, AlertTriangle, Search, RefreshCcw } from 'lucide-react';
 import api, { devFallback } from '../services/api';
 import toast from 'react-hot-toast';
@@ -14,9 +14,8 @@ const InventoryOverview = () => {
     const [consumablesTotal, setConsumablesTotal] = useState(0);
     const [consumablesLowCount, setConsumablesLowCount] = useState(0);
     const [lowStockRows, setLowStockRows] = useState([]);
-    const prevRef = useRef({ prod: 0, prodLow: 0, paper: 0, paperLow: 0, cons: 0, consLow: 0, rows: [] });
 
-    const fetchOverview = useCallback(async () => {
+    const fetchOverview = async () => {
         setLoading(true);
         try {
             // Products summary: use paginated endpoint to get total SKUs
@@ -45,36 +44,12 @@ const InventoryOverview = () => {
             const consLowResp = await api.get(devFallback('/inventory/consumables/low-stock'));
             const consLowList = Array.isArray(consLowResp.data) ? consLowResp.data : (consLowResp.data?.data || []);
 
-            const newProdTotal = prodTotal;
-            if (newProdTotal !== prevRef.current.prod) {
-                setProductsTotal(newProdTotal);
-                prevRef.current.prod = newProdTotal;
-            }
-            const newProdLow = Array.isArray(prodLowList) ? prodLowList.length : 0;
-            if (newProdLow !== prevRef.current.prodLow) {
-                setProductsLowCount(newProdLow);
-                prevRef.current.prodLow = newProdLow;
-            }
-            const newPaperTotal = Array.isArray(paperList) ? paperList.length : 0;
-            if (newPaperTotal !== prevRef.current.paper) {
-                setPaperTotal(newPaperTotal);
-                prevRef.current.paper = newPaperTotal;
-            }
-            const newPaperLow = Array.isArray(paperLowList) ? paperLowList.length : 0;
-            if (newPaperLow !== prevRef.current.paperLow) {
-                setPaperLowCount(newPaperLow);
-                prevRef.current.paperLow = newPaperLow;
-            }
-            const newConsTotal = Array.isArray(consList) ? consList.length : 0;
-            if (newConsTotal !== prevRef.current.cons) {
-                setConsumablesTotal(newConsTotal);
-                prevRef.current.cons = newConsTotal;
-            }
-            const newConsLow = Array.isArray(consLowList) ? consLowList.length : 0;
-            if (newConsLow !== prevRef.current.consLow) {
-                setConsumablesLowCount(newConsLow);
-                prevRef.current.consLow = newConsLow;
-            }
+            setProductsTotal(prodTotal);
+            setProductsLowCount(Array.isArray(prodLowList) ? prodLowList.length : 0);
+            setPaperTotal(Array.isArray(paperList) ? paperList.length : 0);
+            setPaperLowCount(Array.isArray(paperLowList) ? paperLowList.length : 0);
+            setConsumablesTotal(Array.isArray(consList) ? consList.length : 0);
+            setConsumablesLowCount(Array.isArray(consLowList) ? consLowList.length : 0);
 
             // Normalize low stock rows into unified shape
             const normalized = [];
@@ -124,21 +99,18 @@ const InventoryOverview = () => {
                 return a.type.localeCompare(b.type);
             });
 
-            if (JSON.stringify(normalized) !== JSON.stringify(prevRef.current.rows)) {
-                setLowStockRows(normalized);
-                prevRef.current.rows = normalized;
-            }
+            setLowStockRows(normalized);
         } catch (err) {
             console.error('Overview fetch error:', err);
             toast.error('Failed to load inventory overview');
         } finally {
             setLoading(false);
         }
-    }, []);
+    };
 
     useEffect(() => {
         fetchOverview();
-    }, [fetchOverview]);
+    }, []);
 
     const cards = useMemo(() => ([
         {
@@ -245,4 +217,4 @@ const InventoryOverview = () => {
     );
 };
 
-export default React.memo(InventoryOverview);
+export default InventoryOverview;

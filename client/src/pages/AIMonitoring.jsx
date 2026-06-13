@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import {
     ShieldAlert, AlertTriangle, Clock, Users, TrendingUp,
@@ -12,9 +12,6 @@ const SEVERITY_STYLE = {
     LOW: { bg: 'rgba(47,125,74,0.10)', border: 'rgba(47,125,74,0.30)', color: 'var(--success)', label: 'Low' }
 };
 
-const dashboardRef = useRef(null);
-const alertsRef = useRef([]);
-
 const AIMonitoring = () => {
     const [dashboard, setDashboard] = useState(null);
     const [alerts, setAlerts] = useState([]);
@@ -23,38 +20,22 @@ const AIMonitoring = () => {
     const [selectedAlert, setSelectedAlert] = useState(null);
     const [filter, setFilter] = useState('all');
 
-    const setDashboardSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(dashboardRef.current)) {
-            dashboardRef.current = data;
-            setDashboard(data);
-        }
-    }, []);
-
-    const setAlertsSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(alertsRef.current)) {
-            alertsRef.current = data;
-            setAlerts(data);
-        }
-    }, []);
-
-    const fetchData = useCallback(async () => {
+    const fetchData = async () => {
         try {
             const [dashRes, alertRes] = await Promise.all([
                 api.get('/ai/monitoring/dashboard'),
                 api.get(`/ai/monitoring/alerts?status=${filter === 'all' ? '' : filter}`)
             ]);
-            setDashboardSmart(dashRes.data);
-            setAlertsSmart(alertRes.data.alerts || []);
+            setDashboard(dashRes.data);
+            setAlerts(alertRes.data.alerts || []);
         } catch {
             toast.error('Failed to load monitoring data');
         } finally { setLoading(false); }
-    }, [filter, setDashboardSmart, setAlertsSmart]);
+    };
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => { fetchData(); }, [filter]);
 
-    const runAnalysis = useCallback(async () => {
+    const runAnalysis = async () => {
         setAnalyzing(true);
         try {
             const res = await api.post('/ai/monitoring/analyze');
@@ -62,16 +43,16 @@ const AIMonitoring = () => {
             fetchData();
         } catch { toast.error('Analysis failed'); }
         finally { setAnalyzing(false); }
-    }, [fetchData]);
+    };
 
-    const handleResolve = useCallback(async (alertId, action) => {
+    const handleResolve = async (alertId, action) => {
         try {
             await api.put(`/ai/monitoring/alerts/${alertId}/resolve`, { status: action });
             toast.success(`Alert ${action.toLowerCase()}`);
             setSelectedAlert(null);
             fetchData();
         } catch { toast.error('Failed to update alert'); }
-    }, [fetchData]);
+    };
 
     if (loading) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: 8, color: 'var(--muted)' }}>
@@ -79,8 +60,8 @@ const AIMonitoring = () => {
         </div>
     );
 
-    const stats = useMemo(() => dashboard?.totals || {}, [dashboard]);
-    const riskyStaff = useMemo(() => dashboard?.risky_staff || [], [dashboard]);
+    const stats = dashboard?.totals || {};
+    const riskyStaff = dashboard?.risky_staff || [];
 
     return (
         <div className="stack-lg">
@@ -258,4 +239,4 @@ const AIMonitoring = () => {
     );
 };
 
-export default React.memo(AIMonitoring);
+export default AIMonitoring;

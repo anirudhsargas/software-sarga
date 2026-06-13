@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X, Loader2, ExternalLink, FileText } from 'lucide-react';
 import api, { imgUrl } from '../../services/api';
 import localDb from '../../services/localDb';
@@ -9,11 +9,6 @@ const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [payload, setPayload] = useState(null);
-  const payloadRef = useRef(null);
-  const setPayloadSafe = useCallback((v) => {
-    const str = JSON.stringify(v);
-    if (str !== payloadRef.current) { payloadRef.current = str; setPayload(v); }
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -27,7 +22,7 @@ const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }
           const allDocs = await localDb.getBillsDocuments();
           const localDoc = allDocs.find(d => String(d.id) === String(documentId));
           if (localDoc) {
-            setPayloadSafe({ document: localDoc, items: [] });
+            setPayload({ document: localDoc, items: [] });
             setLoading(false);
             return;
           }
@@ -36,7 +31,7 @@ const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }
           const allBills = await localDb.getVendorBills?.() || [];
           const localBill = allBills.find(b => String(b.id) === String(vendorBillId));
           if (localBill) {
-            setPayloadSafe({ vendor_bill: localBill, items: localBill.items || [] });
+            setPayload({ vendor_bill: localBill, items: localBill.items || [] });
             setLoading(false);
             return;
           }
@@ -46,7 +41,7 @@ const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }
           ? `/vendor-bills/${vendorBillId}/full`
           : `/bills-documents/${documentId}/full`;
         const { data } = await api.get(endpoint);
-        setPayloadSafe(data || null);
+        setPayload(data || null);
       } catch (err) {
         setPayload(null);
         setError(err.response?.data?.message || err.response?.data?.error || 'Failed to load bill details');
@@ -186,4 +181,4 @@ const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }
   );
 };
 
-export default React.memo(FullBillModal);
+export default FullBillModal;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X, Edit2, Trash2, MapPin, Phone, Loader2, Building2, CreditCard } from 'lucide-react';
 
 import api from '../services/api';
@@ -14,11 +14,10 @@ const Branches = () => {
     const [editingBranch, setEditingBranch] = useState(null);
     const [formData, setFormData] = useState({ name: '', address: '', phone: '', upi_id: '', short_name: '' });
     const [error, setError] = useState('');
-    const prevBranchesRef = useRef(null);
 
     useEffect(() => {
         fetchBranches();
-    }, [fetchBranches]);
+    }, []);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -30,22 +29,18 @@ const Branches = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [showModal]);
 
-    const fetchBranches = useCallback(async () => {
+    const fetchBranches = async () => {
         try {
             const response = await api.get('/branches');
-            const newBranches = response.data;
-            if (JSON.stringify(newBranches) !== JSON.stringify(prevBranchesRef.current)) {
-                prevBranchesRef.current = newBranches;
-                setBranches(newBranches);
-            }
+            setBranches(response.data);
         } catch {
             setError('Failed to fetch branches');
         } finally {
             setLoading(false);
         }
-    }, []);
+    };
 
-    const handleSubmit = useCallback(async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
@@ -69,9 +64,9 @@ const Branches = () => {
         } finally {
             setLoading(false);
         }
-    }, [editingBranch, branches, formData, fetchBranches]);
+    };
 
-    const handleDelete = useCallback(async (id) => {
+    const handleDelete = async (id) => {
         const isConfirmed = await confirm({
             title: 'Delete Branch',
             message: 'Are you sure? Deleting a branch will affect staff and jobs associated with it.',
@@ -89,7 +84,7 @@ const Branches = () => {
             setError('Failed to delete branch');
             fetchBranches();
         }
-    }, [confirm, fetchBranches]);
+    };
 
     return (
         <div className="stack-lg">
@@ -302,4 +297,4 @@ const Branches = () => {
     );
 };
 
-export default React.memo(Branches);
+export default Branches;

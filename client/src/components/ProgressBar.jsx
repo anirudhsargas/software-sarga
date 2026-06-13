@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
  * A "fake" progress bar that provides a visual illusion of progress for slow operations.
  * It moves quickly at first, then slows down as it approaches 90%, and jumps to 100% when active becomes false.
  */
-const ProgressBar = React.memo(({ active, onComplete }) => {
+const ProgressBar = ({ active, onComplete }) => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -78,6 +78,6 @@ const ProgressBar = React.memo(({ active, onComplete }) => {
       }} />
     </div>
   );
-});
+};
 
 export default ProgressBar;

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, Lock, FileText, IndianRupee, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
@@ -33,16 +33,16 @@ const DailyReportOffset = () => {
         }
     }, [reportDate]);
 
-    const fetchStaff = useCallback(async () => {
+    const fetchStaff = async () => {
         try {
             const response = await api.get('/staff');
             setStaff(response.data);
         } catch (error) {
             console.error('Error fetching staff:', error);
         }
-    }, []);
+    };
 
-    const loadReport = useCallback(async () => {
+    const loadReport = async () => {
         try {
             setLoading(true);
             const response = await api.get('/daily-reports/offset', {
@@ -85,7 +85,7 @@ const DailyReportOffset = () => {
         } finally {
             setLoading(false);
         }
-    }, [reportDate]);
+    };
 
     const addWorkEntry = () => {
         setWorkEntries([...workEntries, {
@@ -192,7 +192,7 @@ const DailyReportOffset = () => {
         };
     };
 
-    const handleSave = useCallback(async () => {
+    const handleSave = async () => {
         const totalExpenses = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
         const isConfirmed = await confirm({
             title: 'Save Daily Report',
@@ -224,9 +224,9 @@ const DailyReportOffset = () => {
         } finally {
             setLoading(false);
         }
-    }, [reportDate, workEntries, expenses, creditTransactions, staffAttendance, openingBalance, user, confirm, loadReport]);
+    };
 
-    const handleFinalize = useCallback(async () => {
+    const handleFinalize = async () => {
         if (!report?.id) {
             toast.success('Please save the report first');
             return;
@@ -248,9 +248,9 @@ const DailyReportOffset = () => {
             console.error('Error finalizing report:', error);
             toast.error(error.response?.data?.error || 'Failed to finalize report');
         }
-    }, [report, confirm, loadReport]);
+    };
 
-    const syncFromBilling = useCallback(async () => {
+    const syncFromBilling = async () => {
         try {
             setSyncing(true);
             const response = await api.get('/daily-reports/offset/sync-data', {
@@ -369,14 +369,14 @@ const DailyReportOffset = () => {
         } finally {
             setSyncing(false);
         }
-    }, [reportDate, workEntries, expenses, creditTransactions, openingBalance]);
+    };
 
     const importCompletedJobs = async () => {
         await syncFromBilling();
     };
 
-    const totals = useMemo(() => calculateTotals(), [workEntries, expenses, creditTransactions, openingBalance]);
-    const isFinalized = useMemo(() => report?.status === 'Finalized', [report]);
+    const totals = calculateTotals();
+    const isFinalized = report?.status === 'Finalized';
 
     return (
         <div className="stack-lg">
@@ -867,4 +867,4 @@ const DailyReportOffset = () => {
     );
 };
 
-export default React.memo(DailyReportOffset);
+export default DailyReportOffset;

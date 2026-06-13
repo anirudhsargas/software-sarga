@@ -120,7 +120,7 @@ export default function PickupBooking() {
           <div className="pickup-card">
             <div className="pickup-form-group">
               <label><MapPin size={16} /> Branch</label>
-              <select className="input" value={branchId} onChange={e => setBranchId(e.target.value)}>
+              <select id="branch-select" name="branch-select" className="input" value={branchId} onChange={e => setBranchId(e.target.value)}>
                 <option value="">Select branch</option>
                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
@@ -165,15 +165,15 @@ export default function PickupBooking() {
                     <h3>Your Details</h3>
                     <div className="pickup-form-group">
                       <label>Name *</label>
-                      <input className="input" value={form.customer_name} onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} placeholder="Full name" />
+                      <input id="customer-name" name="customer-name" className="input" value={form.customer_name} onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} placeholder="Full name" />
                     </div>
                     <div className="pickup-form-group">
                       <label>Phone *</label>
-                      <input className="input" type="tel" value={form.customer_phone} onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} placeholder="Mobile number" />
+                      <input id="customer-phone" name="customer-phone" className="input" type="tel" value={form.customer_phone} onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} placeholder="Mobile number" />
                     </div>
                     <div className="pickup-form-group">
                       <label>Email</label>
-                      <input className="input" type="email" value={form.customer_email} onChange={e => setForm(f => ({ ...f, customer_email: e.target.value }))} placeholder="Email (optional)" />
+                      <input id="customer-email" name="customer-email" className="input" type="email" value={form.customer_email} onChange={e => setForm(f => ({ ...f, customer_email: e.target.value }))} placeholder="Email (optional)" />
                     </div>
                     {error && <p className="pickup-error">{error}</p>}
                     <button className="btn btn-primary btn-block" onClick={handleBook}>Confirm Booking</button>

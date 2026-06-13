@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Building2, Activity, Printer, AlertTriangle, Clock, Wallet, Users, Package, TrendingUp, BarChart3, Target, ClipboardList, IndianRupee, ShoppingCart, UserCheck, ArrowUpRight, ArrowDownRight, Brain, Sparkles, ShieldAlert, LineChart } from 'lucide-react';
 
@@ -12,42 +12,6 @@ import Card3DStack from '../components/ui/Card3DStack';
 const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 
-const SummaryTile = React.memo(({ title, value, meta, valueColor }) => (
-    <div className="summary-tile">
-        <div className="summary-tile__title">{title}</div>
-        <div className="summary-tile__value" style={valueColor ? { color: valueColor } : undefined}>{value}</div>
-        {meta && <div className="summary-tile__meta">{meta}</div>}
-    </div>
-));
-
-const SummarySectionHeader = React.memo(({ title, subtitle, icon: Icon }) => (
-    <div className="summary-section__header">
-        <div>
-            <h2 className="section-title">{title}</h2>
-            {subtitle && <p className="section-subtitle">{subtitle}</p>}
-        </div>
-        {Icon && <Icon size={22} className="muted" />}
-    </div>
-));
-
-const TabButton = React.memo(({ tab, activeTab, onSelect }) => (
-    <button onClick={() => onSelect(tab.id)} style={{
-        display: 'flex', alignItems: 'center', gap: '6px',
-        padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-        fontSize: '13px', fontWeight: activeTab === tab.id ? 600 : 400, whiteSpace: 'nowrap',
-        background: activeTab === tab.id ? 'var(--surface)' : 'transparent',
-        color: activeTab === tab.id ? 'var(--text)' : 'var(--muted)',
-        boxShadow: activeTab === tab.id ? 'var(--shadow-sm)' : 'none',
-        transition: 'all 0.2s'
-    }}>
-        {tab.icon} {tab.label}
-    </button>
-));
-
-const SummaryDataRow = React.memo(({ children }) => (
-    <div className="summary-data-list__row">{children}</div>
-));
-
 const Summary = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('overview');
@@ -56,32 +20,10 @@ const Summary = () => {
     const [branches, setBranches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({ branch_id: '' });
-    const statsRef = useRef({ today: null, overall: null });
-
-    const fetchBranches = useCallback(async () => {
-        try {
-            const response = await api.get('/branches');
-            setBranches(response.data);
-        } catch {
-            console.error('Failed to fetch branches');
-        }
-    }, []);
-
-    const getStatusColor = useCallback((status) => {
-        switch (status) {
-            case 'Completed': return 'var(--color-ok, #22c55e)';
-            case 'Delivered': return 'var(--color-primary, #60a5fa)';
-            case 'Processing': return 'var(--color-warning, #fbbf24)';
-            case 'Pending': return 'var(--text-muted, #94a3b8)';
-            case 'Approval Pending': return 'var(--color-warning, #fbbf24)';
-            case 'Cancelled': return 'var(--error, #ef4444)';
-            default: return 'var(--text-main, #e2e8f0)';
-        }
-    }, []);
 
     useEffect(() => {
         fetchBranches();
-    }, [fetchBranches]);
+    }, []);
 
     useEffect(() => {
         fetchStatsSplit();
@@ -89,6 +31,15 @@ const Summary = () => {
         window.addEventListener('paymentRecorded', handlePaymentUpdate);
         return () => window.removeEventListener('paymentRecorded', handlePaymentUpdate);
     }, [filters.branch_id]);
+
+    const fetchBranches = async () => {
+        try {
+            const response = await api.get('/branches');
+            setBranches(response.data);
+        } catch {
+            console.error('Failed to fetch branches');
+        }
+    };
 
     const fetchStatsSplit = async () => {
         setLoading(true);
@@ -107,14 +58,8 @@ const Summary = () => {
                 api.get(`/stats/dashboard?${paramsOverall.toString()}`),
             ]);
 
-            if (JSON.stringify(todayRes.data) !== JSON.stringify(statsRef.current.today)) {
-                setStatsToday(todayRes.data);
-                statsRef.current.today = todayRes.data;
-            }
-            if (JSON.stringify(overallRes.data) !== JSON.stringify(statsRef.current.overall)) {
-                setStatsOverall(overallRes.data);
-                statsRef.current.overall = overallRes.data;
-            }
+            setStatsToday(todayRes.data);
+            setStatsOverall(overallRes.data);
         } catch {
             console.error('Failed to fetch dashboard stats');
         } finally {
@@ -125,46 +70,39 @@ const Summary = () => {
     const fmt = (value) => (typeof value === 'number' ? formatCurrencyShared(value, true) : '—');
     const fmtNum = (value) => (typeof value === 'number' ? value.toLocaleString() : '—');
 
-    const selectedBranchName = useMemo(() => filters.branch_id
+    const selectedBranchName = filters.branch_id
         ? (branches.find(b => b.id.toString() === filters.branch_id.toString())?.name || 'Selected Branch')
-        : 'All Branches',
-    [filters.branch_id, branches]);
+        : 'All Branches';
 
-    const showLoader = loading && !statsToday && !statsOverall;
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'Completed': return 'var(--color-ok, #22c55e)';
+            case 'Delivered': return 'var(--color-primary, #60a5fa)';
+            case 'Processing': return 'var(--color-warning, #fbbf24)';
+            case 'Pending': return 'var(--text-muted, #94a3b8)';
+            case 'Approval Pending': return 'var(--color-warning, #fbbf24)';
+            case 'Cancelled': return 'var(--error, #ef4444)';
+            default: return 'var(--text-main, #e2e8f0)';
+        }
+    };
+
+    if (loading && !statsToday && !statsOverall) {
+        return (
+            <div className="flex items-center justify-center p-40">
+                <Loader2 className="animate-spin text-accent" size={48} />
+            </div>
+        );
+    }
 
     const lowStockItems = statsOverall?.low_stock || [];
     const topCustomers = statsOverall?.top_customers || [];
     const staffProd = statsOverall?.staff_productivity || [];
 
-    const tabItems = useMemo(() => [
-        { id: 'overview', label: 'Summary Overview', icon: <BarChart3 size={15} /> },
-        { id: 'ai-monitoring', label: 'AI Fraud Monitoring', icon: <ShieldAlert size={15} /> },
-        { id: 'order-predictions', label: 'Order Predictions', icon: <Sparkles size={15} /> }
-    ], []);
-
-    const salesCategoriesData = useMemo(() => [
-        { label: 'Offset Printing', value: statsToday?.sales?.offset },
-        { label: 'Digital Printing', value: statsToday?.sales?.digital },
-        { label: 'Photocopy', value: statsToday?.sales?.photocopy },
-        { label: 'Mementos', value: statsToday?.sales?.mementos },
-        { label: 'Photo Frames', value: statsToday?.sales?.frames },
-        { label: 'ID Cards', value: statsToday?.sales?.id_cards },
-        { label: 'Binding & Lamination', value: statsToday?.sales?.binding },
-    ], [statsToday?.sales]);
-
-    const marqueeItems = useMemo(() => ['Visiting Cards', 'Wedding Invitations', 'Annual Reports', 'Posters', 'Menus', 'Brochures'], []);
-
     return (
         <div className="summary-page">
-            {showLoader ? (
-                <div className="flex items-center justify-center p-40" style={{ minHeight: '60vh' }}>
-                    <Loader2 className="animate-spin text-accent" size={48} />
-                </div>
-            ) : (
-                <>
-                    <div style={{position:'relative'}}>
-                        <HeroBg3D />
-                    </div>
+            <div style={{position:'relative'}}>
+                <HeroBg3D />
+            </div>
             {/* Header */}
             <div className="page-header summary-header">
                 <div>
@@ -192,32 +130,86 @@ const Summary = () => {
                 display: 'flex', gap: '4px', marginBottom: '24px', padding: '4px',
                 borderRadius: '12px', background: 'var(--bg-2)', overflowX: 'auto'
             }}>
-                {tabItems.map(t => (
-                    <TabButton key={t.id} tab={t} activeTab={activeTab} onSelect={setActiveTab} />
+                {[
+                    { id: 'overview', label: 'Summary Overview', icon: < BarChart3 size={15} /> },
+                    { id: 'ai-monitoring', label: 'AI Fraud Monitoring', icon: < ShieldAlert size={15} /> },
+                    { id: 'order-predictions', label: 'Order Predictions', icon: < Sparkles size={15} /> }
+                ].map(t => (
+                    <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                        fontSize: '13px', fontWeight: activeTab === t.id ? 600 : 400, whiteSpace: 'nowrap',
+                        background: activeTab === t.id ? 'var(--surface)' : 'transparent',
+                        color: activeTab === t.id ? 'var(--text)' : 'var(--muted)',
+                        boxShadow: activeTab === t.id ? 'var(--shadow-sm)' : 'none',
+                        transition: 'all 0.2s'
+                    }}>
+                        {t.icon} {t.label}
+                    </button>
                 ))}
             </div>
 
             {activeTab === 'overview' && (
                 <>
                     <div style={{marginTop:12, marginBottom:18}}>
-                        <Marquee items={marqueeItems} />
+                        <Marquee items={[ 'Visiting Cards', 'Wedding Invitations', 'Annual Reports', 'Posters', 'Menus', 'Brochures' ]} />
                     </div>
                     {/* ─── Section 1: Today's KPIs ─── */}
                     <section className="summary-section">
-                        <SummarySectionHeader title="Today's Overview" subtitle="Sales, orders and collections today" icon={TrendingUp} />
+                        <div className="summary-section__header">
+                            <div>
+                                <h2 className="section-title">Today's Overview</h2>
+                                <p className="section-subtitle">Sales, orders and collections today</p>
+                            </div>
+                            <TrendingUp size={22} className="muted" />
+                        </div>
                         <div className="summary-grid summary-grid--tiles">
-                            <SummaryTile title="Today's Sales" value={fmt(statsToday?.jobs?.total_sales)} meta={`${fmtNum(statsToday?.jobs?.total_count)} jobs`} />
-                            <SummaryTile title="Collected Today" value={fmt(statsToday?.payments?.total_collected_today)} meta={`Cash: ${fmt(statsToday?.payments?.cash_today)} · UPI: ${fmt(statsToday?.payments?.upi_today)}`} />
-                            <SummaryTile title="Expenses Today" value={fmt(statsToday?.expenses?.today)} meta={`This month: ${fmt(statsOverall?.expenses?.month)}`} valueColor="var(--error, #dc2626)" />
-                            <SummaryTile title="Completed / New" value={`${fmtNum(statsToday?.jobs?.completed_today)} / ${fmtNum(statsToday?.jobs?.new_today)}`} meta={`Walk-ins: ${fmtNum(statsToday?.customers?.walk_in_today)}`} />
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">Today's Sales</div>
+                                <div className="summary-tile__value">{fmt(statsToday?.jobs?.total_sales)}</div>
+                                <div className="summary-tile__meta">{fmtNum(statsToday?.jobs?.total_count)} jobs</div>
+                            </div>
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">Collected Today</div>
+                                <div className="summary-tile__value">{fmt(statsToday?.payments?.total_collected_today)}</div>
+                                <div className="summary-tile__meta">Cash: {fmt(statsToday?.payments?.cash_today)} · UPI: {fmt(statsToday?.payments?.upi_today)}</div>
+                            </div>
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">Expenses Today</div>
+                                <div className="summary-tile__value" style={{ color: 'var(--error, #dc2626)' }}>{fmt(statsToday?.expenses?.today)}</div>
+                                <div className="summary-tile__meta">This month: {fmt(statsOverall?.expenses?.month)}</div>
+                            </div>
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">Completed / New</div>
+                                <div className="summary-tile__value">{fmtNum(statsToday?.jobs?.completed_today)} / {fmtNum(statsToday?.jobs?.new_today)}</div>
+                                <div className="summary-tile__meta">Walk-ins: {fmtNum(statsToday?.customers?.walk_in_today)}</div>
+                            </div>
                         </div>
 
                         {/* Overall pending */}
                         <div className="summary-grid summary-grid--tiles" style={{ marginTop: 16 }}>
-                            <SummaryTile title="Total Outstanding" value={fmt(statsOverall?.jobs?.total_balance)} meta="Pending receivables" valueColor="var(--error, #dc2626)" />
-                            <SummaryTile title="In Progress" value={fmtNum(statsOverall?.jobs?.in_progress)} meta="Across all stages" />
-                            <SummaryTile title="Urgent / Overdue" value={`${fmtNum(statsToday?.jobs?.urgent_today)} / ${fmtNum(statsOverall?.jobs?.overdue)}`} meta="Needs attention" valueColor={Number(statsOverall?.jobs?.overdue) > 0 ? 'var(--error, #dc2626)' : undefined} />
-                            <SummaryTile title="Inventory Value" value={fmt(statsOverall?.inventory?.total_value)} meta={`${fmtNum(statsOverall?.inventory?.total_items)} items · ${fmtNum(statsOverall?.inventory?.low_stock_count)} low stock`} />
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">Total Outstanding</div>
+                                <div className="summary-tile__value" style={{ color: 'var(--error, #dc2626)' }}>{fmt(statsOverall?.jobs?.total_balance)}</div>
+                                <div className="summary-tile__meta">Pending receivables</div>
+                            </div>
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">In Progress</div>
+                                <div className="summary-tile__value">{fmtNum(statsOverall?.jobs?.in_progress)}</div>
+                                <div className="summary-tile__meta">Across all stages</div>
+                            </div>
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">Urgent / Overdue</div>
+                                <div className="summary-tile__value" style={{ color: Number(statsOverall?.jobs?.overdue) > 0 ? 'var(--error, #dc2626)' : undefined }}>
+                                    {fmtNum(statsToday?.jobs?.urgent_today)} / {fmtNum(statsOverall?.jobs?.overdue)}
+                                </div>
+                                <div className="summary-tile__meta">Needs attention</div>
+                            </div>
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">Inventory Value</div>
+                                <div className="summary-tile__value">{fmt(statsOverall?.inventory?.total_value)}</div>
+                                <div className="summary-tile__meta">{fmtNum(statsOverall?.inventory?.total_items)} items · {fmtNum(statsOverall?.inventory?.low_stock_count)} low stock</div>
+                            </div>
                         </div>
                     </section>
 
@@ -305,13 +297,27 @@ const Summary = () => {
                     {/* ─── Section 2: Sales + Work Status (side by side) ─── */}
                     <div className="summary-grid summary-grid--split">
                         <section className="summary-section">
-                            <SummarySectionHeader title="Sales by Category" subtitle="Today's revenue breakdown" icon={BarChart3} />
+                            <div className="summary-section__header">
+                                <div>
+                                    <h2 className="section-title">Sales by Category</h2>
+                                    <p className="section-subtitle">Today's revenue breakdown</p>
+                                </div>
+                                <BarChart3 size={22} className="muted" />
+                            </div>
                             <div className="summary-data-list">
-                                {salesCategoriesData.map(item => (
-                                    <SummaryDataRow key={item.label}>
+                                {[
+                                    { label: 'Offset Printing', value: statsToday?.sales?.offset },
+                                    { label: 'Digital Printing', value: statsToday?.sales?.digital },
+                                    { label: 'Photocopy', value: statsToday?.sales?.photocopy },
+                                    { label: 'Mementos', value: statsToday?.sales?.mementos },
+                                    { label: 'Photo Frames', value: statsToday?.sales?.frames },
+                                    { label: 'ID Cards', value: statsToday?.sales?.id_cards },
+                                    { label: 'Binding & Lamination', value: statsToday?.sales?.binding },
+                                ].map(item => (
+                                    <div key={item.label} className="summary-data-list__row">
                                         <span>{item.label}</span>
                                         <span className="summary-data-list__value">{fmt(item.value)}</span>
-                                    </SummaryDataRow>
+                                    </div>
                                 ))}
                             </div>
                             <div style={{ marginTop: 12, padding: '8px 12px', background: 'var(--surface-lowest, #f8fafc)', borderRadius: 6, fontSize: 13 }}>
@@ -320,7 +326,13 @@ const Summary = () => {
                         </section>
 
                         <section className="summary-section">
-                            <SummarySectionHeader title="Work Status" subtitle="Current job pipeline" icon={Activity} />
+                            <div className="summary-section__header">
+                                <div>
+                                    <h2 className="section-title">Work Status</h2>
+                                    <p className="section-subtitle">Current job pipeline</p>
+                                </div>
+                                <Activity size={22} className="muted" />
+                            </div>
                             <div className="summary-grid summary-grid--inventory" style={{gap: 18}}>
                                 {Object.entries(statsOverall?.status_counts || {}).filter(([s]) => s !== 'Cancelled').map(([status, count]) => (
                                     <div key={status} className="row p-16 border-all rounded bg-surface-lowest mb-2" style={{marginBottom: 14, gap: '16px'}}>
@@ -335,7 +347,12 @@ const Summary = () => {
                     {/* ─── Section 3: Recent Orders + Machine Status ─── */}
                     <div className="summary-grid summary-grid--split">
                         <section className="summary-section">
-                            <SummarySectionHeader title="Recent Orders" icon={ClipboardList} />
+                            <div className="summary-section__header">
+                                <div>
+                                    <h2 className="section-title">Recent Orders</h2>
+                                </div>
+                                <ClipboardList size={22} className="muted" />
+                            </div>
                             <div className="overflow-x-auto">
                                 <table className="table w-full text-sm">
                                     <thead>
@@ -370,7 +387,13 @@ const Summary = () => {
                         </section>
 
                         <section className="summary-section">
-                            <SummarySectionHeader title="Machine Status" subtitle="Today's production" icon={Printer} />
+                            <div className="summary-section__header">
+                                <div>
+                                    <h2 className="section-title">Machine Status</h2>
+                                    <p className="section-subtitle">Today's production</p>
+                                </div>
+                                <Printer size={22} className="muted" />
+                            </div>
                             <div className="summary-list">
                                 {Array.isArray(statsToday?.machines) && statsToday.machines.length > 0 ? (
                                     statsToday.machines.map(machine => (
@@ -391,12 +414,30 @@ const Summary = () => {
 
                     {/* ─── Section 4: Payments & Collections ─── */}
                     <section className="summary-section">
-                        <SummarySectionHeader title="Payments & Collections" subtitle="Cash flow breakdown" icon={Wallet} />
+                        <div className="summary-section__header">
+                            <div>
+                                <h2 className="section-title">Payments & Collections</h2>
+                                <p className="section-subtitle">Cash flow breakdown</p>
+                            </div>
+                            <Wallet size={22} className="muted" />
+                        </div>
                         <div className="summary-grid summary-grid--tiles">
-                            <SummaryTile title="Cash Collected" value={fmt(statsToday?.payments?.cash_today)} />
-                            <SummaryTile title="UPI Collected" value={fmt(statsToday?.payments?.upi_today)} />
-                            <SummaryTile title="Cheque / Transfer" value={fmt(statsToday?.payments?.cheque_today)} />
-                            <SummaryTile title="Total Advance Received" value={fmt(statsOverall?.payments?.total_amount)} />
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">Cash Collected</div>
+                                <div className="summary-tile__value">{fmt(statsToday?.payments?.cash_today)}</div>
+                            </div>
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">UPI Collected</div>
+                                <div className="summary-tile__value">{fmt(statsToday?.payments?.upi_today)}</div>
+                            </div>
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">Cheque / Transfer</div>
+                                <div className="summary-tile__value">{fmt(statsToday?.payments?.cheque_today)}</div>
+                            </div>
+                            <div className="summary-tile">
+                                <div className="summary-tile__title">Total Advance Received</div>
+                                <div className="summary-tile__value">{fmt(statsOverall?.payments?.total_amount)}</div>
+                            </div>
                         </div>
                     </section>
 
@@ -413,7 +454,7 @@ const Summary = () => {
                             {lowStockItems.length > 0 ? (
                                 <div className="summary-data-list">
                                     {lowStockItems.map(item => (
-                                        <SummaryDataRow key={item.id}>
+                                        <div key={item.id} className="summary-data-list__row">
                                             <div>
                                                 <span className="font-medium">{item.name}</span>
                                                 {item.sku && <span className="text-xs muted" style={{ marginLeft: 6 }}>{item.sku}</span>}
@@ -421,7 +462,7 @@ const Summary = () => {
                                             <span style={{ color: Number(item.quantity) === 0 ? 'var(--error, #dc2626)' : 'var(--color-warning, #f59e0b)', fontWeight: 700 }}>
                                                 {item.quantity} left
                                             </span>
-                                        </SummaryDataRow>
+                                        </div>
                                     ))}
                                 </div>
                             ) : (
@@ -430,17 +471,22 @@ const Summary = () => {
                         </section>
 
                         <section className="summary-section">
-                            <SummarySectionHeader title="Top Customers (Month)" icon={UserCheck} />
+                            <div className="summary-section__header">
+                                <div>
+                                    <h2 className="section-title">Top Customers (Month)</h2>
+                                </div>
+                                <UserCheck size={22} className="muted" />
+                            </div>
                             {topCustomers.length > 0 ? (
                                 <div className="summary-data-list">
                                     {topCustomers.map((c, i) => (
-                                        <SummaryDataRow key={i}>
+                                        <div key={i} className="summary-data-list__row">
                                             <div>
                                                 <span className="font-medium">{c.name}</span>
                                                 <span className="text-xs muted" style={{ marginLeft: 6 }}>{c.job_count} jobs</span>
                                             </div>
                                             <span className="font-bold">{fmt(Number(c.total_spent))}</span>
-                                        </SummaryDataRow>
+                                        </div>
                                     ))}
                                 </div>
                             ) : (
@@ -452,16 +498,22 @@ const Summary = () => {
                     {/* ─── Section 6: Staff Productivity ─── */}
                     {staffProd.length > 0 && (
                         <section className="summary-section">
-                            <SummarySectionHeader title="Staff Productivity (Month)" subtitle="Jobs handled this month by staff" icon={Users} />
+                            <div className="summary-section__header">
+                                <div>
+                                    <h2 className="section-title">Staff Productivity (Month)</h2>
+                                    <p className="section-subtitle">Jobs handled this month by staff</p>
+                                </div>
+                                <Users size={22} className="muted" />
+                            </div>
                             <div className="summary-data-list">
                                 {staffProd.map((s, i) => (
-                                    <SummaryDataRow key={i}>
+                                    <div key={i} className="summary-data-list__row">
                                         <div>
                                             <span className="font-medium">{s.name}</span>
                                             <span className="text-xs muted" style={{ marginLeft: 6 }}>{s.role}</span>
                                         </div>
                                         <span className="font-bold">{s.jobs_handled} jobs</span>
-                                    </SummaryDataRow>
+                                    </div>
                                 ))}
                             </div>
                         </section>
@@ -478,15 +530,14 @@ const Summary = () => {
                 </Suspense>
             )}
 
+
             {activeTab === 'order-predictions' && (
                 <Suspense fallback={<div className="flex items-center justify-center p-40"><Loader2 className="animate-spin text-accent" size={32} /></div>}>
                     <OrderPredictions />
                 </Suspense>
             )}
-                </>
-            )}
         </div>
     );
 };
 
-export default React.memo(Summary);
+export default Summary;

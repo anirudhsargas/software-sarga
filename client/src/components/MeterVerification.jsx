@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle, Clock, RefreshCw, Loader2, Eye, Printer, Wi
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
-const MeterVerification = React.memo(({ machineId, machineName, machineIpAddress, lastClosingCount }) => {
+const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosingCount }) => {
     const [manualOpeningCount, setManualOpeningCount] = useState('');
     const [verifyLoading, setVerifyLoading] = useState(false);
     const [meterLoading, setMeterLoading] = useState(false);
@@ -355,6 +355,6 @@ const MeterVerification = React.memo(({ machineId, machineName, machineIpAddress
             </div>
         </div>
     );
-});
+};
 
 export default MeterVerification;

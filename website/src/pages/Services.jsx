@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import SEO from '../components/SEO'
 import {
   Printer,
   Zap,
@@ -20,7 +19,6 @@ import {
 } from 'lucide-react'
 import './Services.css'
 import { useCart } from '../context/CartContext'
-import WhatsAppButton from '../components/WhatsAppButton'
 import toast from 'react-hot-toast'
 
 const mainServices = [
@@ -74,10 +72,6 @@ export default function Services() {
 
   return (
     <div className="services-page">
-      <SEO 
-        title="Printing & Document Services" 
-        description="Explore Sarga Prints' comprehensive offset and digital printing, photostat document runs, hard binding, and custom trophy mementos." 
-      />
       {/* Header */}
       <section className="page-header" id="services-header">
         <div className="page-header__bg" />
@@ -123,22 +117,13 @@ export default function Services() {
                       Get Custom Quote <ArrowRight size={14} />
                     </Link>
                   </div>
-                  <div style={{ display: 'flex', gap: '6px', width: '100%' }}>
-                    <button 
-                      onClick={() => { addItem({ service: service.title, quantity: 1, price: service.price }); openCart(); }}
-                      className="btn btn-outline btn-sm"
-                      style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px' }}
-                    >
-                      Add to Cart
-                    </button>
-                    <WhatsAppButton
-                      phoneNumber="919895410035"
-                      productName={service.title}
-                      type="quote"
-                      className="btn-sm"
-                      style={{ fontSize: '0.8rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
-                    />
-                  </div>
+                  <button 
+                    onClick={() => { addItem({ service: service.title, quantity: 1 }); openCart(); }}
+                    className="btn btn-outline btn-sm"
+                    style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px' }}
+                  >
+                    Add to Quote Cart
+                  </button>
                 </div>
               </div>
             ))}
@@ -156,40 +141,30 @@ export default function Services() {
 
           <div className="additional-grid">
             {additionalServices.map((service, i) => (
-              <div key={i} className="additional-card glass-card reveal" id={`additional-service-${i}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-lg)', padding: 'var(--space-xl)', height: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-md)', width: '100%' }}>
+              <div key={i} className="additional-card reveal" id={`additional-service-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-md)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
                   <div
                     className="additional-card__icon"
                     style={{ background: `${service.color}12`, color: service.color }}
                   >
                     {service.icon}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="additional-card__title" style={{ fontSize: '1.05rem', lineHeight: '1.3' }}>{service.title}</span>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>{service.price}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span className="additional-card__title">{service.title}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{service.price}</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: 'auto' }}>
-                  <button
-                    onClick={() => {
-                      addItem({ service: service.title, quantity: 1, branch: 'Perambra', price: service.price, addedAt: new Date().toISOString() });
-                      toast.success(`${service.title} added to cart!`);
-                      openCart();
-                    }}
-                    className="btn btn-outline btn-sm"
-                    style={{ flex: 1, padding: '8px', fontSize: '0.8rem', borderRadius: '6px', display: 'flex', justifyContent: 'center' }}
-                  >
-                    Add to Cart
-                  </button>
-                  <WhatsAppButton
-                    phoneNumber="919895410035"
-                    productName={service.title}
-                    type="quote"
-                    label="Get Quote"
-                    className="btn-sm"
-                    style={{ flex: 1, padding: '8px', fontSize: '0.8rem', borderRadius: '6px', display: 'flex', justifyContent: 'center' }}
-                  />
-                </div>
+                <button
+                  onClick={() => {
+                    addItem({ service: service.title, quantity: 1, branch: 'Perambra', addedAt: new Date().toISOString() });
+                    toast.success(`${service.title} added to quote!`);
+                    openCart();
+                  }}
+                  className="btn btn-outline btn-sm"
+                  style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', whiteSpace: 'nowrap' }}
+                >
+                  Add to Quote
+                </button>
               </div>
             ))}
           </div>

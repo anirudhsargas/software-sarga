@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, AlertTriangle, CheckCircle } from 'lucide-react';
 import { fmt } from './constants';
 import auth from '../../services/auth';
@@ -14,9 +14,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
 
   const [assignedBooks, setAssignedBooks] = useState([]);
-  const assignedBooksRef = useRef(null);
   const [bookBalances, setBookBalances] = useState({ Offset: null, Laser: null, Other: null });
-  const bookBalancesRef = useRef(null);
   const [loadingBalances, setLoadingBalances] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferForm, setTransferForm] = useState({ from_book_type: '', to_book_type: '', amount: '', note: '' });
@@ -29,8 +27,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
         const res = await api.get('/machines/my-books');
         if (!mounted) return;
         const books = res.data || [];
-        const abStr = JSON.stringify(books);
-        if (abStr !== assignedBooksRef.current) { assignedBooksRef.current = abStr; setAssignedBooks(books); }
+        setAssignedBooks(books);
         // If form doesn't already have a book_type, prefill with the first assigned book
         if ((!form.book_type || form.book_type === '') && books.length > 0) {
           setForm(p => ({ ...p, book_type: books[0] }));
@@ -62,8 +59,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
         const offBal = off.data?.summary?.cash_closing ?? null;
         const lasBal = las.data?.summary?.cash_closing ?? null;
         const othBal = oth.data?.summary?.cash_closing ?? null;
-        const bbStr = JSON.stringify({ Offset: offBal, Laser: lasBal, Other: othBal });
-        if (bbStr !== bookBalancesRef.current) { bookBalancesRef.current = bbStr; setBookBalances({ Offset: offBal, Laser: lasBal, Other: othBal }); }
+        setBookBalances({ Offset: offBal, Laser: lasBal, Other: othBal });
       } catch (err) {
         if (!mounted) return;
         setBookBalances({ Offset: null, Laser: null, Other: null });
@@ -75,18 +71,19 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
     return () => { mounted = false; };
   }, [form.branch_id, form.payment_date]);
 
-  const bookOptions = useMemo(() => (assignedBooks && assignedBooks.length > 0) ? assignedBooks : ['Offset', 'Laser', 'Other'], [assignedBooks]);
+  const bookOptions = (assignedBooks && assignedBooks.length > 0) ? assignedBooks : ['Offset', 'Laser', 'Other'];
 
-  const selectedBookBalance = useMemo(() => form.book_type ? bookBalances[form.book_type] : null, [form.book_type, bookBalances]);
-  const amountNumber = useMemo(() => Number(form.amount) || 0, [form.amount]);
-  const amountWithinBalance = useMemo(() => selectedBookBalance == null || amountNumber <= Number(selectedBookBalance) + 0.0001, [selectedBookBalance, amountNumber]);
-  const canSubmit = useMemo(() => form.amount && amountNumber > 0 && form.payee_name && form.book_type && amountWithinBalance, [form.amount, form.payee_name, form.book_type, amountNumber, amountWithinBalance]);
+  const selectedBookBalance = form.book_type ? bookBalances[form.book_type] : null;
+  const amountNumber = Number(form.amount) || 0;
+  const amountWithinBalance = selectedBookBalance == null || amountNumber <= Number(selectedBookBalance) + 0.0001;
+  const canSubmit = form.amount && amountNumber > 0 && form.payee_name && form.book_type && amountWithinBalance;
 
-  const bothValid = useMemo(() => form.payment_method !== 'Both' || (
+  // Auto-validate "Both" split
+  const bothValid = form.payment_method !== 'Both' || (
     Math.abs((Number(form.cash_amount) || 0) + (Number(form.upi_amount) || 0) - (Number(form.amount) || 0)) < 0.01
-  ), [form.payment_method, form.cash_amount, form.upi_amount, form.amount]);
+  );
 
-  const handleConfirm = useCallback((e) => {
+  const handleConfirm = (e) => {
     e.preventDefault();
     setError('');
     if (!bothValid) {
@@ -98,21 +95,21 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
       return;
     }
     setConfirming(true);
-  }, [bothValid, amountWithinBalance]);
+  };
 
-  const handleFinalSubmit = useCallback(async (e) => {
+  const handleFinalSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
     try { await onSubmit(e); }
     catch (err) { setError(err?.message || 'Payment failed'); }
     finally { setSubmitting(false); setConfirming(false); }
-  }, [onSubmit]);
+  };
 
   // When amount changes and partial is on, auto-calc remaining
-  const billTotal = useMemo(() => Number(form.bill_total_amount) || 0, [form.bill_total_amount]);
-  const payAmount = useMemo(() => Number(form.amount) || 0, [form.amount]);
-  const isPartial = useMemo(() => form.is_partial_payment && billTotal > 0 && payAmount < billTotal, [form.is_partial_payment, billTotal, payAmount]);
+  const billTotal = Number(form.bill_total_amount) || 0;
+  const payAmount = Number(form.amount) || 0;
+  const isPartial = form.is_partial_payment && billTotal > 0 && payAmount < billTotal;
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -433,4 +430,4 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
   );
 };
 
-export default React.memo(PaymentModal);
+export default PaymentModal;

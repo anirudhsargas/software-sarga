@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDebounce } from '../hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
@@ -42,8 +42,6 @@ const Customers = () => {
     const [searchInput, setSearchInput] = useState('');
     const searchQuery = useDebounce(searchInput, 300);
     const [typeFilter, setTypeFilter] = useState('');
-    const [sortField, setSortField] = useState('name');
-    const [sortDir, setSortDir] = useState('asc');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
@@ -57,7 +55,7 @@ const Customers = () => {
     });
 
 
-    const hasUnsavedChanges = useMemo(() => (showAddModal && addFormDirty) || (showEditModal && editFormDirty), [showAddModal, addFormDirty, showEditModal, editFormDirty]);
+    const hasUnsavedChanges = (showAddModal && addFormDirty) || (showEditModal && editFormDirty);
 
     const updateNewCustomer = (patch) => {
         setNewCustomer(prev => ({ ...prev, ...patch }));
@@ -69,23 +67,23 @@ const Customers = () => {
         setEditFormDirty(true);
     };
 
-    const closeAddModal = useCallback((force = false) => {
+    const closeAddModal = (force = false) => {
         if (!force && addFormDirty) {
             const shouldClose = window.confirm('You have unsaved customer details. Discard them?');
             if (!shouldClose) return;
         }
         setShowAddModal(false);
         setAddFormDirty(false);
-    }, [addFormDirty]);
+    };
 
-    const closeEditModal = useCallback((force = false) => {
+    const closeEditModal = (force = false) => {
         if (!force && editFormDirty) {
             const shouldClose = window.confirm('You have unsaved customer changes. Discard them?');
             if (!shouldClose) return;
         }
         setShowEditModal(false);
         setEditFormDirty(false);
-    }, [editFormDirty]);
+    };
 
     const customerTypes = ['Walk-in', 'Retail', 'Offset'];
 
@@ -95,7 +93,7 @@ const Customers = () => {
     const LIMIT = 20;
 
     // --- PAGINATED FETCH ---
-    const fetchCustomers = useCallback(async (pageNum = 1) => {
+    const fetchCustomers = async (pageNum = 1) => {
         setLoading(true);
         setError('');
         try {
@@ -110,6 +108,7 @@ const Customers = () => {
                 setTotal(res.data.total);
                 setTotalPages(res.data.totalPages);
             } else if (Array.isArray(res.data)) {
+                // Fallback for non-paginated response
                 const filtered = res.data.filter(c => c.client_type !== 'internal');
                 setCustomers(filtered);
                 setTotal(filtered.length);
@@ -127,25 +126,11 @@ const Customers = () => {
         } finally {
             setLoading(false);
         }
-    }, [searchQuery, typeFilter]);
+    };
 
     // --- EFFECTS ---
     useEffect(() => { fetchCustomers(1); }, []);
     useEffect(() => { fetchCustomers(1); }, [searchQuery, typeFilter]);
-
-    const displayedCustomers = useMemo(() => {
-        const list = Array.isArray(customers) ? [...customers] : [];
-        if (sortField === 'name') {
-            list.sort((a, b) => {
-                const an = (a.name || '').toLowerCase();
-                const bn = (b.name || '').toLowerCase();
-                if (an < bn) return sortDir === 'asc' ? -1 : 1;
-                if (an > bn) return sortDir === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-        return list;
-    }, [customers, sortField, sortDir]);
     useEffect(() => {
         const handleBeforeUnload = (event) => {
             if (!hasUnsavedChanges) return;
@@ -166,7 +151,7 @@ const Customers = () => {
         return value.replace(/\D/g, '').slice(0, 10);
     };
 
-    const handleAddCustomer = useCallback(async (e) => {
+    const handleAddCustomer = async (e) => {
         e.preventDefault();
         if (newCustomer.mobile.length !== 10) {
             return setError('Mobile number must be exactly 10 digits');
@@ -174,6 +159,7 @@ const Customers = () => {
         setLoading(true);
         try {
             const response = await localDb.createCustomer(newCustomer);
+            // Optimistic UI Update - add new customer to local state
             if (response) {
                 setCustomers(prev => [...prev, response]);
                 setTotal(prev => prev + 1);
@@ -187,19 +173,20 @@ const Customers = () => {
         } finally {
             setLoading(false);
         }
-    }, [newCustomer, closeAddModal, fetchCustomers]);
+    };
 
-    const handleUpdateCustomer = useCallback(async (e) => {
+    const handleUpdateCustomer = async (e) => {
         e.preventDefault();
         if (selectedCustomer.mobile.length !== 10) {
             return setError('Mobile number must be exactly 10 digits');
         }
         
         setLoading(true);
+        // Optimistic UI Update
         const prevCustomers = [...customers];
         setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? { ...c, ...selectedCustomer } : c));
         try {
-            await localDb.createCustomer(selectedCustomer);
+            await localDb.createCustomer(selectedCustomer); // createCustomer handles upsert
             closeEditModal(true);
             setSelectedCustomer(null);
             toast.success('Customer updated locally');
@@ -210,9 +197,9 @@ const Customers = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedCustomer, customers, closeEditModal, fetchCustomers]);
+    };
 
-    const handleDeleteCustomer = useCallback(async (id) => {
+    const handleDeleteCustomer = async (id) => {
         if (!isAdmin) {
             const note = window.prompt('Request delete: add reason (optional)');
             try {
@@ -236,6 +223,7 @@ const Customers = () => {
         });
         if (!isConfirmed) return;
 
+        // Optimistic UI Update
         setCustomers(prev => prev.filter(c => c.id !== id));
 
         try {
@@ -245,7 +233,7 @@ const Customers = () => {
             setError(err.response?.data?.message || 'Failed to delete customer');
             fetchCustomers();
         }
-    }, [isAdmin, confirm, fetchCustomers]);
+    };
 
     // --- ADVANCED JOB MODAL STATE ---
     const [showJobModal, setShowJobModal] = useState(false);
@@ -464,22 +452,8 @@ const Customers = () => {
                         style={{ paddingLeft: 32, width: '100%', height: 36, fontSize: 14 }}
                         value={searchInput}
                         onChange={e => setSearchInput(e.target.value)}
-                        aria-label="Search customers by name or mobile"
-                        onKeyDown={(e) => { if (e.key === 'Escape') setSearchInput(''); }}
                     />
-                    {searchInput && (
-                        <button
-                            aria-label="Clear search"
-                            title="Clear search"
-                            className="btn btn-ghost"
-                            style={{ position: 'absolute', right: 6, height: 28, width: 28, display: 'grid', placeItems: 'center' }}
-                            onClick={() => setSearchInput('')}
-                        >
-                            <X size={14} />
-                        </button>
-                    )}
                 </div>
-
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 4px 0 8px', height: 36, flexShrink: 0 }}>
                     <Filter size={13} style={{ color: 'var(--muted)' }} />
                     <select
@@ -491,15 +465,6 @@ const Customers = () => {
                         <option value="">All Types</option>
                         {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <button
-                        className="btn btn-ghost"
-                        title={`Sort by ${sortField} (${sortDir})`}
-                        aria-label="Toggle sort by name"
-                        onClick={() => { setSortField('name'); setSortDir(prev => prev === 'asc' ? 'desc' : 'asc'); }}
-                        style={{ marginLeft: 6, fontSize: 13 }}
-                    >
-                        Sort: {sortField} {sortDir === 'asc' ? '↑' : '↓'}
-                    </button>
                 </div>
             </div>
 
@@ -511,20 +476,15 @@ const Customers = () => {
                     <ServerError onRetry={fetchCustomers} message={error} />
                 ) : customers.length === 0 ? (
                     <div className="text-center p-40 muted">No customers found.</div>
-                ) : displayedCustomers.length === 0 ? (
-                    <div className="text-center p-40 muted">No customers match the filters.</div>
-                ) : displayedCustomers.map((c, idx) => (
+                ) : customers.map((c, idx) => (
                     <div
                         key={c.id}
                         style={{
                             display: 'flex', alignItems: 'center', gap: 12,
                             padding: '12px 14px',
-                            borderBottom: idx < displayedCustomers.length - 1 ? '1px solid var(--border)' : 'none',
+                            borderBottom: idx < customers.length - 1 ? '1px solid var(--border)' : 'none',
                             cursor: 'pointer', transition: 'background 0.15s'
                         }}
-                        tabIndex={0}
-                        role="button"
-                        onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/dashboard/customers/${c.id}`); }}
                         {...(isTouchDevice()
                             ? { onClick: () => navigate(`/dashboard/customers/${c.id}`) }
                             : { onDoubleClick: () => navigate(`/dashboard/customers/${c.id}`) }
@@ -985,4 +945,4 @@ const Customers = () => {
     );
 };
 
-export default React.memo(Customers);
+export default Customers;

@@ -36,6 +36,7 @@ const PaperLayoutGenerator = () => {
         if (preset && preset.w) { setPaperW(preset.w); setPaperH(preset.h); }
     }, [paperSize]);
 
+    // Client-side optimization using paperOptimizer
     const clientOptimization = useMemo(() => {
         if (!useClientOptimization || paperW <= 0 || paperH <= 0 || designW <= 0 || designH <= 0) {
             return null;
@@ -56,6 +57,7 @@ const PaperLayoutGenerator = () => {
         return result;
     }, [paperW, paperH, designW, designH, quantity, bleed, gutter, useClientOptimization]);
 
+    // Find best sheet size for current design
     const bestSheetOptions = useMemo(() => {
         if (designW <= 0 || designH <= 0) return [];
         
@@ -83,12 +85,14 @@ const PaperLayoutGenerator = () => {
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        // Paper
         ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#fbfaf7';
         ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#dedad1';
         ctx.lineWidth = 1;
         ctx.fillRect(offX, offY, paper_width * scale, paper_height * scale);
         ctx.strokeRect(offX, offY, paper_width * scale, paper_height * scale);
 
+        // Designs
         const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#1f2a33';
         if (placements) {
             placements.forEach((p, i) => {
@@ -96,12 +100,13 @@ const PaperLayoutGenerator = () => {
                 const y = offY + p.y * scale;
                 const w = p.width * scale;
                 const h = p.height * scale;
-                ctx.fillStyle = accent + '18';
+                ctx.fillStyle = accent + '18'; // subtle fill
                 ctx.strokeStyle = accent;
                 ctx.lineWidth = 1.5;
                 ctx.fillRect(x, y, w, h);
                 ctx.strokeRect(x, y, w, h);
 
+                // Bleed lines (dashed)
                 if (bleed > 0) {
                     ctx.save();
                     ctx.setLineDash([3, 3]);
@@ -113,14 +118,16 @@ const PaperLayoutGenerator = () => {
                     ctx.restore();
                 }
 
+                // Number label
                 ctx.fillStyle = accent;
-                ctx.font = '600 ' + Math.max(10, 12 * scale) + "px 'Space Grotesk', sans-serif";
+                ctx.font = `600 ${Math.max(10, 12 * scale)}px 'Space Grotesk', sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(String(i + 1), x + w / 2, y + h / 2);
+                ctx.fillText(`${i + 1}`, x + w / 2, y + h / 2);
             });
         }
 
+        // Cut marks
         const markLen = 8;
         ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6c7077';
         ctx.lineWidth = 0.5;
@@ -144,7 +151,7 @@ const PaperLayoutGenerator = () => {
 
     useEffect(() => { if (layout) drawCanvas(layout); }, [layout, drawCanvas]);
 
-    const calculate = useCallback(async () => {
+    const calculate = async () => {
         setLoading(true);
         try {
             const res = await api.post('ai/paper-layout/calculate', {
@@ -156,9 +163,9 @@ const PaperLayoutGenerator = () => {
             setComparison(null);
         } catch { toast.error('Calculation failed'); }
         finally { setLoading(false); }
-    }, [paperW, paperH, designW, designH, bleed, margin, gutter]);
+    };
 
-    const compare = useCallback(async () => {
+    const compare = async () => {
         try {
             const res = await api.post('ai/paper-layout/compare', {
                 design_size: { width: designW, height: designH },
@@ -166,7 +173,7 @@ const PaperLayoutGenerator = () => {
             });
             setComparison(res.data.comparisons || []);
         } catch { toast.error('Comparison failed'); }
-    }, [designW, designH, bleed, margin, gutter]);
+    };
 
     return (
         <div className="stack-lg">
@@ -180,13 +187,15 @@ const PaperLayoutGenerator = () => {
             </div>
 
             <div className="ai-grid ai-grid--controls">
+                {/* Controls Panel */}
                 <div className="panel" style={{ alignSelf: 'start' }}>
                     <h3 className="ai-section-heading">Configuration</h3>
 
+                    {/* Paper Size */}
                     <div style={{ marginBottom: 14 }}>
                         <label className="label">Paper Size</label>
                         <select className="input-field" value={paperSize} onChange={e => setPaperSize(e.target.value)}>
-                            {PAPER_SIZES.map(p => <option key={p.name} value={p.name}>{p.name}{p.w ? ' (' + p.w + String.fromCharCode(215) + p.h + 'mm)' : ''}</option>)}
+                            {PAPER_SIZES.map(p => <option key={p.name} value={p.name}>{p.name}{p.w ? ` (${p.w}×${p.h}mm)` : ''}</option>)}
                         </select>
                     </div>
 
@@ -203,6 +212,7 @@ const PaperLayoutGenerator = () => {
                         </div>
                     )}
 
+                    {/* Design Size */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                         <div>
                             <label className="label">Design W (mm)</label>
@@ -214,6 +224,7 @@ const PaperLayoutGenerator = () => {
                         </div>
                     </div>
 
+                    {/* Bleed / Margin / Gutter */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 18 }}>
                         <div>
                             <label className="label">Bleed</label>
@@ -229,11 +240,13 @@ const PaperLayoutGenerator = () => {
                         </div>
                     </div>
 
+                    {/* Quantity */}
                     <div style={{ marginBottom: 18 }}>
                         <label className="label">Quantity</label>
                         <input className="input-field" type="number" min={1} value={quantity} onChange={e => setQuantity(+e.target.value)} />
                     </div>
 
+                    {/* Optimization Toggle */}
                     <div style={{ marginBottom: 18 }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                             <input 
@@ -256,7 +269,9 @@ const PaperLayoutGenerator = () => {
                     </div>
                 </div>
 
+                {/* Preview + Results */}
                 <div>
+                    {/* Canvas */}
                     <div className="panel" style={{ marginBottom: 20 }}>
                         <h3 className="ai-section-heading">
                             Layout Preview
@@ -265,15 +280,16 @@ const PaperLayoutGenerator = () => {
                             style={{ width: '100%', height: 'auto', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)' }} />
                     </div>
 
+                    {/* Stats */}
                     {clientOptimization && useClientOptimization ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
                             {[
                                 { label: 'Sheets Needed', value: clientOptimization.sheetsNeeded },
                                 { label: 'Items/Sheet', value: clientOptimization.itemsPerSheet },
-                                { label: 'Waste', value: clientOptimization.wastePercent + '%', color: clientOptimization.wastePercent < 20 ? 'var(--success)' : clientOptimization.wastePercent < 40 ? 'var(--warning)' : 'var(--error)' },
-                                { label: 'Utilization', value: clientOptimization.utilizationPercent + '%', color: clientOptimization.utilizationPercent >= 80 ? 'var(--success)' : clientOptimization.utilizationPercent >= 60 ? 'var(--warning)' : 'var(--error)' },
-                                { label: 'Layout', value: clientOptimization.cols + String.fromCharCode(215) + clientOptimization.rows + ' (' + clientOptimization.layout + ')' },
-                                { label: 'Paper', value: paperW + String.fromCharCode(215) + paperH + 'mm' },
+                                { label: 'Waste', value: `${clientOptimization.wastePercent}%`, color: clientOptimization.wastePercent < 20 ? 'var(--success)' : clientOptimization.wastePercent < 40 ? 'var(--warning)' : 'var(--error)' },
+                                { label: 'Utilization', value: `${clientOptimization.utilizationPercent}%`, color: clientOptimization.utilizationPercent >= 80 ? 'var(--success)' : clientOptimization.utilizationPercent >= 60 ? 'var(--warning)' : 'var(--error)' },
+                                { label: 'Layout', value: `${clientOptimization.cols}×${clientOptimization.rows} (${clientOptimization.layout})` },
+                                { label: 'Paper', value: `${paperW}×${paperH}mm` },
                             ].map((s, i) => (
                                 <div key={i} className="summary-tile" style={{ minHeight: 'auto', padding: 14 }}>
                                     <div className="summary-tile__title">{s.label}</div>
@@ -285,14 +301,14 @@ const PaperLayoutGenerator = () => {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
                             {[
                                 { label: 'Copies/Sheet', value: layout.cards_per_sheet || 0 },
-                                { label: 'Waste', value: (layout.waste_percent || 0).toFixed(1) + '%' },
+                                { label: 'Waste', value: `${(layout.waste_percent || 0).toFixed(1)}%` },
                                 {
                                     label: 'Orientation',
                                     value: layout.mixed_layout
                                         ? 'Mixed'
                                         : (layout.is_rotated ? 'Landscape' : 'Portrait')
                                 },
-                                { label: 'Paper', value: paperW + String.fromCharCode(215) + paperH + 'mm' },
+                                { label: 'Paper', value: `${paperW}×${paperH}mm` },
                             ].map((s, i) => (
                                 <div key={i} className="summary-tile" style={{ minHeight: 'auto', padding: 14 }}>
                                     <div className="summary-tile__title">{s.label}</div>
@@ -313,6 +329,7 @@ const PaperLayoutGenerator = () => {
                         </div>
                     )}
 
+                    {/* Best Sheet Size Options */}
                     {useClientOptimization && bestSheetOptions.length > 0 && (
                         <div className="panel panel--tight" style={{ marginBottom: 20 }}>
                             <h3 className="ai-section-heading" style={{ marginBottom: 12 }}>
@@ -370,7 +387,7 @@ const PaperLayoutGenerator = () => {
                                                                 height: '100%', 
                                                                 borderRadius: 3, 
                                                                 background: opt.utilizationPercent >= 80 ? 'var(--success)' : opt.utilizationPercent >= 60 ? 'var(--warning)' : 'var(--error)', 
-                                                                width: opt.utilizationPercent + '%' 
+                                                                width: `${opt.utilizationPercent}%` 
                                                             }} />
                                                         </div>
                                                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-2)' }}>
@@ -386,6 +403,7 @@ const PaperLayoutGenerator = () => {
                         </div>
                     )}
 
+                    {/* Comparison Table */}
                     {comparison && (
                         <div className="panel panel--tight">
                             <h3 className="ai-section-heading" style={{ marginBottom: 12 }}>Paper Size Comparison</h3>
@@ -409,7 +427,7 @@ const PaperLayoutGenerator = () => {
                                                 <td>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                                         <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--surface-2)', overflow: 'hidden' }}>
-                                                            <div style={{ height: '100%', borderRadius: 3, background: (100 - (c.waste_percent || 0)) >= 70 ? 'var(--success)' : 'var(--warning)', width: (100 - (c.waste_percent || 0)) + '%' }} />
+                                                            <div style={{ height: '100%', borderRadius: 3, background: (100 - (c.waste_percent || 0)) >= 70 ? 'var(--success)' : 'var(--warning)', width: `${100 - (c.waste_percent || 0)}%` }} />
                                                         </div>
                                                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-2)' }}>
                                                             {(100 - (c.waste_percent || 0)).toFixed(0)}%
@@ -435,4 +453,4 @@ const PaperLayoutGenerator = () => {
     );
 };
 
-export default React.memo(PaperLayoutGenerator);
+export default PaperLayoutGenerator;

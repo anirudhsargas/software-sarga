@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import { Upload, FileCheck, AlertTriangle, CheckCircle2, XCircle, Loader2, Image, Eye, Clock } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -18,7 +18,7 @@ const DesignChecker = () => {
     const [dragActive, setDragActive] = useState(false);
     const inputRef = useRef(null);
 
-    const handleFile = useCallback((f) => {
+    const handleFile = (f) => {
         if (!f) return;
         setFile(f);
         setResult(null);
@@ -27,13 +27,13 @@ const DesignChecker = () => {
             reader.onload = (e) => setPreview(e.target.result);
             reader.readAsDataURL(f);
         } else { setPreview(null); }
-    }, []);
+    };
 
-    const onDrop = useCallback((e) => { e.preventDefault(); setDragActive(false); handleFile(e.dataTransfer.files[0]); }, [handleFile]);
-    const onDragOver = useCallback((e) => { e.preventDefault(); setDragActive(true); }, []);
-    const onDragLeave = useCallback(() => setDragActive(false), []);
+    const onDrop = (e) => { e.preventDefault(); setDragActive(false); handleFile(e.dataTransfer.files[0]); };
+    const onDragOver = (e) => { e.preventDefault(); setDragActive(true); };
+    const onDragLeave = () => setDragActive(false);
 
-    const analyze = useCallback(async () => {
+    const analyze = async () => {
         if (!file) return;
         setLoading(true);
         const formData = new FormData();
@@ -44,11 +44,11 @@ const DesignChecker = () => {
             setHistory(prev => [{ name: file.name, date: new Date(), errors: (res.data.issues || []).filter(i => i.severity === 'error').length, warnings: (res.data.issues || []).filter(i => i.severity === 'warning').length }, ...prev.slice(0, 9)]);
         } catch { toast.error('Analysis failed'); }
         finally { setLoading(false); }
-    }, [file]);
+    };
 
-    const issues = useMemo(() => result?.issues || [], [result?.issues]);
-    const errors = useMemo(() => issues.filter(i => i.severity === 'error').length, [issues]);
-    const warnings = useMemo(() => issues.filter(i => i.severity === 'warning').length, [issues]);
+    const issues = result?.issues || [];
+    const errors = issues.filter(i => i.severity === 'error').length;
+    const warnings = issues.filter(i => i.severity === 'warning').length;
 
     return (
         <div className="stack-lg">
@@ -197,4 +197,4 @@ const DesignChecker = () => {
     );
 };
 
-export default React.memo(DesignChecker);
+export default DesignChecker;

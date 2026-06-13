@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   IndianRupee, TrendingUp, TrendingDown, Loader2, Building2,
   Receipt, Wallet, BarChart3, Users, CreditCard, AlertTriangle,
@@ -24,7 +24,7 @@ const monthLabel = (m) => {
 };
 
 /* ─── KPI Card ─── */
-const KpiCard = React.memo(({ label, value, sub, color = '', icon: Icon, onClick }) => (
+const KpiCard = ({ label, value, sub, color = '', icon: Icon, onClick }) => (
   <div className={`acc-kpi ${color} ${onClick ? 'acc-kpi--clickable' : ''} hover-lift`} onClick={onClick}>
     <div className="acc-kpi__icon">{Icon && <Icon size={20} />}</div>
     <div className="acc-kpi__body">
@@ -33,10 +33,10 @@ const KpiCard = React.memo(({ label, value, sub, color = '', icon: Icon, onClick
       {sub && <div className="acc-kpi__sub">{sub}</div>}
     </div>
   </div>
-));
+);
 
 /* ─── Section ─── */
-const Section = React.memo(({ title, icon: Icon, action, children }) => {
+const Section = ({ title, icon: Icon, action, children }) => {
   const ref = useScrollAnimation({ stagger: true, staggerSelector: '.acc-section > *' });
   return (
     <div ref={ref} className="acc-section animate-fade-up">
@@ -49,10 +49,10 @@ const Section = React.memo(({ title, icon: Icon, action, children }) => {
       {children}
     </div>
   );
-});
+};
 
 /* ─── Alert Card ─── */
-const AlertCard = React.memo(({ icon, color, bg, title, desc, onAction }) => (
+const AlertCard = ({ icon, color, bg, title, desc, onAction }) => (
   <div className="acc-alert hover-lift" style={{ background: bg, borderColor: `${color}22` }}>
     <div className="acc-alert__icon-wrap" style={{ background: `${color}18` }}>
       {icon ? React.createElement(icon, { size: 18, style: { color } }) : null}
@@ -65,14 +65,14 @@ const AlertCard = React.memo(({ icon, color, bg, title, desc, onAction }) => (
       <button className="acc-alert__action" onClick={onAction}><ArrowRight size={14} /></button>
     )}
   </div>
-));
+);
 
 /* ─── Progress Bar ─── */
-const ProgressBar = React.memo(({ pct, color = 'var(--accent)', height = 6 }) => (
+const ProgressBar = ({ pct, color = 'var(--accent)', height = 6 }) => (
   <div className="acc-progress" style={{ height, background: 'var(--bg-2, #e5e7eb)' }}>
     <div className="acc-progress__fill" style={{ width: `${Math.min(Math.max(pct, 0), 100)}%`, background: color, height }} />
   </div>
-));
+);
 
 /* ══════════════════════════════════════════════════════════════
    ACCOUNTANT DASHBOARD
@@ -85,7 +85,6 @@ const AccountantDashboard = () => {
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
   const branchDropdownRef = useRef(null);
   const [loading, setLoading] = useState(true);
-  const prevDataRef = useRef({});
 
   const [expDash, setExpDash] = useState(null);
   const [salesStats, setSalesStats] = useState(null);
@@ -112,46 +111,14 @@ const AccountantDashboard = () => {
         api.get('/requests/discount').catch(() => ({ data: [] })),
       ]);
 
-      if (expRes.status === 'fulfilled') {
-        const newExpDash = expRes.value.data;
-        if (JSON.stringify(newExpDash) !== JSON.stringify(prevDataRef.current.expDash)) {
-          setExpDash(newExpDash);
-          prevDataRef.current.expDash = newExpDash;
-        }
-      }
+      if (expRes.status === 'fulfilled') setExpDash(expRes.value.data);
       if (salesRes.status === 'fulfilled') {
-        const newSalesStats = salesRes.value.data;
-        if (JSON.stringify(newSalesStats) !== JSON.stringify(prevDataRef.current.salesStats)) {
-          setSalesStats(newSalesStats);
-          prevDataRef.current.salesStats = newSalesStats;
-        }
-        const newRecentJobs = salesRes.value.data?.recent_jobs || [];
-        if (JSON.stringify(newRecentJobs) !== JSON.stringify(prevDataRef.current.recentJobs)) {
-          setRecentJobs(newRecentJobs);
-          prevDataRef.current.recentJobs = newRecentJobs;
-        }
+        setSalesStats(salesRes.value.data);
+        setRecentJobs(salesRes.value.data?.recent_jobs || []);
       }
-      if (todayRes.status === 'fulfilled') {
-        const newTodayStats = todayRes.value.data;
-        if (JSON.stringify(newTodayStats) !== JSON.stringify(prevDataRef.current.todayStats)) {
-          setTodayStats(newTodayStats);
-          prevDataRef.current.todayStats = newTodayStats;
-        }
-      }
-      if (cashRes.status === 'fulfilled') {
-        const newCashVsBank = cashRes.value.data?.rows?.[0] || null;
-        if (JSON.stringify(newCashVsBank) !== JSON.stringify(prevDataRef.current.cashVsBank)) {
-          setCashVsBank(newCashVsBank);
-          prevDataRef.current.cashVsBank = newCashVsBank;
-        }
-      }
-      if (reqRes.status === 'fulfilled') {
-        const newPendingRequests = reqRes.value.data || [];
-        if (JSON.stringify(newPendingRequests) !== JSON.stringify(prevDataRef.current.pendingRequests)) {
-          setPendingRequests(newPendingRequests);
-          prevDataRef.current.pendingRequests = newPendingRequests;
-        }
-      }
+      if (todayRes.status === 'fulfilled') setTodayStats(todayRes.value.data);
+      if (cashRes.status === 'fulfilled') setCashVsBank(cashRes.value.data?.rows?.[0] || null);
+      if (reqRes.status === 'fulfilled') setPendingRequests(reqRes.value.data || []);
     } catch (err) {
       console.error('AccountantDashboard fetch error', err);
     } finally {
@@ -174,80 +141,76 @@ const AccountantDashboard = () => {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const toggleBranch = useCallback((id) => {
+  const toggleBranch = (id) => {
     setSelectedBranches(prev =>
       prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]
     );
-  }, []);
+  };
 
-  const clearBranches = useCallback(() => setSelectedBranches([]), []);
-  const selectAllBranches = useCallback(() => setSelectedBranches(branches.map(b => String(b.id))), [branches]);
+  const clearBranches = () => setSelectedBranches([]);
+  const selectAllBranches = () => setSelectedBranches(branches.map(b => String(b.id)));
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   /* ─── Derived ─── */
-  const totalRevenue = useMemo(() => Number(salesStats?.jobs?.total_sales || 0), [salesStats]);
-  const totalCollected = useMemo(() => Number(salesStats?.payments?.total_amount || salesStats?.payments?.total_collected || 0), [salesStats]);
-  const totalExpenses = useMemo(() => Number(expDash?.total_expenses || 0), [expDash]);
-  const netProfit = useMemo(() => Number(expDash?.net_profit ?? (totalRevenue - totalExpenses)), [expDash, totalRevenue, totalExpenses]);
-  const profitMargin = useMemo(() => totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0, [totalRevenue, netProfit]);
-  const revenueCollected = useMemo(() => Number(expDash?.revenue_collected || totalCollected), [expDash, totalCollected]);
+  const totalRevenue = Number(salesStats?.jobs?.total_sales || 0);
+  const totalCollected = Number(salesStats?.payments?.total_amount || salesStats?.payments?.total_collected || 0);
+  const totalExpenses = Number(expDash?.total_expenses || 0);
+  const netProfit = Number(expDash?.net_profit ?? (totalRevenue - totalExpenses));
+  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+  const revenueCollected = Number(expDash?.revenue_collected || totalCollected);
 
-  const cashTotal = useMemo(() => Number(cashVsBank?.cash_total || 0), [cashVsBank]);
-  const upiTotal = useMemo(() => Number(cashVsBank?.upi_total || 0), [cashVsBank]);
-  const bankTotal = useMemo(() => Number(cashVsBank?.bank_total || 0), [cashVsBank]);
-  const otherTotal = useMemo(() => Number(cashVsBank?.other_total || 0), [cashVsBank]);
-  const paymentTotal = useMemo(() => cashTotal + upiTotal + bankTotal + otherTotal || 1, [cashTotal, upiTotal, bankTotal, otherTotal]);
+  const cashTotal = Number(cashVsBank?.cash_total || 0);
+  const upiTotal = Number(cashVsBank?.upi_total || 0);
+  const bankTotal = Number(cashVsBank?.bank_total || 0);
+  const otherTotal = Number(cashVsBank?.other_total || 0);
+  const paymentTotal = cashTotal + upiTotal + bankTotal + otherTotal || 1;
 
-  const vendorPayable = useMemo(() => Number(expDash?.vendor?.total_payable || 0), [expDash]);
-  const utilityPayable = useMemo(() => Number(expDash?.utility?.total_payable || 0), [expDash]);
+  const vendorPayable = Number(expDash?.vendor?.total_payable || 0);
+  const utilityPayable = Number(expDash?.utility?.total_payable || 0);
 
-  const todayRevenue = useMemo(() => Number(todayStats?.jobs?.total_sales || 0), [todayStats]);
-  const todayCollected = useMemo(() => Number(todayStats?.payments?.total_collected_today || todayStats?.payments?.total_amount || 0), [todayStats]);
-  const todayJobs = useMemo(() => Number(todayStats?.jobs?.total_count || 0), [todayStats]);
-  const todayCompleted = useMemo(() => Number(todayStats?.jobs?.completed_today || 0), [todayStats]);
-  const overdueJobs = useMemo(() => Number(salesStats?.jobs?.overdue || 0), [salesStats]);
-  const inProgressJobs = useMemo(() => Number(salesStats?.jobs?.in_progress || 0), [salesStats]);
-  const totalBalance = useMemo(() => Number(salesStats?.jobs?.total_balance || 0), [salesStats]);
+  const todayRevenue = Number(todayStats?.jobs?.total_sales || 0);
+  const todayCollected = Number(todayStats?.payments?.total_collected_today || todayStats?.payments?.total_amount || 0);
+  const todayJobs = Number(todayStats?.jobs?.total_count || 0);
+  const todayCompleted = Number(todayStats?.jobs?.completed_today || 0);
+  const overdueJobs = Number(salesStats?.jobs?.overdue || 0);
+  const inProgressJobs = Number(salesStats?.jobs?.in_progress || 0);
+  const totalBalance = Number(salesStats?.jobs?.total_balance || 0);
 
-  const catBreakdown = useMemo(() =>
-    (expDash?.by_category ? Object.entries(expDash.by_category) : [])
-      .map(([cat, total]) => ({ category: cat, total: Number(total) }))
-      .sort((a, b) => b.total - a.total),
-  [expDash]);
-  const maxCatTotal = useMemo(() => catBreakdown.length > 0 ? catBreakdown[0].total : 1, [catBreakdown]);
+  const catBreakdown = (expDash?.by_category ? Object.entries(expDash.by_category) : [])
+    .map(([cat, total]) => ({ category: cat, total: Number(total) }))
+    .sort((a, b) => b.total - a.total);
+  const maxCatTotal = catBreakdown.length > 0 ? catBreakdown[0].total : 1;
 
-  const overdueVendors = useMemo(() => expDash?.overdue_vendors || [], [expDash]);
-  const alerts = useMemo(() => expDash?.alerts || {}, [expDash]);
-  const dueEmis = useMemo(() => alerts.due_emis || [], [alerts]);
-  const dueKuris = useMemo(() => alerts.due_kuris || [], [alerts]);
-  const overdueUtilities = useMemo(() => alerts.overdue_utilities || [], [alerts]);
-  const rentLocations = useMemo(() => expDash?.rent_locations || [], [expDash]);
-  const unpaidRents = useMemo(() => rentLocations.filter(r => Number(r.remaining) > 0), [rentLocations]);
-  const totalAlerts = useMemo(() => pendingRequests.length + overdueVendors.length + dueEmis.length + dueKuris.length + overdueUtilities.length + unpaidRents.length, [pendingRequests, overdueVendors, dueEmis, dueKuris, overdueUtilities, unpaidRents]);
+  const overdueVendors = expDash?.overdue_vendors || [];
+  const alerts = expDash?.alerts || {};
+  const dueEmis = alerts.due_emis || [];
+  const dueKuris = alerts.due_kuris || [];
+  const overdueUtilities = alerts.overdue_utilities || [];
+  const rentLocations = expDash?.rent_locations || [];
+  const unpaidRents = rentLocations.filter(r => Number(r.remaining) > 0);
+  const totalAlerts = pendingRequests.length + overdueVendors.length + dueEmis.length + dueKuris.length + overdueUtilities.length + unpaidRents.length;
 
-  const payMethods = useMemo(() => [
+  const payMethods = [
     { label: 'Cash', value: cashTotal, color: 'var(--success)' },
     { label: 'UPI', value: upiTotal, color: 'var(--accent)' },
     { label: 'Bank', value: bankTotal, color: 'var(--accent)' },
     { label: 'Other', value: otherTotal, color: 'var(--warning)' },
-  ].filter(p => p.value > 0), [cashTotal, upiTotal, bankTotal, otherTotal]);
+  ].filter(p => p.value > 0);
 
-  const monthlyTrend = useMemo(() => expDash?.monthly_trend || [], [expDash]);
+  const monthlyTrend = expDash?.monthly_trend || [];
 
-  const branchLabel = useMemo(() => selectedBranches.length === 0
+  const branchLabel = selectedBranches.length === 0
     ? 'All Branches'
     : selectedBranches.length === 1
       ? (branches.find(b => String(b.id) === selectedBranches[0])?.name || 'Branch')
-      : `${selectedBranches.length} Branches`,
-  [selectedBranches, branches]);
+      : `${selectedBranches.length} Branches`;
 
-  const selectedBranchNames = useMemo(() => selectedBranches.length === 0
+  const selectedBranchNames = selectedBranches.length === 0
     ? 'All Branches'
-    : selectedBranches.map(id => branches.find(b => String(b.id) === id)?.name || id).join(', '),
-  [selectedBranches, branches]);
+    : selectedBranches.map(id => branches.find(b => String(b.id) === id)?.name || id).join(', ');
 
-  const CAT_COLORS = useMemo(() => ['var(--accent)', 'var(--error)', 'var(--success)', 'var(--accent)', 'var(--warning)', '#0d9488', 'var(--warning)', 'var(--accent)'], []);
+  const CAT_COLORS = ['var(--accent)', 'var(--error)', 'var(--success)', 'var(--accent)', 'var(--warning)', '#0d9488', 'var(--warning)', 'var(--accent)'];
 
   return (
     <div className="acc-dash">
@@ -761,7 +724,7 @@ const AccountantDashboard = () => {
         </>
       )}
     </div>
-    );
+  );
 };
 
-export default React.memo(AccountantDashboard);
+export default AccountantDashboard;

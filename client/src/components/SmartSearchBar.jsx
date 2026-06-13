@@ -8,7 +8,7 @@ const CATEGORY_META = {
     payments: { icon: CreditCard, label: 'Payments' },
 };
 
-const SmartSearchBar = React.memo(() => {
+const SmartSearchBar = () => {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [results, setResults] = useState(null);
@@ -201,6 +201,6 @@ const SmartSearchBar = React.memo(() => {
             </div>
         </div>
     );
-});
+};
 
 export default SmartSearchBar;

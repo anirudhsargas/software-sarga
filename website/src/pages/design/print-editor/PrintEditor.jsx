@@ -11,9 +11,7 @@ import {
   Group, Ungroup, Repeat, ChevronDown, ChevronUp, X
 } from 'lucide-react';
 import { findProduct, getCanvasDimensions, FONTS, FONT_SIZES, SHAPES } from '../../../lib/productConfig';
-import EditorOnboarding from './EditorOnboarding';
 import './PrintEditor.css';
-import toast from 'react-hot-toast';
 
 const DESIGN_API = '/api/website/designs';
 
@@ -63,8 +61,6 @@ export default function PrintEditor() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [tabSub, setTabSub] = useState('templates');
   const [thumbCanvas, setThumbCanvas] = useState(null);
-  const [qrUrl, setQrUrl] = useState('');
-  const [showQrInput, setShowQrInput] = useState(false);
 
   const getScale = useCallback(() => 40 * zoom, [zoom]);
 
@@ -144,25 +140,6 @@ export default function PrintEditor() {
       };
     }
   }, [productId]);
-
-  // ─── Keyboard: Escape to close modals ───
-  useEffect(() => {
-    const handleEsc = (e) => {
-      if (e.key === 'Escape') {
-        if (exportModal) setExportModal(false);
-        if (showTemplates) setShowTemplates(false);
-      }
-    };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [exportModal, showTemplates]);
-
-  // ─── Focus trap: keep focus inside modals ───
-  useEffect(() => {
-    if (!exportModal && !showTemplates) return;
-    const active = document.activeElement;
-    if (active && active.blur) active.blur();
-  }, [exportModal, showTemplates]);
 
   function updateSelection(obj) {
     setSelectedObj(obj ? {
@@ -453,10 +430,12 @@ export default function PrintEditor() {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
       }
-      const dataUrl = c.toDataURL({ format: 'png', multiplier: scale });
+      const oldZoom = c.getZoom();
+      c.setZoom(scale);
 
       if (exportFormat === 'pdf') {
         const { jsPDF } = await import('jspdf');
+        const dataUrl = c.toDataURL({ format: 'png', multiplier: 1 });
         const mmW = dims.actualWidthMm;
         const mmH = dims.actualHeightMm;
         const pdf = new jsPDF({ orientation: mmW > mmH ? 'landscape' : 'portrait', unit: 'mm', format: [mmW, mmH] });
@@ -466,21 +445,20 @@ export default function PrintEditor() {
       } else {
         const mime = exportFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
         const ext = exportFormat === 'jpeg' ? 'jpg' : 'png';
-        const finalUrl = exportFormat === 'jpeg'
-          ? exportCanvas.toDataURL('image/jpeg', 0.92)
-          : dataUrl;
+        const dataUrl = c.toDataURL({ format: exportFormat === 'jpeg' ? 'jpeg' : 'png', multiplier: 1 });
         const link = document.createElement('a');
         link.download = `${product?.name || 'design'}.${ext}`;
-        link.href = finalUrl;
+        link.href = dataUrl;
         link.click();
       }
+
+      c.setZoom(oldZoom);
+      c.renderAll();
     } catch (err) {
       console.error('Export error:', err);
-      toast.error('Export failed. Please try again.');
-    } finally {
-      setExporting(false);
-      setExportModal(false);
     }
+    setExporting(false);
+    setExportModal(false);
   }
 
   async function handleSave() {
@@ -595,7 +573,6 @@ export default function PrintEditor() {
 
   return (
     <div className={`print-editor ${darkMode ? 'dark' : ''}`}>
-      <EditorOnboarding />
       {/* ─── Top Toolbar ─── */}
       <div className="pe-toolbar">
         <button className="pe-btn pe-btn--ghost" onClick={() => navigate('/design')}>
@@ -615,7 +592,7 @@ export default function PrintEditor() {
         <button className="pe-btn" onClick={() => fileInputRef.current?.click()}>
           <ImageIcon size={16} /> Image
         </button>
-        <input ref={fileInputRef} type="file" accept="image/png, image/jpeg, application/pdf" onChange={handleImageUpload} hidden />
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
 
         <div className="pe-toolbar__divider" />
         <button className="pe-btn" onClick={undo} title="Undo (Ctrl+Z)"><Undo2 size={16} /></button>
@@ -728,34 +705,17 @@ export default function PrintEditor() {
                   <button className="pe-btn pe-btn--block" onClick={() => logoInputRef.current?.click()}>
                     <ImageIcon size={14} /> Upload Logo
                   </button>
-                  <input ref={logoInputRef} type="file" accept="image/png, image/jpeg, application/pdf" onChange={handleImageUpload} hidden />
+                  <input ref={logoInputRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
                 </div>
 
                 <div className="pe-section">
                   <div className="pe-section__title">QR Code</div>
-                  {showQrInput ? (
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <input
-                        type="url"
-                        className="pe-input"
-                        placeholder="https://example.com"
-                        value={qrUrl}
-                        onChange={(e) => setQrUrl(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleQrGenerate(); }}
-                        autoFocus
-                      />
-                      <button className="pe-btn pe-btn--primary" onClick={handleQrGenerate} disabled={!qrUrl.trim()}>
-                        <QrCode size={14} /> Add
-                      </button>
-                      <button className="pe-btn pe-btn--ghost" onClick={() => { setShowQrInput(false); setQrUrl(''); }}>
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <button className="pe-btn pe-btn--block" onClick={() => setShowQrInput(true)}>
-                      <QrCode size={14} /> Generate QR Code
-                    </button>
-                  )}
+                  <button className="pe-btn pe-btn--block" onClick={() => {
+                    const url = prompt('Enter URL for QR code:');
+                    if (url) addQRCode(url);
+                  }}>
+                    <QrCode size={14} /> Generate QR Code
+                  </button>
                 </div>
               </>
             )}
@@ -903,10 +863,10 @@ export default function PrintEditor() {
 
       {/* ─── Export Modal ─── */}
       {exportModal && (
-        <div className="pe-modal-overlay" onClick={() => setExportModal(false)} role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+        <div className="pe-modal-overlay" onClick={() => setExportModal(false)}>
           <div className="pe-modal" onClick={e => e.stopPropagation()}>
             <div className="pe-modal__header">
-              <h3 id="export-modal-title">Export Design</h3>
+              <h3>Export Design</h3>
               <button className="pe-btn pe-btn--ghost" onClick={() => setExportModal(false)}><X size={18} /></button>
             </div>
             <div className="pe-modal__body">
@@ -978,44 +938,10 @@ export default function PrintEditor() {
   );
 }
 
-  async function addQRCode(url) {
-    if (!fabricRef.current || !url) return;
-    try {
-      const resp = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`);
-      const blob = await resp.blob();
-      const dataUrl = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.readAsDataURL(blob);
-      });
-      const img = await new Promise((resolve) => {
-        FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' }).then(resolve);
-      });
-      const maxW = dims.width * 0.3;
-      const maxH = dims.height * 0.3;
-      const scale = Math.min(maxW / (img.width || 200), maxH / (img.height || 200), 1);
-      img.set({
-        left: dims.width / 2 - ((img.width || 200) * scale) / 2,
-        top: dims.height / 2 - ((img.height || 200) * scale) / 2,
-        scaleX: scale, scaleY: scale,
-        id: `qr_${Date.now()}`,
-        name: 'QR Code',
-      });
-      fabricRef.current.add(img);
-      fabricRef.current.setActiveObject(img);
-      fabricRef.current.renderAll();
-      saveToHistory();
-    } catch (err) {
-      toast.error('Failed to generate QR code. Try again.');
-    }
-  }
-
-  function handleQrGenerate() {
-    if (!qrUrl.trim()) return;
-    addQRCode(qrUrl.trim());
-    setQrUrl('');
-    setShowQrInput(false);
-  }
+function addQRCode(url) {
+  // Placeholder — would use a QR generation library
+  alert(`QR code for: ${url}\n(Integration with QR library needed)`);
+}
 
 function Menu({ size }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;

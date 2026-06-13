@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings } from 'lucide-react';
 import HolidayCalendar from '../components/HolidayCalendar';
@@ -150,15 +150,7 @@ const StaffManagement = () => {
     const navigate = useNavigate();
     const user = auth.getUser();
     const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
-    const staffRef = useRef([]);
-    const [staff, setStaffState] = useState([]);
-    const setStaff = useCallback((v) => {
-      const n = typeof v === 'function' ? v(staffRef.current) : v;
-      if (JSON.stringify(staffRef.current) !== JSON.stringify(n)) {
-        staffRef.current = n;
-        setStaffState(n);
-      }
-    }, []);
+    const [staff, setStaff] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -167,15 +159,7 @@ const StaffManagement = () => {
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [settingsStaff, setSettingsStaff] = useState(null);
     const [newStaff, setNewStaff] = useState({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: '', salary_type: 'Monthly', base_salary: '', daily_rate: '' });
-    const branchesRef = useRef([]);
-    const [branches, setBranchesState] = useState([]);
-    const setBranches = useCallback((v) => {
-      const n = typeof v === 'function' ? v(branchesRef.current) : v;
-      if (JSON.stringify(branchesRef.current) !== JSON.stringify(n)) {
-        branchesRef.current = n;
-        setBranchesState(n);
-      }
-    }, []);
+    const [branches, setBranches] = useState([]);
     const [error, setError] = useState('');
     const [newStaffImage, setNewStaffImage] = useState(null);
     const [newStaffPreview, setNewStaffPreview] = useState('');
@@ -188,15 +172,7 @@ const StaffManagement = () => {
     const [selectedBranchFilter, setSelectedBranchFilter] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const debouncedSearch = useDebounce(searchInput, 300);
-    const todayAttendanceRef = useRef({});
-    const [todayAttendance, setTodayAttendanceState] = useState({});
-    const setTodayAttendance = useCallback((v) => {
-      const n = typeof v === 'function' ? v(todayAttendanceRef.current) : v;
-      if (JSON.stringify(todayAttendanceRef.current) !== JSON.stringify(n)) {
-        todayAttendanceRef.current = n;
-        setTodayAttendanceState(n);
-      }
-    }, []);
+    const [todayAttendance, setTodayAttendance] = useState({});
 
     const roles = ['Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'];
 
@@ -237,16 +213,16 @@ const StaffManagement = () => {
         }
     }, [editStaffImage, selectedStaff]);
 
-    const fetchBranches = useCallback(async () => {
+    const fetchBranches = async () => {
         try {
             const response = await api.get('/branches');
             setBranches(response.data);
         } catch (err) {
             console.error('Failed to fetch branches');
         }
-    }, []);
+    };
 
-    const fetchStaff = useCallback(async () => {
+    const fetchStaff = async () => {
         try {
             setLoading(true);
             let url = `/staff?page=${page}&limit=20`;
@@ -266,23 +242,23 @@ const StaffManagement = () => {
         } finally {
             setLoading(false);
         }
-    }, [page, selectedBranchFilter]);
+    };
 
     const validateMobile = (value) => {
         const cleaned = value.replace(/\D/g, '');
         return cleaned.slice(0, 10);
     };
 
-    const openCropper = useCallback((file, target) => {
+    const openCropper = (file, target) => {
         if (!file) return;
         setCropState({ file, target });
-    }, []);
+    };
 
-    const handleCropCancel = useCallback(() => {
+    const handleCropCancel = () => {
         setCropState(null);
-    }, []);
+    };
 
-    const handleCropComplete = useCallback((croppedFile) => {
+    const handleCropComplete = (croppedFile) => {
         if (!cropState) return;
         if (cropState.target === 'newStaff') {
             setNewStaffImage(croppedFile);
@@ -291,9 +267,9 @@ const StaffManagement = () => {
             setEditStaffImage(croppedFile);
         }
         setCropState(null);
-    }, [cropState]);
+    };
 
-    const handleAddStaff = useCallback(async (e) => {
+    const handleAddStaff = async (e) => {
         e.preventDefault();
         if (newStaff.mobile.length !== 10) {
             return setError('Mobile number must be exactly 10 digits');
@@ -329,9 +305,9 @@ const StaffManagement = () => {
         } finally {
             setLoading(false);
         }
-    }, [newStaff, isAdmin, newStaffImage, branches, fetchStaff]);
+    };
 
-    const handleUpdateStaff = useCallback(async (e) => {
+    const handleUpdateStaff = async (e) => {
         e.preventDefault();
         if (selectedStaff.user_id.length !== 10) {
             return setError('Mobile number must be exactly 10 digits');
@@ -369,9 +345,9 @@ const StaffManagement = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedStaff, isAdmin, editStaffImage, fetchStaff, staff]);
+    };
 
-    const handleRemoveStaffImage = useCallback(async () => {
+    const handleRemoveStaffImage = async () => {
         if (!selectedStaff) return;
         const isConfirmed = await confirm({
             title: 'Remove Photo',
@@ -392,9 +368,9 @@ const StaffManagement = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedStaff, fetchStaff, confirm]);
+    };
 
-    const handleDeleteStaff = useCallback(async (id) => {
+    const handleDeleteStaff = async (id) => {
         const isConfirmed = await confirm({
             title: 'Delete Staff Member',
             message: 'Are you sure you want to delete this staff member?\n\nThis action cannot be undone.',
@@ -413,9 +389,9 @@ const StaffManagement = () => {
             setError('Failed to delete staff member');
             fetchStaff();
         }
-    }, [confirm, fetchStaff]);
+    };
 
-    const handleResetPassword = useCallback(async (id) => {
+    const handleResetPassword = async (id) => {
         const isConfirmed = await confirm({
             title: 'Reset Password',
             message: 'Reset password to mobile number?',
@@ -429,9 +405,9 @@ const StaffManagement = () => {
         } catch (err) {
             setError('Failed to reset password');
         }
-    }, [confirm]);
+    };
 
-    const fetchTodayAttendance = useCallback(async () => {
+    const fetchTodayAttendance = async () => {
         try {
             const today = new Date().toISOString().split('T')[0];
             const response = await api.get(`/cctv/attendance/summary?date=${today}`);
@@ -447,9 +423,9 @@ const StaffManagement = () => {
         } catch (err) {
             console.error('Failed to fetch today\'s attendance:', err);
         }
-    }, []);
+    };
 
-    const handleMarkAttendance = useCallback(async (staffId) => {
+    const handleMarkAttendance = async (staffId) => {
         const existing = todayAttendance[staffId];
         const today = new Date().toISOString().split('T')[0];
         const now = new Date().toTimeString().slice(0, 5);
@@ -476,7 +452,7 @@ const StaffManagement = () => {
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to mark attendance');
         }
-    }, [todayAttendance, fetchTodayAttendance]);
+    };
 
     const filteredStaff = useMemo(() => {
         if (!debouncedSearch) return staff;
@@ -825,4 +801,4 @@ const StaffSettingsModal = ({ staff, onClose, onUpdate }) => {
     );
 };
 
-export default React.memo(StaffManagement);
+export default StaffManagement;

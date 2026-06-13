@@ -1,11 +1,9 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { X, Check, Eye, Loader2 } from 'lucide-react';
 import SecureImage from '../components/SecureImage';
 import { useConfirm } from '../contexts/ConfirmContext';
-
-const requestsRef = useRef([]);
 
 const ProductRequests = () => {
     const { confirm } = useConfirm();
@@ -16,34 +14,26 @@ const ProductRequests = () => {
     const [selected, setSelected] = useState(null);
     const [reviewing, setReviewing] = useState(false);
 
-    const setRequestsSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(requestsRef.current)) {
-            requestsRef.current = data;
-            setRequests(data);
-        }
-    }, []);
+    useEffect(() => {
+        fetchRequests();
+    }, [page, limit]);
 
-    const fetchRequests = useCallback(async () => {
+    const fetchRequests = async () => {
         setLoading(true);
         try {
             const res = await api.get('/products/update-requests', { params: { status: 'pending', page, limit } });
-            setRequestsSmart(Array.isArray(res.data) ? res.data : res.data?.data || []);
+            setRequests(Array.isArray(res.data) ? res.data : res.data?.data || []);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to load requests');
         } finally {
             setLoading(false);
         }
-    }, [page, limit, setRequestsSmart]);
+    };
 
-    useEffect(() => {
-        fetchRequests();
-    }, [fetchRequests]);
+    const open = (r) => setSelected(r);
+    const close = () => setSelected(null);
 
-    const open = useCallback((r) => setSelected(r), []);
-    const close = useCallback(() => setSelected(null), []);
-
-    const review = useCallback(async (id, action, note) => {
+    const review = async (id, action, note) => {
         const confirmObj = await confirm({
             title: action === 'approve' ? 'Approve update' : 'Reject update',
             message: action === 'approve' ? 'Apply this update to the product now?' : 'Reject this request?',
@@ -62,9 +52,9 @@ const ProductRequests = () => {
         } finally {
             setReviewing(false);
         }
-    }, [confirm, fetchRequests, close]);
+    };
 
-    const canNext = useMemo(() => requests.length === limit, [requests, limit]);
+    const canNext = requests.length === limit;
 
     return (
         <div>
@@ -153,4 +143,4 @@ const ProductRequests = () => {
     );
 };
 
-export default React.memo(ProductRequests);
+export default ProductRequests;

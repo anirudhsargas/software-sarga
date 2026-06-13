@@ -83,9 +83,9 @@
 }
 
 .sheet-layout__btn--danger:hover:not(:disabled) {
-  background: rgba(0,0,0,0.06);
-  border-color: var(--text);
-  color: var(--text);
+  background: rgba(220, 38, 38, 0.08);
+  border-color: #dc2626;
+  color: #dc2626;
 }
 
 .sheet-layout__separator {
@@ -350,8 +350,8 @@
 }
 
 .sheet-layout__photo-remove:hover {
-  background: rgba(0,0,0,0.06);
-  color: var(--text);
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
 }
 
 /* ─── Export Buttons ─── */

@@ -6,7 +6,7 @@
   overflow: hidden;
   --pe-accent: #7c3aed;
   --pe-accent-hover: #6d28d9;
-  --pe-danger: var(--text);
+  --pe-danger: #ef4444;
   --pe-surface: #ffffff;
   --pe-bg: #f8f7f4;
   --pe-border: #e5e4e2;
@@ -57,7 +57,7 @@
 .pe-btn--active { background: var(--pe-bg); color: var(--pe-accent); border-color: var(--pe-accent); }
 .pe-btn--primary { background: var(--pe-accent); color: white; border-color: var(--pe-accent); }
 .pe-btn--primary:hover { background: var(--pe-accent-hover); }
-.pe-btn--danger:hover { color: var(--pe-danger); background: rgba(0,0,0,0.06); }
+.pe-btn--danger:hover { color: var(--pe-danger); background: rgba(239,68,68,0.08); }
 .pe-btn--ghost { border: none; }
 .pe-btn--ghost:hover { background: var(--pe-bg); }
 .pe-btn--block { width: 100%; justify-content: center; border: 1px solid var(--pe-border); }

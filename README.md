@@ -79,52 +79,11 @@ cd ..
 - Copy `client/.env.example` to `client/.env.development`
 - Update with your database credentials and API keys
 
-	Alternatively you can copy the project root sample and edit values:
-	- Copy `.env.sample` to `.env` and fill values (DB credentials, `JWT_SECRET`, SMTP settings).
-	- For the website (Vite) frontend set `VITE_GOOGLE_CLIENT_ID` in `website/.env` or in your environment.
-
 4. Initialize database
 ```bash
 cd server
 node -e "require('./database').initDb()"
 ```
-
-### Database migrations & backfill
-
-This project ships a SQL migration and a small backfill script to normalize mobile numbers and add a `phone_numbers` table used for canonical E.164 storage.
-
-1. Apply the migration (review on staging first):
-
-```sql
--- Run the SQL file in `migrations/2026_05_29_add_phone_numbers_and_mobile_normalized.sql`
--- Example (mysql client):
-mysql -u <user> -p <database> < migrations/2026_05_29_add_phone_numbers_and_mobile_normalized.sql
-```
-
-2. Backfill normalized mobiles and populate `phone_numbers`:
-
-```bash
-# from project root
-node server/tools/backfill_mobiles.js
-```
-
-Notes:
-- The migration adds `mobile_normalized` to `sarga_customers` and a `phone_numbers` table.
-- Review the SQL before running; ensure you have a backup of your DB first.
-- Run on staging before production.
-
-### Google Sign-In (frontend)
-
-1. Create an OAuth 2.0 Client ID in Google Cloud Console (type: Web application).
-2. Add the authorized origins (e.g. `http://localhost:5174`) and authorized redirect URIs if needed.
-3. Set the client ID in your Vite environment (example using `.env`):
-
-```
-VITE_GOOGLE_CLIENT_ID=1234567890-abcdefghijkl.apps.googleusercontent.com
-```
-
-4. Start the website dev server and the Sign In page will load the Google Identity SDK automatically.
-
 
 5. Start the services
 ```bash

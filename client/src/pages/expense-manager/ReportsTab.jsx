@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   BarChart3, Download, CreditCard, Loader2, FileText, TrendingUp,
   Building2, Users, Zap, Home, Banknote, PieChart
@@ -18,7 +18,6 @@ const ReportsTab = ({ branches, onError }) => {
   const [reportType, setReportType] = useState('monthly-expenses');
   const [filters, setFilters] = useState({ start_date: '', end_date: '', branch_id: '', vendor_id: '', vendor_name: '' });
   const [data, setData] = useState(null);
-  const dataRef = useRef(null);
   const [loading, setLoading] = useState(false);
 
   const fetchReport = useCallback(async () => {
@@ -31,16 +30,15 @@ const ReportsTab = ({ branches, onError }) => {
       if (filters.vendor_id) params.vendor_id = filters.vendor_id;
       if (filters.vendor_name) params.vendor_name = filters.vendor_name;
       const r = await api.get(`/reports/${reportType}`, { params });
-      const str = JSON.stringify(r.data);
-      if (str !== dataRef.current) { dataRef.current = str; setData(r.data); }
+      setData(r.data);
     } catch { onError('Failed to load report'); }
     finally { setLoading(false); }
   }, [reportType, filters, onError]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
-  const grandTotal = useMemo(() => data?.rows?.reduce((s, r) => s + Number(r.total || r.amount || r.cash_total || 0), 0) || 0, [data?.rows]);
-  const RIcon = useMemo(() => REPORT_ICONS[reportType] || FileText, [reportType]);
+  const grandTotal = data?.rows?.reduce((s, r) => s + Number(r.total || r.amount || r.cash_total || 0), 0) || 0;
+  const RIcon = REPORT_ICONS[reportType] || FileText;
 
   return (
     <div className="em-section">
@@ -262,4 +260,4 @@ const ReportsTab = ({ branches, onError }) => {
   );
 };
 
-export default React.memo(ReportsTab);
+export default ReportsTab;

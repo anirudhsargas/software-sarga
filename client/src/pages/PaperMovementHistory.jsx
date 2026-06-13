@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     History, ArrowLeft, Filter, Search, Download, 
     ArrowUpCircle, ArrowDownCircle, Repeat, RefreshCcw, Briefcase
@@ -18,23 +18,12 @@ const PaperMovementHistory = () => {
         limit: 50,
         offset: 0
     });
-    const filtersRef = useRef(filters);
-    const setFiltersSmart = useCallback((updates) => {
-        setFilters(prev => {
-            const next = { ...prev, ...updates };
-            if (JSON.stringify(next) !== JSON.stringify(filtersRef.current)) {
-                filtersRef.current = next;
-                return next;
-            }
-            return prev;
-        });
-    }, []);
 
-    const fetchHistory = useCallback(async () => {
+    const fetchHistory = async () => {
         setLoading(true);
         try {
             const [moveRes, branchRes] = await Promise.all([
-                api.get('/paperInventory/movements', { params: filtersRef.current }),
+                api.get('/paperInventory/movements', { params: filters }),
                 api.get('/branches')
             ]);
             setMovements(moveRes.data);
@@ -44,13 +33,13 @@ const PaperMovementHistory = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    };
 
     useEffect(() => {
         fetchHistory();
-    }, [filters, fetchHistory]);
+    }, [filters]);
 
-    const getMovementBadge = useCallback((type) => {
+    const getMovementBadge = (type) => {
         switch(type) {
             case 'INWARD': return <span className="badge badge-success"><ArrowUpCircle size={12} className="mr-4" /> Inward</span>;
             case 'OUTWARD': return <span className="badge badge-warning"><ArrowDownCircle size={12} className="mr-4" /> Outward</span>;
@@ -59,10 +48,11 @@ const PaperMovementHistory = () => {
             case 'ADJUSTMENT': return <span className="badge badge-ghost">Adjustment</span>;
             default: return <span className="badge badge-ghost">{type}</span>;
         }
-    }, []);
+    };
 
     return (
         <div className="stack-lg p-md">
+            {/* Header */}
             <div className="row items-center gap-md">
                 <button className="btn btn-ghost p-sm" onClick={() => navigate('/dashboard/paper/stock')}>
                     <ArrowLeft size={20} />
@@ -76,6 +66,7 @@ const PaperMovementHistory = () => {
                 </button>
             </div>
 
+            {/* Filters */}
             <div className="panel row gap-md items-center wrap">
                 <div className="row gap-sm wrap items-center">
                     <Filter size={18} className="muted" />
@@ -83,7 +74,7 @@ const PaperMovementHistory = () => {
                         className="input-field" 
                         style={{ width: 160 }}
                         value={filters.branch_id}
-                        onChange={(e) => setFiltersSmart({ branch_id: e.target.value })}
+                        onChange={(e) => setFilters({...filters, branch_id: e.target.value})}
                     >
                         <option value="">All Branches</option>
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -92,7 +83,7 @@ const PaperMovementHistory = () => {
                         className="input-field" 
                         style={{ width: 160 }}
                         value={filters.movement_type}
-                        onChange={(e) => setFiltersSmart({ movement_type: e.target.value })}
+                        onChange={(e) => setFilters({...filters, movement_type: e.target.value})}
                     >
                         <option value="">All Types</option>
                         <option value="INWARD">Inward</option>
@@ -108,6 +99,7 @@ const PaperMovementHistory = () => {
                 </div>
             </div>
 
+            {/* Table */}
             <div className="panel p-0 overflow-hidden">
                 <div className="table-scroll">
                     <table className="table">
@@ -177,4 +169,4 @@ const PaperMovementHistory = () => {
     );
 };
 
-export default React.memo(PaperMovementHistory);
+export default PaperMovementHistory;

@@ -156,10 +156,10 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowed.includes(ext)) return cb(null, true);
-    cb(new Error('Invalid file type. Only JPG, PNG, WEBP, PDF are allowed.'));
+    cb(new Error('Invalid file type. Only JPG, PNG, WEBP are allowed.'));
 };
 
 const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
@@ -266,11 +266,8 @@ const invalidateCache = (pattern) => {
 };
 
 // Export cache utilities for use in routes
-app.cacheMiddleware = cacheMiddleware;
-app.invalidateCache = invalidateCache;
 module.exports.cacheMiddleware = cacheMiddleware;
 module.exports.invalidateCache = invalidateCache;
-
 
 // --------------- Route Modules ---------------
 
@@ -321,8 +318,6 @@ try {
     logger.warn('[DevRoutes] Not loaded:', (e && e.stack) ? e.stack : (e && e.message) ? e.message : e);
 }
 app.use('/api', require('./routes/frontOffice'));
-app.use('/api', require('./routes/websiteInquiries'));
-app.use('/api/chatbot', require('./routes/chatbot'));
 app.use('/api', require('./routes/expenses'));
 app.use('/api', require('./routes/finance'));
 app.use('/api', require('./routes/expenses-extended'));
@@ -397,50 +392,6 @@ app.use('/api', require('./routes/passwordReset'));
 // Customer-facing Website Routes (public, no auth required — shares same DB)
 app.use('/api/website', require('./routes/website')(upload));
 app.use('/api/website', require('./routes/websiteDesigns'));
-app.use('/api/website', require('./routes/websiteReviews'));
-app.use('/api/blog', require('./routes/blog')(upload)); // SEO blog routes
-app.use('/api', require('./routes/websiteReviews')); // admin endpoints under /api/reviews
-app.use('/api', require('./routes/artworkUploads'));
-app.use('/api', require('./routes/premiumFeatures')());
-app.use('/api', require('./routes/portfolio'));
-app.use('/api', require('./routes/whatsappAnalytics'));
-app.use('/api', require('./routes/deliveryEstimates'));
-app.use('/api', require('./routes/proofs'));
-app.use('/api', require('./routes/pickupSlots'));
-app.use('/api', require('./routes/promotions'));
-app.use('/api', require('./routes/translations'));
-app.use('/api', require('./routes/pricing'));
-app.use('/api', require('./routes/checkout'));
-app.use('/api', require('./routes/preflight'));
-app.use('/api', require('./routes/businessHub'));
-app.use('/api', require('./routes/variableData'));
-app.use('/', require('./routes/seo'));
-
-// Debug: expose registered route list for local troubleshooting
-app.get('/api/_routes', (req, res) => {
-    try {
-        const getPath = (layer) => {
-            if (layer.route && layer.route.path) return layer.route.path;
-            if (layer.regexp && layer.regexp.source) return layer.regexp.source;
-            return undefined;
-        };
-        const routes = [];
-        app._router.stack.forEach((layer) => {
-            const p = getPath(layer);
-            if (p) {
-                routes.push(p);
-            } else if (layer.name === 'router' && layer.handle && layer.handle.stack) {
-                layer.handle.stack.forEach((l) => {
-                    const rp = getPath(l);
-                    if (rp) routes.push(rp);
-                });
-            }
-        });
-        res.json({ routes });
-    } catch (err) {
-        res.status(500).json({ error: String(err) });
-    }
-});
 
 // Health check with DB ping (must be before the error handler)
 app.get('/api/ping', async (req, res) => {
@@ -461,13 +412,6 @@ app.use(errorHandler);
 // --------------- Start Server ---------------
 if (process.env.NODE_ENV !== 'test') {
     initDb().then(() => {
-        // Seed starter blog articles if empty
-        try {
-            require('./helpers/seedBlogPosts').seedBlog();
-        } catch (e) {
-            logger.error('[Blog Seeder] Failed to run seeder:', e.message);
-        }
-
         const server = app.listen(PORT, '0.0.0.0', () => {
             logger.info(`Server running on port ${PORT} (bound to 0.0.0.0)`);
 

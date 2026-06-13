@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Landmark, Repeat, Plus, Edit2, X, Loader2,
   IndianRupee, Calendar, TrendingUp, AlertTriangle,
@@ -19,14 +19,12 @@ const FinanceTab = ({ branches, onError }) => {
 
   // EMI state
   const [emis, setEmis] = useState([]);
-  const emisRef = useRef(null);
   const [emiPage, setEmiPage] = useState(1);
   const [emiLimit] = useState(20);
   const [emiTotal, setEmiTotal] = useState(0);
   const [emiTotalPages, setEmiTotalPages] = useState(1);
   const [loadingEmis, setLoadingEmis] = useState(false);
   const [emiDash, setEmiDash] = useState(null);
-  const emiDashRef = useRef(null);
   const [showEmiForm, setShowEmiForm] = useState(false);
   const [editingEmi, setEditingEmi] = useState(null);
   const [emiForm, setEmiForm] = useState(defaultEmiForm);
@@ -36,14 +34,12 @@ const FinanceTab = ({ branches, onError }) => {
 
   // Kuri state
   const [kuris, setKuris] = useState([]);
-  const kurisRef = useRef(null);
   const [kuriPage, setKuriPage] = useState(1);
   const [kuriLimit] = useState(20);
   const [kuriTotal, setKuriTotal] = useState(0);
   const [kuriTotalPages, setKuriTotalPages] = useState(1);
   const [loadingKuris, setLoadingKuris] = useState(false);
   const [kuriDash, setKuriDash] = useState(null);
-  const kuriDashRef = useRef(null);
   const [showKuriForm, setShowKuriForm] = useState(false);
   const [editingKuri, setEditingKuri] = useState(null);
   const [kuriForm, setKuriForm] = useState(defaultKuriForm);
@@ -73,8 +69,7 @@ const FinanceTab = ({ branches, onError }) => {
       params.append('limit', emiLimit);
       params.append('is_active', 1);
       const r = await api.get(`/emi-master?${params.toString()}`);
-      const emisStr = JSON.stringify(r.data.data || []);
-      if (emisStr !== emisRef.current) { emisRef.current = emisStr; setEmis(r.data.data || []); }
+      setEmis(r.data.data || []);
       setEmiTotal(r.data.total || 0);
       setEmiTotalPages(r.data.totalPages || 1);
       setEmiPage(r.data.page || 1);
@@ -95,8 +90,7 @@ const FinanceTab = ({ branches, onError }) => {
       params.append('is_active', 1);
       const r = await api.get(`/kuri-master?${params.toString()}`);
       console.debug('fetchKuris', { pageNum, total: r.data.total, rows: (r.data.data || []).length });
-      const kurisStr = JSON.stringify(r.data.data || []);
-      if (kurisStr !== kurisRef.current) { kurisRef.current = kurisStr; setKuris(r.data.data || []); }
+      setKuris(r.data.data || []);
       setKuriTotal(r.data.total || 0);
       setKuriTotalPages(r.data.totalPages || 1);
       setKuriPage(r.data.page || 1);
@@ -109,11 +103,11 @@ const FinanceTab = ({ branches, onError }) => {
     }
   }, [kuriLimit]);
   const fetchEmiDash = useCallback(async () => {
-    try { const r = await api.get('/emi-dashboard'); const s = JSON.stringify(r.data); if (s !== emiDashRef.current) { emiDashRef.current = s; setEmiDash(r.data); } }
+    try { const r = await api.get('/emi-dashboard'); setEmiDash(r.data); }
     catch (err) { if (onError) onError(err.response?.data?.message || 'Failed to load EMI dashboard'); }
   }, [onError]);
   const fetchKuriDash = useCallback(async () => {
-    try { const r = await api.get('/kuri-dashboard'); const s = JSON.stringify(r.data); if (s !== kuriDashRef.current) { kuriDashRef.current = s; setKuriDash(r.data); } }
+    try { const r = await api.get('/kuri-dashboard'); setKuriDash(r.data); }
     catch (err) { if (onError) onError(err.response?.data?.message || 'Failed to load Kuri dashboard'); }
   }, [onError]);
 
@@ -611,4 +605,4 @@ const FinanceTab = ({ branches, onError }) => {
   );
 };
 
-export default React.memo(FinanceTab);
+export default FinanceTab;

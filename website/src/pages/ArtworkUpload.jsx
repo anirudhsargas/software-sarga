@@ -199,6 +199,8 @@ export default function ArtworkUpload() {
           <div className="track-section">
             <div className="track-input-group">
               <input
+                id="track-query"
+                name="track-query"
                 className="form-input"
                 placeholder="Enter your order number (e.g. ART-250601-1234)"
                 value={trackQuery}
@@ -299,19 +301,19 @@ export default function ArtworkUpload() {
               <div className="form-grid">
                 <div className="form-group">
                   <label>Your Name *</label>
-                  <input className="form-input" value={form.customer_name} onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} placeholder="Full name" />
+                  <input id="customer-name" name="customer-name" className="form-input" value={form.customer_name} onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} placeholder="Full name" />
                 </div>
                 <div className="form-group">
                   <label>Email</label>
-                  <input className="form-input" type="email" value={form.customer_email} onChange={e => setForm(f => ({ ...f, customer_email: e.target.value }))} placeholder="For updates" />
+                  <input id="customer-email" name="customer-email" className="form-input" type="email" value={form.customer_email} onChange={e => setForm(f => ({ ...f, customer_email: e.target.value }))} placeholder="For updates" />
                 </div>
                 <div className="form-group">
                   <label>Phone</label>
-                  <input className="form-input" type="tel" value={form.customer_phone} onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} placeholder="Contact number" />
+                  <input id="customer-phone" name="customer-phone" className="form-input" type="tel" value={form.customer_phone} onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} placeholder="Contact number" />
                 </div>
                 <div className="form-group">
                   <label>Product Type</label>
-                  <select className="form-input" value={form.product_type} onChange={e => setForm(f => ({ ...f, product_type: e.target.value }))}>
+                  <select id="product-type" name="product-type" className="form-input" value={form.product_type} onChange={e => setForm(f => ({ ...f, product_type: e.target.value }))}>
                     <option value="">Select...</option>
                     <option value="business_card">Business Card</option>
                     <option value="flyer">Flyer / Brochure</option>
@@ -329,27 +331,27 @@ export default function ArtworkUpload() {
                 </div>
                 <div className="form-group">
                   <label>Quantity</label>
-                  <input className="form-input" type="number" min="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} placeholder="e.g. 1000" />
+                  <input id="quantity" name="quantity" className="form-input" type="number" min="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} placeholder="e.g. 1000" />
                 </div>
                 <div className="form-group">
                   <label>Size</label>
-                  <input className="form-input" value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} placeholder="e.g. A4, 5x7 inch" />
+                  <input id="size" name="size" className="form-input" value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} placeholder="e.g. A4, 5x7 inch" />
                 </div>
                 <div className="form-group">
                   <label>Printing Side</label>
-                  <select className="form-input" value={form.printing_side} onChange={e => setForm(f => ({ ...f, printing_side: e.target.value }))}>
+                  <select id="printing-side" name="printing-side" className="form-input" value={form.printing_side} onChange={e => setForm(f => ({ ...f, printing_side: e.target.value }))}>
                     <option value="single">Single Side</option>
                     <option value="double">Double Side</option>
                   </select>
                 </div>
                 <div className="form-group">
                   <label>Delivery Requirement</label>
-                  <input className="form-input" value={form.delivery_requirement} onChange={e => setForm(f => ({ ...f, delivery_requirement: e.target.value }))} placeholder="When needed?" />
+                  <input id="delivery-requirement" name="delivery-requirement" className="form-input" value={form.delivery_requirement} onChange={e => setForm(f => ({ ...f, delivery_requirement: e.target.value }))} placeholder="When needed?" />
                 </div>
               </div>
               <div className="form-group full-width">
                 <label>Special Instructions</label>
-                <textarea className="form-input" rows={3} value={form.special_instructions} onChange={e => setForm(f => ({ ...f, special_instructions: e.target.value }))} placeholder="Color preferences, finishing, notes for the designer..." />
+                <textarea id="special-instructions" name="special-instructions" className="form-input" rows={3} value={form.special_instructions} onChange={e => setForm(f => ({ ...f, special_instructions: e.target.value }))} placeholder="Color preferences, finishing, notes for the designer..." />
               </div>
             </div>
 

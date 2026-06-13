@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Camera, Plus, X, Edit2, Trash2, Loader2, RefreshCw, Eye, EyeOff, Wifi, WifiOff, User, Upload, Image, Video, MonitorPlay, Network, KeyRound, UserCheck, ChevronRight, ExternalLink } from 'lucide-react';
 import api from '../services/api';
 import SecureImage from '../components/SecureImage';
@@ -9,10 +9,6 @@ const BRANCHES = [
   { value: 'meppayur_main', label: 'Meppayur Main' },
   { value: 'meppayur_room', label: 'Meppayur Room' },
 ];
-
-const camerasRef = useRef([]);
-const faceStatsRef = useRef([]);
-const staffListRef = useRef([]);
 
 const CCTVManagement = () => {
   const [tab, setTab] = useState('cameras');
@@ -51,25 +47,17 @@ const CCTVManagement = () => {
   const [attendanceType, setAttendanceType] = useState('entry');
 
   // ─── Fetch cameras ──────────────────────────────────
-  const setCamerasSmart = useCallback((data) => {
-    const str = JSON.stringify(data);
-    if (str !== JSON.stringify(camerasRef.current)) {
-      camerasRef.current = data;
-      setCameras(data);
-    }
-  }, []);
-
   const fetchCameras = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await api.get('cctv/cameras');
-      setCamerasSmart(data);
+      setCameras(data);
     } catch {
       toast.error('Failed to load cameras');
     } finally {
       setLoading(false);
     }
-  }, [setCamerasSmart]);
+  }, []);
 
   useEffect(() => { fetchCameras(); }, [fetchCameras]);
 
@@ -78,25 +66,20 @@ const CCTVManagement = () => {
     const fetchStaff = async () => {
       try {
         const { data } = await api.get('staff?all=true&limit=200');
-        const staff = data.data || data || [];
-        const str = JSON.stringify(staff);
-        if (str !== JSON.stringify(staffListRef.current)) {
-          staffListRef.current = staff;
-          setStaffList(staff);
-        }
+        setStaffList(data.data || data || []);
       } catch { /* silent */ }
     };
     fetchStaff();
   }, []);
 
   // ─── Camera CRUD ──────────────────────────────────────
-  const openAddCamera = useCallback(() => {
+  const openAddCamera = () => {
     setEditingCamera(null);
     setCameraForm({ name: '', branch: 'perambra', ip_address: '', port: 554, username: 'admin', password: '', rtsp_path: '/Streaming/Channels/101' });
     setShowCameraModal(true);
-  }, []);
+  };
 
-  const openEditCamera = useCallback(async (cam) => {
+  const openEditCamera = async (cam) => {
     try {
       const { data } = await api.get(`cctv/cameras/${cam.id}`);
       setEditingCamera(data);
@@ -109,9 +92,9 @@ const CCTVManagement = () => {
     } catch {
       toast.error('Failed to load camera details');
     }
-  }, []);
+  };
 
-  const handleCameraSave = useCallback(async (e) => {
+  const handleCameraSave = async (e) => {
     e.preventDefault();
     if (!cameraForm.name || !cameraForm.ip_address || !cameraForm.password) {
       toast.error('Name, IP address, and password are required');
@@ -133,9 +116,9 @@ const CCTVManagement = () => {
     } finally {
       setCameraSaving(false);
     }
-  }, [editingCamera, cameraForm, fetchCameras]);
+  };
 
-  const handleDeleteCamera = useCallback(async (cam) => {
+  const handleDeleteCamera = async (cam) => {
     if (!window.confirm(`Delete camera "${cam.name}"? This cannot be undone.`)) return;
     try {
       await api.delete(`cctv/cameras/${cam.id}`);
@@ -145,9 +128,9 @@ const CCTVManagement = () => {
     } catch {
       toast.error('Failed to delete camera');
     }
-  }, [liveCamera, fetchCameras]);
+  };
 
-  const toggleCameraActive = useCallback(async (cam) => {
+  const toggleCameraActive = async (cam) => {
     try {
       await api.put(`cctv/cameras/${cam.id}`, { is_active: !cam.is_active });
       fetchCameras();
@@ -155,10 +138,10 @@ const CCTVManagement = () => {
     } catch {
       toast.error('Failed to update camera');
     }
-  }, [fetchCameras]);
+  };
 
   // ─── Snapshot / Live view ──────────────────────────────
-  const fetchSnapshot = useCallback(async (cam) => {
+  const fetchSnapshot = async (cam) => {
     setLiveCamera(cam);
     setSnapshotLoading(true);
     setSnapshotError(null);
@@ -172,14 +155,14 @@ const CCTVManagement = () => {
     } finally {
       setSnapshotLoading(false);
     }
-  }, []);
+  };
 
-  const openCameraWebUI = useCallback((cam) => {
+  const openCameraWebUI = (cam) => {
     window.open(`http://${cam.ip_address}`, '_blank', 'noopener');
-  }, []);
+  };
 
   // ─── Quick Mark Attendance from Live View ──────────────
-  const handleMarkAttendance = useCallback(async (staffId) => {
+  const handleMarkAttendance = async (staffId) => {
     if (!staffId || !attendanceBranch || !attendanceType) {
       toast.error('Select staff, branch and event type');
       return;
@@ -199,30 +182,22 @@ const CCTVManagement = () => {
     } finally {
       setMarkingAttendance(null);
     }
-  }, [attendanceBranch, attendanceType]);
+  };
 
   // ─── Face Data ─────────────────────────────────────────
-  const setFaceStatsSmart = useCallback((data) => {
-    const str = JSON.stringify(data);
-    if (str !== JSON.stringify(faceStatsRef.current)) {
-      faceStatsRef.current = data;
-      setFaceStats(data);
-    }
-  }, []);
-
   const fetchFaceStats = useCallback(async () => {
     setFaceLoading(true);
     try {
       const { data } = await api.get('cctv/face-data/stats');
-      setFaceStatsSmart(data);
+      setFaceStats(data);
     } catch {
       toast.error('Failed to load face data');
     } finally {
       setFaceLoading(false);
     }
-  }, [setFaceStatsSmart]);
+  }, []);
 
-  const fetchFaceDataForStaff = useCallback(async (staffId) => {
+  const fetchFaceDataForStaff = async (staffId) => {
     setSelectedStaffFace(staffId);
     try {
       const { data } = await api.get(`cctv/face-data?staff_id=${staffId}`);
@@ -230,29 +205,29 @@ const CCTVManagement = () => {
     } catch {
       toast.error('Failed to load face images');
     }
-  }, []);
+  };
 
   useEffect(() => {
     if (tab === 'faces') fetchFaceStats();
   }, [tab, fetchFaceStats]);
 
-  const openFaceUpload = useCallback((staffId) => {
+  const openFaceUpload = (staffId) => {
     setFaceStaffId(staffId || '');
     setFaceLabel('');
     setFaceFile(null);
     setFacePreview('');
     setShowFaceModal(true);
-  }, []);
+  };
 
-  const handleFaceFileChange = useCallback((e) => {
+  const handleFaceFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setFaceFile(file);
       setFacePreview(URL.createObjectURL(file));
     }
-  }, []);
+  };
 
-  const handleFaceUpload = useCallback(async (e) => {
+  const handleFaceUpload = async (e) => {
     e.preventDefault();
     if (!faceStaffId || !faceFile) {
       toast.error('Select a staff member and upload an image');
@@ -274,9 +249,9 @@ const CCTVManagement = () => {
     } finally {
       setFaceSaving(false);
     }
-  }, [faceStaffId, faceFile, faceLabel, selectedStaffFace, fetchFaceDataForStaff, fetchFaceStats]);
+  };
 
-  const handleDeleteFaceData = useCallback(async (fdId) => {
+  const handleDeleteFaceData = async (fdId) => {
     if (!window.confirm('Remove this face image?')) return;
     try {
       await api.delete(`cctv/face-data/${fdId}`);
@@ -286,9 +261,9 @@ const CCTVManagement = () => {
     } catch {
       toast.error('Failed to remove');
     }
-  }, [selectedStaffFace, fetchFaceDataForStaff, fetchFaceStats]);
+  };
 
-  const togglePassword = useCallback((camId) => setShowPassword(prev => ({ ...prev, [camId]: !prev[camId] })), []);
+  const togglePassword = (camId) => setShowPassword(prev => ({ ...prev, [camId]: !prev[camId] }));
 
   const BRANCH_COLORS = {
     perambra: { bg: 'rgba(99,102,241,0.12)', color: '#818cf8', dot: '#6366f1' },
@@ -871,4 +846,4 @@ const SectionDivider = ({ icon, label }) => (
   </div>
 );
 
-export default React.memo(CCTVManagement);
+export default CCTVManagement;

@@ -2,7 +2,7 @@ import React from 'react';
 import { Loader2 } from 'lucide-react';
 import './SkeletonLoader.css';
 
-const SkeletonLoader = React.memo(({ type = 'cards', count = 6, columns }) => {
+const SkeletonLoader = ({ type = 'cards', count = 6, columns }) => {
 
   // ── FrontOffice stat cards: icon (48×48 rounded square) + value + label ──
   if (type === 'cards') {
@@ -177,6 +177,6 @@ const SkeletonLoader = React.memo(({ type = 'cards', count = 6, columns }) => {
   }
 
   return null;
-});
+};
 
 export default SkeletonLoader;

@@ -66,15 +66,6 @@ async function cleanDuplicateInventoryLinks() {
                     if (parts.length > 0) sku = parts.join('-');
                 }
                 
-                // Trim and truncate size_code to 100 chars if it exceeds that length
-                let sizeCodeValue = prod.size || originalInv.size_code || null;
-                if (sizeCodeValue) {
-                    sizeCodeValue = String(sizeCodeValue).trim();
-                    if (sizeCodeValue.length > 100) {
-                        sizeCodeValue = sizeCodeValue.substring(0, 100);
-                    }
-                }
-
                 // Insert new cloned inventory item with the product's actual name
                 const [insertResult] = await pool.query(
                     `INSERT INTO sarga_inventory 
@@ -92,7 +83,7 @@ async function cleanDuplicateInventoryLinks() {
                         originalInv.item_type || 'Retail',
                         prod.company_code || originalInv.source_code || null,
                         prod.name,
-                        sizeCodeValue,
+                        prod.size || originalInv.size_code || null,
                         originalInv.hsn || null,
                         originalInv.gst_rate || 0,
                         originalInv.vendor_name || null,

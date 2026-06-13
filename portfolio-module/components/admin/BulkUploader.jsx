@@ -31,15 +31,15 @@ export default function BulkUploader({ onUploaded }){
   return (
     <form onSubmit={upload} className="border rounded p-3">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Project name" className="border p-2 rounded" />
-        <input value={slug} onChange={e=>setSlug(e.target.value)} placeholder="Slug (optional)" className="border p-2 rounded" />
-        <select value={category} onChange={e=>setCategory(e.target.value)} className="border p-2 rounded">
+        <input id="project-name" name="project-name" value={name} onChange={e=>setName(e.target.value)} placeholder="Project name" className="border p-2 rounded" />
+        <input id="project-slug" name="project-slug" value={slug} onChange={e=>setSlug(e.target.value)} placeholder="Slug (optional)" className="border p-2 rounded" />
+        <select id="project-category" name="project-category" value={category} onChange={e=>setCategory(e.target.value)} className="border p-2 rounded">
           {categories.map(c=> <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
       <div className="mt-2 flex items-center gap-2">
-        <input type="file" multiple accept="image/*" onChange={handleFiles} />
-        <label className="flex items-center gap-2"><input type="checkbox" checked={customerApproved} onChange={e=>setCustomerApproved(e.target.checked)} /> Customer approved</label>
+        <input type="file" id="project-images" name="project-images" multiple accept="image/*" onChange={handleFiles} />
+        <label className="flex items-center gap-2"><input type="checkbox" id="customer-approved" name="customer-approved" checked={customerApproved} onChange={e=>setCustomerApproved(e.target.checked)} /> Customer approved</label>
       </div>
       <div className="mt-3">
         <button className="px-3 py-1 bg-blue-600 text-white rounded" type="submit">Upload</button>

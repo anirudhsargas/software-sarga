@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Search, Package, Clock, CheckCircle2, Truck, AlertCircle, Loader2, Play } from 'lucide-react'
 import { trackJob } from '../api'
 import toast from 'react-hot-toast'
-import SEO from '../components/SEO'
 import './TrackOrder.css'
 
 const statusSteps = ['Received', 'In Progress', 'Quality Check', 'Ready', 'Delivered']
@@ -93,10 +92,6 @@ export default function TrackOrder() {
 
   return (
     <div className="track-page">
-      <SEO 
-        title="Track Order Status" 
-        description="Track your active printing orders and delivery status online using your Job Code or mobile number." 
-      />
       {/* Header */}
       <section className="page-header" id="track-header">
         <div className="page-header__bg" />

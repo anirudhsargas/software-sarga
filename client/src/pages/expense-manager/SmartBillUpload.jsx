@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Upload, X, AlertCircle, Loader2, CheckCircle, Link2, Plus, Trash2 } from 'lucide-react';
 import api from '../../services/api';
@@ -7,16 +7,9 @@ import localDb from '../../services/localDb';
 import './SmartBillUpload.css';
 
 const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, defaultRelatedTab }) => {
-  const formatApiError = (err) => {
-    const raw = err?.response?.data?.error ?? err?.response?.data?.message ?? null;
-    if (typeof raw === 'string') return raw;
-    if (typeof raw === 'object' && raw !== null) return raw.userMessage || raw.message || JSON.stringify(raw);
-    return err?.message || String(err) || 'Server error';
-  };
   const [step, setStep] = useState('upload'); // upload | extracting | suggestions | pricing | linking | confirming
   const [file, setFile] = useState(null);
   const [extractedData, setExtractedData] = useState(null);
-  const extractedRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -24,7 +17,6 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
   const [, setProductSuggestions] = useState([]);
   const [editableItems, setEditableItems] = useState([]);
   const [hierarchyOptions, setHierarchyOptions] = useState([]);
-  const hierarchyRef = useRef(null);
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
   const [categoryMode, setCategoryMode] = useState('single');
   const [globalCategoryId, setGlobalCategoryId] = useState('');
@@ -158,8 +150,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
         typeof cat?.id === 'number' && Array.isArray(cat?.subcategories)
       );
       console.log('[SmartBillUpload] Filtered categories:', categories.length);
-      const hierStr = JSON.stringify(categories);
-      if (hierStr !== hierarchyRef.current) { hierarchyRef.current = hierStr; setHierarchyOptions(categories); }
+      setHierarchyOptions(categories);
 
       const vendorLower = String(vendorName || '').toLowerCase();
       const wantsMemento = /memento|troph|award|shield|plaque|souvenir/.test(vendorLower);
@@ -287,14 +278,14 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     setStep('pricing');
   };
 
-  const handleFileDrop = useCallback((e) => {
+  const handleFileDrop = (e) => {
     e.preventDefault();
     const files = e.dataTransfer?.files || e.target.files;
     if (files?.[0]) {
       setFile(files[0]);
       setError('');
     }
-  }, []);
+  };
 
   const extractBillDetails = async () => {
     if (!file) {
@@ -311,8 +302,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
         timeout: 120000,
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      const extStr = JSON.stringify(response.data);
-      if (extStr !== extractedRef.current) { extractedRef.current = extStr; setExtractedData(response.data); }
+      setExtractedData(response.data);
       const extractedItems = response.data.extracted_data?.items || [];
       // Derive a bill-level fallback GST rate from tax_amount/subtotal
       // so per-item GST can be inferred even when the server doesn't return it per line
@@ -382,9 +372,10 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     } catch (err) {
       console.error('[SmartBillUpload] Extraction failed:', err);
       const isTimeout = String(err?.code || '').toUpperCase() === 'ECONNABORTED';
-      const timeoutMsg = 'Extraction is taking too long. Please try a smaller/clearer file or retry in a moment.';
-      const apiMsg = formatApiError(err) || err.response?.data?.details;
-      setError(isTimeout ? timeoutMsg : (apiMsg || 'Failed to extract bill details'));
+      const errorMsg = isTimeout
+        ? 'Extraction is taking too long. Please try a smaller/clearer file or retry in a moment.'
+        : (err.response?.data?.error || err.response?.data?.details || err.message || 'Failed to extract bill details');
+      setError(errorMsg);
       onError?.(err);
     } finally {
       setLoading(false);
@@ -419,7 +410,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     return [];
   };
 
-  const fetchProductSuggestions = useCallback(async (keyword) => {
+  const fetchProductSuggestions = async (keyword) => {
     try {
       const response = await api.get('/bills-documents/suggest-products', {
         params: { keyword }
@@ -448,7 +439,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     } catch (err) {
       console.error('Failed to fetch product suggestions:', err);
     }
-  }, []);
+  };
 
   const handleCategorySelect = (category) => {
     setSelectedCategory(category);
@@ -622,7 +613,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
         }).catch(() => {});
       }
     } catch (err) {
-      setError(formatApiError(err) || 'Failed to upload bill');
+      setError(err.response?.data?.error || err.message || 'Failed to upload bill');
     } finally {
       setLoading(false);
     }
@@ -1373,4 +1364,4 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
   );
 };
 
-export default React.memo(SmartBillUpload);
+export default SmartBillUpload;

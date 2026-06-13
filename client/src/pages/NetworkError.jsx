@@ -19,4 +19,4 @@ const NetworkError = () => {
   );
 };
 
-export default React.memo(NetworkError);
+export default NetworkError;

@@ -134,14 +134,14 @@ function PortfolioManager() {
               <div className="form-group">
                 <label>Cover Image</label>
                 <div className="mgr-upload-row">
-                  <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                  <input aria-label="File" name="file" id="file" type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
                   {uploading && <Loader2 size={16} className="spinning" />}
                 </div>
                 {form.cover_image && <img src={form.cover_image} alt="" className="mgr-preview" />}
               </div>
               <div className="form-group">
                 <label>Gallery Images</label>
-                <input type="file" accept="image/*" onChange={handleGalleryUpload} disabled={uploading} />
+                <input aria-label="File" name="file" id="file" type="file" accept="image/*" onChange={handleGalleryUpload} disabled={uploading} />
                 <div className="mgr-gallery-preview">
                   {form.gallery_images.map((img, i) => (
                     <div key={i} className="mgr-gallery-item"><img src={img} alt="" /><button onClick={() => removeGalleryImage(i)}><X size={14} /></button></div>

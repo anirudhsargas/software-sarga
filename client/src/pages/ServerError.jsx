@@ -19,4 +19,4 @@ const ServerError = () => {
   );
 };
 
-export default React.memo(ServerError);
+export default ServerError;

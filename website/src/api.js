@@ -48,7 +48,7 @@ export const getChatHistory = (uuid, limit = 50) => {
 };
 
 // Customer auth + dashboard
-export const customerLogin = ({ phone, countryCode } = {}) => api.post('/website/customer/login', { phone, countryCode });
+export const customerLogin = (phone) => api.post('/website/customer/login', { phone });
 export const getCustomerDashboard = (customerId) => api.get(`/customers/${customerId}/dashboard`);
 export const getWebsiteJob = (jobId) => api.get(`/website/job/${jobId}`);
 export const reviewProofCustomer = (jobId, proofId, payload) => api.post(`/website/jobs/${jobId}/proofs/${proofId}/review-customer`, payload);
@@ -56,102 +56,13 @@ export const downloadInvoiceUrl = (invoiceId) => `${API_BASE}/api/website/invoic
 export const customerSendOtp = (email) => api.post('/website/customer/send-otp', { email });
 export const customerVerifyOtp = (email, otp) => api.post('/website/customer/verify-otp', { email, otp });
 export const uploadDesign = (formData) => api.post('/website/upload-design', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-export const customerLookup = ({ mobile, countryCode } = {}) => api.get('/website/customer/lookup', { params: { mobile, countryCode } });
-export const customerRegister = (payload) => api.post('/website/customer/register', payload);
-export const customerGoogleSignIn = (id_token) => api.post('/website/customer/google-signin', { id_token });
-
-// Google Reviews
-export const getReviews = () => api.get('/website/reviews');
-export const getReviewStats = () => api.get('/website/reviews/stats');
-
-// Portfolio
-export const getPortfolio = (params) => api.get('/website/portfolio', { params });
-export const getPortfolioProject = (slug) => api.get(`/website/portfolio/${slug}`);
-export const getPortfolioCategories = () => api.get('/website/portfolio/categories/list');
-
-// Artwork Upload
-export const uploadArtwork = (formData, onProgress) => api.post('/website/artwork/upload', formData, {
-  headers: { 'Content-Type': 'multipart/form-data' },
-  onUploadProgress: onProgress
-});
-export const trackArtwork = (orderNumber) => api.get(`/website/artwork/track/${orderNumber}`);
-export const getMyArtworkUploads = () => api.get('/website/artwork/my-uploads');
-
-// Artwork (customer facing)
-export const submitArtwork = uploadArtwork;
-export const getArtworkStatus = trackArtwork;
-export const getMyArtworks = getMyArtworkUploads;
-
-// WhatsApp
-export const logWhatsAppClick = (data) => api.post('/whatsapp/log', data);
-
-// Delivery Estimate
-export const getDeliveryEstimate = (params) => api.get('/delivery/estimate', { params });
-
-// Pickup
-export const getPickupSlots = (params) => api.get('/website/pickup/slots', { params });
-export const bookPickupSlot = (data) => api.post('/website/pickup/book', data);
-export const getPickupBooking = (ref) => api.get(`/website/pickup/booking/${ref}`);
-
-// Promotions
-export const getPromotions = () => api.get('/website/promotions');
-export const getPromotionBanners = () => api.get('/website/promotions/banners');
-
-// Translations
-export const getTranslations = (lang) => api.get(`/website/translations/${lang}`);
-
-// Proofs
-export const getJobProofs = (jobId) => api.get(`/website/proofs/${jobId}`);
-export const reviewProof = (proofId, data) => api.post(`/website/proofs/${proofId}/review`, data);
-
-// Sample Requests for portal
-export const getMySampleRequests = () => api.get('/website/sample-requests/my');
-export const getMyConsultations = () => api.get('/website/design-consultations/my');
 
 export default api;
 
 // Response interceptor to surface server errors to users via toast
 api.interceptors.response.use(
-  (response) => {
-    if (response.config?.__toastId) {
-      toast.dismiss(response.config.__toastId);
-    }
-    return response;
-  },
+  (response) => response,
   (error) => {
-    const config = error.config;
-    const isNetworkOrTimeout = !error.response && (
-      error.code === 'ECONNABORTED' || 
-      (error.message && error.message.toLowerCase().includes('timeout')) || 
-      (error.message && error.message.toLowerCase().includes('network error')) || 
-      !error.status
-    );
-    const isSleepingServer = !error.response && typeof navigator !== 'undefined' && navigator.onLine && isNetworkOrTimeout;
-
-    if (isSleepingServer && config && !config._noRetry) {
-      config.__retryCount = config.__retryCount || 0;
-      if (config.__retryCount < 12) {
-        config.__retryCount += 1;
-        config.timeout = 10000; // Shorten timeout for subsequent retries to poll faster
-        if (config.__retryCount === 1) {
-          config.__toastId = toast.loading('Starting server... Please wait (20-60s)', {
-            duration: Infinity
-          });
-        }
-        return new Promise((resolve) => {
-          setTimeout(() => resolve(api(config)), 5000);
-        });
-      } else {
-        if (config.__toastId) {
-          toast.dismiss(config.__toastId);
-        }
-      }
-    } else {
-      if (config?.__toastId) {
-        toast.dismiss(config.__toastId);
-      }
-    }
-
     try {
       // Network offline
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -167,19 +78,7 @@ api.interceptors.response.use(
         } else if (status === 401) {
           toast.error('Authentication required. Please sign in.');
         } else {
-          // Normalize server error objects to a user-friendly string
-          const respData = error.response.data || {};
-          const rawErr = respData.error || respData.message || null;
-          let msg = `Request failed (${status})`;
-          if (rawErr) {
-            if (typeof rawErr === 'string') {
-              msg = rawErr;
-            } else if (typeof rawErr === 'object') {
-              msg = rawErr.userMessage || rawErr.message || JSON.stringify(rawErr);
-            } else {
-              msg = String(rawErr);
-            }
-          }
+          const msg = (error.response.data && (error.response.data.error || error.response.data.message)) || `Request failed (${status})`;
           toast.error(msg);
         }
       } else {

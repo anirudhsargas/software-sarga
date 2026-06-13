@@ -19,4 +19,4 @@ const NotFound = () => {
   );
 };
 
-export default React.memo(NotFound);
+export default NotFound;

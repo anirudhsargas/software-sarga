@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     Package, ArrowRight, ArrowLeft, AlertTriangle, TrendingUp, 
     Search, Filter, MapPin, Layers, RefreshCcw, Plus, Minus, History, Repeat
@@ -17,40 +17,32 @@ const PaperStockDashboard = () => {
         category: '',
         search: ''
     });
-    const prevStockRef = useRef([]);
-    const prevBranchesRef = useRef([]);
 
-    const fetchStock = useCallback(async () => {
+    const fetchStock = async () => {
         setLoading(true);
         try {
             const [stockRes, branchesRes] = await Promise.all([
                 api.get('/paperInventory/stock', { params: filters }),
                 api.get('/branches')
             ]);
-            if (JSON.stringify(stockRes.data) !== JSON.stringify(prevStockRef.current)) {
-                setStock(stockRes.data);
-                prevStockRef.current = stockRes.data;
-            }
-            if (JSON.stringify(branchesRes.data) !== JSON.stringify(prevBranchesRef.current)) {
-                setBranches(branchesRes.data);
-                prevBranchesRef.current = branchesRes.data;
-            }
+            setStock(stockRes.data);
+            setBranches(branchesRes.data);
         } catch (err) {
             toast.error('Failed to load stock data');
         } finally {
             setLoading(false);
         }
-    }, [filters]);
+    };
 
     useEffect(() => {
         fetchStock();
-    }, [fetchStock]);
+    }, [filters]);
 
-    const stats = useMemo(() => ({
+    const stats = {
         totalSheets: stock.reduce((acc, item) => acc + Number(item.current_sheets), 0),
         lowStockCount: stock.filter(item => Number(item.current_sheets) < Number(item.reorder_level)).length,
         totalSkus: stock.length
-    }), [stock]);
+    };
 
     return (
         <div className="stack-lg p-md">
@@ -239,4 +231,4 @@ const PaperStockDashboard = () => {
     );
 };
 
-export default React.memo(PaperStockDashboard);
+export default PaperStockDashboard;

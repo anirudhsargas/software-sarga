@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Clock, Calendar, AlertTriangle, Timer, Plus, Check, X, ChevronDown, Users, Edit2, Trash2 } from 'lucide-react';
 import api from '../services/api';
 import auth from '../services/auth';
@@ -6,12 +6,7 @@ import { serverThisMonth } from '../services/serverTime';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const ScheduleManagement = React.memo(() => {
-    const staffListRef = useRef([]);
-    const schedulesRef = useRef([]);
-    const lateDataRef = useRef({ records: [], summary: {} });
-    const overtimeDataRef = useRef({ records: [], summary: {} });
-
+const ScheduleManagement = () => {
     const [activeTab, setActiveTab] = useState('schedules');
     const [month, setMonth] = useState(serverThisMonth());
     const [staffList, setStaffList] = useState([]);
@@ -46,83 +41,51 @@ const ScheduleManagement = React.memo(() => {
     const user = auth.getUser();
     const isAdmin = ['Admin', 'Accountant'].includes(user?.role);
 
-    const setStaffListSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(staffListRef.current)) {
-            staffListRef.current = data;
-            setStaffList(data);
-        }
-    }, []);
-
-    const setSchedulesSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(schedulesRef.current)) {
-            schedulesRef.current = data;
-            setSchedules(data);
-        }
-    }, []);
-
-    const setLateDataSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(lateDataRef.current)) {
-            lateDataRef.current = data;
-            setLateData(data);
-        }
-    }, []);
-
-    const setOvertimeDataSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(overtimeDataRef.current)) {
-            overtimeDataRef.current = data;
-            setOvertimeData(data);
-        }
-    }, []);
-
     // Fetch staff list
     useEffect(() => {
         (async () => {
             try {
                 const { data } = await api.get('/staff');
-                setStaffListSmart(Array.isArray(data) ? data : (data.staff || []));
+                setStaffList(Array.isArray(data) ? data : (data.staff || []));
             } catch { /* ignore */ }
         })();
-    }, [setStaffListSmart]);
+    }, []);
 
-    const fetchTabData = useCallback(async () => {
-        setLoading(true);
-        setError('');
-        try {
-            if (activeTab === 'schedules') {
-                const params = new URLSearchParams();
-                if (staffFilter) params.append('staff_id', staffFilter);
-                const { data } = await api.get(`/schedules?${params}`);
-                setSchedulesSmart(Array.isArray(data) ? data : []);
-            } else if (activeTab === 'latetime') {
-                const params = new URLSearchParams({ year_month: month });
-                if (staffFilter) params.append('staff_id', staffFilter);
-                const { data } = await api.get(`/schedules/latetime?${params}`);
-                setLateDataSmart(data || { records: [], summary: {} });
-            } else if (activeTab === 'overtime') {
-                const params = new URLSearchParams({ year_month: month });
-                if (staffFilter) params.append('staff_id', staffFilter);
-                const { data } = await api.get(`/schedules/overtime?${params}`);
-                setOvertimeDataSmart(data || { records: [], summary: {} });
-            }
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to fetch data');
-        } finally {
-            setLoading(false);
-        }
-    }, [activeTab, month, staffFilter, setSchedulesSmart, setLateDataSmart, setOvertimeDataSmart]);
-
+    // Fetch data based on active tab
     useEffect(() => {
-        fetchTabData();
-    }, [fetchTabData]);
+        const fetchData = async () => {
+            setLoading(true);
+            setError('');
+            try {
+                if (activeTab === 'schedules') {
+                    const params = new URLSearchParams();
+                    if (staffFilter) params.append('staff_id', staffFilter);
+                    const { data } = await api.get(`/schedules?${params}`);
+                    setSchedules(Array.isArray(data) ? data : []);
+                } else if (activeTab === 'latetime') {
+                    const params = new URLSearchParams({ year_month: month });
+                    if (staffFilter) params.append('staff_id', staffFilter);
+                    const { data } = await api.get(`/schedules/latetime?${params}`);
+                    setLateData(data || { records: [], summary: {} });
+                } else if (activeTab === 'overtime') {
+                    const params = new URLSearchParams({ year_month: month });
+                    if (staffFilter) params.append('staff_id', staffFilter);
+                    const { data } = await api.get(`/schedules/overtime?${params}`);
+                    setOvertimeData(data || { records: [], summary: {} });
+                }
+            } catch (err) {
+                setError(err.response?.data?.message || 'Failed to fetch data');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [activeTab, month, staffFilter]);
 
-    const flash = useCallback((msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); }, []);
+    const flash = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
 
     // Schedule CRUD
-    const handleScheduleSubmit = useCallback(async (e) => {
+    const handleScheduleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         try {
@@ -147,9 +110,9 @@ const ScheduleManagement = React.memo(() => {
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to save schedule');
         }
-    }, [scheduleForm, editingSchedule, flash, setSchedulesSmart]);
+    };
 
-    const deleteSchedule = useCallback(async (id) => {
+    const deleteSchedule = async (id) => {
         if (!window.confirm('Delete this schedule?')) return;
         try {
             await api.delete(`/schedules/${id}`);
@@ -158,9 +121,9 @@ const ScheduleManagement = React.memo(() => {
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to delete schedule');
         }
-    }, [flash]);
+    };
 
-    const editSchedule = useCallback((sch) => {
+    const editSchedule = (sch) => {
         setEditingSchedule(sch);
         setScheduleForm({
             staff_id: sch.staff_id,
@@ -173,19 +136,19 @@ const ScheduleManagement = React.memo(() => {
             effective_to: sch.effective_to?.slice(0, 10) || ''
         });
         setShowScheduleForm(true);
-    }, []);
+    };
 
-    const resetScheduleForm = useCallback(() => {
+    const resetScheduleForm = () => {
         setScheduleForm({
             staff_id: '', schedule_name: 'General Shift',
             shift_start: '09:00', shift_end: '18:00',
             break_minutes: 60, working_days: [1, 2, 3, 4, 5, 6],
             effective_from: new Date().toISOString().slice(0, 10), effective_to: ''
         });
-    }, []);
+    };
 
     // Late time excuse
-    const excuseLate = useCallback(async (id, excused) => {
+    const excuseLate = async (id, excused) => {
         try {
             await api.put(`/schedules/latetime/${id}/excuse`, { excused });
             setLateData(prev => ({
@@ -194,11 +157,12 @@ const ScheduleManagement = React.memo(() => {
             }));
             flash(excused ? 'Late arrival excused' : 'Excuse removed');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to excuse late');
+            setError(err.response?.data?.message || 'Failed to update');
         }
-    }, [flash]);
+    };
 
-    const handleOTSubmit = useCallback(async (e) => {
+    // Overtime submission & approval
+    const handleOTSubmit = async (e) => {
         e.preventDefault();
         setError('');
         try {
@@ -209,13 +173,13 @@ const ScheduleManagement = React.memo(() => {
             const params = new URLSearchParams({ year_month: month });
             if (staffFilter) params.append('staff_id', staffFilter);
             const { data } = await api.get(`/schedules/overtime?${params}`);
-            setOvertimeDataSmart(data || { records: [], summary: {} });
+            setOvertimeData(data || { records: [], summary: {} });
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to save overtime');
         }
-    }, [otForm, flash, month, staffFilter, setOvertimeDataSmart]);
+    };
 
-    const approveOT = useCallback(async (id, approved) => {
+    const approveOT = async (id, approved) => {
         try {
             await api.put(`/schedules/overtime/${id}/approve`, { approved });
             setOvertimeData(prev => ({
@@ -226,37 +190,37 @@ const ScheduleManagement = React.memo(() => {
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update');
         }
-    }, [flash]);
+    };
 
-    const toggleDay = useCallback((day) => {
+    const toggleDay = (day) => {
         setScheduleForm(f => ({
             ...f,
             working_days: f.working_days.includes(day)
                 ? f.working_days.filter(d => d !== day)
                 : [...f.working_days, day].sort()
         }));
-    }, []);
+    };
 
-    const fmtTime = useCallback((t) => t ? t.slice(0, 5) : '—', []);
-    const fmtMin = useCallback((m) => {
+    const fmtTime = (t) => t ? t.slice(0, 5) : '—';
+    const fmtMin = (m) => {
         if (!m) return '0m';
         const h = Math.floor(m / 60);
         const min = m % 60;
         return h > 0 ? `${h}h ${min}m` : `${min}m`;
-    }, []);
-    const fmtDate = useCallback((d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—', []);
+    };
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
     // Styles
-    const cardStyle = useMemo(() => ({ background: 'var(--surface, #fff)', borderRadius: 12, border: '1px solid var(--border)', padding: 16, marginBottom: 16 }), []);
-    const statCard = useCallback((color) => ({
+    const cardStyle = { background: 'var(--surface, #fff)', borderRadius: 12, border: '1px solid var(--border)', padding: 16, marginBottom: 16 };
+    const statCard = (color) => ({
         padding: 14, borderRadius: 10, background: `${color}18`, border: `1px solid ${color}30`,
         display: 'flex', flexDirection: 'column', gap: 2
-    }), []);
-    const btnPrimary = useMemo(() => ({ background: 'var(--accent)', color: 'var(--on-accent, #fff)', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }), []);
-    const btnGhost = useMemo(() => ({ background: 'var(--bg-2, #f3f4f6)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 16px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }), []);
-    const inputStyle = useMemo(() => ({ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg, #fff)', color: 'var(--text)', fontSize: 13 }), []);
-    const labelStyle = useMemo(() => ({ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }), []);
-    const badgeStyle = useCallback((bg, color) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 4, background: bg, color, fontSize: 11, fontWeight: 600 }), []);
+    });
+    const btnPrimary = { background: 'var(--accent)', color: 'var(--on-accent, #fff)', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600, cursor: 'pointer', fontSize: 13 };
+    const btnGhost = { background: 'var(--bg-2, #f3f4f6)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 16px', fontWeight: 600, cursor: 'pointer', fontSize: 13 };
+    const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg, #fff)', color: 'var(--text)', fontSize: 13 };
+    const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 };
+    const badgeStyle = (bg, color) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 4, background: bg, color, fontSize: 11, fontWeight: 600 });
 
     return (
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
@@ -667,6 +631,6 @@ const ScheduleManagement = React.memo(() => {
             )}
         </div>
     );
-});
+};
 
 export default ScheduleManagement;

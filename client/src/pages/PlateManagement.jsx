@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Layers, Loader2, Plus, Minus, Search, Maximize2, Hash, UserSquare, Calendar, X, RotateCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -18,29 +18,23 @@ const PlateManagement = () => {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [selectedJobs, setSelectedJobs] = useState([]);
+    const [selectedJobs, setSelectedJobs] = useState([]); // { job, selectedSize, allocatedSlots, width, height }
     
+    // Plate configuration
     const [plateSize, setPlateSize] = useState('SRA3');
     const [customPlate, setCustomPlate] = useState({ width: '', height: '' });
-    const customPlateRef = useRef(customPlate);
-    const setCustomPlateSmart = useCallback((updates) => {
-        setCustomPlate(prev => {
-            const next = { ...prev, ...updates };
-            if (JSON.stringify(next) !== JSON.stringify(customPlateRef.current)) {
-                customPlateRef.current = next;
-                return next;
-            }
-            return prev;
-        });
-    }, []);
     const [materialType, setMaterialType] = useState('paper');
-    const [gutter, setGutter] = useState(5);
+    const [gutter, setGutter] = useState(5); // mm spacing between items
     const [allowRotation, setAllowRotation] = useState(true);
     const [showOnlyFitting, setShowOnlyFitting] = useState(false);
     const [autoOptimize, setAutoOptimize] = useState(false);
-    const [viewMode, setViewMode] = useState('both');
+    const [viewMode, setViewMode] = useState('both'); // 'dummy', 'nesting', 'both'
 
-    const fetchJobs = useCallback(async () => {
+    useEffect(() => {
+        fetchJobs();
+    }, []);
+
+    const fetchJobs = async () => {
         try {
             const res = await api.get('/jobs/offset-pending');
             setJobs(res.data);
@@ -50,11 +44,7 @@ const PlateManagement = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
-
-    useEffect(() => {
-        fetchJobs();
-    }, [fetchJobs]);
+    };
 
     const totalAllocatedSlots = useMemo(() => {
         return selectedJobs.reduce((sum, item) => sum + (item.allocatedSlots * SLOT_SIZES[item.selectedSize]), 0);
@@ -82,6 +72,7 @@ const PlateManagement = () => {
         return { breakdown, requiredRunLength };
     }, [selectedJobs]);
 
+    // Get current plate dimensions
     const plateDimensions = useMemo(() => {
         if (plateSize === 'Custom') {
             return {
@@ -93,6 +84,7 @@ const PlateManagement = () => {
         return size ? { width: size.w, height: size.h } : { width: 0, height: 0 };
     }, [plateSize, customPlate]);
 
+    // Convert selected jobs to items for nesting
     const nestableItems = useMemo(() => {
         return selectedJobs.map(item => {
             const size = PAPER_SIZES[item.selectedSize];
@@ -107,6 +99,7 @@ const PlateManagement = () => {
         });
     }, [selectedJobs]);
 
+    // Run nesting optimization
     const nestingResult = useMemo(() => {
         if (plateDimensions.width === 0 || plateDimensions.height === 0 || nestableItems.length === 0) {
             return null;
@@ -121,12 +114,14 @@ const PlateManagement = () => {
         });
     }, [plateDimensions, nestableItems, allowRotation, gutter]);
 
+    // Filter jobs that can fit on the plate
     const fittingJobs = useMemo(() => {
         if (plateDimensions.width === 0 || plateDimensions.height === 0) {
             return jobs;
         }
         
         const jobItems = jobs.map(job => {
+            // Default to A5 size for filtering
             const size = PAPER_SIZES['A5'];
             return {
                 job,
@@ -141,9 +136,10 @@ const PlateManagement = () => {
 
     const displayJobs = showOnlyFitting ? fittingJobs : jobs;
 
-    const handleAddJobToPlate = useCallback((job) => {
+    const handleAddJobToPlate = (job) => {
         if (selectedJobs.find(j => j.job.id === job.id)) return;
 
+        // Check if item can fit on plate
         const size = PAPER_SIZES['A5'];
         if (plateDimensions.width > 0 && plateDimensions.height > 0) {
             const canFit = size.w <= plateDimensions.width && size.h <= plateDimensions.height;
@@ -153,39 +149,38 @@ const PlateManagement = () => {
             }
         }
 
+        // Default to A5 requiring 1 slot
         if (totalAllocatedSlots + SLOT_SIZES['A5'] > DUMMY_SLOTS_A5_CAPACITY) {
             toast.error("Dummy plate is full. Cannot add more items.");
             return;
         }
 
-        setSelectedJobs(prev => [...prev, { job, selectedSize: 'A5', allocatedSlots: 1 }]);
-    }, [selectedJobs, plateDimensions, totalAllocatedSlots]);
+        setSelectedJobs([...selectedJobs, { job, selectedSize: 'A5', allocatedSlots: 1 }]);
+    };
 
-    const handleRemoveJobFromPlate = useCallback((jobId) => {
-        setSelectedJobs(prev => prev.filter(j => j.job.id !== jobId));
-    }, []);
+    const handleRemoveJobFromPlate = (jobId) => {
+        setSelectedJobs(selectedJobs.filter(j => j.job.id !== jobId));
+    };
 
-    const handleUpdateAllocation = useCallback((jobId, size, slots) => {
-        setSelectedJobs(prev => {
-            const itemIndex = prev.findIndex(j => j.job.id === jobId);
-            if (itemIndex === -1) return prev;
+    const handleUpdateAllocation = (jobId, size, slots) => {
+        const itemIndex = selectedJobs.findIndex(j => j.job.id === jobId);
+        if (itemIndex === -1) return;
 
-            const currentItem = prev[itemIndex];
-            const newEquivalents = slots * SLOT_SIZES[size];
-            const currentEquivalents = currentItem.allocatedSlots * SLOT_SIZES[currentItem.selectedSize];
-            const spaceDelta = newEquivalents - currentEquivalents;
-            const currentTotal = prev.reduce((sum, item) => sum + (item.allocatedSlots * SLOT_SIZES[item.selectedSize]), 0);
+        const currentItem = selectedJobs[itemIndex];
+        const newEquivalents = slots * SLOT_SIZES[size];
+        const currentEquivalents = currentItem.allocatedSlots * SLOT_SIZES[currentItem.selectedSize];
 
-            if (currentTotal + spaceDelta > DUMMY_SLOTS_A5_CAPACITY) {
-                toast.error("Not enough space on plate.");
-                return prev;
-            }
+        const spaceDelta = newEquivalents - currentEquivalents;
 
-            const newSelected = [...prev];
-            newSelected[itemIndex] = { ...currentItem, selectedSize: size, allocatedSlots: slots };
-            return newSelected;
-        });
-    }, []);
+        if (totalAllocatedSlots + spaceDelta > DUMMY_SLOTS_A5_CAPACITY) {
+            toast.error(`Not enough space on plate. Needs ${newEquivalents} A5-slots, but only ${DUMMY_SLOTS_A5_CAPACITY - totalAllocatedSlots + currentEquivalents} available.`);
+            return;
+        }
+
+        const newSelected = [...selectedJobs];
+        newSelected[itemIndex] = { ...currentItem, selectedSize: size, allocatedSlots: slots };
+        setSelectedJobs(newSelected);
+    };
 
     const filteredJobs = useMemo(() => {
         if (!search) return jobs;
@@ -208,16 +203,18 @@ const PlateManagement = () => {
 
             <div className="row gap-lg" style={{ alignItems: 'flex-start' }}>
                 <div className="col-8">
+                    {/* Plate Configuration */}
                     <div className="panel p-0 mb-16 overflow-hidden">
                         <div className="panel-header bg-surface-alt">
                             <h2 className="section-title m-0">Plate Configuration</h2>
                             <div className={`badge ${nestingResult?.wastePercent < 20 ? 'badge--success' : nestingResult?.wastePercent < 40 ? 'badge--warning' : 'badge--danger'}`}>
-                                {nestingResult ? nestingResult.utilizationPercent + '% Utilized' : 'No items'}
+                                {nestingResult ? `${nestingResult.utilizationPercent}% Utilized` : 'No items'}
                             </div>
                         </div>
 
                         <div className="p-16 border-b">
                             <div className="row gap-lg" style={{ alignItems: 'flex-end' }}>
+                                {/* Plate Size Selection */}
                                 <div className="col-4">
                                     <label className="text-xs font-semibold text-muted mb-8 block">PLATE SIZE</label>
                                     <select
@@ -232,6 +229,7 @@ const PlateManagement = () => {
                                     </select>
                                 </div>
 
+                                {/* Custom Dimensions */}
                                 {plateSize === 'Custom' && (
                                     <>
                                         <div className="col-2">
@@ -241,7 +239,7 @@ const PlateManagement = () => {
                                                 className="input-field"
                                                 placeholder="mm"
                                                 value={customPlate.width}
-                                                onChange={(e) => setCustomPlateSmart({ width: e.target.value })}
+                                                onChange={(e) => setCustomPlate(p => ({ ...p, width: e.target.value }))}
                                             />
                                         </div>
                                         <div className="col-2">
@@ -251,12 +249,13 @@ const PlateManagement = () => {
                                                 className="input-field"
                                                 placeholder="mm"
                                                 value={customPlate.height}
-                                                onChange={(e) => setCustomPlateSmart({ height: e.target.value })}
+                                                onChange={(e) => setCustomPlate(p => ({ ...p, height: e.target.value }))}
                                             />
                                         </div>
                                     </>
                                 )}
 
+                                {/* Material Type */}
                                 <div className="col-3">
                                     <label className="text-xs font-semibold text-muted mb-8 block">MATERIAL</label>
                                     <select
@@ -270,6 +269,7 @@ const PlateManagement = () => {
                                     </select>
                                 </div>
 
+                                {/* Gutter */}
                                 <div className="col-2">
                                     <label className="text-xs font-semibold text-muted mb-8 block">GUTTER (mm)</label>
                                     <input
@@ -282,6 +282,7 @@ const PlateManagement = () => {
                                             />
                                 </div>
 
+                                {/* Rotation Toggle */}
                                 <div className="col-1">
                                     <label className="text-xs font-semibold text-muted mb-8 block">ROTATE</label>
                                     <button
@@ -374,6 +375,7 @@ const PlateManagement = () => {
                                 </div>
                             )}
 
+                            {/* View Mode Toggle */}
                             <div className="mt-16 p-16 border rounded" style={{ backgroundColor: 'var(--surface)' }}>
                                 <div className="row align-center justify-between mb-12">
                                     <h4 className="text-sm font-medium m-0">Visualization Mode</h4>
@@ -400,6 +402,7 @@ const PlateManagement = () => {
                                 </div>
                             </div>
 
+                            {/* Traditional Dummy Slots Visualization */}
                             {(viewMode === 'dummy' || viewMode === 'both') && (
                                 <div className="mt-16 p-16 border rounded" style={{ backgroundColor: 'var(--surface)' }}>
                                     <h4 className="text-sm font-medium mb-12">Dummy Visualization (8 x A5 equivalents)</h4>
@@ -413,6 +416,7 @@ const PlateManagement = () => {
                                         backgroundColor: 'var(--surface)'
                                     }}>
                                         {[...Array(DUMMY_SLOTS_A5_CAPACITY)].map((_, idx) => {
+                                            // Find which job occupies this slot
                                             let currentCursor = 0;
                                             let occupiedJob = null;
 
@@ -448,6 +452,7 @@ const PlateManagement = () => {
                                 </div>
                             )}
 
+                            {/* Advanced Plate Visualization */}
                             {(viewMode === 'nesting' || viewMode === 'both') && (
                                 <div className="mt-16 p-16 border rounded" style={{ backgroundColor: 'var(--surface)' }}>
                                     <div className="row align-center justify-between mb-12">
@@ -468,33 +473,35 @@ const PlateManagement = () => {
                                                 position: 'relative',
                                                 border: '2px solid var(--border)',
                                                 backgroundColor: 'var(--surface-alt)',
-                                                aspectRatio: plateDimensions.width + '/' + plateDimensions.height,
+                                                // Scale to fit in container
+                                                aspectRatio: `${plateDimensions.width}/${plateDimensions.height}`,
                                                 width: '100%',
                                                 maxWidth: '500px',
                                                 minHeight: '200px'
                                             }}>
                                                 {nestingResult.placedItems.map((item, idx) => {
-                                                    const scale = 100 / plateDimensions.width;
+                                                    const scale = 100 / plateDimensions.width; // percentage based
                                                     const left = (item.x / plateDimensions.width) * 100;
                                                     const top = (item.y / plateDimensions.height) * 100;
                                                     const width = (item.placedWidth / plateDimensions.width) * 100;
                                                     const height = (item.placedHeight / plateDimensions.height) * 100;
                                                     
+                                                    // Generate color based on job id
                                                     const hue = (item.id * 137) % 360;
-                                                    const bgColor = 'hsl(' + hue + ', 70%, 85%)';
-                                                    const borderColor = 'hsl(' + hue + ', 70%, 40%)';
+                                                    const bgColor = `hsl(${hue}, 70%, 85%)`;
+                                                    const borderColor = `hsl(${hue}, 70%, 40%)`;
                                                     
                                                     return (
                                                         <div
                                                             key={item.id}
                                                             style={{
                                                                 position: 'absolute',
-                                                                left: left + '%',
-                                                                top: top + '%',
-                                                                width: width + '%',
-                                                                height: height + '%',
+                                                                left: `${left}%`,
+                                                                top: `${top}%`,
+                                                                width: `${width}%`,
+                                                                height: `${height}%`,
                                                                 backgroundColor: bgColor,
-                                                                border: '2px solid ' + borderColor,
+                                                                border: `2px solid ${borderColor}`,
                                                                 borderRadius: '2px',
                                                                 display: 'flex',
                                                                 alignItems: 'center',
@@ -507,7 +514,7 @@ const PlateManagement = () => {
                                                                 whiteSpace: 'nowrap',
                                                                 padding: '2px'
                                                             }}
-                                                            title={item.job.job_number + ' (' + item.placedWidth + String.fromCharCode(215) + item.placedHeight + 'mm)' + (item.rotated ? ' [Rotated]' : '')}
+                                                            title={`${item.job.job_number} (${item.placedWidth}×${item.placedHeight}mm)${item.rotated ? ' [Rotated]' : ''}`}
                                                         >
                                                             {item.job.job_number}
                                                         </div>
@@ -539,6 +546,7 @@ const PlateManagement = () => {
                                 </div>
                             )}
 
+                            {/* Optimization Stats */}
                             {nestingResult && (
                                 <div className="mt-16 p-16 border rounded" style={{ backgroundColor: 'var(--surface)' }}>
                                     <h4 className="text-sm font-medium mb-12">Optimization Statistics</h4>
@@ -635,7 +643,7 @@ const PlateManagement = () => {
                                                 <button
                                                     className="btn btn-icon btn-secondary"
                                                     onClick={() => isAdded ? handleRemoveJobFromPlate(job.id) : handleAddJobToPlate(job)}
-                                                    disabled={(!isAdded && isDummyFull) || !canFit}
+                                                    disabled={!isAdded && isDummyFull || !canFit}
                                                     title={isAdded ? "Remove from plate" : canFit ? "Add to plate" : "Item too large"}
                                                 >
                                                     {isAdded ? <Minus size={16} /> : <Plus size={16} />}
@@ -653,4 +661,4 @@ const PlateManagement = () => {
     );
 };
 
-export default React.memo(PlateManagement);
+export default PlateManagement;

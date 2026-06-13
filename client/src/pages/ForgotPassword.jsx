@@ -1,16 +1,16 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-function ForgotPassword() {
+export default function ForgotPassword() {
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);
     const [error, setError] = useState('');
 
-    const handleSubmit = useCallback(async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         if (!email) return setError('Please enter your email');
@@ -27,25 +27,25 @@ function ForgotPassword() {
         } finally {
             setLoading(false);
         }
-    }, [email]);
+    };
 
-    const containerStyle = useMemo(() => ({
+    const containerStyle = {
         minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: 20
-    }), []);
-    const cardStyle = useMemo(() => ({
+    };
+    const cardStyle = {
         background: '#fff', borderRadius: 16, padding: 40, maxWidth: 420, width: '100%',
         boxShadow: '0 20px 60px rgba(0,0,0,0.15)'
-    }), []);
-    const inputStyle = useMemo(() => ({
+    };
+    const inputStyle = {
         width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid #d1d5db',
         fontSize: 15, outline: 'none', boxSizing: 'border-box'
-    }), []);
-    const btnStyle = useMemo(() => ({
+    };
+    const btnStyle = {
         width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: '#6366f1',
         color: '#fff', fontSize: 16, fontWeight: 600, cursor: 'pointer', display: 'flex',
         alignItems: 'center', justifyContent: 'center', gap: 8
-    }), []);
+    };
 
     if (sent) {
         return (
@@ -95,5 +95,3 @@ function ForgotPassword() {
         </div>
     );
 }
-
-export default React.memo(ForgotPassword);

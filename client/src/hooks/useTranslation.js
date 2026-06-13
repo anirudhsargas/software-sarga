@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 
 const useTranslation = () => {
@@ -27,11 +27,11 @@ const useTranslation = () => {
         return () => window.removeEventListener('companySettingsUpdated', handleUpdate);
     }, [fetchTranslations]);
 
-    const t = useCallback((key, defaultValue) => {
+    const t = (key, defaultValue) => {
         return overrides[key] || defaultValue;
-    }, [overrides]);
+    };
 
-    return useMemo(() => ({ t, locale, refresh: fetchTranslations }), [t, locale, fetchTranslations]);
+    return { t, locale, refresh: fetchTranslations };
 };
 
 export default useTranslation;

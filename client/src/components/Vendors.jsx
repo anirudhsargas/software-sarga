@@ -7,14 +7,10 @@ import InvoiceModal from './InvoiceModal';
 import PaymentModal from './PaymentModal';
 import VendorDetail from './VendorDetail';
 import { Search, Filter, Store, Tag, Eye, Edit, FileText, Trash2, User, Phone, ChevronRight } from 'lucide-react';
-import auth from '../services/auth';
 import '../pages/Vendors.css';
 
-const Vendors = React.memo(({ refreshKey = 0 }) => {
+const Vendors = ({ refreshKey = 0 }) => {
   const navigate = useNavigate();
-  const user = auth.getUser();
-  const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
-  const isOnlyAdmin = user?.role === 'Admin';
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -53,19 +49,11 @@ const Vendors = React.memo(({ refreshKey = 0 }) => {
   };
 
   const handleEditVendor = (vendor) => {
-    if (!isAdmin) {
-      toast.error('Access denied. Insufficient permissions.');
-      return;
-    }
     setSelectedVendor(vendor);
     setShowVendorModal(true);
   };
 
   const handleDeleteVendor = async (vendorId) => {
-    if (!isOnlyAdmin) {
-      toast.error('Access denied. Insufficient permissions.');
-      return;
-    }
     if (!window.confirm('Are you sure you want to delete this vendor?')) return;
 
     try {
@@ -218,13 +206,9 @@ const Vendors = React.memo(({ refreshKey = 0 }) => {
                     
                     <div className="vendor-card__actions">
                       <button onClick={() => handleViewVendor(vendor)} className="icon-btn-premium" title="Details"><Eye size={16} /></button>
-                      {isAdmin && (
-                        <button onClick={() => handleEditVendor(vendor)} className="icon-btn-premium" title="Edit"><Edit size={16} /></button>
-                      )}
+                      <button onClick={() => handleEditVendor(vendor)} className="icon-btn-premium" title="Edit"><Edit size={16} /></button>
                       <button onClick={() => handleAddInvoice(vendor)} className="icon-btn-premium" title="Invoice"><FileText size={16} /></button>
-                      {isOnlyAdmin && (
-                        <button onClick={() => handleDeleteVendor(vendor.id)} className="icon-btn-premium icon-btn-premium--danger" title="Delete"><Trash2 size={16} /></button>
-                      )}
+                      <button onClick={() => handleDeleteVendor(vendor.id)} className="icon-btn-premium icon-btn-premium--danger" title="Delete"><Trash2 size={16} /></button>
                     </div>
                   </div>
 
@@ -329,6 +313,6 @@ const Vendors = React.memo(({ refreshKey = 0 }) => {
       )}
     </>
   );
-});
+};
 
 export default Vendors;

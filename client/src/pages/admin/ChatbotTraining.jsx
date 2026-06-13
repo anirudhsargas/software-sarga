@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import SkeletonLoader from '../../components/SkeletonLoader';
@@ -96,16 +96,11 @@ const ChatbotTraining = () => {
   }, [fetchStatus, fetchIntentDistribution, fetchUnlabeled, fetchModelVersions]);
 
   // Normalized accuracy display (handles 0..1 and 0..100 formats)
-  const accuracyPercent = useMemo(() => {
-    const accuracyValue = modelMeta?.accuracy;
-    return typeof accuracyValue === 'number' ? (accuracyValue <= 1 ? accuracyValue * 100 : accuracyValue) : (accuracyValue ? Number(accuracyValue) : null);
-  }, [modelMeta?.accuracy]);
-  const accuracyText = useMemo(() =>
-    accuracyPercent != null && !Number.isNaN(accuracyPercent) ? `${Number(accuracyPercent).toFixed(2)}%` : '-',
-    [accuracyPercent]
-  );
+  const accuracyValue = modelMeta?.accuracy;
+  const accuracyPercent = typeof accuracyValue === 'number' ? (accuracyValue <= 1 ? accuracyValue * 100 : accuracyValue) : (accuracyValue ? Number(accuracyValue) : null);
+  const accuracyText = accuracyPercent != null && !Number.isNaN(accuracyPercent) ? `${Number(accuracyPercent).toFixed(2)}%` : '-';
 
-  const handleRetrain = useCallback(async (force = false) => {
+  const handleRetrain = async (force = false) => {
     try {
       setRetraining(true);
       const res = await api.post('chatbot/retrain', { force });
@@ -123,9 +118,9 @@ const ChatbotTraining = () => {
     } finally {
       setRetraining(false);
     }
-  }, [fetchStatus, fetchIntentDistribution, fetchModelVersions, fetchTrainingExamples, trainingPage, trainingLimit, trainingQuery]);
+  };
 
-  const handleLabel = useCallback(async (logId, intent) => {
+  const handleLabel = async (logId, intent) => {
     try {
       await api.post('chatbot/label', { log_id: logId, correct_intent: intent });
       setMessages(prev => prev.filter(m => m.id !== logId));
@@ -134,22 +129,22 @@ const ChatbotTraining = () => {
     } catch (e) {
       toast.error('Failed to save label');
     }
-  }, []);
+  };
 
-  const handleSkip = useCallback((logId) => {
+  const handleSkip = (logId) => {
     setMessages(prev => prev.filter(m => m.id !== logId));
-  }, []);
+  };
 
-  const addExample = useCallback(async (text, intent) => {
+  const addExample = async (text, intent) => {
     try {
       await api.post('chatbot/training-examples', { text, intent, source: 'manual' });
       toast.success('Example added');
       fetchIntentDistribution();
       fetchTrainingExamples(trainingPage, trainingLimit, trainingQuery);
     } catch (e) { toast.error('Failed to add example'); }
-  }, [fetchIntentDistribution, fetchTrainingExamples, trainingPage, trainingLimit, trainingQuery]);
+  };
 
-  const bulkImport = useCallback(async (lines) => {
+  const bulkImport = async (lines) => {
     const payload = lines.map(l => {
       const parts = l.split('|').map(p => p.trim());
       return { text: parts[0] || '', intent: parts[1] || 'other', source: 'manual' };
@@ -161,7 +156,7 @@ const ChatbotTraining = () => {
       fetchIntentDistribution();
       fetchTrainingExamples(trainingPage, trainingLimit, trainingQuery);
     } catch (e) { toast.error('Import failed'); }
-  }, [fetchIntentDistribution, fetchTrainingExamples, trainingPage, trainingLimit, trainingQuery]);
+  };
 
   return (
     <div className="page-header">
@@ -174,7 +169,7 @@ const ChatbotTraining = () => {
         </div>
       </div>
 
-      <div style={{ flex: 1, padding: 16 }}>
+      <div style={{ padding: 16 }}>
         {loading ? <SkeletonLoader type="cards" count={3} /> : (
           tab === 'dashboard' ? (
             <div>
@@ -303,4 +298,4 @@ const BulkImport = ({ onImport }) => {
   );
 };
 
-export default React.memo(ChatbotTraining);
+export default ChatbotTraining;

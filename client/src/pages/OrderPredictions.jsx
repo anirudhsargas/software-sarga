@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Loader2, Building2, Search, Bell, BellRing, UserCheck, CalendarDays,
     IndianRupee, TrendingUp, ChevronRight, Phone, AlertTriangle,
@@ -15,10 +15,6 @@ const CONFIDENCE_COLORS = {
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const dataRef = useRef(null);
-const branchesRef = useRef([]);
-const customerDetailRef = useRef(null);
-
 const OrderPredictions = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -32,29 +28,7 @@ const OrderPredictions = () => {
     const [detailLoading, setDetailLoading] = useState(false);
 
     useEffect(() => {
-        api.get('/branches').then(r => {
-            const str = JSON.stringify(r.data);
-            if (str !== JSON.stringify(branchesRef.current)) {
-                branchesRef.current = r.data;
-                setBranches(r.data);
-            }
-        }).catch(() => {});
-    }, []);
-
-    const setDataSmart = useCallback((newData) => {
-        const str = JSON.stringify(newData);
-        if (str !== JSON.stringify(dataRef.current)) {
-            dataRef.current = newData;
-            setData(newData);
-        }
-    }, []);
-
-    const setCustomerDetailSmart = useCallback((newData) => {
-        const str = JSON.stringify(newData);
-        if (str !== JSON.stringify(customerDetailRef.current)) {
-            customerDetailRef.current = newData;
-            setCustomerDetail(newData);
-        }
+        api.get('/branches').then(r => setBranches(r.data)).catch(() => {});
     }, []);
 
     const fetchPredictions = useCallback(async () => {
@@ -63,26 +37,26 @@ const OrderPredictions = () => {
             const params = new URLSearchParams({ lookahead_days: lookahead });
             if (branchId) params.append('branch_id', branchId);
             const res = await api.get(`/ai/order-predictions/predictions?${params}`);
-            setDataSmart(res.data);
-        } catch { setDataSmart(null); }
+            setData(res.data);
+        } catch { setData(null); }
         finally { setLoading(false); }
-    }, [branchId, lookahead, setDataSmart]);
+    }, [branchId, lookahead]);
 
     useEffect(() => { fetchPredictions(); }, [fetchPredictions]);
 
-    const openCustomerDetail = useCallback(async (customerId) => {
+    const openCustomerDetail = async (customerId) => {
         if (expandedId === customerId) { setExpandedId(null); return; }
         setExpandedId(customerId);
         setDetailLoading(true);
         try {
             const res = await api.get(`/ai/order-predictions/predictions/customer/${customerId}`);
-            setCustomerDetailSmart(res.data);
-        } catch { setCustomerDetailSmart(null); }
+            setCustomerDetail(res.data);
+        } catch { setCustomerDetail(null); }
         finally { setDetailLoading(false); }
-    }, [expandedId, setCustomerDetailSmart]);
+    };
 
     // Filter predictions
-    const filtered = useMemo(() => (data?.predictions || []).filter(p => {
+    const filtered = (data?.predictions || []).filter(p => {
         if (confFilter !== 'all' && p.confidence_label !== confFilter) return false;
         if (search) {
             const q = search.toLowerCase();
@@ -91,9 +65,9 @@ const OrderPredictions = () => {
                    (p.customer_mobile || '').includes(q);
         }
         return true;
-    }), [data, confFilter, search]);
+    });
 
-    const summary = useMemo(() => data?.summary || {}, [data]);
+    const summary = data?.summary || {};
 
     return (
         <div className="page-container">
@@ -524,4 +498,4 @@ const LoadingSpinner = () => (
     </div>
 );
 
-export default React.memo(OrderPredictions);
+export default OrderPredictions;

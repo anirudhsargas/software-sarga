@@ -1,25 +1,16 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Search, ScanLine, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import api from '../services/api';
 import ScannerModal from '../components/ScannerModal';
 
 const QRDiagnostic = () => {
-  const resultRef = useRef(null);
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [showScanner, setShowScanner] = useState(false);
 
-  const setResultSmart = useCallback((data) => {
-    const str = JSON.stringify(data);
-    if (str !== JSON.stringify(resultRef.current)) {
-      resultRef.current = data;
-      setResult(data);
-    }
-  }, []);
-
-  const runCheck = useCallback(async (inputCode) => {
+  const runCheck = async (inputCode) => {
     const raw = String(inputCode ?? code);
     const trimmed = raw.trim();
     if (!trimmed) return;
@@ -30,12 +21,11 @@ const QRDiagnostic = () => {
 
     try {
       const { data } = await api.get(`/inventory/qr-diagnostic/${encodeURIComponent(trimmed)}`);
-      setResultSmart(data);
-      setError('');
+      setResult(data);
     } catch (err) {
       const data = err.response?.data;
       if (data) {
-        setResultSmart(data);
+        setResult(data);
         setError(data.message || 'No match found for this code');
       } else {
         setError('Failed to run QR diagnostic');
@@ -43,9 +33,7 @@ const QRDiagnostic = () => {
     } finally {
       setLoading(false);
     }
-  }, [code, setResultSmart]);
-
-  const hasResult = useMemo(() => !!result, [result]);
+  };
 
   return (
     <div className="stack-lg">
@@ -124,4 +112,4 @@ const QRDiagnostic = () => {
   );
 };
 
-export default React.memo(QRDiagnostic);
+export default QRDiagnostic;

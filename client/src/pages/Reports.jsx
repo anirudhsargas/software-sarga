@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, TrendingUp, TrendingDown, Minus, Sun, CloudRain, RefreshCw, BarChart3 } from 'lucide-react';
 import api from '../services/api';
 
@@ -37,20 +37,10 @@ const TREND_CONFIG = {
     declining: { icon: TrendingDown, color: '#dc2626', label: 'Declining' },
 };
 
-const Reports = React.memo(function Reports() {
-    const dataRef = useRef(null);
-    const [data, setDataState] = useState(null);
-    const setData = useCallback((v) => {
-      const n = typeof v === 'function' ? v(dataRef.current) : v;
-      if (JSON.stringify(dataRef.current) !== JSON.stringify(n)) { dataRef.current = n; setDataState(n); }
-    }, []);
+export default function Reports() {
+    const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const tooltipRef = useRef(null);
-    const [tooltip, setTooltipState] = useState(null);
-    const setTooltip = useCallback((v) => {
-      const n = typeof v === 'function' ? v(tooltipRef.current) : v;
-      if (JSON.stringify(tooltipRef.current) !== JSON.stringify(n)) { tooltipRef.current = n; setTooltipState(n); }
-    }, []);
+    const [tooltip, setTooltip] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
     const fetchSeasonal = useCallback(async (refresh = false) => {
@@ -68,24 +58,21 @@ const Reports = React.memo(function Reports() {
 
     useEffect(() => { fetchSeasonal(); }, [fetchSeasonal]);
 
-    const seasonalIndex = useMemo(() => data?.seasonal_index || {}, [data]);
-    const peakMonths = useMemo(() => data?.peak_months || [], [data]);
-    const slowMonths = useMemo(() => data?.slow_months || [], [data]);
-    const bestDay = useMemo(() => data?.best_day_of_week || 'N/A', [data]);
-    const worstDay = useMemo(() => data?.worst_day_of_week || 'N/A', [data]);
-    const yoy = useMemo(() => data?.yoy_growth_percent ?? 0, [data]);
-    const trendDir = useMemo(() => data?.trend_direction || 'stable', [data]);
-    const trendCfg = useMemo(() => TREND_CONFIG[trendDir] || TREND_CONFIG.stable, [trendDir]);
+    const seasonalIndex = data?.seasonal_index || {};
+    const peakMonths = data?.peak_months || [];
+    const slowMonths = data?.slow_months || [];
+    const bestDay = data?.best_day_of_week || 'N/A';
+    const worstDay = data?.worst_day_of_week || 'N/A';
+    const yoy = data?.yoy_growth_percent ?? 0;
+    const trendDir = data?.trend_direction || 'stable';
+    const trendCfg = TREND_CONFIG[trendDir] || TREND_CONFIG.stable;
     const TrendIcon = trendCfg.icon;
 
     // Build 4 rows × 3 cols grid of months
-    const grid = useMemo(() => {
-        const g = [];
-        for (let r = 0; r < 4; r++) {
-            g.push(MONTHS.slice(r * 3, r * 3 + 3));
-        }
-        return g;
-    }, []);
+    const grid = [];
+    for (let r = 0; r < 4; r++) {
+        grid.push(MONTHS.slice(r * 3, r * 3 + 3));
+    }
 
     return (
         <div style={{ padding: '0 0 24px', maxWidth: 900, margin: '0 auto' }}>
@@ -297,9 +284,7 @@ const Reports = React.memo(function Reports() {
             )}
         </div>
     );
-});
-
-export default React.memo(Reports);
+}
 
 // ── Shared card styles ───────────────────────────────────────────────────────
 

@@ -119,7 +119,7 @@ function ReviewsManagement() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Name *</label>
-              <input className="input" value={form.reviewer_name} onChange={e => setForm(f => ({ ...f, reviewer_name: e.target.value }))} placeholder="Reviewer name" />
+              <input aria-label="Reviewer name" name="reviewer_name" id="reviewer_name" className="input" value={form.reviewer_name} onChange={e => setForm(f => ({ ...f, reviewer_name: e.target.value }))} placeholder="Reviewer name" />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Rating</label>
@@ -127,11 +127,11 @@ function ReviewsManagement() {
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Date</label>
-              <input className="input" type="date" value={form.review_date} onChange={e => setForm(f => ({ ...f, review_date: e.target.value }))} />
+              <input aria-label="Review Date" name="review_date" id="review_date" className="input" type="date" value={form.review_date} onChange={e => setForm(f => ({ ...f, review_date: e.target.value }))} />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Source</label>
-              <select className="input" value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}>
+              <select aria-label="Source" name="source" id="source" className="input" value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}>
                 <option value="manual">Manual</option>
                 <option value="google">Google</option>
                 <option value="facebook">Facebook</option>
@@ -140,20 +140,20 @@ function ReviewsManagement() {
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Sort Order</label>
-              <input className="input" type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} />
+              <input aria-label="Sort Order" name="sort_order" id="sort_order" className="input" type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} />
             </div>
           </div>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Review Text</label>
-            <textarea className="input" rows={3} value={form.review_text} onChange={e => setForm(f => ({ ...f, review_text: e.target.value }))} placeholder="Review text..." style={{ width: '100%' }} />
+            <textarea aria-label="Review text..." name="review_text" id="review_text" className="input" rows={3} value={form.review_text} onChange={e => setForm(f => ({ ...f, review_text: e.target.value }))} placeholder="Review text..." style={{ width: '100%' }} />
           </div>
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', alignItems: 'center' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.is_featured} onChange={e => setForm(f => ({ ...f, is_featured: e.target.checked }))} />
+              <input name="d" id="d" type="checkbox" checked={form.is_featured} onChange={e => setForm(f => ({ ...f, is_featured: e.target.checked }))} />
               Featured
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
+              <input aria-label="E" name="e" id="e" type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
               Active
             </label>
           </div>
@@ -167,7 +167,7 @@ function ReviewsManagement() {
       {/* Search */}
       <div style={{ position: 'relative', marginBottom: '1rem' }}>
         <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-        <input className="input" placeholder="Search reviews..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ paddingLeft: '36px', width: '100%' }} />
+        <input aria-label="Search reviews..." name="search_reviews" id="search_reviews" className="input" placeholder="Search reviews..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ paddingLeft: '36px', width: '100%' }} />
       </div>
 
       {/* Table */}

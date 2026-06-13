@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Home, Plus, Edit2, Trash2, IndianRupee, X } from 'lucide-react';
 import api from '../../services/api';
 import auth from '../../services/auth';
@@ -10,7 +10,6 @@ const defaultRentForm = { property_name: '', location: '', owner_name: '', owner
 const RentTab = ({ branches, onPayment, onError }) => {
   const { confirm } = useConfirm();
   const [rentLocations, setRentLocations] = useState([]);
-  const rentRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(defaultRentForm);
@@ -26,8 +25,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
   const fetchRentLocations = useCallback(async () => {
     try {
       const r = await api.get('/rent-locations');
-      const str = JSON.stringify(r.data);
-      if (str !== rentRef.current) { rentRef.current = str; setRentLocations(r.data); }
+      setRentLocations(r.data);
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Failed to load rent locations');
     }
@@ -197,4 +195,4 @@ const RentTab = ({ branches, onPayment, onError }) => {
   );
 };
 
-export default React.memo(RentTab);
+export default RentTab;

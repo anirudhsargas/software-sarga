@@ -75,7 +75,8 @@ const FALLBACK = {
       'service_mementos_frames': 'Souvenirs & Cadres Photo',
       'service_hard_spiral_binding': 'Hard & Spiral Binding',
       'service_rubber_seals_stamps': 'Rubber Seals & Stamps'
-
+    }
+  },
   ml: {
     common: {
       'nav.home': 'ഹോം',
@@ -146,10 +147,9 @@ const FALLBACK = {
       'service_photostat_id': 'ഫോട്ടോസ്റ്റാറ്റ് & ഐഡി കാർഡുകൾ',
       'service_mementos_frames': 'സമ്മемentos & ഫോട്ടോ ফ্রെയിംുകൾ',
       'service_hard_spiral_binding': 'ഹാര്‍ഡ് & ಸ್ಪൈറല്‍ ബൈн딩',
-      'service_rubber_seals_stamps': 'റബ്ബർ സീലുകള്‍ & സ്റ്റाम്പുകൾ'
-
-
-}
+      'service_rubber_seals_stamps': 'റബ്ബർ സീലുകള്‍ & സ്റ്റാം്പുകൾ'
+    }
+  }
 }
 
 

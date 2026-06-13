@@ -213,6 +213,8 @@ function DesignBookingsCMS() {
               <Search size={16} className="search-icon" />
               <input
                 type="text"
+                id="design-bookings-search"
+                name="design-bookings-search"
                 placeholder="Search by customer, phone, or design category..."
                 className="input-field"
                 value={search}
@@ -222,6 +224,8 @@ function DesignBookingsCMS() {
             
             <div style={{ width: 180 }}>
               <select
+                id="design-bookings-status-filter"
+                name="design-bookings-status-filter"
                 className="input-field"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -236,6 +240,8 @@ function DesignBookingsCMS() {
 
             <div style={{ width: 220 }}>
               <select
+                id="design-bookings-type-filter"
+                name="design-bookings-type-filter"
                 className="input-field"
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}

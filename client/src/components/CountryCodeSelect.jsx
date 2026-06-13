@@ -11,7 +11,7 @@ const COUNTRIES = [
   { code: '+966', label: 'Saudi Arabia (+966)' }
 ];
 
-const CountryCodeSelect = React.memo(function CountryCodeSelect({ value = '+91', onChange = () => {}, id, className = '' }) {
+export default function CountryCodeSelect({ value = '+91', onChange = () => {}, id, className = '' }) {
   return (
     <select
       id={id}
@@ -25,6 +25,4 @@ const CountryCodeSelect = React.memo(function CountryCodeSelect({ value = '+91',
       ))}
     </select>
   );
-});
-
-export default CountryCodeSelect;
+}

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import '../pages/Vendors.css';
 
-const VendorDashboard = React.memo(({ refreshKey = 0 }) => {
+const VendorDashboard = ({ refreshKey = 0 }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -149,7 +149,7 @@ const VendorDashboard = React.memo(({ refreshKey = 0 }) => {
                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }}></div> Meppayur</span>
             </div>
           </div>
-          <div style={{ width: '100%', height: '320px' }}>
+          <div style={{ height: '320px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={stats.monthly_trend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-subtle)" />
@@ -305,6 +305,6 @@ const VendorDashboard = React.memo(({ refreshKey = 0 }) => {
       </div>
     </div>
   );
-});
+};
 
 export default VendorDashboard;

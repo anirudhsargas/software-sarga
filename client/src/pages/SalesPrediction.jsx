@@ -857,4 +857,4 @@ const SalesPrediction = () => {
     );
 };
 
-export default React.memo(SalesPrediction);
+export default SalesPrediction;

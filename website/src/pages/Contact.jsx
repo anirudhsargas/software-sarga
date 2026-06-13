@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { MapPin, Phone, Mail, Clock, Send, Loader2, CheckCircle, MessageSquare, ExternalLink } from 'lucide-react'
+import { MapPin, Phone, Mail, Clock, Send, Loader2, CheckCircle, MessageSquare } from 'lucide-react'
 import { submitInquiry } from '../api'
 import toast from 'react-hot-toast'
-import SEO from '../components/SEO'
 import './Contact.css'
 
 const branches = [
@@ -71,10 +70,6 @@ export default function Contact() {
 
   return (
     <div className="contact-page">
-      <SEO 
-        title="Contact Us & Branch Locations" 
-        description="Contact Sarga Prints in Perambra & Meppayur. Reach out via our online form, direct WhatsApp, or phone for premium printing inquiries." 
-      />
       <section className="page-header" id="contact-header">
         <div className="page-header__bg" />
         <div className="container page-header__content">
@@ -161,17 +156,9 @@ export default function Contact() {
                     <ul className="branch-card__info" style={{ marginBottom: 'var(--space-md)' }}>
                       <li><MapPin size={16} /><span>{branch.address}</span></li>
                       <li><Phone size={16} /><a href={`tel:${branch.phone.replace(/\s/g, '')}`}>{branch.phone}</a></li>
-                      <li><MessageSquare size={16} style={{ color: '#25D366' }} /><a href={`https://wa.me/${branch.phone.replace(/\s/g, '')}`} target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
                       <li><Mail size={16} /><a href={`mailto:${branch.email}`}>{branch.email}</a></li>
                       <li><Clock size={16} /><span>{branch.hours}</span></li>
                     </ul>
-                    <a href={`https://wa.me/${branch.phone.replace(/\s/g, '')}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm" style={{ background: '#25D366', borderColor: '#25D366', color: '#fff', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><MessageSquare size={14} /> Chat on WhatsApp</a>
-                  </div>
-                  {/* Branch Photography (Placeholders for real assets) */}
-                  <div className="branch-photo-wrap" style={{ height: '140px', background: 'var(--bg-tertiary)', borderTop: '1px solid var(--border)' }}>
-                    <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                      [Photo of {branch.name}]
-                    </div>
                   </div>
                   {/* Google Maps Iframe Embed */}
                   <div className="branch-card__map" style={{ height: '180px', width: '100%', borderTop: '1px solid var(--glass-border)' }}>

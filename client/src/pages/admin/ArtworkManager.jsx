@@ -121,11 +121,11 @@ function ArtworkManager() {
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
-            <input className="input" placeholder="Search name, order, phone..." value={search}
+            <input aria-label="Search name, order, phone..." name="search_name_order_phone" id="search_name_order_phone" className="input" placeholder="Search name, order, phone..." value={search}
               onChange={e => { setSearch(e.target.value); setPage(1); }}
               style={{ paddingLeft: '32px', width: '220px' }} />
           </div>
-          <select className="input" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} style={{ width: 'auto' }}>
+          <select aria-label="Status Filter" name="status_filter" id="status_filter" className="input" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} style={{ width: 'auto' }}>
             <option value="">All Status</option>
             {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
@@ -207,10 +207,10 @@ function ArtworkManager() {
 
             {/* Status + Designer controls */}
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-              <select className="input" value={detail.status} onChange={e => handleStatusChange(detail.id, e.target.value)} style={{ width: 'auto', fontSize: '0.85rem' }}>
+              <select aria-label="Status" name="status" id="status" className="input" value={detail.status} onChange={e => handleStatusChange(detail.id, e.target.value)} style={{ width: 'auto', fontSize: '0.85rem' }}>
                 {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
-              <select className="input" value={detail.assigned_designer_id || ''}
+              <select aria-label="Artworkmanager Field 213" name="artworkmanager_field_213" id="artworkmanager_field_213" className="input" value={detail.assigned_designer_id || ''}
                 onChange={e => handleAssignDesigner(detail.id, e.target.value)}
                 style={{ width: 'auto', fontSize: '0.85rem' }}>
                 <option value="">Unassigned</option>
@@ -279,7 +279,7 @@ function ArtworkManager() {
             {/* Notes */}
             <div style={{ marginBottom: '1rem' }}>
               <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>Admin Notes</h4>
-              <textarea className="input" rows={3} value={detail.notes || ''}
+              <textarea aria-label="Internal notes about this artwork..." name="s" id="s" className="input" rows={3} value={detail.notes || ''}
                 onChange={e => setDetail(d => ({ ...d, notes: e.target.value }))}
                 style={{ width: '100%', fontSize: '0.85rem' }}
                 placeholder="Internal notes about this artwork..." />

@@ -8,7 +8,7 @@ import './SmartSearch.css';
  * SmartSearch – Global Ctrl+K command-palette style search overlay.
  * Searches across customers, jobs/orders, and products simultaneously.
  */
-const SmartSearch = React.memo(({ isOpen, onClose }) => {
+const SmartSearch = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState({ customers: [], jobs: [], products: [] });
   const [loading, setLoading] = useState(false);
@@ -274,6 +274,6 @@ const SmartSearch = React.memo(({ isOpen, onClose }) => {
       </div>
     </>
   );
-});
+};
 
 export default SmartSearch;

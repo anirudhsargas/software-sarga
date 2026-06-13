@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
 import VendorsList from '../components/Vendors';
 import VendorDetail from '../components/VendorDetail';
@@ -7,16 +7,12 @@ import VendorModal from '../components/VendorModal';
 import InvoiceModal from '../components/InvoiceModal';
 import PaymentModal from '../components/PaymentModal';
 import api from '../services/api';
-import auth from '../services/auth';
 import { toast } from 'react-hot-toast';
 import { Plus, TrendingUp, List } from 'lucide-react';
 import './Vendors.css';
 
 const Vendors = () => {
   const navigate = useNavigate();
-  const user = auth.getUser();
-  const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
-  const isOnlyAdmin = user?.role === 'Admin';
   const [searchParams, setSearchParams] = useSearchParams();
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -28,18 +24,18 @@ const Vendors = () => {
 
   const currentView = searchParams.get('view') || 'dashboard';
 
-  const setCurrentView = useCallback((view) => {
+  const setCurrentView = (view) => {
     setSearchParams({ view });
-  }, [setSearchParams]);
+  };
 
-  const formatCurrency = useCallback((amount) => {
+  const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR'
     }).format(amount);
-  }, []);
+  };
 
-  const getStatusBadge = useCallback((status) => {
+  const getStatusBadge = (status) => {
     const statusClasses = {
       paid: 'status-badge--success',
       partial: 'status-badge--info',
@@ -52,27 +48,19 @@ const Vendors = () => {
         {status?.charAt(0).toUpperCase() + status?.slice(1)}
       </span>
     );
-  }, []);
+  };
 
-  const handleAddVendor = useCallback(() => {
+  const handleAddVendor = () => {
     setEditingVendor(null);
     setShowVendorModal(true);
-  }, []);
+  };
 
-  const handleEditVendor = useCallback((vendor) => {
-    if (!isAdmin) {
-      toast.error('Access denied. Insufficient permissions.');
-      return;
-    }
+  const handleEditVendor = (vendor) => {
     setEditingVendor(vendor);
     setShowVendorModal(true);
-  }, [isAdmin]);
+  };
 
-  const handleDeleteVendor = useCallback(async (vendorId) => {
-    if (!isOnlyAdmin) {
-      toast.error('Access denied. Insufficient permissions.');
-      return;
-    }
+  const handleDeleteVendor = async (vendorId) => {
     if (!window.confirm('Are you sure you want to delete this vendor? This action cannot be undone.')) {
       return;
     }
@@ -80,50 +68,51 @@ const Vendors = () => {
     try {
       await api.delete(`/vendors/${vendorId}`);
       toast.success('Vendor deleted successfully');
+      // Refresh the current view without full reload
       setRefreshKey(k => k + 1);
     } catch (error) {
       console.error('Error deleting vendor:', error);
       toast.error('Failed to delete vendor');
     }
-  }, [isOnlyAdmin]);
+  };
 
-  const handleVendorSaved = useCallback(() => {
+  const handleVendorSaved = () => {
     setShowVendorModal(false);
     setEditingVendor(null);
     setRefreshKey(k => k + 1);
-  }, []);
+  };
 
-  const handleViewVendor = useCallback((vendor) => {
+  const handleViewVendor = (vendor) => {
     setSelectedVendor(vendor);
     navigate(`/dashboard/vendors/${vendor.id}?view=list`);
-  }, [navigate]);
+  };
 
-  const handleAddInvoice = useCallback((vendor) => {
+  const handleAddInvoice = (vendor) => {
     setSelectedVendor(vendor);
     setShowInvoiceModal(true);
-  }, []);
+  };
 
-  const handleAddPayment = useCallback((invoice) => {
+  const handleAddPayment = (invoice) => {
     setSelectedInvoice(invoice);
     setShowPaymentModal(true);
-  }, []);
+  };
 
-  const handleInvoiceSaved = useCallback(() => {
+  const handleInvoiceSaved = () => {
     setShowInvoiceModal(false);
     setSelectedVendor(null);
     setRefreshKey(k => k + 1);
-  }, []);
+  };
 
-  const handlePaymentSaved = useCallback(() => {
+  const handlePaymentSaved = () => {
     setShowPaymentModal(false);
     setSelectedInvoice(null);
     setRefreshKey(k => k + 1);
-  }, []);
+  };
 
-  const handleBackToList = useCallback(() => {
+  const handleBackToList = () => {
     setSelectedVendor(null);
     navigate('/dashboard/vendors?view=list');
-  }, [navigate]);
+  };
 
   return (
     <div className="page-container">
@@ -225,4 +214,4 @@ const Vendors = () => {
   );
 };
 
-export default React.memo(Vendors);
+export default Vendors;

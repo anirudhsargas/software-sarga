@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import useAuth from '../hooks/useAuth';
 import api from '../services/api';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -6,7 +6,7 @@ import { Save, CheckCircle, Search, Calendar, FileText, AlertTriangle } from 'lu
 import toast from 'react-hot-toast';
 import './StockVerification.css';
 
-const StockVerification = React.memo(() => {
+const StockVerification = () => {
     const { user } = useAuth();
     const { confirm } = useConfirm();
     const [month, setMonth] = useState(() => {
@@ -16,28 +16,13 @@ const StockVerification = React.memo(() => {
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const verificationRef = useRef(null);
-    const [verification, setVerificationState] = useState(null);
-    const setVerification = useCallback((v) => {
-      const n = typeof v === 'function' ? v(verificationRef.current) : v;
-      if (JSON.stringify(verificationRef.current) !== JSON.stringify(n)) { verificationRef.current = n; setVerificationState(n); }
-    }, []);
-    const itemsRef = useRef([]);
-    const [items, setItemsState] = useState([]);
-    const setItems = useCallback((v) => {
-      const n = typeof v === 'function' ? v(itemsRef.current) : v;
-      if (JSON.stringify(itemsRef.current) !== JSON.stringify(n)) { itemsRef.current = n; setItemsState(n); }
-    }, []);
+    const [verification, setVerification] = useState(null);
+    const [items, setItems] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 50;
 
-    const historyRef = useRef([]);
-    const [history, setHistoryState] = useState([]);
-    const setHistory = useCallback((v) => {
-      const n = typeof v === 'function' ? v(historyRef.current) : v;
-      if (JSON.stringify(historyRef.current) !== JSON.stringify(n)) { historyRef.current = n; setHistoryState(n); }
-    }, []);
+    const [history, setHistory] = useState([]);
     const [showHistory, setShowHistory] = useState(false);
 
     useEffect(() => {
@@ -49,7 +34,7 @@ const StockVerification = React.memo(() => {
         fetchHistory();
     }, [month]);
 
-    const fetchVerification = useCallback(async () => {
+    const fetchVerification = async () => {
         if (!month) return;
         setLoading(true);
         try {
@@ -62,18 +47,18 @@ const StockVerification = React.memo(() => {
         } finally {
             setLoading(false);
         }
-    }, [month]);
+    };
 
-    const fetchHistory = useCallback(async () => {
+    const fetchHistory = async () => {
         try {
             const res = await api.get('/stock-verification/history/list');
             setHistory(res.data);
         } catch (err) {
             console.error(err);
         }
-    }, []);
+    };
 
-    const handleQtyChange = useCallback((inventoryItemId, value) => {
+    const handleQtyChange = (inventoryItemId, value) => {
         if (verification?.status === 'Completed') return;
 
         setItems(prev => prev.map(item => {
@@ -82,9 +67,9 @@ const StockVerification = React.memo(() => {
             }
             return item;
         }));
-    }, [verification?.status]);
+    };
 
-    const handleNotesChange = useCallback((inventoryItemId, value) => {
+    const handleNotesChange = (inventoryItemId, value) => {
         if (verification?.status === 'Completed') return;
 
         setItems(prev => prev.map(item => {
@@ -93,9 +78,9 @@ const StockVerification = React.memo(() => {
             }
             return item;
         }));
-    }, [verification?.status]);
+    };
 
-    const handleSave = useCallback(async (status) => {
+    const handleSave = async (status) => {
         if (status === 'Completed') {
             const isConfirmed = await confirm({
                 title: 'Complete Verification?',
@@ -122,21 +107,18 @@ const StockVerification = React.memo(() => {
         } finally {
             setSaving(false);
         }
-    }, [month, items, fetchVerification, fetchHistory, confirm]);
+    };
 
-    const filteredItems = useMemo(() => items.filter(item => {
+    const filteredItems = items.filter(item => {
         if (!searchTerm) return true;
         const s = searchTerm.toLowerCase();
         return (item.name?.toLowerCase().includes(s)) ||
             (item.sku?.toLowerCase().includes(s)) ||
             (item.category?.toLowerCase().includes(s));
-    }), [items, searchTerm]);
+    });
 
-    const totalPages = useMemo(() => Math.ceil(filteredItems.length / ITEMS_PER_PAGE), [filteredItems]);
-    const paginatedItems = useMemo(() => filteredItems.slice(
-        (currentPage - 1) * ITEMS_PER_PAGE,
-        currentPage * ITEMS_PER_PAGE
-    ), [filteredItems, currentPage]);
+    const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
+    const paginatedItems = filteredItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
     const isCompleted = verification?.status === 'Completed';
 
@@ -358,6 +340,6 @@ const StockVerification = React.memo(() => {
             )}
         </div>
     );
-});
+};
 
-export default React.memo(StockVerification);
+export default StockVerification;

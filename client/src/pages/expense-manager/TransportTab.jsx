@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Truck, Plus, Edit2, Trash2, Download, IndianRupee, TrendingUp, X, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, TRANSPORT_EXPENSE_TYPES } from './constants';
@@ -13,8 +13,6 @@ const TransportTab = ({ onError }) => {
   const { confirm } = useConfirm();
   const [dashboard, setDashboard] = useState(null);
   const [expenses, setExpenses] = useState([]);
-  const dashRef = useRef(null);
-  const expRef = useRef(null);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -44,8 +42,7 @@ const TransportTab = ({ onError }) => {
   const fetchDashboard = useCallback(async () => {
     try {
       const r = await api.get('/transport-dashboard');
-      const str = JSON.stringify(r.data);
-      if (str !== dashRef.current) { dashRef.current = str; setDashboard(r.data); }
+      setDashboard(r.data);
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Failed to load transport dashboard');
     }
@@ -60,9 +57,7 @@ const TransportTab = ({ onError }) => {
   const fetchExpenses = useCallback(async () => {
     try {
       const r = await api.get('/transport-expenses');
-      const data = Array.isArray(r.data) ? r.data : (r.data?.data || []);
-      const str = JSON.stringify(data);
-      if (str !== expRef.current) { expRef.current = str; setExpenses(data); }
+      safeSetExpenses(r.data);
       setPage(1);
     } catch {
       setExpenses([]);
@@ -270,4 +265,4 @@ const TransportTab = ({ onError }) => {
   );
 };
 
-export default React.memo(TransportTab);
+export default TransportTab;

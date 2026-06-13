@@ -36,7 +36,6 @@ const FrontOffice = () => {
     const [activeTab, setActiveTab] = useState('queue');
     const searchRef = useRef(null);
     const searchTimeout = useRef(null);
-    const prevDataRef = useRef(null);
 
     // Completed work state
     const [completedJobs, setCompletedJobs] = useState([]);
@@ -122,17 +121,11 @@ const FrontOffice = () => {
                         in_progress: (serverData.stats?.in_progress || 0) + localBills.filter(j => j.status === 'pending').length
                     }
                 };
-                if (JSON.stringify(mergedData) !== JSON.stringify(prevDataRef.current)) {
-                    setData(mergedData);
-                    prevDataRef.current = mergedData;
-                }
+                setData(mergedData);
             } catch (localErr) {
                 console.error('Failed to load local bills for dashboard:', localErr);
                 // Fallback to server data only
-                if (JSON.stringify(serverData) !== JSON.stringify(prevDataRef.current)) {
-                    setData(serverData);
-                    prevDataRef.current = serverData;
-                }
+                setData(serverData);
             }
             setError('');
         } catch (err) {
@@ -1499,4 +1492,4 @@ const FrontOffice = () => {
     );
 };
 
-export default React.memo(FrontOffice);
+export default FrontOffice;

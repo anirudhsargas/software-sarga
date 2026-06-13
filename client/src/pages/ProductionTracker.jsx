@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Loader2, Building2, Search, AlertTriangle, Clock, Phone,
     IndianRupee, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ArrowRight, Zap,
@@ -38,16 +38,8 @@ const ProductionTracker = () => {
     const STAGE_PAGE_SIZE = 20;
     const navigate = useNavigate();
 
-    const dataRef = useRef(data);
-    const branchesRef = useRef(branches);
-
     useEffect(() => {
-        api.get('/branches').then(r => {
-            if (JSON.stringify(r.data) !== JSON.stringify(branchesRef.current)) {
-                branchesRef.current = r.data;
-                setBranches(r.data);
-            }
-        }).catch(() => {});
+        api.get('/branches').then(r => setBranches(r.data)).catch(() => {});
     }, []);
 
     const fetchData = useCallback(async () => {
@@ -56,33 +48,26 @@ const ProductionTracker = () => {
             if (branchId) params.append('branch_id', branchId);
             if (search) params.append('search', search);
             const res = await api.get(`/production-tracker?${params}`);
-            if (JSON.stringify(res.data) !== JSON.stringify(dataRef.current)) {
-                dataRef.current = res.data;
-                setData(res.data);
-                setStagePage({});
-            }
-        } catch {
-            if (dataRef.current !== null) {
-                dataRef.current = null;
-                setData(null);
-            }
-        }
+            setData(res.data);
+            setStagePage({});
+        } catch { setData(null); }
         finally { setLoading(false); }
     }, [branchId, search]);
 
     useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
 
+    // Auto-refresh every 30 seconds
     usePolling(fetchData, 30000, true);
 
-    const toggleStage = useCallback((stage) => {
+    const toggleStage = (stage) => {
         setCollapsedStages(prev => {
             const next = new Set(prev);
             if (next.has(stage)) next.delete(stage); else next.add(stage);
             return next;
         });
-    }, []);
+    };
 
-    const summary = useMemo(() => data?.summary || {}, [data]);
+    const summary = data?.summary || {};
 
     return (
         <div className="page-container">
@@ -96,6 +81,7 @@ const ProductionTracker = () => {
                 </div>
             </div>
 
+            {/* Filters */}
             <div className="row gap-sm items-center flex-wrap mb-16">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px' }}>
                     <Building2 size={15} className="muted" style={{ flexShrink: 0 }} />
@@ -115,6 +101,7 @@ const ProductionTracker = () => {
                 <div className="text-center p-40 muted">Failed to load production data</div>
             ) : (
                 <>
+                    {/* Summary bar */}
                     <div className="row gap-sm items-center flex-wrap mb-16" style={{ fontSize: 13 }}>
                         <SummaryChip label="Active Jobs" value={summary.total_active} />
                         {summary.overdue > 0 && (
@@ -129,6 +116,7 @@ const ProductionTracker = () => {
                         </span>
                     </div>
 
+                    {/* Stage pipeline mini-bar */}
                     <div className="production-pipeline mb-20">
                         {(data.stage_order || []).map((stage, i) => {
                             const conf = STAGE_CONFIG[stage] || STAGE_CONFIG.Processing;
@@ -153,6 +141,7 @@ const ProductionTracker = () => {
                         })}
                     </div>
 
+                    {/* Stage columns */}
                     {(data.stage_order || []).map(stage => {
                         const conf = STAGE_CONFIG[stage] || STAGE_CONFIG.Processing;
                         const jobs = data.stages[stage] || [];
@@ -206,15 +195,18 @@ const ProductionTracker = () => {
     );
 };
 
-const JobCard = React.memo(({ job, onNavigate }) => {
+/* ─── Job Card ─── */
+const JobCard = ({ job, onNavigate }) => {
     const priColor = PRIORITY_COLORS[job.priority] || PRIORITY_COLORS.Medium;
 
     return (
         <div className="production-job-card" onClick={onNavigate} role="button" tabIndex={0}>
+            {/* Priority indicator */}
             <div className="production-job-priority" style={{ background: priColor }}
                  title={`${job.priority} priority`} />
 
             <div className="production-job-content">
+                {/* Header */}
                 <div className="row space-between items-start mb-4">
                     <div>
                         <div className="font-bold text-sm" style={{ lineHeight: 1.3 }}>{job.job_name}</div>
@@ -227,6 +219,7 @@ const JobCard = React.memo(({ job, onNavigate }) => {
                     )}
                 </div>
 
+                {/* Customer */}
                 <div className="text-xs mb-4" style={{ color: 'var(--text-main)' }}>
                     {job.customer_name}
                     {job.customer_mobile && (
@@ -234,12 +227,14 @@ const JobCard = React.memo(({ job, onNavigate }) => {
                     )}
                 </div>
 
+                {/* Meta */}
                 <div className="row gap-sm items-center flex-wrap" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                     {job.category && <span className="production-tag">{job.category}</span>}
                     {job.quantity > 1 && <span>Qty: {job.quantity}</span>}
                     {job.branch_name && <span>{job.branch_name}</span>}
                 </div>
 
+                {/* Bottom row */}
                 <div className="row space-between items-center mt-6" style={{ fontSize: 11 }}>
                     <div className="row gap-sm items-center">
                         {job.delivery_date && (
@@ -263,6 +258,7 @@ const JobCard = React.memo(({ job, onNavigate }) => {
                     </span>
                 </div>
 
+                {/* Staff */}
                 {job.assigned_staff && (
                     <div className="text-xs muted mt-4" style={{ borderTop: '1px solid var(--border, #e5e7eb)', paddingTop: 4 }}>
                         {job.assigned_staff}
@@ -271,9 +267,10 @@ const JobCard = React.memo(({ job, onNavigate }) => {
             </div>
         </div>
     );
-});
+};
 
-const SummaryChip = React.memo(({ label, value, color, icon }) => (
+/* ─── Small Components ─── */
+const SummaryChip = ({ label, value, color, icon }) => (
     <span style={{
         display: 'inline-flex', alignItems: 'center', gap: 4,
         background: color ? `${color}15` : 'var(--surface-2)',
@@ -282,12 +279,12 @@ const SummaryChip = React.memo(({ label, value, color, icon }) => (
     }}>
         {icon} {label}: {value}
     </span>
-));
+);
 
-const LoadingSpinner = React.memo(() => (
+const LoadingSpinner = () => (
     <div className="flex items-center justify-center p-40">
         <Loader2 className="animate-spin text-accent" size={36} />
     </div>
-));
+);
 
-export default React.memo(ProductionTracker);
+export default ProductionTracker;

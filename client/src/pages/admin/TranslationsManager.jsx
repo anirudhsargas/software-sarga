@@ -132,6 +132,8 @@ function TranslationsManager() {
               <Search size={16} className="search-icon" />
               <input
                 type="text"
+                id="translations-search"
+                name="translations-search"
                 placeholder="Search keys or values..."
                 className="input-field"
                 value={search}
@@ -140,6 +142,8 @@ function TranslationsManager() {
             </div>
           </div>
           <select
+            id="translations-lang-filter"
+            name="translations-lang-filter"
             className="input-field"
             style={{ width: 160 }}
             value={lang}
@@ -149,6 +153,8 @@ function TranslationsManager() {
             {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
           </select>
           <select
+            id="translations-namespace-filter"
+            name="translations-namespace-filter"
             className="input-field"
             style={{ width: 160 }}
             value={namespace}
@@ -228,6 +234,8 @@ function TranslationsManager() {
               <div>
                 <label className="label">Language</label>
                 <select
+                  id="translation-lang"
+                  name="translation-lang"
                   className="input-field"
                   value={form.lang}
                   onChange={e => setForm({ ...form, lang: e.target.value })}
@@ -238,6 +246,8 @@ function TranslationsManager() {
               <div>
                 <label className="label">Namespace</label>
                 <input
+                  id="translation-namespace"
+                  name="translation-namespace"
                   className="input-field"
                   value={form.namespace}
                   onChange={e => setForm({ ...form, namespace: e.target.value })}
@@ -247,6 +257,8 @@ function TranslationsManager() {
               <div>
                 <label className="label">Key</label>
                 <input
+                  id="translation-key"
+                  name="translation-key"
                   className="input-field"
                   value={form.key_name}
                   onChange={e => setForm({ ...form, key_name: e.target.value })}
@@ -256,6 +268,8 @@ function TranslationsManager() {
               <div>
                 <label className="label">Value</label>
                 <textarea
+                  id="translation-value"
+                  name="translation-value"
                   className="input-field textarea"
                   rows={3}
                   value={form.value}

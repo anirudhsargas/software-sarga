@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { 
   Receipt, Building2, Plus, X, Loader2, Scan, ShoppingBag, 
   Trash2, ChevronRight, Package, CreditCard, ChevronDown, Check, Search, Info, Camera, FileText
@@ -52,15 +52,12 @@ const InternalBilling = () => {
   const [qrInput, setQrInput] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const qrInputRef = useRef(null);
-  const prevBranchesRef = useRef(null);
-  const prevHierarchyRef = useRef(null);
-  const prevCustomersRef = useRef(null);
 
   useEffect(() => {
     fetchInitialData();
-  }, [fetchInitialData]);
+  }, []);
 
-  const fetchInitialData = useCallback(async () => {
+  const fetchInitialData = async () => {
     try {
       setLoading(true);
       const [branchRes, products, custRes] = await Promise.all([
@@ -69,23 +66,11 @@ const InternalBilling = () => {
         api.get('/customers', { params: { client_type: 'internal', limit: 1000 } })
       ]);
       
-      const newBranches = branchRes.data || [];
-      if (JSON.stringify(newBranches) !== JSON.stringify(prevBranchesRef.current)) {
-        prevBranchesRef.current = newBranches;
-        setBranches(newBranches);
-      }
-      
-      const newHierarchy = products || [];
-      if (JSON.stringify(newHierarchy) !== JSON.stringify(prevHierarchyRef.current)) {
-        prevHierarchyRef.current = newHierarchy;
-        setHierarchy(newHierarchy);
-      }
+      setBranches(branchRes.data || []);
+      setHierarchy(products || []);
       
       const custData = custRes.data?.data || custRes.data || [];
-      if (JSON.stringify(custData) !== JSON.stringify(prevCustomersRef.current)) {
-        prevCustomersRef.current = custData;
-        setInternalCustomers(custData);
-      }
+      setInternalCustomers(custData);
       
       if (products?.length > 0) {
         setSelectedCategoryId(products[0].id);
@@ -96,7 +81,7 @@ const InternalBilling = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   // Branch filtering logic
   const filteredBranches = useMemo(() => {
@@ -142,7 +127,7 @@ const InternalBilling = () => {
     }
   }, [selectedCategoryId, subcategories, selectedSubcategoryId]);
 
-  const addProductToBill = useCallback((prod) => {
+  const addProductToBill = (prod) => {
     if (!prod) return;
     const price = parseFloat(prod.sell_price) || 0;
     const line = {
@@ -160,9 +145,9 @@ const InternalBilling = () => {
     setQty(1);
     setSelectedProduct(null);
     toast.success(`Added ${prod.name}`);
-  }, [selectedCategory, selectedSubcategory, qty, machineType]);
+  };
 
-  const addQuickItem = useCallback(() => {
+  const addQuickItem = () => {
     if (!quickName.trim()) { toast.error('Enter item name'); return; }
     const amt = parseFloat(quickAmount);
     if (isNaN(amt) || amt <= 0) { toast.error('Enter valid amount'); return; }
@@ -182,7 +167,7 @@ const InternalBilling = () => {
     setQuickName('');
     setQuickAmount('');
     toast.success(`Added ${quickName}`);
-  }, [quickName, quickAmount, qty, machineType]);
+  };
 
   const qrLookupMap = useMemo(() => {
     const map = new Map();
@@ -197,14 +182,14 @@ const InternalBilling = () => {
     return map;
   }, [hierarchy]);
 
-  const handleQrInput = useCallback((e) => {
+  const handleQrInput = (e) => {
     const val = e.target.value;
     setQrInput(val);
     const code = val.trim().toUpperCase();
     processScannedCode(code);
-  }, [processScannedCode]);
+  };
 
-  const processScannedCode = useCallback((code) => {
+  const processScannedCode = (code) => {
     if (!code) return;
     if (qrLookupMap.has(code)) {
       const entry = qrLookupMap.get(code);
@@ -216,13 +201,13 @@ const InternalBilling = () => {
       return true;
     }
     return false;
-  }, [qrLookupMap]);
+  };
 
   const removeLine = (id) => setOrderLines(prev => prev.filter(l => l.id !== id));
   
-  const totalAmount = useMemo(() => orderLines.reduce((s, l) => s + (l.total_amount || 0), 0), [orderLines]);
+  const totalAmount = orderLines.reduce((s, l) => s + (l.total_amount || 0), 0);
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = async () => {
     if (!targetCustomer) { toast.error('Target customer not identified'); return; }
     if (orderLines.length === 0) { toast.error('Add at least one item'); return; }
 
@@ -261,7 +246,7 @@ const InternalBilling = () => {
     } finally {
       setSaving(false);
     }
-  }, [targetCustomer, orderLines, totalAmount, machineType, selectedBranchId, myBranchId]);
+  };
 
   if (loading) return <div className="panel flex-center loading-container"><Loader2 className="animate-spin" size={32} /></div>;
 
@@ -604,4 +589,4 @@ const InternalBilling = () => {
   );
 };
 
-export default React.memo(InternalBilling);
+export default InternalBilling;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Briefcase, Clock, Calendar, Search, RefreshCw, FileText, IndianRupee, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import LoadingButton from '../components/LoadingButton';
@@ -11,8 +11,6 @@ const PrinterDashboard = () => {
   const user = auth.getUser();
   const staffId = user?.id;
   const { isOnline } = useOfflineSync();
-  const prevWorkHistoryRef = useRef(null);
-  const prevBranchesRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [workHistory, setWorkHistory] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -30,16 +28,8 @@ const PrinterDashboard = () => {
         localDb.getStaffWorkHistory(staffId),
         localDb.getBranches()
       ]);
-      const newHistory = history || [];
-      if (JSON.stringify(newHistory) !== JSON.stringify(prevWorkHistoryRef.current)) {
-        prevWorkHistoryRef.current = newHistory;
-        setWorkHistory(newHistory);
-      }
-      const newBranches = branchList || [];
-      if (JSON.stringify(newBranches) !== JSON.stringify(prevBranchesRef.current)) {
-        prevBranchesRef.current = newBranches;
-        setBranches(newBranches);
-      }
+      setWorkHistory(history || []);
+      setBranches(branchList || []);
     } catch (err) {
       console.error('Dashboard fetch error:', err);
     } finally {
@@ -63,9 +53,9 @@ const PrinterDashboard = () => {
     return () => window.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [fetchDashboard]);
 
-  const handleJobClick = useCallback((jobId) => {
+  const handleJobClick = (jobId) => {
     navigate(`/dashboard/jobs/${jobId}`);
-  }, [navigate]);
+  };
 
   const getBranchName = useCallback((branchId) => {
     if (!branches || branches.length === 0) return `Branch ${branchId}`;
@@ -539,4 +529,4 @@ const PrinterDashboard = () => {
   );
 };
 
-export default React.memo(PrinterDashboard);
+export default PrinterDashboard;

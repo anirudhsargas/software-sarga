@@ -9,9 +9,7 @@ const statusColors = {
     expired: '#f59e0b', converted: '#8b5cf6'
 };
 
-let quotesRef = { current: [] };
-
-export default React.memo(function Quotes() {
+export default function Quotes() {
     const [quotes, setQuotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -47,22 +45,14 @@ export default React.memo(function Quotes() {
         fetchHierarchy();
     }, []);
 
-    const setQuotesSmart = useCallback((data) => {
-        const str = JSON.stringify(data);
-        if (str !== JSON.stringify(quotesRef.current)) {
-            quotesRef.current = data;
-            setQuotes(data);
-        }
-    }, []);
-
-    const normalizeCode = useCallback((value) => {
+    const normalizeCode = (value) => {
         let code = String(value || '');
         code = code.replace(/^\uFEFF/, '');
         code = code.trim();
         code = code.replace(/\s+/g, '');
         code = code.toUpperCase();
         return code;
-    }, []);
+    };
 
     const qrLookupMap = useMemo(() => {
         const map = new Map();
@@ -77,7 +67,7 @@ export default React.memo(function Quotes() {
         return map;
     }, [hierarchy]);
 
-    const handleQrLookup = useCallback(async (providedCode) => {
+    const handleQrLookup = async (providedCode) => {
         const code = providedCode || qrInput;
         const normalized = normalizeCode(code);
         if (!normalized) { toast.error('Enter a product code'); return; }
@@ -91,9 +81,9 @@ export default React.memo(function Quotes() {
             return;
         }
         toast.error('No product found for this code');
-    }, [qrInput, qrLookupMap, normalizeCode]);
+    };
 
-    const addSelectedProductItem = useCallback(() => {
+    const addSelectedProductItem = () => {
         if (!selectedProduct) { toast.error('Select a product first'); return; }
         const item = {
             item_name: selectedProduct.name || '',
@@ -104,7 +94,7 @@ export default React.memo(function Quotes() {
         setForm(f => ({ ...f, items: [...f.items, item] }));
         setSelectedProduct(null);
         toast.success(`Added: ${item.item_name}`);
-    }, [selectedProduct]);
+    };
 
     function emptyForm() {
         return {
@@ -121,10 +111,10 @@ export default React.memo(function Quotes() {
             if (search) params.set('search', search);
             if (statusFilter) params.set('status', statusFilter);
             const { data } = await api.get(`/quotes?${params}`);
-            setQuotesSmart(data.data || data);
+            setQuotes(data.data || data);
         } catch { toast.error('Failed to load quotes'); }
         finally { setLoading(false); }
-    }, [search, statusFilter, setQuotesSmart]);
+    }, [search, statusFilter]);
 
     useEffect(() => { fetchQuotes(); }, [fetchQuotes]);
 
@@ -132,25 +122,25 @@ export default React.memo(function Quotes() {
         api.get('/customers?limit=500').then(r => setCustomers(r.data?.data || r.data || [])).catch(() => {});
     }, []);
 
-    const selectCustomer = useCallback((c) => {
+    const selectCustomer = (c) => {
         setForm(f => ({ ...f, customer_id: c.id, customer_name: c.name, customer_mobile: c.mobile, customer_email: c.email || '', customer_address: c.address || '', customer_gst: c.gst || '' }));
-    }, []);
+    };
 
-    const addItem = useCallback(() => setForm(f => ({ ...f, items: [...f.items, { item_name: '', description: '', quantity: 1, unit_price: 0 }] })), []);
-    const removeItem = useCallback((i) => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) })), []);
-    const updateItem = useCallback((i, field, val) => setForm(f => {
+    const addItem = () => setForm(f => ({ ...f, items: [...f.items, { item_name: '', description: '', quantity: 1, unit_price: 0 }] }));
+    const removeItem = (i) => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
+    const updateItem = (i, field, val) => setForm(f => {
         const items = [...f.items];
         items[i] = { ...items[i], [field]: val };
         return { ...f, items };
-    }), []);
+    });
 
-    const subtotal = useMemo(() => form.items.reduce((s, it) => s + (it.quantity || 0) * (it.unit_price || 0), 0), [form.items]);
-    const discountAmt = useMemo(() => subtotal * ((form.discount_percent || 0) / 100), [subtotal, form.discount_percent]);
-    const afterDiscount = useMemo(() => subtotal - discountAmt, [subtotal, discountAmt]);
-    const taxAmt = useMemo(() => afterDiscount * ((form.tax_rate || 0) / 100), [afterDiscount, form.tax_rate]);
-    const total = useMemo(() => afterDiscount + taxAmt, [afterDiscount, taxAmt]);
+    const subtotal = form.items.reduce((s, it) => s + (it.quantity || 0) * (it.unit_price || 0), 0);
+    const discountAmt = subtotal * ((form.discount_percent || 0) / 100);
+    const afterDiscount = subtotal - discountAmt;
+    const taxAmt = afterDiscount * ((form.tax_rate || 0) / 100);
+    const total = afterDiscount + taxAmt;
 
-    const handleSave = useCallback(async () => {
+    const handleSave = async () => {
         if (!form.customer_name) return toast.error('Customer name is required');
         if (!form.items.length || !form.items[0].item_name) return toast.error('At least one item is required');
         try {
@@ -163,17 +153,17 @@ export default React.memo(function Quotes() {
             }
             setShowForm(false); setEditing(null); setForm(emptyForm()); fetchQuotes();
         } catch (err) { toast.error(err.response?.data?.message || 'Failed to save quote'); }
-    }, [form, editing, fetchQuotes]);
+    };
 
-    const handleEdit = useCallback(async (id) => {
+    const handleEdit = async (id) => {
         try {
             const { data } = await api.get(`/quotes/${id}`);
             setForm({ ...data, items: data.items || [] });
             setEditing(id); setShowForm(true);
         } catch { toast.error('Failed to load quote'); }
-    }, []);
+    };
 
-    const handleDelete = useCallback(async (id) => {
+    const handleDelete = async (id) => {
         if (!confirm('Delete this quote?')) return;
         // Optimistic UI Update
         setQuotes(prev => prev.filter(q => q.id !== id));
@@ -185,18 +175,18 @@ export default React.memo(function Quotes() {
             toast.error('Failed to delete');
             fetchQuotes();
         }
-    }, [fetchQuotes]);
+    };
 
-    const handleConvert = useCallback(async (id) => {
+    const handleConvert = async (id) => {
         if (!confirm('Convert this quote to an invoice? This action cannot be undone.')) return;
         try {
             const { data } = await api.post(`/quotes/${id}/convert`);
             toast.success(`Converted! Invoice #${data.invoice_id} created`);
             fetchQuotes();
         } catch (err) { toast.error(err.response?.data?.message || 'Failed to convert'); }
-    }, [fetchQuotes]);
+    };
 
-    const handleSendQuote = useCallback(async (quote) => {
+    const handleSendQuote = async (quote) => {
         const email = quote.customer_email || prompt('Enter customer email:');
         if (!email) return;
         try {
@@ -206,11 +196,11 @@ export default React.memo(function Quotes() {
             });
             toast.success('Quote sent!'); fetchQuotes();
         } catch (err) { toast.error(err.response?.data?.message || 'Failed to send'); }
-    }, [fetchQuotes]);
+    };
 
-    const cardStyle = useMemo(() => ({ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 24, marginBottom: 20, boxShadow: '0 12px 32px rgba(15, 23, 42, 0.05)' }), []);
-    const btnStyle = useCallback((bg = '#6366f1') => ({ background: bg, color: bg === 'var(--primary)' ? 'var(--on-accent)' : '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, minHeight: 42, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }), []);
-    const inputStyle = useMemo(() => ({ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--input-bg, var(--surface))', color: 'var(--text)', fontSize: 14, minHeight: 42, boxSizing: 'border-box' }), []);
+    const cardStyle = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 24, marginBottom: 20, boxShadow: '0 12px 32px rgba(15, 23, 42, 0.05)' };
+    const btnStyle = (bg = '#6366f1') => ({ background: bg, color: bg === 'var(--primary)' ? 'var(--on-accent)' : '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, minHeight: 42, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
+    const inputStyle = { width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--input-bg, var(--surface))', color: 'var(--text)', fontSize: 14, minHeight: 42, boxSizing: 'border-box' };
 
     return (
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -479,5 +469,4 @@ export default React.memo(function Quotes() {
             )}
         </div>
     );
-});
-
+}

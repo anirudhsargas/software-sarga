@@ -135,11 +135,7 @@ module.exports = (upload, removeUploadFile) => {
 
         // Source code = company code (user-defined unique abbreviation)
         const sourceCode = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || null;
-        let sizeCode = String(size || '').trim().toUpperCase();
-        if (sizeCode.length > 100) {
-            sizeCode = sizeCode.substring(0, 100);
-        }
-        if (!sizeCode) sizeCode = null;
+        const sizeCode = String(size || '').trim().toUpperCase() || null;
 
         // Check if inventory item with same name+category already exists
         const [existingInv] = await pool.query(
@@ -223,11 +219,7 @@ module.exports = (upload, removeUploadFile) => {
         }
 
         const sourceCode = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || null;
-        let sizeCode = String(size || '').trim().toUpperCase();
-        if (sizeCode.length > 100) {
-            sizeCode = sizeCode.substring(0, 100);
-        }
-        if (!sizeCode) sizeCode = null;
+        const sizeCode = String(size || '').trim().toUpperCase() || null;
 
         // Update the inventory item
         await connection.query(

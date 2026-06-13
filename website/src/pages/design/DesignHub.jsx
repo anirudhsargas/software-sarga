@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, BookOpen, ArrowRight, Sparkles, Image, Crop, Ruler, Palette, Type, Download, Layers, PenTool, Upload, FileText, CheckCircle, Zap, Shield, Smile, Monitor } from 'lucide-react';
-import SEO from '../../components/SEO';
+import { Layout, BookOpen, ArrowRight, Sparkles, Image, Crop, Ruler, Palette, Type, Download, Layers, PenTool, Upload, FileText, CheckCircle, Zap, Shield, Smile } from 'lucide-react';
 import './DesignHub.css';
 
 const tools = [
@@ -69,34 +67,9 @@ const tools = [
 
 export default function DesignHub() {
   const navigate = useNavigate();
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   return (
     <div className="design-hub">
-      <SEO 
-        title="Interactive Design Hub" 
-        description="Design your prints online with Sarga Prints' custom online tools. Auto-layout photo sheets, customize album pages, or upload existing design files." 
-      />
-      {isMobile && (
-        <div className="dh-mobile-warning container">
-          <div className="dh-mobile-warning__inner">
-            <div className="dh-mobile-warning__icon-wrap">
-              <Monitor size={20} />
-            </div>
-            <div className="dh-mobile-warning__text">
-              <strong>Desktop Recommended</strong>
-              <p>For the best design editing experience, drag-and-drop actions, and high-DPI export, a larger screen or desktop computer is highly recommended.</p>
-            </div>
-          </div>
-        </div>
-      )}
       <section className="dh-hero">
         <div className="dh-hero__glow" />
         <div className="dh-hero__grid" />

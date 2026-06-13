@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-const HeroBg3D = React.memo(function HeroBg3D() {
+export default function HeroBg3D() {
   const mountRef = useRef(null);
   const rafRef = useRef(null);
 
@@ -122,6 +122,4 @@ const HeroBg3D = React.memo(function HeroBg3D() {
   return (
     <div ref={mountRef} style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }} />
   );
-});
-
-export default HeroBg3D;
+}

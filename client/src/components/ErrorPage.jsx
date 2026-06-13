@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ErrorPage = React.memo(({ icon: Icon, title, message, suggestion, actions }) => {
+const ErrorPage = ({ icon: Icon, title, message, suggestion, actions }) => {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -31,6 +31,6 @@ const ErrorPage = React.memo(({ icon: Icon, title, message, suggestion, actions 
       )}
     </div>
   );
-});
+};
 
 export default ErrorPage;

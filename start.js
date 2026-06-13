@@ -11,17 +11,8 @@ const server = spawn('node', ['index.js'], {
 });
 
 // Start Frontend
-const clientPort = process.env.CLIENT_PORT || '5173';
-const client = spawn('npm', ['run', 'dev', '--', '--port', clientPort], {
+const client = spawn('npm', ['run', 'dev'], {
   cwd: path.join(__dirname, 'client'),
-  stdio: 'inherit',
-  shell: true
-});
-
-// Start Website
-const websitePort = process.env.WEBSITE_PORT || '5174';
-const website = spawn('npm', ['run', 'dev', '--', '--port', websitePort], {
-  cwd: path.join(__dirname, 'website'),
   stdio: 'inherit',
   shell: true
 });
@@ -34,14 +25,9 @@ client.on('error', (err) => {
   console.error('Failed to start frontend:', err);
 });
 
-website.on('error', (err) => {
-  console.error('Failed to start website:', err);
-});
-
 // Handle process termination
 process.on('SIGINT', () => {
   server.kill();
   client.kill();
-  website.kill();
   process.exit();
 });

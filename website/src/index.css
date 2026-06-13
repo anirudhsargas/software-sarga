@@ -46,7 +46,7 @@
   --on-accent: #F5F3EF;
 
   /* ── Red Accent (Third color — used sparingly) ── */
-  --red-accent: #1A1A1A;
+  --red-accent: #8B0000;
 
   /* ── Borders ── */
   --border: rgba(0,0,0,0.08);
@@ -67,8 +67,8 @@
   /* ── Status Colors ── */
   --success: #2D7A4F;
   --success-bg: rgba(45,122,79,0.08);
-  --error: #1A1A1A;
-  --error-bg: rgba(26,26,26,0.06);
+  --error: #8B0000;
+  --error-bg: rgba(139,0,0,0.06);
   --warning: #B36B00;
   --warning-bg: rgba(179,107,0,0.08);
 
@@ -105,22 +105,6 @@
   --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-spring: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
-
-  /* ── Unified Sarga Token System ── */
-  --text-h1: 3.5rem;
-  --text-h2: 2.5rem;
-  --text-h3: 2rem;
-  --text-h4: 1.5rem;
-  --text-h5: 1.25rem;
-  --text-h6: 1.125rem;
-  --text-body-lg: 1.125rem;
-  --text-caption: 0.875rem;
-
-  --z-navbar: 100;
-  --z-drawer: 200;
-  --z-modal: 300;
-  --z-tooltip: 400;
-  --z-toast: 500;
 }
 
 /* Subtle Samsung-like motion utilities */
@@ -138,73 +122,7 @@
   box-shadow: 0 6px 18px rgba(0,0,0,0.12), 0 0 0 4px rgba(var(--accent-rgb), 0.12);
 }
 
-/* Dark theme overrides — applied when documentElement has data-theme="dark" or system prefers dark */
-@media (prefers-color-scheme: dark) {
-  html:not([data-theme="light"]) {
-    /* ── Off-Black Spectrum (Backgrounds) ── */
-    --bg: #0A0A0A;
-    --bg-rgb: 10,10,10;
-    --bg-2: #0F0F0F;
-    --bg-tertiary: #161616;
-    --surface: #161616;
-    --surface-rgb: 22,22,22;
-    --surface-2: #1E1E1E;
-    --card-bg: rgba(255,255,255,0.02);
-    --bg-hover: rgba(255,255,255,0.03);
-    --cream: #1A1A1A;
-    --ink: #F0EDE6;
-    --white: #F0EDE6;
-
-    /* ── Off-White Spectrum (Typography on dark) ── */
-    --text: #F0EDE6;
-    --text-rgb: 240,237,230;
-    --text-muted: #A0A0A0;
-    --text-secondary: #808080;
-    --text-disabled: rgba(255,255,255,0.3);
-
-    /* ── Accent (Off-White for main usage on dark) ── */
-    --accent: #F0EDE6;
-    --accent-2: #E0DDD6;
-    --accent-rgb: 240,237,230;
-    --accent-soft: rgba(240,237,230,0.1);
-    --accent-light: rgba(240,237,230,0.04);
-    --on-accent: #0A0A0A;
-
-    /* ── Red Accent (brighter for dark bg visibility) ── */
-    --red-accent: #F0EDE6;
-
-    /* ── Borders ── */
-    --border: rgba(255,255,255,0.06);
-    --border-subtle: rgba(255,255,255,0.03);
-
-    /* ── Glassmorphism ── */
-    --glass-bg: rgba(10,10,10,0.5);
-    --glass-bg-strong: rgba(10,10,10,0.75);
-    --glass-border: rgba(255,255,255,0.05);
-    --glass-blur: 12px;
-
-    /* ── Inputs ── */
-    --input-bg: #1E1E1E;
-    --input-border: rgba(255,255,255,0.08);
-    --input-text: #F0EDE6;
-    --input-placeholder: rgba(255,255,255,0.4);
-
-    /* ── Status Colors ── */
-    --success: #4ADE80;
-    --success-bg: rgba(74,222,128,0.12);
-    --error: #F0EDE6;
-    --error-bg: rgba(240,237,230,0.08);
-    --warning: #FBBF24;
-    --warning-bg: rgba(251,191,36,0.12);
-
-    /* ── Shadows (heavier for dark mode) ── */
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.4);
-    --shadow-md: 0 4px 8px rgba(0,0,0,0.3), 0 12px 36px rgba(0,0,0,0.45);
-    --shadow-lg: 0 8px 16px rgba(0,0,0,0.3), 0 24px 64px rgba(0,0,0,0.5);
-    --shadow-glass: 0 4px 24px rgba(0,0,0,0.4);
-  }
-}
-
+/* Dark theme overrides — applied when documentElement has data-theme="dark" */
 html[data-theme="dark"] {
   /* ── Off-Black Spectrum (Backgrounds) ── */
   --bg: #0A0A0A;
@@ -236,7 +154,7 @@ html[data-theme="dark"] {
   --on-accent: #0A0A0A;
 
   /* ── Red Accent (brighter for dark bg visibility) ── */
-  --red-accent: #F0EDE6;
+  --red-accent: #CC3333;
 
   /* ── Borders ── */
   --border: rgba(255,255,255,0.06);
@@ -257,8 +175,8 @@ html[data-theme="dark"] {
   /* ── Status Colors ── */
   --success: #4ADE80;
   --success-bg: rgba(74,222,128,0.12);
-  --error: #F0EDE6;
-  --error-bg: rgba(240,237,230,0.08);
+  --error: #EF4444;
+  --error-bg: rgba(239,68,68,0.12);
   --warning: #FBBF24;
   --warning-bg: rgba(251,191,36,0.12);
 
@@ -498,8 +416,8 @@ ul, ol {
 }
 
 .badge-accent {
-  background: var(--accent-soft);
-  color: var(--text);
+  background: var(--error-bg);
+  color: var(--error);
 }
 
 .badge-success {
@@ -746,7 +664,7 @@ ul, ol {
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, var(--text) 0%, var(--accent-2) 50%, var(--text-muted) 100%);
+  background: linear-gradient(135deg, var(--text) 0%, var(--red-accent) 50%, var(--text-muted) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -763,50 +681,4 @@ ul, ol {
 @media (prefers-reduced-motion: reduce) {
   .reveal, .reveal-scale { transition: none !important; opacity: 1; transform: none; }
   .page-enter { animation: none; }
-}
-
-/* ── Global Form Input Styles (Design System) ── */
-.form-input {
-  width: 100%;
-  padding: 14px 16px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  color: var(--text);
-  transition: all var(--transition-base);
-}
-
-.form-input::placeholder {
-  color: var(--text-disabled);
-}
-
-.form-input:focus {
-  outline: none;
-  background: var(--surface);
-  border-color: var(--brand-accent, var(--accent));
-  box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
-}
-
-.form-input.textarea,
-textarea.form-input {
-  resize: vertical;
-  min-height: 120px;
-}
-
-select.form-input {
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231A1A1A%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-  background-repeat: no-repeat, repeat;
-  background-position: right .7em top 50%, 0 0;
-  background-size: .65em auto, 100%;
-}
-
-.label {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 8px;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import localDb from '../services/localDb';
 import auth from '../services/auth';
@@ -22,34 +22,14 @@ const AttendanceSalary = () => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
-  const attendanceRef = useRef([]);
-  const [attendance, setAttendanceState] = useState([]);
-  const setAttendance = useCallback((v) => {
-    const n = typeof v === 'function' ? v(attendanceRef.current) : v;
-    if (JSON.stringify(attendanceRef.current) !== JSON.stringify(n)) { attendanceRef.current = n; setAttendanceState(n); }
-  }, []);
-  const summaryRef = useRef(null);
-  const [summary, setSummaryState] = useState(null);
-  const setSummary = useCallback((v) => {
-    const n = typeof v === 'function' ? v(summaryRef.current) : v;
-    if (JSON.stringify(summaryRef.current) !== JSON.stringify(n)) { summaryRef.current = n; setSummaryState(n); }
-  }, []);
-  const salaryInfoRef = useRef(null);
-  const [salaryInfo, setSalaryInfoState] = useState(null);
-  const setSalaryInfo = useCallback((v) => {
-    const n = typeof v === 'function' ? v(salaryInfoRef.current) : v;
-    if (JSON.stringify(salaryInfoRef.current) !== JSON.stringify(n)) { salaryInfoRef.current = n; setSalaryInfoState(n); }
-  }, []);
-  const salaryCalcRef = useRef(null);
-  const [salaryCalc, setSalaryCalcState] = useState(null);
-  const setSalaryCalc = useCallback((v) => {
-    const n = typeof v === 'function' ? v(salaryCalcRef.current) : v;
-    if (JSON.stringify(salaryCalcRef.current) !== JSON.stringify(n)) { salaryCalcRef.current = n; setSalaryCalcState(n); }
-  }, []);
+  const [attendance, setAttendance] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [salaryInfo, setSalaryInfo] = useState(null);
+  const [salaryCalc, setSalaryCalc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     if (!staffId) return;
     setLoading(true);
     setError(null);
@@ -87,7 +67,7 @@ const AttendanceSalary = () => {
     } finally {
       setLoading(false);
     }
-  }, [staffId, selectedMonth]);
+  };
 
   useEffect(() => { fetchData(); }, [staffId, selectedMonth]);
 
@@ -96,11 +76,11 @@ const AttendanceSalary = () => {
     return new Date(y, m - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
   }, [selectedMonth]);
 
-  const changeMonth = useCallback((delta) => {
+  const changeMonth = (delta) => {
     const [y, m] = selectedMonth.split('-').map(Number);
     const d = new Date(y, m - 1 + delta, 1);
     setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  }, [selectedMonth]);
+  };
 
   const calendarDays = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number);
@@ -127,7 +107,7 @@ const AttendanceSalary = () => {
   const fmt = (val) => `₹${Number(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
   const halfDays = summary?.halfDay || attendance.filter(a => a.status === 'Half Day').length || 0;
 
-  const downloadSalarySlip = useCallback(async () => {
+  const downloadSalarySlip = async () => {
     try {
       const response = await api.get(`/staff/${staffId}/salary-slip/${selectedMonth}`, { responseType: 'blob' });
       const blob = new Blob([response.data], { type: 'application/pdf' });
@@ -142,7 +122,7 @@ const AttendanceSalary = () => {
     } catch {
       setError('Failed to download salary slip');
     }
-  }, [staffId, selectedMonth]);
+  };
 
   if (loading) {
     return <SkeletonLoader type="attendance" />;
@@ -360,7 +340,7 @@ const AttendanceSalary = () => {
   );
 };
 
-const InfoRow = React.memo(({ label, value, highlight }) => (
+const InfoRow = ({ label, value, highlight }) => (
   <div style={{
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     padding: '8px 12px', borderRadius: 6,
@@ -370,6 +350,6 @@ const InfoRow = React.memo(({ label, value, highlight }) => (
     <span style={{ fontSize: 12, color: 'var(--muted)' }}>{label}</span>
     <span style={{ fontSize: 14, fontWeight: 600, color: highlight ? 'var(--error)' : 'inherit' }}>{value}</span>
   </div>
-));
+);
 
-export default React.memo(AttendanceSalary);
+export default AttendanceSalary;

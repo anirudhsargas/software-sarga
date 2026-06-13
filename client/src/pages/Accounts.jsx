@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Loader2, Search, Download, Building2, FileText,
     ArrowUpRight, ArrowDownRight, Receipt, IndianRupee,
@@ -28,12 +28,6 @@ const Accounts = () => {
     const [tab, setTab] = useState('gst');
     const [branches, setBranches] = useState([]);
     const [branchId, setBranchId] = useState('');
-    const formatApiError = (err) => {
-        const raw = err?.response?.data?.error ?? err?.response?.data?.message ?? null;
-        if (typeof raw === 'string') return raw;
-        if (typeof raw === 'object' && raw !== null) return raw.userMessage || raw.message || JSON.stringify(raw);
-        return err?.message || String(err) || 'Server error';
-    };
 
     useEffect(() => {
         api.get('/branches').then(r => setBranches(r.data)).catch(() => {});
@@ -704,19 +698,19 @@ const BillsDocsTab = () => {
     const [uploadForm, setUploadForm] = useState({ document_type: 'Invoice', related_tab: '', vendor_name: '', bill_number: '', bill_date: new Date().toISOString().split('T')[0], amount: '', description: '', file: null });
     const [uploadDirty, setUploadDirty] = useState(false);
 
-    const openUploadModal = useCallback(() => {
+    const openUploadModal = () => {
         setUploadDirty(false);
         setShowUploadModal(true);
-    }, []);
+    };
 
-    const closeUploadModal = useCallback((force = false) => {
+    const closeUploadModal = (force = false) => {
         if (!force && uploadDirty && !uploading) {
             const shouldClose = window.confirm('You have unsaved upload form changes. Discard them?');
             if (!shouldClose) return;
         }
         setShowUploadModal(false);
         setUploadDirty(false);
-    }, [uploadDirty, uploading]);
+    };
 
     useEffect(() => {
         const handleBeforeUnload = (event) => {
@@ -747,9 +741,10 @@ const BillsDocsTab = () => {
 
     useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
-    const handleDelete = useCallback(async (id) => {
+    const handleDelete = async (id) => {
         const ok = await confirm({ title: 'Delete Document', message: 'Are you sure you want to delete this document?', confirmText: 'Delete', type: 'danger' });
         if (!ok) return;
+        // Optimistic UI Update
         setDocs(prev => prev.filter(d => d.id !== id));
         setDocsTotal(prev => Math.max(0, prev - 1));
         try {
@@ -760,9 +755,9 @@ const BillsDocsTab = () => {
             toast.error('Delete failed');
             fetchDocs();
         }
-    }, [confirm, fetchDocs]);
+    };
 
-    const handleUpload = useCallback(async (e) => {
+    const handleUpload = async (e) => {
         e.preventDefault();
         setUploading(true);
         try {
@@ -783,21 +778,21 @@ const BillsDocsTab = () => {
             fetchDocs();
         } catch (err) { toast.error(err.response?.data?.message || 'Upload failed'); }
         finally { setUploading(false); }
-    }, [uploadForm, closeUploadModal, fetchDocs]);
+    };
 
     const startEdit = (doc) => {
         setEditingDoc(doc.id);
         setEditForm({ vendor_name: doc.vendor_name || '', bill_number: doc.bill_number || '', amount: doc.amount || '', description: doc.description || '' });
     };
 
-    const saveEdit = useCallback(async (id) => {
+    const saveEdit = async (id) => {
         try {
             await api.put(`/bills-documents/${id}`, editForm);
             toast.success('Updated');
             setEditingDoc(null);
             fetchDocs();
         } catch { toast.error('Update failed'); }
-    }, [editForm, fetchDocs]);
+    };
 
     const getFileUrl = (path) => {
         if (!path) return '';
@@ -805,7 +800,7 @@ const BillsDocsTab = () => {
         return `${base}${path}`;
     };
 
-    const totalAmount = useMemo(() => docs.reduce((s, d) => s + Number(d.amount || 0), 0), [docs]);
+    const totalAmount = docs.reduce((s, d) => s + Number(d.amount || 0), 0);
 
     return (
         <div className="acc-stack">
@@ -1046,7 +1041,7 @@ const UploadBillTab = ({ onUploaded }) => {
                 related_tab: response.data.category_suggestions?.[0]?.related_tab || ''
             }));
         } catch (err) {
-            setError(formatApiError(err) || 'Failed to extract bill details');
+            setError(err.response?.data?.error || err.message || 'Failed to extract bill details');
         } finally { setLoading(false); }
     };
 
@@ -1070,7 +1065,7 @@ const UploadBillTab = ({ onUploaded }) => {
             toast.success('Bill uploaded successfully!');
             setStep('done');
         } catch (err) {
-            setError(formatApiError(err) || 'Failed to upload bill');
+            setError(err.response?.data?.error || 'Failed to upload bill');
         } finally { setLoading(false); }
     };
 
@@ -1283,4 +1278,4 @@ const parseItems = (items) => {
     try { return JSON.parse(items); } catch { return []; }
 };
 
-export default React.memo(Accounts);
+export default Accounts;

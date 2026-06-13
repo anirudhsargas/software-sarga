@@ -45,11 +45,11 @@ function PickupBookings() {
       <div className="mgr-header"><h2>Pickup Bookings</h2></div>
       <div className="mgr-filters">
         <div className="mgr-search"><Search size={16} /><input className="input" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} /></div>
-        <select className="input" value={filter.status} onChange={e => setFilter({ ...filter, status: e.target.value })}>
+        <select aria-label="Status" name="status" id="status" className="input" value={filter.status} onChange={e => setFilter({ ...filter, status: e.target.value })}>
           <option value="">All Status</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option>
         </select>
-        <input className="input" type="date" value={filter.date} onChange={e => setFilter({ ...filter, date: e.target.value })} />
-        <select className="input" value={filter.branch_id} onChange={e => setFilter({ ...filter, branch_id: e.target.value })}>
+        <input aria-label="Date" name="date" id="date" className="input" type="date" value={filter.date} onChange={e => setFilter({ ...filter, date: e.target.value })} />
+        <select aria-label="Branch Id" name="branch_id" id="branch_id" className="input" value={filter.branch_id} onChange={e => setFilter({ ...filter, branch_id: e.target.value })}>
           <option value="">All Branches</option>
           {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api, { imgUrl } from '../services/api';
 import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
@@ -156,37 +156,27 @@ const ProductLibrary = () => {
         }
     });
 
-    const loadingRef = useRef(null);
-    const saveLoadingRef = useRef(null);
-    const savingOrderRef = useRef(null);
-    const imageRequestSubmittingRef = useRef(null);
-    const loadingPendingImageRequestsRef = useRef(null);
-    const loadingPendingUpdateRequestsRef = useRef(null);
 
-    const smartBool = (ref, setter, value) => {
-        const str = JSON.stringify(value);
-        if (str !== ref.current) { ref.current = str; setter(value); }
-    };
 
     useEffect(() => {
         fetchHierarchy();
         fetchVendors();
-    }, [fetchHierarchy, fetchVendors]);
+    }, []);
 
-    const fetchVendors = useCallback(async () => {
+    const fetchVendors = async () => {
         try {
-            const res = await api.get('/vendors?limit=1000');
+            const res = await api.get('/vendors?limit=1000'); // Get more for autocomplete
             setVendors(res.data?.data || []);
         } catch (err) {
             console.error('Failed to fetch vendors for autocomplete:', err);
         }
-    }, []);
+    };
 
     useEffect(() => {
         if (!isPrivileged) return;
         fetchPendingImageRequests();
         fetchPendingUpdateRequests();
-    }, [isPrivileged, fetchPendingImageRequests, fetchPendingUpdateRequests]);
+    }, [isPrivileged]);
 
     useEffect(() => {
         if (!productImage) {
@@ -198,43 +188,43 @@ const ProductLibrary = () => {
         return () => URL.revokeObjectURL(url);
     }, [productImage]);
 
-    const fetchHierarchy = useCallback(async () => {
+    const fetchHierarchy = async () => {
         try {
             const res = await api.get('/product-hierarchy');
             setHierarchy(res.data);
-            smartBool(loadingRef, setLoading, false);
+            setLoading(false);
         } catch (err) {
             console.error("Fetch hierarchy error:", err);
             toast.error(err.response?.data?.message || err.message || 'Failed to load product library');
-            smartBool(loadingRef, setLoading, false);
+            setLoading(false);
         }
-    }, []);
+    };
 
-    const fetchPendingImageRequests = useCallback(async () => {
+    const fetchPendingImageRequests = async () => {
         if (!isPrivileged) return;
-        smartBool(loadingPendingImageRequestsRef, setLoadingPendingImageRequests, true);
+        setLoadingPendingImageRequests(true);
         try {
             const res = await api.get('/products/image-update-requests', { params: { status: 'pending' } });
             setPendingImageRequests(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to load pending image requests');
         } finally {
-            smartBool(loadingPendingImageRequestsRef, setLoadingPendingImageRequests, false);
+            setLoadingPendingImageRequests(false);
         }
-    }, [isPrivileged]);
+    };
 
-    const fetchPendingUpdateRequests = useCallback(async () => {
+    const fetchPendingUpdateRequests = async () => {
         if (!isPrivileged) return;
-        smartBool(loadingPendingUpdateRequestsRef, setLoadingPendingUpdateRequests, true);
+        setLoadingPendingUpdateRequests(true);
         try {
             const res = await api.get('/products/update-requests', { params: { status: 'pending' } });
             setPendingUpdateRequests(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to load pending update requests');
         } finally {
-            smartBool(loadingPendingUpdateRequestsRef, setLoadingPendingUpdateRequests, false);
+            setLoadingPendingUpdateRequests(false);
         }
-    }, [isPrivileged]);
+    };
 
     const resetProductFilters = () => {
         setProductPage(1);
@@ -352,12 +342,13 @@ const ProductLibrary = () => {
         resetProductFilters();
     };
 
-    const viewInfo = useMemo(() => {
+    const getCurrentViewInfo = () => {
         if (viewPath.length === 0) {
             return { type: 'root', items: hierarchy, title: 'Categories' };
         }
         const [catId, subId] = viewPath;
         const category = hierarchy.find(c => c.id === catId);
+
         if (viewPath.length === 1) {
             return {
                 type: 'category',
@@ -366,6 +357,7 @@ const ProductLibrary = () => {
                 title: category?.name || 'Sub-categories'
             };
         }
+
         const subcategory = category?.subcategories.find(s => s.id === subId);
         return {
             type: 'subcategory',
@@ -374,21 +366,23 @@ const ProductLibrary = () => {
             items: subcategory?.products || [],
             title: subcategory?.name || 'Products'
         };
-    }, [viewPath, hierarchy]);
+    };
+
+    const viewInfo = getCurrentViewInfo();
 
     // Filter + pagination derived values (only for products/subcategory view)
-    const allProducts = useMemo(() => viewInfo.type === 'subcategory' ? viewInfo.items : [], [viewInfo.type, viewInfo.items]);
+    const allProducts = viewInfo.type === 'subcategory' ? viewInfo.items : [];
 
     // Unique vendor list for dropdown
-    const vendorOptions = useMemo(() => viewInfo.type === 'subcategory'
+    const vendorOptions = viewInfo.type === 'subcategory'
         ? [...new Set(allProducts.map(p => p.company_name).filter(Boolean))].sort()
-        : [], [viewInfo.type, allProducts]);
+        : [];
     // Unique calc types for dropdown
-    const calcTypeOptions = useMemo(() => viewInfo.type === 'subcategory'
+    const calcTypeOptions = viewInfo.type === 'subcategory'
         ? [...new Set(allProducts.map(p => p.calculation_type).filter(Boolean))].sort()
-        : [], [viewInfo.type, allProducts]);
+        : [];
 
-    const filteredProducts = useMemo(() => allProducts.filter(p => {
+    const filteredProducts = allProducts.filter(p => {
         const q = productSearch.trim().toLowerCase();
         const matchSearch = !q ||
             (p.name || '').toLowerCase().includes(q) ||
@@ -398,16 +392,16 @@ const ProductLibrary = () => {
         const matchVendor = filterVendor === 'all' || (p.company_name || '') === filterVendor;
         const matchCalc = filterCalcType === 'all' || (p.calculation_type || '') === filterCalcType;
         return matchSearch && matchVendor && matchCalc;
-    }), [allProducts, productSearch, filterVendor, filterCalcType]);
+    });
 
     const totalProducts = filteredProducts.length;
     const totalProductPages = Math.max(1, Math.ceil(totalProducts / PRODUCTS_PER_PAGE));
-    const pagedProducts = useMemo(() => filteredProducts.slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE), [filteredProducts, productPage]);
+    const pagedProducts = filteredProducts.slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE);
     const hasActiveFilters = productSearch.trim() !== '' || filterVendor !== 'all' || filterCalcType !== 'all';
 
-    const availableSubcategories = useMemo(() => selectedCatId
+    const availableSubcategories = selectedCatId
         ? hierarchy.find(c => c.id === selectedCatId)?.subcategories || []
-        : [], [selectedCatId, hierarchy]);
+        : [];
 
     // Build a deduplicated list of known companies from the whole hierarchy + vendors
     const knownCompanies = React.useMemo(() => {
@@ -533,8 +527,8 @@ const ProductLibrary = () => {
         setProductImagePreview('');
         setIsEditing(false);
         setEditId(null);
-        smartBool(saveLoadingRef, setSaveLoading, false);
-        smartBool(imageRequestSubmittingRef, setImageRequestSubmitting, false);
+        setSaveLoading(false);
+        setImageRequestSubmitting(false);
     };
 
     const handleSaveCategory = async (e) => {
@@ -595,7 +589,7 @@ const ProductLibrary = () => {
             toast.success('Please select a sub-category for this product.');
             return;
         }
-        smartBool(saveLoadingRef, setSaveLoading, true);
+        setSaveLoading(true);
         try {
             const formData = new FormData();
             formData.append('subcategory_id', selectedSubId);
@@ -635,7 +629,7 @@ const ProductLibrary = () => {
         } catch (err) {
             toast.error(err.response?.data?.message || 'Error saving product');
         } finally {
-            smartBool(saveLoadingRef, setSaveLoading, false);
+            setSaveLoading(false);
         }
     };
 
@@ -669,7 +663,7 @@ const ProductLibrary = () => {
             return;
         }
 
-        smartBool(imageRequestSubmittingRef, setImageRequestSubmitting, true);
+        setImageRequestSubmitting(true);
         try {
             const formData = new FormData();
             formData.append('image', productImage);
@@ -681,7 +675,7 @@ const ProductLibrary = () => {
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to submit image request');
         } finally {
-            smartBool(imageRequestSubmittingRef, setImageRequestSubmitting, false);
+            setImageRequestSubmitting(false);
         }
     };
 
@@ -690,7 +684,7 @@ const ProductLibrary = () => {
         if (isPrivileged) return; // Admin path uses save
         if (!isEditing || !editId) return;
 
-        smartBool(saveLoadingRef, setSaveLoading, true);
+        setSaveLoading(true);
         try {
             const formData = new FormData();
             formData.append('subcategory_id', selectedSubId);
@@ -723,7 +717,7 @@ const ProductLibrary = () => {
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to submit update request');
         } finally {
-            smartBool(saveLoadingRef, setSaveLoading, false);
+            setSaveLoading(false);
         }
     };
 
@@ -786,7 +780,7 @@ const ProductLibrary = () => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
 
-        const info = viewInfo;
+        const info = getCurrentViewInfo();
         const oldIndex = info.items.findIndex(item => item.id === active.id);
         const newIndex = info.items.findIndex(item => item.id === over.id);
 
@@ -895,8 +889,8 @@ const ProductLibrary = () => {
 
     const startEditProduct = async (prodId) => {
         setEditLoading(prodId);
-        smartBool(saveLoadingRef, setSaveLoading, false);
-        smartBool(imageRequestSubmittingRef, setImageRequestSubmitting, false);
+        setSaveLoading(false);
+        setImageRequestSubmitting(false);
         try {
             const res = await api.get(`/products/${prodId}`);
             const prod = res.data;
@@ -1200,14 +1194,14 @@ const ProductLibrary = () => {
 
     const updatePositions = async (type, updates) => {
         if (!updates.length) return;
-        smartBool(savingOrderRef, setSavingOrder, true);
+        setSavingOrder(true);
         try {
             await api.put('/product-positions', { type, updates });
             fetchHierarchy();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to update order');
         } finally {
-            smartBool(savingOrderRef, setSavingOrder, false);
+            setSavingOrder(false);
         }
     };
 
@@ -2857,4 +2851,4 @@ const ProductLibrary = () => {
     );
 };
 
-export default React.memo(ProductLibrary);
+export default ProductLibrary;

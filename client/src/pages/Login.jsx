@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Lock, User, Loader2, AlertCircle } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
@@ -8,7 +8,6 @@ const Login = () => {
     const [userId, setUserId] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const navigate = useNavigate();
@@ -22,14 +21,14 @@ const Login = () => {
         }
     }, []);
 
-    const validateMobile = useCallback((value) => {
+    const validateMobile = (value) => {
         return value.replace(/\D/g, '').slice(-10);
-    }, []);
+    };
 
-    const handleSubmit = useCallback(async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const cleanedUserId = validateMobile(userId);
 
+        const cleanedUserId = validateMobile(userId);
         if (cleanedUserId.length !== 10) {
             setError('Please enter a valid 10-digit mobile number');
             return;
@@ -43,7 +42,7 @@ const Login = () => {
         setLoading(true);
         setError('');
         try {
-            const data = await login(cleanedUserId, password, rememberMe);
+            const data = await login(cleanedUserId, password);
             if (data.user.is_first_login) {
                 navigate('/change-password', { replace: true });
             } else {
@@ -54,7 +53,7 @@ const Login = () => {
         } finally {
             setLoading(false);
         }
-    }, [userId, password, rememberMe, validateMobile, login, navigate]);
+    };
 
     return (
         <div className="auth-shell">
@@ -127,7 +126,7 @@ const Login = () => {
 
                     <div className="form-actions">
                         <div className="checkbox-row">
-                            <input type="checkbox" id="remember" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+                            <input type="checkbox" id="remember" />
                             <label htmlFor="remember">Remember Me</label>
                         </div>
                         <a href="/forgot-password" className="forgot-link">Forgot Password?</a>
@@ -155,4 +154,4 @@ const Login = () => {
     );
 };
 
-export default React.memo(Login);
+export default Login;

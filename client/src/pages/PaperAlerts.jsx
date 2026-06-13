@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     AlertTriangle, ArrowLeft, Layers, MapPin, 
     RefreshCcw, ShoppingCart, Plus, Bell
@@ -13,7 +13,7 @@ const PaperAlerts = () => {
     const [alerts, setAlerts] = useState([]);
     const [stock, setStock] = useState([]);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = async () => {
         setLoading(true);
         try {
             const [alertsRes, stockRes] = await Promise.all([
@@ -21,6 +21,7 @@ const PaperAlerts = () => {
                 api.get('/paperInventory/stock')
             ]);
             setAlerts(alertsRes.data);
+            // Filter stock items that are below reorder level
             const lowStock = stockRes.data.filter(item => Number(item.current_sheets) < Number(item.reorder_level));
             setStock(lowStock);
         } catch (err) {
@@ -28,14 +29,15 @@ const PaperAlerts = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    };
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, []);
 
     return (
         <div className="stack-lg p-md">
+            {/* Header */}
             <div className="row items-center gap-md">
                 <button className="btn btn-ghost p-sm" onClick={() => navigate('/dashboard/paper/stock')}>
                     <ArrowLeft size={20} />
@@ -49,6 +51,7 @@ const PaperAlerts = () => {
             </div>
 
             <div className="grid grid--2 gap-lg wrap">
+                {/* Critical Low Stock Items */}
                 <div className="stack-md">
                     <h3 className="row items-center gap-sm font-bold text-lg mb-8">
                         <AlertTriangle size={20} className="text-error" /> Critical Restock Needed
@@ -103,6 +106,7 @@ const PaperAlerts = () => {
                     )}
                 </div>
 
+                {/* System Notifications */}
                 <div className="stack-md">
                     <h3 className="row items-center gap-sm font-bold text-lg mb-8">
                         <Bell size={20} className="text-primary" /> System Notifications
@@ -137,4 +141,4 @@ const PaperAlerts = () => {
     );
 };
 
-export default React.memo(PaperAlerts);
+export default PaperAlerts;

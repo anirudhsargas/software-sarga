@@ -23,10 +23,10 @@ export default function MasonryGallery() {
   return (
     <section>
       <div className="flex gap-2 mb-4">
-        <select className="border px-2 py-1 rounded" value={category} onChange={e=>setCategory(e.target.value)}>
+        <select id="category-filter" name="category-filter" className="border px-2 py-1 rounded" value={category} onChange={e=>setCategory(e.target.value)}>
           {categories.map(c=> <option key={c} value={c}>{c}</option>)}
         </select>
-        <input className="border px-2 py-1 rounded flex-1" placeholder="Search projects" value={query} onChange={e=>setQuery(e.target.value)} />
+        <input id="search-projects" name="search-projects" className="border px-2 py-1 rounded flex-1" placeholder="Search projects" value={query} onChange={e=>setQuery(e.target.value)} />
       </div>
       <div className="columns-1 sm:columns-2 md:columns-3 gap-4 space-y-4">
         {filtered.map(p => <ProjectCard key={p.id} project={p} />)}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     Minus, ArrowLeft, Package, MapPin, Layers, 
     FileText, Briefcase, RefreshCcw, Info, Search
@@ -24,17 +24,6 @@ const PaperOutward = () => {
         job_id: '',
         notes: ''
     });
-    const formDataRef = useRef(formData);
-    const setFormDataSmart = useCallback((updates) => {
-        setFormData(prev => {
-            const next = { ...prev, ...updates };
-            if (JSON.stringify(next) !== JSON.stringify(formDataRef.current)) {
-                formDataRef.current = next;
-                return next;
-            }
-            return prev;
-        });
-    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -54,7 +43,7 @@ const PaperOutward = () => {
         fetchData();
     }, []);
 
-    const fetchJobs = useCallback(async (search) => {
+    const fetchJobs = async (search) => {
         if (!search || search.length < 2) return;
         try {
             const res = await api.get('/jobs', { params: { search, limit: 10 } });
@@ -62,17 +51,16 @@ const PaperOutward = () => {
         } catch (err) {
             console.error('Failed to fetch jobs');
         }
-    }, []);
+    };
 
-    const handleSubmit = useCallback(async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const current = formDataRef.current;
             await api.post('/paperInventory/outward', {
-                ...current,
-                quantity: Number(current.quantity),
-                job_id: current.job_id || null
+                ...formData,
+                quantity: Number(formData.quantity),
+                job_id: formData.job_id || null
             });
             toast.success('Stock usage recorded');
             navigate('/dashboard/paper/stock');
@@ -81,23 +69,20 @@ const PaperOutward = () => {
         } finally {
             setLoading(false);
         }
-    }, [navigate]);
+    };
 
-    const { availableSheets, requestedSheets, isInsufficient } = useMemo(() => {
-        const item = stockSummary.find(s => s.paper_type_id === Number(formData.paper_type_id) && s.branch_id === Number(formData.branch_id));
-        const available = item ? item.current_sheets : 0;
-        const requested = formData.unit === 'Reams' ? (Number(formData.quantity) * 500) : 
-                         formData.unit === 'Packets' ? (Number(formData.quantity) * 100) : 
-                         Number(formData.quantity) || 0;
-        return {
-            availableSheets: available,
-            requestedSheets: requested,
-            isInsufficient: requested > available
-        };
-    }, [stockSummary, formData.paper_type_id, formData.branch_id, formData.unit, formData.quantity]);
+    const currentStockItem = stockSummary.find(s => s.paper_type_id === Number(formData.paper_type_id) && s.branch_id === Number(formData.branch_id));
+    const availableSheets = currentStockItem ? currentStockItem.current_sheets : 0;
+    
+    const requestedSheets = formData.unit === 'Reams' ? (Number(formData.quantity) * 500) : 
+                           formData.unit === 'Packets' ? (Number(formData.quantity) * 100) : 
+                           Number(formData.quantity) || 0;
+
+    const isInsufficient = requestedSheets > availableSheets;
 
     return (
         <div className="stack-lg p-md" style={{ maxWidth: '800px', margin: '0 auto' }}>
+            {/* Header */}
             <div className="row items-center gap-md">
                 <button className="btn btn-ghost p-sm" onClick={() => navigate(-1)}>
                     <ArrowLeft size={20} />
@@ -123,7 +108,7 @@ const PaperOutward = () => {
                                 className="input-field" 
                                 required
                                 value={formData.paper_type_id}
-                                onChange={(e) => setFormDataSmart({ paper_type_id: e.target.value })}
+                                onChange={(e) => setFormData({...formData, paper_type_id: e.target.value})}
                             >
                                 <option value="">-- Select Paper Type --</option>
                                 {paperTypes.map(t => (
@@ -140,7 +125,7 @@ const PaperOutward = () => {
                                 className="input-field" 
                                 required
                                 value={formData.branch_id}
-                                onChange={(e) => setFormDataSmart({ branch_id: e.target.value })}
+                                onChange={(e) => setFormData({...formData, branch_id: e.target.value})}
                             >
                                 <option value="">-- Select Branch --</option>
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -174,7 +159,7 @@ const PaperOutward = () => {
                             <select 
                                 className="input-field mt-sm"
                                 value={formData.job_id}
-                                onChange={(e) => setFormDataSmart({ job_id: e.target.value })}
+                                onChange={(e) => setFormData({...formData, job_id: e.target.value})}
                             >
                                 <option value="">-- Select Linked Job (Optional) --</option>
                                 {jobs.map(j => (
@@ -192,7 +177,7 @@ const PaperOutward = () => {
                                 required
                                 placeholder="0"
                                 value={formData.quantity}
-                                onChange={(e) => setFormDataSmart({ quantity: e.target.value })}
+                                onChange={(e) => setFormData({...formData, quantity: e.target.value})}
                             />
                         </div>
 
@@ -202,7 +187,7 @@ const PaperOutward = () => {
                                 className="input-field" 
                                 required
                                 value={formData.unit}
-                                onChange={(e) => setFormDataSmart({ unit: e.target.value })}
+                                onChange={(e) => setFormData({...formData, unit: e.target.value})}
                             >
                                 <option value="Sheets">Sheets</option>
                                 <option value="Reams">Reams (500 sheets)</option>
@@ -217,7 +202,7 @@ const PaperOutward = () => {
                                 rows="2"
                                 placeholder="Purpose of deduction..."
                                 value={formData.notes}
-                                onChange={(e) => setFormDataSmart({ notes: e.target.value })}
+                                onChange={(e) => setFormData({...formData, notes: e.target.value})}
                             ></textarea>
                         </div>
                     </div>
@@ -256,4 +241,4 @@ const PaperOutward = () => {
     );
 };
 
-export default React.memo(PaperOutward);
+export default PaperOutward;

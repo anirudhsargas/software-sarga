@@ -9,7 +9,7 @@ const SOURCE_LABELS = {
     unavailable: '',
 };
 
-const InsightsPanel = React.memo(function InsightsPanel() {
+export default function InsightsPanel() {
     const [data, setData] = useState({ insights: [], generated_at: null, source: null });
     const [expanded, setExpanded] = useState(true);
     const [loading, setLoading] = useState(false);
@@ -122,6 +122,4 @@ const InsightsPanel = React.memo(function InsightsPanel() {
             )}
         </div>
     );
-});
-
-export default InsightsPanel;
+}

@@ -391,41 +391,5 @@ router.post('/requests/discount/:id/review', authenticateToken, authorizeRoles('
     res.json({ message: `Request ${status.toLowerCase()}` });
 }));
 
-// ─── CUSTOMER: My sample requests ───
-router.get('/website/sample-requests/my', asyncHandler(async (req, res) => {
-  const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
-  if (!token) return res.status(401).json({ error: 'Auth required' });
-  try {
-    const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const [rows] = await pool.query(
-      'SELECT * FROM sarga_print_sample_requests WHERE customer_id = ? ORDER BY created_at DESC',
-      [decoded.id]
-    );
-    res.json({ requests: rows });
-  } catch (e) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-}));
-
-// ─── CUSTOMER: My design consultations ───
-router.get('/website/design-consultations/my', asyncHandler(async (req, res) => {
-  const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
-  if (!token) return res.status(401).json({ error: 'Auth required' });
-  try {
-    const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const [rows] = await pool.query(
-      'SELECT * FROM sarga_design_consultations WHERE customer_id = ? ORDER BY created_at DESC',
-      [decoded.id]
-    );
-    res.json({ consultations: rows });
-  } catch (e) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-}));
-
 module.exports = router;
 

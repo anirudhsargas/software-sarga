@@ -116,6 +116,8 @@ const WebInquiries = React.memo(() => {
                             <Search size={18} />
                             <input 
                                 type="text" 
+                                id="inquiries-search"
+                                name="inquiries-search"
                                 placeholder="Search by name, email or phone..." 
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -123,8 +125,11 @@ const WebInquiries = React.memo(() => {
                         </div>
                         <div className="filter-group">
                             <Filter size={18} className="text-muted" />
-                            <select 
-                                value={filterStatus} 
+                            <label htmlFor="inquiries-status-filter" style={{ display: 'none' }}>Filter by Status</label>
+                            <select
+                                id="inquiries-status-filter"
+                                name="inquiries-status-filter"
+                                value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value)}
                                 className="status-select"
                             >
