@@ -134,17 +134,17 @@ function PortfolioManager() {
               <div className="form-group">
                 <label>Cover Image</label>
                 <div className="mgr-upload-row">
-                  <input aria-label="File" name="file" id="file" type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                  <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
                   {uploading && <Loader2 size={16} className="spinning" />}
                 </div>
-                {form.cover_image && <img loading="lazy" src={form.cover_image} alt="" className="mgr-preview" />}
+                {form.cover_image && <img src={form.cover_image} alt="" className="mgr-preview" />}
               </div>
               <div className="form-group">
                 <label>Gallery Images</label>
-                <input aria-label="File" name="file" id="file" type="file" accept="image/*" onChange={handleGalleryUpload} disabled={uploading} />
+                <input type="file" accept="image/*" onChange={handleGalleryUpload} disabled={uploading} />
                 <div className="mgr-gallery-preview">
                   {form.gallery_images.map((img, i) => (
-                    <div key={i} className="mgr-gallery-item"><img loading="lazy" src={img} alt="" /><button onClick={() => removeGalleryImage(i)}><X size={14} /></button></div>
+                    <div key={i} className="mgr-gallery-item"><img src={img} alt="" /><button onClick={() => removeGalleryImage(i)}><X size={14} /></button></div>
                   ))}
                 </div>
               </div>
@@ -164,7 +164,7 @@ function PortfolioManager() {
           <tbody>
             {filtered.map(p => (
               <tr key={p.id}>
-                <td>{p.cover_image ? <img loading="lazy" src={p.cover_image} alt="" className="mgr-thumb" /> : '-'}</td>
+                <td>{p.cover_image ? <img src={p.cover_image} alt="" className="mgr-thumb" /> : '-'}</td>
                 <td>{p.title}</td>
                 <td>{p.category}</td>
                 <td><button className="btn btn-sm btn-ghost" onClick={() => toggleFeature(p.id, p.featured)}><Star size={16} className={p.featured ? 'star-filled' : ''} /></button></td>

@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useSEO } from '../hooks/useSEO';
 import React, { useCallback, useMemo } from 'react';
 import { Calendar, Clock, Video, Phone, Users, Check, X, Tag, DollarSign, Award, AlertTriangle, Search, Filter } from 'lucide-react';
 import api from '../services/api';
 import './DesignBookingsCMS.css';
 
 function DesignBookingsCMS() {
-    useSEO('Design Bookings C M S');
-
   const [bookings, setBookings] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -216,8 +213,6 @@ function DesignBookingsCMS() {
               <Search size={16} className="search-icon" />
               <input
                 type="text"
-                id="design-bookings-search"
-                name="design-bookings-search"
                 placeholder="Search by customer, phone, or design category..."
                 className="input-field"
                 value={search}
@@ -227,8 +222,6 @@ function DesignBookingsCMS() {
             
             <div style={{ width: 180 }}>
               <select
-                id="design-bookings-status-filter"
-                name="design-bookings-status-filter"
                 className="input-field"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -243,8 +236,6 @@ function DesignBookingsCMS() {
 
             <div style={{ width: 220 }}>
               <select
-                id="design-bookings-type-filter"
-                name="design-bookings-type-filter"
                 className="input-field"
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}

@@ -50,8 +50,8 @@ function DeliveryRulesManager() {
     <div className="portfolio-mgr">
       <div className="mgr-header"><h2>Delivery Rules</h2><button className="btn" onClick={openNew}><Plus size={16} /> New Rule</button></div>
       {showForm && (
-        <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setShowForm(false)}>
-          <div role="button" tabIndex={0} className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => setShowForm(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>{editRule ? 'Edit' : 'New'} Delivery Rule</h3>
             <div className="stack-md">
               <label>Product Category <input className="input" value={form.product_category} onChange={e => setForm({ ...form, product_category: e.target.value })} /></label>

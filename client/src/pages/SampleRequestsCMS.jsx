@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useSEO } from '../hooks/useSEO';
 import { Package, Truck, Store, Check, X, Edit2, Plus, Clock, Search, AlertCircle, Eye, Mail } from 'lucide-react';
 import api from '../services/api';
 import './SampleRequestsCMS.css';
@@ -11,8 +10,6 @@ const staggerEnter = (el, i) => {
 };
 
 export default React.memo(function SampleRequestsCMS() {
-    useSEO('Sample Requests C M S');
-
   const requestsRef = useRef([]);
   const samplesRef = useRef([]);
 
@@ -386,8 +383,8 @@ export default React.memo(function SampleRequestsCMS() {
       )}
 
       {selectedReq && (
-        <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setSelectedReq(null)}>
-          <div role="button" tabIndex={0} className="modal modal--large" onClick={e => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => setSelectedReq(null)}>
+          <div className="modal modal--large" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Sample Request #{selectedReq.id}</h2>
               <button className="modal-close" onClick={() => setSelectedReq(null)}><X size={20} /></button>
@@ -525,8 +522,8 @@ export default React.memo(function SampleRequestsCMS() {
       )}
 
       {(editingSample || addingSample) && (
-        <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => { setEditingSample(null); setAddingSample(false); resetSampleForm(); }}>
-          <div role="button" tabIndex={0} className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => { setEditingSample(null); setAddingSample(false); resetSampleForm(); }}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editingSample ? 'Edit Material' : 'Add New Material'}</h2>
               <button className="modal-close" onClick={() => { setEditingSample(null); setAddingSample(false); resetSampleForm(); }}><X size={20} /></button>
