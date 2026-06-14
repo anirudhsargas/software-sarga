@@ -85,7 +85,7 @@ const DashboardTab = ({ branches, onPayment }) => {
         {branches.length > 1 && (
           <>
             <label className="em-filter-label">Branch:</label>
-            <select className="em-input em-input--sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+            <select aria-label="Select option"  className="em-input em-input--sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
               <option value="">All Branches</option>
               {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
@@ -361,4 +361,4 @@ const DashboardTab = ({ branches, onPayment }) => {
   );
 };
 
-export default DashboardTab;
+export default React.memo(DashboardTab);

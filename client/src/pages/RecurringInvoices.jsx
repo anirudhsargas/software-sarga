@@ -1,9 +1,12 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Plus, Edit2, Trash2, Play, Pause, Loader2, Calendar, Clock, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
 export default function RecurringInvoices() {
+    useSEO('Recurring Invoices');
+
     const [items, setItems] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);

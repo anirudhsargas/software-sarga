@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -6,6 +7,8 @@ import { Tag, Plus, X, Trash2, ToggleLeft, ToggleRight, Loader2, Edit3, CheckCir
 const usageTypeLabels = { one_time: 'One-Time', limited: 'Limited', unlimited: 'Unlimited' };
 
 const CouponManagement = () => {
+    useSEO('Coupon Management');
+
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -220,8 +223,8 @@ const CouponManagement = () => {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="modal-backdrop" onClick={() => { setShowModal(false); resetForm(); }}>
-          <div className="modal" style={{ maxWidth: '480px', width: '92%', position: 'relative' }} onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => { setShowModal(false); resetForm(); }}>
+          <div role="button" tabIndex={0} className="modal" style={{ maxWidth: '480px', width: '92%', position: 'relative' }} onClick={e => e.stopPropagation()}>
             <button className="icon-button" onClick={() => { setShowModal(false); resetForm(); }}
               style={{ position: 'absolute', top: '18px', right: '18px' }}>
               <X size={20} />

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import './Chatbot.css';
 import { MessageCircle, X } from 'lucide-react';
 import api from '../../api';
@@ -17,6 +17,12 @@ const Chatbot = () => {
   const [input, setInput] = useState('');
   const [quickOptions, setQuickOptions] = useState([]);
   const [typing, setTyping] = useState(false);
+  const [chatbotStatus, setChatbotStatus] = useState({
+    loaded: true,
+    provider: 'local',
+    model: 'current-model',
+    healthy: true
+  });
 
   useEffect(() => {
     sessionStorage.setItem('sarga_chat', JSON.stringify(messages));
@@ -28,6 +34,28 @@ const Chatbot = () => {
       setMessages([{ role: 'bot', text: "Hi! I'm Sarga's assistant. How can I help you today? 😊", timestamp: new Date().toISOString() }]);
     }
   }, []);
+
+  const fetchChatbotStatus = useCallback(async () => {
+    try {
+      const res = await api.get('/chatbot/health', { skipGlobalErrorHandling: true });
+      const data = res.data || {};
+      setChatbotStatus({
+        loaded: data.loaded !== false,
+        provider: data.provider || 'local',
+        model: data.model || 'current-model',
+        healthy: data.healthy === true
+      });
+    } catch {
+      setChatbotStatus({ loaded: false, provider: 'local', model: 'current-model', healthy: false });
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchChatbotStatus();
+    if (!open) return undefined;
+    const interval = setInterval(fetchChatbotStatus, 60000);
+    return () => clearInterval(interval);
+  }, [fetchChatbotStatus, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,7 +150,7 @@ const Chatbot = () => {
           <div className="chat-header">
             <div>
               <div className="chat-title">Sarga Prints</div>
-              <div className="chat-sub">Typically replies instantly</div>
+              <div className="chat-sub">{chatbotStatus.loaded && chatbotStatus.healthy ? 'Typically replies instantly' : 'Chatbot Offline'}</div>
             </div>
             <button className="chat-close" onClick={() => setOpen(false)}><X size={18} /></button>
           </div>

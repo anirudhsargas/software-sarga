@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { 
     Package, ArrowRight, ArrowLeft, AlertTriangle, TrendingUp, 
@@ -8,6 +9,8 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const PaperStockDashboard = () => {
+    useSEO('Paper Stock Dashboard');
+
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [stock, setStock] = useState([]);

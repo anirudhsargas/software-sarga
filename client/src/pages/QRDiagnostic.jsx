@@ -1,9 +1,13 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState } from 'react';
 import { Search, ScanLine, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import api from '../services/api';
-import ScannerModal from '../components/ScannerModal';
+
+const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 
 const QRDiagnostic = () => {
+    useSEO('Q R Diagnostic');
+
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -100,14 +104,18 @@ const QRDiagnostic = () => {
         )}
       </div>
 
-      <ScannerModal
-        isOpen={showScanner}
-        onClose={() => setShowScanner(false)}
-        onScan={(scanned) => {
-          setCode(scanned);
-          runCheck(scanned);
-        }}
-      />
+      {showScanner && (
+        <React.Suspense fallback={<div style={{ padding: 24, textAlign: 'center' }}><Loader2 size={18} className="animate-spin" /> Loading scanner…</div>}>
+          <ScannerModal
+            isOpen={showScanner}
+            onClose={() => setShowScanner(false)}
+            onScan={(scanned) => {
+              setCode(scanned);
+              runCheck(scanned);
+            }}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 };

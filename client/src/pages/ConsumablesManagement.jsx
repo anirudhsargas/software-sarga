@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Package,
@@ -56,6 +57,8 @@ const csvEscape = (value) => {
 };
 
 const ConsumablesManagement = () => {
+    useSEO('Consumables Management');
+
     const user = auth.getUser();
     const isManager = ['Admin', 'Accountant'].includes(user?.role);
 

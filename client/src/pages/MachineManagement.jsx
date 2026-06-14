@@ -1,8 +1,9 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Plus, Edit2, Trash2, Power, PowerOff, Loader2, Building2, Settings,
     Users, UserPlus, X, Eye, Hash, Gauge, IndianRupee, ClipboardList,
-    Calendar, TrendingUp, Package, ChevronLeft, RefreshCw, Printer, AlertTriangle, CheckCircle, XCircle,
+    Calendar, TrendingUp, Package, ChevronLeft, ArrowLeft, RefreshCw, Printer, AlertTriangle, CheckCircle, XCircle,
     BookOpen
 } from 'lucide-react';
 import auth from '../services/auth';
@@ -15,6 +16,8 @@ import MeterVerification from '../components/MeterVerification';
 import './MachineManagement.css';
 
 const MachineManagement = () => {
+    useSEO('Machine Management');
+
     const { confirm } = useConfirm();
     const user = auth.getUser();
     const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
@@ -987,8 +990,8 @@ const MachineManagement = () => {
 
                 {/* Work Entry Modal */}
                 {showWorkModal && (
-                    <div className="modal-overlay" onClick={() => setShowWorkModal(false)}>
-                        <div className="modal mm-work-modal" onClick={e => e.stopPropagation()}>
+                    <div role="button" tabIndex={0} className="modal-overlay" onClick={() => setShowWorkModal(false)}>
+                        <div role="button" tabIndex={0} className="modal mm-work-modal" onClick={e => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2>Add Work Entry</h2>
                                 <button className="btn btn-ghost" onClick={() => setShowWorkModal(false)}>×</button>
@@ -1106,8 +1109,8 @@ const MachineManagement = () => {
             }
         }
         return (
-            <div className="modal-overlay" onClick={() => setShowAssignModal(false)}>
-                <div className="modal mm-assign-modal" onClick={e => e.stopPropagation()}>
+            <div role="button" tabIndex={0} className="modal-overlay" onClick={() => setShowAssignModal(false)}>
+                <div role="button" tabIndex={0} className="modal mm-assign-modal" onClick={e => e.stopPropagation()}>
                     <div className="modal-header modal-header--flex">
                         <h2>Assign Staff</h2>
                         <button className="btn btn-ghost" onClick={() => setShowAssignModal(false)}>×</button>
@@ -1287,8 +1290,8 @@ const MachineManagement = () => {
 
             {/* Add/Edit Machine Modal */}
             {showModal && (
-                <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
+                <div role="button" tabIndex={0} className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>
+                    <div role="button" tabIndex={0} className="modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header modal-header--flex">
                             <h2>{editingMachine ? 'Edit Machine' : 'Add New Machine'}</h2>
                             <button className="btn btn-ghost ml-auto" onClick={() => { setShowModal(false); resetForm(); }}>×</button>
@@ -1466,8 +1469,8 @@ const MachineManagement = () => {
                     (!bookAssignBranchId || String(s.branch_id) === String(bookAssignBranchId))
                 );
                 return (
-                    <div className="modal-overlay" onClick={() => setShowBookAssignModal(false)}>
-                        <div className="modal mm-modal-sm" onClick={e => e.stopPropagation()}>
+                    <div role="button" tabIndex={0} className="modal-overlay" onClick={() => setShowBookAssignModal(false)}>
+                        <div role="button" tabIndex={0} className="modal mm-modal-sm" onClick={e => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2>Assign Staff — {bookAssignType} Book</h2>
                                 <button className="btn btn-ghost" onClick={() => setShowBookAssignModal(false)}>×</button>

@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import Pagination from '../components/Pagination';
@@ -266,6 +267,8 @@ const PurchaseCard = ({ item, index }) => {
 //  Main Component
 // ════════════════════════════════════════════════════════════════════
 const SalesPrediction = () => {
+    useSEO('Sales Prediction');
+
     const [forecast, setForecast] = useState(null);
     const [insights, setInsights] = useState(null);
     const [stock, setStock] = useState(null);

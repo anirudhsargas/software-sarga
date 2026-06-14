@@ -50,8 +50,8 @@ const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
     };
 
     const modalContent = (
-        <div className="receipt-overlay" onClick={onClose}>
-            <div className="receipt-modal" onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0} className="receipt-overlay" onClick={onClose}>
+            <div role="button" tabIndex={0} className="receipt-modal" onClick={e => e.stopPropagation()}>
                 <div className="receipt-modal__header">
                     <h2>Payment Receipt</h2>
                     <div className="receipt-modal__actions">
@@ -67,7 +67,7 @@ const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
                 <div className="receipt-content" id="printable-receipt">
                     {/* Header */}
                     <div className="receipt-brand">
-                        <img src="/logo.png" alt="Sarga" className="receipt-brand__logo" />
+                        <img loading="lazy" src="/logo.png" alt="Sarga" className="receipt-brand__logo" />
                         <div className="receipt-brand__info">
                             <h3>{branchInfo?.business_name || 'SARGA DIGITAL PRESS'}</h3>
                             <p>{branchInfo?.location || 'Digital Printing & Services'}</p>

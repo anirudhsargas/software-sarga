@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useMemo, useState, Suspense, useCallback } from 'react';
 import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
@@ -87,6 +88,8 @@ const PageLoader = () => (
 );
 
 const Dashboard = () => {
+    useSEO('Dashboard');
+
     const { user, logout, updateUser } = useAuth();
     const { confirm } = useConfirm();
     const navigate = useNavigate();
@@ -529,16 +532,16 @@ const Dashboard = () => {
         <div className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
             <ProgressBar active={isNavigating} />
             {/* Mobile Sidebar Overlay */}
-            {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} aria-hidden="true"></div>}
+            {sidebarOpen && <div role="button" tabIndex={0} className="sidebar-overlay" onClick={closeSidebar} aria-hidden="true"></div>}
 
             {/* Sidebar */}
             <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''} ${sidebarOpen ? 'sidebar--open' : ''}`}>
                 <div className="sidebar-header">
                     <div className="row gap-sm items-center">
                         {companyInfo.logo ? (
-                           <img src={companyInfo.logo} alt={companyInfo.name} className="logo-img" />
+                           <img loading="lazy" src={companyInfo.logo} alt={companyInfo.name} className="logo-img" />
                         ) : (
-                           <img src="/icons/icon-192.png" alt="Sarga" className="logo-img" />
+                           <img loading="lazy" src="/icons/icon-192.png" alt="Sarga" className="logo-img" />
                         )}
                         <span className="logo-text">{companyInfo.name}</span>
                     </div>
@@ -663,7 +666,7 @@ const Dashboard = () => {
                                 {anomalyCount > 99 ? '99+' : anomalyCount}
                             </span>
                         )}
-                        <div className="user-avatar avatar-sm" onClick={() => setShowProfilePanel(true)}>
+                        <div role="button" tabIndex={0} className="user-avatar avatar-sm" onClick={() => setShowProfilePanel(true)}>
                             {user?.image_url ? (
                                 <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
                             ) : (
@@ -804,7 +807,7 @@ const Dashboard = () => {
                             <div className="row gap-md items-center">
                                 <div className="user-avatar user-avatar--medium">
                                     {profileImage ? (
-                                        <img src={profilePreview} alt="Profile" className="avatar-img" />
+                                        <img loading="lazy" src={profilePreview} alt="Profile" className="avatar-img" />
                                     ) : user?.image_url ? (
                                         <SecureImage src={user.image_url} alt="Profile" className="avatar-img" />
                                     ) : (

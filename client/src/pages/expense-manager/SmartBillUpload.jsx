@@ -726,7 +726,9 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 </div>
                 <div className="data-item">
                   <label>Bill Date</label>
-                  <input
+                  
+        <label htmlFor="date-zf7ro8" className="sr-only">Select Date</label>
+        <input id="date-zf7ro8" 
                     type="date"
                     value={finalForm.bill_date}
                     onChange={(e) => setFinalForm(prev => ({ ...prev, bill_date: e.target.value }))}
@@ -753,7 +755,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 {editableItems.length > 0 && (
                   <div className="data-item">
                     <label>Stock goes to Branch</label>
-                    <select
+                    <select aria-label="Select option" 
                       value={stockBranchId}
                       onChange={(e) => setStockBranchId(e.target.value)}
                     >
@@ -933,7 +935,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                     <div className="category-single-selects">
                       <div className="category-select-group">
                         <label className="category-select-label">📁 Category</label>
-                        <select
+                        <select aria-label="Select option" 
                           className="category-select"
                           value={globalCategoryId}
                           onChange={(e) => {
@@ -955,7 +957,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                       </div>
                       <div className="category-select-group">
                         <label className="category-select-label">📂 Subcategory</label>
-                        <select
+                        <select aria-label="Select option" 
                           className="category-select"
                           value={globalSubcategoryId}
                           onChange={(e) => setGlobalSubcategoryId(e.target.value)}
@@ -1054,7 +1056,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                           </td>
                           {categoryMode === 'per-item' && (
                             <td>
-                              <select
+                              <select aria-label="Select option" 
                                 className="table-category-select"
                                 value={item.category_id || ''}
                                 onChange={(e) => {
@@ -1078,7 +1080,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                           )}
                           {categoryMode === 'per-item' && (
                             <td>
-                              <select
+                              <select aria-label="Select option" 
                                 className="table-category-select"
                                 value={item.subcategory_id || ''}
                                 onChange={(e) => {
@@ -1364,4 +1366,4 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
   );
 };
 
-export default SmartBillUpload;
+export default React.memo(SmartBillUpload);

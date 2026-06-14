@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Layers, Calculator, Download, Loader2, RotateCcw, Maximize, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
@@ -16,6 +17,8 @@ const PAPER_SIZES = [
 ];
 
 const PaperLayoutGenerator = () => {
+    useSEO('Paper Layout Generator');
+
     const canvasRef = useRef(null);
     const [paperSize, setPaperSize] = useState('A3');
     const [paperW, setPaperW] = useState(297);

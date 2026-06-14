@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -6,7 +7,6 @@ import SecureImage from '../components/SecureImage';
 import auth from '../services/auth';
 import { serverToday } from '../services/serverTime';
 import { Camera, Download, Printer, Scissors, WifiOff, Plus, Minus, AlertCircle, Tag, X, CheckCircle, Loader2 } from 'lucide-react';
-import ScannerModal from '../components/ScannerModal';
 import PaperOptimizer from '../components/PaperOptimizer';
 import { calculateProductPrice } from '../utils/pricing';
 import { downloadInvoicePDF, printInvoicePDF } from '../utils/invoicePdf';
@@ -25,8 +25,11 @@ const defaultUpsell = { open: false, suggestions: [], loading: false, baseProduc
 
 const customerTypes = ['Walk-in', 'Retail', 'Offset'];
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
+const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 
 const Billing = () => {
+    useSEO('Billing');
+
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
     const isAdmin = auth.getUser()?.role === 'Admin';
@@ -1473,8 +1476,8 @@ const Billing = () => {
     <>
       {/* Upsell Popup Modal */}
       {upsell.open && (
-        <div className="modal-backdrop" onClick={() => setUpsell(defaultUpsell)}>
-          <div className="modal" style={{ maxWidth: 420, padding: 24 }} onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setUpsell(defaultUpsell)}>
+          <div role="button" tabIndex={0} className="modal" style={{ maxWidth: 420, padding: 24 }} onClick={e => e.stopPropagation()}>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Customers often add:</h2>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {upsell.suggestions.map(s => (
@@ -1843,18 +1846,29 @@ const Billing = () => {
                 </div>
               </div>
 
-              <ScannerModal
-                isOpen={showScanner}
-                onClose={() => setShowScanner(false)}
-                onScan={(code) => {
-                  handleQrLookup(code);
-                }}
-              />
+              {showScanner && (
+                <React.Suspense fallback={(
+                  <div className="modal-backdrop modal-backdrop--medium">
+                    <div className="modal modal--scan-loading">
+                      <Loader2 size={32} className="animate-spin modal-loader-icon" />
+                      <div className="modal-loading-title">Loading scanner…</div>
+                    </div>
+                  </div>
+                )}>
+                  <ScannerModal
+                    isOpen={showScanner}
+                    onClose={() => setShowScanner(false)}
+                    onScan={(code) => {
+                      handleQrLookup(code);
+                    }}
+                  />
+                </React.Suspense>
+              )}
 
               {/* Scanned Item Preview Popup */}
               {scannedPreview && (
-                <div className="modal-backdrop" onClick={() => { setScannedPreview(null); setScannedQty(1); }}>
-                  <div className="modal" style={{ maxWidth: 420, padding: 20 }} onClick={(e) => e.stopPropagation()}>
+                <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => { setScannedPreview(null); setScannedQty(1); }}>
+                  <div role="button" tabIndex={0} className="modal" style={{ maxWidth: 420, padding: 20 }} onClick={(e) => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                       {scannedPreview.item.image_url ? (
                         <SecureImage src={scannedPreview.item.image_url} alt={scannedPreview.item.name}
@@ -2427,7 +2441,7 @@ const Billing = () => {
                             {/* Image Preview */}
                             {jobData.matter_preview && (
                               <div style={{ marginTop: 8 }}>
-                                <img
+                                <img loading="lazy"
                                   src={jobData.matter_preview}
                                   alt="Matter preview"
                                   style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 6, border: '1px solid var(--border)', objectFit: 'contain' }}
@@ -2517,7 +2531,7 @@ const Billing = () => {
                         </div>
                       )}
                       {line.matter_preview && (
-                        <img
+                        <img loading="lazy"
                           src={line.matter_preview}
                           alt="Matter"
                           style={{ marginTop: 4, maxWidth: 80, maxHeight: 60, borderRadius: 4, border: '1px solid var(--border)', objectFit: 'cover', cursor: 'pointer' }}
@@ -3133,7 +3147,7 @@ const Billing = () => {
                         {job.matter_preview && (
                           <div style={{ marginTop: 6 }}>
                             <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 3 }}>Matter Photo:</div>
-                            <img
+                            <img loading="lazy"
                               src={job.matter_preview}
                               alt="Matter"
                               style={{ maxWidth: 120, maxHeight: 90, borderRadius: 4, border: '1px solid var(--border)', objectFit: 'cover', cursor: 'pointer' }}

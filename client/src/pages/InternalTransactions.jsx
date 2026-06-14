@@ -1,7 +1,10 @@
+import { useSEO } from '../hooks/useSEO';
 import React from 'react';
 import InternalTransfers from './InternalTransfers';
 
 const InternalTransactions = () => {
+    useSEO('Internal Transactions');
+
   return (
     <div className="page-container internal-transactions-page">
       <div className="page-header">

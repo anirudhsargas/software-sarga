@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Briefcase, Clock, Calendar, Search, RefreshCw, FileText, IndianRupee, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +8,8 @@ import localDb from '../services/localDb';
 import { useOfflineSync } from '../hooks/useOffline';
 
 const PrinterDashboard = () => {
+    useSEO('Printer Dashboard');
+
   const navigate = useNavigate();
   const user = auth.getUser();
   const staffId = user?.id;
@@ -383,8 +386,7 @@ const PrinterDashboard = () => {
           {filteredJobs.map((job, idx) => {
             const statusColor = getStatusColor(job.status);
             return (
-              <div
-                key={idx}
+              <div role="button" tabIndex={0} key={idx}
                 onClick={() => handleJobClick(job.id)}
                 style={{
                   display: 'grid',

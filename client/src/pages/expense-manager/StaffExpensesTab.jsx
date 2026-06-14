@@ -290,7 +290,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
       ) : (
         <div className="em-staff-grid">
           {staffList.map(s => (
-            <div key={s.id} className="em-staff-card" onClick={() => openStaffSalary(s)}>
+            <div role="button" tabIndex={0}  key={s.id} className="em-staff-card" onClick={() => openStaffSalary(s)}>
               <div style={{ alignSelf: 'flex-start' }}>
                 <input
                   type="checkbox"
@@ -339,7 +339,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
 
       {showBulkModal && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closeBulkModal(); }}>
-          <div className="em-modal em-modal--sm" onClick={(e) => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal em-modal--sm" onClick={(e) => e.stopPropagation()}>
             <div className="em-modal__header">
               <h2>Bulk Salary Payment ({selectedStaffIds.length} staff)</h2>
               <button className="btn btn-ghost btn-icon" aria-label="Close bulk salary modal" onClick={() => closeBulkModal()}><X size={18} /></button>
@@ -349,8 +349,10 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
               <div className="em-modal__body">
                 <div className="em-form-grid">
                   <div className="em-form-group"><label>For Month</label><input className="em-input" type="month" value={month} onChange={e => { setMonth(e.target.value); setBulkDirty(true); }} required /></div>
-                  <div className="em-form-group"><label>Payment Date</label><input className="em-input" type="date" value={bulkForm.payment_date} onChange={e => { setBulkForm(p => ({ ...p, payment_date: e.target.value })); setBulkDirty(true); }} required /></div>
-                  <div className="em-form-group"><label>Method</label><select className="em-input" value={bulkForm.payment_method} onChange={e => { setBulkForm(p => ({ ...p, payment_method: e.target.value })); setBulkDirty(true); }}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
+                  <div className="em-form-group"><label>Payment Date</label>
+        <label htmlFor="date-tugw48" className="sr-only">Select Date</label>
+        <input id="date-tugw48"  className="em-input" type="date" value={bulkForm.payment_date} onChange={e => { setBulkForm(p => ({ ...p, payment_date: e.target.value })); setBulkDirty(true); }} required /></div>
+                  <div className="em-form-group"><label>Method</label><select aria-label="Select option"  className="em-input" value={bulkForm.payment_method} onChange={e => { setBulkForm(p => ({ ...p, payment_method: e.target.value })); setBulkDirty(true); }}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
                   <div className="em-form-group"><label>Reference #</label><input className="em-input" value={bulkForm.reference_number} onChange={e => { setBulkForm(p => ({ ...p, reference_number: e.target.value })); setBulkDirty(true); }} /></div>
                   <div className="em-form-group"><label>Bonus (applies each)</label><input className="em-input" type="number" min="0" value={bulkForm.bonus} onChange={e => { setBulkForm(p => ({ ...p, bonus: e.target.value })); setBulkDirty(true); }} /></div>
                   <div className="em-form-group"><label>Deduction (applies each)</label><input className="em-input" type="number" min="0" value={bulkForm.deduction} onChange={e => { setBulkForm(p => ({ ...p, deduction: e.target.value })); setBulkDirty(true); }} /></div>
@@ -369,4 +371,4 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
   );
 };
 
-export default StaffExpensesTab;
+export default React.memo(StaffExpensesTab);

@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { 
     History, ArrowLeft, Filter, Search, Download, 
@@ -8,6 +9,8 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const PaperMovementHistory = () => {
+    useSEO('Paper Movement History');
+
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [movements, setMovements] = useState([]);

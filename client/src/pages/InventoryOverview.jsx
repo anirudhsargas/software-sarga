@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useMemo, useState } from 'react';
 import { File, FileText, Package, Inbox, AlertTriangle, Search, RefreshCcw } from 'lucide-react';
 import api, { devFallback } from '../services/api';
@@ -5,6 +6,8 @@ import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
 const InventoryOverview = () => {
+    useSEO('Inventory Overview');
+
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [productsTotal, setProductsTotal] = useState(0);
@@ -155,7 +158,7 @@ const InventoryOverview = () => {
 
             <div className="grid grid--3 mt-md">
                 {cards.map((c) => (
-                    <div key={c.key} className="panel stack-xs" style={{ cursor: 'pointer' }} onClick={() => navigate(c.href)}>
+                    <div role="button" tabIndex={0} key={c.key} className="panel stack-xs" style={{ cursor: 'pointer' }} onClick={() => navigate(c.href)}>
                         <div className="row items-center gap-sm">
                             <c.icon size={28} className="text-primary" />
                             <div>

@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Mail, MessageCircle, Phone, Search, Filter, MessageSquare, ExternalLink, Calendar, User, Save, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -148,8 +149,7 @@ const WebInquiries = React.memo(() => {
                             <div className="empty-state">No inquiries found.</div>
                         ) : (
                             filteredInquiries.map(iq => (
-                                <div 
-                                    key={iq.id} 
+                                <div role="button" tabIndex={0} key={iq.id} 
                                     className={`inquiry-card ${selectedInquiry?.id === iq.id ? 'selected' : ''} ${iq.status === 'New' ? 'unread' : ''}`}
                                     onClick={() => {
                                         setSelectedInquiry(iq);

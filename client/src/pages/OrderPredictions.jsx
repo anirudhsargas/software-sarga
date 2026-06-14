@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Loader2, Building2, Search, Bell, BellRing, UserCheck, CalendarDays,
@@ -16,6 +17,8 @@ const CONFIDENCE_COLORS = {
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const OrderPredictions = () => {
+    useSEO('Order Predictions');
+
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [branches, setBranches] = useState([]);
@@ -219,7 +222,7 @@ const PredictionCard = ({ prediction: p, isExpanded, onToggle, detail, detailLoa
         onMouseLeave={(e) => {
             e.currentTarget.style.boxShadow = '';
         }}>
-            <div className="p-16" style={{ cursor: 'pointer' }} onClick={onToggle}>
+            <div role="button" tabIndex={0} className="p-16" style={{ cursor: 'pointer' }} onClick={onToggle}>
                 <div className="row gap-md items-start">
                     {/* Alert icon */}
                     <div style={{

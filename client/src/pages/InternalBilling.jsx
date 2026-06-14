@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { 
   Receipt, Building2, Plus, X, Loader2, Scan, ShoppingBag, 
@@ -7,7 +8,6 @@ import api from '../services/api';
 import auth from '../services/auth';
 import toast from 'react-hot-toast';
 import localDb from '../services/localDb';
-import ScannerModal from '../components/ScannerModal';
 import InternalUsageReport from './InternalUsageReport';
 import './InternalBilling.css';
 
@@ -16,8 +16,11 @@ const MACHINE_TYPES = [
   { key: 'Laser', label: 'Laser', icon: '⚡' },
   { key: 'Other', label: 'Other', icon: '📦' }
 ];
+const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 
 const InternalBilling = () => {
+    useSEO('Internal Billing');
+
   const [moduleTab, setModuleTab] = useState('entry'); // 'entry' | 'reports'
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
@@ -576,15 +579,19 @@ const InternalBilling = () => {
         </div>
       )}
 
-      <ScannerModal 
-        isOpen={showScanner} 
-        onClose={() => setShowScanner(false)} 
-        onScan={(code) => {
-          const found = processScannedCode(code);
-          if (!found) toast.error('Product not found for this code');
-          setShowScanner(false);
-        }}
-      />
+      {showScanner && (
+        <React.Suspense fallback={<div style={{ padding: 24, textAlign: 'center' }}><Loader2 className="animate-spin" size={20} /> Loading scanner…</div>}>
+          <ScannerModal
+            isOpen={showScanner}
+            onClose={() => setShowScanner(false)}
+            onScan={(code) => {
+              const found = processScannedCode(code);
+              if (!found) toast.error('Product not found for this code');
+              setShowScanner(false);
+            }}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 };

@@ -224,8 +224,8 @@ function TranslationsManager() {
       </div>
 
       {showForm && (
-        <div className="modal-backdrop" onClick={() => setShowForm(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+        <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setShowForm(false)}>
+          <div role="button" tabIndex={0} className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
             <div className="modal-header">
               <h2>{editEntry ? 'Edit' : 'New'} Translation</h2>
               <button className="modal-close" onClick={() => setShowForm(false)}><X size={20} /></button>

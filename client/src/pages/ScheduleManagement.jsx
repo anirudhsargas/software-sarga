@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Clock, Calendar, AlertTriangle, Timer, Plus, Check, X, ChevronDown, Users, Edit2, Trash2 } from 'lucide-react';
 import api from '../services/api';
@@ -7,6 +8,8 @@ import { serverThisMonth } from '../services/serverTime';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const ScheduleManagement = () => {
+    useSEO('Schedule Management');
+
     const [activeTab, setActiveTab] = useState('schedules');
     const [month, setMonth] = useState(serverThisMonth());
     const [staffList, setStaffList] = useState([]);

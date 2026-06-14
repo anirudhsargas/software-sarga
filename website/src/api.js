@@ -1,10 +1,18 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '';
+const normalizeApiBase = (url) => {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  const trimmed = raw.endsWith('/') ? raw.slice(0, -1) : raw;
+  if (trimmed.endsWith('/api')) return trimmed;
+  return `${trimmed}/api`;
+};
+export const API_BASE_URL = normalizeApiBase(API_BASE);
 
 const api = axios.create({
-  baseURL: `${API_BASE}/api`,
+  baseURL: API_BASE_URL || '/api',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
@@ -64,6 +72,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     try {
+      if (error.config?.skipGlobalErrorHandling) {
+        return Promise.reject(error);
+      }
+
       // Network offline
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         toast.error('No internet connection.');

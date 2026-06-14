@@ -13,24 +13,28 @@ export default function useTilt() {
     let raf = null;
 
     function onMove(e) {
-      const rect = el.getBoundingClientRect();
-      const w = rect.width;
-      const h = rect.height;
-      const cx = rect.left + w / 2;
-      const cy = rect.top + h / 2;
-      const x = (e.clientX - cx) / w; // -0.5..0.5-ish
-      const y = (e.clientY - cy) / h;
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const rect = el.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        const cx = rect.left + w / 2;
+        const cy = rect.top + h / 2;
+        const x = (e.clientX - cx) / w; // -0.5..0.5-ish
+        const y = (e.clientY - cy) / h;
 
-      const rx = (-y * 16).toFixed(2);
-      const ry = (x * 16).toFixed(2);
+        const rx = (-y * 16).toFixed(2);
+        const ry = (x * 16).toFixed(2);
 
-      el.style.willChange = 'transform';
-      el.style.transform = `perspective(800px) rotateX(${rx}deg) rotateY(${ry}deg) translateY(-4px)`;
-      el.style.setProperty('--mx', x.toString());
-      el.style.setProperty('--my', y.toString());
+        el.style.willChange = 'transform';
+        el.style.transform = `perspective(800px) rotateX(${rx}deg) rotateY(${ry}deg) translateY(-4px)`;
+        el.style.setProperty('--mx', x.toString());
+        el.style.setProperty('--my', y.toString());
+      });
     }
 
     function onLeave() {
+      if (raf) cancelAnimationFrame(raf);
       el.style.transition = 'transform 0.6s cubic-bezier(.16,1,.3,1)';
       el.style.transform = '';
       el.style.setProperty('--mx', '0');

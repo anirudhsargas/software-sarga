@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { useLocation } from 'react-router-dom';
@@ -10,6 +11,8 @@ import Pagination from '../components/Pagination';
 import { useConfirm } from '../contexts/ConfirmContext';
 
 const Payments = () => {
+    useSEO('Payments');
+
     const { confirm } = useConfirm();
     const location = useLocation();
     const [payments, setPayments] = useState([]);
@@ -1075,8 +1078,7 @@ const Payments = () => {
                                         {(inventory || [])
                                             .filter(i => i.name.toLowerCase().includes(billSearch.toLowerCase()) || i.sku?.toLowerCase().includes(billSearch.toLowerCase()))
                                             .map(item => (
-                                                <div
-                                                    key={item.id}
+                                                <div role="button" tabIndex={0} key={item.id}
                                                     className="dropdown-item row justify-between p-8 hover-surface"
                                                     onClick={() => addBillItem(item)}
                                                 >

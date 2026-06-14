@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api, { imgUrl } from '../services/api';
 import SecureImage from '../components/SecureImage';
@@ -61,6 +62,8 @@ const SortableItem = ({ id, children, className, disabled, ...props }) => {
 };
 
 const ProductLibrary = () => {
+    useSEO('Product Library');
+
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -1449,7 +1452,7 @@ const ProductLibrary = () => {
                             {viewInfo.type === 'root' && viewInfo.items.map((cat, idx) => (
                                 <SortableItem key={cat.id} id={cat.id} disabled={!isAdmin} className={`product-card pointer${cat.is_active === 0 || cat.is_active === false ? ' product-card--disabled' : ''}`}>
                                     {isPrivileged && (
-                                    <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
+                                    <div role="button" tabIndex={0} className="product-card__actions" onClick={(e) => e.stopPropagation()}>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditCategory(cat); }} title="Edit Category">
                                             <Edit2 size={14} />
                                         </button>
@@ -1465,7 +1468,7 @@ const ProductLibrary = () => {
                                         </button>
                                     </div>
                                     )}
-                                    <div className="product-card__image-wrap" onClick={() => toggleCat(cat.id)}>
+                                    <div role="button" tabIndex={0} className="product-card__image-wrap" onClick={() => toggleCat(cat.id)}>
                                         {cat.image_url ? (
                                             <SecureImage src={cat.image_url} alt={cat.name} className="product-card__img" />
                                         ) : (
@@ -1477,7 +1480,7 @@ const ProductLibrary = () => {
                                             <GripVertical size={16} />
                                         </div>
                                     </div>
-                                    <div className="product-card__content" onClick={() => toggleCat(cat.id)}>
+                                    <div role="button" tabIndex={0} className="product-card__content" onClick={() => toggleCat(cat.id)}>
                                         <div className="product-card__name">{cat.name}</div>
                                         <div className="product-card__meta">
                                             {cat.subcategories?.length || 0} Sub-categories
@@ -1556,7 +1559,7 @@ const ProductLibrary = () => {
                             {viewInfo.type === 'category' && viewInfo.items.map((sub, idx) => (
                                 <SortableItem key={sub.id} id={sub.id} disabled={!isAdmin} className={`product-card pointer${sub.is_active === 0 || sub.is_active === false ? ' product-card--disabled' : ''}`}>
                                     {isPrivileged && (
-                                    <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
+                                    <div role="button" tabIndex={0} className="product-card__actions" onClick={(e) => e.stopPropagation()}>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditSubcategory(sub); }} title="Edit Sub-category">
                                             <Edit2 size={14} />
                                         </button>
@@ -1572,7 +1575,7 @@ const ProductLibrary = () => {
                                         </button>
                                     </div>
                                     )}
-                                    <div className="product-card__image-wrap" onClick={() => setViewPath([viewPath[0], sub.id])}>
+                                    <div role="button" tabIndex={0} className="product-card__image-wrap" onClick={() => setViewPath([viewPath[0], sub.id])}>
                                         {sub.image_url ? (
                                             <SecureImage src={sub.image_url} alt={sub.name} className="product-card__img" />
                                         ) : (
@@ -1584,7 +1587,7 @@ const ProductLibrary = () => {
                                             <GripVertical size={16} />
                                         </div>
                                     </div>
-                                    <div className="product-card__content" onClick={() => setViewPath([viewPath[0], sub.id])}>
+                                    <div role="button" tabIndex={0} className="product-card__content" onClick={() => setViewPath([viewPath[0], sub.id])}>
                                         <div className="product-card__name">{sub.name}</div>
                                         <div className="product-card__meta">
                                             {sub.products?.length || 0} Products
@@ -1607,7 +1610,7 @@ const ProductLibrary = () => {
                                     style={{ cursor: 'pointer' }}
                                 >
                                     {isPrivileged && (
-                                    <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
+                                    <div role="button" tabIndex={0} className="product-card__actions" onClick={(e) => e.stopPropagation()}>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditProduct(prod.id); }} title="Edit Product" disabled={editLoading !== null}>
                                             {editLoading === prod.id ? <Loader2 size={14} className="spin" /> : <Edit2 size={14} />}
                                         </button>
@@ -1627,7 +1630,7 @@ const ProductLibrary = () => {
                                     </div>
                                     )}
                                     <div className="product-card__image-wrap" style={{ position: 'relative' }}>
-                                        <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 6 }} onClick={(e) => e.stopPropagation()}>
+                                        <div role="button" tabIndex={0} style={{ position: 'absolute', top: 8, left: 8, zIndex: 6 }} onClick={(e) => e.stopPropagation()}>
                                             <input
                                                 type="checkbox"
                                                 checked={selectedProductIds.includes(prod.id)}
@@ -1747,7 +1750,7 @@ const ProductLibrary = () => {
                                 <label className="label">Image (Optional)</label>
                                 {catImagePreview && (
                                     <div className="row gap-sm items-center mb-8">
-                                        <img src={catImagePreview} alt="Preview" className="thumb-img" />
+                                        <img loading="lazy" src={catImagePreview} alt="Preview" className="thumb-img" />
                                         <button type="button" className="btn btn-ghost btn-sm text-error" onClick={() => { setCatImage(null); setCatImagePreview(''); setCatImageUrl(''); }}>Remove</button>
                                     </div>
                                 )}
@@ -1791,7 +1794,7 @@ const ProductLibrary = () => {
                                 <label className="label">Image (Optional)</label>
                                 {subImagePreview && (
                                     <div className="row gap-sm items-center mb-8">
-                                        <img src={subImagePreview} alt="Preview" className="thumb-img" />
+                                        <img loading="lazy" src={subImagePreview} alt="Preview" className="thumb-img" />
                                         <button type="button" className="btn btn-ghost btn-sm text-error" onClick={() => { setSubImage(null); setSubImagePreview(''); setSubImageUrl(''); }}>Remove</button>
                                     </div>
                                 )}
@@ -1835,7 +1838,7 @@ const ProductLibrary = () => {
                                     transition: 'border-color 0.2s',
                                 }}>
                                     {productImagePreview ? (
-                                        <img src={productImagePreview} alt="Preview" style={{
+                                        <img loading="lazy" src={productImagePreview} alt="Preview" style={{
                                             width: '64px', height: '64px', borderRadius: '10px',
                                             objectFit: 'cover', border: '2px solid var(--border, #334155)',
                                             flexShrink: 0
@@ -1937,8 +1940,7 @@ const ProductLibrary = () => {
                                 {/* Left Side: Image Upload with a more premium frame */}
                                 <div className="stack-sm">
                                     <label className="label">Media</label>
-                                    <div 
-                                        className="image-upload-frame"
+                                    <div role="button" tabIndex={0} className="image-upload-frame"
                                         style={{
                                             position: 'relative',
                                             width: '120px',
@@ -1957,7 +1959,7 @@ const ProductLibrary = () => {
                                         onClick={() => document.getElementById('product-image-input').click()}
                                     >
                                         {productImagePreview ? (
-                                            <img src={productImagePreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <img loading="lazy" src={productImagePreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
                                             <div className="stack-xs items-center muted">
                                                 <ImageIcon size={24} />

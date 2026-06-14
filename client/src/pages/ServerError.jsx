@@ -1,9 +1,12 @@
+import { useSEO } from '../hooks/useSEO';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import ErrorPage from '../components/ErrorPage';
 
 const ServerError = () => {
+    useSEO('Server Error');
+
   const navigate = useNavigate();
   return (
     <ErrorPage

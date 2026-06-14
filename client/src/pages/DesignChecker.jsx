@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useRef } from 'react';
 import { Upload, FileCheck, AlertTriangle, CheckCircle2, XCircle, Loader2, Image, Eye, Clock } from 'lucide-react';
 import api from '../services/api';
@@ -10,6 +11,8 @@ const SEV_STYLE = {
 };
 
 const DesignChecker = () => {
+    useSEO('Design Checker');
+
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [result, setResult] = useState(null);
@@ -65,8 +68,7 @@ const DesignChecker = () => {
                 {/* Main Panel */}
                 <div className="panel">
                     {/* Drop zone */}
-                    <div
-                        onClick={() => inputRef.current?.click()}
+                    <div role="button" tabIndex={0} onClick={() => inputRef.current?.click()}
                         onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
                         style={{
                             border: `2px dashed ${dragActive ? 'var(--accent)' : 'var(--border)'}`,
@@ -81,7 +83,7 @@ const DesignChecker = () => {
                         {file ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                                 {preview ? (
-                                    <img src={preview} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)' }} />
+                                    <img loading="lazy" src={preview} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)' }} />
                                 ) : (
                                     <div style={{ width: 64, height: 64, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', display: 'grid', placeItems: 'center' }}>
                                         <Image size={24} style={{ color: 'var(--muted)' }} />

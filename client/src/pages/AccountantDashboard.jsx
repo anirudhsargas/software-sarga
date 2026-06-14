@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   IndianRupee, TrendingUp, TrendingDown, Loader2, Building2,
@@ -25,7 +26,7 @@ const monthLabel = (m) => {
 
 /* ─── KPI Card ─── */
 const KpiCard = ({ label, value, sub, color = '', icon: Icon, onClick }) => (
-  <div className={`acc-kpi ${color} ${onClick ? 'acc-kpi--clickable' : ''} hover-lift`} onClick={onClick}>
+  <div role="button" tabIndex={0} className={`acc-kpi ${color} ${onClick ? 'acc-kpi--clickable' : ''} hover-lift`} onClick={onClick}>
     <div className="acc-kpi__icon">{Icon && <Icon size={20} />}</div>
     <div className="acc-kpi__body">
       <div className="acc-kpi__label">{label}</div>
@@ -78,6 +79,8 @@ const ProgressBar = ({ pct, color = 'var(--accent)', height = 6 }) => (
    ACCOUNTANT DASHBOARD
    ══════════════════════════════════════════════════════════════ */
 const AccountantDashboard = () => {
+    useSEO('Accountant Dashboard');
+
   const navigate = useNavigate();
   const [month, setMonth] = useState(thisMonth());
   const [selectedBranches, setSelectedBranches] = useState([]);
@@ -450,7 +453,7 @@ const AccountantDashboard = () => {
                     {recentJobs.slice(0, 5).map((j) => {
                       const badgeClass = j.payment_status === 'Paid' ? 'acc-badge--paid' : j.payment_status === 'Partial' ? 'acc-badge--partial' : 'acc-badge--unpaid';
                       return (
-                        <div key={j.id} className="acc-list-item acc-list-item--clickable"
+                        <div role="button" tabIndex={0} key={j.id} className="acc-list-item acc-list-item--clickable"
                           onClick={() => navigate(`/dashboard/jobs/${j.id}`)}>
                           <div className="acc-list-item__left">
                             <div className="acc-list-item__primary">

@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import {
@@ -13,6 +14,8 @@ const SEVERITY_STYLE = {
 };
 
 const AIMonitoring = () => {
+    useSEO('A I Monitoring');
+
     const [dashboard, setDashboard] = useState(null);
     const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -124,7 +127,7 @@ const AIMonitoring = () => {
                             {alerts.map(alert => {
                                 const sev = SEVERITY_STYLE[alert.severity] || SEVERITY_STYLE.LOW;
                                 return (
-                                    <div key={alert.id}
+                                    <div role="button" tabIndex={0} key={alert.id}
                                         onClick={() => setSelectedAlert(alert)}
                                         style={{
                                             padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
@@ -191,8 +194,8 @@ const AIMonitoring = () => {
 
             {/* Alert Detail Modal */}
             {selectedAlert && (
-                <div className="modal-backdrop" onClick={() => setSelectedAlert(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setSelectedAlert(null)}>
+                    <div role="button" tabIndex={0} className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
                         <button className="modal-close" onClick={() => setSelectedAlert(null)}><XCircle size={18} /></button>
                         <h2 className="section-title mb-16">{selectedAlert.alert_type?.replace(/_/g, ' ')}</h2>
 

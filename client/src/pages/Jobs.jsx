@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useSEO } from '../hooks/useSEO';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import usePolling from '../hooks/usePolling';
-import { Clock, Search, FileText, User, Loader2, Plus, X, Edit2, Trash2, IndianRupee, Calendar, CheckCircle2, Building2, RotateCcw, ArrowUpDown, Zap, ChevronDown } from 'lucide-react';
+import { Search, FileText, Loader2, Plus, Trash2, IndianRupee, RotateCcw, Zap, ChevronDown, Building2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
 import api from '../services/api';
@@ -11,7 +12,7 @@ import './Jobs.css';
 import { useOptimistic } from '../hooks/useOptimistic';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
-import { formatForDisplay, telHref } from '../utils/phone';
+import { formatForDisplay } from '../utils/phone';
 
 // ── Priority helpers ──
 const URGENCY_CONFIG = {
@@ -55,14 +56,77 @@ const UrgencyBadge = ({ urgency }) => {
     );
 };
 
+const formatMoney = (value) => {
+    const amount = Number(value) || 0;
+    return amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const formatRupee = (value) => `₹${formatMoney(value)}`;
+
+const getStatusColor = (status) => {
+    const colors = {
+        'Pending': 'badge--warning',
+        'Processing': 'badge--info',
+        'Approval Pending': 'badge--warning',
+        'Completed': 'badge--success',
+        'Delivered': 'badge--primary',
+        'Cancelled': 'badge--danger'
+    };
+    return colors[status] || 'badge--default';
+};
+
+const canManageOrderStatus = (role) => ['Admin', 'Front Office', 'front office'].includes(role);
+const canDeleteOrder = (role) => ['Admin', 'Accountant'].includes(role);
+const isFinanceRole = (role) => ['Admin', 'Accountant', 'Front Office', 'front office'].includes(role);
+const getTableColumnCount = (sortByPriority, financialsVisible) => 8 + (sortByPriority ? 1 : 0) + (financialsVisible ? 1 : 0);
+
+const getDisplayJobs = (items, sortByPriority) => {
+    if (!sortByPriority) return items;
+    return [...items]
+        .map(j => {
+            const { score, urgency } = computeClientPriority(j);
+            return { ...j, _score: score, _urgency: urgency };
+        })
+        .sort((a, b) => b._score - a._score);
+};
+
+const getRenderItems = (displayJobs) => {
+    const groupMap = new Map();
+    const standalones = [];
+    displayJobs.forEach(j => {
+        if (j.payment_id) {
+            if (!groupMap.has(j.payment_id)) groupMap.set(j.payment_id, []);
+            groupMap.get(j.payment_id).push(j);
+        } else {
+            standalones.push(j);
+        }
+    });
+    const seen = new Set();
+    const renderList = [];
+    displayJobs.forEach(j => {
+        if (!j.payment_id) {
+            renderList.push({ type: 'single', job: j });
+        } else if (!seen.has(j.payment_id)) {
+            seen.add(j.payment_id);
+            const grpJobs = groupMap.get(j.payment_id);
+            if (grpJobs.length === 1) {
+                renderList.push({ type: 'single', job: grpJobs[0] });
+            } else {
+                renderList.push({ type: 'group', paymentId: j.payment_id, jobs: grpJobs });
+            }
+        }
+    });
+    return renderList;
+};
+
 const Jobs = () => {
+    useSEO('Jobs');
+
     const navigate = useNavigate();
     const { data: jobs, setData: setJobs, optimisticUpdate } = useOptimistic([]);
     const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('');
-    const [branchFilter, setBranchFilter] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('');
+    const [filterInput, setFilterInput] = useState({ search: '', branch: '', status: '', category: '' });
+    const [debouncedFilterInput, setDebouncedFilterInput] = useState(filterInput);
     const [branches, setBranches] = useState([]);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('active'); // active, completed, delivered, due, overdue, payments
@@ -75,33 +139,41 @@ const Jobs = () => {
     });
     const [creditRequesting, setCreditRequesting] = useState(false);
     const [expandedPayments, setExpandedPayments] = useState(new Set());
+    const pageRef = useRef(page);
+    const visibleRef = useRef(true);
 
     // Pagination state
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
     const LIMIT = 20;
+    const PAGE_SIZE = 20;
+    const FILTER_DEBOUNCE_MS = 280;
 
     const userRole = auth.getUser()?.role;
-    const isFinancialsVisible = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
+    const isFinancialsVisible = isFinanceRole(userRole);
     const statuses = ['Pending', 'Processing', 'Approval Pending', 'Completed', 'Delivered', 'Cancelled'];
+    const searchQuery = debouncedFilterInput.search;
+    const statusFilter = debouncedFilterInput.status;
+    const branchFilter = debouncedFilterInput.branch;
+    const categoryFilter = debouncedFilterInput.category;
 
-    const fetchJobs = async (pageNum = 1) => {
+    const fetchJobs = useCallback(async (pageNum = 1) => {
         setLoading(true);
         setError('');
         try {
             const params = new URLSearchParams();
             params.append('page', pageNum);
-            params.append('limit', LIMIT);
-            
+            params.append('limit', PAGE_SIZE);
+
             // Filters
-            if (searchQuery) params.append('search', searchQuery);
-            if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
-            if (branchFilter) params.append('branch_id', branchFilter);
-            if (categoryFilter) params.append('category', categoryFilter);
-            
+            if (debouncedFilterInput.search) params.append('search', debouncedFilterInput.search);
+            if (debouncedFilterInput.status && debouncedFilterInput.status !== 'all') params.append('status', debouncedFilterInput.status);
+            if (debouncedFilterInput.branch) params.append('branch_id', debouncedFilterInput.branch);
+            if (debouncedFilterInput.category) params.append('category', debouncedFilterInput.category);
+
             // Tab support (for backend server-side filtering)
-            const isFrontOffice = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
+            const isFrontOffice = isFinanceRole(userRole);
             if (isFrontOffice) {
                 params.append('tab', activeTab);
             } else {
@@ -115,7 +187,7 @@ const Jobs = () => {
             if (res.data && res.total !== undefined) {
                 setJobs(res.data);
                 setTotal(res.total);
-                setTotalPages(res.totalPages || Math.ceil(res.total / LIMIT));
+                setTotalPages(res.totalPages || Math.ceil(res.total / PAGE_SIZE));
             } else if (Array.isArray(res)) {
                 setJobs(res);
                 setTotal(res.length);
@@ -135,36 +207,71 @@ const Jobs = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeTab, debouncedFilterInput.branch, debouncedFilterInput.category, debouncedFilterInput.search, debouncedFilterInput.status, setJobs, userRole]);
 
-    const goToPage = (pageNum) => {
+    const goToPage = useCallback((pageNum) => {
         if (pageNum < 1 || pageNum > totalPages) return;
         fetchJobs(pageNum);
-    };
+    }, [fetchJobs, totalPages]);
 
-    const fetchBranches = async () => {
+    const updateFilter = useCallback((key, value) => {
+        setFilterInput(prev => prev[key] === value ? prev : { ...prev, [key]: value });
+    }, []);
+
+    const toggleExpandedPayment = useCallback((paymentId) => {
+        setExpandedPayments(prev => {
+            const next = new Set(prev);
+            next.has(paymentId) ? next.delete(paymentId) : next.add(paymentId);
+            return next;
+        });
+    }, []);
+
+    const fetchBranches = useCallback(async () => {
         try {
             const data = await localDb.getBranches();
             setBranches(data || []);
         } catch (error) {
             console.error('Error fetching branches:', error);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        const id = window.setTimeout(() => {
+            setDebouncedFilterInput(filterInput);
+        }, FILTER_DEBOUNCE_MS);
+        return () => window.clearTimeout(id);
+    }, [filterInput]);
 
     useEffect(() => {
         fetchBranches();
         fetchJobs(1);
-    }, []);
+    }, [fetchBranches, fetchJobs]);
 
     useEffect(() => {
         fetchJobs(1);
-    }, [searchQuery, statusFilter, branchFilter, categoryFilter, activeTab]);
+    }, [debouncedFilterInput.branch, debouncedFilterInput.category, debouncedFilterInput.search, debouncedFilterInput.status, activeTab, fetchJobs]);
 
     useEffect(() => {
-        const handlePaymentUpdate = () => fetchJobs(page);
+        pageRef.current = page;
+    }, [page]);
+
+    useEffect(() => {
+        const handlePaymentUpdate = () => {
+            if (visibleRef.current) fetchJobs(pageRef.current);
+        };
         window.addEventListener('paymentRecorded', handlePaymentUpdate);
         return () => window.removeEventListener('paymentRecorded', handlePaymentUpdate);
-    }, [page]);
+    }, [fetchJobs]);
+
+    useEffect(() => {
+        const handleVisibility = () => {
+            const visible = document.visibilityState === 'visible';
+            visibleRef.current = visible;
+            if (visible) fetchJobs(pageRef.current);
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => document.removeEventListener('visibilitychange', handleVisibility);
+    }, [fetchJobs]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -283,6 +390,11 @@ const Jobs = () => {
         };
         return colors[status] || 'badge--default';
     };
+
+    const displayJobs = useMemo(() => getDisplayJobs(jobs, sortByPriority), [jobs, sortByPriority]);
+    const renderItems = useMemo(() => getRenderItems(displayJobs), [displayJobs]);
+    const visibleRenderItems = useMemo(() => renderItems.slice(0, PAGE_SIZE), [renderItems]);
+    const tableColumnCount = useMemo(() => getTableColumnCount(sortByPriority, isFinancialsVisible), [sortByPriority, isFinancialsVisible]);
 
     return (
         <div className="stack-lg">

@@ -92,8 +92,8 @@ const SmartSearchBar = () => {
         : 0;
 
     return (
-        <div className="modal-backdrop" style={{ alignItems: 'flex-start', paddingTop: 80 }} onClick={() => { setOpen(false); setQuery(''); setResults(null); }}>
-            <div onClick={e => e.stopPropagation()} style={{
+        <div role="button" tabIndex={0} className="modal-backdrop" style={{ alignItems: 'flex-start', paddingTop: 80 }} onClick={() => { setOpen(false); setQuery(''); setResults(null); }}>
+            <div role="button" tabIndex={0} onClick={e => e.stopPropagation()} style={{
                 width: '100%', maxWidth: 560, background: 'var(--surface)', border: '1px solid var(--border)',
                 borderRadius: 16, boxShadow: 'var(--shadow-lg)', overflow: 'hidden'
             }}>
@@ -119,7 +119,7 @@ const SmartSearchBar = () => {
                 {suggestions.length > 0 && !results && (
                     <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>
                         {suggestions.map((s, i) => (
-                            <div key={i}
+                            <div role="button" tabIndex={0} key={i}
                                 onClick={() => { setQuery(s); doSearch(s); }}
                                 style={{
                                     padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13,

@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDebounce } from '../hooks/useDebounce';
@@ -18,6 +19,8 @@ import ServerError from '../components/ServerError';
 import toast from 'react-hot-toast';
 
 const Customers = () => {
+    useSEO('Customers');
+
     const { confirm } = useConfirm();
     const navigate = useNavigate();
     const user = auth.getUser();
@@ -522,7 +525,7 @@ const Customers = () => {
                         </div>
 
                         {/* Actions */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                        <div role="button" tabIndex={0} style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                             <button
                                 className="btn btn-ghost"
                                 style={{ fontSize: 12, padding: '5px 10px', height: 30, background: 'var(--accent-soft)', color: 'var(--accent)', gap: 4 }}

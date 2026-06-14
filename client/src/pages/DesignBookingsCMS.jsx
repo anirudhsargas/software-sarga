@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useSEO } from '../hooks/useSEO';
 import React, { useCallback, useMemo } from 'react';
 import { Calendar, Clock, Video, Phone, Users, Check, X, Tag, DollarSign, Award, AlertTriangle, Search, Filter } from 'lucide-react';
 import api from '../services/api';
 import './DesignBookingsCMS.css';
 
 function DesignBookingsCMS() {
+    useSEO('Design Bookings C M S');
+
   const [bookings, setBookings] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [loading, setLoading] = useState(true);

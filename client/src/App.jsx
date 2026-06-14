@@ -18,6 +18,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { AuthProvider } from './hooks/useAuth';
 import CustomCursor from './components/ui/CustomCursor';
+import { HelmetProvider } from 'react-helmet-async';
 
 import { syncManager } from './services/syncWorkerManager';
 import { SyncStatusBar } from './components/SyncStatusBar';
@@ -83,6 +84,7 @@ function App() {
   }, []);
 
   return (
+    <HelmetProvider>
     <ErrorBoundary>
       <CustomCursor />
       <BrowserRouter>
@@ -152,6 +154,7 @@ function App() {
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>
+    </HelmetProvider>
   );
 }
 

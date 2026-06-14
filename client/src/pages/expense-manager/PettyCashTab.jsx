@@ -241,18 +241,20 @@ const PettyCashTab = ({ onError }) => {
       {/* Petty Cash Form Modal */}
       {showForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closeFormModal(); }}>
-          <div className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>{editing ? 'Edit' : 'New'} Daily Cash Entry</h2><button className="btn btn-ghost btn-icon" aria-label="Close daily cash form" onClick={() => closeFormModal()}><X size={18} /></button></div>
             {!confirming && formDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
             {!confirming ? (
               <form onSubmit={!editing ? handleReview : submitForm}>
                 <div className="em-modal__body">
                   <div className="em-form-grid">
-                    <div className="em-form-group"><label>Type</label><select className="em-input" value={form.transaction_type} onChange={e => updateForm({ transaction_type: e.target.value })}><option>Opening</option><option>Cash In</option><option>Cash Out</option></select></div>
+                    <div className="em-form-group"><label>Type</label><select aria-label="Select option"  className="em-input" value={form.transaction_type} onChange={e => updateForm({ transaction_type: e.target.value })}><option>Opening</option><option>Cash In</option><option>Cash Out</option></select></div>
                     <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
-                    <div className="em-form-group"><label>Date</label><input className="em-input" type="date" value={form.transaction_date} onChange={e => updateForm({ transaction_date: e.target.value })} /></div>
+                    <div className="em-form-group"><label>Date</label>
+        <label htmlFor="date-t2y6d8" className="sr-only">Select Date</label>
+        <input id="date-t2y6d8"  className="em-input" type="date" value={form.transaction_date} onChange={e => updateForm({ transaction_date: e.target.value })} /></div>
                     <div className="em-form-group"><label>Category</label>
-                      <select className="em-input" value={form.category} onChange={e => updateForm({ category: e.target.value })}>
+                      <select aria-label="Select option"  className="em-input" value={form.category} onChange={e => updateForm({ category: e.target.value })}>
                         <option value="">Select Category</option>
                         {PETTY_CATEGORIES.map(c => <option key={c}>{c}</option>)}
                       </select>
@@ -291,4 +293,4 @@ const PettyCashTab = ({ onError }) => {
   );
 };
 
-export default PettyCashTab;
+export default React.memo(PettyCashTab);

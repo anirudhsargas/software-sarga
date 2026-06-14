@@ -1,9 +1,12 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Lock, User, Loader2, AlertCircle } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 
 const Login = () => {
+    useSEO('Login');
+
     const { login } = useAuth();
     const [userId, setUserId] = useState('');
     const [password, setPassword] = useState('');
@@ -59,7 +62,11 @@ const Login = () => {
         <div className="auth-shell">
             <div className="auth-card">
                 <div className="brand">
-                    <img src="/icons/icon-192.png" alt="Sarga" className="login-logo" />
+                    <picture>
+                      <source type="image/avif" srcSet="/icons/icon-48.avif 48w, /icons/icon-96.avif 96w" sizes="72px" />
+                      <source type="image/webp" srcSet="/icons/icon-48.webp 48w, /icons/icon-96.webp 96w" sizes="72px" />
+                      <img loading="lazy" src="/icons/icon-192.png" alt="Sarga" className="login-logo" width="72" height="72" />
+                    </picture>
                     <h1>SARGA</h1>
                     <p>Printing Management System</p>
                 </div>

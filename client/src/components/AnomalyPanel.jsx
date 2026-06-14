@@ -68,8 +68,7 @@ export default function AnomalyPanel() {
     return (
         <div style={{ margin: '0 0 16px', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--card-bg, #fff)' }}>
             {/* Header bar */}
-            <div
-                role="button"
+            <div role="button"
                 tabIndex={0}
                 onClick={() => setExpanded(e => !e)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(x => !x); } }}

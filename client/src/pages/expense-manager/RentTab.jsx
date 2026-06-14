@@ -145,7 +145,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
       {/* Rent Form Modal */}
       {showForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>{editing ? 'Edit' : 'Add'} Rent Location</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowForm(false)}><X size={18} /></button></div>
             <form onSubmit={submitRent}>
               <div className="em-modal__body">
@@ -157,7 +157,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
                   <div className="em-form-group"><label>Monthly Rent (₹)</label><input className="em-input" type="number" min="0" value={form.monthly_rent} onChange={e => setForm(p => ({ ...p, monthly_rent: e.target.value }))} required /></div>
                   <div className="em-form-group"><label>Due Day</label><input className="em-input" type="number" min="1" max="31" value={form.due_day} onChange={e => setForm(p => ({ ...p, due_day: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Advance Deposit (₹)</label><input className="em-input" type="number" min="0" value={form.advance_deposit} onChange={e => setForm(p => ({ ...p, advance_deposit: e.target.value }))} /></div>
-                  {branches.length > 0 && <div className="em-form-group"><label>Branch</label><select className="em-input" value={form.branch_id} onChange={e => setForm(p => ({ ...p, branch_id: e.target.value }))}><option value="">Select Branch</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
+                  {branches.length > 0 && <div className="em-form-group"><label>Branch</label><select aria-label="Select option"  className="em-input" value={form.branch_id} onChange={e => setForm(p => ({ ...p, branch_id: e.target.value }))}><option value="">Select Branch</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
                 </div>
               </div>
               <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button><button type="submit" className="btn btn-primary">{editing ? 'Update' : 'Add'}</button></div>
@@ -169,7 +169,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
       {/* ── Rent Request Modal (Front Office) ── */}
       {showRequestForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowRequestForm(false); }}>
-          <div className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>Request Rent Location</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowRequestForm(false)}><X size={18} /></button></div>
             <form onSubmit={submitRentRequest}>
               <div className="em-modal__body">
@@ -182,7 +182,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
                   <div className="em-form-group"><label>Monthly Rent (₹)</label><input className="em-input" type="number" min="0" value={requestForm.monthly_rent} onChange={e => setRequestForm(p => ({ ...p, monthly_rent: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Due Day</label><input className="em-input" type="number" min="1" max="31" value={requestForm.due_day} onChange={e => setRequestForm(p => ({ ...p, due_day: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Advance Deposit (₹)</label><input className="em-input" type="number" min="0" value={requestForm.advance_deposit} onChange={e => setRequestForm(p => ({ ...p, advance_deposit: e.target.value }))} /></div>
-                  {branches.length > 0 && <div className="em-form-group"><label>Branch</label><select className="em-input" value={requestForm.branch_id} onChange={e => setRequestForm(p => ({ ...p, branch_id: e.target.value }))}><option value="">Select Branch</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
+                  {branches.length > 0 && <div className="em-form-group"><label>Branch</label><select aria-label="Select option"  className="em-input" value={requestForm.branch_id} onChange={e => setRequestForm(p => ({ ...p, branch_id: e.target.value }))}><option value="">Select Branch</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
                   <div className="em-form-group em-form-group--full"><label>Reason / Notes</label><input className="em-input" value={requestReason} onChange={e => setRequestReason(e.target.value)} placeholder="Why is this location needed?" /></div>
                 </div>
               </div>
@@ -195,4 +195,4 @@ const RentTab = ({ branches, onPayment, onError }) => {
   );
 };
 
-export default RentTab;
+export default React.memo(RentTab);

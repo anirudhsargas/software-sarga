@@ -290,6 +290,7 @@ app.get('/api/paperInventory/stock-test', (req, res) => {
 });
 
 app.use('/api', require('./routes/auth')(upload));
+app.use('/api/chatbot', require('./routes/chatbot'));
 app.use('/api', require('./routes/branches'));
 app.use('/api', require('./routes/payments'));
 app.use('/api', require('./routes/vendors'));

@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Loader2, Building2, Search, AlertTriangle, Clock, Phone,
@@ -28,6 +29,8 @@ const PRIORITY_COLORS = {
 };
 
 const ProductionTracker = () => {
+    useSEO('Production Tracker');
+
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [branches, setBranches] = useState([]);

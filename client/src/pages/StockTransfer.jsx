@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Package, ArrowRight, Building2, Search, History, Loader2, 
@@ -11,6 +12,8 @@ import toast from 'react-hot-toast';
 import './StockTransfer.css';
 
 const StockTransfer = () => {
+    useSEO('Stock Transfer');
+
     const user = auth.getUser();
     const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
     const myBranchId = user?.branch_id;
@@ -271,8 +274,7 @@ const StockTransfer = () => {
                                     {filteredInventory.length === 0 ? (
                                         <div className="empty-state">No items found</div>
                                     ) : filteredInventory.map(item => (
-                                        <div 
-                                            key={item.id} 
+                                        <div role="button" tabIndex={0} key={item.id} 
                                             className="dropdown-item"
                                             onClick={() => { setSelectedItem(item); setSearchQuery(item.name); }}
                                         >

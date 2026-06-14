@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FileText, Package, AlertTriangle, TrendingUp, Plus, 
@@ -12,6 +13,8 @@ import auth from '../services/auth';
 import { useConfirm } from '../contexts/ConfirmContext';
 
 const PaperManagement = () => {
+    useSEO('Paper Management');
+
     const navigate = useNavigate();
     const { confirm } = useConfirm();
     const user = auth.getUser();

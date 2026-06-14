@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, IndianRupee, User, Clock, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
@@ -40,6 +41,8 @@ const getInTime = (record) => normalizeTimeDisplay(record?.in_time || record?.ti
 const getOutTime = (record) => normalizeTimeDisplay(record?.out_time || record?.gone_time);
 
 const EmployeeDetail = () => {
+    useSEO('Employee Detail');
+
     const { staffId } = useParams();
     const navigate = useNavigate();
     const [employee, setEmployee] = useState(null);

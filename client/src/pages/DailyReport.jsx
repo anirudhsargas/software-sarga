@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback } from 'react';
 import usePolling from '../hooks/usePolling';
 import {
@@ -6,8 +7,8 @@ import {
     Calendar, Clock, ArrowUpRight, ArrowDownRight, X, Wallet, CreditCard,
     IndianRupee, ChevronRight, ChevronLeft, BarChart3, Users
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+
+const PDFExport = React.lazy(() => import('./DailyReportPDFExport'));
 import api from '../services/api';
 import auth from '../services/auth';
 import offlineDb from '../services/offlineDb';
@@ -37,7 +38,7 @@ const normalizeReportDate = (value) => {
     if (typeof value === 'number') return new Date(value).toISOString().slice(0, 10);
     try {
         return new Date(value).toISOString().slice(0, 10);
-    } catch {
+    } catch (err) {
         return '';
     }
 };
@@ -147,6 +148,8 @@ const mergePendingLiveCounts = (liveCounts, pendingByTab) => {
 };
 
 const DailyReport = () => {
+    useSEO('Daily Report');
+
     const [activeTab, setActiveTab] = useState('Offset');
     const [reportDate, setReportDate] = useState(serverToday());
     const [loading, setLoading] = useState(false);
@@ -268,7 +271,7 @@ const DailyReport = () => {
                 try {
                     const booksRes = await api.get('/machines/my-books');
                     assignedBooks = booksRes.data || [];
-                } catch { assignedBooks = []; }
+                } catch (err) { assignedBooks = []; }
                 setMyBooks(assignedBooks);
 
                 const res = await api.get('/daily-report/opening-balance', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
@@ -287,14 +290,14 @@ const DailyReport = () => {
                     const laserRes = await api.get('/daily-report/laser-live', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
                     myMachines = laserRes.data.machines || [];
                     myMachines.forEach(m => { machineHasReading[m.id] = !!m.has_reading; });
-                } catch { /* ignore */ }
+                } catch (err) { /* ignore */ }
 
                 if (!promptDone) {
                     let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
                     try {
                         const prevRes = await api.get('/daily-report/previous-closing', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
                         prevData = prevRes.data;
-                    } catch { /* ignore */ }
+                    } catch (err) { /* ignore */ }
 
                     const unenteredMachines = myMachines.filter(m => !machineHasReading[m.id]);
 
@@ -531,7 +534,7 @@ const DailyReport = () => {
                 });
                 setCreditTransactions(liveResp.data || []);
             }
-        } catch (error) { console.error('Offset credits fetch fail:', error); }
+        } catch (err) { console.error('Offset credits fetch fail:', error); }
     }, [reportDate, selectedBranch]);
 
     const fetchLaserCredits = useCallback(async () => {
@@ -540,7 +543,7 @@ const DailyReport = () => {
                 params: { date: reportDate, book_type: 'Laser', branch_id: selectedBranch }
             });
             setLaserCredits(res.data || []);
-        } catch (error) { console.error('Laser credits fetch fail:', error); }
+        } catch (err) { console.error('Laser credits fetch fail:', error); }
     }, [reportDate, selectedBranch]);
 
     const fetchOtherCredits = useCallback(async () => {
@@ -549,7 +552,7 @@ const DailyReport = () => {
                 params: { date: reportDate, book_type: 'Other', branch_id: selectedBranch }
             });
             setOtherCredits(res.data || []);
-        } catch (error) { console.error('Other credits fetch fail:', error); }
+        } catch (err) { console.error('Other credits fetch fail:', error); }
     }, [reportDate, selectedBranch]);
 
     const loadAllData = useCallback(async (isInitial = false) => {
@@ -599,259 +602,16 @@ const DailyReport = () => {
     const manualRefresh = () => { loadAllData(); };
 
     // Credit totals for today's quick view
-    const creditTotals = (creditTransactions || []).reduce((acc, t) => {
+    const creditTotals = React.useMemo(() => (creditTransactions || []).reduce((acc, t) => {
         if (!t) return acc;
         const typ = String(t.transaction_type || '').toLowerCase();
         if (typ.includes('in')) acc.in += Number(t.amount || 0);
         else acc.out += Number(t.amount || 0);
         return acc;
-    }, { in: 0, out: 0 });
+    }, { in: 0, out: 0 }), [creditTransactions]);
 
     // ─── PDF Export ─────────────────────────────────────────────
-    const generatePDF = () => {
-        try {
-            const doc = new jsPDF('p', 'mm', 'a4');
-            const pageW = doc.internal.pageSize.getWidth();
-            const margin = 14;
-
-            const displayBranch = branchName || 'Branch';
-            const dateStr = formatDateDisplay(reportDate);
-
-            const renderHeader = () => {
-                doc.setFillColor(31, 42, 51);
-                doc.rect(0, 0, pageW, 36, 'F');
-                doc.setTextColor(247, 246, 243);
-                doc.setFontSize(20);
-                doc.setFont('helvetica', 'bold');
-                doc.text('SARGA', margin, 16);
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'normal');
-                doc.text('DAILY CASH BOOK REPORT', margin, 23);
-                doc.setFontSize(9);
-                doc.text(`${displayBranch}  |  ${dateStr}`, margin, 30);
-                doc.setFontSize(8);
-                doc.text(`Generated: ${serverNow().toLocaleString('en-IN')}`, pageW - margin, 30, { align: 'right' });
-                doc.setDrawColor(255, 255, 255);
-                doc.setLineWidth(0.5);
-                doc.line(margin, 38, pageW - margin, 38);
-            };
-
-            const sectionHeader = (title, color, yPos) => {
-                doc.setFillColor(...color);
-                doc.roundedRect(margin, yPos, pageW - margin * 2, 8, 1.5, 1.5, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'bold');
-                doc.text(title, margin + 4, yPos + 5.5);
-                return yPos + 12;
-            };
-
-            const kvRow = (label, value, yPos, options = {}) => {
-                try {
-                    doc.setFontSize(9);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(100, 100, 100);
-                    doc.text(label, margin + 2, yPos);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(options.color || [30, 30, 30]);
-
-                    const cleanValue = String(value).replace('₹', 'Rs. ');
-                    doc.text(cleanValue, pageW - margin - 2, yPos, { align: 'right' });
-                    return yPos + 5.5;
-                } catch {
-                    return yPos + 5.5;
-                }
-            };
-
-            const allData = [
-                { key: 'Offset', data: offsetData, color: [37, 99, 235] },
-                { key: 'Laser', data: laserData, color: [124, 58, 237] },
-                { key: 'Other', data: otherData, color: [5, 150, 105] }
-            ];
-
-            allData.forEach(({ key, data, color }, index) => {
-                if (index > 0) doc.addPage();
-
-                renderHeader();
-                let currentY = 44;
-
-                const summary = data.summary || {};
-                const entries = data.entries || [];
-                const opening = openingBalances[key] || 0;
-
-                currentY = sectionHeader(`${key.toUpperCase()} BOOK`, color, currentY);
-                doc.setTextColor(30, 30, 30);
-                doc.setFont('helvetica', 'normal');
-
-                currentY = kvRow('Opening Cash Balance', formatCurrency(opening), currentY);
-
-                if (key === 'Laser' && data.machines?.length > 0) {
-                    data.machines.forEach(m => {
-                        currentY = kvRow(`${m.machine_name} — Opening`, formatNum(m.opening_count || 0), currentY);
-                        currentY = kvRow(`${m.machine_name} — Closing`, formatNum(m.closing_count || 0), currentY);
-                        currentY = kvRow(`${m.machine_name} — Copies`, formatNum(m.today_copies || 0), currentY, { color: [5, 150, 105] });
-                    });
-                }
-
-                if (entries.length > 0) {
-                    const isLaser = key === 'Laser';
-                    const head = isLaser
-                        ? [['Time', 'Description', 'Machine', 'Copies', 'Mode', 'Cash', 'UPI', 'Total']]
-                        : [['Time', 'Description', 'Type', 'Mode', 'Cash', 'UPI', 'Total']];
-
-                    const body = entries.map(e => {
-                        const isExp = e.type === 'expense';
-                        const sign = isExp ? '-' : '';
-                        const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-                        if (isLaser) {
-                            return [formatTime(e.time), e.description || '', e.machine_name || '—', String(e.copies || ''),
-                            e.payment_method || 'Cash', fPdf(e.cash_amount), fPdf(e.upi_amount), fPdf(e.total)];
-                        }
-                        return [formatTime(e.time), e.description || '', isExp ? 'Expense' : 'Income',
-                        e.payment_method || 'Cash', fPdf(e.cash_amount), fPdf(e.upi_amount), fPdf(e.total)];
-                    });
-
-                    autoTable(doc, {
-                        startY: currentY,
-                        head,
-                        body,
-                        margin: { left: margin, right: margin },
-                        styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
-                        headStyles: { fillColor: color, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
-                        alternateRowStyles: { fillColor: [248, 248, 248] },
-                        columnStyles: isLaser
-                            ? { 0: { cellWidth: 18 }, 2: { halign: 'right', cellWidth: 16 }, 3: { halign: 'right' }, 4: { halign: 'left' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right', fontStyle: 'bold' } }
-                            : { 0: { cellWidth: 18 }, 2: { cellWidth: 18 }, 3: { halign: 'left' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right', fontStyle: 'bold' } }
-                    });
-                    currentY = doc.lastAutoTable.finalY + 6;
-                } else {
-                    doc.setFontSize(8);
-                    doc.setTextColor(150, 150, 150);
-                    doc.text('No entries recorded', margin + 2, currentY);
-                    currentY += 8;
-                }
-
-                if (currentY > 260) { doc.addPage(); renderHeader(); currentY = 44; }
-
-                currentY = kvRow('Cash In', formatCurrency(summary.total_cash_in || 0), currentY, { color: [47, 125, 74] });
-                currentY = kvRow('UPI In', formatCurrency(summary.total_upi_in || 0), currentY, { color: [47, 125, 74] });
-                if (summary.total_cash_out !== undefined && summary.total_cash_out !== null) {
-                    currentY = kvRow('Cash Out', formatCurrency(summary.total_cash_out), currentY, { color: [176, 58, 46] });
-                }
-                if (summary.total_copies !== undefined) {
-                    currentY = kvRow('Total Copies', formatNum(summary.total_copies), currentY);
-                }
-
-                doc.setFillColor(245, 245, 240);
-                doc.roundedRect(margin, currentY - 1, pageW - margin * 2, 8, 1.5, 1.5, 'F');
-                currentY = kvRow('CASH CLOSING BALANCE', formatCurrency(summary.cash_closing || 0), currentY, { color: color });
-            });
-
-            // Attendance & Credit summary page
-            doc.addPage();
-            renderHeader();
-            let summaryY = 44;
-
-            const rawAttendanceStaff = attendanceData?.staff || [];
-            const attendanceStaff = isFrontOffice
-                ? rawAttendanceStaff.filter(s => {
-                    if (s == null) return false;
-                    if (s.branch_id !== undefined && s.branch_id !== null) return String(s.branch_id) === String(user?.branch_id);
-                    if (s.branch_name && branches && user?.branch_id) {
-                        const myBranch = branches.find(b => String(b.id) === String(user.branch_id));
-                        if (myBranch && myBranch.name) return String(s.branch_name).toLowerCase().includes(String(myBranch.name).toLowerCase());
-                    }
-                    return false;
-                })
-                : rawAttendanceStaff;
-
-            const attendancePresent = attendanceStaff.filter(s => s && (s.entry_time || s.status === 'present' || s.status === 'Present')).length;
-            const attendanceAbsent = Math.max(0, attendanceStaff.length - attendancePresent);
-
-            summaryY = sectionHeader('Attendance Summary', [245, 158, 11], summaryY);
-            summaryY = kvRow('Total staff tracked', String(attendanceStaff.length), summaryY);
-            summaryY = kvRow('Present today', String(attendancePresent), summaryY, { color: [34, 197, 94] });
-            summaryY = kvRow('Absent / missing', String(attendanceAbsent), summaryY, { color: [220, 38, 38] });
-            summaryY = kvRow('Alerts', String(attendanceData?.alert_count || 0), summaryY, { color: [249, 115, 22] });
-            summaryY = kvRow('Discrepancies', String(attendanceData?.discrepancy_count || 0), summaryY, { color: [168, 85, 247] });
-
-            if (attendanceStaff.length > 0) {
-                const attendanceRows = attendanceStaff.slice(0, 10).map(s => [
-                    s.name || s.staff_name || '—',
-                    String(s.status || '').replace(/^(present|Present)$/i, 'Present').replace(/^(absent|Absent)$/i, 'Absent'),
-                    s.entry_time || s.exit_time || '—',
-                    s.branch_name || '—'
-                ]);
-
-                autoTable(doc, {
-                    startY: summaryY,
-                    head: [['Staff', 'Status', 'Time', 'Branch']],
-                    body: attendanceRows,
-                    margin: { left: margin, right: margin },
-                    styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
-                    headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
-                    alternateRowStyles: { fillColor: [248, 248, 248] },
-                    columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: 28 }, 2: { cellWidth: 28 }, 3: { cellWidth: 38 } }
-                });
-                summaryY = doc.lastAutoTable.finalY + 6;
-            } else {
-                doc.setFontSize(8);
-                doc.setTextColor(150, 150, 150);
-                doc.text('No attendance records available for the selected date/branch.', margin + 2, summaryY);
-                summaryY += 8;
-            }
-
-            if (summaryY > 260) { doc.addPage(); renderHeader(); summaryY = 44; }
-
-            summaryY = sectionHeader('Credit Summary', [16, 185, 129], summaryY);
-            summaryY = kvRow('Credit In', formatCurrency(creditTotals.in), summaryY, { color: [34, 197, 94] });
-            summaryY = kvRow('Credit Out', formatCurrency(creditTotals.out), summaryY, { color: [220, 38, 38] });
-            summaryY = kvRow('Net credit', formatCurrency((creditTotals.in || 0) - (creditTotals.out || 0)), summaryY, { color: [30, 64, 175] });
-
-            if (creditTransactions.length > 0) {
-                const creditRows = creditTransactions.slice(0, 10).map(t => [
-                    t.transaction_type || t.type || 'Credit',
-                    t.customer_name || t.customer || '—',
-                    formatCurrency(t.amount),
-                    t.reference_number || t.invoice_number || t.invoice_no || '—'
-                ]);
-
-                autoTable(doc, {
-                    startY: summaryY,
-                    head: [['Type', 'Customer', 'Amount', 'Reference']],
-                    body: creditRows,
-                    margin: { left: margin, right: margin },
-                    styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
-                    headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
-                    alternateRowStyles: { fillColor: [248, 248, 248] },
-                    columnStyles: { 0: { cellWidth: 32 }, 1: { cellWidth: 52 }, 2: { halign: 'right', cellWidth: 28 }, 3: { cellWidth: 43 } }
-                });
-                summaryY = doc.lastAutoTable.finalY + 6;
-            } else {
-                doc.setFontSize(8);
-                doc.setTextColor(150, 150, 150);
-                doc.text('No credit transactions recorded for the selected date/branch.', margin + 2, summaryY);
-                summaryY += 8;
-            }
-
-            // Footer (Page Numbers)
-            const totalPages = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= totalPages; i++) {
-                doc.setPage(i);
-                doc.setFontSize(7);
-                doc.setTextColor(160, 160, 160);
-                doc.text(`${displayBranch} • ${dateStr}`, margin, doc.internal.pageSize.getHeight() - 8);
-                doc.text(`Page ${i} of ${totalPages}`, pageW / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' });
-                doc.text('Print Preview', pageW - margin, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
-            }
-
-            doc.save(`Daily-Report_${displayBranch}_${reportDate}.pdf`);
-        } catch (error) {
-            console.error('PDF Generation failed:', error);
-            toast.error('PDF Generation failed. Error: ' + error.message);
-        }
-    };
+    // PDF Export has been moved to DailyReportPDFExport.jsx
 
     const CreditList = ({ bookKey, credits = [], liveEntries = [] }) => {
         const derived = (liveEntries || []).filter(e => {
@@ -899,10 +659,10 @@ const DailyReport = () => {
         return (
             <div className="panel">
                 <div className="panel-header credit-list-header">
-                    <h3 className="panel-title credit-list-title">
+                    <h2 className="panel-title credit-list-title">
                         <IndianRupee size={16} /> Credits — {bookKey}
                         <span className="badge credit-list-badge">{all.length}</span>
-                    </h3>
+                    </h2>
                     <div className="row gap-sm">
                         <span className="credit-list-total">Total: {formatCurrency(total)}</span>
                     </div>
@@ -1222,7 +982,7 @@ const DailyReport = () => {
                             const isExpanded = expandedIds.has(entry.id);
                             return (
                                 <React.Fragment key={`${type}-${entry.id}-${i}`}>
-                                    <tr className={hasLines ? 'entry-table tr--clickable' : ''} onClick={hasLines ? () => toggleExpand(entry.id) : undefined}>
+                                    <tr className={hasLines ? 'entry-table tr--clickable' : ''} onClick={hasLines ? () => toggleExpand(entry.id) : undefined} role={hasLines ? "button" : "row"} tabIndex={hasLines ? 0 : undefined} onKeyDown={hasLines ? (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(entry.id); } } : undefined}>
                                         <td>
                                             <span className="entry-table-time">
                                                 <Clock size={10} /> {formatTime(entry.time)}
@@ -1441,9 +1201,9 @@ const DailyReport = () => {
         if (!laserData.machines?.length) return (
 
             <div className="panel">
-                <h3 className="panel-title machine-panel-title">
+                <h2 className="panel-title machine-panel-title">
                     <Monitor size={16} /> Machines
-                </h3>
+                </h2>
                 <div className="dr-empty">
                     <div className="dr-empty__icon"><Monitor size={22} /></div>
                     <p className="machine-empty-text">No active Digital machines</p>
@@ -1453,11 +1213,11 @@ const DailyReport = () => {
 
         return (
             <div className="panel">
-                <h3 className="panel-title machine-panel-title machine-panel-title--active">
+                <h2 className="panel-title machine-panel-title machine-panel-title--active">
                     <Monitor size={16} />
                     Machines
                     <span className="badge badge--info panel-title-badge">{laserData.machines.length} active</span>
-                </h3>
+                </h2>
                 <div className="stack-sm">
                     {laserData.machines.map(m => {
                         const isEditingThis = editingMachine === m.id;
@@ -1612,11 +1372,11 @@ const DailyReport = () => {
                 ]} />
             )}
             <div className="panel">
-                <h3 className="panel-title panel-title--badge">
+                <h2 className="panel-title panel-title--badge">
                     <FileText size={16} />
                     Transactions
                     <span className="badge panel-title-badge">{offsetData.entries?.length || 0}</span>
-                </h3>
+                </h2>
                 <EntryTable entries={offsetData.entries} type="offset" />
             </div>
             <CreditList bookKey="Offset" credits={creditTransactions} liveEntries={offsetData.entries} />
@@ -1637,11 +1397,11 @@ const DailyReport = () => {
                 ]} />
             )}
             <div className="panel">
-                <h3 className="panel-title panel-title--badge">
+                <h2 className="panel-title panel-title--badge">
                     <FileText size={16} />
                     Laser Work Details
                     <span className="badge panel-title-badge">{laserData.entries?.length || 0}</span>
-                </h3>
+                </h2>
                 <EntryTable entries={laserData.entries} type="laser" />
             </div>
             <CreditList bookKey="Laser" credits={laserCredits} liveEntries={laserData.entries} />
@@ -1653,11 +1413,11 @@ const DailyReport = () => {
         <div className="stack-md">
             <OpeningBalanceCard bookType="Other" />
             <div className="panel">
-                <h3 className="panel-title panel-title--badge">
+                <h2 className="panel-title panel-title--badge">
                     <Package size={16} />
                     Other Products
                     <span className="badge panel-title-badge">{otherData.entries?.length || 0}</span>
-                </h3>
+                </h2>
                 <p className="other-panel-description">
                     Mementos, Photo Frames, Gifts & other non-printing products
                 </p>
@@ -1859,14 +1619,28 @@ const DailyReport = () => {
                         </div>
                     )}
                     <div className="dr-controls-date">
-                        <Calendar size={15} />
-                        <input type="date" className="input-field dr-controls-date-input" value={reportDate}
-                            onChange={(e) => setReportDate(e.target.value)}
-                        />
-                    </div>
-                    <button className="btn btn-primary btn-sm dr-pdf-btn" onClick={generatePDF} title="Download PDF">
-                        <FileText size={15} /> PDF
-                    </button>
+    <label htmlFor="report-date" style={{display:'flex', alignItems:'center', gap:'8px'}}>
+        <Calendar size={15} />
+        <span className="sr-only">Select Date</span>
+    </label>
+    <input id="report-date" type="date" className="input-field dr-controls-date-input" value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
+</div>
+                    <React.Suspense fallback={<button className="btn btn-primary btn-sm dr-pdf-btn" disabled><FileText size={15} /> Loading...</button>}>
+        <PDFExport
+            branchName={branchName}
+            reportDate={reportDate}
+            offsetData={offsetData}
+            laserData={laserData}
+            otherData={otherData}
+            openingBalances={openingBalances}
+            creditTotals={creditTotals}
+            creditTransactions={creditTransactions}
+            attendanceData={attendanceData}
+            isFrontOffice={isFrontOffice}
+            user={user}
+            branches={branches}
+        />
+    </React.Suspense>
                 </div>
             </div>
 
@@ -1911,7 +1685,7 @@ const DailyReport = () => {
             {activeTab !== 'Attendance' && (
             <div className="panel dr-credits-panel">
                 <div className="panel-header dr-credits-panel-header">
-                    <h3 className="panel-title">Today's Credits — {activeTab}</h3>
+                    <h2 className="panel-title">Today's Credits — {activeTab}</h2>
                 </div>
                 <div className="row gap-lg dr-credits-grid">
                     {initialLoading ? (
@@ -1970,7 +1744,7 @@ const DailyReport = () => {
                 <div className="modal-backdrop">
                     <div className="modal-content" style={{ maxWidth: 450 }}>
                         <div className="modal-header">
-                            <h3>Add Credit — {creditModalData.book_type}</h3>
+                            <h2>Add Credit — {creditModalData.book_type}</h2>
                             <button className="btn btn-ghost btn-sm" onClick={() => setShowCreditModal(false)}>
                                 <X size={20} />
                             </button>
@@ -2045,4 +1819,4 @@ const DailyReport = () => {
     );
 };
 
-export default DailyReport;
+export default React.memo(DailyReport);

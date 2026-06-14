@@ -17,4 +17,4 @@ const ExpensesTab = ({ onPayment }) => {
   );
 };
 
-export default ExpensesTab;
+export default React.memo(ExpensesTab);

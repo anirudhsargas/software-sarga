@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState } from 'react';
 import usePolling from '../hooks/usePolling';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -140,6 +141,8 @@ const StatCard = ({ label, value, icon: Icon, color, subValue }) => (
 import { useOptimistic } from '../hooks/useOptimistic';
 
 const JobDetail = () => {
+    useSEO('Job Detail');
+
     const { id } = useParams();
     const navigate = useNavigate();
     const userRole = auth.getUser()?.role;
@@ -1040,7 +1043,7 @@ const JobDetail = () => {
                                         return (
                                             <div key={m.id} className="matter-image-item">
                                                 {isImg ? (
-                                                    <img
+                                                    <img loading="lazy"
                                                         src={imgUrl(m.file_url)}
                                                         alt="Matter"
                                                         className="matter-image-preview"
@@ -1177,7 +1180,7 @@ const JobDetail = () => {
                                                     <button onClick={handleUpdateRequired} className="plate-edit-button">OK</button>
                                                 </div>
                                             ) : (
-                                                <div onClick={() => { setRequiredInput(String(req)); setEditingRequired(true); }} className="paper-summary-value" title="Click to edit">
+                                                <div role="button" tabIndex={0} onClick={() => { setRequiredInput(String(req)); setEditingRequired(true); }} className="paper-summary-value" title="Click to edit">
                                                     {req || '—'}
                                                 </div>
                                             )}

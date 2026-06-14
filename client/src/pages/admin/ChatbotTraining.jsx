@@ -10,6 +10,7 @@ const INTENTS = [
 ];
 
 const ChatbotTraining = () => {
+  const CHATBOT_ENABLED = import.meta.env.VITE_CHATBOT_ENABLED !== 'false';
   const [tab, setTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [modelMeta, setModelMeta] = useState(null);
@@ -27,18 +28,24 @@ const ChatbotTraining = () => {
   const [trainingTotal, setTrainingTotal] = useState(0);
   const [trainingQuery, setTrainingQuery] = useState('');
   const [modelVersions, setModelVersions] = useState([]);
+  const [chatbotOnline, setChatbotOnline] = useState(false);
 
   const fetchStatus = useCallback(async () => {
+    if (!CHATBOT_ENABLED) return;
     try {
-      const res = await api.get('chatbot/model-status');
+      const res = await api.get('/chatbot/model-status', { skipGlobalErrorHandling: true });
       const data = res.data;
-      setModelMeta(data.meta || {});
-      setUnlabeledCount(data.unlabeled || 0);
-      setPendingCount(data.pending || 0);
+      if (data) {
+          setChatbotOnline(data?.healthy !== false && data?.loaded !== false);
+          setModelMeta(data.meta || {});
+          setUnlabeledCount(data.unlabeled || 0);
+          setPendingCount(data.pending || 0);
+      }
     } catch (e) {
-      toast.error('Model status fetch failed');
+      setChatbotOnline(false);
+      // Silently fail to prevent console spam
     }
-  }, []);
+  }, [CHATBOT_ENABLED]);
 
   const fetchIntentDistribution = useCallback(async () => {
     try {
@@ -91,9 +98,12 @@ const ChatbotTraining = () => {
       if (mounted) setLoading(false);
     };
     load();
-    const iv = setInterval(fetchStatus, 30000);
-    return () => { mounted = false; clearInterval(iv); };
-  }, [fetchStatus, fetchIntentDistribution, fetchUnlabeled, fetchModelVersions]);
+    let iv;
+    if (CHATBOT_ENABLED) {
+        iv = setInterval(fetchStatus, 30000);
+    }
+    return () => { mounted = false; if (iv) clearInterval(iv); };
+  }, [fetchStatus, fetchIntentDistribution, fetchUnlabeled, fetchModelVersions, CHATBOT_ENABLED]);
 
   // Normalized accuracy display (handles 0..1 and 0..100 formats)
   const accuracyValue = modelMeta?.accuracy;

@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, TrendingUp, TrendingDown, Minus, Sun, CloudRain, RefreshCw, BarChart3 } from 'lucide-react';
 import api from '../services/api';
@@ -38,6 +39,8 @@ const TREND_CONFIG = {
 };
 
 export default function Reports() {
+    useSEO('Reports');
+
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [tooltip, setTooltip] = useState(null);

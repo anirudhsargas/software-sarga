@@ -113,7 +113,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="em-modal" onClick={e => e.stopPropagation()}>
+      <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
         <div className="em-modal__header">
           <h2>Record Payment</h2>
           <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18} /></button>
@@ -396,7 +396,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ minWidth: 140 }}>
                     <label className="label">From</label>
-                    <select className="input-field" value={transferForm.from_book_type} onChange={e => setTransferForm(f => ({ ...f, from_book_type: e.target.value }))}>
+                    <select aria-label="Select option"  className="input-field" value={transferForm.from_book_type} onChange={e => setTransferForm(f => ({ ...f, from_book_type: e.target.value }))}>
                       {['Offset','Laser','Other'].map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                     {transferForm.from_book_type && bookBalances[transferForm.from_book_type] != null && (
@@ -405,7 +405,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                   </div>
                   <div style={{ minWidth: 140 }}>
                     <label className="label">To</label>
-                    <select className="input-field" value={transferForm.to_book_type} onChange={e => setTransferForm(f => ({ ...f, to_book_type: e.target.value }))}>
+                    <select aria-label="Select option"  className="input-field" value={transferForm.to_book_type} onChange={e => setTransferForm(f => ({ ...f, to_book_type: e.target.value }))}>
                       {['Offset','Laser','Other'].filter(b => b !== transferForm.from_book_type).map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                   </div>
@@ -430,4 +430,4 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
   );
 };
 
-export default PaymentModal;
+export default React.memo(PaymentModal);

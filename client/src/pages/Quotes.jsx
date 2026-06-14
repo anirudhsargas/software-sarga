@@ -1,8 +1,10 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { FileText, Plus, Edit2, Trash2, Send, ArrowRight, Search, X, ChevronDown, Loader2, UserSquare, Package, Clock, Camera } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import ScannerModal from '../components/ScannerModal';
+
+const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 
 const statusColors = {
     draft: '#6b7280', sent: '#3b82f6', accepted: '#22c55e', rejected: '#ef4444',
@@ -10,6 +12,8 @@ const statusColors = {
 };
 
 export default function Quotes() {
+    useSEO('Quotes');
+
     const [quotes, setQuotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -285,8 +289,8 @@ export default function Quotes() {
 
             {/* Create/Edit Modal */}
             {showForm && (
-                <div className="modal-backdrop" style={{ zIndex: 1003 }} onClick={() => setShowForm(false)}>
-                    <div className="modal" style={{ maxWidth: 900, width: '100%', maxHeight: '92vh', overflowX: 'hidden', padding: 0, borderRadius: 18, display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(15, 23, 42, 0.18)' }} onClick={e => e.stopPropagation()}>
+                <div role="button" tabIndex={0} className="modal-backdrop" style={{ zIndex: 1003 }} onClick={() => setShowForm(false)}>
+                    <div role="button" tabIndex={0} className="modal" style={{ maxWidth: 900, width: '100%', maxHeight: '92vh', overflowX: 'hidden', padding: 0, borderRadius: 18, display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(15, 23, 42, 0.18)' }} onClick={e => e.stopPropagation()}>
                         <div style={{ padding: '22px 26px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                             <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{editing ? 'Edit Quote' : 'Create New Quote'}</h3>
                             <button onClick={() => setShowForm(false)} style={{ background: 'var(--bg-3)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
@@ -458,7 +462,11 @@ export default function Quotes() {
                             </div>
                         </div>
 
-                        <ScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={(code) => handleQrLookup(code)} />
+                        {showScanner && (
+                            <React.Suspense fallback={<div style={{ padding: 24, textAlign: 'center' }}><Loader2 className="animate-spin" /> Loading scanner…</div>}>
+                                <ScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={(code) => handleQrLookup(code)} />
+                            </React.Suspense>
+                        )}
 
                         <div style={{ padding: '20px 24px', background: 'var(--surface-lowest)', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
                             <button onClick={() => setShowForm(false)} style={{ ...btnStyle('#ffffff00'), color: 'var(--text)', fontWeight: 500, border: '1px solid var(--border)' }}>Cancel</button>

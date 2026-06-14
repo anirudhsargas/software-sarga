@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -6,6 +7,8 @@ import api from '../services/api';
 import { useConfirm } from '../contexts/ConfirmContext';
 
 const ChangePassword = () => {
+    useSEO('Change Password');
+
     const { confirm } = useConfirm();
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');

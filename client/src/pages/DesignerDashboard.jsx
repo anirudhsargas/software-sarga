@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Briefcase, FileText, Search, ChevronDown, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +8,8 @@ import { useOfflineSync } from '../hooks/useOffline';
 import LoadingButton from '../components/LoadingButton';
 
 const DesignerDashboard = () => {
+    useSEO('Designer Dashboard');
+
   const navigate = useNavigate();
   const user = auth.getUser();
   const staffId = user?.id;
@@ -383,8 +386,7 @@ const DesignerDashboard = () => {
           {filteredJobs.map((job, idx) => {
             const statusColor = getStatusColor(job.status);
             return (
-              <div
-                key={idx}
+              <div role="button" tabIndex={0} key={idx}
                 onClick={() => handleJobClick(job.id)}
                 style={{
                   display: 'grid',

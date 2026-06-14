@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import localDb from '../services/localDb';
@@ -15,6 +16,8 @@ const statusConfig = {
 };
 
 const AttendanceSalary = () => {
+    useSEO('Attendance Salary');
+
   const user = auth.getUser();
   const staffId = user?.id;
 

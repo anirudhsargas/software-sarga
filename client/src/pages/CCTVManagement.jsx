@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Camera, Plus, X, Edit2, Trash2, Loader2, RefreshCw, Eye, EyeOff, Wifi, WifiOff, User, Upload, Image, Video, MonitorPlay, Network, KeyRound, UserCheck, ChevronRight, ExternalLink } from 'lucide-react';
 import api from '../services/api';
@@ -11,6 +12,8 @@ const BRANCHES = [
 ];
 
 const CCTVManagement = () => {
+    useSEO('C C T V Management');
+
   const [tab, setTab] = useState('cameras');
   const [cameras, setCameras] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -481,7 +484,7 @@ const CCTVManagement = () => {
                       </button>
                     </div>
                   ) : snapshotUrl ? (
-                    <img src={snapshotUrl} alt="CCTV Snapshot" style={{ width: '100%', display: 'block' }} />
+                    <img loading="lazy" src={snapshotUrl} alt="CCTV Snapshot" style={{ width: '100%', display: 'block' }} />
                   ) : (
                     <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Click Refresh to load snapshot</div>
                   )}
@@ -797,7 +800,7 @@ const CCTVManagement = () => {
                   <label className="label">Photo <span style={{ color: 'var(--error)' }}>*</span></label>
                   <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '24px 16px', borderRadius: 10, border: '2px dashed var(--border)', cursor: 'pointer', transition: 'border-color .15s', background: facePreview ? 'transparent' : 'var(--surface-2)' }}>
                     {facePreview ? (
-                      <img src={facePreview} alt="Preview" style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 10, border: '2px solid var(--border)' }} />
+                      <img loading="lazy" src={facePreview} alt="Preview" style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 10, border: '2px solid var(--border)' }} />
                     ) : (
                       <>
                         <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

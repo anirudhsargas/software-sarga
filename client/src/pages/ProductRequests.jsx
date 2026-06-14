@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -6,6 +7,8 @@ import SecureImage from '../components/SecureImage';
 import { useConfirm } from '../contexts/ConfirmContext';
 
 const ProductRequests = () => {
+    useSEO('Product Requests');
+
     const { confirm } = useConfirm();
     const [loading, setLoading] = useState(false);
     const [requests, setRequests] = useState([]);

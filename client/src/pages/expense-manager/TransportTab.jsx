@@ -217,22 +217,24 @@ const TransportTab = ({ onError }) => {
       {/* Transport Form Modal */}
       {showForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closeFormModal(); }}>
-          <div className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>{editing ? 'Edit' : 'Add'} Transport Expense</h2><button className="btn btn-ghost btn-icon" aria-label="Close transport expense form" onClick={() => closeFormModal()}><X size={18} /></button></div>
             {!confirming && formDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
             {!confirming ? (
               <form onSubmit={!editing ? handleReview : submitForm}>
                 <div className="em-modal__body">
                   <div className="em-form-grid">
-                    <div className="em-form-group"><label>Transport Type</label><select className="em-input" value={form.transport_type} onChange={e => updateForm({ transport_type: e.target.value })} required><option value="">Select Type</option>{TRANSPORT_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
+                    <div className="em-form-group"><label>Transport Type</label><select aria-label="Select option"  className="em-input" value={form.transport_type} onChange={e => updateForm({ transport_type: e.target.value })} required><option value="">Select Type</option>{TRANSPORT_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
                     <div className="em-form-group"><label>Vehicle #</label><input className="em-input" value={form.vehicle_number} onChange={e => updateForm({ vehicle_number: e.target.value })} /></div>
                     <div className="em-form-group"><label>Driver Name</label><input className="em-input" value={form.driver_name} onChange={e => updateForm({ driver_name: e.target.value })} /></div>
                     <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
                     <div className="em-form-group"><label>From</label><input className="em-input" value={form.from_location} onChange={e => updateForm({ from_location: e.target.value })} /></div>
                     <div className="em-form-group"><label>To</label><input className="em-input" value={form.to_location} onChange={e => updateForm({ to_location: e.target.value })} /></div>
                     <div className="em-form-group"><label>Distance (km)</label><input className="em-input" type="number" min="0" value={form.distance_km} onChange={e => updateForm({ distance_km: e.target.value })} /></div>
-                    <div className="em-form-group"><label>Payment Method</label><select className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer'].map(m => <option key={m}>{m}</option>)}</select></div>
-                    <div className="em-form-group"><label>Date</label><input className="em-input" type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} /></div>
+                    <div className="em-form-group"><label>Payment Method</label><select aria-label="Select option"  className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer'].map(m => <option key={m}>{m}</option>)}</select></div>
+                    <div className="em-form-group"><label>Date</label>
+        <label htmlFor="date-y2ztc" className="sr-only">Select Date</label>
+        <input id="date-y2ztc"  className="em-input" type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} /></div>
                     <div className="em-form-group"><label>Bill #</label><input className="em-input" value={form.bill_number} onChange={e => updateForm({ bill_number: e.target.value })} /></div>
                     <div className="em-form-group em-form-group--full"><label>Description</label><input className="em-input" value={form.description} onChange={e => updateForm({ description: e.target.value })} /></div>
                   </div>
@@ -265,4 +267,4 @@ const TransportTab = ({ onError }) => {
   );
 };
 
-export default TransportTab;
+export default React.memo(TransportTab);

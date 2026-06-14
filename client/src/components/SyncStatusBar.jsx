@@ -28,8 +28,7 @@ export const SyncStatusBar = () => {
   }
 
   return (
-    <div
-      className={`sync-bar sync-bar--${status}`}
+    <div role="button" tabIndex={0} className={`sync-bar sync-bar--${status}`}
       onClick={status !== 'syncing' ? syncNow : undefined}
       title="Click to sync now"
       style={{ cursor: status !== 'syncing' ? 'pointer' : 'default' }}

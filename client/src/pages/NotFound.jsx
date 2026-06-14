@@ -1,9 +1,12 @@
+import { useSEO } from '../hooks/useSEO';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileQuestion } from 'lucide-react';
 import ErrorPage from '../components/ErrorPage';
 
 const NotFound = () => {
+    useSEO('Not Found');
+
   const navigate = useNavigate();
   return (
     <ErrorPage

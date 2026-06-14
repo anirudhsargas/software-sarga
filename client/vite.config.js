@@ -11,7 +11,7 @@ export default defineConfig({
     boneyardPlugin(),
     VitePWA({
       registerType: 'autoUpdate', // Automatically update and reload when a new version is available
-      includeAssets: ['favicon.png', 'icons/*.png', 'assets/**/*'],
+      includeAssets: ['favicon.png', 'icons/*.png', 'icons/*.webp', 'icons/*.avif', 'assets/**/*'],
       manifest: false, // we already have public/manifest.json
       workbox: {
         cleanupOutdatedCaches: true,
@@ -19,7 +19,7 @@ export default defineConfig({
         clientsClaim: true,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit for caching
         // Cache JS, CSS, HTML, images, fonts
-        globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2,json}'],
+        globPatterns: ['**/*.{js,css,html,png,webp,avif,svg,ico,woff2,json}'],
         // Runtime caching for the API
         runtimeCaching: [
           {
@@ -80,34 +80,26 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Core (loads first)
           if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
             return 'vendor-react';
           }
           if (id.includes('lucide-react')) {
-            return 'vendor-ui';
+            return 'icons';
           }
-          // Heavy libraries → separate chunks (lazy-loaded)
           if (id.includes('jspdf')) {
             return 'pdf-export';
           }
-          if (id.includes('react-easy-crop')) {
-            return 'image-processing';
+          if (id.includes('src/pages/expense-manager/') || id.includes('src/pages/ExpenseManager')) {
+            return 'dashboard';
           }
-          if (id.includes('html5-qrcode') || id.includes('jsqr')) {
-            return 'qr-code';
-          }
-          if (id.includes('@dnd-kit')) {
-            return 'dnd-kit';
+          if (id.includes('src/pages/Reports') || id.includes('reportsTab')) {
+            return 'reports';
           }
           if (id.includes('recharts')) {
             return 'charts';
           }
           if (id.includes('axios')) {
             return 'http';
-          }
-          if (id.includes('dompurify')) {
-            return 'security';
           }
         },
         chunkFileNames: 'assets/js/[name]-[hash].js',
@@ -143,13 +135,13 @@ export default defineConfig({
     host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         rewrite: (path) => path,
         secure: false,
       },
       '/uploads': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         rewrite: (path) => path,
         secure: false,

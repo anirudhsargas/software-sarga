@@ -13,6 +13,11 @@ const OrderForecastWidget = ({ branchId }) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Call hooks unconditionally to preserve hook ordering across renders
     const ref = useScrollAnimation({ stagger: true, staggerSelector: 'div > *' });
@@ -98,10 +103,11 @@ const OrderForecastWidget = ({ branchId }) => {
             </div>
 
             {/* Chart */}
-            <div style={{ width: '100%', height: 220, marginBottom: 4, minWidth: 0 }}>
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                    <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border, #e5e7eb)" />
+            {mounted && (
+                <div style={{ width: '100%', minHeight: 300, marginBottom: 4, minWidth: 0 }}>
+                    <ResponsiveContainer width="100%" minHeight={300} minWidth={0}>
+                        <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border, #e5e7eb)" />
                         <XAxis
                             dataKey="label"
                             tick={{ fontSize: 12, fill: 'var(--muted, #9ca3af)' }}
@@ -136,7 +142,8 @@ const OrderForecastWidget = ({ branchId }) => {
                         </Bar>
                     </BarChart>
                 </ResponsiveContainer>
-            </div>
+                </div>
+            )}
 
             {/* Peak stat */}
             {peakLabel && (

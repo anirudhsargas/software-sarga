@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { 
     Plus, ArrowLeft, Package, MapPin, Layers, 
@@ -8,6 +9,8 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const PaperInward = () => {
+    useSEO('Paper Inward');
+
     const navigate = useNavigate();
     const location = useLocation();
     const [loading, setLoading] = useState(false);

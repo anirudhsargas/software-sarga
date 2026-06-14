@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, UserSquare, Loader2 } from 'lucide-react';
 import './SettingsPage.css';
@@ -84,6 +85,8 @@ function SidebarVisibilitySettings() {
 }
 
 export default function StaffSettingsPage() {
+    useSEO('Staff Settings Page');
+
     const [activeTab, setActiveTab] = useState('profile');
 
     return (

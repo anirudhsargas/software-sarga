@@ -1,32 +1,38 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// Centralized API URL for mobile/network access
-const getApiUrl = () => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+const normalizeApiUrl = (url) => {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
 
-    // If we're on localhost, call backend directly to avoid occasional Vite proxy issues
-    if (isLocal) {
-        return `${window.location.protocol}//localhost:3000/api/`;
+    if (raw.startsWith('/')) {
+        return `${window.location.origin}${raw}`;
     }
 
+    const trimmed = raw.endsWith('/') ? raw.slice(0, -1) : raw;
+    if (trimmed.endsWith('/api')) return `${trimmed}/`;
+    if (trimmed.endsWith('/api/')) return trimmed;
+    return `${trimmed}/api/`;
+};
+
+// Centralized API URL for mobile/network access
+const getApiUrl = () => {
+    const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+
     if (envUrl) {
-        let url = envUrl.endsWith('/') ? envUrl : envUrl + '/';
-        if (!url.endsWith('api/')) {
-            url += 'api/';
-        }
-        return url;
+        return normalizeApiUrl(envUrl);
+    }
+
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    if (isLocal) {
+        return 'http://localhost:3000/api/';
     }
 
     // Fallback: If not local and no env var, we're likely on Vercel.
     // We should try to use the known Render backend URL or warn.
-    if (!isLocal) {
-        console.warn('[API] VITE_API_URL is missing. Falling back to default Render backend.');
-        return 'https://software-sarga-2.onrender.com/api/';
-    }
-
-    return `${window.location.protocol}//${window.location.hostname}:3000/api/`;
+    console.warn('[API] VITE_API_URL is missing. Falling back to default Render backend.');
+    return 'https://software-sarga-2.onrender.com/api/';
 };
 
 export const API_URL = getApiUrl();
@@ -188,6 +194,10 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
+        if (error.config?.skipGlobalErrorHandling) {
+            return Promise.reject(error);
+        }
+
         const data = error.response?.data;
         const serverError = data?.error;
         const userMsg = serverError?.userMessage;

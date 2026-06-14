@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, Loader2, AlertCircle, X, User, Edit, Trash2 } from 'lucide-react';
 import auth from '../services/auth';
@@ -7,6 +8,8 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 
 const Requests = () => {
+    useSEO('Requests');
+
     const { confirm } = useConfirm();
     const user = auth.getUser();
     const [idRequests, setIdRequests] = useState([]);

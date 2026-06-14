@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
 import VendorsList from '../components/Vendors';
@@ -12,6 +13,8 @@ import { Plus, TrendingUp, List } from 'lucide-react';
 import './Vendors.css';
 
 const Vendors = () => {
+    useSEO('Vendors');
+
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showVendorModal, setShowVendorModal] = useState(false);

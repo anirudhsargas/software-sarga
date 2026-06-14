@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://software-sarga-2.onrender.com/sitemap.xml

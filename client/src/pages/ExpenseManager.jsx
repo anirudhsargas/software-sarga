@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import usePolling from '../hooks/usePolling';
@@ -43,6 +44,8 @@ const tabs = [
 const VALID_TABS = new Set(tabs.map(t => t.key).concat('reports'));
 
 const ExpenseManager = () => {
+    useSEO('Expense Manager');
+
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
   const activeTab = (tabFromUrl && VALID_TABS.has(tabFromUrl)) ? tabFromUrl : 'dashboard';
@@ -159,8 +162,8 @@ const ExpenseManager = () => {
 
       {/* ═══════ Bills & Docs Side Panel ═══════ */}
       {showBillsPanel && (
-        <div className="em-sidepanel-backdrop" onClick={() => setShowBillsPanel(false)}>
-          <div className="em-sidepanel" onClick={(e) => e.stopPropagation()}>
+        <div role="button" tabIndex={0} className="em-sidepanel-backdrop" onClick={() => setShowBillsPanel(false)}>
+          <div role="button" tabIndex={0} className="em-sidepanel" onClick={(e) => e.stopPropagation()}>
             <div className="em-sidepanel__header">
               <div className="em-sidepanel__title"><FileText size={16} /> Bills & Docs</div>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowBillsPanel(false)}><X size={18} /></button>

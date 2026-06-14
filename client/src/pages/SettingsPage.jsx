@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { Settings as SettingsIcon, DollarSign, CreditCard, Building2, Globe, Plus, Edit2, Trash2, Save, X, Loader2, ToggleLeft, ToggleRight, Sparkles, Layout, UserSquare, ShieldCheck } from 'lucide-react';
 import api from '../services/api';
@@ -13,6 +14,8 @@ const tabs = [
 ];
 
 export default function SettingsPage() {
+    useSEO('Settings Page');
+
     const [activeTab, setActiveTab] = useState('general');
 
     return (
@@ -80,8 +83,7 @@ function AppearanceSettings() {
             <p className="sp-note">Customize how Sarga looks on your device.</p>
             
             <div className="sp-theme-grid">
-                <div 
-                    className={`sp-theme-card ${theme === 'dark' ? 'sp-theme-card--active' : ''}`}
+                <div role="button" tabIndex={0} className={`sp-theme-card ${theme === 'dark' ? 'sp-theme-card--active' : ''}`}
                     onClick={() => toggleTheme('dark')}
                 >
                     <div className="sp-theme-preview sp-theme-preview--dark">
@@ -94,8 +96,7 @@ function AppearanceSettings() {
                     </div>
                 </div>
                 
-                <div 
-                    className={`sp-theme-card ${theme === 'light' ? 'sp-theme-card--active' : ''}`}
+                <div role="button" tabIndex={0} className={`sp-theme-card ${theme === 'light' ? 'sp-theme-card--active' : ''}`}
                     onClick={() => toggleTheme('light')}
                 >
                     <div className="sp-theme-preview sp-theme-preview--light">

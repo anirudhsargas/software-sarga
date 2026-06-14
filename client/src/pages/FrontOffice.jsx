@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import usePolling from '../hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +25,8 @@ const OPENING_TABS = [
 ];
 
 const FrontOffice = () => {
+    useSEO('Front Office');
+
     const navigate = useNavigate();
     const user = auth.getUser();
     const [loading, setLoading] = useState(true);

@@ -138,8 +138,8 @@ const PaperOptimizer = ({ isOpen, onClose, onApply }) => {
   const wasteColor = !hasError && result.wastePercent < 20 ? 'var(--success)' : result?.wastePercent < 40 ? 'var(--warning)' : 'var(--error)';
 
   return (
-    <div style={s.overlay} onClick={onClose}>
-      <div style={s.modal} onClick={(e) => e.stopPropagation()}>
+    <div role="button" tabIndex={0} style={s.overlay} onClick={onClose}>
+      <div role="button" tabIndex={0} style={s.modal} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={s.header}>
           <h2 style={s.title}>
@@ -335,8 +335,7 @@ const PaperOptimizer = ({ isOpen, onClose, onApply }) => {
                     </div>
                     <div style={{ maxHeight: 220, overflowY: 'auto' }}>
                       {bestSheets.map((opt, i) => (
-                        <div
-                          key={opt.sheetSize}
+                        <div role="button" tabIndex={0} key={opt.sheetSize}
                           style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                             padding: '8px 12px', borderRadius: 8, marginBottom: 4, cursor: 'pointer',

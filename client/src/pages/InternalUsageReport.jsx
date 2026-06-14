@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, RefreshCw, Building2, Hash, FileText, Calendar, Filter } from 'lucide-react';
 import api from '../services/api';
@@ -27,6 +28,8 @@ const firstOfMonth = () => {
 };
 
 const InternalUsageReport = () => {
+    useSEO('Internal Usage Report');
+
     const [bills, setBills] = useState([]);
     const [summary, setSummary] = useState({});
     const [trend, setTrend] = useState([]);

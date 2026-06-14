@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { 
     AlertTriangle, ArrowLeft, Layers, MapPin, 
@@ -8,6 +9,8 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const PaperAlerts = () => {
+    useSEO('Paper Alerts');
+
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [alerts, setAlerts] = useState([]);

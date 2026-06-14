@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings } from 'lucide-react';
@@ -39,7 +40,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
         <td>{new Date(s.created_at).toLocaleDateString()}</td>
         <td>
             {isAdmin ? (
-                <div className="row gap-sm" onClick={(e) => e.stopPropagation()}>
+                <div role="button" tabIndex={0} className="row gap-sm" onClick={(e) => e.stopPropagation()}>
                     <button
                         className="btn btn-ghost"
                         style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
@@ -146,6 +147,8 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
 ));
 
 const StaffManagement = () => {
+    useSEO('Staff Management');
+
     const { confirm } = useConfirm();
     const navigate = useNavigate();
     const user = auth.getUser();
@@ -558,7 +561,7 @@ const StaffManagement = () => {
                             <div>
                                 <label className="label">Staff Photo</label>
                                 <input type="file" name="newStaffPhoto" accept="image/*" onChange={e => openCropper(e.target.files?.[0], 'newStaff')} />
-                                {newStaffPreview && <img src={newStaffPreview} className="thumb-img" alt="preview" style={{ marginTop: 8, borderRadius: 8, maxHeight: 80 }} />}
+                                {newStaffPreview && <img loading="lazy" src={newStaffPreview} className="thumb-img" alt="preview" style={{ marginTop: 8, borderRadius: 8, maxHeight: 80 }} />}
                             </div>
                             <div>
                                 <label className="label">Full Name</label>
@@ -623,7 +626,7 @@ const StaffManagement = () => {
                             <div>
                                 <label className="label">Staff Photo</label>
                                 <div className="row gap-sm" style={{ alignItems: 'center' }}>
-                                    {editStaffPreview && <img src={editStaffPreview} alt="Preview" style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover' }} />}
+                                    {editStaffPreview && <img loading="lazy" src={editStaffPreview} alt="Preview" style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover' }} />}
                                     <input type="file" name="editStaffPhoto" accept="image/*" onChange={e => openCropper(e.target.files?.[0], 'editStaff')} />
                                     {(editStaffImage || selectedStaff?.image_url) && (
                                         <button type="button" className="btn btn-ghost text-error" style={{ padding: '4px 8px', fontSize: 12 }} onClick={handleRemoveStaffImage}>Remove</button>

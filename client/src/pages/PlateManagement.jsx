@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Layers, Loader2, Plus, Minus, Search, Maximize2, Hash, UserSquare, Calendar, X, RotateCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
@@ -15,6 +16,8 @@ const SLOT_SIZES = {
 const STANDARD_PLATE_SIZES = ['SRA3', 'SRA2', 'SRA1', 'A3', 'A2', 'A1', '13x19', '12x18'];
 
 const PlateManagement = () => {
+    useSEO('Plate Management');
+
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');

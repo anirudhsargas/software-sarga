@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import usePolling from '../hooks/usePolling';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -88,6 +89,8 @@ const WhatsAppBtn = ({ mobile, customerName, outstanding, orderCount }) => {
 };
 
 const CustomerDetails = () => {
+    useSEO('Customer Details');
+
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
@@ -437,7 +440,7 @@ const CustomerDetails = () => {
             <div className="cd-orders-list">
               {filteredJobs.map(job => (
                 <div key={job.id} className="cd-order-card">
-                  <div className="cd-order-header" onClick={() => setExpandedJob(expandedJob === job.id ? null : job.id)}>
+                  <div role="button" tabIndex={0} className="cd-order-header" onClick={() => setExpandedJob(expandedJob === job.id ? null : job.id)}>
                     <div className="cd-order-left">
                       <span className="cd-order-number">#{job.job_number || job.id}</span>
                       <span className="cd-order-name">{job.job_name}</span>
@@ -722,8 +725,7 @@ const CustomerDetails = () => {
                     onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
                   >
                     {/* Thumbnail / Preview */}
-                    <div
-                      onClick={() => isImage ? setPreviewDesign(d) : window.open(fileUrl, '_blank')}
+                    <div role="button" tabIndex={0} onClick={() => isImage ? setPreviewDesign(d) : window.open(fileUrl, '_blank')}
                       style={{
                         height: 160, background: 'var(--bg, #f3f4f6)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -937,8 +939,7 @@ const CustomerDetails = () => {
 
       {/* Design Preview Lightbox */}
       {previewDesign && (
-        <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 20, cursor: 'zoom-out' }}
+        <div role="button" tabIndex={0} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 20, cursor: 'zoom-out' }}
           onClick={() => setPreviewDesign(null)}
         >
           <button onClick={() => setPreviewDesign(null)}

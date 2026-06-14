@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
@@ -5,6 +6,8 @@ import { Mail, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function ForgotPassword() {
+    useSEO('Forgot Password');
+
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);

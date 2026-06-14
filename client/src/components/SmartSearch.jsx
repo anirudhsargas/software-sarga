@@ -107,8 +107,7 @@ const SmartSearch = ({ isOpen, onClose }) => {
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="smart-search-backdrop"
+      <div role="button" tabIndex={0} className="smart-search-backdrop"
         onClick={onClose}
       />
 
@@ -159,8 +158,7 @@ const SmartSearch = ({ isOpen, onClose }) => {
                 flatIdx++;
                 const idx = flatIdx;
                 return (
-                  <div
-                    key={`c-${c.id}`}
+                  <div role="button" tabIndex={0} key={`c-${c.id}`}
                     className={`smart-search-item ${idx === selectedIndex ? 'smart-search-item--active' : ''}`}
                     onClick={() => handleNavigate({ type: 'customer', data: c })}
                     onMouseEnter={() => setSelectedIndex(idx)}
@@ -197,8 +195,7 @@ const SmartSearch = ({ isOpen, onClose }) => {
                   Delivered: 'var(--accent)', Cancelled: 'var(--error)',
                 }[j.status] || 'var(--muted)';
                 return (
-                  <div
-                    key={`j-${j.id}`}
+                  <div role="button" tabIndex={0} key={`j-${j.id}`}
                     className={`smart-search-item ${idx === selectedIndex ? 'smart-search-item--active' : ''}`}
                     onClick={() => handleNavigate({ type: 'job', data: j })}
                     onMouseEnter={() => setSelectedIndex(idx)}
@@ -238,8 +235,7 @@ const SmartSearch = ({ isOpen, onClose }) => {
                 flatIdx++;
                 const idx = flatIdx;
                 return (
-                  <div
-                    key={`p-${p.id}`}
+                  <div role="button" tabIndex={0} key={`p-${p.id}`}
                     className={`smart-search-item ${idx === selectedIndex ? 'smart-search-item--active' : ''}`}
                     onClick={() => handleNavigate({ type: 'product', data: p })}
                     onMouseEnter={() => setSelectedIndex(idx)}

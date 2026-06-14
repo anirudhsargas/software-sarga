@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Download, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { runAllOfflineTests } from '../tests/offlineTest';
@@ -5,6 +6,8 @@ import toast from 'react-hot-toast';
 import './OfflineTestPage.css';
 
 const OfflineTestPage = () => {
+    useSEO('Offline Test Page');
+
   const [testResults, setTestResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);

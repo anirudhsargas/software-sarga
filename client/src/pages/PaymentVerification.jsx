@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   ShieldCheck, ShieldX, ShieldAlert, Clock, Search, Filter,
@@ -25,6 +26,8 @@ const METHOD_ICONS = {
 };
 
 const PaymentVerification = () => {
+    useSEO('Payment Verification');
+
   const [payments, setPayments] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -172,7 +175,7 @@ const PaymentVerification = () => {
 
             return (
               <div key={p.id} className={`pv-card ${isExpanded ? 'pv-card--expanded' : ''}`}>
-                <div className="pv-card-main" onClick={() => setExpandedId(isExpanded ? null : p.id)}>
+                <div role="button" tabIndex={0} className="pv-card-main" onClick={() => setExpandedId(isExpanded ? null : p.id)}>
                   {/* Left: method icon */}
                   <div className="pv-card-method">
                     <span className="pv-method-emoji">{METHOD_ICONS[p.payment_method] || '💰'}</span>

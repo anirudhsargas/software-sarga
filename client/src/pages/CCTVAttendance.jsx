@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useCallback } from 'react';
 import { Camera, Loader2, Plus, X, User, Clock, RefreshCw } from 'lucide-react';
 import api from '../services/api';
@@ -29,6 +30,8 @@ const formatTime = (ts) => {
 };
 
 const CCTVAttendance = () => {
+    useSEO('C C T V Attendance');
+
   const [branch, setBranch] = useState('perambra');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [summary, setSummary] = useState(null);

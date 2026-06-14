@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Building2, ArrowRightCircle } from 'lucide-react';
 import api from '../services/api';
@@ -11,6 +12,8 @@ const BOOK_TYPES = [
 ];
 
 const InternalTransfers = () => {
+    useSEO('Internal Transfers');
+
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
 

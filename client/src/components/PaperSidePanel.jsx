@@ -196,8 +196,8 @@ export default function PaperSidePanel({ open, onClose }) {
     if (!open) return null;
 
     return (
-        <div className="modal-backdrop" onClick={() => onClose && onClose()}>
-            <div className="em-modal" style={{ width: 420, height: '100vh', right: 0, position: 'fixed', top: 0, margin: 0, borderRadius: 0 }} onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => onClose && onClose()}>
+            <div role="button" tabIndex={0} className="em-modal" style={{ width: 420, height: '100vh', right: 0, position: 'fixed', top: 0, margin: 0, borderRadius: 0 }} onClick={e => e.stopPropagation()}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Package size={18} />

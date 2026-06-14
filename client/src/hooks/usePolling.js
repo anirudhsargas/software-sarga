@@ -17,15 +17,23 @@ const usePolling = (callback, intervalMs = 30000, enabled = true) => {
         savedCallback.current = callback;
     }, [callback]);
 
+    const runCallback = useCallback(async () => {
+        try {
+            await savedCallback.current();
+        } catch (err) {
+            console.warn('[usePolling] Polling callback failed:', err);
+        }
+    }, []);
+
     const start = useCallback(() => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         
         intervalRef.current = setInterval(() => {
-            if (document.visibilityState === 'visible') {
-                savedCallback.current();
+            if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+                runCallback();
             }
         }, intervalMs);
-    }, [intervalMs]);
+    }, [intervalMs, runCallback]);
 
     const stop = useCallback(() => {
         if (intervalRef.current) {
@@ -44,8 +52,8 @@ const usePolling = (callback, intervalMs = 30000, enabled = true) => {
 
         // Also refresh when tab becomes visible again after being hidden
         const handleVisibility = () => {
-            if (document.visibilityState === 'visible') {
-                savedCallback.current();
+            if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+                runCallback();
             }
         };
         document.addEventListener('visibilitychange', handleVisibility);
@@ -54,7 +62,7 @@ const usePolling = (callback, intervalMs = 30000, enabled = true) => {
             stop();
             document.removeEventListener('visibilitychange', handleVisibility);
         };
-    }, [enabled, start, stop]);
+    }, [enabled, runCallback, start, stop]);
 
     return { start, stop };
 };

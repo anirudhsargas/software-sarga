@@ -244,7 +244,7 @@ const CustomerPayments = () => {
     return bal < 1 ? 0 : bal;
   };
 
-  const fetchPayments = async (page = paymentsPage) => {
+  async function fetchPayments(page = paymentsPage) {
     setLoading(true);
     try {
       if (isOnline) {
@@ -310,7 +310,7 @@ const CustomerPayments = () => {
     return payments;
   }, [payments, verifyFilter]);
 
-  const fetchCustomers = async () => {
+  async function fetchCustomers() {
     try {
       const data = await localDb.getCustomers();
       setCustomers(data || []);
@@ -319,7 +319,7 @@ const CustomerPayments = () => {
     }
   };
 
-  const fetchCustomerJobs = async (customerId) => {
+  async function fetchCustomerJobs(customerId) {
     try {
       const jobs = await localDb.getCustomerJobs(customerId);
       setCustomerJobs(jobs || []);

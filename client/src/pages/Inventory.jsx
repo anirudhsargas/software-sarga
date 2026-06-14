@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, List, Grid, TrendingUp, TrendingDown, IndianRupee, BarChart3, Clock, ShoppingCart, ArrowLeftRight, Bell, Image as ImageIcon } from 'lucide-react';
@@ -34,6 +35,8 @@ const emptyItem = {
 };
 
 const Inventory = () => {
+    useSEO('Inventory');
+
     const { confirm } = useConfirm();
     const isAdmin = ['Admin', 'Accountant'].includes(auth.getUser()?.role);
     const isFrontOffice = auth.getUser()?.role === 'Front Office';
@@ -967,7 +970,7 @@ const Inventory = () => {
                                                     />
                                                 </td>
                                                 <td>
-                                                    <div className="inv-item-cell" onClick={() => openItemDetail(item.id)}>
+                                                    <div role="button" tabIndex={0} className="inv-item-cell" onClick={() => openItemDetail(item.id)}>
                                                         <div className="inv-item-thumb">
                                                             {resolveImageSrc(item) ? (
                                                                 <SecureImage src={resolveImageSrc(item)} alt={item.name} />
@@ -1074,7 +1077,7 @@ const Inventory = () => {
                         ) : items.map(item => (
                             <div key={item.id} className="card" style={{ padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--surface)', border: '1px solid var(--border)' }}>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                                    <div style={{ width: 84, height: 84, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface-2)', cursor: 'pointer' }} onClick={() => openItemDetail(item.id)}>
+                                    <div role="button" tabIndex={0} style={{ width: 84, height: 84, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface-2)', cursor: 'pointer' }} onClick={() => openItemDetail(item.id)}>
                                         {resolveImageSrc(item) ? <SecureImage src={resolveImageSrc(item)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>No Image</div>}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -1142,7 +1145,7 @@ const Inventory = () => {
                                 {filteredProducts.length > 0 && (
                                     <div className="dropdown mt-4">
                                         {filteredProducts.map(p => (
-                                            <div key={p.id} className="dropdown-item" onClick={() => selectProduct(p)}>
+                                            <div role="button" tabIndex={0} key={p.id} className="dropdown-item" onClick={() => selectProduct(p)}>
                                                 <div className="text-sm font-medium">{p.name}</div>
                                                 <div className="muted text-xs">{p.category_name} &rsaquo; {p.subcategory_name}</div>
                                             </div>
@@ -1429,7 +1432,7 @@ const Inventory = () => {
                                 {filteredProducts.length > 0 && (
                                     <div className="dropdown mt-4">
                                         {filteredProducts.map(p => (
-                                            <div key={p.id} className="dropdown-item" onClick={() => selectProduct(p, true)}>
+                                            <div role="button" tabIndex={0} key={p.id} className="dropdown-item" onClick={() => selectProduct(p, true)}>
                                                 <div className="text-sm font-medium">{p.name}</div>
                                                 <div className="muted text-xs">{p.category_name} &rsaquo; {p.subcategory_name}</div>
                                             </div>
@@ -1873,8 +1876,8 @@ const Inventory = () => {
 
             {/* Product Detail Dashboard Modal */}
             {showDetailModal && (
-                <div className="modal-backdrop" onClick={() => { setShowDetailModal(false); setDetailItem(null); }}>
-                    <div className="modal" style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => { setShowDetailModal(false); setDetailItem(null); }}>
+                    <div role="button" tabIndex={0} className="modal" style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
                         <button className="modal-close" onClick={() => { setShowDetailModal(false); setDetailItem(null); }}>
                             <X size={22} />
                         </button>
@@ -2263,8 +2266,8 @@ const Inventory = () => {
 
             {/* Stock Requests Panel */}
             {showStockRequestsPanel && (
-                <div className="modal-backdrop" onClick={() => setShowStockRequestsPanel(false)}>
-                    <div className="modal" style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setShowStockRequestsPanel(false)}>
+                    <div role="button" tabIndex={0} className="modal" style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
                         <button className="modal-close" onClick={() => setShowStockRequestsPanel(false)}>
                             <X size={22} />
                         </button>

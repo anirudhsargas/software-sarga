@@ -921,8 +921,12 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
           <div className="em-card__title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div><FileText size={16} /> Transaction History</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input type="date" className="em-input" value={statementFrom} onChange={e => setStatementFrom(e.target.value)} />
-              <input type="date" className="em-input" value={statementTo} onChange={e => setStatementTo(e.target.value)} />
+              
+        <label htmlFor="date-anzytc" className="sr-only">Select Date</label>
+        <input id="date-anzytc"  type="date" className="em-input" value={statementFrom} onChange={e => setStatementFrom(e.target.value)} />
+              
+        <label htmlFor="date-iq9to" className="sr-only">Select Date</label>
+        <input id="date-iq9to"  type="date" className="em-input" value={statementTo} onChange={e => setStatementTo(e.target.value)} />
               <button className="btn btn-ghost btn-sm" onClick={() => fetchVendorLedger(selectedVendor, statementFrom, statementTo)}>Apply</button>
               <button className="btn btn-ghost btn-sm" onClick={() => { setStatementFrom(''); setStatementTo(''); fetchVendorLedger(selectedVendor, '', ''); }}>Clear</button>
             </div>
@@ -1059,7 +1063,7 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
           <div className="em-vendor-list">
             {paginatedVendors.map(v => (
               <div key={v.id} className="em-vendor-card" onDoubleClick={() => openVendorDetail(v)}>
-                <div className="em-vendor-card__header" onClick={() => setExpandedVendor(expandedVendor === v.id ? null : v.id)}>
+                <div role="button" tabIndex={0}  className="em-vendor-card__header" onClick={() => setExpandedVendor(expandedVendor === v.id ? null : v.id)}>
                   <div className="em-vendor-card__avatar"><Store size={18} /></div>
                   <div className="em-vendor-card__info">
                     <div className="em-vendor-card__name">{v.name}</div>
@@ -1112,7 +1116,7 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
       {/* ── Add/Edit Vendor Modal ── */}
       {showForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
               <h2>{editingVendor ? 'Edit Vendor' : 'Add Vendor'}</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowForm(false)}><X size={18} /></button>
@@ -1127,7 +1131,7 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
                   </div>
                   <div className="em-form-group">
                     <label>Type</label>
-                    <select className="em-input" value={vendorForm.type} onChange={e => setVendorForm(p => ({ ...p, type: e.target.value }))}>
+                    <select aria-label="Select option"  className="em-input" value={vendorForm.type} onChange={e => setVendorForm(p => ({ ...p, type: e.target.value }))}>
                       <option value="Vendor">Vendor</option>
                       <option value="Paper Supplier">Paper Supplier</option>
                       <option value="Ink Supplier">Ink Supplier</option>
@@ -1170,7 +1174,7 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
       {/* ── Vendor Request Modal (Front Office) ── */}
       {showRequestForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowRequestForm(false); }}>
-          <div className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
               <h2>Request Vendor</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowRequestForm(false)}><X size={18} /></button>
@@ -1216,8 +1220,8 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
 
       {/* Purchase Recording Modal */}
       {showPurchaseForm && (
-        <div className="em-modal-backdrop" onClick={() => setShowPurchaseForm(false)}>
-          <div className="em-modal" onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0}  className="em-modal-backdrop" onClick={() => setShowPurchaseForm(false)}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
             <form onSubmit={handlePurchaseSubmit}>
               <div className="em-modal__header">
                 <h3><ShoppingCart size={18} /> Record Purchase — {purchaseForm.vendor_name}</h3>
@@ -1237,7 +1241,9 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
                   </div>
                   <div className="em-form-group">
                     <label>Bill Date</label>
-                    <input className="em-input" type="date" value={purchaseForm.bill_date} onChange={e => setPurchaseForm(p => ({ ...p, bill_date: e.target.value }))} />
+                    
+        <label htmlFor="date-302bgm" className="sr-only">Select Date</label>
+        <input id="date-302bgm"  className="em-input" type="date" value={purchaseForm.bill_date} onChange={e => setPurchaseForm(p => ({ ...p, bill_date: e.target.value }))} />
                   </div>
                   <div className="em-form-group em-form-group--full">
                     <label>Description</label>
@@ -1256,8 +1262,8 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
 
       {/* Itemized Bill Modal */}
       {showBillForm && (
-        <div className="em-modal-overlay" onClick={() => setShowBillForm(false)}>
-          <div className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0}  className="em-modal-overlay" onClick={() => setShowBillForm(false)}>
+          <div role="button" tabIndex={0}  className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
             <form onSubmit={handleBillSubmit}>
               <div className="em-modal__header">
                 <h3><Package size={18} /> Record Bill with Items</h3>
@@ -1273,7 +1279,9 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
                   </div>
                   <div className="em-form-group">
                     <label>Bill Date</label>
-                    <input className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
+                    
+        <label htmlFor="date-w9flil" className="sr-only">Select Date</label>
+        <input id="date-w9flil"  className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
                   </div>
                 </div>
 
@@ -1297,7 +1305,7 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
                         {billItems.map((item, idx) => (
                           <tr key={idx}>
                             <td>
-                              <select className="em-input" value={item.inventory_item_id} onChange={e => updateBillItem(idx, 'inventory_item_id', e.target.value)} style={{ minWidth: 200 }}>
+                              <select aria-label="Select option"  className="em-input" value={item.inventory_item_id} onChange={e => updateBillItem(idx, 'inventory_item_id', e.target.value)} style={{ minWidth: 200 }}>
                                 <option value="">Select item...</option>
                                 {inventoryOptions.map(inv => (
                                   <option key={inv.id} value={inv.id}>{inv.name} {inv.sku ? `(${inv.sku})` : ''}</option>
@@ -1339,7 +1347,7 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
       {/* Add Inventory Item Modal (from vendor detail) */}
       {showAddInventoryModal && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowAddInventoryModal(false); }}>
-          <div className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
               <h2>Add Inventory Item</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowAddInventoryModal(false)}><X size={18} /></button>
@@ -1398,4 +1406,4 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
   );
 };
 
-export default VendorsTab;
+export default React.memo(VendorsTab);

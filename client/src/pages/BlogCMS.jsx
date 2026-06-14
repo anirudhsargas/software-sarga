@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSEO } from '../hooks/useSEO';
 import { Mail, Search, Filter, BookOpen, ExternalLink, Calendar, User, Save, RefreshCw, Plus, Trash2, Edit3, Eye, Share2, EyeOff, Sparkles, Layout } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
@@ -19,6 +20,8 @@ const authorsRef = useRef([]);
 const analyticsRef = useRef(null);
 
 const BlogCMS = () => {
+    useSEO('Blog C M S');
+
   const [posts, setPosts] = useState([]);
   const [authors, setAuthors] = useState([]);
   const [loading, setLoading] = useState(true);

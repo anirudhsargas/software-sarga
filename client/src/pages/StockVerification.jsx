@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import useAuth from '../hooks/useAuth';
 import api from '../services/api';
@@ -7,6 +8,8 @@ import toast from 'react-hot-toast';
 import './StockVerification.css';
 
 const StockVerification = () => {
+    useSEO('Stock Verification');
+
     const { user } = useAuth();
     const { confirm } = useConfirm();
     const [month, setMonth] = useState(() => {

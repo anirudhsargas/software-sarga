@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import {
@@ -204,8 +205,7 @@ const MachineQueueCard = ({ queue, onRefresh }) => {
             border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '16px'
         }}>
             {/* Machine Header */}
-            <div
-                onClick={() => setExpanded(p => !p)}
+            <div role="button" tabIndex={0} onClick={() => setExpanded(p => !p)}
                 style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '14px 16px', cursor: 'pointer', borderBottom: expanded ? '1px solid var(--border)' : 'none',
@@ -352,6 +352,8 @@ const StatsPanel = ({ stats }) => {
 
 // ────────────── Main Component ──────────────
 const JobPriority = () => {
+    useSEO('Job Priority');
+
     const [data, setData] = useState(null);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);

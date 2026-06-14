@@ -32,6 +32,11 @@ export default function ForecastChart() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [range, setRange] = useState(30); // 7 or 30
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const fetchForecast = useCallback(async () => {
         setLoading(true);
@@ -151,8 +156,9 @@ export default function ForecastChart() {
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontSize: '13px' }}>
                     No forecast data available yet
                 </div>
-            ) : (
-                <ResponsiveContainer width="100%" height={260} minWidth={0}>
+            ) : mounted ? (
+                <div style={{ width: '100%', minHeight: 300, minWidth: 0 }}>
+                <ResponsiveContainer width="100%" minHeight={300} minWidth={0}>
                     <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis
@@ -211,7 +217,8 @@ export default function ForecastChart() {
                         />
                     </ComposedChart>
                 </ResponsiveContainer>
-            )}
+                </div>
+            ) : null}
 
             {/* Top features */}
             {data?.top_features?.length > 0 && (

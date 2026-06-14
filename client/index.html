@@ -6,9 +6,28 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"></noscript>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#1f2a33" />
+    <meta name="description" content="Manage Sarga Printing operations including billing, inventory, customers, reports, expense tracking, orders, and production in one system." />
+    <meta name="keywords" content="printing management, offset printing, billing software, inventory, Sarga Printing" />
+    <meta name="author" content="Sarga Printing" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#111827" />
+
+    <meta property="og:title" content="Sarga Print Shop" />
+    <meta property="og:description" content="Manage Sarga Printing operations including billing, inventory, customers, reports, expense tracking, orders, and production in one system." />
+    <meta property="og:image" content="https://software-sarga-2.onrender.com/icons/icon-512.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://software-sarga-2.onrender.com/" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Sarga Print Shop" />
+    <meta name="twitter:description" content="Manage Sarga Printing operations including billing, inventory, customers, reports, expense tracking, orders, and production in one system." />
+    <meta name="twitter:image" content="https://software-sarga-2.onrender.com/icons/icon-512.png" />
+
+    <link rel="canonical" href="https://software-sarga-2.onrender.com/" />
+
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -66,7 +85,11 @@
   </head>
   <body>
     <div id="splash-screen">
-      <img src="/icons/icon-192.png" alt="Sarga" class="splash-logo" onerror="this.style.display='none'">
+      <picture>
+        <source type="image/avif" srcset="/icons/icon-48.avif 48w, /icons/icon-96.avif 96w, /icons/icon-192.avif 192w" sizes="80px">
+        <source type="image/webp" srcset="/icons/icon-48.webp 48w, /icons/icon-96.webp 96w, /icons/icon-192.webp 192w" sizes="80px">
+        <img src="/icons/icon-192.png" alt="Sarga" class="splash-logo" width="80" height="80" onerror="this.style.display='none'">
+      </picture>
       <div class="splash-spinner"></div>
       <div class="splash-text">Sarga</div>
     </div>

@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { Plus, X, Edit2, Trash2, MapPin, Phone, Loader2, Building2, CreditCard } from 'lucide-react';
 
@@ -7,6 +8,8 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 
 const Branches = () => {
+    useSEO('Branches');
+
     const { confirm } = useConfirm();
     const [branches, setBranches] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -187,7 +190,7 @@ const Branches = () => {
                                             )}
                                         </td>
                                         <td>
-                                            <div className="row gap-sm" onClick={(e) => e.stopPropagation()}>
+                                            <div role="button" tabIndex={0} className="row gap-sm" onClick={(e) => e.stopPropagation()}>
                                                 <button
                                                     className="btn btn-ghost"
                                                     style={{ padding: '8px', minWidth: 'auto', border: 'none' }}

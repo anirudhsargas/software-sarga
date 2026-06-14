@@ -60,10 +60,14 @@ const ReportsTab = ({ branches, onError }) => {
 
       {/* Filters */}
       <div className="em-filter-row">
-        <input type="date" className="em-input em-input--sm" placeholder="From" value={filters.start_date} onChange={e => setFilters(p => ({ ...p, start_date: e.target.value }))} />
-        <input type="date" className="em-input em-input--sm" placeholder="To" value={filters.end_date} onChange={e => setFilters(p => ({ ...p, end_date: e.target.value }))} />
+        
+        <label htmlFor="date-o22pw" className="sr-only">Select Date</label>
+        <input id="date-o22pw"  type="date" className="em-input em-input--sm" placeholder="From" value={filters.start_date} onChange={e => setFilters(p => ({ ...p, start_date: e.target.value }))} />
+        
+        <label htmlFor="date-mpi2cv" className="sr-only">Select Date</label>
+        <input id="date-mpi2cv"  type="date" className="em-input em-input--sm" placeholder="To" value={filters.end_date} onChange={e => setFilters(p => ({ ...p, end_date: e.target.value }))} />
         {branches?.length > 1 && (
-          <select className="em-input em-input--sm" value={filters.branch_id} onChange={e => setFilters(p => ({ ...p, branch_id: e.target.value }))}>
+          <select aria-label="Select option"  className="em-input em-input--sm" value={filters.branch_id} onChange={e => setFilters(p => ({ ...p, branch_id: e.target.value }))}>
             <option value="">All Branches</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -260,4 +264,4 @@ const ReportsTab = ({ branches, onError }) => {
   );
 };
 
-export default ReportsTab;
+export default React.memo(ReportsTab);

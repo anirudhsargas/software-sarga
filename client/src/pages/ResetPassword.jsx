@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Lock, ArrowLeft, Loader2, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
@@ -5,6 +6,8 @@ import { Lock, ArrowLeft, Loader2, CheckCircle, AlertCircle, Eye, EyeOff } from 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function ResetPassword() {
+    useSEO('Reset Password');
+
     const [searchParams] = useSearchParams();
     const token = searchParams.get('token');
 

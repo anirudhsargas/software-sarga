@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Loader2, Search, Download, Building2, FileText,
@@ -25,6 +26,8 @@ const TABS = [
 const DOCUMENT_TYPES = ['Invoice', 'Receipt', 'Bill', 'Quotation', 'Purchase Order', 'Agreement', 'License', 'Tax Document', 'Bank Statement', 'Other'];
 
 const Accounts = () => {
+    useSEO('Accounts');
+
     const [tab, setTab] = useState('gst');
     const [branches, setBranches] = useState([]);
     const [branchId, setBranchId] = useState('');
@@ -918,7 +921,7 @@ const BillsDocsTab = () => {
             {/* Upload Modal */}
             {showUploadModal && (
                 <div className="acc-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) closeUploadModal(); }}>
-                    <div className="acc-modal" onClick={e => e.stopPropagation()}>
+                    <div role="button" tabIndex={0} className="acc-modal" onClick={e => e.stopPropagation()}>
                         <div className="acc-modal__header">
                             <h2>Upload Document</h2>
                             <button className="acc-btn acc-btn--ghost acc-btn--icon" aria-label="Close upload modal" onClick={() => closeUploadModal()}><X size={18} /></button>

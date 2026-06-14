@@ -157,20 +157,22 @@ const MiscTab = ({ onError }) => {
       {/* Misc Form Modal */}
       {showForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closeFormModal(); }}>
-          <div className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header"><h2>{editing ? 'Edit' : 'Add'} Miscellaneous Expense</h2><button className="btn btn-ghost btn-icon" aria-label="Close misc expense form" onClick={() => closeFormModal()}><X size={18} /></button></div>
             {!confirming && formDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
             {!confirming ? (
               <form onSubmit={!editing ? handleReview : submitForm}>
                 <div className="em-modal__body">
                   <div className="em-form-grid">
-                    <div className="em-form-group"><label>Category</label><select className="em-input" value={form.expense_category} onChange={e => updateForm({ expense_category: e.target.value })} required><option value="">Select Category</option>{MISC_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
+                    <div className="em-form-group"><label>Category</label><select aria-label="Select option"  className="em-input" value={form.expense_category} onChange={e => updateForm({ expense_category: e.target.value })} required><option value="">Select Category</option>{MISC_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
                     <div className="em-form-group"><label>Vendor / Shop</label><input className="em-input" value={form.vendor_name} onChange={e => updateForm({ vendor_name: e.target.value })} /></div>
                     <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
-                    <div className="em-form-group"><label>Payment Method</label><select className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer', 'Cheque'].map(m => <option key={m}>{m}</option>)}</select></div>
+                    <div className="em-form-group"><label>Payment Method</label><select aria-label="Select option"  className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer', 'Cheque'].map(m => <option key={m}>{m}</option>)}</select></div>
                     <div className="em-form-group"><label>Bill #</label><input className="em-input" value={form.bill_number} onChange={e => updateForm({ bill_number: e.target.value })} /></div>
-                    <div className="em-form-group"><label>Date</label><input className="em-input" type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} /></div>
-                    <div className="em-form-group"><label>Recurring?</label><select className="em-input" value={form.is_recurring ? 'true' : 'false'} onChange={e => updateForm({ is_recurring: e.target.value === 'true' })}><option value="false">No</option><option value="true">Yes</option></select></div>
+                    <div className="em-form-group"><label>Date</label>
+        <label htmlFor="date-rw4fzx" className="sr-only">Select Date</label>
+        <input id="date-rw4fzx"  className="em-input" type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} /></div>
+                    <div className="em-form-group"><label>Recurring?</label><select aria-label="Select option"  className="em-input" value={form.is_recurring ? 'true' : 'false'} onChange={e => updateForm({ is_recurring: e.target.value === 'true' })}><option value="false">No</option><option value="true">Yes</option></select></div>
                     <div className="em-form-group em-form-group--full"><label>Description</label><input className="em-input" value={form.description} onChange={e => updateForm({ description: e.target.value })} /></div>
                   </div>
                 </div>
@@ -203,4 +205,4 @@ const MiscTab = ({ onError }) => {
   );
 };
 
-export default MiscTab;
+export default React.memo(MiscTab);
