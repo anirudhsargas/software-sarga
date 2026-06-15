@@ -77,19 +77,19 @@ router.get('/customer-payments', authenticateToken, async (req, res) => {
         }
 
         const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
-        const baseFrom = `FROM sarga_customer_payments cp ${whereSection}`;
 
         // Use proper destructuring for mysql2/promise
-        const [countRows] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+        const [countRows] = await pool.query(`SELECT COUNT(*) as total FROM sarga_customer_payments cp ${whereSection}`, params);
         const total = countRows && countRows[0] ? countRows[0].total : 0;
         
         const [rows] = await pool.query(
             `SELECT cp.id, cp.customer_id, cp.customer_name, cp.customer_mobile, cp.bill_amount, cp.total_amount, cp.advance_paid, cp.balance_amount, cp.payment_method, cp.verification_status, cp.reference_number, cp.description, cp.payment_date, cp.created_at, cp.is_internal, cp.internal_department,
                     cp.net_amount, cp.sgst_amount, cp.cgst_amount, cp.discount_percent, cp.discount_amount, cp.order_lines,
                     i.invoice_number, it.status as invoice_status, it.due_date as invoice_due_date
-             ${baseFrom}
+             FROM sarga_customer_payments cp
              LEFT JOIN sarga_invoices i ON i.payment_id = cp.id
              LEFT JOIN sarga_invoice_tracking it ON it.payment_id = cp.id
+             ${whereSection}
              ORDER BY cp.payment_date DESC, cp.created_at DESC LIMIT ? OFFSET ?`,
             [...params, limit, offset]
         );

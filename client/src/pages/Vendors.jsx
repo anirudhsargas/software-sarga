@@ -95,11 +95,6 @@ const Vendors = () => {
     setShowInvoiceModal(true);
   };
 
-  const handleAddPayment = (invoice) => {
-    setSelectedInvoice(invoice);
-    setShowPaymentModal(true);
-  };
-
   const handleInvoiceSaved = () => {
     setShowInvoiceModal(false);
     setSelectedVendor(null);
@@ -126,7 +121,9 @@ const Vendors = () => {
             Vendor <span style={{ color: 'var(--muted)' }}>Management</span>
           </h1>
           <p>
-            Monitor vendor performance, manage procurement invoices, and track outstanding liabilities across all branches.
+            {currentView === 'dashboard'
+              ? 'Analytics overview of vendor performance, procurement trends, and outstanding liabilities.'
+              : 'View, add, edit, and manage your vendor directory with procurement history.'}
           </p>
         </div>
         

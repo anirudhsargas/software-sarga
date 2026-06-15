@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Upload, X, AlertCircle, Loader2, CheckCircle, Link2, Plus, Trash2 } from 'lucide-react';
+import { Upload, X, AlertCircle, Loader2, CheckCircle, Link2, Plus, Trash2, Camera, FileText, Zap } from 'lucide-react';
+import CameraCapture from '../../components/CameraCapture';
 import api from '../../services/api';
 import auth from '../../services/auth';
 import localDb from '../../services/localDb';
@@ -9,6 +10,7 @@ import './SmartBillUpload.css';
 const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, defaultRelatedTab }) => {
   const [step, setStep] = useState('upload'); // upload | extracting | suggestions | pricing | linking | confirming
   const [file, setFile] = useState(null);
+  const [showCamera, setShowCamera] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,8 +36,10 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     bill_date: '',
     amount: '',
     description: '',
-    related_tab: defaultRelatedTab || ''
+    related_tab: defaultRelatedTab || '',
+    gst_category: ''
   });
+  const [gstAnalysis, setGstAnalysis] = useState(null);
   const fileInputRef = useRef(null);
 
   const normalizeDocumentType = (value, relatedTab = '') => {
@@ -304,6 +308,8 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
       });
       setExtractedData(response.data);
       const extractedItems = response.data.extracted_data?.items || [];
+      const gst = response.data.gst_analysis;
+      setGstAnalysis(gst || null);
       // Derive a bill-level fallback GST rate from tax_amount/subtotal
       // so per-item GST can be inferred even when the server doesn't return it per line
       const billTax = Number(response.data.extracted_data?.tax || 0);
@@ -323,7 +329,8 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
         bill_date: response.data.extracted_data.bill_date || '',
         amount: response.data.extracted_data.amount || '',
         vendor_contact: response.data.extracted_data.vendor_contact || '',
-        related_tab: defaultRelatedTab || response.data.category_suggestions?.[0]?.related_tab || ''
+        related_tab: defaultRelatedTab || response.data.category_suggestions?.[0]?.related_tab || '',
+        gst_category: gst?.gst_category || ''
       }));
 
       fetchHierarchyOptions(response.data.extracted_data.vendor_name || '');
@@ -518,6 +525,14 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
         formData.append('bill_number', finalForm.bill_number);
         formData.append('bill_date', finalForm.bill_date);
         formData.append('amount', finalForm.amount);
+        if (finalForm.gst_category) {
+          formData.append('gst_category', finalForm.gst_category);
+          if (gstAnalysis) {
+            formData.append('subtotal', String(gstAnalysis.taxable_amount || ''));
+            formData.append('tax_amount', String(gstAnalysis.tax_amount || ''));
+            formData.append('gst_confidence', String(gstAnalysis.confidence || ''));
+          }
+        }
         const autoDescription = editableItems.length > 0
           ? editableItems.slice(0, 6).map((item) => item.item_name).filter(Boolean).join(', ')
           : '';
@@ -620,6 +635,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
   };
 
   return createPortal(
+    <React.Fragment>
     <div className="smart-bill-upload-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
       <div className="modal-overlay" />
       <div className="modal-content">
@@ -661,6 +677,18 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 </button>
               </div>
             )}
+
+            <div className="upload-divider">
+              <span className="divider-text">or</span>
+            </div>
+
+            <button
+              className="btn btn-secondary"
+              onClick={() => setShowCamera(true)}
+              style={{ width: '100%', marginBottom: '12px' }}
+            >
+              <Camera size={18} /> Take Photo with Camera
+            </button>
 
             <button
               className="btn btn-primary"
@@ -776,6 +804,72 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 </div>
               </div>
             </div>
+
+            {/* GST Analysis Card */}
+            {gstAnalysis && (
+              <div className="extracted-data-card" style={{ marginTop: '20px' }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                  <FileText size={16} /> GST Detection
+                </h3>
+                <div className="data-grid">
+                  <div className="data-item">
+                    <label>Confidence</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0' }}>
+                      <div style={{ flex: 1, height: '6px', background: 'var(--border-subtle)', borderRadius: '999px', overflow: 'hidden' }}>
+                        <div style={{ width: `${Math.round((gstAnalysis.confidence || 0) * 100)}%`, height: '100%', background: gstAnalysis.confidence >= 0.5 ? 'var(--success)' : 'var(--warning)', borderRadius: '999px', transition: 'width 0.5s' }}></div>
+                      </div>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: gstAnalysis.confidence >= 0.5 ? 'var(--success)' : 'var(--warning)' }}>
+                        {Math.round((gstAnalysis.confidence || 0) * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="data-item">
+                    <label>GST Category</label>
+                    <select
+                      value={finalForm.gst_category}
+                      onChange={(e) => setFinalForm(prev => ({ ...prev, gst_category: e.target.value }))}
+                      style={{ marginTop: '4px' }}
+                    >
+                      <option value="">Auto-detected</option>
+                      <option value="business">Business Purchase (B2B)</option>
+                      <option value="expense">External Expense (Non-GST)</option>
+                    </select>
+                  </div>
+                  {gstAnalysis.has_vendor_gstin && (
+                    <div className="data-item">
+                      <label>Vendor GSTIN Detected</label>
+                      <span style={{ color: 'var(--success)', fontSize: '12px', fontWeight: 600 }}>Yes — B2B transaction</span>
+                    </div>
+                  )}
+                  {gstAnalysis.has_hsn_items && (
+                    <div className="data-item">
+                      <label>HSN-coded Items</label>
+                      <span style={{ color: 'var(--success)', fontSize: '12px', fontWeight: 600 }}>Yes ({gstAnalysis.item_count} items)</span>
+                    </div>
+                  )}
+                  <div className="data-item">
+                    <label>Taxable Amount</label>
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>₹{Number(gstAnalysis.taxable_amount || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="data-item">
+                    <label>Tax Amount</label>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: gstAnalysis.tax_amount > 0 ? 'var(--accent)' : 'var(--muted)' }}>
+                      ₹{Number(gstAnalysis.tax_amount || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                {finalForm.gst_category === 'business' && (
+                  <div style={{ marginTop: '12px', padding: '10px 14px', background: 'var(--success-bg)', borderRadius: '10px', border: '1px solid var(--success)', fontSize: '12px', fontWeight: 600, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Zap size={14} /> This bill will be routed to <strong>GST Purchase Register</strong> for input credit.
+                  </div>
+                )}
+                {finalForm.gst_category === 'expense' && (
+                  <div style={{ marginTop: '12px', padding: '10px 14px', background: 'var(--warning-bg)', borderRadius: '10px', border: '1px solid var(--warning)', fontSize: '12px', fontWeight: 600, color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertCircle size={14} /> This bill will be routed to <strong>Expense Manager</strong> (non-GST expense).
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Category Suggestions */}
             {extractedData.category_suggestions?.length > 0 && (
@@ -1361,7 +1455,17 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
           </div>
         )}
       </div>
-    </div>,
+    </div>
+      {showCamera && (
+        <CameraCapture
+          onCapture={(file) => {
+            setFile(file);
+            setShowCamera(false);
+          }}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
+    </React.Fragment>,
     document.body
   );
 };

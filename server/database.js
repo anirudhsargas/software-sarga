@@ -730,8 +730,8 @@ const initDb = async () => {
         bill_date DATE NOT NULL,
         total_amount DECIMAL(12, 2) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (vendor_id) REFERENCES sarga_vendors(id) ON DELETE CASCADE,
-        FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE
+        FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE,
+        INDEX idx_svb_vendor_id (vendor_id)
       )
     `);
 
@@ -812,8 +812,8 @@ const initDb = async () => {
         payment_status ENUM('Pending', 'Partially Paid', 'Fully Paid') DEFAULT 'Fully Paid',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE,
-        FOREIGN KEY (vendor_id) REFERENCES sarga_vendors(id) ON DELETE SET NULL,
-        FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE SET NULL
+        FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE SET NULL,
+        INDEX idx_sp_vendor_id (vendor_id)
       )
     `);
     try { await connection.query('ALTER TABLE sarga_payments ADD COLUMN idempotency_key VARCHAR(100)'); } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }

@@ -182,6 +182,31 @@ router.get('/vendors/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/vendors/:id/items - Get items purchased from vendor
+router.get('/vendors/:id/items', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [items] = await pool.query(`
+      SELECT
+        bi.inventory_item_id AS inventory_id,
+        i.name AS item_name,
+        i.sku,
+        SUM(bi.quantity) AS total_purchased,
+        MAX(bi.unit_cost) AS last_unit_cost
+      FROM sarga_vendor_bill_items bi
+      JOIN sarga_inventory i ON bi.inventory_item_id = i.id
+      JOIN sarga_vendor_bills b ON bi.bill_id = b.id
+      WHERE b.vendor_id = ?
+      GROUP BY bi.inventory_item_id, i.name, i.sku
+      ORDER BY total_purchased DESC
+    `, [id]);
+    res.json({ success: true, items });
+  } catch (error) {
+    logger.error('Error fetching vendor items:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
 // POST /api/vendors - Create vendor
 router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addVendorSchema), async (req, res) => {
   try {
@@ -206,8 +231,8 @@ router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant',
     }
 
     const [result] = await pool.query(`
-      INSERT INTO vendors (name, contact_person, phone, email, gstin, address, city, category, credit_days, credit_limit, notes, vendor_code)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO vendors (name, contact_person, phone, email, gstin, address, city, category, credit_days, credit_limit, notes, vendor_code, type, branch_id, order_link)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       vendorData.name,
       vendorData.contact_person || null,
@@ -220,7 +245,10 @@ router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant',
       vendorData.credit_days || 0,
       vendorData.credit_limit || 0,
       vendorData.notes || null,
-      vendorCode
+      vendorCode,
+      vendorData.type || 'Vendor',
+      vendorData.branch_id || null,
+      vendorData.order_link || null
     ]);
 
     auditLog(req.user.id, 'VENDOR_ADD', `Added vendor: ${vendorData.name} (${vendorCode})`, { entity_type: 'vendor', entity_id: result.insertId });
@@ -260,7 +288,7 @@ router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountan
 
     await pool.query(`
       UPDATE vendors
-      SET name = ?, contact_person = ?, phone = ?, email = ?, gstin = ?, address = ?, city = ?, category = ?, credit_days = ?, credit_limit = ?, notes = ?, vendor_code = ?
+      SET name = ?, contact_person = ?, phone = ?, email = ?, gstin = ?, address = ?, city = ?, category = ?, credit_days = ?, credit_limit = ?, notes = ?, vendor_code = ?, type = ?, branch_id = ?, order_link = ?
       WHERE id = ?
     `, [
       vendorData.name,
@@ -275,6 +303,9 @@ router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountan
       vendorData.credit_limit || 0,
       vendorData.notes || null,
       vendorData.vendor_code || null,
+      vendorData.type || 'Vendor',
+      vendorData.branch_id || null,
+      vendorData.order_link || null,
       id
     ]);
 

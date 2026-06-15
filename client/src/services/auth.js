@@ -43,6 +43,24 @@ const auth = {
         return user && user.role ? user.role : '';
     },
 
+    isRole: (...roles) => {
+        const role = auth.getRole();
+        return roles.includes(role);
+    },
+
+    can: (permission) => {
+        const role = auth.getRole();
+        const permissions = {
+            admin: ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_expenses', 'manage_vendors', 'manage_staff', 'view_reports', 'manage_settings'],
+            accountant: ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_expenses', 'manage_vendors', 'view_reports'],
+            'front office': ['view_dashboard', 'manage_orders'],
+            designer: ['view_dashboard'],
+            printer: ['view_dashboard'],
+            'other staff': ['view_dashboard'],
+        };
+        return permissions[role?.toLowerCase()]?.includes(permission) || false;
+    },
+
     getAuthHeader: () => {
         const token = localStorage.getItem('token');
         return token ? { Authorization: `Bearer ${token}` } : {};

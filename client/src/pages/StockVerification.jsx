@@ -216,9 +216,6 @@ const StockVerification = () => {
 
                         {/* Search */}
                         <div className="sv-control-group sv-control-group--search">
-                            <label className="sv-label">
-                                <Search size={13} /> Search
-                            </label>
                             <div className="sv-search-wrapper">
                                 <Search size={14} className="sv-search-icon" />
                                 <input

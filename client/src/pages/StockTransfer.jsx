@@ -196,7 +196,7 @@ const StockTransfer = () => {
         let color = 'var(--muted)';
         if (status === 'Pending') color = 'var(--warning)';
         if (status === 'Approved') color = 'var(--primary)';
-        if (status === 'Sent') color = '#6366f1';
+        if (status === 'Sent') color = 'var(--primary)';
         if (status === 'Received') color = 'var(--success)';
         if (status === 'Rejected') color = 'var(--danger)';
         

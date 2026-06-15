@@ -19,10 +19,10 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import './DailyReport.css';
 
 const TABS = [
-    { key: 'Offset', label: 'Offset', icon: BookOpen, color: 'var(--accent)', bg: 'rgba(37,99,235,0.08)' },
-    { key: 'Laser', label: 'Laser', icon: Printer, color: 'var(--accent)', bg: 'rgba(124,58,237,0.08)' },
-    { key: 'Other', label: 'Other', icon: Package, color: 'var(--success)', bg: 'rgba(5,150,105,0.08)' },
-    { key: 'Attendance', label: 'Attendance', icon: Users, color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' }
+    { key: 'Offset', label: 'Offset', icon: BookOpen, color: 'var(--accent)', bg: 'var(--surface-2)' },
+    { key: 'Laser', label: 'Laser', icon: Printer, color: 'var(--accent)', bg: 'var(--surface-2)' },
+    { key: 'Other', label: 'Other', icon: Package, color: 'var(--text)', bg: 'var(--surface-2)' },
+    { key: 'Attendance', label: 'Attendance', icon: Users, color: 'var(--warning)', bg: 'var(--warning-bg)' }
 ];
 
 const AUTO_REFRESH_INTERVAL = 30000;
@@ -274,7 +274,7 @@ const DailyReport = () => {
                 } catch (err) { assignedBooks = []; }
                 setMyBooks(assignedBooks);
 
-                const res = await api.get('/daily-report/opening-balance', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
+            const res = await api.get('/daily-report/opening-balance', { params: { date: reportDate, ...branchParam } });
                 const data = res.data;
                 const balances = data.balances || data;
                 const locked = data.locked || {};
@@ -287,7 +287,7 @@ const DailyReport = () => {
                 let myMachines = [];
                 let machineHasReading = {}; // { machine_id: true/false }
                 try {
-                    const laserRes = await api.get('/daily-report/laser-live', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
+                    const laserRes = await api.get('/daily-report/laser-live', { params: { date: reportDate, ...branchParam } });
                     myMachines = laserRes.data.machines || [];
                     myMachines.forEach(m => { machineHasReading[m.id] = !!m.has_reading; });
                 } catch (err) { /* ignore */ }
@@ -295,7 +295,7 @@ const DailyReport = () => {
                 if (!promptDone) {
                     let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
                     try {
-                        const prevRes = await api.get('/daily-report/previous-closing', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
+                        const prevRes = await api.get('/daily-report/previous-closing', { params: { date: reportDate, ...branchParam } });
                         prevData = prevRes.data;
                     } catch (err) { /* ignore */ }
 
@@ -364,7 +364,7 @@ const DailyReport = () => {
     // ─── Fetch Opening Balances ─────────────────────────────────
     const fetchOpeningBalances = useCallback(async () => {
         try {
-            const res = await api.get('/daily-report/opening-balance', { params: { date: reportDate, branch_id: selectedBranch || branchParam } });
+            const res = await api.get('/daily-report/opening-balance', { params: { date: reportDate, ...branchParam } });
             const data = res.data;
             if (data.balances) {
                 setOpeningBalances(data.balances);
@@ -488,7 +488,7 @@ const DailyReport = () => {
             const endpoint = tab === 'Offset' ? '/daily-report/offset-live'
                 : tab === 'Laser' ? '/daily-report/laser-live' : '/daily-report/other-live';
             const [res, pendingEntries] = await Promise.all([
-                api.get(endpoint, { params: { date: reportDate, branch_id: selectedBranch || branchParam } }),
+                api.get(endpoint, { params: { date: reportDate, ...branchParam } }),
                 getPendingEntriesForTab(tab)
             ]);
             const mergedData = mergePendingEntries(tab, res.data, pendingEntries);
@@ -505,7 +505,7 @@ const DailyReport = () => {
     const fetchLiveCounts = useCallback(async () => {
         try {
             const [res, pendingOffset, pendingLaser, pendingOther] = await Promise.all([
-                api.get('/daily-report/live-counts', { params: { date: reportDate, branch_id: selectedBranch || branchParam } }),
+                api.get('/daily-report/live-counts', { params: { date: reportDate, ...branchParam } }),
                 getPendingEntriesForTab('Offset'),
                 getPendingEntriesForTab('Laser'),
                 getPendingEntriesForTab('Other')
@@ -524,7 +524,7 @@ const DailyReport = () => {
     // ─── Fetch Credit Transactions ──────────────────────────────
     const fetchCreditTransactions = useCallback(async () => {
         try {
-            const response = await api.get('/daily-reports/offset', { params: { start_date: reportDate, end_date: reportDate, branch_id: selectedBranch || branchParam } });
+            const response = await api.get('/daily-reports/offset', { params: { start_date: reportDate, end_date: reportDate, ...branchParam } });
             if (response.data.length > 0) {
                 const detail = await api.get(`/daily-reports/offset/${response.data[0].id}`);
                 setCreditTransactions(detail.data.credit_transactions || []);
@@ -534,7 +534,7 @@ const DailyReport = () => {
                 });
                 setCreditTransactions(liveResp.data || []);
             }
-        } catch (err) { console.error('Offset credits fetch fail:', error); }
+        } catch (err) { console.error('Offset credits fetch fail:', err); }
     }, [reportDate, selectedBranch]);
 
     const fetchLaserCredits = useCallback(async () => {
@@ -543,7 +543,7 @@ const DailyReport = () => {
                 params: { date: reportDate, book_type: 'Laser', branch_id: selectedBranch }
             });
             setLaserCredits(res.data || []);
-        } catch (err) { console.error('Laser credits fetch fail:', error); }
+        } catch (err) { console.error('Laser credits fetch fail:', err); }
     }, [reportDate, selectedBranch]);
 
     const fetchOtherCredits = useCallback(async () => {
@@ -552,7 +552,7 @@ const DailyReport = () => {
                 params: { date: reportDate, book_type: 'Other', branch_id: selectedBranch }
             });
             setOtherCredits(res.data || []);
-        } catch (err) { console.error('Other credits fetch fail:', error); }
+        } catch (err) { console.error('Other credits fetch fail:', err); }
     }, [reportDate, selectedBranch]);
 
     const loadAllData = useCallback(async (isInitial = false) => {
@@ -1412,6 +1412,12 @@ const DailyReport = () => {
     const OtherTab = () => (
         <div className="stack-md">
             <OpeningBalanceCard bookType="Other" />
+            {liveCounts?.other && (
+                <StatRow items={[
+                    { value: liveCounts.other.income_count, label: 'Billings', icon: BarChart3, color: 'var(--accent)' },
+                    { value: formatCurrency(liveCounts.other.total_collected), label: 'Collected', icon: TrendingUp, color: 'var(--success)' }
+                ]} />
+            )}
             <div className="panel">
                 <h2 className="panel-title panel-title--badge">
                     <Package size={16} />

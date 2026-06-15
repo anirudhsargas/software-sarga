@@ -89,6 +89,7 @@ const ProductLibrary = () => {
     const filterCalcTypeRef = useRef('all');
     const [filterVendor, setFilterVendor] = useState('all');
     const [filterCalcType, setFilterCalcType] = useState('all');
+    const [sortBy, setSortBy] = useState('name-asc');
     const [selectedProductIds, setSelectedProductIds] = useState([]);
 
     const sensors = useSensors(
@@ -412,17 +413,30 @@ const ProductLibrary = () => {
         ? [...new Set(allProducts.map(p => p.calculation_type).filter(Boolean))].sort()
         : [], [viewInfo.type, allProducts]);
 
-    const filteredProducts = useMemo(() => allProducts.filter(p => {
-        const q = debouncedSearch.trim().toLowerCase();
-        const matchSearch = !q ||
-            (p.name || '').toLowerCase().includes(q) ||
-            (p.product_code || '').toLowerCase().includes(q) ||
-            (p.company_name || '').toLowerCase().includes(q) ||
-            (p.size || '').toLowerCase().includes(q);
-        const matchVendor = filterVendor === 'all' || (p.company_name || '') === filterVendor;
-        const matchCalc = filterCalcType === 'all' || (p.calculation_type || '') === filterCalcType;
-        return matchSearch && matchVendor && matchCalc;
-    }), [debouncedSearch, allProducts, filterVendor, filterCalcType]);
+    const filteredProducts = useMemo(() => {
+        let result = allProducts.filter(p => {
+            const q = debouncedSearch.trim().toLowerCase();
+            const matchSearch = !q ||
+                (p.name || '').toLowerCase().includes(q) ||
+                (p.product_code || '').toLowerCase().includes(q) ||
+                (p.company_name || '').toLowerCase().includes(q) ||
+                (p.size || '').toLowerCase().includes(q);
+            const matchVendor = filterVendor === 'all' || (p.company_name || '') === filterVendor;
+            const matchCalc = filterCalcType === 'all' || (p.calculation_type || '') === filterCalcType;
+            return matchSearch && matchVendor && matchCalc;
+        });
+        // Apply sorting
+        const [field, dir] = sortBy.split('-');
+        result.sort((a, b) => {
+            let av, bv;
+            if (field === 'name') { av = (a.name || '').toLowerCase(); bv = (b.name || '').toLowerCase(); }
+            else if (field === 'price') { av = Number(a.sell_price || 0); bv = Number(b.sell_price || 0); }
+            else if (field === 'created') { av = new Date(a.created_at || 0).getTime(); bv = new Date(b.created_at || 0).getTime(); }
+            else return 0;
+            return dir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+        });
+        return result;
+    }, [debouncedSearch, allProducts, filterVendor, filterCalcType, sortBy]);
 
     const totalProducts = filteredProducts.length;
     const totalProductPages = Math.max(1, Math.ceil(totalProducts / PRODUCTS_PER_PAGE));
@@ -1421,6 +1435,22 @@ const ProductLibrary = () => {
                             ))}
                         </select>
                     )}
+
+                    {/* Sort dropdown */}
+                    <select
+                        className="input-field"
+                        style={{ flex: '0 1 160px', height: 36, minWidth: 130 }}
+                        value={sortBy}
+                        aria-label="Sort products"
+                        onChange={e => { setSortBy(e.target.value); setProductPage(1); }}
+                    >
+                        <option value="name-asc">A → Z</option>
+                        <option value="name-desc">Z → A</option>
+                        <option value="created-desc">Recently Added</option>
+                        <option value="created-asc">Oldest Added</option>
+                        <option value="price-asc">Price Low → High</option>
+                        <option value="price-desc">Price High → Low</option>
+                    </select>
 
                     {/* Clear filters */}
                     {hasActiveFilters && (

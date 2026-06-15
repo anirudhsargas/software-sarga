@@ -3,7 +3,8 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Receipt, Plus, Search, Calendar, FileText, Printer, Download, 
-  CreditCard, Loader2, ArrowLeft, X, AlertTriangle, Eye, CheckCircle2, ChevronRight
+  CreditCard, Loader2, ArrowLeft, X, AlertTriangle, Eye, CheckCircle2, ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -11,17 +12,18 @@ import useTranslation from '../hooks/useTranslation';
 const Billing = React.lazy(() => import('./Billing'));
 import { downloadInvoicePDF, printInvoicePDF } from '../utils/invoicePdf';
 import { formatCurrency } from '../constants';
+import SectionErrorBoundary from '../components/SectionErrorBoundary';
 
 const statusColors = {
-  draft: 'var(--text-muted, #71717a)',
-  pending: 'var(--color-warning, #fbbf24)',
-  sent: 'var(--color-primary, #3b82f6)',
-  paid: 'var(--color-ok, #10b981)',
-  partially_paid: 'var(--color-primary-soft, #60a5fa)',
-  overdue: 'var(--error, #ef4444)',
-  cancelled: 'var(--error-soft, #f87171)',
-  refunded: 'var(--text-muted, #71717a)',
-  on_hold: 'var(--color-warning-soft, #f59e0b)'
+  draft: 'var(--text-muted)',
+  pending: 'var(--warning)',
+  sent: 'var(--accent)',
+  paid: 'var(--success)',
+  partially_paid: 'var(--text-muted)',
+  overdue: 'var(--error)',
+  cancelled: 'var(--error)',
+  refunded: 'var(--text-muted)',
+  on_hold: 'var(--warning)'
 };
 
 const Invoices = () => {
@@ -52,6 +54,7 @@ const Invoices = () => {
   const [statusInput, setStatusInput] = useState('draft');
   const [dueDateInput, setDueDateInput] = useState('');
   const [notesInput, setNotesInput] = useState('');
+  const [pageError, setPageError] = useState(null);
 
   // Intercept incoming router state to auto-switch to Create mode
   useEffect(() => {
@@ -94,6 +97,7 @@ const Invoices = () => {
       setTotalCount(res.data?.total || rows.length);
     } catch (err) {
       console.error('Failed to fetch customer invoices:', err);
+      setPageError('Failed to load invoices. Please check your connection.');
       toast.error('Failed to fetch invoices');
     } finally {
       setLoading(false);
@@ -112,6 +116,7 @@ const Invoices = () => {
     try {
       orderLines = (typeof invoice.order_lines === 'string' ? JSON.parse(invoice.order_lines) : invoice.order_lines) || [];
     } catch (e) {
+      console.error('Failed to parse order lines', e);
       orderLines = [];
     }
 
@@ -217,11 +222,74 @@ const Invoices = () => {
         ? JSON.parse(selectedInvoice.order_lines) 
         : selectedInvoice.order_lines) || [];
     } catch (e) {
+      console.error('Failed to parse order lines', e);
       return [];
     }
   }, [selectedInvoice]);
 
+  const InvoiceSkeleton = () => (
+    <div className="stack-lg">
+      <div className="flex-center-y justify-between">
+        <div className="stack-xs">
+          <div style={{ width: 180, height: 24, borderRadius: 6, background: 'var(--surface-2)' }} />
+          <div style={{ width: 260, height: 14, borderRadius: 4, marginTop: 6, background: 'var(--surface-2)' }} />
+        </div>
+        <div style={{ width: 130, height: 38, borderRadius: 8, background: 'var(--surface-2)' }} />
+      </div>
+      <div className="panel" style={{ padding: 20 }}>
+        <div className="form-row--3">
+          {[1,2,3].map(i => (
+            <div key={i}>
+              <div style={{ width: 100, height: 12, borderRadius: 4, marginBottom: 8, background: 'var(--surface-2)' }} />
+              <div style={{ width: '100%', height: 38, borderRadius: 8, background: 'var(--surface-2)' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="panel" style={{ overflowX: 'auto', padding: 0 }}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', gap: 24 }}>
+            {[1,2,3,4,5,6,7].map(i => (
+              <div key={i} style={{ width: 80, height: 14, borderRadius: 4, background: 'var(--surface-2)' }} />
+            ))}
+          </div>
+        </div>
+        {[1,2,3,4,5].map(r => (
+          <div key={r} style={{ display: 'flex', gap: 24, padding: '16px 16px', borderBottom: '1px solid var(--border)' }}>
+            {[1,2,3,4,5,6,7].map(c => (
+              <div key={c} style={{ width: c === 4 || c === 5 ? 70 : 80, height: 14, borderRadius: 4, background: 'var(--surface-2)' }} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (pageError && !loading && invoices.length === 0) {
+    return (
+      <SectionErrorBoundary name="InvoicesPage">
+        <div className="stack-lg fade-in">
+          <div className="flex-center-y justify-between">
+            <div className="stack-xs">
+              <h1>{t('invoices', 'Customer Invoices')}</h1>
+              <p className="muted">{t('manage_invoices_desc', 'Track customer billing payments, due tracking, and print receipts')}</p>
+            </div>
+            <button className="btn btn-primary btn-with-icon" onClick={() => { setPageError(null); fetchInvoices(); }}>
+              <RefreshCw size={18} /> Retry
+            </button>
+          </div>
+          <div className="panel" style={{ padding: '48px 20px', textAlign: 'center' }}>
+            <AlertTriangle size={40} style={{ opacity: 0.4, marginBottom: 12 }} />
+            <h3>{pageError}</h3>
+            <p className="muted" style={{ marginTop: 8 }}>Check your connection and try again.</p>
+          </div>
+        </div>
+      </SectionErrorBoundary>
+    );
+  }
+
   return (
+    <SectionErrorBoundary name="InvoicesPage">
     <div className="stack-lg fade-in">
       {viewMode === 'create' ? (
         <div className="stack-md">
@@ -233,7 +301,9 @@ const Invoices = () => {
           </div>
           <div className="panel" style={{ padding: 0 }}>
             <React.Suspense fallback={<div className="p-20 text-center"><Loader2 className="animate-spin" size={20} /> Loading billing…</div>}>
-              <Billing />
+              <SectionErrorBoundary name="BillingForm" title="Failed to load billing form" message="The billing form encountered an error. Please try again.">
+                <Billing />
+              </SectionErrorBoundary>
             </React.Suspense>
           </div>
         </div>
@@ -289,9 +359,7 @@ const Invoices = () => {
           {/* Invoices List Table */}
           <div className="panel" style={{ overflowX: 'auto', padding: 0 }}>
             {loading ? (
-              <div className="flex-center p-40">
-                <Loader2 className="animate-spin text-accent" size={32} />
-              </div>
+              <InvoiceSkeleton />
             ) : invoices.length === 0 ? (
               <div className="p-40 text-center muted stack-xs flex-center">
                 <Receipt size={48} className="mb-md" />
@@ -603,6 +671,7 @@ const Invoices = () => {
         </div>
       )}
     </div>
+    </SectionErrorBoundary>
   );
 };
 

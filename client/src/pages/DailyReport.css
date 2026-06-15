@@ -72,11 +72,11 @@
 }
 
 .attendance-stat-card--discrepancy {
-    border-left: 3px solid #f59e0b;
+    border-left: 3px solid var(--warning);
 }
 
 .attendance-stat-value--discrepancy {
-    color: #b45309;
+    color: var(--warning);
 }
 
 /* Staff Table */
@@ -277,16 +277,16 @@
 }
 
 .entry-table-waste {
-    color: #dc2626;
+    color: var(--error);
 }
 
 .entry-table-proof {
-    color: #d97706;
+    color: var(--warning);
 }
 
 .entry-table-discount {
     font-size: 11px;
-    color: #059669;
+    color: var(--success);
     margin-top: 2px;
 }
 
@@ -303,8 +303,8 @@
 
 .entry-table-internal-badge {
     font-size: 10px;
-    background: rgba(99,102,241,0.12);
-    color: #6366f1;
+    background: var(--surface-2);
+    color: var(--accent);
 }
 
 .entry-table-amount {
@@ -354,11 +354,11 @@
 }
 
 .entry-table-line-waste {
-    color: #dc2626;
+    color: var(--error);
 }
 
 .entry-table-line-proof {
-    color: #d97706;
+    color: var(--warning);
 }
 
 .entry-table-line-amount {
@@ -382,27 +382,27 @@
 }
 
 .dr-summary-item__label--waste {
-    color: #dc2626;
+    color: var(--error);
 }
 
 .dr-summary-item__value--waste {
-    color: #dc2626;
+    color: var(--error);
 }
 
 .dr-summary-item__label--proof {
-    color: #d97706;
+    color: var(--warning);
 }
 
 .dr-summary-item__value--proof {
-    color: #d97706;
+    color: var(--warning);
 }
 
 .dr-summary-item__label--internal {
-    color: #6366f1;
+    color: var(--accent);
 }
 
 .dr-summary-item__value--internal {
-    color: #6366f1;
+    color: var(--accent);
 }
 
 .dr-summary-closing-value {
@@ -533,15 +533,15 @@
 }
 
 .machine-edit-input--waste {
-    border-color: #dc2626;
+    border-color: var(--error);
 }
 
 .machine-edit-label--waste {
-    color: #dc2626;
+    color: var(--error);
 }
 
 .machine-edit-label--proof {
-    color: #d97706;
+    color: var(--warning);
 }
 
 .machine-stat-value--primary {
@@ -566,17 +566,17 @@
 }
 
 .machine-stat-label--waste {
-    color: #dc2626;
+    color: var(--error);
 }
 
 .machine-stat-value--waste {
-    color: #dc2626;
+    color: var(--error);
     font-size: 16px;
 }
 
 .machine-stat-billing-note {
     font-size: 10px;
-    color: #dc2626;
+    color: var(--error);
     opacity: 0.7;
     margin-top: 2px;
 }
@@ -588,17 +588,17 @@
 }
 
 .machine-stat-label--proof {
-    color: #d97706;
+    color: var(--warning);
 }
 
 .machine-stat-value--proof {
-    color: #d97706;
+    color: var(--warning);
     font-size: 16px;
 }
 
 .machine-stat-billing-note--proof {
     font-size: 10px;
-    color: #d97706;
+    color: var(--warning);
     opacity: 0.7;
     margin-top: 2px;
 }

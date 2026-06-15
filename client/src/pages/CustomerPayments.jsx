@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+/* global jsPDF, autoTable */
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Calendar, CreditCard, Receipt, Loader2, Plus, Wallet,
   User, Phone, Hash, FileText, IndianRupee, CheckCircle2, Clock,
   AlertTriangle, Banknote, Smartphone, Building2, ChevronDown, ChevronUp,
   Search, X, Layers, CheckCircle, Printer, ShieldCheck, ShieldX, ShieldAlert, AlertCircle,
-  Tag
+  Tag, RefreshCw
 } from 'lucide-react';
 import api from '../services/api';
 import localDb from '../services/localDb';
@@ -16,7 +17,8 @@ import './CustomerPayments.css';
 import toast from 'react-hot-toast';
 import { GST_RATE } from '../constants';
 import { useOnlineStatus } from '../hooks/useOffline';
-import { formatForDisplay, telHref } from '../utils/phone';
+import { formatForDisplay } from '../utils/phone';
+import SectionErrorBoundary from '../components/SectionErrorBoundary';
 
 const ReceiptModal = React.lazy(() => import('../components/ReceiptModal'));
 
@@ -62,6 +64,8 @@ const CustomerPayments = () => {
   const [discountReason, setDiscountReason] = useState('');
   const [discountRequestLoading, setDiscountRequestLoading] = useState(false);
 
+  const [pageError, setPageError] = useState(null);
+  const [paymentsError, setPaymentsError] = useState(null);
   const [formData, setFormData] = useState({
     customer_id: null,
     customer_name: '',
@@ -171,16 +175,16 @@ const CustomerPayments = () => {
     } else {
       init();
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchPayments(paymentsPage);
-  }, [paymentsPage]);
+  }, [paymentsPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!formData.customer_id || orderLines.length > 0) return;
     fetchCustomerJobs(formData.customer_id);
-  }, [formData.customer_id, orderLines.length]);
+  }, [formData.customer_id, orderLines.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!selectedJobId || orderLines.length > 0) return;
@@ -280,15 +284,16 @@ const CustomerPayments = () => {
       }
     } catch (err) {
       console.error('[CustomerPayments] Fetch error:', err);
-      setError('Failed to fetch customer payments');
+      setPaymentsError('Failed to fetch payments');
       // If server fails, try local as fallback
       try {
         const result = await localDb.getPayments({ type: 'Customer', page, limit: 20 });
         setPayments(result.data || []);
         setPaymentsTotal(result.total || 0);
         setPaymentsTotalPages(result.totalPages || 1);
+        setPaymentsError(null);
       } catch {
-        setError('Failed to fetch customer payments (offline fallback also failed)');
+        setPaymentsError('Failed to fetch payments (online & offline both failed)');
       }
     } finally {
       setLoading(false);
@@ -741,7 +746,64 @@ const CustomerPayments = () => {
     }
   };
 
+  const LoadingSkeleton = () => (
+    <div className="cp-page" style={{ padding: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <div style={{ width: 200, height: 26, borderRadius: 6, background: 'var(--surface-2)' }} />
+          <div style={{ width: 300, height: 14, borderRadius: 4, marginTop: 8, background: 'var(--surface-2)' }} />
+        </div>
+        <div style={{ width: 180, height: 22, borderRadius: 6, background: 'var(--surface-2)' }} />
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+        <div style={{ flex: 1, height: 36, borderRadius: 8, background: 'var(--surface-2)' }} />
+        <div style={{ flex: 1, height: 36, borderRadius: 8, background: 'var(--surface-2)' }} />
+      </div>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 28 }}>
+        {[1,2,3,4].map(i => (
+          <div key={i} style={{ flex: 1, height: 80, borderRadius: 10, background: 'var(--surface-2)' }} />
+        ))}
+      </div>
+      <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
+        <div style={{ padding: '14px 16px', background: 'var(--surface-2)' }}>
+          <div style={{ display: 'flex', gap: 24 }}>
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} style={{ width: 80, height: 14, borderRadius: 4, background: 'var(--bg)' }} />
+            ))}
+          </div>
+        </div>
+        {[1,2,3,4].map(r => (
+          <div key={r} style={{ display: 'flex', gap: 24, padding: '16px', borderBottom: '1px solid var(--border)' }}>
+            {[1,2,3,4,5,6].map(c => (
+              <div key={c} style={{ width: 80, height: 14, borderRadius: 4, background: 'var(--surface-2)' }} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (pageError && !loading) {
+    return (
+      <SectionErrorBoundary name="CustomerPaymentsPage">
+        <div className="cp-page" style={{ padding: '40px 24px', textAlign: 'center' }}>
+          <AlertTriangle size={40} style={{ opacity: 0.4, marginBottom: 12 }} />
+          <h3>{pageError}</h3>
+          <p className="muted" style={{ marginTop: 8, marginBottom: 16 }}>Please check your connection and try again.</p>
+          <button className="btn btn-primary" onClick={() => { setPageError(null); fetchPayments(1); }}>
+            <RefreshCw size={16} /> Retry
+          </button>
+        </div>
+      </SectionErrorBoundary>
+    );
+  }
+
+  if (loading && payments.length === 0) {
+    return <LoadingSkeleton />;
+  }
+
   return (
+    <SectionErrorBoundary name="CustomerPaymentsPage">
     <div className="cp-page">
       {/* ── HEADER ── */}
       <div className="cp-header">
@@ -1360,6 +1422,9 @@ const CustomerPayments = () => {
           <div className="cp-panel-icon"><Clock size={18} /></div>
           <h2 className="cp-panel-title">Recent Payments</h2>
           <span className="cp-panel-count">{paymentsTotal}</span>
+          {paymentsError && (
+            <span style={{ fontSize: 12, color: 'var(--error)', marginLeft: 12 }}>{paymentsError}</span>
+          )}
         </div>
 
         {/* ── FILTERS BAR ── */}
@@ -1553,14 +1618,17 @@ const CustomerPayments = () => {
       </div>
 
       <React.Suspense fallback={null}>
-        <ReceiptModal
-          isOpen={showReceipt}
-          onClose={() => setShowReceipt(false)}
-          paymentData={currentReceiptData}
-          branchInfo={{ location: 'Meppayur' }}
-        />
+        <SectionErrorBoundary name="ReceiptModal" title="Receipt unavailable" message="Failed to load the receipt preview.">
+          <ReceiptModal
+            isOpen={showReceipt}
+            onClose={() => setShowReceipt(false)}
+            paymentData={currentReceiptData}
+            branchInfo={{ location: 'Meppayur' }}
+          />
+        </SectionErrorBoundary>
       </React.Suspense>
     </div>
+    </SectionErrorBoundary>
   );
 };
 

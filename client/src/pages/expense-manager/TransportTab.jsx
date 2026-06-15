@@ -47,24 +47,20 @@ const TransportTab = ({ onError }) => {
       if (onError) onError(err.response?.data?.message || 'Failed to load transport dashboard');
     }
   }, [onError]);
-  // Defensive: always set expenses as array
-  const safeSetExpenses = (data) => {
-    if (Array.isArray(data)) return setExpenses(data);
-    if (data && typeof data === 'object' && Array.isArray(data.data)) return setExpenses(data.data);
-    return setExpenses([]);
-  };
-
-  const fetchExpenses = useCallback(async () => {
+  const fetchExpenses = useCallback(async (pageNum = 1) => {
     try {
-      const r = await api.get('/transport-expenses');
-      safeSetExpenses(r.data);
-      setPage(1);
+      const params = new URLSearchParams();
+      params.append('page', pageNum);
+      params.append('limit', PAGE_SIZE);
+      const r = await api.get(`/transport-expenses?${params.toString()}`);
+      setExpenses(r.data.data || []);
+      setPage(r.data.page || 1);
     } catch {
       setExpenses([]);
     }
   }, []);
 
-  useEffect(() => { fetchDashboard(); fetchExpenses(); }, [fetchDashboard, fetchExpenses]);
+  useEffect(() => { fetchDashboard(); fetchExpenses(page); }, [fetchDashboard, fetchExpenses, page]);
 
   useEffect(() => {
     const handleBeforeUnload = (event) => {

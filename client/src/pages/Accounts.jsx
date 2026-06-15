@@ -994,8 +994,9 @@ const UploadBillTab = ({ onUploaded }) => {
     const [error, setError] = useState('');
     const [step, setStep] = useState('upload');
     const [extractedData, setExtractedData] = useState(null);
+    const [gstAnalysis, setGstAnalysis] = useState(null);
     const [editableItems, setEditableItems] = useState([]);
-    const [finalForm, setFinalForm] = useState({ document_type: 'Invoice', vendor_name: '', bill_number: '', bill_date: '', amount: '', description: '', related_tab: '' });
+    const [finalForm, setFinalForm] = useState({ document_type: 'Invoice', vendor_name: '', bill_number: '', bill_date: '', amount: '', description: '', related_tab: '', gst_category: '' });
     const fileInputRef = useRef(null);
 
     const buildEditableItems = (items = []) =>
@@ -1032,6 +1033,8 @@ const UploadBillTab = ({ onUploaded }) => {
             formData.append('file', file);
             const response = await api.post('/bills-documents/extract-details', formData);
             setExtractedData(response.data);
+            const gst = response.data.gst_analysis;
+            setGstAnalysis(gst || null);
             setEditableItems(buildEditableItems(response.data.extracted_data?.items || []));
             setStep('review');
             setFinalForm(prev => ({
@@ -1041,7 +1044,8 @@ const UploadBillTab = ({ onUploaded }) => {
                 bill_number: response.data.extracted_data.bill_number || '',
                 bill_date: response.data.extracted_data.bill_date || '',
                 amount: response.data.extracted_data.amount || '',
-                related_tab: response.data.category_suggestions?.[0]?.related_tab || ''
+                related_tab: response.data.category_suggestions?.[0]?.related_tab || '',
+                gst_category: gst?.gst_category || ''
             }));
         } catch (err) {
             setError(err.response?.data?.error || err.message || 'Failed to extract bill details');
@@ -1061,6 +1065,14 @@ const UploadBillTab = ({ onUploaded }) => {
             formData.append('bill_number', finalForm.bill_number);
             formData.append('bill_date', finalForm.bill_date);
             formData.append('amount', finalForm.amount);
+            if (finalForm.gst_category) {
+                formData.append('gst_category', finalForm.gst_category);
+                if (gstAnalysis) {
+                    formData.append('subtotal', String(gstAnalysis.taxable_amount || ''));
+                    formData.append('tax_amount', String(gstAnalysis.tax_amount || ''));
+                    formData.append('gst_confidence', String(gstAnalysis.confidence || ''));
+                }
+            }
             const autoDesc = editableItems.slice(0, 6).map(i => i.item_name).filter(Boolean).join(', ');
             formData.append('description', finalForm.description || autoDesc);
             formData.append('line_items', JSON.stringify(editableItems));

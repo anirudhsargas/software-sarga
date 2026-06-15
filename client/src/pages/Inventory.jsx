@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, List, Grid, TrendingUp, TrendingDown, IndianRupee, BarChart3, Clock, ShoppingCart, ArrowLeftRight, Bell, Image as ImageIcon, Layers, Camera } from 'lucide-react';
 import api, { imgUrl } from '../services/api';
@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 import SmartBillUpload from './expense-manager/SmartBillUpload';
 import './InventoryModern.css';
 
-import ScannerModal from '../components/ScannerModal';
+const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 import ScannerErrorBoundary from '../components/ScannerErrorBoundary';
 
 const emptyItem = {
@@ -2504,11 +2504,13 @@ const Inventory = () => {
 
             <div style={{ display: showScanner ? '' : 'none' }}>
                 <ScannerErrorBoundary onClose={handleCloseScanner}>
-                    <ScannerModal
-                        isOpen={showScanner}
-                        onClose={handleCloseScanner}
-                        onScan={handleScan}
-                    />
+                    <Suspense fallback={null}>
+                        <ScannerModal
+                            isOpen={showScanner}
+                            onClose={handleCloseScanner}
+                            onScan={handleScan}
+                        />
+                    </Suspense>
                 </ScannerErrorBoundary>
             </div>
         </div >

@@ -1,9 +1,10 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, IndianRupee, User, Clock, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
+import logger from '../utils/logger';
 import { serverToday, serverThisMonth } from '../services/serverTime';
 import { useOptimistic } from '../hooks/useOptimistic';
 import SecureImage from '../components/SecureImage';
@@ -161,7 +162,13 @@ const EmployeeDetail = () => {
     });
     const [submitting, setSubmitting] = useState(false);
 
+    const lastFetchedRef = useRef({ staffId: null, currentMonth: null });
+
     useEffect(() => {
+        if (lastFetchedRef.current.staffId === staffId && lastFetchedRef.current.currentMonth === currentMonth) {
+            return;
+        }
+        lastFetchedRef.current = { staffId, currentMonth };
         fetchEmployeeData();
         fetchAttendanceData();
         fetchSalaryCalculation();
@@ -194,7 +201,7 @@ const EmployeeDetail = () => {
         try {
             setAttendanceError('');
             const response = await api.get(`/staff/${staffId}/attendance/${currentMonth}`);
-            console.log('Attendance response:', response.data);
+            logger.info('Attendance loaded');
             setAttendance(response.data.attendance || []);
             // Check if attendance is already marked today
             const today = serverToday();
@@ -283,7 +290,7 @@ const EmployeeDetail = () => {
         try {
             setSalaryCalculationError('');
             const response = await api.get(`/staff/${staffId}/salary-calculation/${currentMonth}`);
-            console.log('Salary calculation response:', response.data);
+            logger.info('Salary calculated');
             setSalaryCalculation(response.data);
         } catch (err) {
             console.error('Error calculating salary:', err);
@@ -396,8 +403,10 @@ const EmployeeDetail = () => {
         );
     }
 
-    const salaryTotal = (salaryInfo?.staff?.base_salary || 0);
-    const pendingPayment = salaryTotal - (salaryInfo?.recentPayments?.reduce((sum, p) => sum + Number(p.payment_amount), 0) || 0);
+    const salaryTotal = useMemo(() => (salaryInfo?.staff?.base_salary || 0), [salaryInfo]);
+    const pendingPayment = useMemo(() => {
+        return salaryTotal - (salaryInfo?.recentPayments?.reduce((sum, p) => sum + Number(p.payment_amount), 0) || 0);
+    }, [salaryTotal, salaryInfo]);
 
     return (
         <div className="employee-detail">

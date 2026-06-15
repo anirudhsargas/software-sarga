@@ -2,13 +2,14 @@ import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { useLocation } from 'react-router-dom';
-import { Plus, X, Trash2, Filter, Receipt, Loader2, Calendar, User, CreditCard, ShoppingBag, ExternalLink, FileText, Search, PlusCircle, Building2 } from 'lucide-react';
+import { Plus, X, Trash2, Filter, Receipt, Loader2, Calendar, User, CreditCard, ShoppingBag, ExternalLink, FileText, Search, PlusCircle, Building2, RefreshCw, AlertTriangle } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
 import localDb from '../services/localDb';
 import { serverToday, serverDateTimeLocal } from '../services/serverTime';
 import Pagination from '../components/Pagination';
 import { useConfirm } from '../contexts/ConfirmContext';
+import SectionErrorBoundary from '../components/SectionErrorBoundary';
 
 const Payments = () => {
     useSEO('Payments');
@@ -80,11 +81,11 @@ const Payments = () => {
         fetchVendors();
         fetchInventory();
         fetchStaff();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         fetchPayments();
-    }, [page, debouncedSearch]);
+    }, [page, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchStaff = async () => {
         try {
@@ -123,7 +124,7 @@ const Payments = () => {
                 setFormData(prev => ({ ...prev, branch_id: data[0].id }));
             }
         } catch (err) {
-            console.error('Failed to fetch branches');
+            console.error('Failed to fetch branches', err);
         }
     };
 
@@ -132,7 +133,7 @@ const Payments = () => {
             const data = await localDb.getPaymentMethods();
             setPaymentMethods(data || []);
         } catch (err) {
-            console.error('Failed to fetch payment methods');
+            console.error('Failed to fetch payment methods', err);
         }
     };
 
@@ -141,7 +142,7 @@ const Payments = () => {
             const data = await localDb.getVendors({ type });
             setVendors(data || []);
         } catch (err) {
-            console.error('Failed to fetch vendors');
+            console.error('Failed to fetch vendors', err);
         }
     };
 
@@ -152,6 +153,7 @@ const Payments = () => {
             setPayeeStatement(response.data);
             setShowStatementModal(true);
         } catch (err) {
+            console.error('Failed to fetch statement', err);
             setError('Failed to fetch statement');
         } finally {
             setLoading(false);
@@ -166,6 +168,7 @@ const Payments = () => {
             setTotal(data.length);
             setTotalPages(1); // Offline pagination simplified
         } catch (err) {
+            console.error('Failed to fetch payments from local storage', err);
             setError('Failed to fetch payments from local storage');
         } finally {
             setLoading(false);
@@ -228,6 +231,7 @@ const Payments = () => {
             });
             fetchPayments();
         } catch (err) {
+            console.error('Failed to record payment locally', err);
             setError('Failed to record payment locally');
         } finally {
             setLoading(false);
@@ -263,6 +267,7 @@ const Payments = () => {
             setBillData({ vendor_id: '', bill_number: '', bill_date: serverToday(), items: [] });
             await fetchVendors(); 
         } catch (err) {
+            console.error('Failed to record bill locally', err);
             setError('Failed to record bill locally');
         } finally {
             setLoading(false);
@@ -316,6 +321,7 @@ const Payments = () => {
             fetchPaymentMethods();
             setFormData({ ...formData, payment_method: newMethodName });
         } catch (err) {
+            console.error('Failed to add payment method', err);
             setError('Failed to add payment method');
         } finally {
             setLoading(false);
@@ -341,6 +347,7 @@ const Payments = () => {
             setNewVendor({ name: '', type: 'Vendor', contact_person: '', phone: '', address: '', branch_id: '', order_link: '', gstin: '' });
             setFormData({ ...formData, vendor_id: resp.id, payee_name: newVendor.name });
         } catch (err) {
+            console.error('Failed to add payee', err);
             setError('Failed to add payee');
         } finally {
             setLoading(false);
@@ -362,6 +369,7 @@ const Payments = () => {
             await api.delete(`/payments/${id}`);
             fetchPayments();
         } catch (err) {
+            console.error('Failed to delete payment', err);
             setError('Failed to delete payment');
             fetchPayments();
         }
@@ -378,7 +386,47 @@ const Payments = () => {
         );
     }, [payments, debouncedSearch]);
 
+    const LoadingSkeleton = () => (
+        <div className="stack-lg">
+            <div className="page-header">
+                <div>
+                    <div style={{ width: 200, height: 26, borderRadius: 6, background: 'var(--surface-2)' }} />
+                    <div style={{ width: 320, height: 14, borderRadius: 4, marginTop: 8, background: 'var(--surface-2)' }} />
+                </div>
+                <div style={{ width: 160, height: 38, borderRadius: 8, background: 'var(--surface-2)' }} />
+            </div>
+            <div className="panel panel--tight" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', gap: 12 }}>
+                    {[1,2,3,4,5].map(i => (
+                        <div key={i} style={{ flex: 1, height: 36, borderRadius: 8, background: 'var(--surface-2)' }} />
+                    ))}
+                </div>
+            </div>
+            <div className="panel panel--tight" style={{ padding: 0 }}>
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', gap: 24 }}>
+                        {[1,2,3,4,5,6,7,8,9].map(i => (
+                            <div key={i} style={{ width: 70, height: 14, borderRadius: 4, background: 'var(--surface-2)' }} />
+                        ))}
+                    </div>
+                </div>
+                {[1,2,3,4].map(r => (
+                    <div key={r} style={{ display: 'flex', gap: 24, padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                        {[1,2,3,4,5,6,7,8,9].map(c => (
+                            <div key={c} style={{ width: 70, height: 14, borderRadius: 4, background: 'var(--surface-2)' }} />
+                        ))}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
+    if (loading && payments.length === 0) {
+        return <LoadingSkeleton />;
+    }
+
     return (
+        <SectionErrorBoundary name="PaymentsPage">
         <div className="stack-lg">
             <div className="page-header">
                 <div>
@@ -1430,6 +1478,7 @@ const Payments = () => {
                 </div>
             )}
         </div>
+    </SectionErrorBoundary>
     )
 }
 

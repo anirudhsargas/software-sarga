@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../services/api';
 import localDb from '../services/localDb';
 import auth from '../services/auth';
@@ -73,7 +73,15 @@ const AttendanceSalary = () => {
     }
   };
 
-  useEffect(() => { fetchData(); }, [staffId, selectedMonth]);
+  const lastFetchedRef = useRef({ staffId: null, selectedMonth: null });
+
+  useEffect(() => {
+    if (lastFetchedRef.current.staffId === staffId && lastFetchedRef.current.selectedMonth === selectedMonth) {
+      return;
+    }
+    lastFetchedRef.current = { staffId, selectedMonth };
+    fetchData();
+  }, [staffId, selectedMonth]);
 
   const monthLabel = useMemo(() => {
     const [y, m] = selectedMonth.split('-');
@@ -343,7 +351,7 @@ const AttendanceSalary = () => {
   );
 };
 
-const InfoRow = ({ label, value, highlight }) => (
+const InfoRow = React.memo(({ label, value, highlight }) => (
   <div style={{
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     padding: '8px 12px', borderRadius: 6,
@@ -353,6 +361,6 @@ const InfoRow = ({ label, value, highlight }) => (
     <span style={{ fontSize: 12, color: 'var(--muted)' }}>{label}</span>
     <span style={{ fontSize: 14, fontWeight: 600, color: highlight ? 'var(--error)' : 'inherit' }}>{value}</span>
   </div>
-);
+));
 
 export default AttendanceSalary;

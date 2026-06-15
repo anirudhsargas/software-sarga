@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -20,7 +21,7 @@ router.get('/website/translations/:lang', asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: Get all translations ───
-router.get('/translations', asyncHandler(async (req, res) => {
+router.get('/translations', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { lang, namespace } = req.query;
   let where = '1=1';
   const params = [];
@@ -31,7 +32,7 @@ router.get('/translations', asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: Upsert a translation ───
-router.post('/translations', asyncHandler(async (req, res) => {
+router.post('/translations', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { lang, namespace, key_name, value } = req.body;
   if (!lang || !key_name) return res.status(400).json({ error: 'lang and key_name required' });
   await pool.query(
@@ -42,7 +43,7 @@ router.post('/translations', asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: Bulk upsert translations ───
-router.post('/translations/bulk', asyncHandler(async (req, res) => {
+router.post('/translations/bulk', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { translations } = req.body;
   if (!translations || !Array.isArray(translations)) return res.status(400).json({ error: 'translations array required' });
   let count = 0;
@@ -59,7 +60,7 @@ router.post('/translations/bulk', asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: Delete translation ───
-router.delete('/translations/:id', asyncHandler(async (req, res) => {
+router.delete('/translations/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   await pool.query('DELETE FROM sarga_translations WHERE id = ?', [req.params.id]);
   res.json({ message: 'Translation deleted' });
 }));

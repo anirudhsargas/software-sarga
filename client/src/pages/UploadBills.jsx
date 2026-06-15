@@ -321,6 +321,7 @@ const UploadBills = () => {
 
         const data = response.data;
         const details = data.extracted_data || {};
+        const gst = data.gst_analysis || {};
         
         // Push parsed result
         extractedResults.push({
@@ -335,6 +336,11 @@ const UploadBills = () => {
           bill_date: details.bill_date || new Date().toISOString().slice(0, 10),
           amount: details.amount || '',
           tax: details.tax || '0.00',
+          gst_category: gst.gst_category || '',
+          gst_confidence: gst.confidence || 0,
+          taxable_amount: gst.taxable_amount || details.amount || 0,
+          tax_amount: gst.tax_amount || details.tax || 0,
+          has_vendor_gstin: gst.has_vendor_gstin || false,
           items: (details.items || []).map((it, idx) => ({
             serial_no: it.serial_no || idx + 1,
             item_name: it.description || it.item_name || '',
@@ -451,6 +457,12 @@ const UploadBills = () => {
       formData.append('bill_number', bill.bill_number);
       formData.append('bill_date', bill.bill_date);
       formData.append('amount', bill.amount);
+      if (bill.gst_category) {
+        formData.append('gst_category', bill.gst_category);
+        formData.append('subtotal', String(bill.taxable_amount || ''));
+        formData.append('tax_amount', String(bill.tax_amount || ''));
+        formData.append('gst_confidence', String(bill.gst_confidence || ''));
+      }
       
       const autoDesc = bill.items.map(it => it.item_name).filter(Boolean).join(', ') || 'Smart Bill Upload';
       formData.append('description', autoDesc);
@@ -519,6 +531,12 @@ const UploadBills = () => {
         formData.append('bill_number', bill.bill_number);
         formData.append('bill_date', bill.bill_date);
         formData.append('amount', bill.amount);
+        if (bill.gst_category) {
+          formData.append('gst_category', bill.gst_category);
+          formData.append('subtotal', String(bill.taxable_amount || ''));
+          formData.append('tax_amount', String(bill.tax_amount || ''));
+          formData.append('gst_confidence', String(bill.gst_confidence || ''));
+        }
         formData.append('description', bill.items.map(it => it.item_name).join(', ') || 'Bulk Smart Upload');
         
         const payloadItems = bill.items.map(it => ({

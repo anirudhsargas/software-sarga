@@ -116,8 +116,8 @@ async function ensureVendorExistsFromBill({ vendorName, documentType, branchId }
 
   const [rows] = await pool.query(
     `SELECT id, name
-     FROM sarga_vendors
-     WHERE LOWER(TRIM(name)) IN (?, ?)
+     FROM vendors
+     WHERE is_active = TRUE AND LOWER(TRIM(name)) IN (?, ?)
      LIMIT 100`,
     [rawName.toLowerCase(), canonicalName.toLowerCase()]
   );
@@ -127,9 +127,17 @@ async function ensureVendorExistsFromBill({ vendorName, documentType, branchId }
 
   const vendorType = mapVendorTypeFromDocumentType(documentType);
   const [insertRes] = await pool.query(
-    'INSERT INTO sarga_vendors (name, type, branch_id) VALUES (?, ?, ?)',
-    [canonicalName, vendorType, branchId || null]
+    'INSERT INTO vendors (name, type, branch_id, category) VALUES (?, ?, ?, ?)',
+    [canonicalName, vendorType, branchId || null, 'other']
   );
+
+  try {
+    await pool.query(
+      'INSERT IGNORE INTO sarga_vendors (name, type, branch_id) VALUES (?, ?, ?)',
+      [canonicalName, vendorType, branchId || null]
+    );
+  } catch (_) {}
+
   return insertRes.insertId;
 }
 
@@ -1668,8 +1676,8 @@ router.get('/bills-documents/:id/full', authenticateToken, async (req, res) => {
 
       const [vendorRows] = await pool.query(
         `SELECT id, name
-         FROM sarga_vendors
-         WHERE branch_id = ? OR branch_id IS NULL
+         FROM vendors
+         WHERE is_active = TRUE AND (branch_id = ? OR branch_id IS NULL)
          ORDER BY id DESC`,
         [document.branch_id]
       );
@@ -1735,8 +1743,9 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
 
     const { branch_id, id: uploaded_by } = req.user;
     const {
-      document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
-      amount, description, line_items, force_duplicate, stock_branch_id
+      document_type, related_tab, related_id, vendor_name, vendor_gstin, bill_number, bill_date,
+      amount, subtotal, tax_amount, sgst_amount, cgst_amount, gst_confidence, gst_category,
+      description, line_items, force_duplicate, stock_branch_id
     } = req.body;
     const normalizedDocumentType = normalizeBillDocumentType(document_type, related_tab);
     const normalizedLineItems = normalizeLineItemsInput(line_items);
@@ -1795,23 +1804,32 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
 
     const [result] = await pool.query(
       `INSERT INTO sarga_bills_documents 
-       (branch_id, document_type, related_tab, related_id, vendor_name, bill_number, bill_date,
-        amount, file_path, file_name, file_type, file_size_kb, description, uploaded_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (branch_id, document_type, related_tab, related_id, vendor_name, vendor_gstin, bill_number, bill_date,
+        amount, subtotal, tax_amount, sgst_amount, cgst_amount, gst_confidence, gst_category,
+        file_path, file_name, file_type, file_size_kb, description, line_items, uploaded_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         branch_id,
         normalizedDocumentType,
         related_tab || null,
         related_id || null,
         vendor_name || null,
+        vendor_gstin || null,
         bill_number || null,
         bill_date,
         amount || null,
+        subtotal || null,
+        tax_amount || null,
+        sgst_amount || null,
+        cgst_amount || null,
+        gst_confidence || null,
+        gst_category || null,
         filePath,
         req.file.originalname,
         req.file.mimetype,
         Math.ceil(req.file.size / 1024),
         description || null,
+        typeof line_items === 'string' ? line_items : (normalizedLineItems.length > 0 ? JSON.stringify(normalizedLineItems) : null),
         uploaded_by
       ]
     );
@@ -2024,8 +2042,8 @@ router.delete('/bills-documents/:id', authenticateToken, async (req, res) => {
       if (vendorKey) {
         const [vendorRows] = await pool.query(
           `SELECT id, name
-           FROM sarga_vendors
-           WHERE branch_id = ? OR branch_id IS NULL
+           FROM vendors
+           WHERE is_active = TRUE AND (branch_id = ? OR branch_id IS NULL)
            ORDER BY id DESC`,
           [document.branch_id]
         );
@@ -2154,6 +2172,36 @@ router.post('/bills-documents/extract-details', authenticateToken, authorizeRole
     }
 
     console.log('[Bill Extraction] Success, returning suggestions');
+
+    // GST classification logic
+    const extracted = result.suggestions?.extracted_data || {};
+    const items = extracted.items || [];
+    const hasGstin = !!(extracted.vendor_gstin || result.suggestions?.vendor_gstin);
+    const hasHsnItems = items.some(i => i.hsn_sac && String(i.hsn_sac).trim().length >= 4);
+    const taxAmount = Number(extracted.tax || extracted.tax_amount || 0);
+    const hasTax = taxAmount > 0;
+    const vendorCategory = extracted.category === 'Vendor' || extracted.detected_type === 'Invoice';
+    const gstConfidence = (() => {
+      let score = 0;
+      if (hasGstin) score += 0.4;
+      if (hasHsnItems) score += 0.3;
+      if (hasTax) score += 0.2;
+      if (vendorCategory) score += 0.1;
+      return Math.min(score, 1);
+    })();
+
+    result.suggestions.gst_analysis = {
+      confidence: Math.round(gstConfidence * 100) / 100,
+      gst_category: gstConfidence >= 0.5 ? 'business' : 'expense',
+      has_vendor_gstin: hasGstin,
+      has_hsn_items: hasHsnItems,
+      has_tax_amount: hasTax,
+      is_invoice_type: vendorCategory,
+      taxable_amount: extracted.subtotal || extracted.amount,
+      tax_amount: taxAmount,
+      item_count: items.length,
+    };
+
     res.json(result.suggestions);
   } catch (error) {
     console.error('Bill extraction error:', error.message, error.stack);

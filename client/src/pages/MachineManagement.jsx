@@ -68,9 +68,9 @@ const MachineManagement = () => {
 
     const machineTypes = ['Offset', 'Digital', 'Binding', 'Lamination', 'Cutting', 'Other'];
     const BOOK_TYPES = [
-        { key: 'Offset', color: '#2563eb', label: 'Offset' },
-        { key: 'Laser',  color: '#7c3aed', label: 'Laser'  },
-        { key: 'Other',  color: '#059669', label: 'Other'  },
+        { key: 'Offset', color: 'var(--accent)', label: 'Offset' },
+        { key: 'Laser',  color: 'var(--accent)', label: 'Laser'  },
+        { key: 'Other',  color: 'var(--text-muted)', label: 'Other'  },
     ];
 
     // ─── Data Fetch ──────────────────────────────────────────────
@@ -1498,8 +1498,8 @@ const MachineManagement = () => {
                                     ) : foStaff.map(s => (
                                         <label key={s.id} className="row items-center gap-sm mm-staff-label" style={{
                                             padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
-                                            border: '1px solid var(--clr-border)',
-                                            background: bookAssignStaffIds.includes(s.id) ? 'var(--clr-primary-light, #eef2ff)' : 'transparent'
+                                            border: '1px solid var(--border)',
+                                            background: bookAssignStaffIds.includes(s.id) ? 'var(--surface-2)' : 'transparent'
                                         }}>
                                             <input type="checkbox"
                                                 checked={bookAssignStaffIds.includes(s.id)}

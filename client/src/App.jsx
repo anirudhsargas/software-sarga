@@ -16,8 +16,9 @@ import auth from './services/auth';
 import { initServerTime } from './services/serverTime';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ConfirmProvider } from './contexts/ConfirmContext';
+import { BranchProvider } from './contexts/BranchContext';
 import { AuthProvider } from './hooks/useAuth';
-import CustomCursor from './components/ui/CustomCursor';
+
 import { HelmetProvider } from 'react-helmet-async';
 
 import { syncManager } from './services/syncWorkerManager';
@@ -58,6 +59,18 @@ function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // bfcache: cleanup sync worker on hide / recreate on show
+    const handlePageHide = () => {
+      syncManager.destroy();
+    };
+    const handlePageShow = () => {
+      syncManager.init();
+      const token = localStorage.getItem('token');
+      if (token) syncManager.updateToken(token);
+    };
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('pageshow', handlePageShow);
+
     // Theme handling (unchanged)
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const applyTheme = (isDark) => {
@@ -74,6 +87,8 @@ function App() {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('pageshow', handlePageShow);
       if (media.removeEventListener) {
         media.removeEventListener('change', handleChange);
       } else {
@@ -86,9 +101,9 @@ function App() {
   return (
     <HelmetProvider>
     <ErrorBoundary>
-      <CustomCursor />
       <BrowserRouter>
         <AuthProvider>
+        <BranchProvider>
         <ConfirmProvider>
           <SyncStatusBar />
           <Toaster
@@ -151,6 +166,7 @@ function App() {
             </Routes>
           </Suspense>
         </ConfirmProvider>
+        </BranchProvider>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

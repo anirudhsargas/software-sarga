@@ -634,133 +634,128 @@ const FrontOffice = () => {
                 </div>
             )}
 
-            {/* ──── Search Bar ──── */}
-            <div className="fo-search-bar" ref={searchRef}>
-                <div className="fo-search-input-wrap">
-                    <Search size={18} className="fo-search-icon" />
-                    <input
-                        id="fo-search"
-                        type="text"
-                        className="fo-search-input"
-                        placeholder="Search customer by name or mobile... (Ctrl+K)"
-                        value={search}
-                        onChange={(e) => handleSearch(e.target.value)}
-                        autoComplete="off"
-                    />
-                    {search && (
-                        <button className="fo-search-clear" aria-label="Clear search" onClick={() => { setSearch(''); setSearchResults([]); setShowSearchResults(false); }}>
-                            <X size={16} />
-                        </button>
-                    )}
-                    {searchLoading && <Loader2 size={16} className="spin fo-search-spinner" />}
-                </div>
-                {showSearchResults && (
-                    <div className="fo-search-dropdown">
-                        {searchResults.length === 0 ? (
-                            <div className="fo-search-empty">
-                                <p>No customers found</p>
-                                <button className="btn btn-primary btn-sm" onClick={() => navigate('/dashboard/customers')}>
-                                    <UserPlus size={14} /> Add New Customer
-                                </button>
-                            </div>
-                        ) : (
-                            searchResults.map(c => (
-                                <button
-                                    key={c.id}
-                                    className="fo-search-result"
-                                    onClick={() => {
-                                        setShowSearchResults(false);
-                                        setSearch('');
-                                        navigate(`/dashboard/customers/${c.id}`);
-                                    }}
-                                >
-                                    <div className="fo-search-result__info">
-                                        <span className="fo-search-result__name">{c.name}</span>
-                                        <span className="fo-search-result__mobile">{c.mobile}</span>
-                                    </div>
-                                    <div className="fo-search-result__meta">
-                                        <span className="fo-search-result__jobs">{c.job_count} jobs</span>
-                                        {c.due_amount > 0 && (
-                                            <span className="fo-search-result__due">{fmt(c.due_amount)} due</span>
-                                        )}
-                                    </div>
-                                    <ChevronRight size={16} />
-                                </button>
-                            ))
+            {/* ──── Toolbar: Search + Actions ──── */}
+            <div className="fo-toolbar" ref={searchRef}>
+                <div className="fo-search-bar">
+                    <div className="fo-search-input-wrap">
+                        <Search size={16} className="fo-search-icon" />
+                        <input
+                            id="fo-search"
+                            type="text"
+                            className="fo-search-input"
+                            placeholder="Search customers, orders, jobs..."
+                            value={search}
+                            onChange={(e) => handleSearch(e.target.value)}
+                            autoComplete="off"
+                        />
+                        {search && (
+                            <button className="fo-search-clear" aria-label="Clear search" onClick={() => { setSearch(''); setSearchResults([]); setShowSearchResults(false); }}>
+                                <X size={16} />
+                            </button>
                         )}
+                        {searchLoading && <Loader2 size={16} className="spin fo-search-spinner" />}
                     </div>
-                )}
-            </div>
-
-            {/* ──── Quick Action Buttons ──── */}
-            <div className="fo-quick-actions">
-                <button className="fo-action-btn fo-action-btn--primary" onClick={() => navigate('/dashboard/sales/invoices', { state: { action: 'create' } })}>
-                    <Plus size={20} />
-                    <span>New Order</span>
-                    <kbd>Alt+N</kbd>
-                </button>
-                <button className="fo-action-btn fo-action-btn--success" onClick={() => navigate('/dashboard/sales/payments')}>
-                    <Wallet size={20} />
-                    <span>Take Payment</span>
-                    <kbd>Alt+P</kbd>
-                </button>
-                <button className="fo-action-btn fo-action-btn--info" onClick={() => navigate('/dashboard/staff')}>
-                    <Calendar size={20} />
-                    <span>Attendance</span>
-                </button>
-                <button className="fo-action-btn fo-action-btn--accent" onClick={() => navigate('/dashboard/customers')}>
-                    <Users size={20} />
-                    <span>Customers</span>
-                </button>
-                <button className="fo-action-btn fo-action-btn--default" onClick={() => navigate('/dashboard/jobs')}>
-                    <Package size={20} />
-                    <span>All Orders</span>
-                </button>
+                    {showSearchResults && (
+                        <div className="fo-search-dropdown">
+                            {searchResults.length === 0 ? (
+                                <div className="fo-search-empty">
+                                    <p>No customers found</p>
+                                    <button className="btn btn-primary btn-sm" onClick={() => navigate('/dashboard/customers')}>
+                                        <UserPlus size={14} /> Add New Customer
+                                    </button>
+                                </div>
+                            ) : (
+                                searchResults.map(c => (
+                                    <button
+                                        key={c.id}
+                                        className="fo-search-result"
+                                        onClick={() => {
+                                            setShowSearchResults(false);
+                                            setSearch('');
+                                            navigate(`/dashboard/customers/${c.id}`);
+                                        }}
+                                    >
+                                        <div className="fo-search-result__info">
+                                            <span className="fo-search-result__name">{c.name}</span>
+                                            <span className="fo-search-result__mobile">{c.mobile}</span>
+                                        </div>
+                                        <div className="fo-search-result__meta">
+                                            <span className="fo-search-result__jobs">{c.job_count} jobs</span>
+                                            {c.due_amount > 0 && (
+                                                <span className="fo-search-result__due">{fmt(c.due_amount)} due</span>
+                                            )}
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    )}
+                </div>
+                <div className="fo-toolbar__actions">
+                    <button className="fo-toolbar-btn fo-toolbar-btn--primary" onClick={() => navigate('/dashboard/sales/invoices', { state: { action: 'create' } })}>
+                        <Plus size={16} />
+                        <span>New Order</span>
+                    </button>
+                    <button className="fo-toolbar-btn fo-toolbar-btn--secondary" onClick={() => navigate('/dashboard/sales/payments')}>
+                        <Wallet size={16} />
+                        <span>Take Payment</span>
+                    </button>
+                    <button className="fo-toolbar-btn fo-toolbar-btn--secondary" onClick={() => navigate('/dashboard/staff')}>
+                        <Calendar size={16} />
+                        <span>Attendance</span>
+                    </button>
+                    <button className="fo-toolbar-btn fo-toolbar-btn--secondary" onClick={() => navigate('/dashboard/customers')}>
+                        <Users size={16} />
+                        <span>Customers</span>
+                    </button>
+                </div>
             </div>
 
             {/* ──── Stats Cards ──── */}
+            <h2 className="sr-only">Dashboard Summary</h2>
             <div className="fo-stats-grid">
                 {loading ? (
                     <SkeletonLoader type="cards" count={6} />
                 ) : (
                     <>
                     <div className="fo-stat-card fo-stat-card--blue">
-                        <div className="fo-stat-card__icon"><ShoppingBag size={22} /></div>
+                        <div className="fo-stat-card__icon"><ShoppingBag size={20} /></div>
                         <div className="fo-stat-card__body">
                             <span className="fo-stat-card__value">{stats?.today_orders ?? 0}</span>
                             <span className="fo-stat-card__label">Today's Orders</span>
                         </div>
                     </div>
                     <div className="fo-stat-card fo-stat-card--amber">
-                        <div className="fo-stat-card__icon"><Clock size={22} /></div>
+                        <div className="fo-stat-card__icon"><Clock size={20} /></div>
                         <div className="fo-stat-card__body">
                             <span className="fo-stat-card__value">{stats?.in_progress ?? 0}</span>
                             <span className="fo-stat-card__label">In Progress</span>
                         </div>
                     </div>
                     <div className="fo-stat-card fo-stat-card--green">
-                        <div className="fo-stat-card__icon"><CheckCircle2 size={22} /></div>
+                        <div className="fo-stat-card__icon"><CheckCircle2 size={20} /></div>
                         <div className="fo-stat-card__body">
                             <span className="fo-stat-card__value">{stats?.ready_pickup ?? 0}</span>
                             <span className="fo-stat-card__label">Ready for Pickup</span>
                         </div>
                     </div>
                     <div className="fo-stat-card fo-stat-card--red">
-                        <div className="fo-stat-card__icon"><IndianRupee size={22} /></div>
+                        <div className="fo-stat-card__icon"><IndianRupee size={20} /></div>
                         <div className="fo-stat-card__body">
                             <span className="fo-stat-card__value">{fmt(stats?.total_due)}</span>
                             <span className="fo-stat-card__label">Total Due</span>
                         </div>
                     </div>
                     <div className="fo-stat-card fo-stat-card--teal">
-                        <div className="fo-stat-card__icon"><TrendingUp size={22} /></div>
+                        <div className="fo-stat-card__icon"><TrendingUp size={20} /></div>
                         <div className="fo-stat-card__body">
                             <span className="fo-stat-card__value">{fmt(stats?.today_collections)}</span>
                             <span className="fo-stat-card__label">Today's Collection</span>
                         </div>
                     </div>
                     <div className="fo-stat-card fo-stat-card--purple">
-                        <div className="fo-stat-card__icon"><Truck size={22} /></div>
+                        <div className="fo-stat-card__icon"><Truck size={20} /></div>
                         <div className="fo-stat-card__body">
                             <span className="fo-stat-card__value">{stats?.delivered_today ?? 0}</span>
                             <span className="fo-stat-card__label">Delivered Today</span>
@@ -771,6 +766,7 @@ const FrontOffice = () => {
             </div>
 
             {/* ──── Tab Switcher ──── */}
+            <h2 className="sr-only">Recent Activity</h2>
             <div className="fo-tabs">
                 <button className={`fo-tab ${activeTab === 'queue' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('queue')}>
                     <Package size={16} /> Active Jobs{activeTotal > 0 && <span className="fo-tab-count">{activeTotal}</span>}
@@ -794,7 +790,6 @@ const FrontOffice = () => {
 
             {/* ──── Category Filter Row ──── */}
             <div className="fo-category-filter">
-                <span className="fo-category-filter__label">Filter by Type:</span>
                 <div className="fo-category-filter__chips">
                     <button onClick={() => setCategoryFilter('')} className={`fo-category-chip ${categoryFilter === '' ? 'fo-category-chip--active' : ''}`}>All</button>
                     <button onClick={() => setCategoryFilter('OFFSET')} className={`fo-category-chip ${categoryFilter === 'OFFSET' ? 'fo-category-chip--active' : ''}`}>Offset</button>
@@ -1392,14 +1387,17 @@ const FrontOffice = () => {
 
             {/* ──── Status Pipeline ──── */}
             <div className="fo-pipeline">
-                <h3 className="fo-section-title">Job Pipeline</h3>
+                <h2 className="fo-section-title">Job Pipeline</h2>
                 <div className="fo-pipeline-bar">
-                    {['Pending', 'Processing', 'Completed', 'Delivered'].map(status => (
-                        <div key={status} className={`fo-pipeline-stage fo-pipeline-stage--${status.toLowerCase()}`}>
-                            <span className="fo-pipeline-stage__count">{status_counts?.[status] || 0}</span>
-                            <span className="fo-pipeline-stage__label">{status}</span>
-                        </div>
-                    ))}
+                    {['Pending', 'Processing', 'Completed', 'Delivered'].map(status => {
+                        const count = status_counts?.[status] || 0;
+                        return (
+                            <div key={status} className={`fo-pipeline-stage fo-pipeline-stage--${status.toLowerCase()}${count > 0 ? ' fo-pipeline-stage--active' : ''}`}>
+                                <span className="fo-pipeline-stage__count">{count}</span>
+                                <span className="fo-pipeline-stage__label">{status}</span>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -1421,9 +1419,9 @@ const FrontOffice = () => {
                         <div className="stack-md" style={{ marginTop: 20 }}>
                             {Object.keys(promptBalances).length > 0 && (
                                 <div className="panel panel--tight" style={{ background: 'var(--surface-2)' }}>
-                                    <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
+                                    <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
                                         <Wallet size={14} /> CASH OPENING BALANCES
-                                    </h4>
+                                    </h3>
                                     <div className="stack-sm">
                                         {OPENING_TABS.filter(tab => Object.prototype.hasOwnProperty.call(promptBalances, tab.key)).map(tab => (
                                             <div key={tab.key} className="row gap-md items-center" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -1451,9 +1449,9 @@ const FrontOffice = () => {
 
                             {promptMachines.length > 0 && (
                                 <div className="panel panel--tight" style={{ background: 'var(--surface-2)' }}>
-                                    <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
+                                    <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
                                         <Monitor size={14} /> MACHINE OPENING COUNTS
-                                    </h4>
+                                    </h3>
                                     <div className="stack-sm">
                                         {promptMachines.map((m, idx) => (
                                             <div key={m.id} className="stack-sm" style={{ marginBottom: 4 }}>

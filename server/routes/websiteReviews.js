@@ -1,5 +1,6 @@
 const express = require('express');
 const { pool } = require('../database');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const logger = require('../helpers/logger');
 
 const router = express.Router();
@@ -59,7 +60,7 @@ router.get('/website/reviews/stats', asyncHandler(async (req, res) => {
 }));
 
 // ─── POST /api/website/reviews/fetch-google — admin: trigger Google Places fetch ───
-router.post('/website/reviews/fetch-google', asyncHandler(async (req, res) => {
+router.post('/website/reviews/fetch-google', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const PLACE_ID = process.env.GOOGLE_PLACE_ID;
   const API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 
@@ -117,7 +118,7 @@ router.post('/website/reviews/fetch-google', asyncHandler(async (req, res) => {
 }));
 
 // ─── GET /api/reviews — admin: list all reviews ───
-router.get('/reviews', asyncHandler(async (req, res) => {
+router.get('/reviews', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query(
     `SELECT id, reviewer_name, profile_image_url, rating, review_text,
             DATE_FORMAT(review_date, '%Y-%m-%d') AS review_date,
@@ -129,7 +130,7 @@ router.get('/reviews', asyncHandler(async (req, res) => {
 }));
 
 // ─── POST /api/reviews — admin: create review ───
-router.post('/reviews', asyncHandler(async (req, res) => {
+router.post('/reviews', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { reviewer_name, profile_image_url, rating, review_text, review_date, source, is_featured, is_active, sort_order } = req.body;
   if (!reviewer_name || !rating) {
     return res.status(400).json({ error: 'reviewer_name and rating are required.' });
@@ -154,7 +155,7 @@ router.post('/reviews', asyncHandler(async (req, res) => {
 }));
 
 // ─── PUT /api/reviews/:id — admin: update review ───
-router.put('/reviews/:id', asyncHandler(async (req, res) => {
+router.put('/reviews/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { reviewer_name, profile_image_url, rating, review_text, review_date, source, is_featured, is_active, sort_order } = req.body;
 
@@ -179,7 +180,7 @@ router.put('/reviews/:id', asyncHandler(async (req, res) => {
 }));
 
 // ─── DELETE /api/reviews/:id — admin: delete review ───
-router.delete('/reviews/:id', asyncHandler(async (req, res) => {
+router.delete('/reviews/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
   await pool.query('DELETE FROM sarga_reviews WHERE id = ?', [id]);
   invalidateCache('reviews');
@@ -187,7 +188,7 @@ router.delete('/reviews/:id', asyncHandler(async (req, res) => {
 }));
 
 // ─── PUT /api/reviews/:id/feature — admin: toggle featured ───
-router.put('/reviews/:id/feature', asyncHandler(async (req, res) => {
+router.put('/reviews/:id/feature', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const [rows] = await pool.query('SELECT is_featured FROM sarga_reviews WHERE id = ?', [id]);
   if (rows.length === 0) return res.status(404).json({ error: 'Review not found.' });

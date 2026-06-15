@@ -584,12 +584,22 @@ router.put('/vendor-requests/:id/review', authenticateToken, authorizeRoles('Adm
             if (status === 'Approved') {
                 if (['Vendor', 'Utility'].includes(request.request_type)) {
                     const [vendorResult] = await connection.query(
-                        `INSERT INTO sarga_vendors 
-                        (name, type, contact_person, phone, address, gstin, branch_id) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        `INSERT INTO vendors 
+                        (name, type, contact_person, phone, address, gstin, branch_id, category) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                         [request.name, request.request_type, request.contact_person, request.phone,
-                        request.address, request.gstin, request.branch_id]
+                        request.address, request.gstin, request.branch_id, 'other']
                     );
+
+                    try {
+                        await connection.query(
+                            `INSERT IGNORE INTO sarga_vendors
+                            (name, type, contact_person, phone, address, gstin, branch_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                            [request.name, request.request_type, request.contact_person, request.phone,
+                            request.address, request.gstin, request.branch_id]
+                        );
+                    } catch (_) {}
 
                     await auditLog(req.user.id, 'INSERT', `Approved vendor request #${id} and created ${request.request_type}: ${request.name} (Vendor ID: ${vendorResult.insertId})`);
                 } else {
@@ -697,10 +707,13 @@ async function trackPaymentFrequency(payeeName, category, amount) {
     }
 }
 
-// GET /api/expense-vendors - Get all expense vendors
+// GET /api/expense-vendors - Get all expense vendors (unified from vendors table)
 router.get('/expense-vendors', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT * FROM sarga_vendors ORDER BY name');
+        const [rows] = await pool.query(
+            `SELECT id, name, type, contact_person, phone, address, gstin, branch_id, order_link, created_at
+             FROM vendors WHERE is_active = TRUE ORDER BY name`
+        );
         res.json(rows);
     } catch (err) {
         console.error('GET /expense-vendors error:', err);
@@ -708,7 +721,7 @@ router.get('/expense-vendors', authenticateToken, async (req, res) => {
     }
 });
 
-// POST /api/expense-vendors - Create an expense vendor
+// POST /api/expense-vendors - Create an expense vendor (unified in vendors table)
 router.post('/expense-vendors', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { name, type, contact_person, phone, address, gstin, order_link, branch_id } = req.body;
@@ -716,9 +729,9 @@ router.post('/expense-vendors', authenticateToken, authorizeRoles('Admin', 'Acco
             return res.status(400).json({ error: 'Name is required' });
         }
         const [result] = await pool.query(
-            `INSERT INTO sarga_vendors 
-             (name, type, contact_person, phone, address, gstin, order_link, branch_id) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO vendors 
+             (name, type, contact_person, phone, address, gstin, order_link, branch_id, category) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 name,
                 type || 'Vendor',
@@ -727,9 +740,21 @@ router.post('/expense-vendors', authenticateToken, authorizeRoles('Admin', 'Acco
                 address || null,
                 gstin || null,
                 order_link || null,
-                branch_id || null
+                branch_id || null,
+                'other'
             ]
         );
+
+        try {
+            await pool.query(
+                `INSERT IGNORE INTO sarga_vendors 
+                 (name, type, contact_person, phone, address, gstin, order_link, branch_id) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [name, type || 'Vendor', contact_person || null, phone || null,
+                 address || null, gstin || null, order_link || null, branch_id || null]
+            );
+        } catch (_) {}
+
         res.status(201).json({ id: result.insertId, name });
     } catch (err) {
         console.error('POST /expense-vendors error:', err);
@@ -740,7 +765,7 @@ router.post('/expense-vendors', authenticateToken, authorizeRoles('Admin', 'Acco
     }
 });
 
-// PUT /api/expense-vendors/:id - Update an expense vendor
+// PUT /api/expense-vendors/:id - Update an expense vendor (unified in vendors table)
 router.put('/expense-vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -749,9 +774,9 @@ router.put('/expense-vendors/:id', authenticateToken, authorizeRoles('Admin', 'A
             return res.status(400).json({ error: 'Name is required' });
         }
         await pool.query(
-            `UPDATE sarga_vendors 
+            `UPDATE vendors 
              SET name = ?, type = ?, contact_person = ?, phone = ?, address = ?, gstin = ?, order_link = ?, branch_id = ?
-             WHERE id = ?`,
+             WHERE id = ? AND is_active = TRUE`,
             [
                 name,
                 type || 'Vendor',
@@ -764,6 +789,17 @@ router.put('/expense-vendors/:id', authenticateToken, authorizeRoles('Admin', 'A
                 id
             ]
         );
+
+        try {
+            await pool.query(
+                `UPDATE sarga_vendors
+                 SET name = ?, type = ?, contact_person = ?, phone = ?, address = ?, gstin = ?, order_link = ?, branch_id = ?
+                 WHERE id = ?`,
+                [name, type || 'Vendor', contact_person || null, phone || null,
+                 address || null, gstin || null, order_link || null, branch_id || null, id]
+            );
+        } catch (_) {}
+
         res.json({ message: 'Vendor updated successfully' });
     } catch (err) {
         console.error('PUT /expense-vendors/:id error:', err);
@@ -774,11 +810,14 @@ router.put('/expense-vendors/:id', authenticateToken, authorizeRoles('Admin', 'A
     }
 });
 
-// DELETE /api/expense-vendors/:id - Delete an expense vendor
+// DELETE /api/expense-vendors/:id - Soft delete expense vendor (unified)
 router.delete('/expense-vendors/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
     try {
         const { id } = req.params;
-        await pool.query('DELETE FROM sarga_vendors WHERE id = ?', [id]);
+        await pool.query("UPDATE vendors SET is_active = FALSE WHERE id = ?", [id]);
+        try {
+            await pool.query('DELETE FROM sarga_vendors WHERE id = ?', [id]);
+        } catch (_) {}
         res.json({ message: 'Vendor deleted successfully' });
     } catch (err) {
         console.error('DELETE /expense-vendors/:id error:', err);

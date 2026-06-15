@@ -288,12 +288,12 @@ export async function saveVendor(vendor) {
     // Save to IndexedDB first
     const result = await offlineDb.save('vendors', record);
 
-    // Try to sync to server (non-blocking, best-effort)
+    // Try to sync to server (non-blocking, best-effort) — unified /api/vendors
     if (navigator.onLine) {
         try {
             const isTempId = String(id).startsWith('VEND');
             if (isNew || isTempId) {
-                const res = await api.post('expense-vendors', {
+                const res = await api.post('vendors', {
                     name: vendor.name,
                     type: vendor.type || 'Vendor',
                     contact_person: vendor.contact_person || null,
@@ -304,13 +304,12 @@ export async function saveVendor(vendor) {
                     branch_id: vendor.branch_id || null
                 });
                 if (res.data && res.data.id) {
-                    // Overwrite with server ID
                     await offlineDb.delete('vendors', id);
                     await offlineDb.save('vendors', { ...record, id: res.data.id });
                     return { id: res.data.id, isNew };
                 }
             } else {
-                await api.put(`expense-vendors/${id}`, {
+                await api.put(`vendors/${id}`, {
                     name: vendor.name,
                     type: vendor.type || 'Vendor',
                     contact_person: vendor.contact_person || null,
@@ -335,7 +334,7 @@ export async function deleteVendor(id) {
         const isTempId = String(id).startsWith('VEND');
         if (!isTempId) {
             try {
-                await api.delete(`expense-vendors/${id}`);
+                await api.delete(`vendors/${id}`);
             } catch (err) {
                 console.error('Failed to sync vendor deletion to server:', err);
             }
@@ -1286,8 +1285,7 @@ export async function markAttendance(attendanceData) {
                 // fallback: mark status only
                 await offlineDb.updateAttendanceStatus(idbKey, 'synced');
             }
-        } catch (e) {
-            // best-effort update; if it fails, still mark as synced
+        } catch {
             await offlineDb.updateAttendanceStatus(idbKey, 'synced');
         }
     });

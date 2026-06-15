@@ -21,11 +21,7 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
     requestAnimationFrame(() => setChartReady(true));
   }, []);
 
-  useEffect(() => {
-    loadDashboardStats();
-  }, [refreshKey]);
-
-  const loadDashboardStats = async () => {
+  const loadDashboardStats = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -41,7 +37,11 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [retryCount]);
+
+  useEffect(() => {
+    loadDashboardStats();
+  }, [refreshKey, loadDashboardStats]);
 
   const handleRetry = () => {
     setRetryCount(retryCount + 1);
@@ -59,7 +59,7 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
 
   if (error || !stats) {
     return (
-      <div className="glass-card" style={{ padding: '40px' }}>
+        <div className="panel" style={{ padding: '40px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '24px' }}>
           <AlertCircle size={64} style={{ color: 'var(--error)', opacity: 0.3 }} />
           <div style={{ textAlign: 'center', maxWidth: '500px' }}>
@@ -112,8 +112,14 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
 
   return (
     <div className="dashboard-wrapper">
+      {/* Dashboard Heading */}
+      <div className="dashboard-heading">
+        <h2>Vendor Analytics</h2>
+        <p>Monitor vendor performance, procurement trends, and outstanding liabilities across all branches.</p>
+      </div>
+
       {/* Metrics Row */}
-      <div className="metrics-grid" style={{ marginBottom: '32px' }}>
+      <div className="metrics-grid">
         {metrics.map((m, idx) => (
           <div key={idx} className="metric-card">
             <div className={`metric-icon-box metric-icon-box--${m.color}`}>
@@ -134,18 +140,18 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '24px', marginBottom: '32px' }}>
+      <div className="dashboard-grid">
         {/* Trend Chart */}
-        <div style={{ gridColumn: 'span 12 / span 8', padding: '24px' }} className="glass-card">
+        <div className="dashboard-grid__chart panel">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <div>
               <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Spending Velocity</h3>
               <p style={{ fontSize: '12px', color: 'var(--muted)' }}>Monthly procurement trends across branches</p>
             </div>
-            <div style={{ display: 'flex', gap: '12px', fontSize: '11px', fontWeight: 600 }}>
-               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#3B82F6' }}></div> Perambra</span>
-               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }}></div> Meppayur</span>
-            </div>
+                            <div style={{ display: 'flex', gap: '12px', fontSize: '11px', fontWeight: 600 }}>
+                               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent)' }}></div> Perambra</span>
+                               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--success)' }}></div> Meppayur</span>
+                            </div>
           </div>
           <div style={{ height: '320px', minWidth: 0 }}>
             {chartReady && (
@@ -177,18 +183,18 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
                 <Line
                   type="monotone"
                   dataKey="perambra"
-                  stroke="#3B82F6"
+                  stroke="var(--accent)"
                   strokeWidth={4}
-                  dot={{ r: 4, strokeWidth: 2, fill: '#fff' }}
+                  dot={{ r: 4, strokeWidth: 2, fill: 'var(--surface)' }}
                   activeDot={{ r: 6, strokeWidth: 0 }}
                   name="Perambra"
                 />
                 <Line
                   type="monotone"
                   dataKey="meppayur"
-                  stroke="#10B981"
+                  stroke="var(--success)"
                   strokeWidth={4}
-                  dot={{ r: 4, strokeWidth: 2, fill: '#fff' }}
+                  dot={{ r: 4, strokeWidth: 2, fill: 'var(--surface)' }}
                   activeDot={{ r: 6, strokeWidth: 0 }}
                   name="Meppayur"
                 />
@@ -199,7 +205,7 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
         </div>
 
         {/* Top Vendors */}
-        <div style={{ gridColumn: 'span 12 / span 4', padding: '24px' }} className="glass-card">
+        <div className="dashboard-grid__sidebar panel">
           <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>Top Partners</h3>
           <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '24px' }}>Strategic vendors by volume this month</p>
           
@@ -234,8 +240,8 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
       </div>
 
       {/* Pending Invoices */}
-      <div className="glass-card" style={{ overflow: 'hidden' }}>
-        <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(241, 239, 232, 0.3)' }}>
+      <div className="panel" style={{ overflow: 'hidden' }}>
+        <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)' }}>
           <div>
             <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Priority Liabilities</h3>
             <p style={{ fontSize: '12px', color: 'var(--muted)' }}>Awaiting settlement or verification</p>
@@ -248,7 +254,7 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%' }}>
             <thead>
-              <tr style={{ backgroundColor: 'rgba(241, 239, 232, 0.5)', textAlign: 'left' }}>
+              <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
                 <th style={{ padding: '16px 24px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)' }}>Invoice Details</th>
                 <th style={{ padding: '16px 24px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)' }}>Vendor Entity</th>
                 <th style={{ padding: '16px 24px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)' }}>Maturity Date</th>

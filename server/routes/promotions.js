@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const crypto = require('crypto');
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -39,7 +39,7 @@ router.get('/website/promotions/banners', asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: List all promotions ───
-router.get('/promotions', authenticateToken, asyncHandler(async (req, res) => {
+router.get('/promotions', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query(
     'SELECT * FROM sarga_promotions ORDER BY priority DESC, created_at DESC'
   );
@@ -47,7 +47,7 @@ router.get('/promotions', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: Create promotion ───
-router.post('/promotions', authenticateToken, asyncHandler(async (req, res) => {
+router.post('/promotions', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { title, description, banner_image, banner_mobile_image, campaign_type, start_date, end_date, discount_percent, discount_code, link_url, priority, is_active } = req.body;
   if (!title) return res.status(400).json({ error: 'Title required' });
   const slug = generateSlug(title);
@@ -61,7 +61,7 @@ router.post('/promotions', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: Update promotion ───
-router.put('/promotions/:id', authenticateToken, asyncHandler(async (req, res) => {
+router.put('/promotions/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const sets = [];
   const params = [];
   const fields = ['title', 'description', 'banner_image', 'banner_mobile_image', 'campaign_type', 'start_date', 'end_date', 'discount_percent', 'discount_code', 'link_url', 'priority', 'is_active'];
@@ -78,7 +78,7 @@ router.put('/promotions/:id', authenticateToken, asyncHandler(async (req, res) =
 }));
 
 // ─── ADMIN: Delete promotion ───
-router.delete('/promotions/:id', authenticateToken, asyncHandler(async (req, res) => {
+router.delete('/promotions/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   await pool.query('DELETE FROM sarga_promotions WHERE id = ?', [req.params.id]);
   res.json({ message: 'Promotion deleted' });
 }));

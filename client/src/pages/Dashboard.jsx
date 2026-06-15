@@ -7,19 +7,22 @@ import {
     Image, Calendar, Truck, Globe
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
-import api, { imgUrl } from '../services/api';
+import api from '../services/api';
 import RequiresConnection from '../components/RequiresConnection';
 import SecureImage from '../components/SecureImage';
 import ImageCropModal from '../components/ImageCropModal';
-import ScannerModal from '../components/ScannerModal';
+const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useLocation } from 'react-router-dom';
 import ProgressBar from '../components/ProgressBar';
 import AnomalyPanel from '../components/AnomalyPanel';
 import InsightsPanel from '../components/InsightsPanel';
 import PaperSidePanel from '../components/PaperSidePanel';
-import useTranslation from '../hooks/useTranslation';
+import Button from '../components/Button';
 import SkeletonLoader from '../components/SkeletonLoader';
+import SectionErrorBoundary from '../components/SectionErrorBoundary';
+import '../styles/dashboard-redesign.css';
+import '../styles/profile-edit.css';
 
 // Lazy-loaded pages — each becomes a separate chunk
 const StaffManagement = React.lazy(() => import('./StaffManagement'));
@@ -36,11 +39,9 @@ const InventoryOverview = React.lazy(() => import('./InventoryOverview'));
 const Branches = React.lazy(() => import('./Branches'));
 const CustomerPayments = React.lazy(() => import('./CustomerPayments'));
 const Summary = React.lazy(() => import('./Summary'));
-const Billing = React.lazy(() => import('./Billing'));
 const FrontOffice = React.lazy(() => import('./FrontOffice'));
 const ExpenseManager = React.lazy(() => import('./ExpenseManager'));
 const Vendors = React.lazy(() => import('./Vendors'));
-const VendorDetail = React.lazy(() => import('../components/VendorDetail'));
 const MachineManagement = React.lazy(() => import('./MachineManagement'));
 const DailyReport = React.lazy(() => import('./DailyReport'));
 const AttendanceSalary = React.lazy(() => import('./AttendanceSalary'));
@@ -94,6 +95,15 @@ const DeliveryRulesManager = React.lazy(() => import('./admin/DeliveryRulesManag
 const TranslationsManager = React.lazy(() => import('./admin/TranslationsManager'));
 const SampleRequestsCMS = React.lazy(() => import('./SampleRequestsCMS'));
 const DesignBookingsCMS = React.lazy(() => import('./DesignBookingsCMS'));
+const AccessRestricted = React.lazy(() => import('./AccessRestricted'));
+
+const RoleRoute = ({ allowedRoles, children }) => {
+    const { user } = useAuth();
+    if (!user || !allowedRoles.includes(user.role)) {
+        return <AccessRestricted />;
+    }
+    return children;
+};
 const PageLoader = React.memo(() => (
     <div className="page-loader">
         <Loader2 size={20} className="animate-spin" /> Loading...
@@ -130,8 +140,8 @@ const SuspenseFallback = () => {
         );
     }
 
-    // Billing skeleton
-    if (path.includes('/dashboard/billing')) {
+    // Billing / invoice creation skeleton
+    if (path.includes('/dashboard/billing') || path.includes('/dashboard/sales/invoices')) {
         return (
             <div className="skeleton-wrapper skeleton-wrapper--table">
                 <SkeletonLoader type="form" />
@@ -306,6 +316,13 @@ const Dashboard = () => {
     const [profileImage, setProfileImage] = useState(null);
     const [profilePreview, setProfilePreview] = useState('');
     const [profileSaving, setProfileSaving] = useState(false);
+    const [profileTab, setProfileTab] = useState('profile');
+    const [preferences, setPreferences] = useState(() => {
+        try {
+            const saved = localStorage.getItem('user_preferences');
+            return saved ? JSON.parse(saved) : { darkMode: null, notifications: true };
+        } catch { return { darkMode: null, notifications: true }; }
+    });
     const [cropState, setCropState] = useState(null);
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
     const [chatbotUnlabeledCount, setChatbotUnlabeledCount] = useState(0);
@@ -315,7 +332,7 @@ const Dashboard = () => {
     const [inventoryScanResult, setInventoryScanResult] = useState(null);
     const [inventoryScanLoading, setInventoryScanLoading] = useState(false);
     const [showPaperPanel, setShowPaperPanel] = useState(false);
-    const [searchOpen, setSearchOpen] = useState(false);
+    const [, setSearchOpen] = useState(false);
     const [anomalyCount, setAnomalyCount] = useState(0);
     const [companyInfo, setCompanyInfo] = useState({ name: 'SARGA', logo: null });
 
@@ -329,7 +346,7 @@ const Dashboard = () => {
                     return next;
                 });
             }
-        } catch (err) { /* ignore */ }
+        } catch { /* ignore */ }
     }, []);
 
     const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
@@ -350,8 +367,6 @@ const Dashboard = () => {
         window.addEventListener('resize', syncSidebarForViewport);
         return () => window.removeEventListener('resize', syncSidebarForViewport);
     }, []);
-
-    const { t } = useTranslation();
 
     const menuItems = useMemo(() => [
         // Dashboard
@@ -410,11 +425,11 @@ const Dashboard = () => {
         { key: 'manage', name: 'Pickup Bookings', icon: Calendar, path: '/dashboard/admin/pickup-bookings', roles: ['Admin'], group: 'website' },
         { key: 'manage', name: 'Delivery Rules', icon: Truck, path: '/dashboard/admin/delivery-rules', roles: ['Admin'], group: 'website' },
         { key: 'manage', name: 'Translations', icon: Globe, path: '/dashboard/admin/translations', roles: ['Admin'], group: 'website' },
-        { key: 'operations', name: 'Web Inquiries', icon: MessageSquare, path: '/dashboard/web-inquiries', roles: ['Admin', 'Front Office'], group: 'website' },
-        { key: 'operations', name: 'Blog Journal CMS', icon: BookOpen, path: '/dashboard/blog-cms', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
-        { key: 'sample_requests', name: 'Sample Requests', icon: FileCheck, path: '/dashboard/sample-requests', roles: ['Admin', 'Front Office', 'Accountant'], group: 'website' },
-        { key: 'design_bookings', name: 'Design Bookings', icon: ClipboardList, path: '/dashboard/design-bookings', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
-    ], [t]);
+        { key: 'operations', name: 'Web Inquiries', icon: MessageSquare, path: '/dashboard/web-inquiries', roles: ['Admin'], group: 'website' },
+        { key: 'operations', name: 'Blog Journal CMS', icon: BookOpen, path: '/dashboard/blog-cms', roles: ['Admin', 'Designer'], group: 'website' },
+        { key: 'sample_requests', name: 'Sample Requests', icon: FileCheck, path: '/dashboard/sample-requests', roles: ['Admin', 'Accountant'], group: 'website' },
+        { key: 'design_bookings', name: 'Design Bookings', icon: ClipboardList, path: '/dashboard/design-bookings', roles: ['Admin', 'Designer'], group: 'website' },
+    ], []);
 
     const filteredMenu = useMemo(() => {
         let items = menuItems.filter(item => item.roles.includes(user?.role));
@@ -585,7 +600,7 @@ const Dashboard = () => {
                 if (prev === next) return prev;
                 return next;
             });
-        } catch (e) {
+        } catch {
             // ignore
         }
     }, [user?.role]);
@@ -619,7 +634,7 @@ const Dashboard = () => {
                 window.removeEventListener('requestReviewed', handleRefresh);
             };
         }
-    }, [user]);
+    }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Fetch anomaly count for header badge (Admin / Accountant / Front Office)
     useEffect(() => {
@@ -700,6 +715,22 @@ const Dashboard = () => {
     const handleCropComplete = useCallback((croppedFile) => {
         setProfileImage(croppedFile);
         setCropState(null);
+    }, []);
+
+    const handlePreferenceToggle = useCallback((key, value) => {
+        setPreferences(prev => {
+            const next = { ...prev, [key]: value };
+            localStorage.setItem('user_preferences', JSON.stringify(next));
+            return next;
+        });
+        if (key === 'darkMode') {
+            if (value === null) {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.toggle('dark', value);
+            }
+        }
+        api.patch('/staff/settings', { settings: { [key]: value } }).catch(() => {});
     }, []);
 
     return (
@@ -800,6 +831,7 @@ const Dashboard = () => {
                 )}
 
                     <div className={`content-container ${isNavigating ? 'page-enter' : 'page-enter-active'}`} key={location.pathname}>
+                    <SectionErrorBoundary name="DashboardRoutes">
                     <Suspense fallback={<SuspenseFallback />}>
                         <Routes>
                             <Route path="" element={<DashboardHome />} />
@@ -812,8 +844,8 @@ const Dashboard = () => {
                                 <Route path="orders" element={<Jobs />} />
                                 <Route path="orders/:id" element={<JobDetail />} />
                                 <Route path="quotes" element={<Quotes />} />
-                                <Route path="invoices" element={<Invoices />} />
-                                <Route path="payments" element={<CustomerPayments />} />
+                                <Route path="invoices" element={<SectionErrorBoundary name="InvoicesPage"><Invoices /></SectionErrorBoundary>} />
+                                <Route path="payments" element={<SectionErrorBoundary name="CustomerPaymentsPage"><CustomerPayments /></SectionErrorBoundary>} />
                             </Route>
 
                             {/* Redirects for legacy/flat routes */}
@@ -863,8 +895,7 @@ const Dashboard = () => {
                             <Route path="schedules" element={<ScheduleManagement />} />
                             <Route path="other-staff-dashboard" element={<OtherStaffDashboard />} />
                             <Route path="printer-dashboard" element={<PrinterDashboard />} />
-              <Route path="designer-dashboard" element={<DesignerDashboard />} />
-                            <Route path="quotes" element={<Quotes />} />
+                            <Route path="designer-dashboard" element={<DesignerDashboard />} />
                             <Route path="inventory/paper" element={<PaperStockDashboard />} />
                             <Route path="paper/stock" element={<PaperStockDashboard />} />
                             <Route path="paper/inward" element={<PaperInward />} />
@@ -873,24 +904,25 @@ const Dashboard = () => {
                             <Route path="paper/alerts" element={<PaperAlerts />} />
                             <Route path="paper/transfer" element={<PaperTransfer />} />
                             <Route path="inventory/consumables" element={<ConsumablesManagement />} />
-                            <Route path="recurring-invoices" element={<RecurringInvoices />} />
+                            <Route path="recurring-invoices" element={<SectionErrorBoundary name="RecurringInvoices"><RecurringInvoices /></SectionErrorBoundary>} />
                             <Route path="settings" element={<SettingsPage />} />
-                            <Route path="admin/chatbot-training" element={<ChatbotTraining />} />
-                            <Route path="admin/reviews" element={<ReviewsManagement />} />
-                            <Route path="admin/artwork" element={<ArtworkManager />} />
-                            <Route path="admin/portfolio" element={<PortfolioManager />} />
-                            <Route path="admin/promotions" element={<PromotionsManager />} />
-                            <Route path="admin/pickup-bookings" element={<PickupBookings />} />
-                            <Route path="admin/delivery-rules" element={<DeliveryRulesManager />} />
-                            <Route path="admin/translations" element={<TranslationsManager />} />
-                            <Route path="web-inquiries" element={<WebInquiries />} />
-                            <Route path="blog-cms" element={<BlogCMS />} />
-                            <Route path="sample-requests" element={<SampleRequestsCMS />} />
-                            <Route path="design-bookings" element={<DesignBookingsCMS />} />
+                            <Route path="admin/chatbot-training" element={<RoleRoute allowedRoles={['Admin']}><ChatbotTraining /></RoleRoute>} />
+                            <Route path="admin/reviews" element={<RoleRoute allowedRoles={['Admin']}><ReviewsManagement /></RoleRoute>} />
+                            <Route path="admin/artwork" element={<RoleRoute allowedRoles={['Admin']}><ArtworkManager /></RoleRoute>} />
+                            <Route path="admin/portfolio" element={<RoleRoute allowedRoles={['Admin']}><PortfolioManager /></RoleRoute>} />
+                            <Route path="admin/promotions" element={<RoleRoute allowedRoles={['Admin']}><PromotionsManager /></RoleRoute>} />
+                            <Route path="admin/pickup-bookings" element={<RoleRoute allowedRoles={['Admin']}><PickupBookings /></RoleRoute>} />
+                            <Route path="admin/delivery-rules" element={<RoleRoute allowedRoles={['Admin']}><DeliveryRulesManager /></RoleRoute>} />
+                            <Route path="admin/translations" element={<RoleRoute allowedRoles={['Admin']}><TranslationsManager /></RoleRoute>} />
+                            <Route path="web-inquiries" element={<RoleRoute allowedRoles={['Admin']}><WebInquiries /></RoleRoute>} />
+                            <Route path="blog-cms" element={<RoleRoute allowedRoles={['Admin', 'Designer']}><BlogCMS /></RoleRoute>} />
+                            <Route path="sample-requests" element={<RoleRoute allowedRoles={['Admin', 'Accountant']}><SampleRequestsCMS /></RoleRoute>} />
+                            <Route path="design-bookings" element={<RoleRoute allowedRoles={['Admin', 'Designer']}><DesignBookingsCMS /></RoleRoute>} />
                             <Route path="*" element={<NotFound />} />
 
                         </Routes>
                     </Suspense>
+                    </SectionErrorBoundary>
                 </div>
             </main>
 
@@ -940,63 +972,206 @@ const Dashboard = () => {
                     <div className="modal modal--profile">
                         <button className="modal-close" aria-label="Close profile modal" onClick={() => setShowProfileModal(false)} title="Close"><X size={20} /></button>
                         <h2 className="section-title mb-16">Edit Profile</h2>
+
+                        {/* Tab Navigation */}
+                        <div className="profile-tabs">
+                            <button className={`profile-tab ${profileTab === 'profile' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('profile')}>
+                                <UserSquare size={15} /> Profile
+                            </button>
+                            <button className={`profile-tab ${profileTab === 'account' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('account')}>
+                                <Settings size={15} /> Account
+                            </button>
+                            <button className={`profile-tab ${profileTab === 'permissions' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('permissions')}>
+                                <ShieldAlert size={15} /> Permissions
+                            </button>
+                            <button className={`profile-tab ${profileTab === 'preferences' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('preferences')}>
+                                <Sparkles size={15} /> Preferences
+                            </button>
+                        </div>
+
                         <form onSubmit={handleProfileSave} className="stack-md">
-                            <div className="row gap-md items-center">
-                                <div className="user-avatar user-avatar--medium">
-                                    {profileImage ? (
-                                        <img src={profilePreview} alt="Profile" className="avatar-img" />
-                                    ) : user?.image_url ? (
-                                        <SecureImage src={user.image_url} alt="Profile" className="avatar-img" />
-                                    ) : (
-                                        profileName ? profileName[0] : 'U'
-                                    )}
+                            {/* ═══════ PROFILE TAB ═══════ */}
+                            {profileTab === 'profile' && (
+                                <>
+                                    <div className="profile-avatar-section">
+                                        <div className="profile-avatar-wrapper">
+                                            {profileImage ? (
+                                                <img src={profilePreview} alt="Profile" className="profile-avatar-img" />
+                                            ) : user?.image_url ? (
+                                                <SecureImage src={user.image_url} alt="Profile" className="profile-avatar-img" />
+                                            ) : (
+                                                <div className="profile-avatar-placeholder">
+                                                    {profileName ? profileName[0].toUpperCase() : 'U'}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="profile-avatar-actions">
+                                            <span className="profile-avatar-label">Profile Photo</span>
+                                            <input
+                                                type="file"
+                                                accept="image/png,image/jpeg,image/webp"
+                                                className="input-field"
+                                                style={{ fontSize: '12px', padding: '6px 10px' }}
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0] || null;
+                                                    if (file) openCropper(file);
+                                                    e.target.value = '';
+                                                }}
+                                            />
+                                            <span className="profile-avatar-hint">PNG, JPG or WebP — max 512px</span>
+                                            {(user?.image_url || profileImage) && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-ghost btn-sm text-error"
+                                                    onClick={handleRemoveProfileImage}
+                                                    disabled={profileSaving}
+                                                >
+                                                    Remove Photo
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="label">Full Name</label>
+                                        <input
+                                            className="input-field"
+                                            value={profileName}
+                                            onChange={(e) => setProfileName(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {/* ═══════ ACCOUNT TAB ═══════ */}
+                            {profileTab === 'account' && (
+                                <div className="profile-detail-grid">
+                                    <div className="profile-detail-item">
+                                        <span className="profile-detail-label">User ID</span>
+                                        <div className="profile-detail-value">{user?.user_id || '-'}</div>
+                                    </div>
+                                    <div className="profile-detail-item">
+                                        <span className="profile-detail-label">Role</span>
+                                        <div className="profile-detail-value profile-detail-value--accent">{user?.role || '-'}</div>
+                                    </div>
+                                    <div className="profile-detail-item">
+                                        <span className="profile-detail-label">Branch</span>
+                                        <div className="profile-detail-value">{user?.branch_short_name || user?.branch_id || '-'}</div>
+                                    </div>
+                                    <div className="profile-detail-item">
+                                        <span className="profile-detail-label">Employee ID</span>
+                                        <div className="profile-detail-value">{user?.id || '-'}</div>
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <div className="password-card">
+                                            <div className="password-card__info">
+                                                <h4>Password</h4>
+                                                <p>Last changed: <span style={{ color: 'var(--muted)' }}>Update periodically for security</span></p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary btn-sm"
+                                                onClick={() => window.open('/change-password', '_self')}
+                                            >
+                                                Change Password
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex-1">
-                                    <label className="label">Profile Photo</label>
-                                    <input
-                                        type="file"
-                                        accept="image/png,image/jpeg,image/webp"
-                                        className="input-field"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0] || null;
-                                            if (file) openCropper(file);
-                                            e.target.value = '';
-                                        }}
-                                    />
-                                    {(user?.image_url || profileImage) && (
-                                        <button
-                                            type="button"
-                                            className="btn btn-ghost btn-sm text-error mt-8"
-                                            onClick={handleRemoveProfileImage}
-                                            disabled={profileSaving}
-                                        >
-                                            Remove Photo
-                                        </button>
+                            )}
+
+                            {/* ═══════ PERMISSIONS TAB ═══════ */}
+                            {profileTab === 'permissions' && (
+                                <div>
+                                    <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '16px' }}>
+                                        Your access level is based on the <strong style={{ color: 'var(--text)' }}>{user?.role}</strong> role.
+                                    </p>
+                                    <div className="permissions-grid">
+                                        {[
+                                            { label: 'Dashboard Access', desc: 'View main dashboard and analytics', allowed: true },
+                                            { label: 'Order Management', desc: 'Create and manage customer orders', allowed: ['Admin', 'Accountant', 'Front Office'].includes(user?.role) },
+                                            { label: 'Inventory Control', desc: 'Manage stock, transfers, and verification', allowed: ['Admin', 'Accountant'].includes(user?.role) },
+                                            { label: 'Expense Management', desc: 'Record and approve expenses', allowed: ['Admin', 'Accountant'].includes(user?.role) },
+                                            { label: 'Vendor Management', desc: 'Manage vendors and purchase invoices', allowed: ['Admin', 'Accountant'].includes(user?.role) },
+                                            { label: 'Staff Management', desc: 'Manage staff accounts and roles', allowed: user?.role === 'Admin' },
+                                            { label: 'Reports & Analytics', desc: 'Access financial and operational reports', allowed: ['Admin', 'Accountant'].includes(user?.role) },
+                                            { label: 'System Settings', desc: 'Configure system-wide settings', allowed: user?.role === 'Admin' },
+                                        ].map((perm, i) => (
+                                            <div key={i} className="permission-card">
+                                                <div className={`permission-card__icon ${perm.allowed ? 'permission-card__icon--allowed' : 'permission-card__icon--denied'}`}>
+                                                    {perm.allowed ? <Zap size={16} /> : <X size={16} />}
+                                                </div>
+                                                <div className="permission-card__info">
+                                                    <div className="permission-card__label">{perm.label}</div>
+                                                    <div className="permission-card__desc">{perm.desc}</div>
+                                                </div>
+                                                <span className={`permission-card__badge ${perm.allowed ? 'permission-card__badge--allowed' : 'permission-card__badge--denied'}`}>
+                                                    {perm.allowed ? 'Allowed' : 'Restricted'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ═══════ PREFERENCES TAB ═══════ */}
+                            {profileTab === 'preferences' && (
+                                <div>
+                                    <div className="preference-row">
+                                        <div>
+                                            <div className="preference-row__label">Dark Mode</div>
+                                            <div className="preference-row__desc">Override system default theme</div>
+                                        </div>
+                                        <label className="toggle-switch">
+                                            <input
+                                                type="checkbox"
+                                                checked={preferences.darkMode ?? document.documentElement.classList.contains('dark')}
+                                                onChange={(e) => handlePreferenceToggle('darkMode', e.target.checked || null)}
+                                            />
+                                            <span className="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    <div className="preference-row">
+                                        <div>
+                                            <div className="preference-row__label">Notifications</div>
+                                            <div className="preference-row__desc">Receive desktop notifications for updates</div>
+                                        </div>
+                                        <label className="toggle-switch">
+                                            <input
+                                                type="checkbox"
+                                                checked={preferences.notifications}
+                                                onChange={(e) => handlePreferenceToggle('notifications', e.target.checked)}
+                                            />
+                                            <span className="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Footer Actions */}
+                            <div className="profile-footer">
+                                <button
+                                    type="button"
+                                    className="btn btn-ghost text-error"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    onClick={() => {
+                                        setShowProfileModal(false);
+                                        logout();
+                                    }}
+                                >
+                                    <LogOut size={16} /> Logout
+                                </button>
+                                <div className="profile-footer-actions">
+                                    <Button variant="ghost" onClick={() => setShowProfileModal(false)} type="button">
+                                        Cancel
+                                    </Button>
+                                    {profileTab === 'profile' && (
+                                        <Button variant="primary" type="submit" loading={profileSaving} loadingText="Saving...">
+                                            Save Changes
+                                        </Button>
                                     )}
                                 </div>
                             </div>
-                            <div>
-                                <label className="label">Full Name</label>
-                                <input
-                                    className="input-field"
-                                    value={profileName}
-                                    onChange={(e) => setProfileName(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <button type="submit" className="btn btn-primary btn--full" disabled={profileSaving}>
-                                {profileSaving ? 'Saving...' : 'Save Changes'}
-                            </button>
-                            <button
-                                type="button"
-                                className="btn btn-ghost btn--full text-error"
-                                onClick={() => {
-                                    setShowProfileModal(false);
-                                    logout();
-                                }}
-                            >
-                                <LogOut size={16} /> Logout
-                            </button>
                         </form>
                     </div>
                 </div>
@@ -1011,11 +1186,13 @@ const Dashboard = () => {
             />
 
             {/* Inventory QR Scanner */}
-            <ScannerModal
-                isOpen={showInventoryScan}
-                onClose={() => setShowInventoryScan(false)}
-                onScan={handleInventoryScan}
-            />
+            <Suspense fallback={null}>
+                <ScannerModal
+                    isOpen={showInventoryScan}
+                    onClose={() => setShowInventoryScan(false)}
+                    onScan={handleInventoryScan}
+                />
+            </Suspense>
 
             {/* Loading overlay when hardware scanner fires */}
             {inventoryScanLoading && (

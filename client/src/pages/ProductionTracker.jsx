@@ -12,20 +12,20 @@ import { formatCurrency as fmt } from '../constants';
 import usePolling from '../hooks/usePolling';
 
 const STAGE_CONFIG = {
-    Pending:          { icon: Clock,        color: '#9ca3af', bg: '#f3f4f6', label: 'Pending' },
-    Designing:        { icon: Palette,      color: '#8b5cf6', bg: '#ede9fe', label: 'Designing' },
-    'Approval Pending': { icon: Timer,      color: '#f59e0b', bg: '#fef3c7', label: 'Approval' },
-    Printing:         { icon: Printer,      color: '#2563eb', bg: '#dbeafe', label: 'Printing' },
-    Cutting:          { icon: Scissors,     color: '#ec4899', bg: '#fce7f3', label: 'Cutting' },
-    Lamination:       { icon: Layers,       color: '#14b8a6', bg: '#ccfbf1', label: 'Lamination' },
-    Binding:          { icon: BookOpen,     color: '#f97316', bg: '#ffedd5', label: 'Binding' },
-    Production:       { icon: Settings,     color: '#6366f1', bg: '#e0e7ff', label: 'Production' },
-    Processing:       { icon: RefreshCw,    color: '#0891b2', bg: '#cffafe', label: 'Processing' },
-    Completed:        { icon: CheckCircle2, color: '#16a34a', bg: '#dcfce7', label: 'Completed' },
+    Pending:          { icon: Clock,        color: 'var(--text-muted)', bg: 'var(--surface-2)', label: 'Pending' },
+    Designing:        { icon: Palette,      color: 'var(--accent)', bg: 'var(--surface-2)', label: 'Designing' },
+    'Approval Pending': { icon: Timer,      color: 'var(--warning)', bg: 'var(--warning-bg)', label: 'Approval' },
+    Printing:         { icon: Printer,      color: 'var(--accent)', bg: 'var(--surface-2)', label: 'Printing' },
+    Cutting:          { icon: Scissors,     color: 'var(--accent)', bg: 'var(--surface-2)', label: 'Cutting' },
+    Lamination:       { icon: Layers,       color: 'var(--accent)', bg: 'var(--surface-2)', label: 'Lamination' },
+    Binding:          { icon: BookOpen,     color: 'var(--warning)', bg: 'var(--warning-bg)', label: 'Binding' },
+    Production:       { icon: Settings,     color: 'var(--accent)', bg: 'var(--surface-2)', label: 'Production' },
+    Processing:       { icon: RefreshCw,    color: 'var(--accent)', bg: 'var(--surface-2)', label: 'Processing' },
+    Completed:        { icon: CheckCircle2, color: 'var(--success)', bg: 'var(--success-bg)', label: 'Completed' },
 };
 
 const PRIORITY_COLORS = {
-    Urgent: '#dc2626', High: '#f59e0b', Medium: '#6b7280', Low: '#d1d5db',
+    Urgent: 'var(--error)', High: 'var(--warning)', Medium: 'var(--text-muted)', Low: 'var(--border)',
 };
 
 const ProductionTracker = () => {

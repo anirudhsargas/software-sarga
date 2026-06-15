@@ -189,6 +189,30 @@ module.exports = (upload) => {
         }
     });
 
+    // Update Staff Preferences
+    router.patch('/staff/settings', authenticateToken, async (req, res) => {
+        const { settings } = req.body;
+        if (settings === undefined || settings === null) {
+            return res.status(400).json({ message: 'Settings object is required' });
+        }
+        try {
+            const [existing] = await pool.query(
+                "SELECT settings FROM sarga_staff WHERE id = ?",
+                [req.user.id]
+            );
+            const current = existing[0]?.settings ? (typeof existing[0].settings === 'string' ? JSON.parse(existing[0].settings) : existing[0].settings) : {};
+            Object.assign(current, settings);
+            await pool.query(
+                "UPDATE sarga_staff SET settings = ? WHERE id = ?",
+                [JSON.stringify(current), req.user.id]
+            );
+            res.json({ message: 'Settings saved', settings: current });
+        } catch (err) {
+            console.error('Settings update error:', err);
+            res.status(500).json({ message: 'Failed to save settings' });
+        }
+    });
+
     return router;
 };
 

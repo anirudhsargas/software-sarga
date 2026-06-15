@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '../../hooks/useDebounce';
 import { FileText, Upload, Search, Eye, Trash2, Loader2, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import localDb from '../../services/localDb';
@@ -14,7 +13,6 @@ const defaultForm = { document_type: 'Invoice', related_tab: '', vendor_name: ''
 const PAGE_SIZE = 50;
 
 const BillsDocsTab = ({ onError }) => {
-  const navigate = useNavigate();
   const { confirm } = useConfirm();
   const { user } = useAuth();
   const canDelete = user?.role === 'Admin' || user?.role === 'Accountant';
@@ -74,8 +72,6 @@ const BillsDocsTab = ({ onError }) => {
     });
     if (!isConfirmed) return;
 
-    window.confirm('Also delete inventory entries added from this bill? Click OK for Yes, Cancel for No.');
-
     // Optimistic UI Update
     setDocs(prev => prev.filter(d => d.id !== id));
     try {
@@ -108,7 +104,7 @@ const BillsDocsTab = ({ onError }) => {
       <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
         <div className="em-section-title"><FileText size={18} /> Bills & Documents</div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/dashboard/expenses/upload-bills?redirect=/dashboard/expenses?tab=dashboard')}>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowSmartUpload(true)}>
             <Sparkles size={15} /> Smart Upload
           </button>
           <button className="btn btn-primary btn-sm" onClick={() => { setForm(defaultForm); setShowUpload(true); }}>

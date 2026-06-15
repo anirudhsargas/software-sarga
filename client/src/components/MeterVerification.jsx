@@ -70,6 +70,9 @@ const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosi
         handleFetchComparisonHistory();
     }, [machineId]);
 
+    const isOnline = meterData && !meterData.error && meterData.total_prints !== null;
+    const totalCount = isOnline ? meterData.total_prints : null;
+
     // Auto-fill manual opening count when machine IP and meter reading are available
     useEffect(() => {
         if (isOnline && (manualOpeningCount === '' || manualOpeningCount == null)) {
@@ -78,9 +81,6 @@ const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosi
             } catch (e) {}
         }
     }, [isOnline, totalCount]);
-
-    const isOnline = meterData && !meterData.error && meterData.total_prints !== null;
-    const totalCount = isOnline ? meterData.total_prints : null;
     const fetchedTime = meterData?.fetched_at ? new Date(meterData.fetched_at) : null;
     const vendor = meterData?.vendor || '';
     const needsCredentials = meterData?.error && meterData.error.includes('requires login');

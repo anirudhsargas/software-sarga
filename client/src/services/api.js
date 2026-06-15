@@ -232,10 +232,7 @@ api.interceptors.response.use(
         }
 
         if (status >= 500) {
-            try { toast.error(userMsg || 'Server error. Redirecting to error page.'); } catch (e) {}
-            if (window.location.pathname !== '/error/server') {
-                window.location.href = '/error/server';
-            }
+            try { toast.error(userMsg || 'Server error. Please try again.'); } catch (e) {}
             return Promise.reject(error);
         }
 

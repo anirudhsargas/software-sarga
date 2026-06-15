@@ -1,546 +1,293 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Building2, Activity, Printer, AlertTriangle, Clock, Wallet, Users, Package, TrendingUp, BarChart3, Target, ClipboardList, IndianRupee, ShoppingCart, UserCheck, ArrowUpRight, ArrowDownRight, Brain, Sparkles, ShieldAlert, LineChart } from 'lucide-react';
+import { Loader2, Building2, TrendingUp, Wallet, IndianRupee, AlertTriangle, Users, Package, ClipboardList, BarChart3, ArrowUpRight, ArrowDownRight, Brain, Sparkles, ShieldAlert, ShoppingCart, Activity, Printer, UserCheck, RefreshCw, Plus } from 'lucide-react';
 
 import api from '../services/api';
 import { formatCurrency as formatCurrencyShared } from '../constants';
 import OrderForecastWidget from '../components/OrderForecastWidget';
-import HeroBg3D from '../components/ui/HeroBg3D';
-import Marquee from '../components/ui/Marquee';
-import Card3DStack from '../components/ui/Card3DStack';
+
 
 const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 
+const KpiCard = React.memo(({ title, value, subtitle, icon: Icon, color, trend }) => (
+  <div className="kpi-card">
+    <div className="kpi-card__header">
+      <span className="kpi-card__title">{title}</span>
+      <Icon size={18} className="kpi-card__icon" style={{ color: color || 'var(--muted)' }} />
+    </div>
+    <div className="kpi-card__value">{value}</div>
+    {subtitle && <div className="kpi-card__subtitle">{subtitle}</div>}
+    {trend && (
+      <div className="kpi-card__trend" style={{ color: trend >= 0 ? 'var(--success)' : 'var(--error)' }}>
+        {trend >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+        <span>{Math.abs(trend)}%</span>
+      </div>
+    )}
+  </div>
+));
+
+const EmptyState = React.memo(({ icon: Icon, title, message, actions }) => (
+  <div className="empty-state">
+    <Icon size={32} className="empty-state__icon" />
+    <h3 className="empty-state__title">{title}</h3>
+    <p className="empty-state__message">{message}</p>
+    {actions && <div className="empty-state__actions">{actions}</div>}
+  </div>
+));
+
 const Summary = () => {
-    useSEO('Summary');
+  useSEO('Summary');
 
-    const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('overview');
-    const [statsToday, setStatsToday] = useState(null);
-    const [statsOverall, setStatsOverall] = useState(null);
-    const [branches, setBranches] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [filters, setFilters] = useState({ branch_id: '' });
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [statsToday, setStatsToday] = useState(null);
+  const [statsOverall, setStatsOverall] = useState(null);
+  const [branches, setBranches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({ branch_id: '' });
 
-    useEffect(() => {
-        fetchBranches();
-    }, []);
+  useEffect(() => { fetchBranches(); }, []);
 
-    useEffect(() => {
-        fetchStatsSplit();
-        const handlePaymentUpdate = () => fetchStatsSplit();
-        window.addEventListener('paymentRecorded', handlePaymentUpdate);
-        return () => window.removeEventListener('paymentRecorded', handlePaymentUpdate);
-    }, [filters.branch_id]);
+  useEffect(() => {
+    fetchStatsSplit();
+    const handler = () => fetchStatsSplit();
+    window.addEventListener('paymentRecorded', handler);
+    return () => window.removeEventListener('paymentRecorded', handler);
+  }, [filters.branch_id]);
 
-    const fetchBranches = async () => {
-        try {
-            const response = await api.get('/branches');
-            setBranches(response.data);
-        } catch {
-            console.error('Failed to fetch branches');
-        }
-    };
+  const fetchBranches = async () => {
+    try { setBranches((await api.get('/branches')).data); } catch { /* ignore */ }
+  };
 
-    const fetchStatsSplit = async () => {
-        setLoading(true);
-        try {
-            const paramsToday = new URLSearchParams();
-            if (filters.branch_id) paramsToday.append('branch_id', filters.branch_id);
-            const today = new Date().toISOString().split('T')[0];
-            paramsToday.append('startDate', today);
-            paramsToday.append('endDate', today);
+  const fetchStatsSplit = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.branch_id) params.append('branch_id', filters.branch_id);
+      const today = new Date().toISOString().split('T')[0];
+      const todayParams = new URLSearchParams(params);
+      todayParams.append('startDate', today);
+      todayParams.append('endDate', today);
+      const [todayRes, overallRes] = await Promise.all([
+        api.get(`/stats/dashboard?${todayParams}`),
+        api.get(`/stats/dashboard?${params}`)
+      ]);
+      setStatsToday(todayRes.data);
+      setStatsOverall(overallRes.data);
+    } catch { /* ignore */ } finally { setLoading(false); }
+  }, [filters.branch_id]);
 
-            const paramsOverall = new URLSearchParams();
-            if (filters.branch_id) paramsOverall.append('branch_id', filters.branch_id);
+  const fmt = (v) => (typeof v === 'number' ? formatCurrencyShared(v, true) : '—');
+  const fmtNum = (v) => (typeof v === 'number' ? v.toLocaleString() : '—');
 
-            const [todayRes, overallRes] = await Promise.all([
-                api.get(`/stats/dashboard?${paramsToday.toString()}`),
-                api.get(`/stats/dashboard?${paramsOverall.toString()}`),
-            ]);
+  const branchName = useMemo(() => {
+    if (!filters.branch_id) return 'All Branches';
+    return branches.find(b => b.id.toString() === filters.branch_id.toString())?.name || 'Selected Branch';
+  }, [filters.branch_id, branches]);
 
-            setStatsToday(todayRes.data);
-            setStatsOverall(overallRes.data);
-        } catch {
-            console.error('Failed to fetch dashboard stats');
-        } finally {
-            setLoading(false);
-        }
-    };
+  const statusColor = useCallback((status) => {
+    const map = { Completed: '#22c55e', Delivered: '#60a5fa', Processing: '#fbbf24', Pending: '#6b7280', 'Approval Pending': '#fbbf24', Cancelled: '#ef4444' };
+    return map[status] || '#e2e8f0';
+  }, []);
 
-    const fmt = (value) => (typeof value === 'number' ? formatCurrencyShared(value, true) : '—');
-    const fmtNum = (value) => (typeof value === 'number' ? value.toLocaleString() : '—');
+  const lowStockItems = useMemo(() => statsOverall?.low_stock || [], [statsOverall]);
+  const topCustomers = useMemo(() => statsOverall?.top_customers || [], [statsOverall]);
+  const staffProd = useMemo(() => statsOverall?.staff_productivity || [], [statsOverall]);
 
-    const selectedBranchName = filters.branch_id
-        ? (branches.find(b => b.id.toString() === filters.branch_id.toString())?.name || 'Selected Branch')
-        : 'All Branches';
+  const tabs = useMemo(() => [
+    { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'ai-monitoring', label: 'AI Monitoring', icon: ShieldAlert },
+    { id: 'order-predictions', label: 'Predictions', icon: Sparkles },
+  ], []);
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'Completed': return 'var(--color-ok, #22c55e)';
-            case 'Delivered': return 'var(--color-primary, #60a5fa)';
-            case 'Processing': return 'var(--color-warning, #fbbf24)';
-            case 'Pending': return 'var(--text-muted, #94a3b8)';
-            case 'Approval Pending': return 'var(--color-warning, #fbbf24)';
-            case 'Cancelled': return 'var(--error, #ef4444)';
-            default: return 'var(--text-main, #e2e8f0)';
-        }
-    };
-
-    if (loading && !statsToday && !statsOverall) {
-        return (
-            <div className="flex items-center justify-center p-40">
-                <Loader2 className="animate-spin text-accent" size={48} />
-            </div>
-        );
-    }
-
-    const lowStockItems = statsOverall?.low_stock || [];
-    const topCustomers = statsOverall?.top_customers || [];
-    const staffProd = statsOverall?.staff_productivity || [];
-
+  if (loading && !statsToday && !statsOverall) {
     return (
-        <div className="summary-page">
-            <div style={{position:'relative'}}>
-                <HeroBg3D />
-            </div>
-            {/* Header */}
-            <div className="page-header summary-header">
-                <div>
-                    <h1 className="section-title">Business Summary</h1>
-                    <p className="section-subtitle">{selectedBranchName} — {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                </div>
-                <div className="row gap-md items-center summary-filters">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px' }}>
-                        <Building2 size={16} className="muted" style={{ flexShrink: 0 }} />
-                        <select
-                            className="input-field"
-                            value={filters.branch_id}
-                            onChange={(e) => setFilters({ ...filters, branch_id: e.target.value })}
-                            style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', minWidth: 130 }}
-                        >
-                            <option value="">All Branches</option>
-                            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            {/* Top Navigation Tabs */}
-            <div style={{
-                display: 'flex', gap: '4px', marginBottom: '24px', padding: '4px',
-                borderRadius: '12px', background: 'var(--bg-2)', overflowX: 'auto'
-            }}>
-                {[
-                    { id: 'overview', label: 'Summary Overview', icon: < BarChart3 size={15} /> },
-                    { id: 'ai-monitoring', label: 'AI Fraud Monitoring', icon: < ShieldAlert size={15} /> },
-                    { id: 'order-predictions', label: 'Order Predictions', icon: < Sparkles size={15} /> }
-                ].map(t => (
-                    <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                        padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                        fontSize: '13px', fontWeight: activeTab === t.id ? 600 : 400, whiteSpace: 'nowrap',
-                        background: activeTab === t.id ? 'var(--surface)' : 'transparent',
-                        color: activeTab === t.id ? 'var(--text)' : 'var(--muted)',
-                        boxShadow: activeTab === t.id ? 'var(--shadow-sm)' : 'none',
-                        transition: 'all 0.2s'
-                    }}>
-                        {t.icon} {t.label}
-                    </button>
-                ))}
-            </div>
-
-            {activeTab === 'overview' && (
-                <>
-                    <div style={{marginTop:12, marginBottom:18}}>
-                        <Marquee items={[ 'Visiting Cards', 'Wedding Invitations', 'Annual Reports', 'Posters', 'Menus', 'Brochures' ]} />
-                    </div>
-                    {/* ─── Section 1: Today's KPIs ─── */}
-                    <section className="summary-section">
-                        <div className="summary-section__header">
-                            <div>
-                                <h2 className="section-title">Today's Overview</h2>
-                                <p className="section-subtitle">Sales, orders and collections today</p>
-                            </div>
-                            <TrendingUp size={22} className="muted" />
-                        </div>
-                        <div className="summary-grid summary-grid--tiles">
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">Today's Sales</div>
-                                <div className="summary-tile__value">{fmt(statsToday?.jobs?.total_sales)}</div>
-                                <div className="summary-tile__meta">{fmtNum(statsToday?.jobs?.total_count)} jobs</div>
-                            </div>
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">Collected Today</div>
-                                <div className="summary-tile__value">{fmt(statsToday?.payments?.total_collected_today)}</div>
-                                <div className="summary-tile__meta">Cash: {fmt(statsToday?.payments?.cash_today)} · UPI: {fmt(statsToday?.payments?.upi_today)}</div>
-                            </div>
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">Expenses Today</div>
-                                <div className="summary-tile__value" style={{ color: 'var(--error, #dc2626)' }}>{fmt(statsToday?.expenses?.today)}</div>
-                                <div className="summary-tile__meta">This month: {fmt(statsOverall?.expenses?.month)}</div>
-                            </div>
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">Completed / New</div>
-                                <div className="summary-tile__value">{fmtNum(statsToday?.jobs?.completed_today)} / {fmtNum(statsToday?.jobs?.new_today)}</div>
-                                <div className="summary-tile__meta">Walk-ins: {fmtNum(statsToday?.customers?.walk_in_today)}</div>
-                            </div>
-                        </div>
-
-                        {/* Overall pending */}
-                        <div className="summary-grid summary-grid--tiles" style={{ marginTop: 16 }}>
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">Total Outstanding</div>
-                                <div className="summary-tile__value" style={{ color: 'var(--error, #dc2626)' }}>{fmt(statsOverall?.jobs?.total_balance)}</div>
-                                <div className="summary-tile__meta">Pending receivables</div>
-                            </div>
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">In Progress</div>
-                                <div className="summary-tile__value">{fmtNum(statsOverall?.jobs?.in_progress)}</div>
-                                <div className="summary-tile__meta">Across all stages</div>
-                            </div>
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">Urgent / Overdue</div>
-                                <div className="summary-tile__value" style={{ color: Number(statsOverall?.jobs?.overdue) > 0 ? 'var(--error, #dc2626)' : undefined }}>
-                                    {fmtNum(statsToday?.jobs?.urgent_today)} / {fmtNum(statsOverall?.jobs?.overdue)}
-                                </div>
-                                <div className="summary-tile__meta">Needs attention</div>
-                            </div>
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">Inventory Value</div>
-                                <div className="summary-tile__value">{fmt(statsOverall?.inventory?.total_value)}</div>
-                                <div className="summary-tile__meta">{fmtNum(statsOverall?.inventory?.total_items)} items · {fmtNum(statsOverall?.inventory?.low_stock_count)} low stock</div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Product showcase */}
-                    <section className="summary-section" style={{marginTop:18}}>
-                        <h3 className="section-title">Featured Prints</h3>
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-                            <Card3DStack />
-                        </div>
-                    </section>
-
-                    {/* ─── Section 1.5: AI Insights & Roadmap (New) ─── */}
-                    <div className="summary-grid summary-grid--split mb-24">
-                        <section className="summary-section ai-insights-card" style={{ border: '1px solid var(--border)' }}>
-                            <div className="summary-section__header">
-                                <div>
-                                    <h2 className="section-title row items-center gap-xs">
-                                        <Brain size={20} className="text-accent" /> AI Business Insights
-                                    </h2>
-                                    <p className="section-subtitle">Growth patterns and predictions</p>
-                                </div>
-                                <Sparkles size={20} className="text-accent animate-pulse" />
-                            </div>
-                            <div className="summary-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-                                <div style={{ padding: 16, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                                    <div className="text-xs muted mb-4" style={{ textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Revenue Growth</div>
-                                    <div className="row items-center gap-xs" style={{ fontSize: 22, fontWeight: 700, color: (statsToday?.ai_insights?.revenue_growth ?? 0) >= 0 ? 'var(--success)' : 'var(--error)' }}>
-                                        {(statsToday?.ai_insights?.revenue_growth ?? 0) >= 0 ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
-                                        {Math.abs(statsToday?.ai_insights?.revenue_growth || 0)}%
-                                    </div>
-                                    <div className="text-xs muted mt-4">vs. last month</div>
-                                </div>
-                                <div style={{ padding: 16, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                                    <div className="text-xs muted mb-4" style={{ textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Peak Demand</div>
-                                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{statsToday?.ai_insights?.peak_day || '—'}</div>
-                                    <div className="text-xs muted mt-4">Busiest day locally</div>
-                                </div>
-                                <div style={{ padding: 16, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                                    <div className="text-xs muted mb-4" style={{ textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Next Month Forecast</div>
-                                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent)' }}>{fmt(statsToday?.ai_insights?.predicted_revenue_next_month)}</div>
-                                    <div className="text-xs muted mt-4">AI prediction</div>
-                                </div>
-                            </div>
-                        </section>
-
-                        <section className="summary-section financial-roadmap-card">
-                            <div className="summary-section__header">
-                                <div>
-                                    <h2 className="section-title row items-center gap-xs">
-                                        <IndianRupee size={20} className="text-primary" /> Financial Roadmap
-                                    </h2>
-                                    <p className="section-subtitle">Upcoming monthly commitments</p>
-                                </div>
-                                <TrendingUp size={20} className="muted" />
-                            </div>
-                            <div className="stack-sm">
-                                <div className="row space-between p-16 bg-surface-lowest rounded border-all mb-3" style={{marginBottom: 16}}>
-                                    <span className="font-medium muted">EMI Commitments</span>
-                                    <span className="font-bold">{fmt(statsToday?.financial_roadmap?.emi_total)}</span>
-                                </div>
-                                <div className="row space-between p-16 bg-surface-lowest rounded border-all mb-3" style={{marginBottom: 16}}>
-                                    <span className="font-medium muted">Kuri Installments</span>
-                                    <span className="font-bold">{fmt(statsToday?.financial_roadmap?.kuri_total)}</span>
-                                </div>
-                                <div className="row space-between p-20 bg-primary rounded shadow-md mt-4" style={{marginTop: 24, marginBottom: 8, color: 'var(--on-accent)'}}>
-                                    <span className="font-bold">Total Monthly Fixed</span>
-                                    <span className="font-black text-lg">{fmt(statsToday?.financial_roadmap?.total_monthly_commitment)}</span>
-                                </div>
-                            </div>
-                        </section>
-                    </div>
-
-                    {/* Fraud / System Health Banner */}
-                    {statsToday?.monitoring_stats?.active_alerts > 0 && (
-                        <div className="row items-center gap-md p-16 rounded border-all mb-24 bg-error-light" style={{ borderColor: 'var(--error)', background: 'var(--error-bg)' }}>
-                            <ShieldAlert size={28} className="text-error" />
-                            <div className="flex-1">
-                                <div className="font-bold text-error">AI Monitoring Alert</div>
-                                <div className="text-sm">There are <strong>{statsToday.monitoring_stats.active_alerts} active fraud alerts</strong> that require your immediate attention.</div>
-                            </div>
-                            <button className="btn btn-error btn-sm" onClick={() => navigate('/dashboard/ai-monitoring')}>Review Now</button>
-                        </div>
-                    )}
-
-                    {/* ─── Section 2: Sales + Work Status (side by side) ─── */}
-                    <div className="summary-grid summary-grid--split">
-                        <section className="summary-section">
-                            <div className="summary-section__header">
-                                <div>
-                                    <h2 className="section-title">Sales by Category</h2>
-                                    <p className="section-subtitle">Today's revenue breakdown</p>
-                                </div>
-                                <BarChart3 size={22} className="muted" />
-                            </div>
-                            <div className="summary-data-list">
-                                {[
-                                    { label: 'Offset Printing', value: statsToday?.sales?.offset },
-                                    { label: 'Digital Printing', value: statsToday?.sales?.digital },
-                                    { label: 'Photocopy', value: statsToday?.sales?.photocopy },
-                                    { label: 'Mementos', value: statsToday?.sales?.mementos },
-                                    { label: 'Photo Frames', value: statsToday?.sales?.frames },
-                                    { label: 'ID Cards', value: statsToday?.sales?.id_cards },
-                                    { label: 'Binding & Lamination', value: statsToday?.sales?.binding },
-                                ].map(item => (
-                                    <div key={item.label} className="summary-data-list__row">
-                                        <span>{item.label}</span>
-                                        <span className="summary-data-list__value">{fmt(item.value)}</span>
-                                    </div>
-                                ))}
-                            </div>
-                            <div style={{ marginTop: 12, padding: '8px 12px', background: 'var(--surface-lowest, #f8fafc)', borderRadius: 6, fontSize: 13 }}>
-                                <strong>This Month:</strong> {fmt(statsToday?.sales?.month_total)} · {fmtNum(statsToday?.sales?.bill_count)} bills · Avg: {fmt(statsToday?.sales?.avg_bill)}
-                            </div>
-                        </section>
-
-                        <section className="summary-section">
-                            <div className="summary-section__header">
-                                <div>
-                                    <h2 className="section-title">Work Status</h2>
-                                    <p className="section-subtitle">Current job pipeline</p>
-                                </div>
-                                <Activity size={22} className="muted" />
-                            </div>
-                            <div className="summary-grid summary-grid--inventory" style={{gap: 18}}>
-                                {Object.entries(statsOverall?.status_counts || {}).filter(([s]) => s !== 'Cancelled').map(([status, count]) => (
-                                    <div key={status} className="row p-16 border-all rounded bg-surface-lowest mb-2" style={{marginBottom: 14, gap: '16px'}}>
-                                        <span className="font-medium" style={{ color: getStatusColor(status), minWidth: '140px' }}>{status}:</span>
-                                        <span className="font-bold">{fmtNum(count)}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    </div>
-
-                    {/* ─── Section 3: Recent Orders + Machine Status ─── */}
-                    <div className="summary-grid summary-grid--split">
-                        <section className="summary-section">
-                            <div className="summary-section__header">
-                                <div>
-                                    <h2 className="section-title">Recent Orders</h2>
-                                </div>
-                                <ClipboardList size={22} className="muted" />
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="table w-full text-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Job No</th>
-                                            <th>Customer</th>
-                                            <th>Status</th>
-                                            <th className="text-right">Amount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {statsToday?.recent_jobs?.length > 0 ? statsToday.recent_jobs.map(job => (
-                                            <tr key={job.id}>
-                                                <td className="font-medium">{job.job_number}</td>
-                                                <td>
-                                                    <div className="font-medium">{job.customer_name}</div>
-                                                    <div className="text-xs muted">{job.job_name}</div>
-                                                </td>
-                                                <td>
-                                                    <span className="badge" style={{ backgroundColor: `${getStatusColor(job.status)}20`, color: getStatusColor(job.status), padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
-                                                        {job.status}
-                                                    </span>
-                                                </td>
-                                                <td className="text-right font-bold">₹{Number(job.total_amount).toLocaleString()}</td>
-                                            </tr>
-                                        )) : (
-                                            <tr><td colSpan="4" className="text-center p-16 muted">No recent orders</td></tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </section>
-
-                        <section className="summary-section">
-                            <div className="summary-section__header">
-                                <div>
-                                    <h2 className="section-title">Machine Status</h2>
-                                    <p className="section-subtitle">Today's production</p>
-                                </div>
-                                <Printer size={22} className="muted" />
-                            </div>
-                            <div className="summary-list">
-                                {Array.isArray(statsToday?.machines) && statsToday.machines.length > 0 ? (
-                                    statsToday.machines.map(machine => (
-                                        <div key={machine.id || machine.name} className="summary-list__item">
-                                            <div>
-                                                <div className="summary-list__title">{machine.name}</div>
-                                                <div className="summary-list__meta">Pages printed today</div>
-                                            </div>
-                                            <div className="summary-list__value">{fmtNum(machine.pages)}</div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center p-16 muted">No machine readings today</div>
-                                )}
-                            </div>
-                        </section>
-                    </div>
-
-                    {/* ─── Section 4: Payments & Collections ─── */}
-                    <section className="summary-section">
-                        <div className="summary-section__header">
-                            <div>
-                                <h2 className="section-title">Payments & Collections</h2>
-                                <p className="section-subtitle">Cash flow breakdown</p>
-                            </div>
-                            <Wallet size={22} className="muted" />
-                        </div>
-                        <div className="summary-grid summary-grid--tiles">
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">Cash Collected</div>
-                                <div className="summary-tile__value">{fmt(statsToday?.payments?.cash_today)}</div>
-                            </div>
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">UPI Collected</div>
-                                <div className="summary-tile__value">{fmt(statsToday?.payments?.upi_today)}</div>
-                            </div>
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">Cheque / Transfer</div>
-                                <div className="summary-tile__value">{fmt(statsToday?.payments?.cheque_today)}</div>
-                            </div>
-                            <div className="summary-tile">
-                                <div className="summary-tile__title">Total Advance Received</div>
-                                <div className="summary-tile__value">{fmt(statsOverall?.payments?.total_amount)}</div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* ─── Section 5: Low Stock Alerts + Top Customers (side by side) ─── */}
-                    <div className="summary-grid summary-grid--split">
-                        <section className="summary-section">
-                            <div className="summary-section__header">
-                                <div>
-                                    <h2 className="section-title">Low Stock Alerts</h2>
-                                    <p className="section-subtitle">{lowStockItems.length} item{lowStockItems.length !== 1 ? 's' : ''} need attention</p>
-                                </div>
-                                <AlertTriangle size={22} style={{ color: lowStockItems.length > 0 ? 'var(--error, #dc2626)' : 'var(--text-muted)' }} />
-                            </div>
-                            {lowStockItems.length > 0 ? (
-                                <div className="summary-data-list">
-                                    {lowStockItems.map(item => (
-                                        <div key={item.id} className="summary-data-list__row">
-                                            <div>
-                                                <span className="font-medium">{item.name}</span>
-                                                {item.sku && <span className="text-xs muted" style={{ marginLeft: 6 }}>{item.sku}</span>}
-                                            </div>
-                                            <span style={{ color: Number(item.quantity) === 0 ? 'var(--error, #dc2626)' : 'var(--color-warning, #f59e0b)', fontWeight: 700 }}>
-                                                {item.quantity} left
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center p-24 muted">All stock levels are healthy</div>
-                            )}
-                        </section>
-
-                        <section className="summary-section">
-                            <div className="summary-section__header">
-                                <div>
-                                    <h2 className="section-title">Top Customers (Month)</h2>
-                                </div>
-                                <UserCheck size={22} className="muted" />
-                            </div>
-                            {topCustomers.length > 0 ? (
-                                <div className="summary-data-list">
-                                    {topCustomers.map((c, i) => (
-                                        <div key={i} className="summary-data-list__row">
-                                            <div>
-                                                <span className="font-medium">{c.name}</span>
-                                                <span className="text-xs muted" style={{ marginLeft: 6 }}>{c.job_count} jobs</span>
-                                            </div>
-                                            <span className="font-bold">{fmt(Number(c.total_spent))}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center p-24 muted">No customer data this month</div>
-                            )}
-                        </section>
-                    </div>
-
-                    {/* ─── Section 6: Staff Productivity ─── */}
-                    {staffProd.length > 0 && (
-                        <section className="summary-section">
-                            <div className="summary-section__header">
-                                <div>
-                                    <h2 className="section-title">Staff Productivity (Month)</h2>
-                                    <p className="section-subtitle">Jobs handled this month by staff</p>
-                                </div>
-                                <Users size={22} className="muted" />
-                            </div>
-                            <div className="summary-data-list">
-                                {staffProd.map((s, i) => (
-                                    <div key={i} className="summary-data-list__row">
-                                        <div>
-                                            <span className="font-medium">{s.name}</span>
-                                            <span className="text-xs muted" style={{ marginLeft: 6 }}>{s.role}</span>
-                                        </div>
-                                        <span className="font-bold">{s.jobs_handled} jobs</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    )}
-
-                    {/* ─── Section 7: Order Forecast ─── */}
-                    <OrderForecastWidget branchId={filters.branch_id} />
-                </>
-            )}
-
-            {activeTab === 'ai-monitoring' && (
-                <Suspense fallback={<div className="flex items-center justify-center p-40"><Loader2 className="animate-spin text-accent" size={32} /></div>}>
-                    <AIMonitoring />
-                </Suspense>
-            )}
-
-
-            {activeTab === 'order-predictions' && (
-                <Suspense fallback={<div className="flex items-center justify-center p-40"><Loader2 className="animate-spin text-accent" size={32} /></div>}>
-                    <OrderPredictions />
-                </Suspense>
-            )}
+      <div className="summary-page">
+        <div className="summary-loading">
+          <Loader2 size={24} className="animate-spin" />
+          <span>Loading dashboard...</span>
         </div>
+      </div>
     );
+  }
+
+  return (
+    <div className="summary-page">
+      <div className="summary-topbar">
+        <h1 className="summary-topbar__title">Business Summary</h1>
+        <div className="summary-topbar__right">
+          <div className="branch-selector">
+            <Building2 size={16} />
+            <select value={filters.branch_id} onChange={(e) => setFilters(p => ({ ...p, branch_id: e.target.value }))}>
+              <option value="">All Branches</option>
+              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+          <span className="summary-topbar__date">{branchName} — {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        </div>
+      </div>
+
+      <div className="summary-tabs">
+        {tabs.map(t => (
+          <button key={t.id} className={`summary-tab ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>
+            <t.icon size={14} /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'overview' && (
+        <>
+          {/* ROW 1: KPI Cards */}
+          <div className="kpi-grid">
+            <KpiCard title="Sales Today" value={fmt(statsToday?.jobs?.total_sales)} subtitle={`${fmtNum(statsToday?.jobs?.total_count)} jobs`} icon={TrendingUp} color="#22c55e" />
+            <KpiCard title="Collections" value={fmt(statsToday?.payments?.total_collected_today)} subtitle={`Cash ${fmt(statsToday?.payments?.cash_today)} · UPI ${fmt(statsToday?.payments?.upi_today)}`} icon={Wallet} color="#60a5fa" />
+            <KpiCard title="Expenses" value={fmt(statsToday?.expenses?.today)} subtitle={`Month: ${fmt(statsOverall?.expenses?.month)}`} icon={IndianRupee} color="#ef4444" />
+            <KpiCard title="Outstanding" value={fmt(statsOverall?.jobs?.total_balance)} subtitle="Pending receivables" icon={AlertTriangle} color="#f59e0b" />
+          </div>
+
+          {/* ROW 2: Secondary KPIs */}
+          <div className="kpi-grid">
+            <KpiCard title="Orders Today" value={`${fmtNum(statsToday?.jobs?.new_today)} / ${fmtNum(statsToday?.jobs?.completed_today)}`} subtitle="New / Completed" icon={ClipboardList} />
+            <KpiCard title="In Progress" value={fmtNum(statsOverall?.jobs?.in_progress)} subtitle="Across all stages" icon={Activity} color="#8b5cf6" />
+            <KpiCard title="Inventory Value" value={fmt(statsOverall?.inventory?.total_value)} subtitle={`${fmtNum(statsOverall?.inventory?.total_items)} items`} icon={Package} color="#06b6d4" />
+            <KpiCard title="Urgent / Overdue" value={`${fmtNum(statsToday?.jobs?.urgent_today)} / ${fmtNum(statsOverall?.jobs?.overdue)}`} subtitle="Needs attention" icon={ShieldAlert} color="#ef4444" />
+          </div>
+
+          {/* Fraud Alert Banner */}
+          {statsToday?.monitoring_stats?.active_alerts > 0 && (
+            <div className="alert-banner alert-banner--error">
+              <ShieldAlert size={20} />
+              <div className="alert-banner__content">
+                <strong>{statsToday.monitoring_stats.active_alerts} active fraud alerts</strong> — requires immediate attention
+              </div>
+              <button className="btn btn-sm btn-error" onClick={() => navigate('/dashboard/ai-monitoring')}>Review</button>
+            </div>
+          )}
+
+          {/* ROW 3: Charts + Work Status */}
+          <div className="summary-grid-2col">
+            <div className="summary-section-card">
+              <div className="summary-section-card__header">
+                <h3>Sales Breakdown</h3>
+                <BarChart3 size={16} />
+              </div>
+              {statsToday?.sales ? (
+                <div className="data-list">
+                  {[
+                    { label: 'Offset Printing', value: statsToday.sales.offset },
+                    { label: 'Digital Printing', value: statsToday.sales.digital },
+                    { label: 'Photocopy', value: statsToday.sales.photocopy },
+                    { label: 'Mementos', value: statsToday.sales.mementos },
+                    { label: 'Photo Frames', value: statsToday.sales.frames },
+                    { label: 'ID Cards', value: statsToday.sales.id_cards },
+                    { label: 'Binding & Lamination', value: statsToday.sales.binding },
+                  ].map(item => (
+                    <div key={item.label} className="data-list__row">
+                      <span>{item.label}</span>
+                      <span className="data-list__value">{fmt(item.value)}</span>
+                    </div>
+                  ))}
+                  <div className="data-list__total">
+                    <span>Month Total</span>
+                    <span className="font-bold">{fmt(statsToday.sales.month_total)}</span>
+                  </div>
+                </div>
+              ) : (
+                <EmptyState icon={BarChart3} title="No Sales Data" message="Sales data will appear once orders are created." />
+              )}
+            </div>
+
+            <div className="summary-section-card">
+              <div className="summary-section-card__header">
+                <h3>Work Status</h3>
+                <Activity size={16} />
+              </div>
+              {statsOverall?.status_counts ? (
+                <div className="status-list">
+                  {Object.entries(statsOverall.status_counts).filter(([s]) => s !== 'Cancelled').map(([status, count]) => (
+                    <div key={status} className="status-list__item">
+                      <span className="status-list__dot" style={{ backgroundColor: statusColor(status) }} />
+                      <span>{status}</span>
+                      <span className="status-list__count">{fmtNum(count)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState icon={Activity} title="No Work Status" message="Work status will appear once jobs are created." />
+              )}
+            </div>
+          </div>
+
+          {/* ROW 4: Recent Orders + Low Stock */}
+          <div className="summary-grid-2col">
+            <div className="summary-section-card">
+              <div className="summary-section-card__header">
+                <h3>Recent Orders</h3>
+                <ClipboardList size={16} />
+              </div>
+              {statsToday?.recent_jobs?.length > 0 ? (
+                <div className="recent-orders">
+                  {statsToday.recent_jobs.slice(0, 5).map(job => (
+                    <div key={job.id} className="recent-orders__item">
+                      <div className="recent-orders__info">
+                        <span className="recent-orders__job">#{job.job_number}</span>
+                        <span className="recent-orders__customer">{job.customer_name}</span>
+                      </div>
+                      <span className="badge" style={{ backgroundColor: `${statusColor(job.status)}20`, color: statusColor(job.status) }}>{job.status}</span>
+                      <span className="recent-orders__amount">₹{Number(job.total_amount).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState icon={ClipboardList} title="No Orders" message="Recent orders will appear here." actions={<button className="btn btn-sm btn-primary" onClick={() => navigate('/dashboard/sales/orders')}><Plus size={14} /> New Order</button>} />
+              )}
+            </div>
+
+            <div className="summary-section-card">
+              <div className="summary-section-card__header">
+                <h3>Low Stock</h3>
+                <AlertTriangle size={16} />
+              </div>
+              {lowStockItems.length > 0 ? (
+                <div className="data-list">
+                  {lowStockItems.slice(0, 5).map(item => (
+                    <div key={item.id} className="data-list__row">
+                      <div>
+                        <span className="font-medium">{item.name}</span>
+                        {item.sku && <span className="text-xs muted" style={{ marginLeft: 6 }}>{item.sku}</span>}
+                      </div>
+                      <span style={{ color: Number(item.quantity) === 0 ? 'var(--error)' : 'var(--warning)', fontWeight: 700 }}>
+                        {item.quantity} left
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState icon={Package} title="All Stock Healthy" message="No low stock items at this time." />
+              )}
+            </div>
+          </div>
+
+          {/* ROW 5: Order Forecast */}
+          <OrderForecastWidget branchId={filters.branch_id} />
+        </>
+      )}
+
+      {activeTab === 'ai-monitoring' && (
+        <Suspense fallback={<div className="suspense-loader"><Loader2 className="animate-spin" size={24} /></div>}>
+          <AIMonitoring />
+        </Suspense>
+      )}
+
+      {activeTab === 'order-predictions' && (
+        <Suspense fallback={<div className="suspense-loader"><Loader2 className="animate-spin" size={24} /></div>}>
+          <OrderPredictions />
+        </Suspense>
+      )}
+    </div>
+  );
 };
 
-export default Summary;
+export default React.memo(Summary);

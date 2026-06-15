@@ -56,24 +56,24 @@
 
 /* Panel borders */
 .panel--primary-border {
-  border-top: 4px solid #3b82f6;
+  border-top: 4px solid var(--accent);
 }
 
 .panel--left-border-primary {
-  border-left: 4px solid #3b82f6;
+  border-left: 4px solid var(--accent);
 }
 
 .panel--left-border-warning {
-  border-left: 4px solid #f59e0b;
+  border-left: 4px solid var(--warning);
 }
 
 /* Icons */
 .icon-primary {
-  color: #3b82f6;
+  color: var(--accent);
 }
 
 .icon-warning {
-  color: #f59e0b;
+  color: var(--warning);
 }
 
 /* Status badge colors */
@@ -273,12 +273,12 @@
 
 /* Badge variants */
 .badge-primary {
-  background: #3b82f6;
+  background: var(--primary);
   color: white;
 }
 
 .badge-warning {
-  background: #f59e0b;
+  background: var(--warning);
   color: white;
 }
 
@@ -314,7 +314,7 @@
 }
 
 .side-badge--static {
-  background: #ef4444;
+  background: var(--error);
   color: white;
 }
 

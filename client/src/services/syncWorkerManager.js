@@ -52,7 +52,8 @@ class SyncWorkerManager {
       payload: {
         apiBaseUrl,
         token,
-        dbName: 'sarga-offline'
+        dbName: 'sarga-offline',
+        isProduction: import.meta.env.PROD
       }
     });
   }

@@ -3,17 +3,17 @@ const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const { paginate } = require('../helpers/pagination');
 
-// Middleware to ensure user is Admin or Front Office
-const requireFrontOffice = (req, res, next) => {
-    if (!['Admin', 'Front Office'].includes(req.user.role)) {
-        return res.status(403).json({ message: 'Access denied' });
+// Middleware to ensure user is Admin
+const requireAdmin = (req, res, next) => {
+    if (!['Admin'].includes(req.user.role)) {
+        return res.status(403).json({ message: 'Access denied. Insufficient permissions.' });
     }
     next();
 };
 
 // GET /api/website-inquiries
 // Fetch paginated inquiries with optional status filter
-router.get('/website-inquiries', authenticateToken, requireFrontOffice, async (req, res) => {
+router.get('/website-inquiries', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { status } = req.query;
         const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
@@ -48,7 +48,7 @@ router.get('/website-inquiries', authenticateToken, requireFrontOffice, async (r
 
 // PATCH /api/website-inquiries/:id/status
 // Update status and optional internal notes
-router.patch('/website-inquiries/:id/status', authenticateToken, requireFrontOffice, async (req, res) => {
+router.patch('/website-inquiries/:id/status', authenticateToken, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, internal_notes } = req.body;
 
@@ -92,7 +92,7 @@ router.patch('/website-inquiries/:id/status', authenticateToken, requireFrontOff
 
 // DELETE /api/website-inquiries/:id
 // Delete/archive an inquiry
-router.delete('/website-inquiries/:id', authenticateToken, requireFrontOffice, async (req, res) => {
+router.delete('/website-inquiries/:id', authenticateToken, requireAdmin, async (req, res) => {
     const { id } = req.params;
 
     try {

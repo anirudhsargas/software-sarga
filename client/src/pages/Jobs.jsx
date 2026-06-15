@@ -736,7 +736,7 @@ const Jobs = () => {
                                                     const used = Number(j.used_sheets) || 0;
                                                     const waste = req > 0 ? Math.max(0, used - req) : 0;
                                                     const pct = req > 0 ? ((waste / req) * 100).toFixed(0) : null;
-                                                    const color = pct === null ? 'var(--muted)' : Number(pct) <= 3 ? 'var(--success)' : Number(pct) <= 8 ? 'var(--warning)' : 'var(--error)';
+                                                    const color = pct === null ? 'var(--muted)' : Number(pct) <= 3 ? 'var(--success)' : Number(pct) <= 8 ? 'var(--warning)' : 'var(--text-muted)';
                                                     return (
                                                         <div className="stack-xs">
                                                             <span style={{ fontSize: '11px', fontWeight: 600, color }}>
@@ -878,7 +878,7 @@ const Jobs = () => {
                             </div>
                             <div className="row" style={{ justifyContent: 'space-between' }}>
                                 <span className="muted">Remaining Due</span>
-                                <strong style={{ color: 'var(--error)' }}>Rs. {(Number(deliveryDueModal.remaining) || 0).toFixed(2)}</strong>
+                                <strong style={{ color: 'var(--warning)' }}>Rs. {(Number(deliveryDueModal.remaining) || 0).toFixed(2)}</strong>
                             </div>
                         </div>
 

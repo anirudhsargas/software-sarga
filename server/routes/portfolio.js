@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 const { cacheMiddleware, invalidateCache } = require('../index');
 const path = require('path');
@@ -69,7 +69,7 @@ router.get('/website/portfolio/categories/list', asyncHandler(async (req, res) =
 }));
 
 // ─── ADMIN: List all projects ───
-router.get('/portfolio', authenticateToken, asyncHandler(async (req, res) => {
+router.get('/portfolio', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { status, page = 1, limit = 20 } = req.query;
   const offset = (Math.max(1, Number(page)) - 1) * Number(limit);
   let where = '1=1';
@@ -92,7 +92,7 @@ router.get('/portfolio', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: Get single project ───
-router.get('/portfolio/:id', authenticateToken, asyncHandler(async (req, res) => {
+router.get('/portfolio/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query('SELECT * FROM sarga_portfolio_projects WHERE id = ?', [req.params.id]);
   if (rows.length === 0) return res.status(404).json({ error: 'Project not found' });
   const project = rows[0];
@@ -101,7 +101,7 @@ router.get('/portfolio/:id', authenticateToken, asyncHandler(async (req, res) =>
 }));
 
 // ─── ADMIN: Create project ───
-router.post('/portfolio', authenticateToken, asyncHandler(async (req, res) => {
+router.post('/portfolio', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { title, description, category, cover_image, gallery_images, featured, published, position } = req.body;
   if (!title) return res.status(400).json({ error: 'Title is required' });
   const slug = generateSlug(title);
@@ -116,7 +116,7 @@ router.post('/portfolio', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: Update project ───
-router.put('/portfolio/:id', authenticateToken, asyncHandler(async (req, res) => {
+router.put('/portfolio/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { title, description, category, cover_image, gallery_images, featured, published, position } = req.body;
   const sets = [];
@@ -138,7 +138,7 @@ router.put('/portfolio/:id', authenticateToken, asyncHandler(async (req, res) =>
 }));
 
 // ─── ADMIN: Delete project ───
-router.delete('/portfolio/:id', authenticateToken, asyncHandler(async (req, res) => {
+router.delete('/portfolio/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query('SELECT cover_image, gallery_images FROM sarga_portfolio_projects WHERE id = ?', [req.params.id]);
   if (rows.length === 0) return res.status(404).json({ error: 'Project not found' });
   await pool.query('DELETE FROM sarga_portfolio_projects WHERE id = ?', [req.params.id]);
@@ -147,7 +147,7 @@ router.delete('/portfolio/:id', authenticateToken, asyncHandler(async (req, res)
 }));
 
 // ─── ADMIN: Upload portfolio image ───
-router.post('/portfolio/upload', authenticateToken, asyncHandler(async (req, res) => {
+router.post('/portfolio/upload', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const multer = require('multer');
   const uploadsDir = path.join(__dirname, '..', 'uploads', 'portfolio');
   if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });

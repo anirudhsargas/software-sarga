@@ -149,6 +149,29 @@
   background: rgba(var(--success-rgb, 47, 125, 74), 0.1);
 }
 
+.upload-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  color: var(--text-muted, #999);
+  font-size: 12px;
+}
+
+.upload-divider::before,
+.upload-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border, #ddd);
+}
+
+.divider-text {
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* SUGGESTIONS SECTION */
 .suggestions-section {
   background: var(--surface-2, #f9fafb);

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
-import { X } from 'lucide-react';
+import { X, Upload, FileText } from 'lucide-react';
 import Button from './Button';
 import { formatCurrency } from '../utils/formatters';
 import { validateDate, validatePrice } from '../utils/validators';
@@ -17,7 +17,11 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
     notes: ''
   });
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [extractedData, setExtractedData] = useState(null);
+  const [showExtractedItems, setShowExtractedItems] = useState(false);
   const { errors, validate, focusFirstError, formRef } = useFormValidation();
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (vendor) {
@@ -27,6 +31,50 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
       }));
     }
   }, [vendor]);
+
+  const handleScanBill = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setScanning(true);
+    setExtractedData(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+
+      const response = await api.post('/bills-documents/extract-details', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const data = response.data;
+      const extracted = data.extracted_data || {};
+
+      setExtractedData(extracted);
+
+      setFormData(prev => ({
+        ...prev,
+        invoice_number: extracted.bill_number || prev.invoice_number,
+        invoice_date: extracted.bill_date || prev.invoice_date,
+        amount: extracted.amount || prev.amount,
+      }));
+
+      if (extracted.items?.length > 0) {
+        setShowExtractedItems(true);
+      }
+
+      toast.success('Bill scanned successfully');
+    } catch (err) {
+      console.error('Extraction error:', err);
+      toast.error('Failed to extract bill details');
+    } finally {
+      setScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -82,12 +130,25 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
       <div className="modal">
         <div className="modal-header">
           <h2 className="modal-title">Add New Invoice</h2>
-          <button
-            onClick={onClose}
-            className="icon-button"
-          >
-            <X size={20} />
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={handleScanBill}
+              className="btn btn-secondary"
+              disabled={scanning}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 14px' }}
+            >
+              <Upload size={16} />
+              {scanning ? 'Scanning...' : 'Scan Bill'}
+            </button>
+            <button onClick={onClose} className="icon-button"><X size={20} /></button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,application/pdf"
+            style={{ display: 'none' }}
+            onChange={handleFileSelect}
+          />
         </div>
 
         <form onSubmit={handleSubmit} className="modal-body">
@@ -174,6 +235,59 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
                 </p>
               )}
             </div>
+
+            {/* Extracted Bill Data */}
+            {extractedData && (
+              <div style={{ background: 'var(--surface-2)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h4 style={{ fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FileText size={14} /> Scanned Data
+                  </h4>
+                  {extractedData.items?.length > 0 && (
+                    <button
+                      onClick={() => setShowExtractedItems(!showExtractedItems)}
+                      style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', border: 'none', background: 'none', cursor: 'pointer' }}
+                    >
+                      {showExtractedItems ? 'Hide Items' : `${extractedData.items.length} item(s)`}
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+                  {extractedData.vendor_name && (
+                    <div><span style={{ color: 'var(--muted)' }}>Vendor: </span><span style={{ fontWeight: 600 }}>{extractedData.vendor_name}</span></div>
+                  )}
+                  {extractedData.bill_number && (
+                    <div><span style={{ color: 'var(--muted)' }}>Bill No: </span><span style={{ fontWeight: 600 }}>{extractedData.bill_number}</span></div>
+                  )}
+                  {extractedData.bill_date && (
+                    <div><span style={{ color: 'var(--muted)' }}>Date: </span><span style={{ fontWeight: 600 }}>{extractedData.bill_date}</span></div>
+                  )}
+                  {extractedData.tax > 0 && (
+                    <div><span style={{ color: 'var(--muted)' }}>GST: </span><span style={{ fontWeight: 600 }}>₹{extractedData.tax.toFixed(2)}</span></div>
+                  )}
+                </div>
+
+                {/* Extracted Line Items */}
+                {showExtractedItems && extractedData.items?.length > 0 && (
+                  <div style={{ marginTop: '12px', borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '6px', fontSize: '10px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                      <span>Item</span>
+                      <span style={{ textAlign: 'right' }}>Qty</span>
+                      <span style={{ textAlign: 'right' }}>Rate</span>
+                      <span style={{ textAlign: 'right' }}>Amount</span>
+                    </div>
+                    {extractedData.items.map((item, i) => (
+                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '6px', fontSize: '12px', padding: '4px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                        <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description || `Item ${i + 1}`}</span>
+                        <span style={{ textAlign: 'right', color: 'var(--muted)' }}>{item.quantity || '-'}</span>
+                        <span style={{ textAlign: 'right', color: 'var(--muted)' }}>{item.rate ? `₹${item.rate}` : '-'}</span>
+                        <span style={{ textAlign: 'right', fontWeight: 600 }}>₹{(item.amount || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Credit Information */}
             {vendor && (

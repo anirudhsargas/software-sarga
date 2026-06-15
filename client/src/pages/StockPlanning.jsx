@@ -23,7 +23,24 @@ const StockPlanning = () => {
     const [approving, setApproving] = useState(false);
     const [sortField, setSortField] = useState('days_to_stockout');
     const [sortDir, setSortDir] = useState('asc');
+    const [editableList, setEditableList] = useState([]);
     const modalContentRef = useRef(null);
+
+    // Sync editableList when purchaseList changes
+    useEffect(() => {
+        if (showModal && purchaseList.length > 0) {
+            setEditableList(purchaseList.map(item => ({ ...item, _edited: false })));
+        }
+    }, [showModal, purchaseList]);
+
+    const handleEditItem = (index, field, value) => {
+        setEditableList(prev => prev.map((item, i) =>
+            i === index ? { ...item, [field]: value, _edited: true } : item
+        ));
+    };
+
+    const recalcTotal = (list) =>
+        list.reduce((sum, item) => sum + (Number(item.estimated_cost) || 0), 0);
 
     const fetchStockStatus = async (refresh = false) => {
         try {
@@ -57,11 +74,12 @@ const StockPlanning = () => {
     };
 
     const handleApprove = async () => {
-        if (purchaseList.length === 0) return;
+        const finalList = editableList.length > 0 ? editableList : purchaseList;
+        if (finalList.length === 0) return;
         setApproving(true);
         try {
             const res = await api.post('/ai/stock-planning/approve-purchase-list', {
-                items: purchaseList,
+                items: finalList,
                 notes: `Auto-generated stock planning order`,
             });
             toast.success(`Purchase order #${res.data.order_id} created with ${res.data.item_count} items`);
@@ -75,6 +93,8 @@ const StockPlanning = () => {
 
     const handleDownloadPDF = () => {
         if (!modalContentRef.current) return;
+        const finalList = editableList.length > 0 ? editableList : purchaseList;
+        const finalCost = finalList.reduce((sum, item) => sum + (Number(item.estimated_cost) || 0), 0);
         const printWin = window.open('', '_blank');
         if (!printWin) { toast.error('Pop-up blocked. Please allow pop-ups.'); return; }
         printWin.document.write(`<!DOCTYPE html><html><head><title>Purchase List</title>
@@ -94,17 +114,17 @@ const StockPlanning = () => {
             <th>#</th><th>Material</th><th>Qty</th><th>Unit</th>
             <th>Est. Cost</th><th>Vendor</th><th>Urgency</th>
         </tr></thead><tbody>
-        ${purchaseList.map((item, i) => `<tr>
+        ${finalList.map((item, i) => `<tr>
             <td>${i + 1}</td>
             <td>${item.name}</td>
             <td>${item.suggested_qty}</td>
             <td>${item.unit}</td>
-            <td>₹${(item.estimated_cost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            <td>₹${(Number(item.estimated_cost) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
             <td>${item.vendor_name || '—'}</td>
             <td class="${(item.urgency === 'immediate' || item.urgency === 'critical') ? 'urgent' : ''}">${(item.urgency === 'immediate' || item.urgency === 'critical') ? 'Immediate' : 'This Week'}</td>
         </tr>`).join('')}
         </tbody></table>
-        <div class="total">Total Estimated Cost: ₹${totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+        <div class="total">Total Estimated Cost: ₹${finalCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
         </body></html>`);
         printWin.document.close();
         printWin.focus();
@@ -160,17 +180,17 @@ const StockPlanning = () => {
 
             {/* KPI Tiles */}
             <div className="summary-grid summary-grid--tiles">
-                <div className="summary-tile" style={{ borderLeft: '4px solid #ef4444' }}>
+                <div className="summary-tile" style={{ borderLeft: '4px solid var(--error)' }}>
                     <div className="summary-tile__label">Critical</div>
-                    <div className="summary-tile__value" style={{ color: '#ef4444' }}>{criticalCount}</div>
+                    <div className="summary-tile__value" style={{ color: 'var(--error)' }}>{criticalCount}</div>
                 </div>
-                <div className="summary-tile" style={{ borderLeft: '4px solid #f59e0b' }}>
+                <div className="summary-tile" style={{ borderLeft: '4px solid var(--warning)' }}>
                     <div className="summary-tile__label">Low Stock</div>
-                    <div className="summary-tile__value" style={{ color: '#f59e0b' }}>{lowCount}</div>
+                    <div className="summary-tile__value" style={{ color: 'var(--warning)' }}>{lowCount}</div>
                 </div>
-                <div className="summary-tile" style={{ borderLeft: '4px solid #22c55e' }}>
+                <div className="summary-tile" style={{ borderLeft: '4px solid var(--success)' }}>
                     <div className="summary-tile__label">OK</div>
-                    <div className="summary-tile__value" style={{ color: '#22c55e' }}>{okCount}</div>
+                    <div className="summary-tile__value" style={{ color: 'var(--success)' }}>{okCount}</div>
                 </div>
                 <div className="summary-tile" style={{ borderLeft: '4px solid var(--primary)' }}>
                     <div className="summary-tile__label">Total Materials</div>
@@ -217,7 +237,7 @@ const StockPlanning = () => {
                                         <td style={{ minWidth: 160 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                 <div style={{
-                                                    flex: 1, height: 8, borderRadius: 4, background: '#e5e7eb', overflow: 'hidden'
+                                                    flex: 1, height: 8, borderRadius: 4, background: 'var(--surface-2)', overflow: 'hidden'
                                                 }}>
                                                     <div style={{
                                                         width: `${barWidth}%`, height: '100%', borderRadius: 4,
@@ -246,7 +266,7 @@ const StockPlanning = () => {
                         <h2 className="section-title mb-16">Purchase List</h2>
 
                         <div ref={modalContentRef} style={{ flex: 1, overflowY: 'auto' }}>
-                            {purchaseList.length === 0 ? (
+                            {editableList.length === 0 && purchaseList.length === 0 ? (
                                 <p style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
                                     All stock levels are OK — no purchases needed.
                                 </p>
@@ -258,25 +278,58 @@ const StockPlanning = () => {
                                             <th>Material</th>
                                             <th>Qty</th>
                                             <th>Unit</th>
-                                            <th>Est. Cost</th>
+                                            <th>Est. Cost (₹)</th>
                                             <th>Vendor</th>
                                             <th>Urgency</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {purchaseList.map((item, i) => (
-                                            <tr key={item.material_id}>
+                                        {(editableList.length > 0 ? editableList : purchaseList).map((item, i) => (
+                                            <tr key={item.material_id || i}>
                                                 <td>{i + 1}</td>
                                                 <td style={{ fontWeight: 500 }}>{item.name}</td>
-                                                <td>{item.suggested_qty}</td>
+                                                <td>
+                                                    <input
+                                                        type="number"
+                                                        className="input-field"
+                                                        style={{ width: 64, padding: '4px 8px', fontSize: 13 }}
+                                                        value={item.suggested_qty}
+                                                        onChange={(e) => handleEditItem(i, 'suggested_qty', e.target.value)}
+                                                        min="0"
+                                                    />
+                                                </td>
                                                 <td>{item.unit}</td>
-                                                <td>₹{(item.estimated_cost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                                <td>{item.vendor_name || '—'}</td>
+                                                <td>
+                                                    <input
+                                                        type="number"
+                                                        className="input-field"
+                                                        style={{ width: 100, padding: '4px 8px', fontSize: 13 }}
+                                                        value={item.estimated_cost || ''}
+                                                        onChange={(e) => {
+                                                            handleEditItem(i, 'estimated_cost', e.target.value);
+                                                            const updated = [...editableList];
+                                                            updated[i].estimated_cost = e.target.value;
+                                                            setTotalCost(recalcTotal(updated));
+                                                        }}
+                                                        min="0"
+                                                        step="0.01"
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <input
+                                                        type="text"
+                                                        className="input-field"
+                                                        style={{ width: 120, padding: '4px 8px', fontSize: 13 }}
+                                                        value={item.vendor_name || ''}
+                                                        onChange={(e) => handleEditItem(i, 'vendor_name', e.target.value)}
+                                                        placeholder="Vendor"
+                                                    />
+                                                </td>
                                                 <td>
                                                     <span style={{
                                                         padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-                                                        background: (item.urgency === 'immediate' || item.urgency === 'critical') ? '#fef2f2' : '#fffbeb',
-                                                        color: (item.urgency === 'immediate' || item.urgency === 'critical') ? '#dc2626' : '#d97706',
+                                                        background: (item.urgency === 'immediate' || item.urgency === 'critical') ? 'var(--error-bg)' : 'var(--warning-bg)',
+                                                        color: (item.urgency === 'immediate' || item.urgency === 'critical') ? 'var(--error)' : 'var(--warning)',
                                                     }}>
                                                         {(item.urgency === 'immediate' || item.urgency === 'critical') ? 'Immediate' : 'This Week'}
                                                     </span>
@@ -294,9 +347,14 @@ const StockPlanning = () => {
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12
                         }}>
                             <div style={{ fontSize: 18, fontWeight: 700 }}>
-                                Total: ₹{totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                Total: ₹{(editableList.length > 0 ? recalcTotal(editableList) : totalCost).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </div>
                             <div style={{ display: 'flex', gap: 8 }}>
+                                {editableList.some(i => i._edited) && (
+                                    <button className="btn btn-ghost" onClick={() => setEditableList(purchaseList.map(item => ({ ...item, _edited: false })))}>
+                                        <RefreshCw size={14} /> Reset
+                                    </button>
+                                )}
                                 <button className="btn btn-ghost" onClick={handleDownloadPDF} disabled={purchaseList.length === 0}>
                                     <Download size={16} /> Download as PDF
                                 </button>

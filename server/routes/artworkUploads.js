@@ -6,7 +6,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { pool } = require('../database');
 const { uploadToCloudinary } = require('../helpers/cloudinaryUpload');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 const uploadsDir = path.join(__dirname, '..', 'uploads', 'artwork');
@@ -190,7 +190,7 @@ router.get('/website/artwork/my-uploads', asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: List all artwork uploads ────────────────────────────
-router.get('/artwork/list', authenticateToken, asyncHandler(async (req, res) => {
+router.get('/artwork/list', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { status, search, page = 1, limit = 20 } = req.query;
   const offset = (Math.max(1, Number(page)) - 1) * Number(limit);
 
@@ -226,7 +226,7 @@ router.get('/artwork/list', authenticateToken, asyncHandler(async (req, res) => 
 }));
 
 // ─── ADMIN: Get single artwork detail ────────────────────────────
-router.get('/artwork/:id', authenticateToken, asyncHandler(async (req, res) => {
+router.get('/artwork/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query(`
     SELECT a.*, s.name AS assigned_designer_name
     FROM sarga_artwork_uploads a
@@ -240,7 +240,7 @@ router.get('/artwork/:id', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: Update artwork status ───────────────────────────────
-router.put('/artwork/:id/status', authenticateToken, asyncHandler(async (req, res) => {
+router.put('/artwork/:id/status', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { status } = req.body;
   const validStatuses = ['uploaded', 'under_review', 'proof_sent', 'approved', 'printing', 'completed', 'cancelled'];
   if (!validStatuses.includes(status)) {
@@ -252,7 +252,7 @@ router.put('/artwork/:id/status', authenticateToken, asyncHandler(async (req, re
 }));
 
 // ─── ADMIN: Assign designer ─────────────────────────────────────
-router.put('/artwork/:id/assign-designer', authenticateToken, asyncHandler(async (req, res) => {
+router.put('/artwork/:id/assign-designer', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { designer_id } = req.body;
 
   await pool.query(`
@@ -265,14 +265,14 @@ router.put('/artwork/:id/assign-designer', authenticateToken, asyncHandler(async
 }));
 
 // ─── ADMIN: Update notes ────────────────────────────────────────
-router.put('/artwork/:id/notes', authenticateToken, asyncHandler(async (req, res) => {
+router.put('/artwork/:id/notes', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { notes } = req.body;
   await pool.query('UPDATE sarga_artwork_uploads SET notes = ? WHERE id = ?', [notes || '', req.params.id]);
   res.json({ message: 'Notes updated' });
 }));
 
 // ─── ADMIN: Delete artwork upload ───────────────────────────────
-router.delete('/artwork/:id', authenticateToken, asyncHandler(async (req, res) => {
+router.delete('/artwork/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query('SELECT files, order_number FROM sarga_artwork_uploads WHERE id = ?', [req.params.id]);
   if (rows.length === 0) return res.status(404).json({ error: 'Artwork not found' });
 
@@ -290,7 +290,7 @@ router.delete('/artwork/:id', authenticateToken, asyncHandler(async (req, res) =
 }));
 
 // ─── ADMIN: List designers for assignment dropdown ──────────────
-router.get('/artwork/designers/list', authenticateToken, asyncHandler(async (req, res) => {
+router.get('/artwork/designers/list', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query(
     `SELECT id, name FROM sarga_staff WHERE role = 'Designer' AND is_active = 1 ORDER BY name`
   );

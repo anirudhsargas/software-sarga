@@ -113,33 +113,33 @@
 }
 
 .mm-card-type--offset {
-    background: rgba(37,99,235,0.1);
-    color: #2563eb;
+    background: var(--surface-2);
+    color: var(--text);
 }
 
 .mm-card-type--digital {
-    background: rgba(16,185,129,0.1);
-    color: #10b981;
+    background: var(--surface-2);
+    color: var(--text);
 }
 
 .mm-card-type--binding {
-    background: rgba(245,158,11,0.1);
-    color: #f59e0b;
+    background: var(--surface-2);
+    color: var(--text);
 }
 
 .mm-card-type--lamination {
-    background: rgba(139,92,246,0.1);
-    color: #8b5cf6;
+    background: var(--surface-2);
+    color: var(--text);
 }
 
 .mm-card-type--cutting {
-    background: rgba(239,68,68,0.1);
-    color: #ef4444;
+    background: var(--error-bg);
+    color: var(--error);
 }
 
 .mm-card-type--other {
-    background: rgba(107,114,128,0.1);
-    color: #6b7280;
+    background: var(--surface-2);
+    color: var(--text-muted);
 }
 
 /* Card Actions */
@@ -194,12 +194,12 @@
 }
 
 .mm-card-status--active {
-    background: rgba(47,125,74,0.1);
+    background: var(--success-bg);
     color: var(--success);
 }
 
 .mm-card-status--inactive {
-    background: rgba(176,58,46,0.1);
+    background: var(--error-bg);
     color: var(--error);
 }
 

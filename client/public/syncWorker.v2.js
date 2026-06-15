@@ -2,6 +2,20 @@
 // Cannot access DOM or React state
 // Communicates via messages only
 
+self.IS_PRODUCTION = false;
+
+const log = (...args) => {
+  if (!self.IS_PRODUCTION) {
+    console.log(...args);
+  }
+};
+
+const logError = (...args) => {
+  if (!self.IS_PRODUCTION) {
+    console.error(...args);
+  }
+};
+
 let syncInterval = null;
 let isSyncing = false;
 let dbName = 'sarga-offline';
@@ -238,7 +252,27 @@ const downloadMasterData = async (db) => {
         for (const record of flatProducts) {
           await putToStore(tx_data, item.store, record);
         }
-        console.log(`[Sync] Saved hierarchy and ${flatProducts.length} flat products`);
+        log(`[Sync] Saved hierarchy and ${flatProducts.length} flat products`);
+
+        // Update sync meta
+        await putToStore(db, 'sync_meta', {
+          id: item.key,
+          time: Date.now(),
+          count: flatProducts.length
+        });
+
+        results[item.key] = flatProducts.length;
+
+        // Notify main thread of new data
+        self.postMessage({
+          type: 'MASTER_DATA_UPDATED',
+          key: item.key,
+          count: flatProducts.length
+        });
+
+        // Wait between downloads to not hammer server
+        await new Promise(r => setTimeout(r, 800));
+
         continue;
       }
 
@@ -321,7 +355,7 @@ const invalidateCache = async (dataKey) => {
     
     // Check if sync_meta store exists
     if (!db.objectStoreNames.contains('sync_meta')) {
-      console.log(`[Sync] sync_meta store not found, skipping cache invalidation for ${dataKey}`);
+      log(`[Sync] sync_meta store not found, skipping cache invalidation for ${dataKey}`);
       return;
     }
     
@@ -331,16 +365,16 @@ const invalidateCache = async (dataKey) => {
     
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => {
-        console.log(`[Sync] Invalidated cache for ${dataKey}`);
+        log(`[Sync] Invalidated cache for ${dataKey}`);
         resolve(true);
       };
       tx.onerror = () => {
-        console.error(`[Sync] Failed to invalidate cache for ${dataKey}`);
+        logError(`[Sync] Failed to invalidate cache for ${dataKey}`);
         reject(tx.error);
       };
     });
   } catch (err) {
-    console.error(`[Sync] Error invalidating cache: ${err.message}`);
+    logError(`[Sync] Error invalidating cache: ${err.message}`);
   }
 };
 
@@ -354,6 +388,7 @@ self.onmessage = (event) => {
       self.API_BASE_URL = payload.apiBaseUrl;
       self.AUTH_TOKEN = payload.token;
       self.dbName = payload.dbName || 'sarga-offline';
+      self.IS_PRODUCTION = payload.isProduction || false;
       self.postMessage({ type: 'WORKER_READY' });
       break;
 
@@ -372,7 +407,7 @@ self.onmessage = (event) => {
       invalidateCache(payload.dataKey).then(() => {
         // Trigger sync immediately after invalidation
         runSync();
-      }).catch(err => console.error('Cache invalidation error:', err));
+      }).catch(err => logError('Cache invalidation error:', err));
       break;
 
     case 'START_AUTO_SYNC':

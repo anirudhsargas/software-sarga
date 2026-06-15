@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const crypto = require('crypto');
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // ─── ADMIN: Generate slots for a date range ───
-router.post('/pickup/slots/generate', authenticateToken, asyncHandler(async (req, res) => {
+router.post('/pickup/slots/generate', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { branch_id, start_date, end_date } = req.body;
   if (!branch_id || !start_date) return res.status(400).json({ error: 'branch_id and start_date required' });
   const start = new Date(start_date);
@@ -100,7 +100,7 @@ router.get('/website/pickup/booking/:ref', asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: List bookings ───
-router.get('/pickup/bookings', authenticateToken, asyncHandler(async (req, res) => {
+router.get('/pickup/bookings', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { branch_id, date, status, page = 1, limit = 50 } = req.query;
   const offset = (Math.max(1, Number(page)) - 1) * Number(limit);
   let where = '1=1';
@@ -127,7 +127,7 @@ router.get('/pickup/bookings', authenticateToken, asyncHandler(async (req, res) 
 }));
 
 // ─── ADMIN: Update booking status ───
-router.put('/pickup/bookings/:id/status', authenticateToken, asyncHandler(async (req, res) => {
+router.put('/pickup/bookings/:id/status', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
   const { status } = req.body;
   const valid = ['confirmed', 'completed', 'cancelled', 'missed'];
   if (!valid.includes(status)) return res.status(400).json({ error: 'Invalid status' });
