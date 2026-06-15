@@ -18,7 +18,11 @@ const VendorDetail = ({
   onEditVendor,
   onDeleteVendor,
   formatCurrency,
-  getStatusBadge
+  getStatusBadge,
+  refreshKey = 0,
+  canEdit = true,
+  canDelete = true,
+  canAdd = true
 }) => {
   const { id: routeId } = useParams();
   const vendorId = vendor?.id || routeId;
@@ -34,7 +38,7 @@ const VendorDetail = ({
   useEffect(() => {
     loadVendorDetails();
     loadSpendTrend();
-  }, [vendorId]);
+  }, [vendorId, refreshKey]);
 
   const getLatestRecordDate = (items, dateKey) => {
     if (!items?.length) return null;
@@ -225,15 +229,21 @@ const VendorDetail = ({
         </div>
         
         <div className="detail-header-actions">
-          <button onClick={handleAddInvoice} className="btn btn-primary btn-sm">
-            <Plus size={16} /> New Invoice
-          </button>
-          <button onClick={() => onEditVendor(details)} className="btn btn-ghost btn-sm">
-            <Edit size={16} /> Edit Profile
-          </button>
-          <button onClick={() => onDeleteVendor(details.id)} className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }}>
-            <Trash2 size={16} /> Terminate
-          </button>
+          {canAdd && (
+            <button onClick={handleAddInvoice} className="btn btn-primary btn-sm">
+              <Plus size={16} /> New Invoice
+            </button>
+          )}
+          {canEdit && (
+            <button onClick={() => onEditVendor(details)} className="btn btn-ghost btn-sm">
+              <Edit size={16} /> Edit Profile
+            </button>
+          )}
+          {canDelete && (
+            <button onClick={() => onDeleteVendor(details.id)} className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }}>
+              <Trash2 size={16} /> Terminate
+            </button>
+          )}
         </div>
       </div>
 
@@ -344,7 +354,7 @@ const VendorDetail = ({
                           <p style={{ fontWeight: 800, color: 'var(--accent)' }}>{formatCurrency(inv.amount)}</p>
                           <p style={{ fontSize: '11px', color: 'var(--muted)' }}>{inv.paid_amount ? `${formatCurrency(inv.paid_amount)} paid` : 'Not settled yet'}</p>
                         </div>
-                        {inv.amount - inv.paid_amount > 0 && (
+                        {inv.amount - inv.paid_amount > 0 && canAdd && (
                           <button 
                             onClick={() => handleAddPayment(inv)}
                             className="settlement-btn"

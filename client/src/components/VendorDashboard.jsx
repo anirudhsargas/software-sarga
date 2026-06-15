@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -7,6 +7,7 @@ import {
   AlertCircle, FileText, CreditCard, ArrowUpRight,
   ArrowDownRight, Calendar, ChevronRight, Package
 } from 'lucide-react';
+import { formatCurrency } from '../utils/formatters';
 import '../pages/Vendors.css';
 
 const VendorDashboard = ({ refreshKey = 0 }) => {
@@ -14,6 +15,11 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [chartReady, setChartReady] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setChartReady(true));
+  }, []);
 
   useEffect(() => {
     loadDashboardStats();
@@ -40,14 +46,6 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
   const handleRetry = () => {
     setRetryCount(retryCount + 1);
     loadDashboardStats();
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(amount);
   };
 
   if (loading) {
@@ -149,8 +147,9 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }}></div> Meppayur</span>
             </div>
           </div>
-          <div style={{ height: '320px' }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <div style={{ height: '320px', minWidth: 0 }}>
+            {chartReady && (
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
               <LineChart data={stats.monthly_trend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-subtle)" />
                 <XAxis 
@@ -195,6 +194,7 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
                 />
               </LineChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
 

@@ -11,10 +11,11 @@ import {
     Sun, CloudSun, Snowflake, Loader2, XCircle, Boxes, LineChart,
     ShoppingCart, Truck, ExternalLink, Info
 } from 'lucide-react';
+import { formatCurrency } from '../utils/formatters';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const fmt = (n) => '₹' + (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+const fmt = formatCurrency;
 
 const GrowthBadge = ({ pct }) => {
     const isUp = pct > 0;

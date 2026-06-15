@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import api, { imgUrl } from '../services/api';
 import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
@@ -28,7 +28,7 @@ import { CSS } from '@dnd-kit/utilities';
 import toast from 'react-hot-toast';
 import ImageCropModal from '../components/ImageCropModal';
 
-const SortableItem = ({ id, children, className, disabled, ...props }) => {
+const SortableItem = React.memo(({ id, children, className, disabled, index, ...props }) => {
     const {
         attributes,
         listeners,
@@ -51,15 +51,18 @@ const SortableItem = ({ id, children, className, disabled, ...props }) => {
             ref={setNodeRef}
             style={style}
             className={className}
+            role="listitem"
+            aria-roledescription="draggable item"
+            aria-label={`Reorder item`}
             {...props}
         >
-            {!disabled && <div {...attributes} {...listeners} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}></div>}
+            {!disabled && <div {...attributes} {...listeners} aria-label="Drag to reorder" role="button" tabIndex={0} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}></div>}
             <div style={{ position: 'relative', zIndex: 1 }}>
                 {children}
             </div>
         </div>
     );
-};
+});
 
 const ProductLibrary = () => {
     useSEO('Product Library');
@@ -80,6 +83,10 @@ const ProductLibrary = () => {
     const PRODUCTS_PER_PAGE = 24;
     const [productPage, setProductPage] = useState(1);
     const [productSearch, setProductSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const searchTimer = useRef(null);
+    const filterVendorRef = useRef('all');
+    const filterCalcTypeRef = useRef('all');
     const [filterVendor, setFilterVendor] = useState('all');
     const [filterCalcType, setFilterCalcType] = useState('all');
     const [selectedProductIds, setSelectedProductIds] = useState([]);
@@ -161,6 +168,16 @@ const ProductLibrary = () => {
 
 
 
+    // Pause background work when page is hidden
+    useEffect(() => {
+        const handleVisibility = () => {
+            if (document.hidden) return;
+            fetchHierarchy();
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => document.removeEventListener('visibilitychange', handleVisibility);
+    }, []);
+
     useEffect(() => {
         fetchHierarchy();
         fetchVendors();
@@ -229,9 +246,19 @@ const ProductLibrary = () => {
         }
     };
 
+    // Debounce search input to avoid re-rendering on every keystroke
+    useEffect(() => {
+        if (searchTimer.current) clearTimeout(searchTimer.current);
+        searchTimer.current = setTimeout(() => {
+            setDebouncedSearch(productSearch);
+        }, 250);
+        return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+    }, [productSearch]);
+
     const resetProductFilters = () => {
         setProductPage(1);
         setProductSearch('');
+        setDebouncedSearch('');
         setFilterVendor('all');
         setFilterCalcType('all');
         setSelectedProductIds([]);
@@ -377,16 +404,16 @@ const ProductLibrary = () => {
     const allProducts = viewInfo.type === 'subcategory' ? viewInfo.items : [];
 
     // Unique vendor list for dropdown
-    const vendorOptions = viewInfo.type === 'subcategory'
+    const vendorOptions = useMemo(() => viewInfo.type === 'subcategory'
         ? [...new Set(allProducts.map(p => p.company_name).filter(Boolean))].sort()
-        : [];
+        : [], [viewInfo.type, allProducts]);
     // Unique calc types for dropdown
-    const calcTypeOptions = viewInfo.type === 'subcategory'
+    const calcTypeOptions = useMemo(() => viewInfo.type === 'subcategory'
         ? [...new Set(allProducts.map(p => p.calculation_type).filter(Boolean))].sort()
-        : [];
+        : [], [viewInfo.type, allProducts]);
 
-    const filteredProducts = allProducts.filter(p => {
-        const q = productSearch.trim().toLowerCase();
+    const filteredProducts = useMemo(() => allProducts.filter(p => {
+        const q = debouncedSearch.trim().toLowerCase();
         const matchSearch = !q ||
             (p.name || '').toLowerCase().includes(q) ||
             (p.product_code || '').toLowerCase().includes(q) ||
@@ -395,12 +422,12 @@ const ProductLibrary = () => {
         const matchVendor = filterVendor === 'all' || (p.company_name || '') === filterVendor;
         const matchCalc = filterCalcType === 'all' || (p.calculation_type || '') === filterCalcType;
         return matchSearch && matchVendor && matchCalc;
-    });
+    }), [debouncedSearch, allProducts, filterVendor, filterCalcType]);
 
     const totalProducts = filteredProducts.length;
     const totalProductPages = Math.max(1, Math.ceil(totalProducts / PRODUCTS_PER_PAGE));
-    const pagedProducts = filteredProducts.slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE);
-    const hasActiveFilters = productSearch.trim() !== '' || filterVendor !== 'all' || filterCalcType !== 'all';
+    const pagedProducts = useMemo(() => filteredProducts.slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE), [filteredProducts, productPage, PRODUCTS_PER_PAGE]);
+    const hasActiveFilters = debouncedSearch.trim() !== '' || filterVendor !== 'all' || filterCalcType !== 'all';
 
     const availableSubcategories = selectedCatId
         ? hierarchy.find(c => c.id === selectedCatId)?.subcategories || []
@@ -1238,7 +1265,25 @@ const ProductLibrary = () => {
         }
     };
 
-    if (loading) return <div className="p-20 text-center">Loading Library...</div>;
+    if (loading) return (
+        <div className="stack-lg">
+            <div className="skeleton-wrapper">
+                <div className="skeleton skeleton--title" style={{ width: '200px', height: 28, marginBottom: 16 }} />
+                <div className="skeleton skeleton--text" style={{ width: '320px', height: 16, marginBottom: 24 }} />
+                <div className="product-grid">
+                    {Array.from({ length: 6 }, (_, i) => (
+                        <div key={i} className="product-card">
+                            <div className="skeleton" style={{ width: '100%', aspectRatio: '1 / 1' }} />
+                            <div className="product-card__content" style={{ padding: 12 }}>
+                                <div className="skeleton" style={{ width: '70%', height: 16, marginBottom: 8 }} />
+                                <div className="skeleton" style={{ width: '40%', height: 12 }} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="stack-lg">
@@ -1339,6 +1384,7 @@ const ProductLibrary = () => {
                             className="input-field"
                             style={{ paddingLeft: 32, height: 36 }}
                             placeholder="Search by name, code, size…"
+                            aria-label="Search products"
                             value={productSearch}
                             onChange={e => { setProductSearch(e.target.value); setProductPage(1); }}
                         />
@@ -1350,6 +1396,7 @@ const ProductLibrary = () => {
                             className="input-field"
                             style={{ flex: '0 1 180px', height: 36, minWidth: 140 }}
                             value={filterVendor}
+                            aria-label="Filter by vendor"
                             onChange={e => { setFilterVendor(e.target.value); setProductPage(1); }}
                         >
                             <option value="all">All Vendors</option>
@@ -1365,6 +1412,7 @@ const ProductLibrary = () => {
                             className="input-field"
                             style={{ flex: '0 1 160px', height: 36, minWidth: 130 }}
                             value={filterCalcType}
+                            aria-label="Filter by calculation type"
                             onChange={e => { setFilterCalcType(e.target.value); setProductPage(1); }}
                         >
                             <option value="all">All Types</option>
@@ -1452,27 +1500,36 @@ const ProductLibrary = () => {
                             {viewInfo.type === 'root' && viewInfo.items.map((cat, idx) => (
                                 <SortableItem key={cat.id} id={cat.id} disabled={!isAdmin} className={`product-card pointer${cat.is_active === 0 || cat.is_active === false ? ' product-card--disabled' : ''}`}>
                                     {isPrivileged && (
-                                    <div role="button" tabIndex={0} className="product-card__actions" onClick={(e) => e.stopPropagation()}>
-                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditCategory(cat); }} title="Edit Category">
+                                    <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditCategory(cat); }} title="Edit Category" aria-label={`Edit ${cat.name}`}>
                                             <Edit2 size={14} />
+                                        </button>
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); moveItem('category', viewInfo.items, idx, -1); }} title="Move Up" aria-label={`Move ${cat.name} up`} disabled={idx === 0}>
+                                            <ArrowUp size={14} />
+                                        </button>
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); moveItem('category', viewInfo.items, idx, 1); }} title="Move Down" aria-label={`Move ${cat.name} down`} disabled={idx === viewInfo.items.length - 1}>
+                                            <ArrowDown size={14} />
                                         </button>
                                         <button
                                             className={`product-card__btn${cat.is_active === 0 || cat.is_active === false ? ' product-card__btn--enable' : ''}`}
                                             onClick={(e) => { e.stopPropagation(); handleToggleCategory(cat); }}
                                             title={cat.is_active === 0 || cat.is_active === false ? 'Enable Category' : 'Disable Category'}
+                                            aria-label={cat.is_active === 0 || cat.is_active === false ? `Enable ${cat.name}` : `Disable ${cat.name}`}
                                         >
                                             {cat.is_active === 0 || cat.is_active === false ? <Eye size={14} /> : <EyeOff size={14} />}
                                         </button>
-                                        <button className="product-card__btn product-card__btn--delete" onClick={(e) => { e.stopPropagation(); handleDelete('category', cat.id, cat.name); }} title="Delete Category">
+                                        <button className="product-card__btn product-card__btn--delete" onClick={(e) => { e.stopPropagation(); handleDelete('category', cat.id, cat.name); }} title="Delete Category" aria-label={`Delete ${cat.name}`}>
                                             <Trash2 size={14} />
                                         </button>
                                     </div>
                                     )}
-                                    <div role="button" tabIndex={0} className="product-card__image-wrap" onClick={() => toggleCat(cat.id)}>
+                                    <div role="button" tabIndex={0} aria-label={`View ${cat.name}`} className="product-card__image-wrap" onClick={() => toggleCat(cat.id)}>
                                         {cat.image_url ? (
-                                            <SecureImage src={cat.image_url} alt={cat.name} className="product-card__img" />
+                                            <div className="product-card__img-wrap">
+                                                <SecureImage src={cat.image_url} alt={cat.name} className="product-card__img" loading="lazy" />
+                                            </div>
                                         ) : (
-                                            <div className="product-card__placeholder">
+                                            <div className="product-card__placeholder" style={{ aspectRatio: '1 / 1', display: 'grid', placeItems: 'center' }}>
                                                 <Grid size={48} style={{ color: 'var(--accent-2)' }} />
                                             </div>
                                         )}
@@ -1559,23 +1616,30 @@ const ProductLibrary = () => {
                             {viewInfo.type === 'category' && viewInfo.items.map((sub, idx) => (
                                 <SortableItem key={sub.id} id={sub.id} disabled={!isAdmin} className={`product-card pointer${sub.is_active === 0 || sub.is_active === false ? ' product-card--disabled' : ''}`}>
                                     {isPrivileged && (
-                                    <div role="button" tabIndex={0} className="product-card__actions" onClick={(e) => e.stopPropagation()}>
-                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditSubcategory(sub); }} title="Edit Sub-category">
+                                    <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditSubcategory(sub); }} title="Edit Sub-category" aria-label={`Edit ${sub.name}`}>
                                             <Edit2 size={14} />
+                                        </button>
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); moveItem('subcategory', viewInfo.items, idx, -1); }} title="Move Up" aria-label={`Move ${sub.name} up`} disabled={idx === 0}>
+                                            <ArrowUp size={14} />
+                                        </button>
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); moveItem('subcategory', viewInfo.items, idx, 1); }} title="Move Down" aria-label={`Move ${sub.name} down`} disabled={idx === viewInfo.items.length - 1}>
+                                            <ArrowDown size={14} />
                                         </button>
                                         <button
                                             className={`product-card__btn${sub.is_active === 0 || sub.is_active === false ? ' product-card__btn--enable' : ''}`}
                                             onClick={(e) => { e.stopPropagation(); handleToggleSubcategory(sub); }}
                                             title={sub.is_active === 0 || sub.is_active === false ? 'Enable Sub-category' : 'Disable Sub-category'}
+                                            aria-label={sub.is_active === 0 || sub.is_active === false ? `Enable ${sub.name}` : `Disable ${sub.name}`}
                                         >
                                             {sub.is_active === 0 || sub.is_active === false ? <Eye size={14} /> : <EyeOff size={14} />}
                                         </button>
-                                        <button className="product-card__btn product-card__btn--delete" onClick={(e) => { e.stopPropagation(); handleDelete('subcategory', sub.id, sub.name); }} title="Delete Sub-category">
+                                        <button className="product-card__btn product-card__btn--delete" onClick={(e) => { e.stopPropagation(); handleDelete('subcategory', sub.id, sub.name); }} title="Delete Sub-category" aria-label={`Delete ${sub.name}`}>
                                             <Trash2 size={14} />
                                         </button>
                                     </div>
                                     )}
-                                    <div role="button" tabIndex={0} className="product-card__image-wrap" onClick={() => setViewPath([viewPath[0], sub.id])}>
+                                    <div role="button" tabIndex={0} aria-label={`View ${sub.name}`} className="product-card__image-wrap" onClick={() => setViewPath([viewPath[0], sub.id])}>
                                         {sub.image_url ? (
                                             <SecureImage src={sub.image_url} alt={sub.name} className="product-card__img" />
                                         ) : (
@@ -1596,7 +1660,9 @@ const ProductLibrary = () => {
                                 </SortableItem>
                             ))}
 
-                            {viewInfo.type === 'subcategory' && pagedProducts.map((prod, idx) => (
+                            {viewInfo.type === 'subcategory' && pagedProducts.map((prod) => {
+                                const prodIdx = filteredProducts.findIndex(p => p.id === prod.id);
+                                return (
                                 <SortableItem
                                     key={prod.id}
                                     id={prod.id}
@@ -1610,21 +1676,28 @@ const ProductLibrary = () => {
                                     style={{ cursor: 'pointer' }}
                                 >
                                     {isPrivileged && (
-                                    <div role="button" tabIndex={0} className="product-card__actions" onClick={(e) => e.stopPropagation()}>
-                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditProduct(prod.id); }} title="Edit Product" disabled={editLoading !== null}>
+                                    <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditProduct(prod.id); }} title="Edit Product" aria-label={`Edit ${prod.name}`} disabled={editLoading !== null}>
                                             {editLoading === prod.id ? <Loader2 size={14} className="spin" /> : <Edit2 size={14} />}
                                         </button>
-                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); handleDuplicateProduct(prod.id); }} title="Duplicate Product">
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); handleDuplicateProduct(prod.id); }} title="Duplicate Product" aria-label={`Duplicate ${prod.name}`}>
                                             <Copy size={14} />
+                                        </button>
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); moveItem('product', filteredProducts, prodIdx, -1); }} title="Move Up" aria-label={`Move ${prod.name} up`} disabled={prodIdx === 0}>
+                                            <ArrowUp size={14} />
+                                        </button>
+                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); moveItem('product', filteredProducts, prodIdx, 1); }} title="Move Down" aria-label={`Move ${prod.name} down`} disabled={prodIdx === filteredProducts.length - 1}>
+                                            <ArrowDown size={14} />
                                         </button>
                                         <button
                                             className={`product-card__btn${prod.is_active === 0 || prod.is_active === false ? ' product-card__btn--enable' : ''}`}
                                             onClick={(e) => { e.stopPropagation(); handleToggleProduct(prod); }}
                                             title={prod.is_active === 0 || prod.is_active === false ? 'Enable Product' : 'Disable Product'}
+                                            aria-label={prod.is_active === 0 || prod.is_active === false ? `Enable ${prod.name}` : `Disable ${prod.name}`}
                                         >
                                             {prod.is_active === 0 || prod.is_active === false ? <Eye size={14} /> : <EyeOff size={14} />}
                                         </button>
-                                        <button className="product-card__btn product-card__btn--delete" onClick={(e) => { e.stopPropagation(); handleDelete('product', prod.id, prod.name); }} title="Delete Product">
+                                        <button className="product-card__btn product-card__btn--delete" onClick={(e) => { e.stopPropagation(); handleDelete('product', prod.id, prod.name); }} title="Delete Product" aria-label={`Delete ${prod.name}`}>
                                             <Trash2 size={14} />
                                         </button>
                                     </div>
@@ -1641,9 +1714,11 @@ const ProductLibrary = () => {
                                             <GripVertical size={16} />
                                         </div>
                                         {prod.image_url ? (
-                                            <SecureImage src={prod.image_url} alt={prod.name} className="product-card__img" />
+                                            <div className="product-card__img-wrap">
+                                                <SecureImage src={prod.image_url} alt={prod.name} className="product-card__img" loading="lazy" />
+                                            </div>
                                         ) : (
-                                            <div className="product-card__placeholder">
+                                            <div className="product-card__placeholder" style={{ aspectRatio: '1 / 1', display: 'grid', placeItems: 'center' }}>
                                                 <Package size={48} />
                                             </div>
                                         )}
@@ -1666,7 +1741,7 @@ const ProductLibrary = () => {
                                         )}
                                     </div>
                                 </SortableItem>
-                            ))}
+                            );})}
                         </div>
                     </SortableContext>
                 </DndContext>

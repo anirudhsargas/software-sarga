@@ -7,6 +7,7 @@ import { Calendar, IndianRupee, CheckCircle2, XCircle, Clock, ChevronLeft, Chevr
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import SecureImage from '../components/SecureImage';
+import { formatCurrency } from '../utils/formatters';
 
 const statusConfig = {
   Present: { color: 'var(--success)', bg: 'var(--success)18', label: 'P' },
@@ -107,7 +108,6 @@ const AttendanceSalary = () => {
     return days;
   }, [selectedMonth, attendance]);
 
-  const fmt = (val) => `₹${Number(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
   const halfDays = summary?.halfDay || attendance.filter(a => a.status === 'Half Day').length || 0;
 
   const downloadSalarySlip = async () => {

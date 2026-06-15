@@ -6,6 +6,7 @@ import {
     ArrowUpDown, Zap, CalendarClock, IndianRupee, Users, Timer, CircleDot,
     TrendingUp, BarChart3, CheckCircle2, XCircle
 } from 'lucide-react';
+import { formatCurrency } from '../utils/formatters';
 
 const URGENCY_CONFIG = {
     critical: { label: 'Critical', color: 'var(--error)', bg: 'rgba(176,58,46,0.10)', border: 'rgba(176,58,46,0.25)', icon: '🔴' },
@@ -26,11 +27,6 @@ const formatDate = (d) => {
     if (diffHrs <= 24) return `Today ${time}`;
     if (diffHrs <= 48) return `Tomorrow ${time}`;
     return `${date} ${time}`;
-};
-
-const formatCurrency = (v) => {
-    const n = Number(v) || 0;
-    return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
 // ────────────── Summary Cards ──────────────

@@ -697,6 +697,95 @@ async function trackPaymentFrequency(payeeName, category, amount) {
     }
 }
 
+// GET /api/expense-vendors - Get all expense vendors
+router.get('/expense-vendors', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM sarga_vendors ORDER BY name');
+        res.json(rows);
+    } catch (err) {
+        console.error('GET /expense-vendors error:', err);
+        res.status(500).json({ error: 'Failed to fetch expense vendors' });
+    }
+});
+
+// POST /api/expense-vendors - Create an expense vendor
+router.post('/expense-vendors', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+    try {
+        const { name, type, contact_person, phone, address, gstin, order_link, branch_id } = req.body;
+        if (!name) {
+            return res.status(400).json({ error: 'Name is required' });
+        }
+        const [result] = await pool.query(
+            `INSERT INTO sarga_vendors 
+             (name, type, contact_person, phone, address, gstin, order_link, branch_id) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                name,
+                type || 'Vendor',
+                contact_person || null,
+                phone || null,
+                address || null,
+                gstin || null,
+                order_link || null,
+                branch_id || null
+            ]
+        );
+        res.status(201).json({ id: result.insertId, name });
+    } catch (err) {
+        console.error('POST /expense-vendors error:', err);
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ error: 'A vendor with this name already exists' });
+        }
+        res.status(500).json({ error: 'Failed to create expense vendor' });
+    }
+});
+
+// PUT /api/expense-vendors/:id - Update an expense vendor
+router.put('/expense-vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, type, contact_person, phone, address, gstin, order_link, branch_id } = req.body;
+        if (!name) {
+            return res.status(400).json({ error: 'Name is required' });
+        }
+        await pool.query(
+            `UPDATE sarga_vendors 
+             SET name = ?, type = ?, contact_person = ?, phone = ?, address = ?, gstin = ?, order_link = ?, branch_id = ?
+             WHERE id = ?`,
+            [
+                name,
+                type || 'Vendor',
+                contact_person || null,
+                phone || null,
+                address || null,
+                gstin || null,
+                order_link || null,
+                branch_id || null,
+                id
+            ]
+        );
+        res.json({ message: 'Vendor updated successfully' });
+    } catch (err) {
+        console.error('PUT /expense-vendors/:id error:', err);
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ error: 'A vendor with this name already exists' });
+        }
+        res.status(500).json({ error: 'Failed to update expense vendor' });
+    }
+});
+
+// DELETE /api/expense-vendors/:id - Delete an expense vendor
+router.delete('/expense-vendors/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('DELETE FROM sarga_vendors WHERE id = ?', [id]);
+        res.json({ message: 'Vendor deleted successfully' });
+    } catch (err) {
+        console.error('DELETE /expense-vendors/:id error:', err);
+        res.status(500).json({ error: 'Failed to delete expense vendor' });
+    }
+});
+
 // Export the tracking function so it can be used in payment creation routes
 router.trackPaymentFrequency = trackPaymentFrequency;
 

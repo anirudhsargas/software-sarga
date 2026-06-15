@@ -1,4 +1,5 @@
-const fmtCurrency = (v) => '₹' + (parseFloat(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { formatCurrencyDecimal } from './formatters';
+const fmtCurrency = (v) => formatCurrencyDecimal(v, 2);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 
 import { normalizeToE164, e164ToWhatsAppDigits } from './phone';

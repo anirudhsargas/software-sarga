@@ -311,6 +311,114 @@ const addVendorPaymentSchema = z.object({
     notes: z.string().optional().nullable()
 });
 
+// ---- Blog ----
+const addBlogPostSchema = z.object({
+    title: requiredString('Title'),
+    slug: z.string().optional().nullable(),
+    content: z.string().optional().nullable(),
+    excerpt: z.string().max(500, 'Excerpt too long').optional().nullable(),
+    category: z.string().optional().nullable(),
+    author_id: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().positive().nullable()),
+    status: z.enum(['draft', 'published', 'archived']).optional().default('draft'),
+    featured_image_url: z.string().optional().nullable().or(z.literal('')),
+    meta_title: z.string().max(200, 'Meta title too long').optional().nullable(),
+    meta_description: z.string().max(500, 'Meta description too long').optional().nullable()
+});
+
+const addBlogAuthorSchema = z.object({
+    name: requiredString('Author name'),
+    email: z.string().email('Invalid email format').optional().nullable().or(z.literal('')),
+    bio: z.string().max(1000, 'Bio too long').optional().nullable(),
+    avatar_url: z.string().optional().nullable().or(z.literal('')),
+    role: z.string().optional().default('author')
+});
+
+// ---- CCTV ----
+const addCctvCameraSchema = z.object({
+    name: requiredString('Camera name'),
+    branch_id: z.preprocess(Number, z.number().int().positive()),
+    ip_address: z.string().regex(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/, 'Invalid IP address'),
+    port: z.preprocess(Number, z.number().int().min(1).max(65535)).default(554),
+    rtsp_path: z.string().optional().nullable(),
+    username: z.string().optional().nullable(),
+    password: z.string().optional().nullable(),
+    is_active: z.boolean().optional().default(true)
+});
+
+// ---- Machine ----
+const addMachineSchema = z.object({
+    name: requiredString('Machine name'),
+    model: z.string().optional().nullable(),
+    brand: z.string().optional().nullable(),
+    serial_number: z.string().optional().nullable(),
+    branch_id: z.preprocess(Number, z.number().int().positive()).optional().nullable(),
+    requires_login: z.boolean().optional().default(false),
+    is_active: z.boolean().optional().default(true)
+});
+
+const machineReadingSchema = z.object({
+    machine_id: z.preprocess(Number, z.number().int().positive()),
+    reading_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+    opening_count: z.preprocess(Number, z.number().int().min(0)),
+    closing_count: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().min(0).nullable()),
+    error_threshold: z.preprocess((v) => (v === '' || v === null ? 100 : Number(v)), z.number().min(0).default(100)),
+    warning_threshold: z.preprocess((v) => (v === '' || v === null ? 80 : Number(v)), z.number().min(0).default(80))
+});
+
+// ---- Schedule ----
+const addScheduleSchema = z.object({
+    name: requiredString('Schedule name'),
+    shift_start: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be HH:MM'),
+    shift_end: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be HH:MM'),
+    break_minutes: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().int().min(0).max(120).default(0)),
+    effective_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+    effective_to: z.string().optional().nullable().or(z.literal('')),
+    branch_id: z.preprocess(Number, z.number().int().positive()).optional().nullable()
+});
+
+// ---- Products ----
+const addProductCategorySchema = z.object({
+    name: requiredString('Category name'),
+    description: z.string().optional().nullable(),
+    is_active: z.boolean().optional().default(true)
+});
+
+const addProductSubcategorySchema = z.object({
+    name: requiredString('Subcategory name'),
+    category_id: z.preprocess(Number, z.number().int().positive()),
+    description: z.string().optional().nullable(),
+    is_active: z.boolean().optional().default(true)
+});
+
+const addProductSchema = z.object({
+    name: requiredString('Product name'),
+    category_id: z.preprocess(Number, z.number().int().positive()).optional().nullable(),
+    subcategory_id: z.preprocess(Number, z.number().int().positive()).optional().nullable(),
+    description: z.string().optional().nullable(),
+    base_price: positiveDecimal,
+    hsn_code: z.string().optional().nullable().or(z.literal('')),
+    gst_rate: positiveDecimal,
+    is_active: z.boolean().optional().default(true)
+});
+
+// ---- Website ----
+const addWebsiteInquirySchema = z.object({
+    name: requiredString('Name'),
+    email: z.string().email('Invalid email format'),
+    phone: z.string().optional().nullable().or(z.literal('')),
+    message: requiredString('Message'),
+    subject: z.string().optional().nullable(),
+    source: z.string().optional().default('website')
+});
+
+const addWebsiteReviewSchema = z.object({
+    reviewer_name: requiredString('Reviewer name'),
+    rating: z.preprocess(Number, z.number().int().min(1).max(5)),
+    review_text: z.string().optional().nullable(),
+    source: z.enum(['google', 'website', 'other']).optional().default('google'),
+    google_review_id: z.string().optional().nullable()
+});
+
 // ---- Middleware factory ----
 const validate = (schema, property = 'body') => (req, res, next) => {
     try {
@@ -351,5 +459,16 @@ module.exports = {
     paperTransferSchema,
     addVendorSchema,
     addInvoiceSchema,
-    addVendorPaymentSchema
+    addVendorPaymentSchema,
+    addBlogPostSchema,
+    addBlogAuthorSchema,
+    addCctvCameraSchema,
+    addMachineSchema,
+    machineReadingSchema,
+    addScheduleSchema,
+    addProductCategorySchema,
+    addProductSubcategorySchema,
+    addProductSchema,
+    addWebsiteInquirySchema,
+    addWebsiteReviewSchema
 };

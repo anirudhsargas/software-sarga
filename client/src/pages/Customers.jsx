@@ -11,6 +11,7 @@ import { isTouchDevice } from '../services/utils';
 import { calculateProductPrice } from '../utils/pricing';
 import { whatsappUrl } from '../utils/whatsapp';
 import { formatForDisplay, telHref } from '../utils/phone';
+import { validatePhone, filterMobile } from '../utils/validators';
 import Pagination from '../components/Pagination';
 import CountryCodeSelect from '../components/CountryCodeSelect';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -48,6 +49,29 @@ const Customers = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+
+    // --- ADVANCED JOB MODAL STATE ---
+    const [showJobModal, setShowJobModal] = useState(false);
+    const [hierarchy, setHierarchy] = useState([]);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [jobData, setJobData] = useState({
+        job_name: '',
+        description: '',
+        quantity: 1,
+        unit_price: 0,
+        total_amount: 0,
+        advance_paid: 0,
+        delivery_date: '',
+        applied_extras: [],
+        branch_id: '',
+        customPaperRate: 0,
+        is_double_side: false
+    });
+
+    const [branches, setBranches] = useState([]);
+
+    const [extraInputs, setExtraInputs] = useState([]); // [{purpose, amount}]
+    const [turnaroundEstimate, setTurnaroundEstimate] = useState(null);
 
     const customerListRef = useRef(null);
     const customerVirtualizer = useVirtualizer({
@@ -144,20 +168,30 @@ const Customers = () => {
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [hasUnsavedChanges]);
 
+    // Close modals on ESC
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                if (showAddModal) closeAddModal();
+                if (showEditModal) closeEditModal();
+                if (showJobModal) { setShowJobModal(false); resetJobForm(); }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showAddModal, showEditModal, showJobModal]);
+
     // --- PAGINATION HANDLER ---
     const goToPage = (pageNum) => {
         if (pageNum < 1 || pageNum > totalPages) return;
         fetchCustomers(pageNum);
     };
 
-    const validateMobile = (value) => {
-        return value.replace(/\D/g, '').slice(0, 10);
-    };
-
     const handleAddCustomer = async (e) => {
         e.preventDefault();
-        if (newCustomer.mobile.length !== 10) {
-            return setError('Mobile number must be exactly 10 digits');
+        const { valid, error: phoneError } = validatePhone(newCustomer.mobile);
+        if (!valid) {
+            return setError(phoneError);
         }
         setLoading(true);
         try {
@@ -237,29 +271,6 @@ const Customers = () => {
             fetchCustomers();
         }
     };
-
-    // --- ADVANCED JOB MODAL STATE ---
-    const [showJobModal, setShowJobModal] = useState(false);
-    const [hierarchy, setHierarchy] = useState([]);
-    const [selectedProduct, setSelectedProduct] = useState(null);
-    const [jobData, setJobData] = useState({
-        job_name: '',
-        description: '',
-        quantity: 1,
-        unit_price: 0,
-        total_amount: 0,
-        advance_paid: 0,
-        delivery_date: '',
-        applied_extras: [],
-        branch_id: '',
-        customPaperRate: 0,
-        is_double_side: false
-    });
-
-    const [branches, setBranches] = useState([]);
-
-    const [extraInputs, setExtraInputs] = useState([]); // [{purpose, amount}]
-    const [turnaroundEstimate, setTurnaroundEstimate] = useState(null);
 
     useEffect(() => {
         if (showJobModal) {
@@ -422,8 +433,9 @@ const Customers = () => {
                     <button
                         className="btn btn-ghost"
                         onClick={() => {
-                            navigate('/dashboard/billing', {
+                            navigate('/dashboard/sales/invoices', {
                                 state: {
+                                    action: 'create',
                                     customer: {
                                         id: null,
                                         name: 'Walk-in',
@@ -448,7 +460,9 @@ const Customers = () => {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--surface)', padding: '10px 12px', borderRadius: 12, border: '1px solid var(--border)' }}>
                 <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
                     <Search size={15} style={{ position: 'absolute', left: 10, color: 'var(--muted)', pointerEvents: 'none' }} />
+                    <label htmlFor="customer-search" className="sr-only">Search customers</label>
                     <input
+                        id="customer-search"
                         type="text"
                         placeholder="Search by name or mobile..."
                         className="input-field"
@@ -459,11 +473,14 @@ const Customers = () => {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 4px 0 8px', height: 36, flexShrink: 0 }}>
                     <Filter size={13} style={{ color: 'var(--muted)' }} />
+                    <label htmlFor="customer-type-filter" className="sr-only">Filter by customer type</label>
                     <select
+                        id="customer-type-filter"
                         className="input-field"
                         style={{ border: 'none', background: 'transparent', boxShadow: 'none', height: 34, padding: '0 24px 0 2px', fontSize: 13, color: 'var(--text)', minWidth: 90 }}
                         value={typeFilter}
                         onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+                        aria-label="Filter by customer type"
                     >
                         <option value="">All Types</option>
                         {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
@@ -482,16 +499,17 @@ const Customers = () => {
                 ) : customers.map((c, idx) => (
                     <div
                         key={c.id}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`View details for ${c.name}`}
                         style={{
                             display: 'flex', alignItems: 'center', gap: 12,
                             padding: '12px 14px',
                             borderBottom: idx < customers.length - 1 ? '1px solid var(--border)' : 'none',
                             cursor: 'pointer', transition: 'background 0.15s'
                         }}
-                        {...(isTouchDevice()
-                            ? { onClick: () => navigate(`/dashboard/customers/${c.id}`) }
-                            : { onDoubleClick: () => navigate(`/dashboard/customers/${c.id}`) }
-                        )}
+                        onClick={() => navigate(`/dashboard/customers/${c.id}`)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/dashboard/customers/${c.id}`); }}
                     >
                         {/* Avatar */}
                         <div style={{
@@ -525,36 +543,38 @@ const Customers = () => {
                         </div>
 
                         {/* Actions */}
-                        <div role="button" tabIndex={0} style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                        <div role="group" aria-label={`Actions for ${c.name}`} style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                             <button
-                                className="btn btn-ghost"
-                                style={{ fontSize: 12, padding: '5px 10px', height: 30, background: 'var(--accent-soft)', color: 'var(--accent)', gap: 4 }}
+                                className="btn btn-ghost touch-target"
+                                style={{ fontSize: 12, background: 'var(--accent-soft)', color: 'var(--accent)', gap: 4 }}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    navigate('/dashboard/billing', {
+                                    navigate('/dashboard/sales/invoices', {
                                         state: {
+                                            action: 'create',
                                             customer: { id: c.id, name: c.name, mobile: c.mobile, type: c.type, email: c.email || '', address: c.address || '', gst: c.gst || '' }
                                         }
                                     });
                                 }}
                                 title="Quick Add Job"
+                                aria-label={`Quick add job for ${c.name}`}
                             >
                                 <Plus size={13} /> Job
                             </button>
                             <div style={{ display: 'flex', gap: 5 }}>
                                 <button
-                                    className="btn btn-ghost"
-                                    style={{ padding: '5px 10px', height: 30, flex: 1 }}
+                                    className="btn btn-ghost touch-target"
                                     onClick={(e) => { e.stopPropagation(); setSelectedCustomer(c); setEditFormDirty(false); setShowEditModal(true); }}
                                     title={isAdmin ? 'Edit Customer' : 'Request Edit'}
+                                    aria-label={`Edit ${c.name}`}
                                 >
                                     <Edit2 size={14} />
                                 </button>
                                 <button
-                                    className="btn btn-ghost text-error"
-                                    style={{ padding: '5px 10px', height: 30, flex: 1 }}
+                                    className="btn btn-ghost text-error touch-target"
                                     onClick={(e) => { e.stopPropagation(); handleDeleteCustomer(c.id); }}
                                     title={isAdmin ? 'Delete Customer' : 'Request Delete'}
+                                    aria-label={`Delete ${c.name}`}
                                 >
                                     <Trash2 size={14} />
                                 </button>
@@ -601,7 +621,7 @@ const Customers = () => {
                                             type="tel"
                                             className="input-field"
                                             value={newCustomer.mobile}
-                                            onChange={(e) => updateNewCustomer({ mobile: validateMobile(e.target.value) })}
+                                            onChange={(e) => updateNewCustomer({ mobile: filterMobile(e.target.value) })}
                                             required
                                         />
                                     </div>
@@ -660,7 +680,7 @@ const Customers = () => {
                                             type="tel"
                                             className="input-field"
                                             value={selectedCustomer.mobile}
-                                            onChange={(e) => updateSelectedCustomer({ mobile: validateMobile(e.target.value) })}
+                                            onChange={(e) => updateSelectedCustomer({ mobile: filterMobile(e.target.value) })}
                                             required
                                         />
                                     </div>

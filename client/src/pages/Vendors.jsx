@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
 import VendorsList from '../components/Vendors';
 import VendorDetail from '../components/VendorDetail';
@@ -8,8 +8,10 @@ import VendorModal from '../components/VendorModal';
 import InvoiceModal from '../components/InvoiceModal';
 import PaymentModal from '../components/PaymentModal';
 import api from '../services/api';
+import auth from '../services/auth';
 import { toast } from 'react-hot-toast';
 import { Plus, TrendingUp, List } from 'lucide-react';
+import { formatCurrency } from '../utils/formatters';
 import './Vendors.css';
 
 const Vendors = () => {
@@ -25,17 +27,15 @@ const Vendors = () => {
   const [editingVendor, setEditingVendor] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const userRole = auth.getRole();
+  const canEdit = ['Admin', 'Accountant'].includes(userRole);
+  const canDelete = userRole === 'Admin';
+  const canAdd = ['Admin', 'Accountant', 'Front Office'].includes(userRole);
+
   const currentView = searchParams.get('view') || 'dashboard';
 
   const setCurrentView = (view) => {
     setSearchParams({ view });
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
   };
 
   const getStatusBadge = (status) => {
@@ -71,8 +71,8 @@ const Vendors = () => {
     try {
       await api.delete(`/vendors/${vendorId}`);
       toast.success('Vendor deleted successfully');
-      // Refresh the current view without full reload
       setRefreshKey(k => k + 1);
+      navigate('/dashboard/vendors?view=list');
     } catch (error) {
       console.error('Error deleting vendor:', error);
       toast.error('Failed to delete vendor');
@@ -148,13 +148,15 @@ const Vendors = () => {
             </button>
           </div>
 
-          <button
-            onClick={handleAddVendor}
-            className="btn btn-primary"
-          >
-            <Plus size={16} /> 
-            <span>New Vendor</span>
-          </button>
+          {canAdd && (
+            <button
+              onClick={handleAddVendor}
+              className="btn btn-primary"
+            >
+              <Plus size={16} /> 
+              <span>New Vendor</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -173,6 +175,9 @@ const Vendors = () => {
                 onDeleteVendor={handleDeleteVendor}
                 formatCurrency={formatCurrency}
                 getStatusBadge={getStatusBadge}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                canAdd={canAdd}
               />
             )
           } />
@@ -183,6 +188,10 @@ const Vendors = () => {
               onDeleteVendor={handleDeleteVendor}
               formatCurrency={formatCurrency}
               getStatusBadge={getStatusBadge}
+              refreshKey={refreshKey}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              canAdd={canAdd}
             />
           } />
         </Routes>

@@ -32,7 +32,8 @@ const TABS = [
 ];
 
 /* ───── helpers ───── */
-const fmtCurrency = (v) => '₹' + (parseFloat(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { formatCurrencyDecimal } from '../utils/formatters';
+const fmtCurrency = (v) => formatCurrencyDecimal(v, 2);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const ago = (d) => {
   if (!d) return '';
@@ -192,16 +193,17 @@ const CustomerDetails = () => {
   }, [data]);
 
   /* ───── actions ───── */
-  const handleAddWork = () => navigate('/dashboard/billing', { state: { customer: data?.customer } });
+  const handleAddWork = () => navigate('/dashboard/sales/invoices', { state: { action: 'create', customer: data?.customer } });
   const handleReorder = (item) => {
-    navigate('/dashboard/billing', {
+    navigate('/dashboard/sales/invoices', {
       state: {
+        action: 'create',
         customer: data?.customer,
-        reorder: { job_name: item.job_name, product_id: item.product_id, quantity: item.last_quantity, unit_price: item.last_unit_price }
+        prefillOrderLine: { product_name: item.job_name, product_id: item.product_id, quantity: item.last_quantity, unit_price: item.last_unit_price, total_amount: item.last_quantity * item.last_unit_price }
       }
     });
   };
-  const handlePayment = () => navigate('/dashboard/customer-payments', { state: { customer: data?.customer } });
+  const handlePayment = () => navigate('/dashboard/sales/payments', { state: { customer: data?.customer } });
 
   const handleRepeatOrder = async (jobId) => {
     try {
@@ -513,6 +515,15 @@ const CustomerDetails = () => {
                         <button className="btn btn-ghost btn-sm" onClick={() => handleReorder({ job_name: job.job_name, product_id: job.product_id, last_quantity: job.quantity, last_unit_price: job.unit_price })}>
                           <RotateCcw size={13} /> Edit & Reorder
                         </button>
+                        {job.payment_id ? (
+                          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/sales/invoices')} title="View associated invoice details">
+                            <FileText size={13} /> View Invoice
+                          </button>
+                        ) : (
+                          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/sales/invoices', { state: { action: 'create', job: job } })} title="Generate invoice from this order">
+                            <Plus size={13} /> Generate Invoice
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}

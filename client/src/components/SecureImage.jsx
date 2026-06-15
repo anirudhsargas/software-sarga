@@ -13,7 +13,7 @@ const IS_CROSS_ORIGIN = !IS_LOCAL_DEV;
  * Authorization header to avoid CORS issues, then renders via a blob URL.
  * In local dev, just uses a normal <img> (Vite proxy handles auth via query param).
  */
-export default function SecureImage({ src, alt, className, style, loading, width, height }) {
+export default function SecureImage({ src, alt, className, style, loading, decoding, width, height }) {
     const [displaySrc, setDisplaySrc] = useState(null);
     const [error, setError] = useState(false);
 
@@ -106,6 +106,7 @@ export default function SecureImage({ src, alt, className, style, loading, width
             className={className}
             style={style}
             loading={loading}
+            decoding={decoding}
             width={width}
             height={height}
             onError={(e) => {

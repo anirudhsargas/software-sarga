@@ -127,7 +127,7 @@ function ThreeScene({ THREE, mountRef }) {
   return null;
 }
 
-export default function HeroBg3D() {
+const HeroBg3D = React.memo(function HeroBg3D() {
   const mountRef = useRef(null);
   const [shouldRender, setShouldRender] = useState(false);
   const [THREE, setTHREE] = useState(null);
@@ -173,4 +173,6 @@ export default function HeroBg3D() {
       {THREE && <ThreeScene THREE={THREE} mountRef={mountRef} />}
     </div>
   );
-}
+});
+
+export default HeroBg3D;

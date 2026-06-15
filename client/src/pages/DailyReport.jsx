@@ -1611,7 +1611,8 @@ const DailyReport = () => {
                     {canViewAllBranches && branches.length > 0 && (
                         <div className="dr-controls-branch">
                             <Building2 size={15} />
-                            <select className="input-field dr-controls-branch-select" value={selectedBranch || ''}
+                            <label htmlFor="branch-selector" className="sr-only">Select Branch</label>
+                            <select id="branch-selector" aria-label="Select Branch" className="input-field dr-controls-branch-select" value={selectedBranch || ''}
                                 onChange={(e) => setSelectedBranch(Number(e.target.value))}
                             >
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}

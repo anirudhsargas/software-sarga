@@ -233,7 +233,7 @@ router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant',
 });
 
 // PUT /api/vendors/:id - Update vendor
-router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(addVendorSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const vendorData = req.body;

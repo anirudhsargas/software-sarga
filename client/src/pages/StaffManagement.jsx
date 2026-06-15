@@ -13,6 +13,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import CountryCodeSelect from '../components/CountryCodeSelect';
 import { formatForDisplay, telHref } from '../utils/phone';
+import { validatePhone, filterMobile } from '../utils/validators';
 
 // Memoized staff row
 const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword, handleMarkAttendance, todayAttendance, onOpenSettings }) => (
@@ -247,10 +248,7 @@ const StaffManagement = () => {
         }
     };
 
-    const validateMobile = (value) => {
-        const cleaned = value.replace(/\D/g, '');
-        return cleaned.slice(0, 10);
-    };
+    // validateMobile now imported from ../utils/validators
 
     const openCropper = (file, target) => {
         if (!file) return;
@@ -571,7 +569,7 @@ const StaffManagement = () => {
                                 <label className="label">Mobile Number</label>
                                 <div className="row gap-sm">
                                     <CountryCodeSelect value={newStaff.countryCode} onChange={(val) => setNewStaff({...newStaff, countryCode: val})} />
-                                    <input type="tel" name="newStaffMobile" className="input-field" placeholder="10-digit mobile" value={newStaff.mobile} onChange={e => setNewStaff({...newStaff, mobile: validateMobile(e.target.value)})} required />
+                                    <input type="tel" name="newStaffMobile" className="input-field" placeholder="10-digit mobile" value={newStaff.mobile} onChange={e => setNewStaff({...newStaff, mobile: filterMobile(e.target.value)})} required />
                                 </div>
                             </div>
                             <div>
@@ -641,7 +639,7 @@ const StaffManagement = () => {
                                 <label className="label">Mobile Number</label>
                                 <div className="row gap-sm">
                                     <CountryCodeSelect value={selectedStaff?.countryCode || '+91'} onChange={(val) => setSelectedStaff({...selectedStaff, countryCode: val})} />
-                                    <input type="tel" name="editStaffMobile" className="input-field" value={selectedStaff.user_id} onChange={e => setSelectedStaff({...selectedStaff, user_id: validateMobile(e.target.value)})} required />
+                                    <input type="tel" name="editStaffMobile" className="input-field" value={selectedStaff.user_id} onChange={e => setSelectedStaff({...selectedStaff, user_id: filterMobile(e.target.value)})} required />
                                 </div>
                             </div>
                             <div>

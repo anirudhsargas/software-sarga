@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -6,13 +6,28 @@ const ChatWidget = () => {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const checkStatus = async () => {
+      try {
+        const res = await api.get('chatbot/model-status', { skipGlobalErrorHandling: true });
+        setIsOffline(res.data.healthy === false);
+      } catch (e) {
+        setIsOffline(true);
+      }
+    };
+    checkStatus();
+  }, [open]);
+
   const send = async () => {
     if (!input) return;
     const msg = { from: 'admin', text: input };
     setMessages(m => [...m, { ...msg, id: Date.now() }]);
     setInput('');
     try {
-      const res = await api.post('chatbot/message', { message: input, session_id: 'admin-test', branch: 'perambra' });
+      const res = await api.post('chatbot/message', { message: input, session_id: 'admin-test', branch: 'perambra' }, { skipGlobalErrorHandling: true });
       const data = res.data;
       setMessages(m => [...m, { id: Date.now()+1, from: 'bot', text: data.reply || '', meta: { intent: data.intent, confidence: data.confidence } }]);
     } catch (e) {
@@ -27,6 +42,7 @@ const ChatWidget = () => {
           <div className="card" style={{ width: 320, height: 420, display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>
               <strong>Chatbot Test</strong>
+              {isOffline && <span style={{ color: '#ef4444', marginLeft: 8, fontSize: 11, fontWeight: 'bold' }}>(Offline)</span>}
               <button className="btn btn-ghost btn-sm" style={{ float: 'right' }} onClick={() => setOpen(false)}>Close</button>
             </div>
             <div style={{ padding: 8, flex: 1, overflow: 'auto' }}>

@@ -704,3 +704,61 @@
     font-size: 13px;
   }
 }
+
+/* ───── Sidebar Overrides (Cleaned Spacing, Hover & Separators) ───── */
+.sidebar {
+  transition: width 0.2s, transform 0.2s;
+}
+
+.sidebar-nav {
+  gap: 1px !important;
+  padding: 6px !important;
+}
+
+.sidebar-group+.sidebar-group {
+  margin-top: 4px !important;
+  padding-top: 4px !important;
+  border-top: 1px solid var(--border) !important;
+}
+
+.nav-item {
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  transition: background 0.2s ease, color 0.2s ease !important;
+}
+
+.nav-item:hover {
+  background: var(--surface-2) !important;
+  color: var(--accent-2) !important;
+}
+
+.nav-item.active {
+  background: var(--sidebar-active-bg, rgba(var(--accent-rgb), 0.08)) !important;
+  color: var(--accent-2) !important;
+}
+
+.nav-item.active::before {
+  width: 3px !important;
+  height: 16px !important;
+  border-radius: 0 4px 4px 0 !important;
+  background: var(--accent) !important;
+}
+
+.sidebar-group-toggle {
+  padding: 4px 10px !important;
+  font-size: 10px !important;
+  letter-spacing: 0.8px !important;
+}
+
+.sidebar-footer {
+  padding: 12px !important;
+  border-top: 1px solid var(--border) !important;
+}
+
+.user-profile {
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+}
+

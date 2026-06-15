@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState, Suspense, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, Suspense, useCallback, useRef } from 'react';
 import usePolling from '../hooks/usePolling';
-import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
+import { Routes, Route, NavLink, useNavigate, Navigate, useParams } from 'react-router-dom';
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store,
     Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare, Star, Upload,
-    Image, Calendar, Truck, Globe, Calculator
+    Image, Calendar, Truck, Globe
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
@@ -66,7 +66,8 @@ const CCTVAttendance = React.lazy(() => import('./CCTVAttendance'));
 const CCTVManagement = React.lazy(() => import('./CCTVManagement'));
 const Reports = React.lazy(() => import('./Reports'));
 const ScheduleManagement = React.lazy(() => import('./ScheduleManagement'));
-const InternalBilling = React.lazy(() => import('./InternalBilling'));
+const Invoices = React.lazy(() => import('./Invoices'));
+const SalesLayout = React.lazy(() => import('./SalesLayout'));
 const InternalTransactions = React.lazy(() => import('./InternalTransactions'));
 const StockTransfer = React.lazy(() => import('./StockTransfer'));
 const ConsumablesManagement = React.lazy(() => import('./ConsumablesManagement'));
@@ -77,7 +78,9 @@ const PaperMovementHistory = React.lazy(() => import('./PaperMovementHistory'));
 const PaperAlerts = React.lazy(() => import('./PaperAlerts'));
 const PaperTransfer = React.lazy(() => import('./PaperTransfer'));
 const Quotes = React.lazy(() => import('./Quotes'));
+const ScanItem = React.lazy(() => import('./ScanItem'));
 const SettingsPage = React.lazy(() => import('./SettingsPage'));
+const UploadBills = React.lazy(() => import('./UploadBills'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
 const ChatbotTraining = React.lazy(() => import('./admin/ChatbotTraining'));
 const WebInquiries = React.lazy(() => import('./WebInquiries'));
@@ -91,8 +94,6 @@ const DeliveryRulesManager = React.lazy(() => import('./admin/DeliveryRulesManag
 const TranslationsManager = React.lazy(() => import('./admin/TranslationsManager'));
 const SampleRequestsCMS = React.lazy(() => import('./SampleRequestsCMS'));
 const DesignBookingsCMS = React.lazy(() => import('./DesignBookingsCMS'));
-const RateCalculator = React.lazy(() => import('./RateCalculator'));
-
 const PageLoader = React.memo(() => (
     <div className="page-loader">
         <Loader2 size={20} className="animate-spin" /> Loading...
@@ -161,39 +162,85 @@ const DashboardHome = React.memo(() => {
     return <Jobs />;
 });
 
-const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, chatbotUnlabeledCount }) => (
-    <NavLink
-        to={item.path}
-        end={item.path === '/dashboard'}
-        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-        onClick={closeSidebar}
-        title={item.name}
-    >
-        <div className="nav-item-inner">
-            <item.icon size={20} />
-            <span className="nav-label">{item.name}</span>
-            {item.name === 'Requests' && pendingRequestsCount > 0 && (
-                <span className="side-badge">{pendingRequestsCount}</span>
-            )}
-            {item.path === '/dashboard/admin/chatbot-training' && chatbotUnlabeledCount > 0 && (
-                <span className="side-badge">{chatbotUnlabeledCount}</span>
-            )}
-        </div>
-    </NavLink>
-));
+const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, chatbotUnlabeledCount, onAction }) => {
+    if (item.action === 'scanner') {
+        return (
+            <button
+                className="nav-item"
+                onClick={() => { closeSidebar(); onAction?.('scanner'); }}
+                title={item.name}
+            >
+                <div className="nav-item-inner">
+                    <Camera size={20} />
+                    <span className="nav-label">{item.name}</span>
+                </div>
+            </button>
+        );
+    }
 
-const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleGroup, closeSidebar, pendingRequestsCount, chatbotUnlabeledCount }) => {
+    return (
+        <NavLink
+            to={item.path}
+            end={item.path === '/dashboard'}
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            onClick={closeSidebar}
+            title={item.name}
+        >
+            <div className="nav-item-inner">
+                <item.icon size={20} />
+                <span className="nav-label">{item.name}</span>
+                {item.name === 'Requests' && pendingRequestsCount > 0 && (
+                    <span className="side-badge">{pendingRequestsCount}</span>
+                )}
+                {item.path === '/dashboard/admin/chatbot-training' && chatbotUnlabeledCount > 0 && (
+                    <span className="side-badge">{chatbotUnlabeledCount}</span>
+                )}
+            </div>
+        </NavLink>
+    );
+});
+
+const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleGroup, closeSidebar, pendingRequestsCount, chatbotUnlabeledCount, onAction }) => {
+    const location = useLocation();
     const showLabel = group.label && group.items.length > 1;
+    const GroupIcon = group.icon;
+    const hasActiveChild = group.items?.some(item => {
+        const p = item.path;
+        if (p === '/dashboard') return location.pathname === '/dashboard' || location.pathname === '/dashboard/';
+        return location.pathname.startsWith(p);
+    });
+
+    if (!showLabel) {
+        return group.items?.map(item => (
+            <SidebarNavItem key={item.name} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} onAction={onAction} />
+        ));
+    }
+
+    if (sidebarCollapsed) {
+        return (
+            <div className={`sidebar-group nav-item ${hasActiveChild ? 'active' : ''}`} title={group.label}>
+                <div className="nav-item-inner">
+                    <GroupIcon size={20} />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="sidebar-group">
-            {showLabel && (
-                <button className="sidebar-group-toggle" onClick={() => toggleGroup(group.key)}>
-                    <span className="sidebar-group-label">{group.label}</span>
-                    <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} />
-                </button>
-            )}
-            {(!isCollapsed || sidebarCollapsed) && group.items.map(item => (
-                <SidebarNavItem key={item.name} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} />
+            <button
+                className={`sidebar-group-toggle${hasActiveChild ? ' active' : ''}`}
+                onClick={() => toggleGroup(group.key)}
+                title={group.label}
+            >
+                <div className="nav-item-inner">
+                    <GroupIcon size={20} />
+                    <span className="nav-label">{group.label}</span>
+                </div>
+                <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} />
+            </button>
+            {!isCollapsed && group.items.map(item => (
+                <SidebarNavItem key={item.name} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} onAction={onAction} />
             ))}
         </div>
     );
@@ -218,16 +265,25 @@ const SimpleNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount }) 
 ));
 
 const sidebarGroupDefs = [
-    { key: 'main', label: null },
-    { key: 'business', label: 'Business' },
-    { key: 'inventory', label: 'Inventory' },
-    { key: 'internal', label: 'Internal' },
-    { key: 'finance', label: 'Finance' },
-    { key: 'manage', label: 'Administration' },
-    { key: 'analytics', label: 'Analytics' },
-    { key: 'operations', label: 'Operations' },
-    { key: 'website', label: 'Website' },
+    { key: 'main', label: null, icon: Grid },
+    { key: 'sales', label: 'Sales', icon: TrendingUp },
+    { key: 'inventory', label: 'Inventory', icon: Package },
+    { key: 'production', label: 'Production', icon: Zap },
+    { key: 'branch-ops', label: 'Branch Operations', icon: Building2 },
+    { key: 'accounts', label: 'Accounts', icon: Receipt },
+    { key: 'website', label: 'Website', icon: Globe },
+    { key: 'admin', label: 'Administration', icon: ShieldAlert },
 ];
+
+const NavigateToJobDetail = () => {
+    const { id } = useParams();
+    return <Navigate to={`/dashboard/sales/orders/${id}`} replace />;
+};
+
+const NavigateToCustomerDetails = () => {
+    const { id } = useParams();
+    return <Navigate to={`/dashboard/sales/customers/${id}`} replace />;
+};
 
 const Dashboard = () => {
     const { user, logout, updateUser } = useAuth();
@@ -254,6 +310,8 @@ const Dashboard = () => {
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
     const [chatbotUnlabeledCount, setChatbotUnlabeledCount] = useState(0);
     const [showInventoryScan, setShowInventoryScan] = useState(false);
+    const scannerOpenRef = useRef(false);
+    useEffect(() => { scannerOpenRef.current = showInventoryScan; }, [showInventoryScan]);
     const [inventoryScanResult, setInventoryScanResult] = useState(null);
     const [inventoryScanLoading, setInventoryScanLoading] = useState(false);
     const [showPaperPanel, setShowPaperPanel] = useState(false);
@@ -276,6 +334,9 @@ const Dashboard = () => {
 
     const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
     const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+    const handleNavAction = useCallback((action) => {
+        if (action === 'scanner') setShowInventoryScan(true);
+    }, []);
 
     // On tablets/phones, keep sidebar expanded so labels are always visible.
     useEffect(() => {
@@ -293,58 +354,56 @@ const Dashboard = () => {
     const { t } = useTranslation();
 
     const menuItems = useMemo(() => [
-        // Main dashboards
-        { key: 'dashboard', name: t('summary', 'Summary'), icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
-        { key: 'dashboard', name: t('front_office', 'Front Office'), icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
-        { key: 'dashboard', name: t('dashboard', 'Dashboard'), icon: Grid, path: '/dashboard', roles: ['Accountant', 'Other Staff'] },
-        // Business operations
-        { key: 'customers', name: t('customers', 'Customers'), icon: UserSquare, path: '/dashboard/customers', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
-        { key: 'billing', name: t('billing', 'Billing'), icon: Receipt, path: '/dashboard/billing', roles: ['Front Office'], group: 'business' },
-        { key: 'jobs', name: t('orders', 'Orders'), icon: ClipboardList, path: '/dashboard/jobs', roles: ['Front Office'] },
-        { key: 'jobs', name: t('jobs_orders', 'Jobs & Orders'), icon: ClipboardList, path: '/dashboard/jobs', roles: ['Admin', 'Accountant'], group: 'business' },
-        { key: 'customers', name: t('customer_payments', 'Customer Payments'), icon: Receipt, path: '/dashboard/customer-payments', roles: ['Admin', 'Front Office'], group: 'business' },
-        // Inventory & Operations
-        { key: 'inventory', name: t('inventory', 'Inventory'), icon: Box, path: '/dashboard/inventory', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
-        { key: 'inventory', name: t('paper_inventory', 'Paper Inventory'), icon: FileText, path: '/dashboard/paper/stock', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
-        { key: 'inventory', name: t('inventory', 'Consumables Inventory'), icon: Package, path: '/dashboard/inventory/consumables', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
-        { key: 'operations', name: t('stock_verification', 'Stock Verification'), icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'operations' },
-        { key: 'operations', name: t('stock_planning', 'Stock Planning'), icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
-        { key: 'operations', name: t('product_library', 'Product Library'), icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'operations' },
-        { key: 'operations', name: 'Product Requests', icon: ShieldAlert, path: '/dashboard/product-requests', roles: ['Admin', 'Accountant'], group: 'operations' },
-        { key: 'operations', name: t('plate_management', 'Plate Management'), icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'operations' },
-        { key: 'operations', name: t('machine_management', 'Machine Management'), icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'operations' },
-        { key: 'operations', name: t('paper_layout', 'Paper Layout'), icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'operations' },
-        { key: 'operations', name: t('production_tracker', 'Production Tracker'), icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'operations' },
-        { key: 'operations', name: 'Rate Calculator', icon: Calculator, path: '/dashboard/rate-calculator', roles: ['Admin', 'Front Office', 'Accountant'], group: 'operations' },
-        // Staff & HR
-        { key: 'manage', name: t('staff', 'Staff'), icon: Users, path: '/dashboard/staff', roles: ['Front Office'], group: 'manage' },
-        { key: 'manage', name: t('staff_management', 'Staff Management'), icon: Users, path: '/dashboard/staff', roles: ['Admin', 'Accountant'], group: 'manage' },
-        { key: 'manage', name: t('branches', 'Branches'), icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'manage' },
-        { key: 'manage', name: t('requests', 'Requests'), icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin', 'Accountant'], group: 'manage' },
-        { key: 'manage', name: t('manage', 'Coupons'), icon: Tag, path: '/dashboard/coupons', roles: ['Admin'], group: 'manage' },
-        { key: 'manage', name: t('manage', 'CCTV Attendance'), icon: Camera, path: '/dashboard/cctv-attendance', roles: ['Admin', 'Accountant'], group: 'manage' },
-        { key: 'manage', name: t('manage', 'CCTV Management'), icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'manage' },
-        { key: 'manage', name: t('manage', 'Schedules & Time'), icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'manage' },
-        // Finance & Reports
-        { key: 'expenses', name: t('expense_manager', 'Expense Manager'), icon: Receipt, path: '/dashboard/expenses', roles: ['Admin', 'Front Office', 'Accountant'], group: 'finance' },
-        { key: 'expenses', name: t('vendors', 'Vendors'), icon: Store, path: '/dashboard/vendors', roles: ['Admin', 'Accountant', 'Front Office'], group: 'finance' },
-        { key: 'expenses', name: t('finance', 'Payment Verification'), icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'finance' },
-        { key: 'expenses', name: t('finance', 'Accounts & GST'), icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'finance' },
-        { key: 'reports', name: t('daily_report', 'Daily Report'), icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office', 'Admin', 'Accountant'], group: 'business' },
-        { key: 'internal', name: t('internal_transactions', 'Internal Transactions'), icon: BookOpen, path: '/dashboard/internal-transactions', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
-        { key: 'internal', name: t('internal', 'Stock Transfer'), icon: Package, path: '/dashboard/stock-transfer', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
-        { key: 'internal', name: t('internal', 'Internal Billing'), icon: Receipt, path: '/dashboard/internal-billing', roles: ['Admin', 'Accountant', 'Front Office'], group: 'internal' },
-        // AI Features
-        { key: 'operations', name: t('design_check', 'Design Check'), icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'] },
-        // Role-specific dashboards
-        { key: 'jobs', name: t('assigned_jobs', 'Assigned Jobs'), icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'business' },
-        { key: 'jobs', name: t('assigned_jobs', 'Assigned Jobs'), icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'business' },
-        // ERP Features
-        { key: 'billing', name: t('quotes_estimates', 'Quotes & Estimates'), icon: Receipt, path: '/dashboard/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'business' },
-        { key: 'finance', name: t('recurring_invoices', 'Recurring Invoices'), icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'finance' },
-        { key: 'manage', name: t('settings', 'Settings'), icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'manage' },
+        // Dashboard
+        { key: 'dashboard', name: 'Summary', icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
+        { key: 'dashboard', name: 'Front Office', icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
+        { key: 'dashboard', name: 'Dashboard', icon: Grid, path: '/dashboard', roles: ['Accountant', 'Other Staff', 'Designer'], group: 'main' },
+        // Sales
+        { key: 'sales_customers', name: 'Customers', icon: UserSquare, path: '/dashboard/sales/customers', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
+        { key: 'sales_orders', name: 'Orders', icon: ClipboardList, path: '/dashboard/sales/orders', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
+        { key: 'sales_quotes', name: 'Quotations', icon: Receipt, path: '/dashboard/sales/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
+        { key: 'sales_invoices', name: 'Invoices', icon: FileText, path: '/dashboard/sales/invoices', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
+        { key: 'sales_payments', name: 'Payments', icon: Receipt, path: '/dashboard/sales/payments', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
+        { key: 'jobs', name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'sales' },
+        { key: 'jobs', name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'sales' },
+        // Inventory
+        { key: 'inventory', name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
+        { key: 'inventory', name: 'Paper Inventory', icon: FileText, path: '/dashboard/paper/stock', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
+        { key: 'inventory', name: 'Consumables', icon: Package, path: '/dashboard/inventory/consumables', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
+        { key: 'internal', name: 'Stock Transfer', icon: Package, path: '/dashboard/stock-transfer', roles: ['Admin', 'Accountant', 'Front Office'], group: 'inventory' },
+        { key: 'operations', name: 'Stock Verification', icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'inventory' },
+        { key: 'operations', name: 'Stock Planning', icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
+        { key: 'scanner', name: 'Scan Item', icon: Camera, path: '/dashboard/inventory/scan', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
+        // Production
+        { key: 'operations', name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'production' },
+        { key: 'operations', name: 'Plate Planning', icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'production' },
+        { key: 'operations', name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'production' },
+        { key: 'operations', name: 'Production Tracker', icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'production' },
+        { key: 'operations', name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'production' },
+        { key: 'operations', name: 'Design Check', icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'], group: 'production' },
+        // Branch Operations
+        { key: 'operations', name: 'Product Requests', icon: ShieldAlert, path: '/dashboard/product-requests', roles: ['Admin', 'Accountant'], group: 'branch-ops' },
+        { key: 'internal', name: 'Internal Transfers', icon: BookOpen, path: '/dashboard/internal-transactions', roles: ['Admin', 'Accountant', 'Front Office'], group: 'branch-ops' },
+        // Accounts
+        { key: 'reports', name: 'Daily Cash Book', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office', 'Admin', 'Accountant'], group: 'accounts' },
+        { key: 'expenses', name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Admin', 'Front Office', 'Accountant'], group: 'accounts' },
+        { key: 'expenses', name: 'Upload Bills', icon: Upload, path: '/dashboard/expenses/upload-bills', roles: ['Admin', 'Front Office', 'Accountant'], group: 'accounts' },
+        { key: 'expenses', name: 'Vendors', icon: Store, path: '/dashboard/vendors', roles: ['Admin', 'Accountant', 'Front Office'], group: 'accounts' },
+        { key: 'expenses', name: 'Payment Verification', icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'accounts' },
+        { key: 'expenses', name: 'Accounts & GST', icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'accounts' },
+        { key: 'finance', name: 'Recurring Invoices', icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'accounts' },
+        // Administration
+        { key: 'manage', name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Admin', 'Accountant', 'Front Office'], group: 'admin' },
+        { key: 'manage', name: 'Branches', icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'admin' },
+        { key: 'manage', name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin', 'Accountant'], group: 'admin' },
+        { key: 'manage', name: 'Coupons', icon: Tag, path: '/dashboard/coupons', roles: ['Admin'], group: 'admin' },
+        { key: 'manage', name: 'Attendance', icon: Camera, path: '/dashboard/cctv-attendance', roles: ['Admin', 'Accountant'], group: 'admin' },
+        { key: 'manage', name: 'CCTV', icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'admin' },
+        { key: 'manage', name: 'Schedule & Time', icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'admin' },
+        { key: 'manage', name: 'Settings', icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'admin' },
+        // Website Group Items
         { key: 'manage', name: 'Chatbot Training', icon: Brain, path: '/dashboard/admin/chatbot-training', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Reviews', icon: Star, path: '/dashboard/admin/reviews', roles: ['Admin'], group: 'website' },
+        { key: 'manage', name: 'Customer Reviews', icon: Star, path: '/dashboard/admin/reviews', roles: ['Admin'], group: 'website' },
         { key: 'manage', name: 'Artwork Uploads', icon: Upload, path: '/dashboard/admin/artwork', roles: ['Admin'], group: 'website' },
         { key: 'manage', name: 'Portfolio', icon: Image, path: '/dashboard/admin/portfolio', roles: ['Admin'], group: 'website' },
         { key: 'manage', name: 'Promotions', icon: Tag, path: '/dashboard/admin/promotions', roles: ['Admin'], group: 'website' },
@@ -380,8 +439,8 @@ const Dashboard = () => {
     const [collapsedGroups, setCollapsedGroups] = useState(() => {
         try {
             const saved = sessionStorage.getItem('sargaSidebarGroups');
-            return saved ? new Set(JSON.parse(saved)) : new Set(['manage', 'analytics']);
-        } catch { return new Set(['manage', 'analytics']); }
+            return saved ? new Set(JSON.parse(saved)) : new Set(['sales', 'inventory', 'production', 'branch-ops', 'accounts', 'admin', 'website']);
+        } catch { return new Set(['manage', 'analytics', 'website']); }
     });
 
     const toggleGroup = useCallback((groupKey) => {
@@ -395,12 +454,36 @@ const Dashboard = () => {
     }, []);
 
     const groupedMenu = useMemo(() => {
-        if (!['Admin', 'Front Office'].includes(user?.role)) return null;
+        if (!['Admin', 'Front Office', 'Accountant'].includes(user?.role)) return null;
         return sidebarGroupDefs.map(g => ({
             ...g,
             items: filteredMenu.filter(i => i.group === g.key)
         })).filter(g => g.items.length > 0);
     }, [user?.role, filteredMenu]);
+
+    // Auto-expand group containing active route on path changes
+    useEffect(() => {
+        if (!groupedMenu) return;
+        const activeGroup = groupedMenu.find(group => 
+            group.items?.some(item => {
+                const p = item.path;
+                if (!p) return false;
+                if (p === '/dashboard') return location.pathname === '/dashboard' || location.pathname === '/dashboard/';
+                return location.pathname.startsWith(p);
+            })
+        );
+        if (activeGroup) {
+            setCollapsedGroups(prev => {
+                if (prev.has(activeGroup.key)) {
+                    const next = new Set(prev);
+                    next.delete(activeGroup.key);
+                    sessionStorage.setItem('sargaSidebarGroups', JSON.stringify([...next]));
+                    return next;
+                }
+                return prev;
+            });
+        }
+    }, [location.pathname, groupedMenu]);
 
     // Ctrl+K / Cmd+K to open smart search
     useEffect(() => {
@@ -424,6 +507,8 @@ const Dashboard = () => {
         const TIMEOUT_MS = 100; // max gap between scanner chars
 
         const handleScannerKey = (e) => {
+            // Ignore events while ScannerModal is open (manual scan in progress)
+            if (scannerOpenRef.current) return;
             // Ignore events that fire while an input/textarea/select is focused
             const tag = document.activeElement?.tagName;
             if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -494,7 +579,7 @@ const Dashboard = () => {
     const fetchChatbotCounts = useCallback(async () => {
         if (user?.role !== 'Admin') return;
         try {
-            const res = await api.get('chatbot/model-status');
+            const res = await api.get('chatbot/model-status', { skipGlobalErrorHandling: true });
             setChatbotUnlabeledCount(prev => {
                 const next = res.data.unlabeled || 0;
                 if (prev === next) return prev;
@@ -645,12 +730,12 @@ const Dashboard = () => {
                 </div>
 
                 <nav className="sidebar-nav">
-                    {['Admin', 'Front Office'].includes(user?.role) && groupedMenu ? (
+                    {['Admin', 'Front Office', 'Accountant'].includes(user?.role) && groupedMenu ? (
                         groupedMenu.map(group => {
                             const showLabel = group.label && group.items.length > 1;
                             const isCollapsed = showLabel && collapsedGroups.has(group.key);
                             return (
-                                <SidebarGroup key={group.key} group={group} isCollapsed={isCollapsed} sidebarCollapsed={sidebarCollapsed} toggleGroup={toggleGroup} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} />
+                                <SidebarGroup key={group.key} group={group} isCollapsed={isCollapsed} sidebarCollapsed={sidebarCollapsed} toggleGroup={toggleGroup} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} onAction={handleNavAction} />
                             );
                         })
                     ) : (
@@ -658,21 +743,6 @@ const Dashboard = () => {
                             <SimpleNavItem key={item.path} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} />
                         ))
                     )}
-                    {['Admin', 'Front Office', 'Accountant'].includes(user?.role) && (
-                        <button
-                            className="nav-item nav-item--button"
-                            onClick={() => { closeSidebar(); setShowInventoryScan(true); }}
-                            title="Scan product QR code"
-                        >
-                            <div className="nav-item-inner">
-                                <Camera size={20} />
-                                <span className="nav-label">
-                                    {inventoryScanLoading ? 'Looking up…' : 'Scan Item'}
-                                </span>
-                            </div>
-                        </button>
-                    )}
-                    {/* Removed duplicate Paper Inventory quick button to avoid sidebar duplication. */}
                 </nav>
 
                 <div className="sidebar-footer">
@@ -733,29 +803,47 @@ const Dashboard = () => {
                     <Suspense fallback={<SuspenseFallback />}>
                         <Routes>
                             <Route path="" element={<DashboardHome />} />
-                            <Route path="billing" element={<Billing />} />
+                            {/* Sales Consolidated Workspace */}
+                            <Route path="sales" element={<SalesLayout />}>
+                                <Route index element={<Navigate to="orders" replace />} />
+                                <Route path="overview" element={<Summary />} />
+                                <Route path="customers" element={<Customers />} />
+                                <Route path="customers/:id" element={<CustomerDetails />} />
+                                <Route path="orders" element={<Jobs />} />
+                                <Route path="orders/:id" element={<JobDetail />} />
+                                <Route path="quotes" element={<Quotes />} />
+                                <Route path="invoices" element={<Invoices />} />
+                                <Route path="payments" element={<CustomerPayments />} />
+                            </Route>
+
+                            {/* Redirects for legacy/flat routes */}
+                            <Route path="billing" element={<Navigate to="/dashboard/sales/invoices" replace state={{ action: 'create' }} />} />
+                            <Route path="internal-billing" element={<Navigate to="/dashboard/sales/invoices" replace />} />
+                            <Route path="customer-payments" element={<Navigate to="/dashboard/sales/payments" replace />} />
+                            <Route path="quotes" element={<Navigate to="/dashboard/sales/quotes" replace />} />
+                            <Route path="jobs" element={<Navigate to="/dashboard/sales/orders" replace />} />
+                            <Route path="jobs/:id" element={<NavigateToJobDetail />} />
+                            <Route path="customers" element={<Navigate to="/dashboard/sales/customers" replace />} />
+                            <Route path="customers/:id" element={<NavigateToCustomerDetails />} />
+
                             <Route path="staff" element={<StaffManagement />} />
                             <Route path="employee/:staffId" element={<EmployeeDetail />} />
                             <Route path="branches" element={<Branches />} />
-                            <Route path="customers" element={<Customers />} />
-                            <Route path="customers/:id" element={<CustomerDetails />} />
                             <Route path="products" element={<ProductLibrary />} />
                             <Route path="product-requests" element={<ProductRequests />} />
-                            <Route path="jobs" element={<Jobs />} />
-                            <Route path="jobs/:id" element={<JobDetail />} />
                             <Route path="requests" element={<IDChangeRequests />} />
                             <Route path="inventory" element={<Inventory />} />
                             <Route path="inventory/overview" element={<InventoryOverview />} />
+                            <Route path="inventory/scan" element={<ScanItem />} />
                             <Route path="stock-verification" element={<StockVerification />} />
                             <Route path="stock-planning" element={<RequiresConnection feature="Stock Planning"><StockPlanning /></RequiresConnection>} />
-                            <Route path="customer-payments" element={<CustomerPayments />} />
                             <Route path="payment-verification" element={<PaymentVerification />} />
                             <Route path="expenses" element={<ExpenseManager />} />
+                            <Route path="expenses/upload-bills" element={<UploadBills />} />
                             <Route path="vendors/*" element={<Vendors />} />
                             <Route path="machines" element={<MachineManagement />} />
                             <Route path="daily-report" element={<DailyReport />} />
                             <Route path="internal-transactions" element={<InternalTransactions />} />
-                            <Route path="internal-billing" element={<InternalBilling />} />
                             <Route path="stock-transfer" element={<StockTransfer />} />
                             <Route path="attendance-salary" element={<AttendanceSalary />} />
                             <Route path="ai-monitoring" element={<RequiresConnection feature="AI Monitoring"><AIMonitoring /></RequiresConnection>} />
@@ -769,7 +857,6 @@ const Dashboard = () => {
                             <Route path="order-predictions" element={<RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection>} />
                             <Route path="predictions" element={<RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection>} />
                             <Route path="production-tracker" element={<RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection>} />
-                            <Route path="rate-calculator" element={<RateCalculator />} />
                             <Route path="coupons" element={<CouponManagement />} />
                             <Route path="cctv-attendance" element={<CCTVAttendance />} />
                             <Route path="cctv-management" element={<CCTVManagement />} />

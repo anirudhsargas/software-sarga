@@ -136,7 +136,8 @@ const PettyCashTab = ({ onError }) => {
       <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
         <div className="em-section-title"><Wallet size={18} /> Daily Cash</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input type="month" className="em-input em-input--sm" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} />
+          <label htmlFor="pc-month" className="sr-only">Filter by month</label>
+          <input id="pc-month" type="month" aria-label="Filter by month" className="em-input em-input--sm" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} />
           <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setForm(defaultForm); setFormDirty(false); setShowForm(true); }}><Plus size={15} /> New Entry</button>
         </div>
       </div>

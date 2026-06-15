@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import SkeletonLoader from '../../components/SkeletonLoader';
@@ -10,7 +10,6 @@ const INTENTS = [
 ];
 
 const ChatbotTraining = () => {
-  const CHATBOT_ENABLED = import.meta.env.VITE_CHATBOT_ENABLED !== 'false';
   const [tab, setTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [modelMeta, setModelMeta] = useState(null);
@@ -18,6 +17,12 @@ const ChatbotTraining = () => {
   const [pendingCount, setPendingCount] = useState(0);
   const [intentDist, setIntentDist] = useState([]);
   const [retraining, setRetraining] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const [chartReady, setChartReady] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setChartReady(true));
+  }, []);
 
   const [messages, setMessages] = useState([]);
   const [labeledToday, setLabeledToday] = useState(0);
@@ -28,29 +33,24 @@ const ChatbotTraining = () => {
   const [trainingTotal, setTrainingTotal] = useState(0);
   const [trainingQuery, setTrainingQuery] = useState('');
   const [modelVersions, setModelVersions] = useState([]);
-  const [chatbotOnline, setChatbotOnline] = useState(false);
 
   const fetchStatus = useCallback(async () => {
-    if (!CHATBOT_ENABLED) return;
     try {
-      const res = await api.get('/chatbot/model-status', { skipGlobalErrorHandling: true });
+      const res = await api.get('chatbot/model-status', { skipGlobalErrorHandling: true });
       const data = res.data;
-      if (data) {
-          setChatbotOnline(data?.healthy !== false && data?.loaded !== false);
-          setModelMeta(data.meta || {});
-          setUnlabeledCount(data.unlabeled || 0);
-          setPendingCount(data.pending || 0);
-      }
+      setModelMeta(data.meta || {});
+      setUnlabeledCount(data.unlabeled || 0);
+      setPendingCount(data.pending || 0);
+      setIsOffline(data.healthy === false);
     } catch (e) {
-      setChatbotOnline(false);
-      // Silently fail to prevent console spam
+      setIsOffline(true);
     }
-  }, [CHATBOT_ENABLED]);
+  }, []);
 
   const fetchIntentDistribution = useCallback(async () => {
     try {
       // fetch larger page to compute distribution
-      const res = await api.get('chatbot/training-examples', { params: { limit: 1000 } });
+      const res = await api.get('chatbot/training-examples', { params: { limit: 1000 }, skipGlobalErrorHandling: true });
       const rows = res.data.rows || [];
       const map = {};
       rows.forEach(r => map[r.intent] = (map[r.intent]||0)+1);
@@ -63,7 +63,7 @@ const ChatbotTraining = () => {
 
   const fetchTrainingExamples = useCallback(async (page = 1, limit = 20, q = '') => {
     try {
-      const res = await api.get('chatbot/training-examples', { params: { page, limit, q } });
+      const res = await api.get('chatbot/training-examples', { params: { page, limit, q }, skipGlobalErrorHandling: true });
       const data = res.data || {};
       setTrainingExamples(data.rows || []);
       setTrainingPage(data.page || page);
@@ -76,7 +76,7 @@ const ChatbotTraining = () => {
 
   const fetchUnlabeled = useCallback(async () => {
     try {
-      const res = await api.get('chatbot/logs', { params: { labeled: false, limit: 20 } });
+      const res = await api.get('chatbot/logs', { params: { labeled: false, limit: 20 }, skipGlobalErrorHandling: true });
       setMessages(res.data.rows || []);
     } catch (e) {
       toast.error('Failed to fetch messages');
@@ -85,7 +85,7 @@ const ChatbotTraining = () => {
 
   const fetchModelVersions = useCallback(async () => {
     try {
-      const res = await api.get('chatbot/model-versions');
+      const res = await api.get('chatbot/model-versions', { skipGlobalErrorHandling: true });
       setModelVersions(res.data.rows || []);
     } catch (e) {}
   }, []);
@@ -98,22 +98,24 @@ const ChatbotTraining = () => {
       if (mounted) setLoading(false);
     };
     load();
-    let iv;
-    if (CHATBOT_ENABLED) {
-        iv = setInterval(fetchStatus, 30000);
-    }
-    return () => { mounted = false; if (iv) clearInterval(iv); };
-  }, [fetchStatus, fetchIntentDistribution, fetchUnlabeled, fetchModelVersions, CHATBOT_ENABLED]);
+    const iv = setInterval(fetchStatus, 30000);
+    return () => { mounted = false; clearInterval(iv); };
+  }, [fetchStatus, fetchIntentDistribution, fetchUnlabeled, fetchModelVersions]);
 
   // Normalized accuracy display (handles 0..1 and 0..100 formats)
-  const accuracyValue = modelMeta?.accuracy;
-  const accuracyPercent = typeof accuracyValue === 'number' ? (accuracyValue <= 1 ? accuracyValue * 100 : accuracyValue) : (accuracyValue ? Number(accuracyValue) : null);
-  const accuracyText = accuracyPercent != null && !Number.isNaN(accuracyPercent) ? `${Number(accuracyPercent).toFixed(2)}%` : '-';
+  const accuracyPercent = useMemo(() => {
+    const accuracyValue = modelMeta?.accuracy;
+    return typeof accuracyValue === 'number' ? (accuracyValue <= 1 ? accuracyValue * 100 : accuracyValue) : (accuracyValue ? Number(accuracyValue) : null);
+  }, [modelMeta?.accuracy]);
+  const accuracyText = useMemo(() =>
+    accuracyPercent != null && !Number.isNaN(accuracyPercent) ? `${Number(accuracyPercent).toFixed(2)}%` : '-',
+    [accuracyPercent]
+  );
 
-  const handleRetrain = async (force = false) => {
+  const handleRetrain = useCallback(async (force = false) => {
     try {
       setRetraining(true);
-      const res = await api.post('chatbot/retrain', { force });
+      const res = await api.post('chatbot/retrain', { force }, { skipGlobalErrorHandling: true });
       if (res.data && res.data.new_version) {
         toast.success(`Retrained → ${res.data.new_version}`);
         fetchStatus();
@@ -128,45 +130,45 @@ const ChatbotTraining = () => {
     } finally {
       setRetraining(false);
     }
-  };
+  }, [fetchStatus, fetchIntentDistribution, fetchModelVersions, fetchTrainingExamples, trainingPage, trainingLimit, trainingQuery]);
 
-  const handleLabel = async (logId, intent) => {
+  const handleLabel = useCallback(async (logId, intent) => {
     try {
-      await api.post('chatbot/label', { log_id: logId, correct_intent: intent });
+      await api.post('chatbot/label', { log_id: logId, correct_intent: intent }, { skipGlobalErrorHandling: true });
       setMessages(prev => prev.filter(m => m.id !== logId));
       setLabeledToday(n => n + 1);
       toast.success('Label saved');
     } catch (e) {
       toast.error('Failed to save label');
     }
-  };
+  }, []);
 
-  const handleSkip = (logId) => {
+  const handleSkip = useCallback((logId) => {
     setMessages(prev => prev.filter(m => m.id !== logId));
-  };
+  }, []);
 
-  const addExample = async (text, intent) => {
+  const addExample = useCallback(async (text, intent) => {
     try {
-      await api.post('chatbot/training-examples', { text, intent, source: 'manual' });
+      await api.post('chatbot/training-examples', { text, intent, source: 'manual' }, { skipGlobalErrorHandling: true });
       toast.success('Example added');
       fetchIntentDistribution();
       fetchTrainingExamples(trainingPage, trainingLimit, trainingQuery);
     } catch (e) { toast.error('Failed to add example'); }
-  };
+  }, [fetchIntentDistribution, fetchTrainingExamples, trainingPage, trainingLimit, trainingQuery]);
 
-  const bulkImport = async (lines) => {
+  const bulkImport = useCallback(async (lines) => {
     const payload = lines.map(l => {
       const parts = l.split('|').map(p => p.trim());
       return { text: parts[0] || '', intent: parts[1] || 'other', source: 'manual' };
     }).filter(p => p.text && p.intent);
     if (!payload.length) return toast.error('No valid lines');
     try {
-      await api.post('chatbot/training-examples', payload);
+      await api.post('chatbot/training-examples', payload, { skipGlobalErrorHandling: true });
       toast.success('Imported examples');
       fetchIntentDistribution();
       fetchTrainingExamples(trainingPage, trainingLimit, trainingQuery);
     } catch (e) { toast.error('Import failed'); }
-  };
+  }, [fetchIntentDistribution, fetchTrainingExamples, trainingPage, trainingLimit, trainingQuery]);
 
   return (
     <div className="page-header">
@@ -179,36 +181,57 @@ const ChatbotTraining = () => {
         </div>
       </div>
 
-      <div style={{ padding: 16 }}>
+      <div style={{ flex: 1, padding: 16 }}>
         {loading ? <SkeletonLoader type="cards" count={3} /> : (
           tab === 'dashboard' ? (
             <div>
               <div className="card">
-                <h3>Model Status</h3>
-                  <div className="row gap-sm">
-                    <div>Version: <strong>{modelMeta?.version || '-'}</strong></div>
-                    <div>Samples: <strong>{modelMeta?.sample_count || 0}</strong></div>
-                    <div>Accuracy: <strong>{accuracyText}</strong></div>
-                    <div>Last trained: <strong>{modelMeta?.trained_at || '-'}</strong></div>
-                    <div>Pending labels: <strong>{unlabeledCount}</strong></div>
-                    <div>Ready to retrain: <strong>{pendingCount}</strong></div>
+                <h3>
+                  Model Status
+                  {isOffline && (
+                    <span className="badge badge-error ml-8" style={{ backgroundColor: '#ef4444', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontSize: '12px' }}>
+                      Chatbot Offline
+                    </span>
+                  )}
+                </h3>
+                {isOffline ? (
+                  <div style={{ color: '#ef4444', fontWeight: 'bold', marginTop: 8 }}>
+                    Chatbot Offline
                   </div>
-                <div style={{ marginTop: 12 }}>
-                  <button className="btn btn-primary" onClick={() => handleRetrain(false)} disabled={retraining}>{retraining ? 'Retraining…' : 'Retrain Now'}</button>
-                  <button className="btn btn-ghost ml-8" onClick={() => handleRetrain(true)} disabled={retraining}>Force Retrain</button>
-                </div>
+                ) : (
+                  <>
+                    <div className="row gap-sm">
+                      <div>Version: <strong>{modelMeta?.version || '-'}</strong></div>
+                      <div>Samples: <strong>{modelMeta?.sample_count || 0}</strong></div>
+                      <div>Accuracy: <strong>{accuracyText}</strong></div>
+                      <div>Last trained: <strong>{modelMeta?.trained_at || '-'}</strong></div>
+                      <div>Pending labels: <strong>{unlabeledCount}</strong></div>
+                      <div>Ready to retrain: <strong>{pendingCount}</strong></div>
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <button className="btn btn-primary" onClick={() => handleRetrain(false)} disabled={retraining}>{retraining ? 'Retraining…' : 'Retrain Now'}</button>
+                      <button className="btn btn-ghost ml-8" onClick={() => handleRetrain(true)} disabled={retraining}>Force Retrain</button>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="card" style={{ height: 260, marginTop: 12 }}>
                 <h4>Intent distribution</h4>
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={intentDist}>
-                    <XAxis dataKey="intent" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#4f46e5" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {intentDist.length > 0 && chartReady ? (
+                  <div style={{ minWidth: 200, minHeight: 180 }}>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart data={intentDist}>
+                        <XAxis dataKey="intent" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="count" fill="#4f46e5" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div style={{ height: 180, display: 'grid', placeItems: 'center', color: 'var(--text-muted)' }}>No data yet</div>
+                )}
               </div>
             </div>
           ) : tab === 'label' ? (
@@ -308,4 +331,4 @@ const BulkImport = ({ onImport }) => {
   );
 };
 
-export default ChatbotTraining;
+export default React.memo(ChatbotTraining);

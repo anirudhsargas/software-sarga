@@ -390,6 +390,25 @@ app.use('/api', require('./routes/quotes'));
 app.use('/api', require('./routes/invoiceFeatures'));
 app.use('/api', require('./routes/passwordReset'));
 
+// Phase 1 Commerce and Website Routes
+app.use('/api', require('./routes/websiteInquiries'));
+app.use('/api', require('./routes/premiumFeatures')());
+app.use('/api/blog', require('./routes/blog')(upload));
+app.use('/api', require('./routes/portfolio'));
+app.use('/api', require('./routes/promotions'));
+app.use('/api', require('./routes/translations'));
+app.use('/api', require('./routes/proofs'));
+app.use('/api', require('./routes/artworkUploads'));
+app.use('/api', require('./routes/pickupSlots'));
+app.use('/api', require('./routes/deliveryEstimates'));
+app.use('/api', require('./routes/websiteReviews'));
+app.use('/api', require('./routes/whatsappAnalytics'));
+app.use('/api', require('./routes/checkout'));
+app.use('/api', require('./routes/businessHub'));
+app.use('/api', require('./routes/preflight'));
+app.use('/api', require('./routes/pricing'));
+app.use('/', require('./routes/seo'));
+
 // Customer-facing Website Routes (public, no auth required — shares same DB)
 app.use('/api/website', require('./routes/website')(upload));
 app.use('/api/website', require('./routes/websiteDesigns'));

@@ -96,7 +96,7 @@ const VirtualTransactionTable = ({ rows, openFullBillFromTransaction }) => {
   );
 };
 
-const VendorsTab = ({ onPayment, onRefreshVendors }) => {
+const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
   const { confirm } = useConfirm();
   const [expandedVendor, setExpandedVendor] = useState(null);
   const [searchInput, setSearchInput] = useState('');
@@ -160,32 +160,37 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
   const [addInventorySaving, setAddInventorySaving] = useState(false);
   const [addInventoryError, setAddInventoryError] = useState('');
 
-  // Fetch vendors paginated
-  const fetchVendors = useCallback(async (pageNum = 1, search = '') => {
+  // Local filtering and pagination over vendors prop
+  useEffect(() => {
     setLoadingVendors(true);
     try {
-      const params = new URLSearchParams();
-      params.append('page', pageNum);
-      params.append('limit', limit);
-      if (search) params.append('search', search);
-      const r = await api.get(`/vendors?${params.toString()}`);
-      setPaginatedVendors(r.data.data || []);
-      setTotal(r.data.total || 0);
-      setTotalPages(r.data.totalPages || 1);
-      setPage(r.data.page || 1);
-    } catch {
+      const search = String(debouncedSearchTerm || '').trim().toLowerCase();
+      // filter vendors by search term
+      const filtered = vendors.filter(v => {
+        if (!search) return true;
+        return (
+          (v.name && v.name.toLowerCase().includes(search)) ||
+          (v.phone && v.phone.includes(search)) ||
+          (v.contact_person && v.contact_person.toLowerCase().includes(search)) ||
+          (v.type && v.type.toLowerCase().includes(search))
+        );
+      });
+
+      setTotal(filtered.length);
+      setTotalPages(Math.ceil(filtered.length / limit) || 1);
+      
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      setPaginatedVendors(filtered.slice(start, end));
+    } catch (err) {
+      console.error('Error filtering vendors locally:', err);
       setPaginatedVendors([]);
       setTotal(0);
       setTotalPages(1);
     } finally {
       setLoadingVendors(false);
     }
-  }, [limit]);
-
-  useEffect(() => {
-    fetchVendors(page, debouncedSearchTerm);
-    // eslint-disable-next-line
-  }, [page, debouncedSearchTerm, limit]);
+  }, [vendors, debouncedSearchTerm, page, limit]);
 
   const fetchVendorLedger = useCallback(async (vendor, from = '', to = '') => {
     if (!vendor) return;
@@ -1031,8 +1036,9 @@ const VendorsTab = ({ onPayment, onRefreshVendors }) => {
         <div className="em-section-title"><Store size={18} /> Vendor Management</div>
         <div className="row gap-sm" style={{ flexWrap: 'wrap' }}>
           <div className="em-search-wrap" style={{ maxWidth: 220 }}>
+            <label htmlFor="vendor-search" className="sr-only">Search vendors</label>
             <Search size={16} className="em-search-icon" />
-            <input className="em-input" style={{ paddingLeft: 36 }} placeholder="Search vendors..." value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+            <input id="vendor-search" className="em-input" style={{ paddingLeft: 36 }} placeholder="Search vendors..." value={searchInput} onChange={e => setSearchInput(e.target.value)} aria-label="Search vendors" />
           </div>
           {isAdmin ? (
             <button className="btn btn-primary btn-sm" onClick={openAddForm}>

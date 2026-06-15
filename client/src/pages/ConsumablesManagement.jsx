@@ -12,11 +12,16 @@ import {
     ArrowUp,
     ArrowDown,
     MapPin,
-    Download
+    Download,
+    Layers,
+    ShoppingCart,
+    IndianRupee
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api, { devFallback } from '../services/api';
 import toast from 'react-hot-toast';
 import auth from '../services/auth';
+import './InventoryModern.css';
 
 const CATEGORY_TABS = [
     { label: 'All', value: 'all' },
@@ -61,6 +66,37 @@ const ConsumablesManagement = () => {
 
     const user = auth.getUser();
     const isManager = ['Admin', 'Accountant'].includes(user?.role);
+    const navigate = useNavigate();
+
+    const [tabCounts, setTabCounts] = useState({ general: 0, paper: 0, consumables: 0 });
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchTabCounts = async () => {
+            try {
+                const [genRes, paperRes, consRes] = await Promise.all([
+                    api.get('/inventory', { params: { limit: 1 } }),
+                    api.get('/paperInventory/stock'),
+                    api.get('/inventory/consumables')
+                ]);
+                if (!isMounted) return;
+                
+                const generalCount = genRes.data?.total || (Array.isArray(genRes.data) ? genRes.data.length : 0);
+                const paperCount = Array.isArray(paperRes.data) ? paperRes.data.length : 0;
+                const consumablesCount = Array.isArray(consRes.data) ? consRes.data.length : 0;
+
+                setTabCounts({
+                    general: generalCount,
+                    paper: paperCount,
+                    consumables: consumablesCount
+                });
+            } catch (err) {
+                console.error('Error fetching tab counts:', err);
+            }
+        };
+        fetchTabCounts();
+        return () => { isMounted = false; };
+    }, []);
 
     const [loading, setLoading] = useState(true);
     const [items, setItems] = useState([]);
@@ -222,94 +258,161 @@ const ConsumablesManagement = () => {
     };
 
     return (
-        <div className="stack-lg p-md">
-            <div className="row space-between items-center wrap gap-sm">
-                <div>
-                    <h1 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <Package size={32} className="text-primary" /> Consumables Inventory
-                    </h1>
-                    <p className="section-subtitle">Track ink, chemicals, plates, and other print consumables by branch.</p>
+        <div className="stack-lg">
+            {/* ─── Header ─── */}
+            <div className="inv-header">
+                <div className="inv-header-left">
+                    <div className="text-xs uppercase tracking-wider text-accent font-semibold mb-2">Inventory / Consumables</div>
+                    <h1 className="inv-header-title">Inventory</h1>
+                    <p className="inv-header-desc">Track ink, chemicals, plates, and other print consumables by branch.</p>
                 </div>
-                <div className="row gap-sm">
-                    <button className="btn btn-ghost" onClick={handleExportCsv}>
-                        <Download size={16} /> Export CSV
-                    </button>
+            </div>
+
+            {/* ─── Segmented Tab Navigation ─── */}
+            <div className="inv-tabs">
+                <div 
+                    onClick={() => navigate('/dashboard/inventory')}
+                    className="inv-tab"
+                >
+                    <div className="inv-tab-icon">
+                        <Package size={20} />
+                    </div>
+                    <div className="inv-tab-info">
+                        <span className="inv-tab-label">General Inventory</span>
+                        <span className="inv-tab-count">{tabCounts.general.toLocaleString()} Items</span>
+                    </div>
+                </div>
+                <div 
+                    onClick={() => navigate('/dashboard/inventory/paper')}
+                    className="inv-tab"
+                >
+                    <div className="inv-tab-icon">
+                        <Layers size={20} />
+                    </div>
+                    <div className="inv-tab-info">
+                        <span className="inv-tab-label">Paper Stock</span>
+                        <span className="inv-tab-count">{tabCounts.paper.toLocaleString()} Types</span>
+                    </div>
+                </div>
+                <div 
+                    onClick={() => navigate('/dashboard/inventory/consumables')}
+                    className="inv-tab inv-tab--active"
+                >
+                    <div className="inv-tab-icon">
+                        <ShoppingCart size={20} />
+                    </div>
+                    <div className="inv-tab-info">
+                        <span className="inv-tab-label">Consumables</span>
+                        <span className="inv-tab-count">{tabCounts.consumables.toLocaleString()} Items</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* ─── KPI Row ─── */}
+            <div className="inv-kpi-row">
+                <div className="inv-kpi-card">
+                    <div className="inv-kpi-icon"><Package size={16} /></div>
+                    <div className="inv-kpi-info">
+                        <span className="inv-kpi-value">{stats.totalItems}</span>
+                        <span className="inv-kpi-label">Total Items</span>
+                    </div>
+                </div>
+                <div className="inv-kpi-card">
+                    <div className="inv-kpi-icon"><AlertTriangle size={16} /></div>
+                    <div className="inv-kpi-info">
+                        <span className="inv-kpi-value" style={{ color: stats.lowStock > 0 ? 'var(--error)' : 'var(--text)' }}>{stats.lowStock}</span>
+                        <span className="inv-kpi-label">Low Stock</span>
+                    </div>
+                </div>
+                <div className="inv-kpi-card">
+                    <div className="inv-kpi-icon"><IndianRupee size={16} /></div>
+                    <div className="inv-kpi-info">
+                        <span className="inv-kpi-value">₹{stats.totalValue.toLocaleString()}</span>
+                        <span className="inv-kpi-label">Estimated Value</span>
+                    </div>
+                </div>
+                <div className="inv-kpi-card">
+                    <div className="inv-kpi-icon"><MapPin size={16} /></div>
+                    <div className="inv-kpi-info">
+                        <span className="inv-kpi-value">{branchFilter === 'All' ? '2' : '1'}</span>
+                        <span className="inv-kpi-label">Branches Active</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* ─── Toolbar ─── */}
+            <div className="inv-toolbar">
+                {/* Row 1: Search and Primary Action */}
+                <div className="inv-toolbar-row">
+                    <div className="inv-search">
+                        <span className="inv-search-icon"><Search size={16} /></span>
+                        <input
+                            type="text"
+                            className="inv-search-input"
+                            placeholder="Search consumables by name..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        {searchTerm && (
+                            <button className="inv-search-clear" onClick={() => setSearchTerm('')}>
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
                     {isManager && (
                         <button className="btn btn-primary" onClick={handleOpenAdd}>
                             <Plus size={18} /> Add Consumable
                         </button>
                     )}
                 </div>
-            </div>
 
-            <div className="grid grid--3 mt-md">
-                <div className="panel stack-xs" style={{ borderLeft: '4px solid var(--primary)' }}>
-                    <span className="muted text-xs font-bold uppercase tracking-wider">Items</span>
-                    <span style={{ fontSize: '2rem', fontWeight: 800 }}>{stats.totalItems}</span>
-                </div>
-                <div className="panel stack-xs" style={{ borderLeft: '4px solid var(--danger)' }}>
-                    <span className="muted text-xs font-bold uppercase tracking-wider">Low Stock</span>
-                    <div className="row items-center gap-sm">
-                        <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--danger)' }}>{stats.lowStock}</span>
-                        <AlertTriangle size={22} className="text-danger" />
-                    </div>
-                </div>
-                <div className="panel stack-xs" style={{ borderLeft: '4px solid var(--warning)' }}>
-                    <span className="muted text-xs font-bold uppercase tracking-wider">Estimated Value</span>
-                    <span style={{ fontSize: '2rem', fontWeight: 800 }}>₹{stats.totalValue.toLocaleString()}</span>
-                </div>
-            </div>
-
-            <div className="panel stack-md">
-                <div className="row gap-md items-center wrap">
-                    <div className="flex-1 min-w-[220px]" style={{ position: 'relative' }}>
-                        <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} size={18} />
-                        <input
-                            className="input-field"
-                            style={{ paddingLeft: 40 }}
-                            placeholder="Search by name..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="row gap-xs items-center">
-                        <MapPin size={16} className="muted" />
-                        <select className="input-field py-xs" style={{ width: 160 }} value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
-                            <option value="All">All Branches</option>
-                            <option value="Perambra">Perambra</option>
-                            <option value="Meppayur">Meppayur</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div className="row gap-xs wrap">
-                    {CATEGORY_TABS.map((tab) => {
-                        const active = categoryFilter === tab.value;
-                        return (
+                {/* Row 2: Filter Chips and Export/Reset */}
+                <div className="inv-toolbar-row justify-between wrap gap-sm">
+                    {/* Filter Chips */}
+                    <div className="inv-chips">
+                        <div className="inv-chip">
+                            <MapPin size={12} className="muted" style={{ marginRight: 4 }} />
+                            <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
+                                <option value="All">All Branches</option>
+                                <option value="Perambra">Perambra</option>
+                                <option value="Meppayur">Meppayur</option>
+                            </select>
+                        </div>
+                        <div className="inv-chip">
+                            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                                <option value="all">All Categories</option>
+                                {CATEGORY_TABS.filter((c) => c.value !== 'all').map((c) => (
+                                    <option key={c.value} value={c.value}>{c.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {(searchTerm || categoryFilter !== 'all' || branchFilter !== 'All') && (
                             <button
-                                key={tab.value}
-                                className={`btn btn-sm ${active ? 'btn-primary' : 'btn-ghost'}`}
-                                onClick={() => setCategoryFilter(tab.value)}
+                                className="inv-chip-clear"
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setCategoryFilter('all');
+                                    setBranchFilter('All');
+                                }}
                             >
-                                {tab.label}
+                                <X size={12} /> Clear
                             </button>
-                        );
-                    })}
-                    <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => {
-                            setSearchTerm('');
-                            setCategoryFilter('all');
-                            setBranchFilter('All');
-                        }}
-                    >
-                        Reset
-                    </button>
-                </div>
+                        )}
+                    </div>
 
-                <div className="table-scroll" style={{ minHeight: '300px' }}>
-                    <table className="table">
+                    {/* Secondary Actions */}
+                    <div className="row gap-xs items-center">
+                        <button className="btn btn-ghost btn-sm" onClick={handleExportCsv}>
+                            <Download size={14} /> Export CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Table */}
+            <div className="inv-table-container">
+                <div className="inv-table-scroll">
+                    <table className="inv-table">
                         <thead>
                             <tr>
                                 <th>Name</th>
@@ -320,7 +423,7 @@ const ConsumablesManagement = () => {
                                 <th>Unit Cost</th>
                                 <th>Supplier</th>
                                 <th>Branch</th>
-                                <th style={{ textAlign: 'right' }}>Actions</th>
+                                <th style={{ textAlign: 'right', width: 120 }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -343,16 +446,13 @@ const ConsumablesManagement = () => {
                                     return (
                                         <tr
                                             key={item.id}
-                                            style={{
-                                                borderLeft: isLow ? '4px solid var(--danger)' : 'none',
-                                                backgroundColor: isLow ? 'rgba(var(--error-rgb), 0.06)' : 'transparent'
-                                            }}
+                                            className={isLow ? 'row-selected' : ''}
                                         >
                                             <td>
                                                 <div className="font-bold">{item.name}</div>
                                                 {isLow && <div className="text-xs text-danger font-medium">Low Stock</div>}
                                             </td>
-                                            <td><span className="badge badge-ghost">{toDisplayCategory(item.category)}</span></td>
+                                            <td><span className="inv-pill inv-pill--ok">{toDisplayCategory(item.category)}</span></td>
                                             <td>{item.unit}</td>
                                             <td className={isLow ? 'text-danger font-bold' : 'font-bold'}>{item.quantity_in_stock}</td>
                                             <td>{item.reorder_level}</td>
@@ -360,18 +460,18 @@ const ConsumablesManagement = () => {
                                             <td>{item.supplier_name || '-'}</td>
                                             <td>{item.branch}</td>
                                             <td style={{ textAlign: 'right' }}>
-                                                <div className="row gap-xs justify-end">
+                                                <div className="inv-actions justify-end">
                                                     {isManager && (
                                                         <>
-                                                            <button className="btn btn-ghost btn-sm" title="Quick Adjust" onClick={() => handleOpenAdjust(item)}>
-                                                                <ArrowUp size={14} />
-                                                                <ArrowDown size={14} />
+                                                            <button className="inv-action-btn" title="Quick Adjust" onClick={() => handleOpenAdjust(item)}>
+                                                                <ArrowUp size={12} style={{ marginRight: -4 }} />
+                                                                <ArrowDown size={12} />
                                                             </button>
-                                                            <button className="btn btn-ghost btn-sm" title="Edit" onClick={() => handleOpenEdit(item)}>
-                                                                <Edit2 size={15} />
+                                                            <button className="inv-action-btn" title="Edit" onClick={() => handleOpenEdit(item)}>
+                                                                <Edit2 size={14} />
                                                             </button>
-                                                            <button className="btn btn-ghost btn-sm text-error" title="Delete" onClick={() => handleDelete(item.id)}>
-                                                                <Trash2 size={15} />
+                                                            <button className="inv-action-btn inv-action-btn--danger" title="Delete" onClick={() => handleDelete(item.id)}>
+                                                                <Trash2 size={14} />
                                                             </button>
                                                         </>
                                                     )}

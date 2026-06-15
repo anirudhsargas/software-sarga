@@ -1,26 +1,24 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Calendar, CreditCard, Receipt, Loader2, Plus, Wallet,
   User, Phone, Hash, FileText, IndianRupee, CheckCircle2, Clock,
   AlertTriangle, Banknote, Smartphone, Building2, ChevronDown, ChevronUp,
-  Search, X, Layers, CheckCircle, Printer, ShieldCheck, ShieldX, ShieldAlert, AlertCircle
+  Search, X, Layers, CheckCircle, Printer, ShieldCheck, ShieldX, ShieldAlert, AlertCircle,
+  Tag
 } from 'lucide-react';
 import api from '../services/api';
 import localDb from '../services/localDb';
 import useAuth from '../hooks/useAuth';
 import { serverToday } from '../services/serverTime';
 import Pagination from '../components/Pagination';
-import ReceiptModal from '../components/ReceiptModal';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import './CustomerPayments.css';
 import toast from 'react-hot-toast';
 import { GST_RATE } from '../constants';
-import { Tag } from 'lucide-react';
-import offlineDb from '../services/offlineDb';
 import { useOnlineStatus } from '../hooks/useOffline';
 import { formatForDisplay, telHref } from '../utils/phone';
+
+const ReceiptModal = React.lazy(() => import('../components/ReceiptModal'));
 
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
 
@@ -164,8 +162,15 @@ const CustomerPayments = () => {
   }, []);
 
   useEffect(() => {
-    fetchPayments();
-    fetchCustomers();
+    const init = () => {
+      fetchPayments();
+      fetchCustomers();
+    };
+    if (window.requestIdleCallback) {
+      requestIdleCallback(init, { timeout: 1500 });
+    } else {
+      init();
+    }
   }, []);
 
   useEffect(() => {
@@ -502,6 +507,7 @@ const CustomerPayments = () => {
           const chequeAmount = Number(payment.methodAmounts.Cheque) || 0;
           const transferAmount = Number(payment.methodAmounts['Account Transfer']) || 0;
           
+          const { default: offlineDb } = await import('../services/offlineDb');
           await offlineDb.savePendingPayment({
             customer_id: formData.customer_id ? Number(formData.customer_id) : null,
             customer_name: formData.customer_name,
@@ -782,10 +788,11 @@ const CustomerPayments = () => {
           {orderLines.length === 0 && (
             <div className="cp-form-grid">
               <div ref={customerDropdownRef} className="cp-search-wrap">
-                <label className="label">Search & Select Customer</label>
+                <label className="label" htmlFor="cp-customer-search">Search & Select Customer</label>
                 <div className="cp-search-input-wrap">
                   <Search size={15} className="cp-search-icon" />
                   <input
+                    id="cp-customer-search"
                     className="input-field cp-search-input"
                     placeholder="Type name or mobile..."
                     value={customerSearch}
@@ -798,7 +805,8 @@ const CustomerPayments = () => {
                   {customerSearch && (
                     <button
                       type="button"
-                      className="cp-search-clear"
+                      className="cp-search-clear touch-target"
+                      aria-label="Clear customer search"
                       onClick={() => {
                         setCustomerSearch('');
                         setShowCustomerDropdown(true);
@@ -840,12 +848,14 @@ const CustomerPayments = () => {
                 )}
               </div>
               <div>
-                <label className="label">Select Job</label>
+                <label htmlFor="cp-job-select" className="label">Select Job</label>
                 <select
+                  id="cp-job-select"
                   className="input-field"
                   value={selectedJobId || ''}
                   onChange={(e) => setSelectedJobId(e.target.value)}
                   disabled={!formData.customer_id || customerJobs.length === 0}
+                  aria-label="Select job for payment"
                 >
                   <option value="">Choose a job...</option>
                   {customerJobs.length > 1 && (
@@ -961,6 +971,7 @@ const CustomerPayments = () => {
                     step="0.5"
                     value={discountPercent || ''}
                     placeholder="0"
+                    aria-label="Discount percentage"
                     onChange={(e) => {
                       const val = Math.max(0, Math.min(100, Number(e.target.value) || 0));
                       setDiscountPercent(val);
@@ -979,6 +990,7 @@ const CustomerPayments = () => {
                     step="1"
                     value={discountInputAmount || ''}
                     placeholder="0.00"
+                    aria-label="Discount amount in rupees"
                     onChange={(e) => {
                       const val = Math.max(0, Math.min(totals.subtotal, Number(e.target.value) || 0));
                       setDiscountInputAmount(val);
@@ -1128,8 +1140,10 @@ const CustomerPayments = () => {
                     <button
                       key={method}
                       type="button"
-                      className={`cp-method-pill ${active ? 'cp-method-pill--active' : ''}`}
+                      className={`cp-method-pill touch-target ${active ? 'cp-method-pill--active' : ''}`}
                       onClick={() => toggleMethod(method)}
+                      aria-pressed={active}
+                      aria-label={`${active ? 'Remove' : 'Add'} ${method} payment method`}
                     >
                       <Icon size={14} /> {method}
                     </button>
@@ -1145,10 +1159,12 @@ const CustomerPayments = () => {
             <div className="cp-form-grid">
               {payment.selectedMethods.includes('Cash') && (
                 <div>
-                  <label className="label"><Banknote size={13} /> Cash Amount</label>
+                  <label htmlFor="cp-cash-amount" className="label"><Banknote size={13} /> Cash Amount</label>
                   <input
+                    id="cp-cash-amount"
                     type="number"
                     className="input-field"
+                    aria-label="Cash payment amount"
                     min="0"
                     step="0.01"
                     placeholder="0.00"
@@ -1159,8 +1175,9 @@ const CustomerPayments = () => {
               )}
               {payment.selectedMethods.includes('UPI') && (
                 <div>
-                  <label className="label"><Smartphone size={13} /> UPI Amount</label>
+                  <label htmlFor="cp-upi-amount" className="label"><Smartphone size={13} /> UPI Amount</label>
                   <input
+                    id="cp-upi-amount"
                     type="number"
                     className="input-field"
                     min="0"
@@ -1168,13 +1185,15 @@ const CustomerPayments = () => {
                     placeholder="0.00"
                     value={payment.methodAmounts.UPI}
                     onChange={(e) => updateMethodAmount('UPI', e.target.value)}
+                    aria-label="UPI payment amount"
                   />
                 </div>
               )}
               {payment.selectedMethods.includes('Cheque') && (
                 <div>
-                  <label className="label"><FileText size={13} /> Cheque Amount</label>
+                  <label htmlFor="cp-cheque-amount" className="label"><FileText size={13} /> Cheque Amount</label>
                   <input
+                    id="cp-cheque-amount"
                     type="number"
                     className="input-field"
                     min="0"
@@ -1182,19 +1201,23 @@ const CustomerPayments = () => {
                     placeholder="0.00"
                     value={payment.methodAmounts.Cheque}
                     onChange={(e) => updateMethodAmount('Cheque', e.target.value)}
+                    aria-label="Cheque payment amount"
                   />
                 </div>
               )}
               {payment.selectedMethods.includes('Account Transfer') && (
                 <div>
-                  <label className="label"><Building2 size={13} /> Transfer Amount</label>
+                  <label htmlFor="cp-transfer-amount" className="label"><Building2 size={13} /> Transfer Amount</label>
                   <input
+                    id="cp-transfer-amount"
                     type="number"
                     className="input-field"
                     min="0"
                     step="0.01"
+                    placeholder="0.00"
                     value={payment.methodAmounts['Account Transfer']}
                     onChange={(e) => updateMethodAmount('Account Transfer', e.target.value)}
+                    aria-label="Account transfer amount"
                   />
                 </div>
               )}
@@ -1204,21 +1227,26 @@ const CustomerPayments = () => {
             {payment.selectedMethods.some((m) => m !== 'Cash') && (
               <div className="cp-form-grid">
                 <div>
-                  <label className="label">UTR / Reference No</label>
+                  <label htmlFor="cp-ref-no" className="label">UTR / Reference No</label>
                   <input
+                    id="cp-ref-no"
+                    type="text"
                     className="input-field"
+                    aria-label="UTR or reference number"
                     value={formData.reference_number}
                     onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
                     placeholder="Transaction reference"
                   />
                 </div>
                 <div>
-                  <label className="label">Purpose / Notes</label>
+                  <label htmlFor="cp-notes" className="label">Purpose / Notes</label>
                   <input
+                    id="cp-notes"
                     className="input-field"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Optional notes"
+                    aria-label="Payment purpose or notes"
                   />
                 </div>
               </div>
@@ -1244,7 +1272,7 @@ const CustomerPayments = () => {
             )}
 
             {/* Submit */}
-            <button type="submit" className="btn btn-primary btn--full cp-submit" disabled={saving || !canSave}>
+            <button type="submit" className="btn btn-primary btn--full cp-submit touch-target" disabled={saving || !canSave} aria-label="Record customer payment">
               <CheckCircle2 size={16} /> Review & Confirm — ₹{totals.gross.toFixed(2)}
             </button>
           </form>
@@ -1274,7 +1302,7 @@ const CustomerPayments = () => {
                       <div className="em-confirm-summary__warn"><AlertTriangle size={14} /> Please verify the payment details before confirming.</div>
                     </div>
                   </div>
-                  <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setConfirming(false)}>← Back to Edit</button><button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Processing...' : 'Confirm Payment'}</button></div>
+                  <div className="em-modal__footer"><button type="button" className="btn btn-ghost touch-target" onClick={() => setConfirming(false)} aria-label="Go back to edit payment">← Back to Edit</button><button type="submit" className="btn btn-primary touch-target" disabled={saving} aria-label={saving ? 'Processing payment' : 'Confirm payment'}>{saving ? 'Processing...' : 'Confirm Payment'}</button></div>
                 </form>
               </div>
             </div>
@@ -1356,54 +1384,59 @@ const CustomerPayments = () => {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '300px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <label className="label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: 0 }}>From</label>
+              <label htmlFor="cp-date-from" className="label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: 0 }}>From</label>
               <input
+                id="cp-date-from"
                 type="date"
                 className="input-field input-field--sm"
                 value={statementRange.start}
                 onChange={e => setStatementRange(prev => ({ ...prev, start: e.target.value }))}
                 style={{ height: '32px', width: '130px', padding: '0 8px', fontSize: '12px' }}
+                aria-label="Statement start date"
               />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <label className="label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: 0 }}>To</label>
+              <label htmlFor="cp-date-to" className="label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: 0 }}>To</label>
               <input
+                id="cp-date-to"
                 type="date"
                 className="input-field input-field--sm"
                 value={statementRange.end}
                 onChange={e => setStatementRange(prev => ({ ...prev, end: e.target.value }))}
                 style={{ height: '32px', width: '130px', padding: '0 8px', fontSize: '12px' }}
+                aria-label="Statement end date"
               />
             </div>
             <div className="row gap-xs" style={{ height: '32px' }}>
-              <button className="btn btn-ghost btn-xs" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('thisMonth')}>This Month</button>
-              <button className="btn btn-ghost btn-xs" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('lastMonth')}>Last Month</button>
-              <button className="btn btn-ghost btn-xs" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('financialYear')}>FY</button>
+              <button className="btn btn-ghost btn-xs touch-target" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('thisMonth')}>This Month</button>
+              <button className="btn btn-ghost btn-xs touch-target" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('lastMonth')}>Last Month</button>
+              <button className="btn btn-ghost btn-xs touch-target" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('financialYear')}>FY</button>
             </div>
             <button
-              className="btn btn-primary btn-sm ml-auto"
+              className="btn btn-primary btn-sm ml-auto touch-target"
               onClick={handleDownloadStatement}
               disabled={downloading}
               style={{ height: '32px', padding: '0 12px', fontSize: '12px' }}
+              aria-label="Download payment statement"
             >
               {downloading ? <Loader2 size={14} className="cp-spin" /> : <FileText size={14} />}
-              Statement
             </button>
           </div>
         </div>
 
         <div className="cp-table-wrap">
           <table className="table">
+            <caption className="sr-only">Payment history table</caption>
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Customer</th>
-                <th>Method</th>
-                <th>Status</th>
-                <th>Billed</th>
-                <th>Paid</th>
-                <th>Balance</th>
-                <th></th>
+                <th scope="col">Date</th>
+                <th scope="col">Customer</th>
+                <th scope="col">Method</th>
+                <th scope="col">Status</th>
+                <th scope="col">Billed</th>
+                <th scope="col">Paid</th>
+                <th scope="col">Balance</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1428,7 +1461,7 @@ const CustomerPayments = () => {
                   const vStatus = isCash ? 'N/A' : (p.verification_status || 'Pending');
                   const methodColor = {
                     Cash: '#10b981',
-                    UPI: '#6366f1',
+                    UPI: '#9ea1ff',
                     Cheque: '#f59e0b',
                     'Account Transfer': '#3b82f6',
                     Both: '#8b5cf6',
@@ -1478,16 +1511,18 @@ const CustomerPayments = () => {
                         {canVerify && !isCash && vStatus === 'Pending' && (
                           <>
                             <button
-                              className="btn btn-ghost btn-xs"
+                              className="btn btn-ghost btn-xs touch-target"
                               title="Verify Payment"
+                              aria-label={`Verify payment ${p.id}`}
                               style={{ color: '#10b981' }}
                               onClick={() => handleVerify(p.id, 'Verified')}
                             >
                               <ShieldCheck size={15} />
                             </button>
                             <button
-                              className="btn btn-ghost btn-xs"
+                              className="btn btn-ghost btn-xs touch-target"
                               title="Reject Payment"
+                              aria-label={`Reject payment ${p.id}`}
                               style={{ color: '#ef4444' }}
                               onClick={() => handleVerify(p.id, 'Rejected')}
                             >
@@ -1496,8 +1531,9 @@ const CustomerPayments = () => {
                           </>
                         )}
                         <button
-                          className="btn btn-ghost btn-sm btn-icon"
+                          className="btn btn-ghost btn-sm btn-icon touch-target"
                           title="Print Receipt"
+                          aria-label={`Print receipt for payment ${p.id}`}
                           onClick={() => {
                             setCurrentReceiptData(p);
                             setShowReceipt(true);
@@ -1516,12 +1552,14 @@ const CustomerPayments = () => {
         <Pagination page={paymentsPage} totalPages={paymentsTotalPages} total={paymentsTotal} onPageChange={setPaymentsPage} />
       </div>
 
-      <ReceiptModal
-        isOpen={showReceipt}
-        onClose={() => setShowReceipt(false)}
-        paymentData={currentReceiptData}
-        branchInfo={{ location: 'Meppayur' }}
-      />
+      <React.Suspense fallback={null}>
+        <ReceiptModal
+          isOpen={showReceipt}
+          onClose={() => setShowReceipt(false)}
+          paymentData={currentReceiptData}
+          branchInfo={{ location: 'Meppayur' }}
+        />
+      </React.Suspense>
     </div>
   );
 };

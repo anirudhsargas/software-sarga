@@ -26,6 +26,15 @@ function ReviewsManagement() {
   const [importing, setImporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return reviews;
+    const q = searchQuery.toLowerCase();
+    return reviews.filter(r =>
+      r.reviewer_name?.toLowerCase().includes(q) ||
+      r.review_text?.toLowerCase().includes(q)
+    );
+  }, [reviews, searchQuery]);
+
   const fetchReviews = useCallback(async () => {
     try {
       const res = await api.get('/reviews');

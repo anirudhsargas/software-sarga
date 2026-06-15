@@ -13,6 +13,7 @@ import { useOptimistic } from '../hooks/useOptimistic';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import { formatForDisplay } from '../utils/phone';
+import { formatCurrency, formatCurrencyDecimal } from '../utils/formatters';
 
 // ── Priority helpers ──
 const URGENCY_CONFIG = {
@@ -56,12 +57,7 @@ const UrgencyBadge = ({ urgency }) => {
     );
 };
 
-const formatMoney = (value) => {
-    const amount = Number(value) || 0;
-    return amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
-const formatRupee = (value) => `₹${formatMoney(value)}`;
+const formatRupee = (value) => formatCurrencyDecimal(value, 2);
 
 const getStatusColor = (status) => {
     const colors = {
@@ -139,12 +135,12 @@ const Jobs = () => {
     });
     const [creditRequesting, setCreditRequesting] = useState(false);
     const [expandedPayments, setExpandedPayments] = useState(new Set());
-    const pageRef = useRef(page);
     const visibleRef = useRef(true);
 
     // Pagination state
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const pageRef = useRef(page);
     const [total, setTotal] = useState(0);
     const LIMIT = 20;
     const PAGE_SIZE = 20;
@@ -243,9 +239,25 @@ const Jobs = () => {
     }, [filterInput]);
 
     useEffect(() => {
-        fetchBranches();
-        fetchJobs(1);
+        const init = () => {
+            fetchBranches();
+            fetchJobs(1);
+        };
+        if (window.requestIdleCallback) {
+            requestIdleCallback(init, { timeout: 1500 });
+        } else {
+            init();
+        }
     }, [fetchBranches, fetchJobs]);
+
+    // bfcache: reconnect on page show / cleanup on hide
+    useEffect(() => {
+        const handlePageShow = (e) => {
+            if (e.persisted) fetchJobs(pageRef.current);
+        };
+        window.addEventListener('pageshow', handlePageShow);
+        return () => window.removeEventListener('pageshow', handlePageShow);
+    }, [fetchJobs]);
 
     useEffect(() => {
         fetchJobs(1);
@@ -406,11 +418,13 @@ const Jobs = () => {
                 <div className="jobs-filter-row row gap-md items-center justify-between wrap">
                     <div className="search-box glass-card" style={{ maxWidth: '400px', flex: 1 }}>
                         <Search size={18} className="muted" />
+                        <label htmlFor="job-search" className="sr-only">Search jobs</label>
                         <input
+                            id="job-search"
                             type="text"
                             placeholder="Search by Job No, Name, or Customer..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            value={filterInput.search}
+                            onChange={(e) => updateFilter('search', e.target.value)}
                             style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', padding: '8px' }}
                         />
                     </div>
@@ -431,10 +445,13 @@ const Jobs = () => {
                         </button>
                         <div className="select-box glass-card" style={{ padding: '0 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <Building2 size={16} className="muted" style={{ flexShrink: 0 }} />
+                            <label htmlFor="job-branch-filter" className="sr-only">Filter by branch</label>
                             <select
-                                value={branchFilter}
-                                onChange={(e) => setBranchFilter(e.target.value)}
+                                id="job-branch-filter"
+                                value={filterInput.branch}
+                                onChange={(e) => updateFilter('branch', e.target.value)}
                                 style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', cursor: 'pointer', minWidth: 0 }}
+                                aria-label="Filter by branch"
                             >
                                 <option value="">All Branches</option>
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -465,10 +482,10 @@ const Jobs = () => {
 
             <div className="row gap-sm wrap" style={{ padding: '12px 0', marginBottom: 16 }}>
                 <span className="text-sm" style={{ fontWeight: 700, color: 'var(--muted)', minWidth: 'fit-content', marginRight: 4 }}>Type:</span>
-                <button onClick={() => setCategoryFilter('')} className={`jobs-cat-btn${categoryFilter === '' ? ' jobs-cat-btn--active' : ''}`}>All</button>
-                <button onClick={() => setCategoryFilter('OFFSET')} className={`jobs-cat-btn${categoryFilter === 'OFFSET' ? ' jobs-cat-btn--active' : ''}`}>Offset</button>
-                <button onClick={() => setCategoryFilter('LASER')} className={`jobs-cat-btn${categoryFilter === 'LASER' ? ' jobs-cat-btn--active' : ''}`}>Laser</button>
-                <button onClick={() => setCategoryFilter('OTHER')} className={`jobs-cat-btn${categoryFilter === 'OTHER' ? ' jobs-cat-btn--active' : ''}`}>Others</button>
+                <button onClick={() => updateFilter('category', '')} className={`jobs-cat-btn${categoryFilter === '' ? ' jobs-cat-btn--active' : ''}`}>All</button>
+                <button onClick={() => updateFilter('category', 'OFFSET')} className={`jobs-cat-btn${categoryFilter === 'OFFSET' ? ' jobs-cat-btn--active' : ''}`}>Offset</button>
+                <button onClick={() => updateFilter('category', 'LASER')} className={`jobs-cat-btn${categoryFilter === 'LASER' ? ' jobs-cat-btn--active' : ''}`}>Laser</button>
+                <button onClick={() => updateFilter('category', 'OTHER')} className={`jobs-cat-btn${categoryFilter === 'OTHER' ? ' jobs-cat-btn--active' : ''}`}>Others</button>
             </div>
 
             <div style={{
@@ -490,16 +507,16 @@ const Jobs = () => {
                     <table className="table">
                         <thead>
                             <tr>
-                                <th>Job Details</th>
-                                <th>Customer</th>
-                                <th>Branch</th>
-                                <th>Status</th>
-                                {sortByPriority && <th>Priority</th>}
-                                <th>Production</th>
-                                {isFinancialsVisible && <th>Amount</th>}
-                                {isFinancialsVisible && <th>Balance</th>}
-                                <th>Delivery</th>
-                                <th>Actions</th>
+                                <th scope="col">Job Details</th>
+                                <th scope="col">Customer</th>
+                                <th scope="col">Branch</th>
+                                <th scope="col">Status</th>
+                                {sortByPriority && <th scope="col">Priority</th>}
+                                <th scope="col">Production</th>
+                                {isFinancialsVisible && <th scope="col">Amount</th>}
+                                {isFinancialsVisible && <th scope="col">Balance</th>}
+                                <th scope="col">Delivery</th>
+                                <th scope="col">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -697,6 +714,7 @@ const Jobs = () => {
                                                                 style={{ border: 'none', cursor: 'pointer', outline: 'none' }}
                                                                 value={j.status}
                                                                 onChange={(e) => handleUpdateStatus(j, e.target.value)}
+                                                                aria-label={`Change order status for ${j.job_number}`}
                                                             >
                                                                 {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                                                             </select>
@@ -771,18 +789,19 @@ const Jobs = () => {
                                                 ) : (
                                                     <div className="row gap-sm">
                                                         <button
-                                                            className="btn btn-ghost btn-danger"
-                                                            style={{ padding: '6px' }}
+                                                            className="btn btn-ghost btn-danger touch-target"
                                                             title="View Details"
+                                                            aria-label={`View details for job ${j.job_number}`}
                                                             onClick={() => navigate(`/dashboard/jobs/${j.id}`)}
                                                         >
                                                             <FileText size={16} />
                                                         </button>
                                                         {['Admin', 'Front Office', 'front office'].includes(userRole) && (
                                                             <button
-                                                                className="btn btn-ghost"
-                                                                style={{ padding: '6px', color: 'var(--accent)' }}
+                                                                className="btn btn-ghost touch-target"
+                                                                style={{ color: 'var(--accent)' }}
                                                                 title="Repeat Order"
+                                                                aria-label={`Repeat order ${j.job_number}`}
                                                                 onClick={(e) => { e.stopPropagation(); handleRepeatOrder(j.id); }}
                                                             >
                                                                 <RotateCcw size={16} />
@@ -790,9 +809,10 @@ const Jobs = () => {
                                                         )}
                                                         {['Admin', 'Accountant'].includes(userRole) && (
                                                             <button
-                                                                className="btn btn-ghost"
-                                                                style={{ padding: '6px', color: 'var(--error)' }}
+                                                                className="btn btn-ghost touch-target"
+                                                                style={{ color: 'var(--error)' }}
                                                                 title="Delete Job"
+                                                                aria-label={`Delete job ${j.job_number}`}
                                                                 onClick={(e) => handleDeleteJob(e, j.id)}
                                                             >
                                                                 <Trash2 size={16} />

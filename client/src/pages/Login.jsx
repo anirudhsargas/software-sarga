@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Lock, User, Loader2, AlertCircle } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
+import { validatePhone, filterMobile } from '../utils/validators';
 
 const Login = () => {
     useSEO('Login');
@@ -24,16 +25,12 @@ const Login = () => {
         }
     }, []);
 
-    const validateMobile = (value) => {
-        return value.replace(/\D/g, '').slice(-10);
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const cleanedUserId = validateMobile(userId);
-        if (cleanedUserId.length !== 10) {
-            setError('Please enter a valid 10-digit mobile number');
+        const { valid, normalized: cleanedUserId, error: phoneError } = validatePhone(userId);
+        if (!valid) {
+            setError(phoneError);
             return;
         }
 
@@ -99,7 +96,7 @@ const Login = () => {
                                 placeholder="User ID / Mobile Number"
                                 className="input-field input-field--icon"
                                 value={userId}
-                                onChange={(e) => setUserId(validateMobile(e.target.value))}
+                                onChange={(e) => setUserId(filterMobile(e.target.value))}
                                 disabled={loading}
                             />
                         </div>

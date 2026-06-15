@@ -163,12 +163,15 @@ const TransportTab = ({ onError }) => {
         <div className="em-card">
           <div className="em-card__title">All Transport Expenses <button className="btn btn-ghost btn-sm" onClick={() => exportRowsToCsv(expenses, 'transport-expenses.csv')}><Download size={14} /> CSV</button></div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 0' }}>
+            <label htmlFor="transport-search" className="sr-only">Search transport expenses</label>
             <input
+              id="transport-search"
               className="em-input"
               style={{ maxWidth: 220 }}
               placeholder="Search transport expenses..."
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1); }}
+              aria-label="Search transport expenses"
             />
             {filteredExpenses.length > PAGE_SIZE && (
               <>

@@ -17,16 +17,18 @@ const normalizeApiUrl = (url) => {
 
 // Centralized API URL for mobile/network access
 const getApiUrl = () => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+
+    if (isLocal) {
+        if (envUrl && (envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
+            return normalizeApiUrl(envUrl);
+        }
+        return 'http://localhost:3000/api/';
+    }
 
     if (envUrl) {
         return normalizeApiUrl(envUrl);
-    }
-
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-    if (isLocal) {
-        return 'http://localhost:3000/api/';
     }
 
     // Fallback: If not local and no env var, we're likely on Vercel.

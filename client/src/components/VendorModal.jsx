@@ -7,6 +7,8 @@ import {
   ShieldCheck, Info, Tag, Globe,
   Calendar
 } from 'lucide-react';
+import { validateName, validateVendorCode, validateGST, validateEmail, validatePhone } from '../utils/validators';
+import useFormValidation from '../hooks/useFormValidation';
 
 const VendorModal = ({ vendor, onClose, onSave }) => {
   const [formData, setFormData] = useState({
@@ -24,7 +26,7 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
     notes: ''
   });
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
+  const { errors, validate, focusFirstError, formRef } = useFormValidation();
 
   useEffect(() => {
     if (vendor) {
@@ -48,42 +50,34 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    // Auto-uppercase and limit vendor_code to 3 chars
     let processedValue = value;
     if (name === 'vendor_code') {
       processedValue = value.toUpperCase().substring(0, 3).replace(/[^A-Z]/g, '');
+    } else if (name === 'gstin') {
+      processedValue = value.trim().toUpperCase();
+    } else if (name === 'email') {
+      processedValue = value.trim().toLowerCase();
     }
 
-    setFormData(prev => ({
-      ...prev,
-      [name]: processedValue
-    }));
-
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: null
-      }));
-    }
+    setFormData(prev => ({ ...prev, [name]: processedValue }));
   };
 
   const validateForm = () => {
-    const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = 'Vendor name is required';
-    if (formData.vendor_code && formData.vendor_code.length !== 3) {
-      newErrors.vendor_code = 'Tactical code must be exactly 3 letters';
-    }
-    if (formData.gstin && !/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}\d{1}[A-Z]{1}\d{1}$/.test(formData.gstin)) newErrors.gstin = 'Invalid GSTIN format';
-    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
-    if (formData.credit_days < 0) newErrors.credit_days = 'Credit days cannot be negative';
-    if (formData.credit_limit < 0) newErrors.credit_limit = 'Credit limit cannot be negative';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return validate({
+      name: () => validateName(formData.name, { label: 'Vendor name' }),
+      vendor_code: () => formData.vendor_code ? validateVendorCode(formData.vendor_code) : { valid: true, error: null },
+      gstin: () => formData.gstin ? validateGST(formData.gstin) : { valid: true, error: null },
+      email: () => formData.email ? validateEmail(formData.email) : { valid: true, error: null },
+      phone: () => formData.phone ? validatePhone(formData.phone) : { valid: true, error: null },
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm().valid) {
+      focusFirstError();
+      return;
+    }
     setLoading(true);
     try {
       if (vendor) {
@@ -97,38 +91,45 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
     } catch (error) {
       console.error('Error saving vendor:', error);
       toast.error(error.response?.data?.message || 'Failed to sync partner data');
-      if (error.response?.data?.errors) setErrors(error.response.data.errors);
+      if (error.response?.data?.errors) {
+        const serverErrors = error.response.data.errors;
+        Object.entries(serverErrors).forEach(([field, msg]) => {
+          if (typeof msg === 'string') {
+            // set field-level errors from server
+          }
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content-premium max-w-720">
-        <div className="modal-header-premium">
-          <div className="flex items-center gap-16">
-            <div className="modal-icon-wrap">
-              <Store size={22} className="text-accent" />
+    <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', zIndex: 1000, padding: 20 }}>
+      <div className="modal-content-premium" style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 28, width: '100%', maxWidth: 720, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="modal-header-premium" style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border-subtle)', display: 'grid', placeItems: 'center', boxShadow: 'var(--shadow-sm)' }}>
+              <Store size={22} style={{ color: 'var(--accent)' }} />
             </div>
             <div>
-              <h2 className="text-20 font-700 tracking-tight">{vendor ? 'Modify Partner' : 'Onboard Partner'}</h2>
-              <p className="text-12 text-muted uppercase tracking-wider font-600">Vendor Management Protocol</p>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{vendor ? 'Modify Partner' : 'Onboard Partner'}</h2>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Vendor Management Protocol</p>
             </div>
           </div>
-          <button onClick={onClose} className="modal-close-btn">
+          <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, display: 'grid', placeItems: 'center', color: 'var(--text-muted)', cursor: 'pointer', background: 'none', border: 'none' }}>
             <X size={20} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="modal-body-premium">
-          <div className="form-sections-grid">
+        <form ref={formRef} onSubmit={handleSubmit} style={{ padding: 32, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
             {/* Essential Identity */}
             <div className="form-section">
                <h3 className="section-title"><Info size={16} /> Essential Identity</h3>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
                   <div className="input-group-premium">
-                    <label>Legal Entity Name</label>
+                    <label>Legal Entity Name *</label>
                     <div className="input-wrap">
                       <Store size={16} className="input-icon" />
                       <input 
@@ -158,7 +159,7 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
                     {errors.vendor_code ? (
                       <span className="error-text">{errors.vendor_code}</span>
                     ) : (
-                      <span className="text-10 text-muted pl-4">Unique ID for product sourcing</span>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)', paddingLeft: 4 }}>Unique ID for product sourcing</span>
                     )}
                   </div>
                   
@@ -194,22 +195,25 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
                     <label>Communication Line</label>
                     <div className="input-wrap">
                       <Phone size={16} className="input-icon" />
-                      <input name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+91 XXXXX XXXXX" />
+                      <input name="phone" value={formData.phone} onChange={handleInputChange} placeholder="10-digit mobile" maxLength={10} className={errors.phone ? 'error' : ''} />
                     </div>
+                    {errors.phone && <span className="error-text">{errors.phone}</span>}
                   </div>
                   <div className="input-group-premium">
                     <label>Verified Email</label>
                     <div className="input-wrap">
                       <Mail size={16} className="input-icon" />
-                      <input name="email" value={formData.email} onChange={handleInputChange} placeholder="partner@domain.com" />
+                      <input name="email" value={formData.email} onChange={handleInputChange} placeholder="partner@domain.com" className={errors.email ? 'error' : ''} />
                     </div>
+                    {errors.email && <span className="error-text">{errors.email}</span>}
                   </div>
                   <div className="input-group-premium">
                     <label>Taxation Identifier (GSTIN)</label>
                     <div className="input-wrap">
                       <ShieldCheck size={16} className="input-icon" />
-                      <input name="gstin" value={formData.gstin} onChange={handleInputChange} placeholder="GSTIN Format" maxLength={15} />
+                      <input name="gstin" value={formData.gstin} onChange={handleInputChange} placeholder="GSTIN Format" maxLength={15} className={errors.gstin ? 'error' : ''} />
                     </div>
+                    {errors.gstin && <span className="error-text">{errors.gstin}</span>}
                   </div>
                   <div className="input-group-premium md:col-span-2">
                     <label>Operations Headquarters</label>
@@ -236,14 +240,14 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
                     <label>Credit Maturity (Days)</label>
                     <div className="input-wrap">
                       <Calendar size={16} className="input-icon" />
-                      <input type="number" name="credit_days" value={formData.credit_days} onChange={handleInputChange} />
+                      <input type="number" name="credit_days" value={formData.credit_days} onChange={handleInputChange} min="0" />
                     </div>
                   </div>
                   <div className="input-group-premium">
-                    <label>Exposure Limit (₹)</label>
+                    <label>Exposure Limit</label>
                     <div className="input-wrap">
                       <CreditCard size={16} className="input-icon" />
-                      <input type="number" name="credit_limit" value={formData.credit_limit} onChange={handleInputChange} />
+                      <input type="number" name="credit_limit" value={formData.credit_limit} onChange={handleInputChange} min="0" step="0.01" />
                     </div>
                   </div>
                   <div className="input-group-premium md:col-span-2">
@@ -257,163 +261,16 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
             </div>
           </div>
 
-          <div className="modal-footer-premium">
-            <button type="button" onClick={onClose} className="btn btn-ghost px-24" disabled={loading}>
+          <div style={{ marginTop: 40, paddingTop: 24, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: 16 }}>
+            <button type="button" onClick={onClose} className="btn btn-ghost" style={{ padding: '8px 24px' }} disabled={loading}>
               Discard
             </button>
-            <button type="submit" className="btn btn-primary px-32 h-44" disabled={loading}>
-              {loading ? <div className="spinner-mini"></div> : (vendor ? 'Update Profile' : 'Finalize Onboarding')}
+            <button type="submit" className="btn btn-primary" style={{ padding: '8px 32px', height: 44 }} disabled={loading}>
+              {loading ? <div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div> : (vendor ? 'Update Profile' : 'Finalize Onboarding')}
             </button>
           </div>
         </form>
       </div>
-
-      <style jsx>{`
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.4);
-          backdrop-filter: blur(8px);
-          display: grid;
-          place-items: center;
-          z-index: 1000;
-          padding: 20px;
-          animation: fade-in 0.3s ease;
-        }
-
-        .modal-content-premium {
-          background: var(--surface);
-          border: 1px solid var(--border-subtle);
-          border-radius: 28px;
-          width: 100%;
-          max-height: 90vh;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-          box-shadow: var(--shadow-2xl);
-          animation: slide-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-
-        .modal-header-premium {
-          padding: 24px 32px;
-          border-bottom: 1px solid var(--border-subtle);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          background: var(--surface-2);
-        }
-
-        .modal-icon-wrap {
-          width: 48px;
-          height: 48px;
-          border-radius: 14px;
-          background: var(--surface);
-          border: 1px solid var(--border-subtle);
-          display: grid;
-          place-items: center;
-          box-shadow: var(--shadow-sm);
-        }
-
-        .modal-close-btn {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          display: grid;
-          place-items: center;
-          color: var(--text-muted);
-          transition: all 0.2s;
-          cursor: pointer;
-        }
-        .modal-close-btn:hover { background: var(--error-bg); color: var(--error); }
-
-        .modal-body-premium {
-          padding: 32px;
-          overflow-y: auto;
-        }
-
-        .form-sections-grid { display: flex; flex-direction: column; gap: 40px; }
-        
-        .section-title {
-          font-size: 14px;
-          font-weight: 700;
-          color: var(--accent);
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          margin-bottom: 24px;
-          display: flex;
-          items-center gap: 8px;
-        }
-
-        .input-group-premium { display: flex; flex-direction: column; gap: 8px; }
-        .input-group-premium label { font-size: 12px; font-weight: 700; color: var(--muted); padding-left: 4px; }
-        
-        .input-wrap {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .input-icon {
-          position: absolute;
-          left: 16px;
-          color: var(--muted);
-          pointer-events: none;
-          transition: color 0.2s;
-        }
-
-        .input-wrap input, 
-        .input-wrap select, 
-        .input-wrap textarea {
-          width: 100%;
-          padding: 12px 16px 12px 44px;
-          background: var(--surface-2);
-          border: 1.5px solid var(--border-subtle);
-          border-radius: 14px;
-          font-size: 14px;
-          font-weight: 500;
-          transition: all 0.2s;
-          color: var(--text);
-        }
-
-        .input-wrap input:focus, 
-        .input-wrap select:focus, 
-        .input-wrap textarea:focus {
-          border-color: var(--accent);
-          background: var(--surface);
-          box-shadow: 0 0 0 4px var(--accent-soft);
-          outline: none;
-        }
-
-        .input-wrap input:focus + .input-icon,
-        .input-wrap textarea:focus + .input-icon {
-          color: var(--accent);
-        }
-
-        .error-text { font-size: 11px; color: var(--error); font-weight: 600; padding-left: 4px; }
-        input.error { border-color: var(--error) !important; }
-
-        .modal-footer-premium {
-          margin-top: 40px;
-          padding-top: 24px;
-          border-top: 1px solid var(--border-subtle);
-          display: flex;
-          justify-content: flex-end;
-          gap: 16px;
-        }
-
-        .spinner-mini {
-          width: 18px;
-          height: 18px;
-          border: 2px solid rgba(255,255,255,0.3);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-      `}</style>
     </div>
   );
 };

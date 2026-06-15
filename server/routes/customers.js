@@ -191,7 +191,7 @@ router.get('/customers/:id/dashboard', authenticateToken, async (req, res) => {
 
         // 2. All jobs for this customer
         const [jobs] = await pool.query(`
-            SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.status, j.created_at, b.name as branch_name
+            SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.status, j.created_at, j.payment_id, b.name as branch_name
             FROM sarga_jobs j
             LEFT JOIN sarga_branches b ON j.branch_id = b.id
             WHERE j.customer_id = ?

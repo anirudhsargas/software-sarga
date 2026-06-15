@@ -13,7 +13,7 @@ const ensureTables = async () => {
         await conn.query(`
             CREATE TABLE IF NOT EXISTS sarga_invoice_tracking (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                payment_id INT NOT NULL,
+                payment_id INT NOT NULL UNIQUE,
                 status ENUM('draft','pending','sent','paid','partially_paid','overdue','cancelled','refunded','on_hold') DEFAULT 'draft',
                 due_date DATE,
                 sent_at DATETIME,
@@ -26,6 +26,12 @@ const ensureTables = async () => {
                 FOREIGN KEY (payment_id) REFERENCES sarga_customer_payments(id) ON DELETE CASCADE
             )
         `);
+
+        try {
+            await conn.query(`ALTER TABLE sarga_invoice_tracking ADD UNIQUE KEY uq_payment_id (payment_id)`);
+        } catch (err) {
+            // Ignore if index/unique key already exists
+        }
 
         // Recurring invoice templates
         await conn.query(`

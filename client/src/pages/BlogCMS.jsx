@@ -14,11 +14,10 @@ const CATEGORIES = [
   'School & College Printing'
 ];
 
-const postsRef = useRef([]);
-const authorsRef = useRef([]);
-const analyticsRef = useRef(null);
-
 const BlogCMS = () => {
+  const postsRef = useRef([]);
+  const authorsRef = useRef([]);
+  const analyticsRef = useRef(null);
   const [posts, setPosts] = useState([]);
   const [authors, setAuthors] = useState([]);
   const [loading, setLoading] = useState(true);

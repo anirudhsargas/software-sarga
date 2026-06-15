@@ -16,7 +16,7 @@ const OrderForecastWidget = ({ branchId }) => {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
+        requestAnimationFrame(() => setMounted(true));
     }, []);
 
     // Call hooks unconditionally to preserve hook ordering across renders
@@ -104,8 +104,8 @@ const OrderForecastWidget = ({ branchId }) => {
 
             {/* Chart */}
             {mounted && (
-                <div style={{ width: '100%', minHeight: 300, marginBottom: 4, minWidth: 0 }}>
-                    <ResponsiveContainer width="100%" minHeight={300} minWidth={0}>
+                <div style={{ width: '100%', height: 300, marginBottom: 4 }}>
+                    <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--border, #e5e7eb)" />
                         <XAxis
@@ -219,4 +219,4 @@ const SkeletonLoader = () => (
     </section>
 );
 
-export default OrderForecastWidget;
+export default React.memo(OrderForecastWidget);

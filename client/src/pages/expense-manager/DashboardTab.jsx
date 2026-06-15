@@ -51,8 +51,8 @@ const DashboardTab = ({ branches, onPayment }) => {
     return (
       <div className="em-section">
         <div className="em-filter-row">
-          <label className="em-filter-label">Month:</label>
-          <input type="month" className="em-input em-input--sm" value={month} onChange={e => setMonth(e.target.value)} />
+          <label htmlFor="dash-month-empty" className="em-filter-label">Month:</label>
+          <input id="dash-month-empty" type="month" aria-label="Filter by month" className="em-input em-input--sm" value={month} onChange={e => setMonth(e.target.value)} />
         </div>
         <div className="em-empty-state">
           <div className="em-empty-state__icon"><IndianRupee size={48} strokeWidth={1.5} /></div>
@@ -80,12 +80,12 @@ const DashboardTab = ({ branches, onPayment }) => {
     <div className="em-section">
       {/* Filters */}
       <div className="em-filter-row">
-        <label className="em-filter-label">Month:</label>
-        <input type="month" className="em-input em-input--sm" value={month} onChange={e => setMonth(e.target.value)} />
+        <label htmlFor="dash-month" className="em-filter-label">Month:</label>
+        <input id="dash-month" type="month" aria-label="Filter by month" className="em-input em-input--sm" value={month} onChange={e => setMonth(e.target.value)} />
         {branches.length > 1 && (
           <>
-            <label className="em-filter-label">Branch:</label>
-            <select aria-label="Select option"  className="em-input em-input--sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+            <label htmlFor="dash-branch" className="em-filter-label">Branch:</label>
+            <select id="dash-branch" aria-label="Filter by branch" className="em-input em-input--sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
               <option value="">All Branches</option>
               {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>

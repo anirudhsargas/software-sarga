@@ -9,7 +9,17 @@ const ConfirmModal = ({ isOpen, title, message, confirmText, cancelText, type, o
     const primaryPress = btnClass === 'btn-primary' ? 'btn-press' : '';
 
     return (
-        <div role="button" tabIndex={0} className="modal-backdrop animate-fade-in" style={{ zIndex: 9999 }} onClick={onCancel}>
+        <div 
+            role="button" 
+            tabIndex={0} 
+            className="modal-backdrop animate-fade-in" 
+            style={{ zIndex: 9999 }} 
+            onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                    onCancel();
+                }
+            }}
+        >
             <div role="button" tabIndex={0} className="confirm-modal animate-scale-in" onClick={e => e.stopPropagation()}>
                 <div className="confirm-modal__icon" data-type={type}>
                     <Icon size={32} />

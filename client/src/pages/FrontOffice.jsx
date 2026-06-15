@@ -13,6 +13,7 @@ import { whatsappUrl, dueCollectionMessage, paymentReminderMessage } from '../ut
 import localDb from '../services/localDb';
 import auth from '../services/auth';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '../utils/formatters';
 
 import { serverNow, serverToday } from '../services/serverTime';
 import SkeletonLoader from '../components/SkeletonLoader';
@@ -517,13 +518,13 @@ const FrontOffice = () => {
             if (e.altKey && key === 'n') {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                navigate('/dashboard/billing');
+                navigate('/dashboard/sales/invoices', { state: { action: 'create' } });
             }
             // Alt+P → customer payments
             if (e.altKey && key === 'p') {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                navigate('/dashboard/customer-payments');
+                navigate('/dashboard/sales/payments');
             }
         };
         // Use capture phase to intercept before browser defaults if possible
@@ -532,7 +533,7 @@ const FrontOffice = () => {
     }, [navigate]);
 
     // ─── Helpers ─────────────────────────────────────────────────
-    const fmt = (v) => { const n = Number(v); return (v !== null && v !== undefined && v !== '' && !isNaN(n)) ? `₹${n.toLocaleString('en-IN')}` : '—'; };
+    const fmt = (v) => { const n = Number(v); return (v !== null && v !== undefined && v !== '' && !isNaN(n)) ? formatCurrency(n) : '—'; };
     const fmtDate = (d) => {
         if (!d) return '—';
         return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
@@ -693,12 +694,12 @@ const FrontOffice = () => {
 
             {/* ──── Quick Action Buttons ──── */}
             <div className="fo-quick-actions">
-                <button className="fo-action-btn fo-action-btn--primary" onClick={() => navigate('/dashboard/billing')}>
+                <button className="fo-action-btn fo-action-btn--primary" onClick={() => navigate('/dashboard/sales/invoices', { state: { action: 'create' } })}>
                     <Plus size={20} />
                     <span>New Order</span>
                     <kbd>Alt+N</kbd>
                 </button>
-                <button className="fo-action-btn fo-action-btn--success" onClick={() => navigate('/dashboard/customer-payments')}>
+                <button className="fo-action-btn fo-action-btn--success" onClick={() => navigate('/dashboard/sales/payments')}>
                     <Wallet size={20} />
                     <span>Take Payment</span>
                     <kbd>Alt+P</kbd>

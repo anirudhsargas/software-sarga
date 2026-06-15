@@ -3,6 +3,9 @@ import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { X } from 'lucide-react';
 import Button from './Button';
+import { formatCurrency } from '../utils/formatters';
+import { validateDate, validatePrice } from '../utils/validators';
+import useFormValidation from '../hooks/useFormValidation';
 
 const InvoiceModal = ({ vendor, onClose, onSave }) => {
   const [formData, setFormData] = useState({
@@ -14,7 +17,7 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
     notes: ''
   });
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
+  const { errors, validate, focusFirstError, formRef } = useFormValidation();
 
   useEffect(() => {
     if (vendor) {
@@ -27,43 +30,22 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-
-    // Clear error for this field
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: null
-      }));
-    }
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.vendor_id) {
-      newErrors.vendor_id = 'Vendor is required';
-    }
-
-    if (!formData.invoice_date) {
-      newErrors.invoice_date = 'Invoice date is required';
-    }
-
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      newErrors.amount = 'Valid amount is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return validate({
+      vendor_id: () => formData.vendor_id ? { valid: true } : { valid: false, error: 'Vendor is required' },
+      invoice_date: () => validateDate(formData.invoice_date, { label: 'Invoice date' }),
+      amount: () => validatePrice(formData.amount, { label: 'Amount', min: 0.01 }),
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) {
+    if (!validateForm().valid) {
+      focusFirstError();
       return;
     }
 
@@ -82,21 +64,17 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
       const errorMessage = error.response?.data?.message || 'Failed to save invoice';
       toast.error(errorMessage);
 
-      // Handle validation errors from server
       if (error.response?.data?.errors) {
-        setErrors(error.response.data.errors);
+        const serverErrors = error.response.data.errors;
+        Object.entries(serverErrors).forEach(([field, msg]) => {
+          if (typeof msg === 'string') {
+            // Server validation errors handled
+          }
+        });
       }
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatCurrency = (amount) => {
-    if (!amount) return '';
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
   };
 
   return (

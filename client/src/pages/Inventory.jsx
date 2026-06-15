@@ -1,7 +1,7 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, List, Grid, TrendingUp, TrendingDown, IndianRupee, BarChart3, Clock, ShoppingCart, ArrowLeftRight, Bell, Image as ImageIcon } from 'lucide-react';
+import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, List, Grid, TrendingUp, TrendingDown, IndianRupee, BarChart3, Clock, ShoppingCart, ArrowLeftRight, Bell, Image as ImageIcon, Layers, Camera } from 'lucide-react';
 import api, { imgUrl } from '../services/api';
 import auth from '../services/auth';
 import localDb from '../services/localDb';
@@ -11,6 +11,9 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import SmartBillUpload from './expense-manager/SmartBillUpload';
 import './InventoryModern.css';
+
+import ScannerModal from '../components/ScannerModal';
+import ScannerErrorBoundary from '../components/ScannerErrorBoundary';
 
 const emptyItem = {
     name: '',
@@ -82,6 +85,10 @@ const Inventory = () => {
     // Bill Upload state
     const [showSmartUpload, setShowSmartUpload] = useState(false);
 
+    // Scanner state
+    const [showScanner, setShowScanner] = useState(false);
+    const handleCloseScanner = useCallback(() => setShowScanner(false), []);
+
     // Inter-branch stock request state
     const [showStockRequestModal, setShowStockRequestModal] = useState(false);
     const [stockRequestData, setStockRequestData] = useState({ inventory_item_id: null, item_name: '', notes: '' });
@@ -99,6 +106,58 @@ const Inventory = () => {
     const [detailItem, setDetailItem] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const navigate = useNavigate();
+
+    const [tabCounts, setTabCounts] = useState({ general: 0, paper: 0, consumables: 0 });
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchTabCounts = async () => {
+            try {
+                const [genRes, paperRes, consRes] = await Promise.all([
+                    api.get('/inventory', { params: { limit: 1 } }),
+                    api.get('/paperInventory/stock'),
+                    api.get('/inventory/consumables')
+                ]);
+                if (!isMounted) return;
+                
+                const generalCount = genRes.data?.total || (Array.isArray(genRes.data) ? genRes.data.length : 0);
+                const paperCount = Array.isArray(paperRes.data) ? paperRes.data.length : 0;
+                const consumablesCount = Array.isArray(consRes.data) ? consRes.data.length : 0;
+
+                setTabCounts({
+                    general: generalCount,
+                    paper: paperCount,
+                    consumables: consumablesCount
+                });
+            } catch (err) {
+                console.error('Error fetching tab counts:', err);
+            }
+        };
+        fetchTabCounts();
+        return () => { isMounted = false; };
+    }, []);
+
+    const handleScan = useCallback((code) => {
+        console.log('[Inventory] handleScan called with:', code);
+        const normalized = (code || '').replace(/\s+/g, '').toUpperCase();
+        if (!normalized) return;
+
+        // Try to find the scanned item in current inventory by SKU or name
+        const matched = items.find(i =>
+            (i.sku || '').toUpperCase() === normalized ||
+            (i.name || '').toUpperCase() === normalized ||
+            (i.product_code || '').toUpperCase() === normalized
+        );
+        if (matched) {
+            setSearchTerm(matched.sku || matched.name || '');
+            setDebouncedSearch(matched.sku || matched.name || '');
+            toast.success(`Found: ${matched.name}`);
+        } else {
+            setSearchTerm(normalized);
+            setDebouncedSearch(normalized);
+            toast('Scanned code set as search term — no exact match in current view', { icon: '🔍' });
+        }
+    }, [items]);
 
     useEffect(() => {
         fetchInventory();
@@ -151,6 +210,7 @@ const Inventory = () => {
                 else if (showConsumeModal) setShowConsumeModal(false);
                 else if (showRestockModal) setShowRestockModal(false);
                 else if (showSmartUpload) setShowSmartUpload(false);
+                else if (showScanner) setShowScanner(false);
                 else if (showDetailModal) setShowDetailModal(false);
             else if (showStockRequestModal) setShowStockRequestModal(false);
             else if (showStockRequestsPanel) setShowStockRequestsPanel(false);
@@ -158,7 +218,7 @@ const Inventory = () => {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [showAddModal, showEditModal, showPrintModal, showConsumeModal, showRestockModal, showSmartUpload, showDetailModal, showStockRequestModal, showStockRequestsPanel]);
+    }, [showAddModal, showEditModal, showPrintModal, showConsumeModal, showRestockModal, showSmartUpload, showScanner, showDetailModal, showStockRequestModal, showStockRequestsPanel]);
 
     const fetchInventory = async () => {
         setLoading(true);
@@ -713,74 +773,77 @@ const Inventory = () => {
             {/* ─── Header ─── */}
             <div className="inv-header">
                 <div className="inv-header-left">
+                    <div className="text-xs uppercase tracking-wider text-accent font-semibold mb-2">Inventory System / General</div>
                     <h1 className="inv-header-title">Inventory</h1>
                     <p className="inv-header-desc">Manage stock, prices, and reorder levels.</p>
                 </div>
-                <div className="row gap-sm">
-                    <button
-                        className="btn btn-ghost"
-                        onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                        title={viewMode === 'grid' ? 'Switch to List View' : 'Switch to Grid View'}
-                    >
-                        {viewMode === 'grid' ? <List size={18} /> : <Grid size={18} />}
-                    </button>
-                    {items.length > 0 && (
-                        <button className="btn btn-ghost" onClick={handlePrintNewItemsLabels}>
-                            <Printer size={18} />
-                        </button>
-                    )}
-                    <button
-                        className="btn btn-ghost"
-                        style={{ position: 'relative' }}
-                        onClick={() => { fetchStockRequests(); setShowStockRequestsPanel(true); }}
-                    >
-                        <Bell size={18} />
-                        {pendingRequestsCount > 0 && (
-                            <span style={{ position: 'absolute', top: 2, right: 2, background: 'var(--error)', color: 'var(--on-accent)', borderRadius: '50%', width: 16, height: 16, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                                {pendingRequestsCount}
-                            </span>
-                        )}
-                    </button>
-                    {isAdmin && (
-                        <button className="btn btn-ghost" onClick={() => setShowSmartUpload(true)}>
-                            <Printer size={18} />
-                        </button>
-                    )}
-                    <button
-                        className="btn btn-primary"
-                        onClick={() => setShowAddModal(true)}
-                    >
-                        <Plus size={18} />
-                        <span>Add Item</span>
-                    </button>
+            </div>
+
+            {/* ─── Segmented Tab Navigation ─── */}
+            <div className="inv-tabs">
+                <div 
+                    onClick={() => navigate('/dashboard/inventory')}
+                    className="inv-tab inv-tab--active"
+                >
+                    <div className="inv-tab-icon">
+                        <Package size={20} />
+                    </div>
+                    <div className="inv-tab-info">
+                        <span className="inv-tab-label">General Inventory</span>
+                        <span className="inv-tab-count">{tabCounts.general.toLocaleString()} Items</span>
+                    </div>
+                </div>
+                <div 
+                    onClick={() => navigate('/dashboard/inventory/paper')}
+                    className="inv-tab"
+                >
+                    <div className="inv-tab-icon">
+                        <Layers size={20} />
+                    </div>
+                    <div className="inv-tab-info">
+                        <span className="inv-tab-label">Paper Stock</span>
+                        <span className="inv-tab-count">{tabCounts.paper.toLocaleString()} Types</span>
+                    </div>
+                </div>
+                <div 
+                    onClick={() => navigate('/dashboard/inventory/consumables')}
+                    className="inv-tab"
+                >
+                    <div className="inv-tab-icon">
+                        <ShoppingCart size={20} />
+                    </div>
+                    <div className="inv-tab-info">
+                        <span className="inv-tab-label">Consumables</span>
+                        <span className="inv-tab-count">{tabCounts.consumables.toLocaleString()} Items</span>
+                    </div>
                 </div>
             </div>
 
             {/* ─── KPI Row ─── */}
             <div className="inv-kpi-row">
                 <div className="inv-kpi-card">
-                    <div className="inv-kpi-icon"><Package size={18} /></div>
+                    <div className="inv-kpi-icon"><Package size={16} /></div>
                     <div className="inv-kpi-info">
                         <span className="inv-kpi-value">{total}</span>
                         <span className="inv-kpi-label">Total Items</span>
                     </div>
                 </div>
                 <div className="inv-kpi-card">
-                    <div className="inv-kpi-icon"><Minus size={18} /></div>
+                    <div className="inv-kpi-icon"><Minus size={16} /></div>
                     <div className="inv-kpi-info">
                         <span className="inv-kpi-value" style={{ color: lowStockCount > 0 ? 'var(--warning)' : 'var(--text)' }}>{lowStockCount}</span>
                         <span className="inv-kpi-label">Low Stock</span>
                     </div>
                 </div>
                 <div className="inv-kpi-card">
-                    <div className="inv-kpi-icon"><BarChart3 size={18} /></div>
+                    <div className="inv-kpi-icon"><IndianRupee size={16} /></div>
                     <div className="inv-kpi-info">
                         <span className="inv-kpi-value">₹{inventoryValue.toLocaleString()}</span>
                         <span className="inv-kpi-label">Inventory Value</span>
                     </div>
                 </div>
                 <div className="inv-kpi-card">
-                    <div className="inv-kpi-icon"><Bell size={18} /></div>
+                    <div className="inv-kpi-icon"><Bell size={16} /></div>
                     <div className="inv-kpi-info">
                         <span className="inv-kpi-value" style={{ color: pendingRequestsCount > 0 ? 'var(--warning)' : 'var(--text)' }}>{pendingRequestsCount}</span>
                         <span className="inv-kpi-label">Pending Requests</span>
@@ -790,6 +853,7 @@ const Inventory = () => {
 
             {/* ─── Toolbar ─── */}
             <div className="inv-toolbar">
+                {/* Row 1: Search and Primary Add Item Action */}
                 <div className="inv-toolbar-row">
                     <div className="inv-search">
                         <span className="inv-search-icon"><Search size={16} /></span>
@@ -807,91 +871,172 @@ const Inventory = () => {
                             </button>
                         )}
                     </div>
-                    {selectedIds.length > 0 && (
-                        <button className="btn btn-ghost btn-sm" onClick={handlePrintLabels}>
-                            <Printer size={16} />
-                            <span>Print ({selectedIds.length})</span>
-                        </button>
-                    )}
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => setShowAddModal(true)}
+                    >
+                        <Plus size={18} />
+                        <span>Add Item</span>
+                    </button>
                 </div>
 
-                {/* ─── Filter Chips ─── */}
-                <div className="inv-chips">
-                    <div className="inv-chip">
-                        <select
-                            name="filterType"
-                            value={filterType}
-                            onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All Types</option>
-                            <option value="Retail">Retail</option>
-                            <option value="Consumable">Consumable</option>
-                        </select>
-                    </div>
-                    <div className="inv-chip">
-                        <select
-                            name="filterCategory"
-                            value={filterCategory}
-                            onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All Categories</option>
-                            {hierarchy.map(cat => (
-                                <optgroup key={cat.id} label={cat.name}>
-                                    {cat.subcategories.map(sub => (
-                                        <option key={sub.id} value={sub.name}>{sub.name}</option>
-                                    ))}
-                                </optgroup>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="inv-chip">
-                        <select
-                            name="filterStatus"
-                            value={filterStatus}
-                            onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All Statuses</option>
-                            <option value="ok">Stock OK</option>
-                            <option value="low">Low Stock</option>
-                        </select>
-                    </div>
-                    <div className="inv-chip" style={{ position: 'relative' }}>
-                        <input
-                            name="filterVendor"
-                            placeholder="Vendor..."
-                            value={filterVendor}
-                            onChange={(e) => { setFilterVendor(e.target.value); setPage(1); }}
-                            onFocus={() => setShowVendorSuggestions(true)}
-                            onBlur={() => setShowVendorSuggestions(false)}
-                            style={{ background: 'none', border: 'none', color: 'inherit', fontSize: 12, fontWeight: 500, padding: 0, outline: 'none', width: 80 }}
-                        />
-                        {showVendorSuggestions && vendorSuggestions.length > 0 && (
-                            <div className="dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
-                                {vendorSuggestions.map(v => (
-                                    <div key={v.id || v.name} className="dropdown-item" onMouseDown={() => { setFilterVendor(v.name); setPage(1); setShowVendorSuggestions(false); }}>
-                                        <div className="text-sm font-medium">{v.name}</div>
-                                        {v.phone && <div className="muted text-xs">{v.phone}</div>}
-                                    </div>
+                {/* Row 2: Filters and Secondary Action Buttons */}
+                <div className="inv-toolbar-row justify-between wrap gap-sm">
+                    {/* Filter Chips */}
+                    <div className="inv-chips">
+                        <div className="inv-chip">
+                            <label htmlFor="inv-type" className="sr-only">
+                                Filter by Type
+                            </label>
+                            <select
+                                id="inv-type"
+                                name="filterType"
+                                aria-label="Filter by Type"
+                                value={filterType}
+                                onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
+                            >
+                                <option value="">All Types</option>
+                                <option value="Retail">Retail</option>
+                                <option value="Consumable">Consumable</option>
+                            </select>
+                        </div>
+                        <div className="inv-chip">
+                            <label htmlFor="inv-category" className="sr-only">
+                                Filter by Category
+                            </label>
+                            <select
+                                id="inv-category"
+                                name="filterCategory"
+                                aria-label="Filter by Category"
+                                value={filterCategory}
+                                onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }}
+                            >
+                                <option value="">All Categories</option>
+                                {hierarchy.map(cat => (
+                                    <optgroup key={cat.id} label={cat.name}>
+                                        {cat.subcategories.map(sub => (
+                                            <option key={sub.id} value={sub.name}>{sub.name}</option>
+                                        ))}
+                                    </optgroup>
                                 ))}
-                            </div>
+                            </select>
+                        </div>
+                        <div className="inv-chip">
+                            <label htmlFor="inv-status" className="sr-only">
+                                Filter by Status
+                            </label>
+                            <select
+                                id="inv-status"
+                                name="filterStatus"
+                                aria-label="Filter by Status"
+                                value={filterStatus}
+                                onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
+                            >
+                                <option value="">All Statuses</option>
+                                <option value="ok">Stock OK</option>
+                                <option value="low">Low Stock</option>
+                            </select>
+                        </div>
+                        <div className="inv-chip" style={{ position: 'relative' }}>
+                            <input
+                                name="filterVendor"
+                                placeholder="Vendor..."
+                                value={filterVendor}
+                                onChange={(e) => { setFilterVendor(e.target.value); setPage(1); }}
+                                onFocus={() => setShowVendorSuggestions(true)}
+                                onBlur={() => setShowVendorSuggestions(false)}
+                                style={{ background: 'none', border: 'none', color: 'inherit', fontSize: 12, fontWeight: 500, padding: 0, outline: 'none', width: 80 }}
+                            />
+                            {showVendorSuggestions && vendorSuggestions.length > 0 && (
+                                <div className="dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
+                                    {vendorSuggestions.map(v => (
+                                        <div key={v.id || v.name} className="dropdown-item" onMouseDown={() => { setFilterVendor(v.name); setPage(1); setShowVendorSuggestions(false); }}>
+                                            <div className="text-sm font-medium">{v.name}</div>
+                                            {v.phone && <div className="muted text-xs">{v.phone}</div>}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="inv-chip">
+                            <label htmlFor="inv-pagination" className="sr-only">
+                                Items per page
+                            </label>
+                            <select
+                                id="inv-pagination"
+                                name="perPage"
+                                aria-label="Items per page"
+                                value={limit}
+                                onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                            >
+                                <option value={20}>20 / page</option>
+                                <option value={50}>50 / page</option>
+                                <option value={100}>100 / page</option>
+                            </select>
+                        </div>
+                        {(filterType || filterCategory || filterStatus || filterVendor) && (
+                            <button className="inv-chip-clear" onClick={() => { setFilterType(''); setFilterCategory(''); setFilterStatus(''); setFilterVendor(''); setPage(1); }}>
+                                <X size={12} /> Clear
+                            </button>
                         )}
                     </div>
-                    <div className="inv-chip">
-                        <select
-                            name="perPage"
-                            value={limit}
-                            onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-                        >
-                            <option value={20}>20 / page</option>
-                            <option value={50}>50 / page</option>
-                            <option value={100}>100 / page</option>
-                        </select>
-                    </div>
-                    {(filterType || filterCategory || filterStatus || filterVendor) && (
-                        <button className="inv-chip-clear" onClick={() => { setFilterType(''); setFilterCategory(''); setFilterStatus(''); setFilterVendor(''); setPage(1); }}>
-                            <X size={12} /> Clear
+
+                    {/* Secondary Action Buttons */}
+                    <div className="row gap-xs items-center">
+                        {/* Scan QR Code */}
+                        <button type="button" className="inv-action-btn" onClick={() => { console.log('[Inventory] Scan button clicked'); setShowScanner(true); }} title="Scan QR / Barcode">
+                            <Camera size={16} />
                         </button>
-                    )}
+
+                        {/* View Mode Switcher */}
+                        <button
+                            type="button"
+                            className="inv-action-btn"
+                            onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                            title={viewMode === 'grid' ? 'Switch to List View' : 'Switch to Grid View'}
+                        >
+                            {viewMode === 'grid' ? <List size={16} /> : <Grid size={16} />}
+                        </button>
+
+                        {/* Print Selected Labels */}
+                        {selectedIds.length > 0 && (
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={handlePrintLabels} title={`Print (${selectedIds.length}) selected`}>
+                                <Printer size={14} />
+                                <span>Print ({selectedIds.length})</span>
+                            </button>
+                        )}
+
+                        {/* Print Labels for New Items */}
+                        {items.length > 0 && (
+                            <button type="button" className="inv-action-btn" onClick={handlePrintNewItemsLabels} title="Print Labels for New Items">
+                                <Printer size={16} />
+                            </button>
+                        )}
+
+                        {/* Pending Stock Requests Bell */}
+                        <button
+                            type="button"
+                            className="inv-action-btn"
+                            style={{ position: 'relative' }}
+                            onClick={() => { fetchStockRequests(); setShowStockRequestsPanel(true); }}
+                            title="Stock Requests"
+                        >
+                            <Bell size={16} />
+                            {pendingRequestsCount > 0 && (
+                                <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--error)', color: 'var(--on-accent)', borderRadius: '50%', width: 14, height: 14, fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                                    {pendingRequestsCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {/* Smart Bill Upload */}
+                        {isAdmin && (
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/expenses/upload-bills?redirect=/dashboard/inventory')} title="Smart Bill Upload (Scan/Upload)">
+                                <ShoppingCart size={14} />
+                                <span>Smart Upload</span>
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -973,7 +1118,7 @@ const Inventory = () => {
                                                     <div role="button" tabIndex={0} className="inv-item-cell" onClick={() => openItemDetail(item.id)}>
                                                         <div className="inv-item-thumb">
                                                             {resolveImageSrc(item) ? (
-                                                                <SecureImage src={resolveImageSrc(item)} alt={item.name} />
+                                                                <SecureImage src={resolveImageSrc(item)} alt={item.name} loading="lazy" decoding="async" width="40" height="40" />
                                                             ) : (
                                                                 item.linked_product_id ? <Link size={14} /> : <Package size={16} />
                                                             )}
@@ -1078,8 +1223,8 @@ const Inventory = () => {
                             <div key={item.id} className="card" style={{ padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--surface)', border: '1px solid var(--border)' }}>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                                     <div role="button" tabIndex={0} style={{ width: 84, height: 84, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface-2)', cursor: 'pointer' }} onClick={() => openItemDetail(item.id)}>
-                                        {resolveImageSrc(item) ? <SecureImage src={resolveImageSrc(item)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>No Image</div>}
-                                    </div>
+{resolveImageSrc(item) ? <SecureImage src={resolveImageSrc(item)} alt={item.name} loading="lazy" decoding="async" width="84" height="84" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>No Image</div>}
+                                                    </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                             <div style={{ minWidth: 0 }}>
@@ -1894,7 +2039,7 @@ const Inventory = () => {
                                     {resolveImageSrc(detailItem) ? (
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 120, flexShrink: 0 }}>
                                             <div style={{ width: 120, height: 120, borderRadius: 12, overflow: 'hidden', border: '2px solid var(--border)', background: 'var(--surface-alt)' }}>
-                                                <SecureImage src={resolveImageSrc(detailItem)} alt={detailItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                <SecureImage src={resolveImageSrc(detailItem)} alt={detailItem.name} loading="lazy" decoding="async" width="120" height="120" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                             </div>
                                             <div style={{ marginTop: 8 }}>
                                                 <span className="muted text-xs" style={{ fontFamily: 'monospace', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>{getImageId(resolveImageSrc(detailItem))}</span>
@@ -2356,6 +2501,16 @@ const Inventory = () => {
                     </div>
                 </div>
             )}
+
+            <div style={{ display: showScanner ? '' : 'none' }}>
+                <ScannerErrorBoundary onClose={handleCloseScanner}>
+                    <ScannerModal
+                        isOpen={showScanner}
+                        onClose={handleCloseScanner}
+                        onScan={handleScan}
+                    />
+                </ScannerErrorBoundary>
+            </div>
         </div >
     );
 };

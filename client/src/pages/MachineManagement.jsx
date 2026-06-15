@@ -13,6 +13,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import { syncManager } from '../services/syncWorkerManager';
 import MeterVerification from '../components/MeterVerification';
+import { formatCurrency, formatCurrencyDecimal } from '../utils/formatters';
 import './MachineManagement.css';
 
 const MachineManagement = () => {
@@ -419,7 +420,7 @@ const MachineManagement = () => {
     };
 
     const fmt = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 });
-    const fmtCur = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    const fmtCur = formatCurrencyDecimal;
 
     const filteredMachines = filterType === 'All'
         ? machines

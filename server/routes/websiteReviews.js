@@ -20,7 +20,7 @@ function invalidateCache(key) {
 }
 
 // ─── GET /api/website/reviews — public reviews (cached) ───
-router.get('/reviews', asyncHandler(async (req, res) => {
+router.get('/website/reviews', asyncHandler(async (req, res) => {
   const cached = getFromCache('reviews');
   if (cached) return res.json(cached);
 
@@ -39,7 +39,7 @@ router.get('/reviews', asyncHandler(async (req, res) => {
 }));
 
 // ─── GET /api/website/reviews/stats — aggregate rating stats (cached) ───
-router.get('/reviews/stats', asyncHandler(async (req, res) => {
+router.get('/website/reviews/stats', asyncHandler(async (req, res) => {
   const cached = getFromCache('reviews-stats');
   if (cached) return res.json(cached);
 
@@ -59,7 +59,7 @@ router.get('/reviews/stats', asyncHandler(async (req, res) => {
 }));
 
 // ─── POST /api/website/reviews/fetch-google — admin: trigger Google Places fetch ───
-router.post('/reviews/fetch-google', asyncHandler(async (req, res) => {
+router.post('/website/reviews/fetch-google', asyncHandler(async (req, res) => {
   const PLACE_ID = process.env.GOOGLE_PLACE_ID;
   const API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 

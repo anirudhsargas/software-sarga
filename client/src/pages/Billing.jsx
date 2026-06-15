@@ -7,12 +7,9 @@ import SecureImage from '../components/SecureImage';
 import auth from '../services/auth';
 import { serverToday } from '../services/serverTime';
 import { Camera, Download, Printer, Scissors, WifiOff, Plus, Minus, AlertCircle, Tag, X, CheckCircle, Loader2 } from 'lucide-react';
-import PaperOptimizer from '../components/PaperOptimizer';
 import { calculateProductPrice } from '../utils/pricing';
-import { downloadInvoicePDF, printInvoicePDF } from '../utils/invoicePdf';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
-import UpsellSuggestions from '../components/UpsellSuggestions';
 import { GST_RATE } from '../constants';
 import offlineDb from '../services/offlineDb';
 import { useOnlineStatus } from '../hooks/useOffline';
@@ -26,6 +23,8 @@ const defaultUpsell = { open: false, suggestions: [], loading: false, baseProduc
 const customerTypes = ['Walk-in', 'Retail', 'Offset'];
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
 const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
+const PaperOptimizer = React.lazy(() => import('../components/PaperOptimizer'));
+const UpsellSuggestions = React.lazy(() => import('../components/UpsellSuggestions'));
 
 const Billing = () => {
     useSEO('Billing');
@@ -397,18 +396,69 @@ const Billing = () => {
 
   useEffect(() => {
     const prefill = location.state?.customer;
-    if (!prefill) return;
-    setForm((prev) => ({
-      ...prev,
-      type: prefill.type || prev.type,
-      mobile: prefill.mobile || '',
-      name: prefill.name || '',
-      email: prefill.email || '',
-      address: prefill.address || '',
-      gst: prefill.gst || ''
-    }));
-    if (prefill.id || prefill.mobile) {
-      setExistingCustomer(prefill);
+    if (prefill) {
+      setForm((prev) => ({
+        ...prev,
+        type: prefill.type || prev.type,
+        mobile: prefill.mobile || '',
+        name: prefill.name || '',
+        email: prefill.email || '',
+        address: prefill.address || '',
+        gst: prefill.gst || ''
+      }));
+      if (prefill.id || prefill.mobile) {
+        setExistingCustomer(prefill);
+      }
+    }
+
+    const prefillOrderLine = location.state?.prefillOrderLine || (location.state?.job ? {
+      product_id: location.state.job.product_id,
+      product_name: location.state.job.product_name || location.state.job.job_name,
+      quantity: location.state.job.quantity || 1,
+      unit_price: location.state.job.unit_price || location.state.job.total_amount,
+      total_amount: location.state.job.total_amount || 0,
+      category: location.state.job.category || '',
+      job_id: location.state.job.id,
+      job_number: location.state.job.job_number
+    } : null);
+
+    if (prefillOrderLine) {
+      const line = {
+        id: `${prefillOrderLine.product_id || 'manual'}-${Date.now()}`,
+        product_id: prefillOrderLine.product_id || null,
+        product_name: prefillOrderLine.product_name,
+        quantity: Number(prefillOrderLine.quantity) || 1,
+        unit_price: Number(prefillOrderLine.unit_price) || 0,
+        total_amount: Number(prefillOrderLine.total_amount) || 0,
+        category: prefillOrderLine.category || '',
+        job_id: prefillOrderLine.job_id || null,
+        job_number: prefillOrderLine.job_number || null,
+        book_type: 'Offset'
+      };
+      setOrderLines([line]);
+
+      // Prefill customer from job if job object is passed
+      if (location.state?.job) {
+        const job = location.state.job;
+        setForm((prev) => ({
+          ...prev,
+          type: job.customer_type || 'Walk-in',
+          mobile: job.customer_mobile || job.mobile || '',
+          name: job.customer_name || '',
+          email: job.customer_email || '',
+          address: job.customer_address || '',
+          gst: job.customer_gst || ''
+        }));
+        setExistingCustomer({
+          id: job.customer_id,
+          name: job.customer_name,
+          mobile: job.customer_mobile || job.mobile || '',
+          type: job.customer_type || 'Walk-in',
+          email: job.customer_email || '',
+          address: job.customer_address || '',
+          gst: job.customer_gst || ''
+        });
+      }
     }
   }, [location.state]);
 

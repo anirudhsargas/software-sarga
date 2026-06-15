@@ -2,7 +2,7 @@ import React from 'react';
 import useTilt from '../../hooks/useTilt';
 import './card3dstack.css';
 
-export default function Card3DStack() {
+const Card3DStack = React.memo(function Card3DStack() {
   const { ref } = useTilt();
 
   return (
@@ -15,4 +15,6 @@ export default function Card3DStack() {
       <div className="card3d-badge">Turnaround — 24 hrs ⚡</div>
     </div>
   );
-}
+});
+
+export default Card3DStack;

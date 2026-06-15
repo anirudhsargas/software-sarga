@@ -278,17 +278,69 @@ export async function getVendors(filters = {}) {
 export async function saveVendor(vendor) {
     const isNew = !vendor.id;
     const id = vendor.id || generateLocalId('VEND');
-    const result = await offlineDb.save('vendors', {
+    const record = {
         ...vendor,
         id,
         updated_at: new Date().toISOString(),
         created_at: vendor.created_at || new Date().toISOString()
-    });
+    };
+    
+    // Save to IndexedDB first
+    const result = await offlineDb.save('vendors', record);
+
+    // Try to sync to server (non-blocking, best-effort)
+    if (navigator.onLine) {
+        try {
+            const isTempId = String(id).startsWith('VEND');
+            if (isNew || isTempId) {
+                const res = await api.post('expense-vendors', {
+                    name: vendor.name,
+                    type: vendor.type || 'Vendor',
+                    contact_person: vendor.contact_person || null,
+                    phone: vendor.phone || null,
+                    address: vendor.address || null,
+                    gstin: vendor.gstin || null,
+                    order_link: vendor.order_link || null,
+                    branch_id: vendor.branch_id || null
+                });
+                if (res.data && res.data.id) {
+                    // Overwrite with server ID
+                    await offlineDb.delete('vendors', id);
+                    await offlineDb.save('vendors', { ...record, id: res.data.id });
+                    return { id: res.data.id, isNew };
+                }
+            } else {
+                await api.put(`expense-vendors/${id}`, {
+                    name: vendor.name,
+                    type: vendor.type || 'Vendor',
+                    contact_person: vendor.contact_person || null,
+                    phone: vendor.phone || null,
+                    address: vendor.address || null,
+                    gstin: vendor.gstin || null,
+                    order_link: vendor.order_link || null,
+                    branch_id: vendor.branch_id || null
+                });
+            }
+        } catch (err) {
+            console.error('Failed to sync vendor save to server:', err);
+        }
+    }
+
     return { id: result, isNew };
 }
 
 export async function deleteVendor(id) {
     await offlineDb.delete('vendors', id);
+    if (navigator.onLine) {
+        const isTempId = String(id).startsWith('VEND');
+        if (!isTempId) {
+            try {
+                await api.delete(`expense-vendors/${id}`);
+            } catch (err) {
+                console.error('Failed to sync vendor deletion to server:', err);
+            }
+        }
+    }
 }
 
 export async function getVendorLedger(vendorId) {

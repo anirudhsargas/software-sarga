@@ -57,34 +57,40 @@ router.get('/customer-payments', authenticateToken, async (req, res) => {
         const params = [];
 
         // Branch filter for non-admin
-        const branchScope = await branchFilter(req, { column: 'branch_id', allowPrivilegedQuery: false });
+        const branchScope = await branchFilter(req, { column: 'cp.branch_id', allowPrivilegedQuery: false });
         if (branchScope.clause && branchScope.clause.trim().length > 0) {
             whereClauses.push(branchScope.clause.replace(/^\s*AND\s*/, '').trim());
             params.push(...branchScope.params);
         }
 
         if (customer_id) {
-            whereClauses.push('customer_id = ?');
+            whereClauses.push('cp.customer_id = ?');
             params.push(customer_id);
         }
         if (startDate) {
-            whereClauses.push('payment_date >= ?');
+            whereClauses.push('cp.payment_date >= ?');
             params.push(startDate);
         }
         if (endDate) {
-            whereClauses.push('payment_date <= ?');
+            whereClauses.push('cp.payment_date <= ?');
             params.push(endDate);
         }
 
         const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
-        const baseFrom = `FROM sarga_customer_payments ${whereSection}`;
+        const baseFrom = `FROM sarga_customer_payments cp ${whereSection}`;
 
         // Use proper destructuring for mysql2/promise
         const [countRows] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
         const total = countRows && countRows[0] ? countRows[0].total : 0;
         
         const [rows] = await pool.query(
-            `SELECT id, customer_id, customer_name, customer_mobile, total_amount, advance_paid, balance_amount, payment_method, verification_status, reference_number, description, payment_date, created_at, is_internal, internal_department ${baseFrom} ORDER BY payment_date DESC, created_at DESC LIMIT ? OFFSET ?`,
+            `SELECT cp.id, cp.customer_id, cp.customer_name, cp.customer_mobile, cp.bill_amount, cp.total_amount, cp.advance_paid, cp.balance_amount, cp.payment_method, cp.verification_status, cp.reference_number, cp.description, cp.payment_date, cp.created_at, cp.is_internal, cp.internal_department,
+                    cp.net_amount, cp.sgst_amount, cp.cgst_amount, cp.discount_percent, cp.discount_amount, cp.order_lines,
+                    i.invoice_number, it.status as invoice_status, it.due_date as invoice_due_date
+             ${baseFrom}
+             LEFT JOIN sarga_invoices i ON i.payment_id = cp.id
+             LEFT JOIN sarga_invoice_tracking it ON it.payment_id = cp.id
+             ORDER BY cp.payment_date DESC, cp.created_at DESC LIMIT ? OFFSET ?`,
             [...params, limit, offset]
         );
 

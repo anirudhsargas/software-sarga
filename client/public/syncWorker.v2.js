@@ -200,12 +200,14 @@ const downloadMasterData = async (db) => {
     { key: 'inventory', url: '/api/inventory', store: 'inventory' },
     // JOBS SYNC: Download recent jobs to ensure local status/balance accuracy
     { key: 'jobs', url: '/api/jobs?limit=500', store: 'jobs' },
+    // VENDORS SYNC: Download expense vendors to sync IndexedDB and server sarga_vendors table
+    { key: 'vendors', url: '/api/expense-vendors', store: 'vendors' },
   ];
 
   for (const item of downloads) {
     try {
-      // Check if cache is fresh — jobs use a shorter 2-min TTL so deletions reflect quickly
-      const cacheTTL = item.key === 'jobs' ? 2 * 60 * 1000 : 30 * 60 * 1000;
+      // Check if cache is fresh — jobs and vendors use a shorter 2-min TTL so deletions reflect quickly
+      const cacheTTL = (item.key === 'jobs' || item.key === 'vendors') ? 2 * 60 * 1000 : 30 * 60 * 1000;
       const meta = await getAllFromStore(db, 'sync_meta');
       const lastSync = meta.find(m => m.id === item.key);
       const age = lastSync ? Date.now() - lastSync.time : Infinity;
@@ -242,8 +244,8 @@ const downloadMasterData = async (db) => {
 
       const items = Array.isArray(data) ? data : (data.data || []);
       const tx_db = await openDB();
-      // For jobs, clear the local store first so deleted jobs don't persist
-      if (item.key === 'jobs') {
+      // For jobs and vendors, clear the local store first so deleted items don't persist
+      if (item.key === 'jobs' || item.key === 'vendors') {
         await clearStore(tx_db, item.store);
       }
       for (const record of items) {

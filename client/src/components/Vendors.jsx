@@ -7,9 +7,15 @@ import InvoiceModal from './InvoiceModal';
 import PaymentModal from './PaymentModal';
 import VendorDetail from './VendorDetail';
 import { Search, Filter, Store, Tag, Eye, Edit, FileText, Trash2, User, Phone, ChevronRight } from 'lucide-react';
+import { formatCurrency } from '../utils/formatters';
 import '../pages/Vendors.css';
 
-const Vendors = ({ refreshKey = 0 }) => {
+const Vendors = ({ 
+  refreshKey = 0,
+  canEdit = true,
+  canDelete = true,
+  canAdd = true
+}) => {
   const navigate = useNavigate();
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +27,7 @@ const Vendors = ({ refreshKey = 0 }) => {
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
+  const [vendorRefreshKey, setVendorRefreshKey] = useState(0);
 
   useEffect(() => {
     loadVendors();
@@ -35,9 +42,11 @@ const Vendors = ({ refreshKey = 0 }) => {
 
       const response = await api.get(`/vendors?${params}`);
       setVendors(response.data.data);
+      return response.data.data;
     } catch (error) {
       console.error('Error loading vendors:', error);
       toast.error('Failed to load vendors');
+      return [];
     } finally {
       setLoading(false);
     }
@@ -54,11 +63,13 @@ const Vendors = ({ refreshKey = 0 }) => {
   };
 
   const handleDeleteVendor = async (vendorId) => {
-    if (!window.confirm('Are you sure you want to delete this vendor?')) return;
+    if (!window.confirm('Are you sure you want to delete this vendor? This action cannot be undone.')) return;
 
     try {
       await api.delete(`/vendors/${vendorId}`);
       toast.success('Vendor deleted successfully');
+      setViewMode('list');
+      setSelectedVendor(null);
       loadVendors();
     } catch (error) {
       console.error('Error deleting vendor:', error);
@@ -83,12 +94,10 @@ const Vendors = ({ refreshKey = 0 }) => {
 
   const handleVendorSaved = async () => {
     setShowVendorModal(false);
-    await loadVendors();
-    // If we're in detail view, the VendorDetail component will re-fetch data 
-    // because it has its own internal state and useEffect. 
-    // However, we can also refresh the selectedVendor reference to be sure.
+    setVendorRefreshKey(k => k + 1);
+    const updatedList = await loadVendors();
     if (selectedVendor) {
-      const updated = vendors.find(v => v.id === selectedVendor.id);
+      const updated = updatedList.find(v => v.id === selectedVendor.id);
       if (updated) setSelectedVendor({ ...updated });
     }
   };
@@ -101,13 +110,6 @@ const Vendors = ({ refreshKey = 0 }) => {
   const handlePaymentSaved = () => {
     setShowPaymentModal(false);
     loadVendors();
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
   };
 
   const getStatusBadge = (status) => {
@@ -130,13 +132,20 @@ const Vendors = ({ refreshKey = 0 }) => {
       {viewMode === 'detail' && selectedVendor ? (
         <VendorDetail
           vendor={selectedVendor}
-          onBack={() => setViewMode('list')}
+          onBack={() => {
+            setViewMode('list');
+            loadVendors();
+          }}
           onAddInvoice={() => handleAddInvoice(selectedVendor)}
           onAddPayment={handleAddPayment}
           onEditVendor={() => handleEditVendor(selectedVendor)}
           onDeleteVendor={() => handleDeleteVendor(selectedVendor.id)}
           formatCurrency={formatCurrency}
           getStatusBadge={getStatusBadge}
+          refreshKey={vendorRefreshKey}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          canAdd={canAdd}
         />
       ) : (
         <div className="directory-container">
@@ -206,9 +215,9 @@ const Vendors = ({ refreshKey = 0 }) => {
                     
                     <div className="vendor-card__actions">
                       <button onClick={() => handleViewVendor(vendor)} className="icon-btn-premium" title="Details"><Eye size={16} /></button>
-                      <button onClick={() => handleEditVendor(vendor)} className="icon-btn-premium" title="Edit"><Edit size={16} /></button>
-                      <button onClick={() => handleAddInvoice(vendor)} className="icon-btn-premium" title="Invoice"><FileText size={16} /></button>
-                      <button onClick={() => handleDeleteVendor(vendor.id)} className="icon-btn-premium icon-btn-premium--danger" title="Delete"><Trash2 size={16} /></button>
+                      {canEdit && <button onClick={() => handleEditVendor(vendor)} className="icon-btn-premium" title="Edit"><Edit size={16} /></button>}
+                      {canAdd && <button onClick={() => handleAddInvoice(vendor)} className="icon-btn-premium" title="Invoice"><FileText size={16} /></button>}
+                      {canDelete && <button onClick={() => handleDeleteVendor(vendor.id)} className="icon-btn-premium icon-btn-premium--danger" title="Delete"><Trash2 size={16} /></button>}
                     </div>
                   </div>
 
@@ -274,12 +283,14 @@ const Vendors = ({ refreshKey = 0 }) => {
                   <p className="empty-state__text">
                     We couldn't find any vendors matching your search criteria. Try adjusting your filters.
                   </p>
-                  <button
-                    onClick={handleAddVendor}
-                    className="btn btn-primary"
-                  >
-                    Add New Vendor
-                  </button>
+                  {canAdd && (
+                    <button
+                      onClick={handleAddVendor}
+                      className="btn btn-primary"
+                    >
+                      Add New Vendor
+                    </button>
+                  )}
                 </div>
               )}
             </div>

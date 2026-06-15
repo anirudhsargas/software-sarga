@@ -11,6 +11,7 @@ import auth from '../services/auth';
 import toast from 'react-hot-toast';
 import { downloadInvoicePDF } from '../utils/invoicePdf';
 import { whatsappUrl, workStatusMessage, paymentReminderMessage, orderReadyMessage } from '../utils/whatsapp';
+import { formatCurrency } from '../utils/formatters';
 import './JobDetail.css';
 
 const statusColors = {
@@ -581,7 +582,7 @@ const JobDetail = () => {
         setPaymentModal(false);
         setPaymentAmount('');
         // Navigate to customer payment section with prefilled details
-        navigate('/dashboard/customer-payments', {
+        navigate('/dashboard/sales/payments', {
             state: {
                 customer_id: data.job.customer_id,
                 customer_name: data.job.customer_name,
@@ -674,7 +675,6 @@ const JobDetail = () => {
     }
 
     const { job, assignments, payments, statusHistory } = data;
-    const fmt = (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
     const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
     const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
@@ -705,11 +705,28 @@ const JobDetail = () => {
                 </div>
 
                 <div className="job-detail-actions">
+                    {['Admin', 'Front Office', 'front office'].includes(userRole) && (
+                        <button
+                            className="btn btn-outline"
+                            onClick={() => {
+                                navigate('/dashboard/sales/invoices', {
+                                    state: {
+                                        action: 'create',
+                                        job: job
+                                    }
+                                });
+                            }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface)', color: 'var(--accent)', border: '1px solid var(--border)', fontWeight: 600 }}
+                        >
+                            <FileText size={18} /> Generate Invoice
+                        </button>
+                    )}
+
                     {isFinancialsVisible && (
                         <button
                             className="btn btn-outline"
                             onClick={() => {
-                                navigate('/dashboard/customer-payments', {
+                                navigate('/dashboard/sales/payments', {
                                     state: {
                                         customer_id: job.customer_id,
                                         customer_name: job.customer_name,

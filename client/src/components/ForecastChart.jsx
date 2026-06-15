@@ -5,8 +5,9 @@ import {
 } from 'recharts';
 import { RefreshCw, TrendingUp, Loader2 } from 'lucide-react';
 import api from '../services/api';
+import { formatCurrency } from '../utils/formatters';
 
-const fmt = (n) => '₹' + (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+const fmt = formatCurrency;
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
@@ -35,7 +36,7 @@ export default function ForecastChart() {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
+        requestAnimationFrame(() => setMounted(true));
     }, []);
 
     const fetchForecast = useCallback(async () => {
@@ -157,8 +158,8 @@ export default function ForecastChart() {
                     No forecast data available yet
                 </div>
             ) : mounted ? (
-                <div style={{ width: '100%', minHeight: 300, minWidth: 0 }}>
-                <ResponsiveContainer width="100%" minHeight={300} minWidth={0}>
+                <div style={{ width: '100%', height: 300 }}>
+                <ResponsiveContainer width="100%" height={300}>
                     <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis

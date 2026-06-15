@@ -1,22 +1,47 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
 import jsQR from 'jsqr';
 import { X, Camera, Upload } from 'lucide-react';
+import CameraPermissionModal from './CameraPermissionModal';
+
+let html5QrcodeModule = null;
+let html5QrcodePromise = null;
+
+const getHtml5QrcodeModule = () => {
+    if (html5QrcodePromise) return html5QrcodePromise;
+    html5QrcodePromise = import('html5-qrcode').then(mod => {
+        html5QrcodeModule = mod;
+        return mod;
+    });
+    return html5QrcodePromise;
+};
 
 const ScannerModal = ({ isOpen, onClose, onScan }) => {
     const scannerRef = useRef(null);
-    const isStartedRef = useRef(false);   // true only after .start() resolves
-    const isStoppingRef = useRef(false);  // guard against double-stop
+    const isStartedRef = useRef(false);
+    const isStoppingRef = useRef(false);
     const mountedRef = useRef(false);
     const fileInputRef = useRef(null);
     const camDivId = useRef(`qr-cam-${Math.random().toString(36).slice(2)}`);
+    const prevIsOpenRef = useRef(isOpen);
 
-    const [mode, setMode] = useState('file'); // start with file mode (works on HTTP)
+    const [mode, setMode] = useState('file');
     const [cameraError, setCameraError] = useState('');
     const [scanning, setScanning] = useState(false);
+    const [permissionRequested, setPermissionRequested] = useState(false);
+    const [showPermissionModal, setShowPermissionModal] = useState(false);
     const normalizeScannedCode = (value) => String(value || '').replace(/\s+/g, '').toUpperCase();
 
-    // Safe stop helper — only stops if actually running
+    useEffect(() => {
+        if (isOpen) {
+            setMode('file');
+            setCameraError('');
+        }
+    }, [isOpen]);
+
+    const loadHtml5Qrcode = useCallback(async () => {
+        return getHtml5QrcodeModule();
+    }, []);
+
     const safeStop = useCallback(async () => {
         const qr = scannerRef.current;
         if (!qr || !isStartedRef.current || isStoppingRef.current) return;
@@ -24,7 +49,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
         try {
             await qr.stop();
         } catch {
-            // ignore — already stopped or never started
+            // ignore
         } finally {
             isStartedRef.current = false;
             isStoppingRef.current = false;
@@ -38,41 +63,57 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
         mountedRef.current = true;
         setCameraError('');
 
-        const id = camDivId.current;
-        const qr = new Html5Qrcode(id, { verbose: false });
-        scannerRef.current = qr;
-        isStartedRef.current = false;
-        isStoppingRef.current = false;
+        let qr = null;
+        let cancelled = false;
 
-        const config = { fps: 12, qrbox: { width: 200, height: 200 }, aspectRatio: 1.0 };
+        const startCamera = async () => {
+            const mod = await loadHtml5Qrcode();
+            if (!mod || cancelled || !mountedRef.current) return;
+            const { Html5Qrcode } = mod;
 
-        const tryStart = (constraints) =>
-            qr.start(constraints, config,
-                (text) => {
-                    // Success callback
-                    safeStop().then(() => {
-                        const normalized = normalizeScannedCode(text);
-                        if (mountedRef.current && normalized) { onScan(normalized); onClose(); }
-                    });
-                },
-                () => { /* per-frame not-found — silenced */ }
-            );
+            qr = new Html5Qrcode(camDivId.current, { verbose: false });
+            scannerRef.current = qr;
+            isStartedRef.current = false;
+            isStoppingRef.current = false;
 
-        tryStart({ facingMode: 'environment' })
-            .catch(() => tryStart({ facingMode: 'user' }))
-            .then(() => { isStartedRef.current = true; })
-            .catch((err) => {
-                console.warn('Camera unavailable:', err);
-                if (mountedRef.current) {
-                    setCameraError('Live camera unavailable on HTTP. Use "Take / Upload Photo" below.');
-                }
-                isStartedRef.current = false;
-                scannerRef.current = null;
-            });
+            const config = { fps: 12, qrbox: { width: 200, height: 200 }, aspectRatio: 1.0 };
+
+            const tryStart = (constraints) =>
+                qr.start(constraints, config,
+                    (text) => {
+                        safeStop().then(() => {
+                            const normalized = normalizeScannedCode(text);
+                            if (normalized) { onScan(normalized); onClose(); }
+                        });
+                    },
+                    () => { /* per-frame not-found — silenced */ }
+                );
+
+            tryStart({ facingMode: 'environment' })
+                .catch(() => tryStart({ facingMode: 'user' }))
+                .then(() => { isStartedRef.current = true; })
+                .catch((err) => {
+                    console.warn('QR camera error:', err);
+                    if (!mountedRef.current) return;
+                    const isPermissionDenied = err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied');
+                    setCameraError(isPermissionDenied
+                        ? 'Camera permission denied. Please allow camera access in your browser settings, then try again.'
+                        : 'Camera unavailable. Use "Upload Photo" instead.');
+                    if (isPermissionDenied) {
+                        setShowPermissionModal(true);
+                    }
+                    isStartedRef.current = false;
+                    scannerRef.current = null;
+                });
+        };
+
+        startCamera();
 
         return () => {
-            mountedRef.current = false;
-            safeStop();
+            cancelled = true;
+            if (qr) {
+                qr.stop().catch(() => {});
+            }
         };
     }, [isOpen, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -82,8 +123,22 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
             mountedRef.current = false;
             safeStop();
             setCameraError('');
+            return;
         }
+        mountedRef.current = true;
+        setCameraError('');
     }, [isOpen, safeStop]);
+
+    useEffect(() => {
+        getHtml5QrcodeModule();
+        if ('permissions' in navigator) {
+            navigator.permissions.query({ name: 'camera' }).then((status) => {
+                if (status.state === 'denied') {
+                    setCameraError('Camera access is blocked. Please allow camera access in your browser settings.');
+                }
+            }).catch(() => {});
+        }
+    }, []);
 
     const switchToFile = async () => {
         await safeStop();
@@ -91,18 +146,48 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
         setMode('file');
     };
 
-    const switchToCamera = () => {
+    const switchToCamera = async () => {
         setCameraError('');
-        setMode('camera');
+        if (permissionRequested) { setMode('camera'); return; }
+        try {
+            const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            tempStream.getTracks().forEach(track => track.stop());
+            setPermissionRequested(true);
+            setMode('camera');
+        } catch (err) {
+            if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied')) {
+                setCameraError('Camera permission denied. Please allow camera access in your browser settings, then try again.');
+                setShowPermissionModal(true);
+            } else {
+                setCameraError('Unable to access camera. Please check your camera device or switch to file upload.');
+            }
+        }
     };
 
-    // Draw image to canvas and scan with jsQR — works on any uploaded image
+    const handleRetryPermission = async () => {
+        setShowPermissionModal(false);
+        setCameraError('');
+        try {
+            const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            tempStream.getTracks().forEach(track => track.stop());
+            setPermissionRequested(true);
+            setMode('camera');
+        } catch (err) {
+            if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied')) {
+                setCameraError('Camera permission denied. Please allow camera access in your browser settings, then try again.');
+                setShowPermissionModal(true);
+            } else {
+                setCameraError('Unable to access camera. Please check your camera device or switch to file upload.');
+            }
+        }
+    };
+
+    // Draw image to canvas and scan with jsQR
     const scanFileWithJsQR = (file) => new Promise((resolve, reject) => {
         const img = new Image();
         const url = URL.createObjectURL(file);
         img.onload = () => {
             URL.revokeObjectURL(url);
-            // Try at original size first, then scaled up for small QR codes
             const attempts = [1, 2, 3];
             for (const scale of attempts) {
                 const canvas = document.createElement('canvas');
@@ -122,17 +207,21 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
         img.src = url;
     });
 
-    // Attempt QR scan using native BarcodeDetector (most reliable)
+    // Native BarcodeDetector
     const tryBarcodeDetector = async (file) => {
         if (!('BarcodeDetector' in window)) return null;
-        const detector = new window.BarcodeDetector({ formats: ['qr_code', 'code_128', 'ean_13', 'ean_8', 'code_39', 'upc_a', 'upc_e'] });
-        const bitmap = await createImageBitmap(file);
-        const codes = await detector.detect(bitmap);
-        return codes.length > 0 ? codes[0].rawValue : null;
+        try {
+            const detector = new window.BarcodeDetector({ formats: ['qr_code', 'code_128', 'ean_13', 'ean_8', 'code_39', 'upc_a', 'upc_e'] });
+            const bitmap = await createImageBitmap(file);
+            const codes = await detector.detect(bitmap);
+            return codes.length > 0 ? codes[0].rawValue : null;
+        } catch { return null; }
     };
 
-    // Fallback: canvas-based scan via Html5Qrcode
+    // html5-qrcode fallback
     const tryHtml5Qrcode = async (file) => {
+        const mod = await loadHtml5Qrcode();
+        if (!mod) return null;
         const tmpId = `qr-tmp-${Date.now()}`;
         const tmpDiv = document.createElement('div');
         tmpDiv.id = tmpId;
@@ -143,6 +232,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
         tmpDiv.style.height = '300px';
         document.body.appendChild(tmpDiv);
         try {
+            const { Html5Qrcode } = mod;
             const qr = new Html5Qrcode(tmpId, { verbose: false });
             const result = await qr.scanFile(file, true);
             try { qr.clear(); } catch { /* ignore */ }
@@ -152,7 +242,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
         }
     };
 
-    // Scan from photo/image
+    // Scan from uploaded photo
     const handleFileChange = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -164,13 +254,8 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
         setCameraError('');
 
         try {
-            // 1. Try jsQR (canvas-based, most reliable for uploaded images)
             let result = await scanFileWithJsQR(file).catch(() => null);
-
-            // 2. Try native BarcodeDetector
             if (!result) result = await tryBarcodeDetector(file).catch(() => null);
-
-            // 3. Fall back to html5-qrcode
             if (!result) result = await tryHtml5Qrcode(file).catch(() => null);
 
             if (result) {
@@ -182,7 +267,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                 onScan(normalized);
                 onClose();
             } else {
-                setCameraError('No QR code detected. Make sure the QR code is clearly visible, well-lit, and fills most of the frame.');
+                setCameraError('No QR or barcode detected. Make sure the code is clearly visible, well-lit, and fills most of the frame.');
             }
         } catch (error) {
             console.error('QR scan error:', error);
@@ -198,20 +283,16 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
     return (
         <div className="modal-backdrop animate-fade-in" style={{ zIndex: 1000 }}>
             <div className="modal animate-scale-in" style={{ maxWidth: '460px', width: '92%', position: 'relative' }}>
-                {/* Header */}
                 <div className="row gap-sm items-center mb-24">
                     <Camera size={18} />
-                    <h2 className="section-title" style={{ margin: 0 }}>Scan QR Code</h2>
+                    <h2 className="section-title" style={{ margin: 0 }}>Scan QR / Barcode</h2>
                 </div>
 
-                {/* Absolutely positioned close button */}
-                <button 
-                    className="icon-button" 
+                <button
+                    className="icon-button"
                     onClick={onClose}
-                    style={{ 
-                        position: 'absolute', 
-                        top: '20px', 
-                        right: '20px',
+                    style={{
+                        position: 'absolute', top: '20px', right: '20px',
                         background: 'rgba(255, 255, 255, 0.05)',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
                         zIndex: 10
@@ -220,23 +301,19 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                     <X size={20} />
                 </button>
 
-                {/* Mode tabs */}
                 <div className="row gap-sm mb-16">
                     <button
                         className={`btn btn-sm ${mode === 'file' ? 'btn-primary' : 'btn-ghost'}`}
                         onClick={() => {
                             switchToFile();
-                            // Trigger file input after switching to file mode
                             setTimeout(() => {
-                                if (fileInputRef.current) {
-                                    fileInputRef.current.click();
-                                }
-                            }, 100);
+                                if (fileInputRef.current) fileInputRef.current.click();
+                            }, 150);
                         }}
                         style={{ flex: 1 }}
                         disabled={scanning}
                     >
-                        <Upload size={14} style={{ marginRight: 5 }} /> Take / Upload Photo
+                        <Upload size={14} style={{ marginRight: 5 }} /> Upload Photo
                     </button>
                     <button
                         className={`btn btn-sm ${mode === 'camera' ? 'btn-primary' : 'btn-ghost'}`}
@@ -247,11 +324,10 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                     </button>
                 </div>
 
-                {/* File / photo mode (default — works on HTTP) */}
                 {mode === 'file' && (
                     <div style={{ padding: '24px 0', textAlign: 'center' }}>
                         <p className="muted mb-16" style={{ fontSize: '13px' }}>
-                            Click "Take / Upload Photo" above to select an image with a QR code.
+                            Click <strong>Upload Photo</strong> to select an image with a QR code or barcode.
                         </p>
                         {scanning && (
                             <div style={{
@@ -259,13 +335,12 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                                 background: 'var(--muted)', color: 'var(--text-muted)',
                                 fontWeight: 600, fontSize: '15px'
                             }}>
-                                ⏳ Reading QR code from image...
+                                Reading QR code from image...
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* Live camera mode */}
                 {mode === 'camera' && (
                     <div
                         id={camDivId.current}
@@ -273,24 +348,22 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                     />
                 )}
 
-                {/* Error banner */}
                 {cameraError && (
                     <div style={{
                         marginTop: '10px', padding: '10px 14px',
                         background: 'var(--warning-bg)', borderRadius: '8px',
                         color: '#856404', fontSize: '13px'
                     }}>
-                        ⚠️ {cameraError}
+                        {cameraError}
                     </div>
                 )}
 
                 <p className="muted text-center mt-12" style={{ fontSize: '12px' }}>
                     {mode === 'file'
-                        ? 'Tip: tap the button → camera opens → aim at QR → tap shutter → done.'
-                        : 'Hold the QR code steady — detects automatically.'}
+                        ? 'Tip: on mobile, your camera will open automatically to take a photo.'
+                        : 'Hold the QR code steady — it will be detected automatically.'}
                 </p>
 
-                {/* Hidden file input for photo upload */}
                 <input
                     ref={fileInputRef}
                     type="file"
@@ -301,9 +374,14 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                     disabled={scanning}
                 />
             </div>
+
+            <CameraPermissionModal 
+                isOpen={showPermissionModal} 
+                onClose={() => setShowPermissionModal(false)} 
+                onRetry={handleRetryPermission} 
+            />
         </div>
     );
 };
 
 export default ScannerModal;
-
