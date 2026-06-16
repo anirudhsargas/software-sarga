@@ -129,7 +129,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
 
   const overlay = {
     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    zIndex: 10000, backgroundColor: 'var(--color-shadow)',
+    zIndex: 10000, backgroundColor: 'var(--shadow-sm)',
     display: 'flex', flexDirection: 'column'
   };
 
@@ -141,21 +141,21 @@ const CameraCapture = ({ onCapture, onClose }) => {
   };
 
   const headerBtn = {
-    background: 'transparent', border: 'none', color: 'var(--color-surface)',
+    background: 'transparent', border: 'none', color: 'var(--card)',
     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
     fontSize: '14px', padding: '8px 12px', borderRadius: '8px'
   };
 
   const toolBtn = (active) => ({
-    background: active ? 'var(--color-surface)' : 'transparent',
-    border: '1px solid rgba(255,255,255,0.3)', color: 'var(--color-surface)',
+    background: active ? 'var(--card)' : 'transparent',
+    border: '1px solid rgba(255,255,255,0.3)', color: 'var(--card)',
     cursor: 'pointer', padding: '6px 10px', borderRadius: '6px',
     fontSize: '12px'
   });
 
   const actionBtn = {
     background: 'transparent', border: '1px solid rgba(255,255,255,0.3)',
-    color: 'var(--color-surface)', cursor: 'pointer', padding: '8px 20px', borderRadius: '8px',
+    color: 'var(--card)', cursor: 'pointer', padding: '8px 20px', borderRadius: '8px',
     fontSize: '13px'
   };
 
@@ -165,7 +165,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
         <button onClick={onClose} style={headerBtn}>
           <X size={20} /> Exit
         </button>
-        <span style={{ color: 'var(--color-surface)', fontSize: '16px', fontWeight: 600 }}>Capture Bill</span>
+        <span style={{ color: 'var(--card)', fontSize: '16px', fontWeight: 600 }}>Capture Bill</span>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={() => setShowGrid(!showGrid)} style={toolBtn(showGrid)}>Grid</button>
           <button onClick={toggleFlash} style={toolBtn(isFlashOn)}>Flash {isFlashOn ? 'ON' : 'OFF'}</button>
@@ -174,14 +174,14 @@ const CameraCapture = ({ onCapture, onClose }) => {
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         {!capturedPhoto ? (
-          <div style={{ width: '100%', height: '100%', position: 'relative', backgroundColor: 'var(--color-text)' }}>
+          <div style={{ width: '100%', height: '100%', position: 'relative', backgroundColor: 'var(--foreground)' }}>
             <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} playsInline />
             {showGrid && (
               <>
-                <div style={{ position: 'absolute', top: '33.33%', left: 0, right: 0, height: '1px', backgroundColor: 'var(--color-surface)' }} />
-                <div style={{ position: 'absolute', top: '66.66%', left: 0, right: 0, height: '1px', backgroundColor: 'var(--color-surface)' }} />
-                <div style={{ position: 'absolute', left: '33.33%', top: 0, bottom: 0, width: '1px', backgroundColor: 'var(--color-surface)' }} />
-                <div style={{ position: 'absolute', left: '66.66%', top: 0, bottom: 0, width: '1px', backgroundColor: 'var(--color-surface)' }} />
+                <div style={{ position: 'absolute', top: '33.33%', left: 0, right: 0, height: '1px', backgroundColor: 'var(--card)' }} />
+                <div style={{ position: 'absolute', top: '66.66%', left: 0, right: 0, height: '1px', backgroundColor: 'var(--card)' }} />
+                <div style={{ position: 'absolute', left: '33.33%', top: 0, bottom: 0, width: '1px', backgroundColor: 'var(--card)' }} />
+                <div style={{ position: 'absolute', left: '66.66%', top: 0, bottom: 0, width: '1px', backgroundColor: 'var(--card)' }} />
               </>
             )}
             {[
@@ -192,7 +192,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
             ].map(c => (
               <div key={c.pos} style={{
                 position: 'absolute', width: '40px', height: '40px',
-                borderColor: 'var(--color-success)', borderStyle: 'solid',
+                borderColor: 'var(--success)', borderStyle: 'solid',
                 top: c.top, left: c.left, right: c.right, bottom: c.bottom,
                 borderWidth: c.borderWidth
               }} />
@@ -203,14 +203,14 @@ const CameraCapture = ({ onCapture, onClose }) => {
               </div>
             )}
             {cameraError && (
-              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', padding: '24px', color: 'var(--color-surface)' }}>
-                <AlertCircle size={36} style={{ color: 'var(--color-danger)', marginBottom: '8px' }} />
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', padding: '24px', color: 'var(--card)' }}>
+                <AlertCircle size={36} style={{ color: 'var(--destructive)', marginBottom: '8px' }} />
                 <p style={{ fontSize: '14px' }}>{cameraError}</p>
               </div>
             )}
           </div>
         ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-text)' }}>
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--foreground)' }}>
             <img src={capturedPhoto.src} alt="Captured" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
           </div>
         )}
@@ -233,7 +233,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               opacity: cameraLoading ? 0.5 : 1
             }}>
-              <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'var(--color-surface)' }} />
+              <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'var(--card)' }} />
             </button>
             <button onClick={switchCamera} style={actionBtn}>
               Switch
@@ -244,13 +244,13 @@ const CameraCapture = ({ onCapture, onClose }) => {
             <button onClick={() => setCapturedPhoto(null)} style={{
               flex: 1, padding: '12px', borderRadius: '8px',
               border: '1px solid rgba(255,255,255,0.3)',
-              background: 'transparent', color: 'var(--color-surface)', cursor: 'pointer', fontSize: '14px'
+              background: 'transparent', color: 'var(--card)', cursor: 'pointer', fontSize: '14px'
             }}>
               Retake
             </button>
             <button onClick={usePhoto} style={{
               flex: 1, padding: '12px', borderRadius: '8px',
-              border: 'none', background: 'var(--accent, #3b82f6)', color: 'var(--color-surface)',
+              border: 'none', background: 'var(--accent, #3b82f6)', color: 'var(--card)',
               cursor: 'pointer', fontSize: '14px', fontWeight: 600
             }}>
               Use Photo

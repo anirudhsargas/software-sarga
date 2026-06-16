@@ -1,8 +1,6 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  width: 100%;
+  min-height: 100vh;
 }
 
 .logo {
@@ -12,10 +10,10 @@
   transition: filter 300ms;
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em var(--color-info)aa);
+  filter: drop-shadow(0 0 2em var(--accent)aa);
 }
 .logo.react:hover {
-  filter: drop-shadow(0 0 2em var(--color-info)aa);
+  filter: drop-shadow(0 0 2em var(--accent)aa);
 }
 
 @keyframes logo-spin {
@@ -38,5 +36,5 @@
 }
 
 .read-the-docs {
-  color: var(--text-muted, var(--color-textMuted));
+  color: var(--text-muted, var(--muted-foreground));
 }

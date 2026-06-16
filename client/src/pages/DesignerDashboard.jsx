@@ -78,15 +78,15 @@ const DesignerDashboard = () => {
 
   const getStatusColor = (status) => {
     const statusMap = {
-      'Processing': { bg: 'var(--color-info)', text: 'var(--color-surface)' },
-      'Pending': { bg: 'var(--color-warning)', text: 'var(--color-surface)' },
-      'In Progress': { bg: 'var(--color-info)', text: 'var(--color-surface)' },
-      'Completed': { bg: 'var(--color-success)', text: 'var(--color-surface)' },
-      'Delivered': { bg: 'var(--color-info)', text: 'var(--color-surface)' },
-      'Cancelled': { bg: 'var(--color-danger)', text: 'var(--color-surface)' },
-      'Failed': { bg: 'var(--color-danger)', text: 'var(--color-surface)' }
+      'Processing': { bg: 'var(--accent)', text: 'var(--card)' },
+      'Pending': { bg: 'var(--warning)', text: 'var(--card)' },
+      'In Progress': { bg: 'var(--accent)', text: 'var(--card)' },
+      'Completed': { bg: 'var(--success)', text: 'var(--card)' },
+      'Delivered': { bg: 'var(--accent)', text: 'var(--card)' },
+      'Cancelled': { bg: 'var(--destructive)', text: 'var(--card)' },
+      'Failed': { bg: 'var(--destructive)', text: 'var(--card)' }
     };
-    return statusMap[status] || { bg: 'var(--color-textMuted)', text: 'var(--color-surface)' };
+    return statusMap[status] || { bg: 'var(--muted-foreground)', text: 'var(--card)' };
   };
 
   // Job types and priorities
@@ -191,7 +191,7 @@ const DesignerDashboard = () => {
             transition: 'all 0.2s ease'
           }}
         >
-          My Active Jobs <span style={{ fontSize: 12, marginLeft: '6px', background: activeTab === 'active' ? 'var(--accent)' : 'var(--bg-tertiary)', color: activeTab === 'active' ? 'var(--color-shadow)' : 'var(--text-primary)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{activeCount}</span>
+          My Active Jobs <span style={{ fontSize: 12, marginLeft: '6px', background: activeTab === 'active' ? 'var(--accent)' : 'var(--bg-tertiary)', color: activeTab === 'active' ? 'var(--shadow-sm)' : 'var(--text-primary)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{activeCount}</span>
         </button>
         <button
           onClick={() => setActiveTab('completed')}
@@ -207,7 +207,7 @@ const DesignerDashboard = () => {
             transition: 'all 0.2s ease'
           }}
         >
-          Completed / Cancelled <span style={{ fontSize: 12, marginLeft: '6px', background: activeTab === 'completed' ? 'var(--accent)' : 'var(--bg-tertiary)', color: activeTab === 'completed' ? 'var(--color-shadow)' : 'var(--text-primary)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{completedCount}</span>
+          Completed / Cancelled <span style={{ fontSize: 12, marginLeft: '6px', background: activeTab === 'completed' ? 'var(--accent)' : 'var(--bg-tertiary)', color: activeTab === 'completed' ? 'var(--shadow-sm)' : 'var(--text-primary)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{completedCount}</span>
         </button>
       </div>
 
@@ -309,7 +309,7 @@ const DesignerDashboard = () => {
               style={{
                 padding: '8px 16px',
                 background: selectedType === type ? 'var(--accent)' : 'var(--bg-secondary)',
-                color: selectedType === type ? 'var(--color-shadow)' : 'var(--text-primary)',
+                color: selectedType === type ? 'var(--shadow-sm)' : 'var(--text-primary)',
                 border: selectedType === type ? '1px solid var(--accent)' : '1px solid var(--border)',
                 borderRadius: '20px',
                 fontSize: '13px',
@@ -346,7 +346,7 @@ const DesignerDashboard = () => {
               style={{
                 padding: '8px 16px',
                 background: selectedPriority === priority ? 'var(--accent)' : 'var(--bg-secondary)',
-                color: selectedPriority === priority ? 'var(--color-shadow)' : 'var(--text-primary)',
+                color: selectedPriority === priority ? 'var(--shadow-sm)' : 'var(--text-primary)',
                 border: selectedPriority === priority ? '1px solid var(--accent)' : '1px solid var(--border)',
                 borderRadius: '20px',
                 fontSize: '13px',
@@ -439,9 +439,9 @@ const DesignerDashboard = () => {
                         return (
                           <span key={i} style={{
                             fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 500,
-                            background: isColour ? 'var(--color-surfaceHover)' : isNumbering ? 'var(--color-surfaceHover)' : 'var(--color-surfaceSecondary)',
-                            color: isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : 'var(--color-textSecondary)',
-                            border: `1px solid ${isColour ? 'var(--color-warning)' : isNumbering ? 'var(--color-border)' : 'var(--color-surfaceHover)'}`
+                            background: isColour ? 'var(--secondary)' : isNumbering ? 'var(--secondary)' : 'var(--secondary)',
+                            color: isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : 'var(--muted-foreground)',
+                            border: `1px solid ${isColour ? 'var(--warning)' : isNumbering ? 'var(--border)' : 'var(--secondary)'}`
                           }}>
                             {isColour && '🎨 '}{isNumbering && '🔢 '}{part}
                           </span>

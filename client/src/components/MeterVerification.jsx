@@ -106,7 +106,7 @@ const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosi
             <div className={`meter-hero meter-hero--${isOnline ? 'online' : meterLoading ? 'loading' : 'offline'}`}>
                 {/* Icon */}
                 <div className="meter-hero__icon">
-                    <Printer className="w-8 h-8 text-white" />
+                    <Printer className="w-8 h-8" />
                 </div>
 
                 {/* Count */}
@@ -116,7 +116,7 @@ const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosi
                     </p>
                     {meterLoading ? (
                         <div className="meter-hero__loading">
-                            <Loader2 className="w-7 h-7 text-white animate-spin" />
+                            <Loader2 className="w-7 h-7 animate-spin" />
                             <span className="meter-hero__loading-text">Fetching...</span>
                         </div>
                     ) : totalCount !== null ? (
@@ -129,11 +129,11 @@ const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosi
                     )}
                     <div className="meter-hero__meta">
                         {isOnline ? (
-                            <><Wifi className="w-4 h-4 text-green-300" /><span className="meter-hero__meta-text">Online · {machineIpAddress}</span></>
+                            <><Wifi className="w-4 h-4" /><span className="meter-hero__meta-text">Online · {machineIpAddress}</span></>
                         ) : meterLoading ? (
-                            <><Loader2 className="w-4 h-4 text-white/60 animate-spin" /><span className="meter-hero__meta-text">Connecting…</span></>
+                            <><Loader2 className="w-4 h-4 animate-spin" /><span className="meter-hero__meta-text">Connecting…</span></>
                         ) : (
-                            <><WifiOff className="w-4 h-4 text-red-300" /><span className="meter-hero__meta-text">Powered Off · {machineIpAddress || 'No IP set'}</span></>
+                            <><WifiOff className="w-4 h-4" /><span className="meter-hero__meta-text">Powered Off · {machineIpAddress || 'No IP set'}</span></>
                         )}
                         {fetchedTime && (
                             <span className="meter-hero__meta-time">Updated {fetchedTime.toLocaleTimeString()}</span>

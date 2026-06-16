@@ -17,10 +17,10 @@ import { formatCurrency, formatCurrencyDecimal } from '../utils/formatters';
 
 // ── Priority helpers ──
 const URGENCY_CONFIG = {
-    critical: { label: 'Critical', color: 'var(--error)', bg: 'var(--color-danger)', border: 'var(--color-danger)', icon: '🔴' },
-    high: { label: 'High', color: 'var(--warning)', bg: 'var(--color-warning)', border: 'var(--color-warning)', icon: '🟠' },
-    medium: { label: 'Medium', color: 'var(--muted)', bg: 'var(--color-textMuted)', border: 'var(--color-textMuted)', icon: '🟡' },
-    low: { label: 'Low', color: 'var(--success)', bg: 'var(--color-icon)', border: 'var(--color-icon)', icon: '🟢' },
+    critical: { label: 'Critical', color: 'var(--error)', bg: 'var(--destructive)', border: 'var(--destructive)', icon: '🔴' },
+    high: { label: 'High', color: 'var(--warning)', bg: 'var(--warning)', border: 'var(--warning)', icon: '🟠' },
+    medium: { label: 'Medium', color: 'var(--muted)', bg: 'var(--muted-foreground)', border: 'var(--muted-foreground)', icon: '🟡' },
+    low: { label: 'Low', color: 'var(--success)', bg: 'var(--muted-foreground)', border: 'var(--muted-foreground)', icon: '🟢' },
 };
 
 function computeClientPriority(job) {
@@ -650,9 +650,9 @@ const Jobs = () => {
                                                                                 fontSize: '10px',
                                                                                 padding: '1px 6px',
                                                                                 borderRadius: '4px',
-                                                                                background: isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--color-textMuted)',
-                                                                                color: isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--text-muted)',
-                                                                                border: `1px solid ${isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--color-textMuted)'}`,
+                                                                                background: isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--muted-foreground)',
+                                                                                color: isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--text-muted)',
+                                                                                border: `1px solid ${isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--muted-foreground)'}`,
                                                                                 fontWeight: 600,
                                                                                 maxWidth: '120px',
                                                                                 overflow: 'hidden',

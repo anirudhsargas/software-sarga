@@ -168,7 +168,7 @@ const AttendanceSalary = () => {
 
       {/* Salary Overview Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 24 }}>
-        <div style={{ padding: 14, borderRadius: 12, background: 'linear-gradient(135deg, var(--accent) 0%, #818cf8 100%)', color: 'var(--color-surface)' }}>
+        <div style={{ padding: 14, borderRadius: 12, background: 'linear-gradient(135deg, var(--accent) 0%, #818cf8 100%)', color: 'var(--card)' }}>
           <div style={{ fontSize: 11, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Salary Type</div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{salaryInfo?.staff?.salary_type || 'Not Set'}</div>
           <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
@@ -177,7 +177,7 @@ const AttendanceSalary = () => {
           </div>
         </div>
 
-        <div style={{ padding: 14, borderRadius: 12, background: 'linear-gradient(135deg, var(--success) 0%, var(--success) 100%)', color: 'var(--color-surface)' }}>
+        <div style={{ padding: 14, borderRadius: 12, background: 'linear-gradient(135deg, var(--success) 0%, var(--success) 100%)', color: 'var(--card)' }}>
           <div style={{ fontSize: 11, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>This Month Salary</div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>
             {salaryCalc?.calculation?.calculatedSalary != null ? fmt(salaryCalc.calculation.calculatedSalary) : '—'}
@@ -230,7 +230,7 @@ const AttendanceSalary = () => {
                 borderRadius: 6, fontSize: 13, fontWeight: cell.isToday ? 800 : 500,
                 background: cell.isToday ? 'linear-gradient(135deg, var(--accent), #818cf8)'
                   : config?.bg || (cell.isSunday ? 'var(--error)10' : 'var(--bg, #ffffff08)'),
-                color: cell.isToday ? 'var(--color-surface)' : cell.isFuture ? 'var(--muted)' : config?.color || (cell.isSunday ? 'var(--error)' : 'inherit'),
+                color: cell.isToday ? 'var(--card)' : cell.isFuture ? 'var(--muted)' : config?.color || (cell.isSunday ? 'var(--error)' : 'inherit'),
                 border: cell.isToday ? '2px solid var(--accent)' : '1px solid var(--border)',
                 opacity: cell.isFuture ? 0.4 : 1,
                 transition: 'all 0.15s ease'
@@ -315,7 +315,7 @@ const AttendanceSalary = () => {
           <div style={{
             marginTop: 16, padding: 16, borderRadius: 10,
             background: 'linear-gradient(135deg, var(--success) 0%, var(--success) 100%)',
-            color: 'var(--color-surface)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            color: 'var(--card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
           }}>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Calculated Salary</span>
             <span style={{ fontSize: 22, fontWeight: 800 }}>{fmt(salaryCalc.calculation.calculatedSalary)}</span>

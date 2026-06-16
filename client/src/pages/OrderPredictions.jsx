@@ -213,7 +213,7 @@ const PredictionCard = ({ prediction: p, isExpanded, onToggle, detail, detailLoa
         <div className="card" style={{
             overflow: 'hidden',
             borderLeft: p.is_overdue ? `4px solid var(--error)` : `4px solid transparent`,
-            background: p.is_overdue ? 'var(--color-danger)' : undefined,
+            background: p.is_overdue ? 'var(--destructive)' : undefined,
             transition: 'all 0.2s ease',
             cursor: 'pointer'
         }}
@@ -228,7 +228,7 @@ const PredictionCard = ({ prediction: p, isExpanded, onToggle, detail, detailLoa
                     {/* Alert icon */}
                     <div style={{
                         width: 44, height: 44, borderRadius: 12,
-                        background: p.is_overdue ? 'var(--color-surfaceHover)' : conf.light,
+                        background: p.is_overdue ? 'var(--secondary)' : conf.light,
                         display: 'grid', placeItems: 'center', flexShrink: 0,
                         transition: 'transform 0.2s ease'
                     }}>
@@ -431,7 +431,7 @@ const CustomerPatternDetail = ({ detail }) => {
                                         background: hasOrders
                                             ? `rgba(22, 163, 74, ${0.15 + intensity * 0.6})`
                                             : 'var(--surface-2)',
-                                        color: hasOrders ? 'var(--color-textSecondary)' : 'var(--muted)',
+                                        color: hasOrders ? 'var(--muted-foreground)' : 'var(--muted)',
                                         fontWeight: hasOrders ? 700 : 400,
                                         fontSize: 11,
                                         border: hasOrders ? '1px solid rgba(22, 163, 74, 0.3)' : '1px solid var(--border)',

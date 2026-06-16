@@ -109,7 +109,7 @@ export default function ForecastChart() {
                     {accuracy !== null && (
                         <span style={{
                             padding: '2px 9px', borderRadius: '10px', fontSize: '11px', fontWeight: 700,
-                            background: accuracy >= 75 ? 'var(--color-icon)' : accuracy >= 60 ? 'var(--color-warning)' : 'var(--color-danger)',
+                            background: accuracy >= 75 ? 'var(--muted-foreground)' : accuracy >= 60 ? 'var(--warning)' : 'var(--destructive)',
                             color: accuracy >= 75 ? 'var(--success)' : accuracy >= 60 ? 'var(--warning)' : 'var(--error)',
                         }}>
                             {accuracy}% R²
@@ -131,7 +131,7 @@ export default function ForecastChart() {
                                 padding: '4px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
                                 border: '1px solid var(--border)', cursor: 'pointer',
                                 background: range === d ? 'var(--accent)' : 'transparent',
-                                color: range === d ? 'var(--color-shadow)' : 'var(--muted)',
+                                color: range === d ? 'var(--shadow-sm)' : 'var(--muted)',
                             }}
                         >
                             {d}d
@@ -183,7 +183,7 @@ export default function ForecastChart() {
                         <Area
                             dataKey="confidence_high"
                             stroke="none"
-                            fill='var(--color-info)'
+                            fill='var(--accent)'
                             name="Confidence Band"
                             isAnimationActive={false}
                         />
@@ -209,10 +209,10 @@ export default function ForecastChart() {
                         {/* Predicted revenue */}
                         <Line
                             dataKey="predicted"
-                            stroke='var(--color-info)'
+                            stroke='var(--accent)'
                             strokeWidth={2}
                             strokeDasharray="6 3"
-                            dot={{ r: 2, fill: 'var(--color-info)' }}
+                            dot={{ r: 2, fill: 'var(--accent)' }}
                             name="Predicted Revenue"
                             connectNulls={false}
                         />

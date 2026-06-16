@@ -66,7 +66,7 @@ const ProgressBar = ({ active, onComplete }) => {
       width: '100%',
       height: '3px',
       zIndex: 9999,
-      background: 'var(--color-surface)',
+      background: 'var(--card)',
       pointerEvents: 'none'
     }}>
       <div style={{

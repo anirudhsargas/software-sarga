@@ -293,7 +293,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                     onClick={onClose}
                     style={{
                         position: 'absolute', top: '20px', right: '20px',
-                        background: 'var(--color-surface)',
+                        background: 'var(--card)',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
                         zIndex: 10
                     }}
@@ -352,7 +352,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                     <div style={{
                         marginTop: '10px', padding: '10px 14px',
                         background: 'var(--warning-bg)', borderRadius: '8px',
-                        color: 'var(--color-icon)', fontSize: '13px'
+                        color: 'var(--muted-foreground)', fontSize: '13px'
                     }}>
                         {cameraError}
                     </div>

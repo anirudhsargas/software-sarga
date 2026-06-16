@@ -107,14 +107,14 @@ const PaperLayoutGenerator = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Paper
-        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || 'var(--color-background)';
-        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'var(--color-border)';
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || 'var(--background)';
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'var(--border)';
         ctx.lineWidth = 1;
         ctx.fillRect(offX, offY, paper_width * scale, paper_height * scale);
         ctx.strokeRect(offX, offY, paper_width * scale, paper_height * scale);
 
         // Designs
-        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || 'var(--color-text)';
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || 'var(--foreground)';
         if (placements) {
             placements.forEach((p, i) => {
                 const x = offX + p.x * scale;
@@ -131,7 +131,7 @@ const PaperLayoutGenerator = () => {
                 if (bleed > 0) {
                     ctx.save();
                     ctx.setLineDash([3, 3]);
-                    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--error').trim() || 'var(--color-danger)';
+                    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--error').trim() || 'var(--destructive)';
                     ctx.lineWidth = 0.5;
                     const bx = x + bleed * scale, by = y + bleed * scale;
                     const bw = w - 2 * bleed * scale, bh = h - 2 * bleed * scale;
@@ -150,7 +150,7 @@ const PaperLayoutGenerator = () => {
 
         // Cut marks
         const markLen = 8;
-        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || 'var(--color-textMuted)';
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || 'var(--muted-foreground)';
         ctx.lineWidth = 0.5;
         ctx.setLineDash([]);
         if (placements) {

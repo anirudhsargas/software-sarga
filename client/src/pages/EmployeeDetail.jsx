@@ -957,7 +957,7 @@ const EmployeeDetail = () => {
                                                                 <td>{d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                                                                 <td style={{ color: d.getDay() === 0 ? 'var(--error)' : 'inherit' }}>{d.toLocaleDateString('en-US', { weekday: 'short' })}</td>
                                                                 <td>
-                                                                    <span style={{ padding: '2px 8px', borderRadius: 4, background: sc.bg || 'var(--color-surfaceSecondary)', color: sc.color || 'var(--color-icon)', fontSize: 11, fontWeight: 600 }}>
+                                                                    <span style={{ padding: '2px 8px', borderRadius: 4, background: sc.bg || 'var(--secondary)', color: sc.color || 'var(--muted-foreground)', fontSize: 11, fontWeight: 600 }}>
                                                                         {record.status === 'Leave' ? 'Absent' : record.status}
                                                                     </span>
                                                                 </td>
@@ -1183,7 +1183,7 @@ const EmployeeDetail = () => {
                 </div>
             )}
             {confirmDialog.show && (
-                <div className="employee-detail__modal" style={{ zIndex: 1000, background: 'var(--color-shadow)', backdropFilter: 'blur(4px)' }}>
+                <div className="employee-detail__modal" style={{ zIndex: 1000, background: 'var(--shadow-sm)', backdropFilter: 'blur(4px)' }}>
                     <div className="employee-detail__modal-card" style={{
                         textAlign: 'center',
                         padding: '32px 24px',
@@ -1195,7 +1195,7 @@ const EmployeeDetail = () => {
                     }}>
                         <div style={{
                             width: 64, height: 64, borderRadius: 20,
-                            background: confirmDialog.type === 'alert' ? 'var(--color-info)' : 'var(--color-warning)',
+                            background: confirmDialog.type === 'alert' ? 'var(--accent)' : 'var(--warning)',
                             display: 'grid', placeItems: 'center', margin: '0 auto 20px',
                             color: confirmDialog.type === 'alert' ? 'var(--accent)' : 'var(--warning)'
                         }}>

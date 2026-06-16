@@ -37,7 +37,7 @@
 .profile-tab--active {
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 1px 3px var(--color-shadow);
+  box-shadow: 0 1px 3px var(--shadow-sm);
 }
 
 /* Profile Section */
@@ -315,4 +315,36 @@
 .password-card__info p {
   font-size: 12px;
   color: var(--muted);
+}
+
+/* Profile Theme Options */
+.profile-theme-options {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 16px 16px;
+}
+
+.profile-theme-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.profile-theme-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.profile-theme-btn--active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent);
 }

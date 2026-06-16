@@ -97,7 +97,7 @@ export default function RecurringInvoices() {
 
     const cardStyle = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, marginBottom: 12 };
     const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--input-bg, var(--surface))', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' };
-    const btnStyle = (bg = 'var(--color-info)') => ({ background: bg, color: 'var(--color-surface)', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14 });
+    const btnStyle = (bg = 'var(--accent)') => ({ background: bg, color: 'var(--card)', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14 });
 
     const freqLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly' };
     const getCustomerName = (id) => (Array.isArray(customers) ? customers : []).find(c => String(c.id) === String(id))?.name || `#${id}`;
@@ -109,7 +109,7 @@ export default function RecurringInvoices() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}><RefreshCw size={22} /> Recurring Invoices</h2>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={processNow} disabled={processing} style={btnStyle('var(--color-success)')}>
+                    <button onClick={processNow} disabled={processing} style={btnStyle('var(--success)')}>
                         {processing ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />} Process Due
                     </button>
                     <button onClick={() => { 
@@ -139,8 +139,8 @@ export default function RecurringInvoices() {
                     <div>
                         <strong>{r.customer_name || getCustomerName(r.customer_id)}</strong>
                         <span style={{ margin: '0 10px', fontSize: 20, fontWeight: 700 }}>₹{Number(r.total || 0).toLocaleString()}</span>
-                        <span style={{ background: 'var(--color-surfaceHover)', color: 'var(--color-primaryHover)', padding: '2px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{freqLabel[r.frequency]}</span>
-                        {!r.is_active && <span style={{ marginLeft: 8, background: 'var(--color-background)', color: 'var(--color-danger)', padding: '2px 8px', borderRadius: 8, fontSize: 11 }}>Paused</span>}
+                        <span style={{ background: 'var(--secondary)', color: 'var(--primary)', padding: '2px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{freqLabel[r.frequency]}</span>
+                        {!r.is_active && <span style={{ marginLeft: 8, background: 'var(--background)', color: 'var(--destructive)', padding: '2px 8px', borderRadius: 8, fontSize: 11 }}>Paused</span>}
                         <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4, display: 'flex', gap: 16 }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Calendar size={12} /> Next: {r.next_run_date?.split('T')[0] || 'N/A'}</span>
                             {r.end_date && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> Ends: {r.end_date?.split('T')[0]}</span>}
@@ -148,11 +148,11 @@ export default function RecurringInvoices() {
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => toggleActive(r)} style={btnStyle(r.is_active ? 'var(--color-warning)' : 'var(--color-success)')} title={r.is_active ? 'Pause' : 'Activate'}>
+                        <button onClick={() => toggleActive(r)} style={btnStyle(r.is_active ? 'var(--warning)' : 'var(--success)')} title={r.is_active ? 'Pause' : 'Activate'}>
                             {r.is_active ? <Pause size={14} /> : <Play size={14} />}
                         </button>
-                        <button onClick={() => handleEdit(r)} style={btnStyle('var(--color-textSecondary)')}><Edit2 size={14} /></button>
-                        <button onClick={() => handleDelete(r.id)} style={btnStyle('var(--color-danger)')}><Trash2 size={14} /></button>
+                        <button onClick={() => handleEdit(r)} style={btnStyle('var(--muted-foreground)')}><Edit2 size={14} /></button>
+                        <button onClick={() => handleDelete(r.id)} style={btnStyle('var(--destructive)')}><Trash2 size={14} /></button>
                     </div>
                 </div>
             ))}
@@ -212,7 +212,7 @@ export default function RecurringInvoices() {
                         <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. Monthly design services" style={inputStyle} />
                     </div>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                        <button onClick={() => setShowForm(false)} style={btnStyle('var(--color-textSecondary)')}>Cancel</button>
+                        <button onClick={() => setShowForm(false)} style={btnStyle('var(--muted-foreground)')}>Cancel</button>
                         <button onClick={handleSave} style={btnStyle()}>Save</button>
                     </div>
                 </div>

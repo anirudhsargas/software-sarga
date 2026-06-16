@@ -7,9 +7,9 @@ export const SyncStatusBar = () => {
 
   const configs = {
     idle:    { icon: Wifi,         color: 'var(--text-muted)', label: 'Ready' },
-    syncing: { icon: Loader2,      color: 'var(--color-warning)', label: 'Syncing...', spin: true },
-    synced:  { icon: CheckCircle,  color: 'var(--color-success)', label: lastSyncText },
-    error:   { icon: AlertCircle,  color: 'var(--color-danger)', label: 'Sync failed' },
+    syncing: { icon: Loader2,      color: 'var(--warning)', label: 'Syncing...', spin: true },
+    synced:  { icon: CheckCircle,  color: 'var(--success)', label: lastSyncText },
+    error:   { icon: AlertCircle,  color: 'var(--destructive)', label: 'Sync failed' },
   };
 
   const config = configs[status] || configs.idle;

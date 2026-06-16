@@ -92,7 +92,7 @@
 }
 
 .staff-table tr--alert {
-    background: var(--color-danger);
+    background: var(--destructive);
 }
 
 .staff-table-name {
@@ -457,7 +457,7 @@
 }
 
 .machine-error-icon {
-    border-color: var(--color-danger);
+    border-color: var(--destructive);
     color: var(--error);
 }
 
@@ -549,7 +549,7 @@
 }
 
 .machine-stat--today {
-    background: var(--color-success);
+    background: var(--success);
     padding: 8px 14px;
     border-radius: 10px;
 }
@@ -560,7 +560,7 @@
 }
 
 .machine-stat--waste {
-    background: var(--color-danger);
+    background: var(--destructive);
     padding: 8px 12px;
     border-radius: 10px;
 }
@@ -582,7 +582,7 @@
 }
 
 .machine-stat--proof {
-    background: var(--color-warning);
+    background: var(--warning);
     padding: 8px 12px;
     border-radius: 10px;
 }
@@ -642,7 +642,7 @@
     width: 40px;
     height: 40px;
     border-radius: 10px;
-    background: var(--color-primary);
+    background: var(--primary);
     display: grid;
     place-items: center;
 }
@@ -772,7 +772,7 @@
     width: 36px;
     height: 36px;
     border-radius: 10px;
-    background: var(--color-warning);
+    background: var(--warning);
     display: grid;
     place-items: center;
 }
@@ -1018,7 +1018,7 @@ select:focus-visible,
     top: 0;
     z-index: 10;
     background-color: var(--surface);
-    box-shadow: 0 1px 2px var(--color-shadow);
+    box-shadow: 0 1px 2px var(--shadow-sm);
 }
 
 /* Equal spacing toolbar & Sticky Top */

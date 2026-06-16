@@ -171,6 +171,19 @@
   --ring: var(--accent);
 }
 
+/* Smooth theme transitions */
+*, *::before, *::after {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Exclude specific elements from transition for performance */
+.animate-spin, .no-theme-transition, .no-theme-transition *, 
+.meter-hero, .meter-hero *,
+[class*="spinner"], [class*="loading"],
+.toast, .toast * {
+  transition: none !important;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -4061,7 +4074,7 @@ select.input-field {
 
 .fo-category-chip--active {
   background: var(--accent);
-  color: #000;
+  color: var(--on-accent);
   border-color: var(--accent);
   box-shadow: var(--shadow-sm);
 }
@@ -4445,48 +4458,48 @@ select.input-field {
 }
 
 .badge--warning {
-  background: #fff4e6;
-  color: #b36b00;
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .badge--info {
-  background: #e7f5ff;
-  color: #1971c2;
+  background: var(--accent-soft);
+  color: var(--accent-2);
 }
 
 .badge--success {
-  background: #e3ece6;
-  color: var(--success, #2f7d4a);
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .badge--primary {
-  background: #e8e6ff;
-  color: #4c45e5;
+  background: var(--accent-light);
+  color: var(--accent);
 }
 
 .badge--error {
-  background: #fff5f5;
-  color: var(--error, #b03a2e);
+  background: var(--error-bg);
+  color: var(--error);
 }
 
 .dark .badge--warning {
-  background: rgba(179, 107, 0, 0.25);
-  color: #f0c27a;
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .dark .badge--info {
-  background: rgba(25, 113, 194, 0.25);
-  color: #8cc0f2;
+  background: var(--accent-soft);
+  color: var(--accent-2);
 }
 
 .dark .badge--success {
-  background: rgba(47, 125, 74, 0.25);
-  color: #a9d7b6;
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .dark .badge--primary {
-  background: rgba(76, 69, 229, 0.25);
-  color: #a39fff;
+  background: var(--accent-light);
+  color: var(--accent);
 }
 
 .dark .badge--error {
@@ -5464,53 +5477,53 @@ select.input-field {
 }
 
 .badge--ok {
-  background: #e3ece6;
+  background: var(--success-bg);
   color: var(--success);
 }
 
 .badge--success {
-  background: #e3ece6;
+  background: var(--success-bg);
   color: var(--success);
 }
 
 .badge--warning {
-  background: #fff4e6;
-  color: #b36b00;
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .badge--info {
-  background: #e7f5ff;
-  color: #1971c2;
+  background: var(--accent-soft);
+  color: var(--accent-2);
 }
 
 .badge--primary {
-  background: #e8e6ff;
-  color: #4c45e5;
+  background: var(--accent-light);
+  color: var(--accent);
 }
 
 .badge--danger {
-  background: #fff5f5;
+  background: var(--error-bg);
   color: var(--error);
 }
 
 .badge--type-walk-in {
-  background: #f1f3f5;
-  color: #495057;
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
 
 .badge--type-retail {
-  background: #e7f5ff;
-  color: #1971c2;
+  background: var(--accent-soft);
+  color: var(--accent-2);
 }
 
 .badge--type-association {
-  background: #f3f0ff;
-  color: #6741d9;
+  background: var(--accent-light);
+  color: var(--accent);
 }
 
 .badge--type-offset {
-  background: #fff0f6;
-  color: #d6336c;
+  background: var(--accent-soft);
+  color: var(--accent-2);
 }
 
 /* Status Select elements */
@@ -5538,33 +5551,33 @@ select.badge option {
 }
 
 .dark .badge--ok {
-  background: rgba(47, 125, 74, 0.2);
-  color: #a9d7b6;
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .dark .badge--success {
-  background: rgba(47, 125, 74, 0.25);
-  color: #a9d7b6;
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .dark .badge--warning {
-  background: rgba(179, 107, 0, 0.25);
-  color: #f0c27a;
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .dark .badge--info {
-  background: rgba(25, 113, 194, 0.25);
-  color: #8cc0f2;
+  background: var(--accent-soft);
+  color: var(--accent-2);
 }
 
 .dark .badge--primary {
-  background: rgba(76, 69, 229, 0.25);
-  color: #a39fff;
+  background: var(--accent-light);
+  color: var(--accent);
 }
 
 .dark .badge--danger {
-  background: rgba(176, 58, 46, 0.25);
-  color: #f2a4c5;
+  background: var(--error-bg);
+  color: var(--error);
 }
 
 .dark .badge--type-walk-in {

@@ -45,8 +45,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--surface, var(--color-surface));
-  border: 1.5px solid var(--border, var(--color-surfaceHover));
+  background: var(--surface, var(--card));
+  border: 1.5px solid var(--border, var(--secondary));
   border-radius: 12px;
   padding: 14px 16px;
   cursor: pointer;
@@ -57,13 +57,13 @@
 
 .pv-stat-card:hover {
   border-color: var(--card-color);
-  box-shadow: 0 2px 8px var(--color-shadow);
+  box-shadow: 0 2px 8px var(--shadow-sm);
 }
 
 .pv-stat-card--active {
   border-color: var(--card-color);
   background: var(--card-bg);
-  box-shadow: 0 2px 12px var(--color-shadow);
+  box-shadow: 0 2px 12px var(--shadow-sm);
 }
 
 .pv-stat-icon {
@@ -136,17 +136,17 @@
 .pv-search-input {
   width: 100%;
   padding: 9px 36px 9px 36px;
-  border: 1.5px solid var(--border, var(--color-surfaceHover));
+  border: 1.5px solid var(--border, var(--secondary));
   border-radius: 8px;
   font-size: 13px;
-  background: var(--surface, var(--color-surface));
+  background: var(--surface, var(--card));
   color: var(--text);
   transition: border-color 0.15s;
 }
 
 .pv-search-input:focus {
   outline: none;
-  border-color: var(--accent, var(--color-info));
+  border-color: var(--accent, var(--accent));
 }
 
 .pv-search-clear {
@@ -169,16 +169,16 @@
 
 .pv-date-input {
   padding: 8px 10px;
-  border: 1.5px solid var(--border, var(--color-surfaceHover));
+  border: 1.5px solid var(--border, var(--secondary));
   border-radius: 8px;
   font-size: 13px;
-  background: var(--surface, var(--color-surface));
+  background: var(--surface, var(--card));
   color: var(--text);
 }
 
 .pv-date-input:focus {
   outline: none;
-  border-color: var(--accent, var(--color-info));
+  border-color: var(--accent, var(--accent));
 }
 
 .pv-date-sep {
@@ -213,21 +213,21 @@
 
 /* ── CARD ── */
 .pv-card {
-  background: var(--surface, var(--color-surface));
-  border: 1.5px solid var(--border, var(--color-surfaceHover));
+  background: var(--surface, var(--card));
+  border: 1.5px solid var(--border, var(--secondary));
   border-radius: 12px;
   overflow: hidden;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .pv-card:hover {
-  border-color: var(--accent-muted, var(--color-border));
-  box-shadow: 0 2px 8px var(--color-shadow);
+  border-color: var(--accent-muted, var(--border));
+  box-shadow: 0 2px 8px var(--shadow-sm);
 }
 
 .pv-card--expanded {
-  border-color: var(--accent, var(--color-info));
-  box-shadow: 0 4px 16px var(--color-shadow);
+  border-color: var(--accent, var(--accent));
+  box-shadow: 0 4px 16px var(--shadow-sm);
 }
 
 .pv-card-main {
@@ -322,7 +322,7 @@
 
 /* ── EXPANDED ── */
 .pv-card-expand {
-  border-top: 1px solid var(--border, var(--color-surfaceHover));
+  border-top: 1px solid var(--border, var(--secondary));
   padding: 16px;
   background: var(--bg, #f9fafb);
 }
@@ -363,7 +363,7 @@
 
 /* ── ACTIONS ── */
 .pv-actions {
-  border-top: 1px dashed var(--border, var(--color-surfaceHover));
+  border-top: 1px dashed var(--border, var(--secondary));
   padding-top: 14px;
   display: flex;
   flex-direction: column;
@@ -377,16 +377,16 @@
 .pv-note-input {
   width: 100%;
   padding: 8px 12px;
-  border: 1.5px solid var(--border, var(--color-surfaceHover));
+  border: 1.5px solid var(--border, var(--secondary));
   border-radius: 8px;
   font-size: 13px;
-  background: var(--surface, var(--color-surface));
+  background: var(--surface, var(--card));
   color: var(--text);
 }
 
 .pv-note-input:focus {
   outline: none;
-  border-color: var(--accent, var(--color-info));
+  border-color: var(--accent, var(--accent));
 }
 
 .pv-action-buttons {
@@ -415,18 +415,18 @@
 }
 
 .pv-btn--verify {
-  background: var(--accent, var(--color-text));
-  color: var(--color-surface);
+  background: var(--accent, var(--foreground));
+  color: var(--card);
 }
 .dark .pv-btn--verify {
-  color: var(--color-text);
+  color: var(--foreground);
 }
 .pv-btn--verify:hover:not(:disabled) {
-  background: var(--accent-2, var(--color-textSecondary));
+  background: var(--accent-2, var(--muted-foreground));
 }
 
 .pv-btn--missing {
-  background: var(--surface, var(--color-surface));
+  background: var(--surface, var(--card));
   border: 1.5px solid var(--border);
   color: var(--text);
 }
@@ -439,16 +439,16 @@
   color: var(--error);
 }
 .pv-btn--reject:hover:not(:disabled) {
-  background: var(--color-surfaceHover);
+  background: var(--secondary);
 }
 .dark .pv-btn--reject {
-  background: var(--color-danger);
-  color: var(--color-danger);
+  background: var(--destructive);
+  color: var(--destructive);
 }
 
 .pv-btn--undo {
-  background: var(--surface, var(--color-surface));
-  border: 1.5px solid var(--border, var(--color-surfaceHover));
+  background: var(--surface, var(--card));
+  border: 1.5px solid var(--border, var(--secondary));
   color: var(--text);
 }
 

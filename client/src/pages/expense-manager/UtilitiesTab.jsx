@@ -15,7 +15,7 @@ const DEFAULT_UTILITY_TYPES = [
   { key: 'Electricity', icon: Zap, color: 'var(--warning)' },
   { key: 'Internet / Broadband', icon: Wifi, color: 'var(--accent-2)' },
   { key: 'Phone', icon: Phone, color: 'var(--success)' },
-  { key: 'Water', icon: Droplets, color: 'var(--color-info)' },
+  { key: 'Water', icon: Droplets, color: 'var(--accent)' },
 ];
 
 const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
@@ -61,7 +61,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
 
   const UTILITY_TYPES = [
     ...DEFAULT_UTILITY_TYPES,
-    ...customTypes.map(name => ({ key: name, icon: Zap, color: 'var(--color-info)' }))
+    ...customTypes.map(name => ({ key: name, icon: Zap, color: 'var(--accent)' }))
   ];
 
   const handleAddType = () => {
@@ -375,8 +375,8 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                       <td>
                         <span style={{
                           padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600,
-                          background: r._entry_type === 'Bill' ? 'var(--color-surfaceHover)' : 'var(--color-surfaceHover)',
-                          color: r._entry_type === 'Bill' ? 'var(--color-danger)' : 'var(--color-textSecondary)'
+                          background: r._entry_type === 'Bill' ? 'var(--secondary)' : 'var(--secondary)',
+                          color: r._entry_type === 'Bill' ? 'var(--destructive)' : 'var(--muted-foreground)'
                         }}>
                           {r._entry_type}
                         </span>

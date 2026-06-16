@@ -121,18 +121,18 @@
 }
 
 .otp-summary-item.success {
-  background: var(--success-bg, var(--color-surfaceSecondary));
-  border-color: var(--success, var(--color-success));
+  background: var(--success-bg, var(--secondary));
+  border-color: var(--success, var(--success));
 }
 
 .otp-summary-item.warning {
-  background: var(--warning-bg, var(--color-background));
-  border-color: var(--warning, var(--color-warning));
+  background: var(--warning-bg, var(--background));
+  border-color: var(--warning, var(--warning));
 }
 
 .otp-summary-item.error {
-  background: var(--error-bg, var(--color-background));
-  border-color: var(--error, var(--color-danger));
+  background: var(--error-bg, var(--background));
+  border-color: var(--error, var(--destructive));
 }
 
 .otp-summary-item:hover {
@@ -173,11 +173,11 @@
 }
 
 .otp-category.success {
-  border-color: var(--success, var(--color-success));
+  border-color: var(--success, var(--success));
 }
 
 .otp-category.warning {
-  border-color: var(--warning, var(--color-warning));
+  border-color: var(--warning, var(--warning));
 }
 
 /* Category Header */
@@ -239,7 +239,7 @@
 }
 
 .otp-test.fail {
-  background-color: var(--error-bg, var(--color-danger));
+  background-color: var(--error-bg, var(--destructive));
 }
 
 .otp-test-icon {
@@ -250,11 +250,11 @@
 }
 
 .otp-icon-pass {
-  color: var(--success, var(--color-success));
+  color: var(--success, var(--success));
 }
 
 .otp-icon-fail {
-  color: var(--error, var(--color-danger));
+  color: var(--error, var(--destructive));
 }
 
 .otp-test-content {
@@ -313,7 +313,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  color: var(--success, var(--color-success));
+  color: var(--success, var(--success));
   width: 100%;
 }
 
@@ -337,7 +337,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  color: var(--warning, var(--color-warning));
+  color: var(--warning, var(--warning));
   width: 100%;
 }
 
@@ -394,13 +394,13 @@
 
 /* Dark Mode — using .dark class to match app theming */
 .dark .otp-summary-item.success {
-  background: var(--color-success);
+  background: var(--success);
 }
 
 .dark .otp-summary-item.warning {
-  background: var(--color-warning);
+  background: var(--warning);
 }
 
 .dark .otp-summary-item.error {
-  background: var(--color-danger);
+  background: var(--destructive);
 }

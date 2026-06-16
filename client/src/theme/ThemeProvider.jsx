@@ -1,62 +1,61 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { LIGHT, DARK } from './colors';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
 const ThemeContext = createContext();
 
 export const useTheme = () => useContext(ThemeContext);
 
+function resolveTheme(mode, prefersDark) {
+  if (mode === 'dark') return 'dark';
+  if (mode === 'light') return 'light';
+  return prefersDark ? 'dark' : 'light';
+}
+
 export const ThemeProvider = ({ children }) => {
   const [themeMode, setThemeMode] = useState(() => {
-    return localStorage.getItem('theme') || 'system';
+    const saved = localStorage.getItem('app-theme') || localStorage.getItem('theme');
+    if (saved) {
+      if (!localStorage.getItem('app-theme')) {
+        localStorage.setItem('app-theme', saved);
+      }
+      return saved;
+    }
+    return 'system';
   });
+
+  const applyTheme = useCallback((mode) => {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const resolved = resolveTheme(mode, prefersDark);
+    const isDark = resolved === 'dark';
+
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.classList.toggle('dark', isDark);
+  }, []);
+
+  useEffect(() => {
+    applyTheme(themeMode);
+  }, [themeMode, applyTheme]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
-    const applyTheme = (mode) => {
-      let isDark = mode === 'dark';
-      if (mode === 'system') {
-        isDark = mediaQuery.matches;
-      }
-
-      // Set data-theme attribute
-      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-      
-      // Inject CSS variables
-      const activeColors = isDark ? DARK : LIGHT;
-      const root = document.documentElement;
-      
-      Object.entries(activeColors).forEach(([key, value]) => {
-        root.style.setProperty(`--color-${key}`, value);
-      });
-      
-      // For backwards compatibility during transition, set old variables too
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    };
-
-    applyTheme(themeMode);
-
-    const handleChange = (e) => {
+    const handleChange = () => {
       if (themeMode === 'system') {
         applyTheme('system');
       }
     };
-
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [themeMode]);
+  }, [themeMode, applyTheme]);
 
-  const setTheme = (mode) => {
-    localStorage.setItem('theme', mode);
+  const setTheme = useCallback((mode) => {
+    localStorage.setItem('app-theme', mode);
     setThemeMode(mode);
-  };
+  }, []);
+
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const resolvedTheme = resolveTheme(themeMode, prefersDark);
 
   return (
-    <ThemeContext.Provider value={{ theme: themeMode, setTheme }}>
+    <ThemeContext.Provider value={{ theme: themeMode, resolvedTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

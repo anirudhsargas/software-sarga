@@ -9,7 +9,7 @@ import {
 import { Scissors, Layers, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, X } from 'lucide-react';
 
 const s = {
-  overlay: { position: 'fixed', inset: 0, background: 'var(--color-shadow)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 16 },
+  overlay: { position: 'fixed', inset: 0, background: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 16 },
   modal: { background: 'var(--surface, #1a1a2e)', border: '1px solid var(--border, #333)', borderRadius: 16, width: '100%', maxWidth: 680, maxHeight: '90vh', overflowY: 'auto', padding: 0, boxShadow: '0 20px 50px rgba(0,0,0,0.4)' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid var(--border, #333)' },
   title: { display: 'flex', alignItems: 'center', gap: 10, margin: 0, fontSize: 18, fontWeight: 700 },
@@ -235,8 +235,8 @@ const PaperOptimizer = ({ isOpen, onClose, onApply }) => {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <span style={s.badge(
-                        result.wastePercent < 20 ? 'var(--color-surfaceHover)' : result.wastePercent < 40 ? 'var(--color-surfaceHover)' : 'var(--color-background)',
-                        result.wastePercent < 20 ? 'var(--color-textSecondary)' : result.wastePercent < 40 ? 'var(--color-textSecondary)' : 'var(--color-danger)'
+                        result.wastePercent < 20 ? 'var(--secondary)' : result.wastePercent < 40 ? 'var(--secondary)' : 'var(--background)',
+                        result.wastePercent < 20 ? 'var(--muted-foreground)' : result.wastePercent < 40 ? 'var(--muted-foreground)' : 'var(--destructive)'
                       )}>
                         {result.wastePercent < 20 ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
                         {result.wastePercent < 20 ? 'Optimal' : result.wastePercent < 40 ? 'Moderate Waste' : 'High Waste'}
@@ -286,7 +286,7 @@ const PaperOptimizer = ({ isOpen, onClose, onApply }) => {
                   <button
                     style={{
                       width: '100%', padding: '12px', borderRadius: 10, border: 'none',
-                      background: 'var(--accent, var(--accent))', color: 'var(--color-surface)', fontWeight: 700,
+                      background: 'var(--accent, var(--accent))', color: 'var(--card)', fontWeight: 700,
                       fontSize: 14, cursor: 'pointer', marginTop: 16
                     }}
                     onClick={() => {
@@ -346,7 +346,7 @@ const PaperOptimizer = ({ isOpen, onClose, onApply }) => {
                         >
                           <div>
                             <span style={{ fontWeight: 600, fontSize: 13 }}>{opt.label}</span>
-                            {i === 0 && <span style={{ ...s.badge('var(--color-surfaceHover)', 'var(--color-textSecondary)'), marginLeft: 8, fontSize: 10 }}>BEST</span>}
+                            {i === 0 && <span style={{ ...s.badge('var(--secondary)', 'var(--muted-foreground)'), marginLeft: 8, fontSize: 10 }}>BEST</span>}
                           </div>
                           <div style={{ textAlign: 'right', fontSize: 12 }}>
                             <div style={{ fontWeight: 700 }}>{opt.sheetsNeeded} sheet{opt.sheetsNeeded !== 1 ? 's' : ''}</div>

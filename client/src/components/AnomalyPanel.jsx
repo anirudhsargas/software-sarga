@@ -75,8 +75,8 @@ export default function AnomalyPanel() {
                 style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
                     padding: '12px 16px', cursor: 'pointer',
-                    background: highCount > 0 ? 'var(--color-background)' : 'var(--color-background)',
-                    color: highCount > 0 ? 'var(--color-danger)' : 'var(--color-danger)',
+                    background: highCount > 0 ? 'var(--background)' : 'var(--background)',
+                    color: highCount > 0 ? 'var(--destructive)' : 'var(--destructive)',
                     fontWeight: 600, fontSize: '14px',
                     border: '0'
                 }}
@@ -84,7 +84,7 @@ export default function AnomalyPanel() {
                 <Shield size={18} />
                 <span style={{ flex: 1, textAlign: 'left' }}>
                     {count} anomal{count === 1 ? 'y' : 'ies'} detected
-                    {highCount > 0 && <span style={{ color: 'var(--color-danger)', marginLeft: 6 }}>({highCount} high)</span>}
+                    {highCount > 0 && <span style={{ color: 'var(--destructive)', marginLeft: 6 }}>({highCount} high)</span>}
                 </span>
                 <button
                     onClick={(e) => { e.stopPropagation(); fetchAnomalies(); }}

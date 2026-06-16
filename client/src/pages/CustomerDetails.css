@@ -43,8 +43,8 @@
 }
 
 .cd-wa-btn {
-  background: var(--color-success);
-  color: var(--color-surface);
+  background: var(--success);
+  color: var(--card);
   border: none;
   border-radius: 6px;
   padding: 2px 8px;
@@ -117,7 +117,7 @@
 
 /* ── Skeleton placeholders (shimmer) ── */
 .skeleton {
-  background: linear-gradient(90deg, var(--color-shadow) 25%, var(--color-shadow) 37%, var(--color-shadow) 63%);
+  background: linear-gradient(90deg, var(--shadow-sm) 25%, var(--shadow-sm) 37%, var(--shadow-sm) 63%);
   background-size: 400% 100%;
   animation: cd-shimmer 1.2s linear infinite;
   border-radius: 4px;
@@ -207,9 +207,9 @@
   border: 1px solid var(--border);
 }
 .cd-badge--star {
-  background: var(--color-warning);
+  background: var(--warning);
   color: var(--warning);
-  border: 1px solid var(--color-warning);
+  border: 1px solid var(--warning);
 }
 .cd-profile-details {
   display: flex;
@@ -268,32 +268,32 @@
   color: var(--accent-2);
 }
 .cd-kpi-icon-wrap--success {
-  background: var(--color-icon);
-  border-color: var(--color-icon);
+  background: var(--muted-foreground);
+  border-color: var(--muted-foreground);
   color: var(--success);
 }
 .cd-kpi-icon-wrap--warning {
-  background: var(--color-warning);
-  border-color: var(--color-warning);
+  background: var(--warning);
+  border-color: var(--warning);
   color: var(--warning);
 }
 .cd-kpi-icon-wrap--error {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
+  background: var(--destructive);
+  border-color: var(--destructive);
   color: var(--error);
 }
 
 .dark .cd-kpi-icon-wrap--success {
-  background: var(--color-icon);
-  border-color: var(--color-icon);
+  background: var(--muted-foreground);
+  border-color: var(--muted-foreground);
 }
 .dark .cd-kpi-icon-wrap--warning {
-  background: var(--color-warning);
-  border-color: var(--color-warning);
+  background: var(--warning);
+  border-color: var(--warning);
 }
 .dark .cd-kpi-icon-wrap--error {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
+  background: var(--destructive);
+  border-color: var(--destructive);
 }
 
 .cd-kpi-value {
@@ -335,12 +335,12 @@
 }
 .cd-tab--active {
   background: var(--accent);
-  color: var(--color-surface);
+  color: var(--card);
   border-color: transparent;
 }
 .dark .cd-tab--active {
-  background: var(--color-surfaceHover);
-  color: var(--color-text);
+  background: var(--secondary);
+  color: var(--foreground);
 }
 
 /* ── Section ── */
@@ -401,12 +401,12 @@
 }
 .cd-filter-btn--active {
   background: var(--accent);
-  color: var(--color-surface);
+  color: var(--card);
   border-color: transparent;
 }
 .dark .cd-filter-btn--active {
-  background: var(--color-surfaceHover);
-  color: var(--color-text);
+  background: var(--secondary);
+  color: var(--foreground);
 }
 
 /* ── Empty State (dashed border pattern) ── */
@@ -435,7 +435,7 @@
   transition: all 0.2s ease;
 }
 .cd-order-card:hover {
-  border-color: var(--color-text);
+  border-color: var(--foreground);
   box-shadow: var(--shadow-sm);
 }
 .cd-order-header {
@@ -489,33 +489,33 @@
   white-space: nowrap;
 }
 .cd-status--pending {
-  background: var(--color-warning);
+  background: var(--warning);
   color: var(--warning);
 }
 .cd-status--processing {
-  background: var(--color-primary);
-  color: var(--color-primary);
+  background: var(--primary);
+  color: var(--primary);
 }
 .cd-status--completed {
-  background: var(--color-icon);
+  background: var(--muted-foreground);
   color: var(--success);
 }
 .cd-status--delivered {
-  background: var(--color-primaryHover);
-  color: var(--color-primaryHover);
+  background: var(--primary);
+  color: var(--primary);
 }
 .cd-status--cancelled {
-  background: var(--color-danger);
+  background: var(--destructive);
   color: var(--error);
 }
 
 .dark .cd-status--processing {
-  background: var(--color-primary);
-  color: var(--color-disabled);
+  background: var(--primary);
+  color: var(--muted-foreground);
 }
 .dark .cd-status--delivered {
-  background: var(--color-primaryHover);
-  color: var(--color-border);
+  background: var(--primary);
+  color: var(--border);
 }
 
 /* ── Order Details (expanded) ── */
@@ -556,9 +556,9 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.cd-pay-status--paid { background: var(--color-icon); color: var(--success); }
-.cd-pay-status--partial { background: var(--color-warning); color: var(--warning); }
-.cd-pay-status--unpaid { background: var(--color-danger); color: var(--error); }
+.cd-pay-status--paid { background: var(--muted-foreground); color: var(--success); }
+.cd-pay-status--partial { background: var(--warning); color: var(--warning); }
+.cd-pay-status--unpaid { background: var(--destructive); color: var(--error); }
 
 .cd-assignment-list {
   display: flex;
@@ -592,7 +592,7 @@
   transition: all 0.2s ease;
 }
 .cd-tracking-card:hover {
-  border-color: var(--color-text);
+  border-color: var(--foreground);
   box-shadow: var(--shadow-sm);
 }
 .cd-tracking-header {
@@ -632,10 +632,10 @@
 .cd-progress-step--current .cd-progress-dot {
   background: var(--surface);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--color-text);
+  box-shadow: 0 0 0 3px var(--foreground);
 }
 .dark .cd-progress-step--current .cd-progress-dot {
-  box-shadow: 0 0 0 3px var(--color-border);
+  box-shadow: 0 0 0 3px var(--border);
 }
 .cd-progress-line {
   position: absolute;
@@ -692,32 +692,32 @@
   border: 1px solid transparent;
 }
 .cd-pay-kpi--billed {
-  background: var(--color-text);
-  border-color: var(--color-text);
+  background: var(--foreground);
+  border-color: var(--foreground);
   color: var(--accent);
 }
 .cd-pay-kpi--paid {
-  background: var(--color-icon);
-  border-color: var(--color-icon);
+  background: var(--muted-foreground);
+  border-color: var(--muted-foreground);
   color: var(--success);
 }
 .cd-pay-kpi--due {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
+  background: var(--destructive);
+  border-color: var(--destructive);
   color: var(--error);
 }
 
 .dark .cd-pay-kpi--billed {
-  background: var(--color-border);
-  border-color: var(--color-border);
+  background: var(--border);
+  border-color: var(--border);
 }
 .dark .cd-pay-kpi--paid {
-  background: var(--color-icon);
-  border-color: var(--color-icon);
+  background: var(--muted-foreground);
+  border-color: var(--muted-foreground);
 }
 .dark .cd-pay-kpi--due {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
+  background: var(--destructive);
+  border-color: var(--destructive);
 }
 
 .cd-pay-kpi-label {
@@ -807,7 +807,7 @@
   transition: all 0.2s ease;
 }
 .cd-reorder-card:hover {
-  border-color: var(--color-text);
+  border-color: var(--foreground);
   box-shadow: var(--shadow-sm);
 }
 .cd-reorder-info {

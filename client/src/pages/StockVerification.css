@@ -134,12 +134,12 @@
 }
 
 .sv-status-badge--completed {
-    background: var(--color-success);
+    background: var(--success);
     border: 1px solid var(--success);
 }
 
 .sv-status-badge--draft {
-    background: var(--color-warning);
+    background: var(--warning);
     border: 1px solid var(--warning);
 }
 
@@ -194,7 +194,7 @@
     top: 0;
     z-index: 10;
     background: var(--surface);
-    box-shadow: 0 2px 4px var(--color-shadow);
+    box-shadow: 0 2px 4px var(--shadow-sm);
 }
 
 .sv-table th--right {

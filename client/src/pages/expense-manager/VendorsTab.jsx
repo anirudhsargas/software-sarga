@@ -25,8 +25,8 @@ const TransactionRow = React.memo(({ r, openFullBillFromTransaction }) => (
     <td>
       <span style={{
         padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600,
-        background: r._entry_type === 'Purchase' ? 'var(--color-surfaceHover)' : 'var(--color-surfaceHover)',
-        color: r._entry_type === 'Purchase' ? 'var(--color-danger)' : 'var(--color-textSecondary)'
+        background: r._entry_type === 'Purchase' ? 'var(--secondary)' : 'var(--secondary)',
+        color: r._entry_type === 'Purchase' ? 'var(--destructive)' : 'var(--muted-foreground)'
       }}>
         {r._entry_type}
       </span>
@@ -710,7 +710,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
       container.style.opacity = '0';
       container.style.pointerEvents = 'none';
       container.style.width = '794px';
-      container.style.background = 'var(--color-surface)';
+      container.style.background = 'var(--card)';
       container.innerHTML = DOMPurify.sanitize(summaryHtml, { ALLOWED_TAGS: ['div', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'h2', 'style'], ALLOWED_ATTR: ['style', 'id', 'colspan'] });
       document.body.appendChild(container);
 
@@ -759,7 +759,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
           console.warn('Vendor statement HTML appears empty');
         }
         // Render the HTML to a canvas using html2canvas
-        const canvas = await window.html2canvas(container, { scale: 2, useCORS: true, backgroundColor: 'var(--color-surface)' });
+        const canvas = await window.html2canvas(container, { scale: 2, useCORS: true, backgroundColor: 'var(--card)' });
         const imgWidthPx = canvas.width;
         const imgHeightPx = canvas.height;
         const pdfWidthPt = doc.internal.pageSize.getWidth();

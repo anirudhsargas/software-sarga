@@ -207,8 +207,8 @@ const CCTVAttendance = () => {
             </div>
           )}
           {summary.discrepancy_count > 0 && (
-            <div className="stat-card" style={{ borderLeft: '3px solid #f59e0b', background: 'var(--color-surfaceSecondary)' }}>
-              <div className="stat-value" style={{ color: 'var(--color-danger)' }}>{summary.discrepancy_count}</div>
+            <div className="stat-card" style={{ borderLeft: '3px solid #f59e0b', background: 'var(--secondary)' }}>
+              <div className="stat-value" style={{ color: 'var(--destructive)' }}>{summary.discrepancy_count}</div>
               <div className="stat-label">Time Discrepancies</div>
             </div>
           )}
@@ -248,7 +248,7 @@ const CCTVAttendance = () => {
                   const statusBadge = STATUS_BADGES[s.status] || { className: 'badge', label: s.status };
                   const entrySrc = s.entry_source ? SOURCE_BADGES[s.entry_source] : null;
                   return (
-                    <tr key={s.staff_id} style={s.absent_alert ? { background: 'var(--color-danger)' } : undefined}>
+                    <tr key={s.staff_id} style={s.absent_alert ? { background: 'var(--destructive)' } : undefined}>
                       <td>
                         <div className="row gap-sm" style={{ alignItems: 'center' }}>
                           <div className="user-avatar avatar-sm">
@@ -269,7 +269,7 @@ const CCTVAttendance = () => {
                             {formatTime(s.entry_time)}
                             {s.entry_discrepancy !== null && s.entry_discrepancy > 30 && (
                               <span title={`Recorded ${s.entry_discrepancy} min after actual submission`}
-                                style={{ fontSize: 11, background: 'var(--color-surfaceSecondary)', color: 'var(--color-danger)', border: '1px solid #f59e0b', borderRadius: 4, padding: '1px 5px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                style={{ fontSize: 11, background: 'var(--secondary)', color: 'var(--destructive)', border: '1px solid #f59e0b', borderRadius: 4, padding: '1px 5px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                                 ⚠ {s.entry_discrepancy}m gap
                               </span>
                             )}
@@ -283,7 +283,7 @@ const CCTVAttendance = () => {
                             {formatTime(s.exit_time)}
                             {s.exit_discrepancy !== null && s.exit_discrepancy > 30 && (
                               <span title={`Recorded ${s.exit_discrepancy} min after actual submission`}
-                                style={{ fontSize: 11, background: 'var(--color-surfaceSecondary)', color: 'var(--color-danger)', border: '1px solid #f59e0b', borderRadius: 4, padding: '1px 5px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                style={{ fontSize: 11, background: 'var(--secondary)', color: 'var(--destructive)', border: '1px solid #f59e0b', borderRadius: 4, padding: '1px 5px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                                 ⚠ {s.exit_discrepancy}m gap
                               </span>
                             )}

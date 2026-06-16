@@ -269,7 +269,7 @@ const BlogCMS = () => {
           </div>
           <div className="metric-card card glass">
             <div className="metric-header">
-              <Share2 size={20} style={{ color: 'var(--color-success)' }} />
+              <Share2 size={20} style={{ color: 'var(--success)' }} />
               <span>Social Shares</span>
             </div>
             <h3>{analytics.summary?.totalShares || 0}</h3>

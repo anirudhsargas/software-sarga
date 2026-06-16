@@ -65,8 +65,8 @@ export default function InsightsPanel() {
                         <span style={{
                             marginLeft: 8, fontSize: '11px', fontWeight: 500,
                             padding: '2px 8px', borderRadius: '6px',
-                            background: data.source === 'gpt' ? 'var(--color-surfaceHover)' : 'var(--color-surfaceHover)',
-                            color: data.source === 'gpt' ? 'var(--color-primaryHover)' : 'var(--color-primaryHover)',
+                            background: data.source === 'gpt' ? 'var(--secondary)' : 'var(--secondary)',
+                            color: data.source === 'gpt' ? 'var(--primary)' : 'var(--primary)',
                         }}>
                             {sourceLabel}
                         </span>

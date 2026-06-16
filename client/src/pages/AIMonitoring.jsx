@@ -8,9 +8,9 @@ import {
 import toast from 'react-hot-toast';
 
 const SEVERITY_STYLE = {
-    HIGH: { bg: 'var(--color-danger)', border: 'var(--color-danger)', color: 'var(--error)', label: 'High' },
-    MEDIUM: { bg: 'var(--color-warning)', border: 'var(--color-warning)', color: 'var(--warning)', label: 'Medium' },
-    LOW: { bg: 'var(--color-icon)', border: 'var(--color-icon)', color: 'var(--success)', label: 'Low' }
+    HIGH: { bg: 'var(--destructive)', border: 'var(--destructive)', color: 'var(--error)', label: 'High' },
+    MEDIUM: { bg: 'var(--warning)', border: 'var(--warning)', color: 'var(--warning)', label: 'Medium' },
+    LOW: { bg: 'var(--muted-foreground)', border: 'var(--muted-foreground)', color: 'var(--success)', label: 'Low' }
 };
 
 const AIMonitoring = () => {
@@ -180,7 +180,7 @@ const AIMonitoring = () => {
                                     </div>
                                     <span style={{
                                         padding: '3px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
-                                        background: staff.alert_count >= 3 ? 'var(--color-danger)' : 'var(--color-warning)',
+                                        background: staff.alert_count >= 3 ? 'var(--destructive)' : 'var(--warning)',
                                         color: staff.alert_count >= 3 ? 'var(--error)' : 'var(--warning)'
                                     }}>
                                         {staff.alert_count >= 3 ? 'HIGH' : 'MED'}

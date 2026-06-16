@@ -4,7 +4,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: var(--color-shadow);
+    background: var(--shadow-sm);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -292,8 +292,8 @@
     }
 
     .receipt-summary {
-        background: var(--color-background) !important;
-        border: 1px solid var(--color-surfaceHover) !important;
+        background: var(--background) !important;
+        border: 1px solid var(--secondary) !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }

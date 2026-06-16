@@ -158,12 +158,12 @@
   letter-spacing: 0.01em;
 }
 
-.status-badge--pending { background: var(--color-surfaceSecondary); color: var(--color-primaryHover); }
-.status-badge--approved { background: var(--color-surfaceSecondary); color: var(--color-textSecondary); }
-.status-badge--dispatched { background: var(--color-background); color: var(--color-textMuted); }
-.status-badge--ready-for-pickup { background: var(--color-background); color: var(--color-danger); }
-.status-badge--completed { background: var(--color-surfaceHover); color: var(--color-textSecondary); }
-.status-badge--cancelled { background: var(--color-background); color: var(--color-danger); }
+.status-badge--pending { background: var(--secondary); color: var(--primary); }
+.status-badge--approved { background: var(--secondary); color: var(--muted-foreground); }
+.status-badge--dispatched { background: var(--background); color: var(--muted-foreground); }
+.status-badge--ready-for-pickup { background: var(--background); color: var(--destructive); }
+.status-badge--completed { background: var(--secondary); color: var(--muted-foreground); }
+.status-badge--cancelled { background: var(--background); color: var(--destructive); }
 
 .materials-grid {
   display: grid;

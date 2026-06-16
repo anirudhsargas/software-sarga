@@ -13,6 +13,7 @@ import SecureImage from '../components/SecureImage';
 const ImageCropModal = lazy(() => import('../components/ImageCropModal'));
 import ScannerModal from '../components/ScannerModal';
 import { useConfirm } from '../contexts/ConfirmContext';
+import { useTheme } from '../theme/ThemeProvider';
 import { useLocation } from 'react-router-dom';
 import ProgressBar from '../components/ProgressBar';
 import AnomalyPanel from '../components/AnomalyPanel';
@@ -180,6 +181,7 @@ const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, c
                 className="nav-item"
                 onClick={() => { closeSidebar(); onAction?.('scanner'); }}
                 title={item.name}
+                aria-label={item.name}
             >
                 <div className="nav-item-inner">
                     <Camera size={20} />
@@ -196,6 +198,7 @@ const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, c
             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             onClick={closeSidebar}
             title={item.name}
+            aria-label={item.name}
         >
             <div className="nav-item-inner">
                 <item.icon size={20} />
@@ -229,7 +232,7 @@ const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleG
 
     if (sidebarCollapsed) {
         return (
-            <div className={`sidebar-group nav-item ${hasActiveChild ? 'active' : ''}`} title={group.label}>
+            <div className={`sidebar-group nav-item ${hasActiveChild ? 'active' : ''}`} title={group.label} aria-label={group.label}>
                 <div className="nav-item-inner">
                     <GroupIcon size={20} />
                 </div>
@@ -243,6 +246,7 @@ const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleG
                 className={`sidebar-group-toggle${hasActiveChild ? ' active' : ''}`}
                 onClick={() => toggleGroup(group.key)}
                 title={group.label}
+                aria-label={group.label}
             >
                 <div className="nav-item-inner">
                     <GroupIcon size={20} />
@@ -264,6 +268,7 @@ const SimpleNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount }) 
         className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
         onClick={closeSidebar}
         title={item.name}
+        aria-label={item.name}
     >
         <div className="nav-item-inner">
             <item.icon size={20} />
@@ -318,11 +323,12 @@ const Dashboard = () => {
     const [profilePreview, setProfilePreview] = useState('');
     const [profileSaving, setProfileSaving] = useState(false);
     const [profileTab, setProfileTab] = useState('profile');
+    const { theme, setTheme, resolvedTheme } = useTheme();
     const [preferences, setPreferences] = useState(() => {
         try {
             const saved = localStorage.getItem('user_preferences');
-            return saved ? JSON.parse(saved) : { darkMode: null, notifications: true };
-        } catch { return { darkMode: null, notifications: true }; }
+            return saved ? JSON.parse(saved) : { notifications: true };
+        } catch { return { notifications: true }; }
     });
     const [cropState, setCropState] = useState(null);
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
@@ -728,13 +734,6 @@ const Dashboard = () => {
             localStorage.setItem('user_preferences', JSON.stringify(next));
             return next;
         });
-        if (key === 'darkMode') {
-            if (value === null) {
-                document.documentElement.classList.remove('dark');
-            } else {
-                document.documentElement.classList.toggle('dark', value);
-            }
-        }
         api.patch('/staff/settings', { settings: { [key]: value } }).catch(() => {});
     }, []);
 
@@ -1129,19 +1128,22 @@ const Dashboard = () => {
                                 <div>
                                     <div className="preference-row">
                                         <div>
-                                            <div className="preference-row__label">Dark Mode</div>
-                                            <div className="preference-row__desc">Override system default theme</div>
+                                            <div className="preference-row__label">Appearance</div>
+                                            <div className="preference-row__desc">Choose your theme preference</div>
                                         </div>
-                                        <label className="toggle-switch">
-                                            <input
-                                                type="checkbox"
-                                                checked={preferences.darkMode ?? document.documentElement.classList.contains('dark')}
-                                                onChange={(e) => handlePreferenceToggle('darkMode', e.target.checked || null)}
-                                            />
-                                            <span className="toggle-slider"></span>
-                                        </label>
                                     </div>
-                                    <div className="preference-row">
+                                    <div className="profile-theme-options">
+                                        {['system', 'light', 'dark'].map(t => (
+                                            <button
+                                                key={t}
+                                                className={`profile-theme-btn ${theme === t ? 'profile-theme-btn--active' : ''}`}
+                                                onClick={() => setTheme(t)}
+                                            >
+                                                {t.charAt(0).toUpperCase() + t.slice(1)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="preference-row" style={{ marginTop: 16 }}>
                                         <div>
                                             <div className="preference-row__label">Notifications</div>
                                             <div className="preference-row__desc">Receive desktop notifications for updates</div>

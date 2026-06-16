@@ -42,13 +42,13 @@ const ChatWidget = () => {
           <div className="card" style={{ width: 320, height: 420, display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>
               <strong>Chatbot Test</strong>
-              {isOffline && <span style={{ color: 'var(--color-danger)', marginLeft: 8, fontSize: 11, fontWeight: 'bold' }}>(Offline)</span>}
+              {isOffline && <span style={{ color: 'var(--destructive)', marginLeft: 8, fontSize: 11, fontWeight: 'bold' }}>(Offline)</span>}
               <button className="btn btn-ghost btn-sm" style={{ float: 'right' }} onClick={() => setOpen(false)}>Close</button>
             </div>
             <div style={{ padding: 8, flex: 1, overflow: 'auto' }}>
               {messages.map(m => (
                 <div key={m.id} style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 13, color: m.from === 'bot' ? 'var(--color-primary)' : 'var(--text)' }}>{m.text}</div>
+                  <div style={{ fontSize: 13, color: m.from === 'bot' ? 'var(--primary)' : 'var(--text)' }}>{m.text}</div>
                   {m.meta && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{m.meta.intent} • {m.meta.confidence}%</div>}
                 </div>
               ))}

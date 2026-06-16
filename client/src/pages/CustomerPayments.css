@@ -172,7 +172,7 @@
 }
 
 .cp-filter-toggle input[type="checkbox"] {
-  accent-color: var(--primary, var(--color-info));
+  accent-color: var(--primary, var(--accent));
   cursor: pointer;
   width: 13px;
   height: 13px;
@@ -268,7 +268,7 @@
 }
 
 .dark .cp-dropdown-avatar {
-  background: var(--color-primary);
+  background: var(--primary);
 }
 
 /* ── FORM GRID ── */
@@ -306,7 +306,7 @@
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: var(--color-shadow), 0.22);
+  background: var(--shadow-sm), 0.22);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -347,7 +347,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: var(--color-shadow), 0.22);
+  background: var(--shadow-sm), 0.22);
   font-size: 11px;
   font-weight: 600;
   padding: 4px 10px;
@@ -435,7 +435,7 @@
 
 .cp-discount-btn--active {
   background: var(--accent);
-  color: var(--color-surface);
+  color: var(--card);
 }
 
 .cp-discount-status {
@@ -541,19 +541,19 @@
 
 .cp-display-field--success {
   border-color: var(--success);
-  background: var(--color-icon);
+  background: var(--muted-foreground);
   color: var(--success);
 }
 
 .cp-display-field--warning {
   border-color: var(--warning);
-  background: var(--color-warning);
+  background: var(--warning);
   color: var(--warning);
 }
 
 .cp-display-field--error {
   border-color: var(--error);
-  background: var(--color-danger);
+  background: var(--destructive);
   color: var(--error);
 }
 
@@ -564,7 +564,7 @@
   letter-spacing: 0.5px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: var(--color-surface);
+  background: var(--card);
 }
 
 .cp-display-field--success .cp-balance-badge {
@@ -749,7 +749,7 @@
   padding: 4px 10px;
   border-radius: 999px;
   border: 1.5px solid transparent;
-  color: var(--color-disabled);
+  color: var(--muted-foreground);
 }
 
 .cp-table-amount {
@@ -776,7 +776,7 @@
 
 /* ── DARK MODE ── */
 .dark .cp-customer-strip {
-  box-shadow: 0 2px 12px var(--color-shadow);
+  box-shadow: 0 2px 12px var(--shadow-sm);
 }
 
 .dark .cp-split-box {
@@ -789,19 +789,19 @@
 }
 
 .dark .cp-display-field--success {
-  background: var(--color-icon);
+  background: var(--muted-foreground);
 }
 
 .dark .cp-display-field--warning {
-  background: var(--color-warning);
+  background: var(--warning);
 }
 
 .dark .cp-display-field--error {
-  background: var(--color-danger);
+  background: var(--destructive);
 }
 
 .dark .cp-amount-hero {
-  background: var(--color-primary);
+  background: var(--primary);
 }
 
 .dark .cp-discount-section {
@@ -815,7 +815,7 @@
 
 .dark .cp-discount-btn--active {
   background: var(--accent);
-  color: var(--color-text);
+  color: var(--foreground);
 }
 
 .dark .cp-method-pill {
@@ -824,7 +824,7 @@
 
 .dark .cp-method-pill--active {
   background: var(--accent);
-  color: var(--color-text);
+  color: var(--foreground);
 }
 
 /* ── RESPONSIVE ── */
@@ -993,21 +993,21 @@
 
 /* ── Confirm Summary Card ── */
 .em-confirm-summary {
-  background: var(--surface-alt, var(--color-background));
-  border: 2px solid var(--primary, var(--color-info));
+  background: var(--surface-alt, var(--background));
+  border: 2px solid var(--primary, var(--accent));
   border-radius: var(--radius, 10px);
   padding: 20px;
   margin-bottom: 8px;
 }
 
 .dark .em-confirm-summary {
-  background: var(--color-text);
+  background: var(--foreground);
 }
 
 .em-confirm-summary__title {
   font-size: 15px;
   font-weight: 700;
-  color: var(--primary, var(--color-info));
+  color: var(--primary, var(--accent));
   margin-bottom: 14px;
   display: flex;
   align-items: center;
@@ -1047,23 +1047,23 @@
 
 .em-confirm-summary__amount {
   font-size: 20px;
-  color: var(--primary, var(--color-info));
+  color: var(--primary, var(--accent));
   font-weight: 800;
 }
 
 .em-confirm-summary__warn {
   margin-top: 14px;
   padding: 10px 14px;
-  background: var(--color-surfaceHover);
+  background: var(--secondary);
   border-radius: 8px;
   font-size: 12px;
-  color: var(--color-danger);
+  color: var(--destructive);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .dark .em-confirm-summary__warn {
-  background: var(--color-text);
-  color: var(--color-warning);
+  background: var(--foreground);
+  color: var(--warning);
 }

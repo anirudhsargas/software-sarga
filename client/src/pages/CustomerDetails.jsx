@@ -464,9 +464,9 @@ const CustomerDetails = () => {
                                 fontSize: '8px',
                                 padding: '1px 4px',
                                 borderRadius: '3px',
-                                background: isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--color-textMuted)',
-                                color: isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--color-textMuted)',
-                                border: `1px solid ${isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--color-textMuted)'}`,
+                                background: isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--muted-foreground)',
+                                color: isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--muted-foreground)',
+                                border: `1px solid ${isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--muted-foreground)'}`,
                                 fontWeight: 700,
                                 whiteSpace: 'nowrap'
                               }}>
@@ -570,9 +570,9 @@ const CustomerDetails = () => {
                               fontSize: '9px',
                               padding: '1px 5px',
                               borderRadius: '4px',
-                              background: isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--color-textMuted)',
-                              color: isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--color-textMuted)',
-                              border: `1px solid ${isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--color-textMuted)'}`,
+                              background: isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--muted-foreground)',
+                              color: isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--muted-foreground)',
+                              border: `1px solid ${isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--muted-foreground)'}`,
                               fontWeight: 600,
                               whiteSpace: 'nowrap'
                             }}>
@@ -758,7 +758,7 @@ const CustomerDetails = () => {
                       )}
                       {/* Hover overlay */}
                       <div style={{
-                        position: 'absolute', inset: 0, background: 'var(--color-shadow)',
+                        position: 'absolute', inset: 0, background: 'var(--shadow-sm)',
                         opacity: 0, transition: 'opacity 0.2s',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
                       }}
@@ -849,7 +849,7 @@ const CustomerDetails = () => {
       )}
       {/* Upload Design Modal */}
       {uploadModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'var(--color-shadow)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
           <div style={{ background: 'var(--surface, #222)', borderRadius: 16, width: '100%', maxWidth: 500, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -950,11 +950,11 @@ const CustomerDetails = () => {
 
       {/* Design Preview Lightbox */}
       {previewDesign && (
-        <div role="button" tabIndex={0} style={{ position: 'fixed', inset: 0, background: 'var(--color-shadow)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 20, cursor: 'zoom-out' }}
+        <div role="button" tabIndex={0} style={{ position: 'fixed', inset: 0, background: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 20, cursor: 'zoom-out' }}
           onClick={() => setPreviewDesign(null)}
         >
           <button onClick={() => setPreviewDesign(null)}
-            style={{ position: 'absolute', top: 20, right: 20, background: 'var(--color-surface)', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
+            style={{ position: 'absolute', top: 20, right: 20, background: 'var(--card)', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
             <X size={16} /> Close
           </button>
           <SecureImage
@@ -963,7 +963,7 @@ const CustomerDetails = () => {
             style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', objectFit: 'contain' }}
             onClick={e => e.stopPropagation()}
           />
-          <div style={{ position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)', background: 'var(--color-shadow)', borderRadius: 10, padding: '10px 20px', color: 'var(--on-accent)', textAlign: 'center' }}>
+          <div style={{ position: 'absolute', bottom: 30, left: '50%', transform: 'translateX(-50%)', background: 'var(--shadow-sm)', borderRadius: 10, padding: '10px 20px', color: 'var(--on-accent)', textAlign: 'center' }}>
             <div style={{ fontSize: 14, fontWeight: 600 }}>{previewDesign.title}</div>
             {previewDesign.notes && <div style={{ fontSize: 12, marginTop: 4, opacity: 0.8 }}>{previewDesign.notes}</div>}
           </div>

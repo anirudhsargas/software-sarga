@@ -10,8 +10,8 @@ function StarDisplay({ rating, interactive, onChange }) {
     <div style={{ display: 'inline-flex', gap: 2 }}>
       {STARS.map(s => (
         <button key={s} type="button" onClick={() => interactive && onChange?.(s)}
-          style={{ background: 'none', border: 'none', cursor: interactive ? 'pointer' : 'default', padding: 0, color: s <= Math.round(rating) ? 'var(--color-warning)' : 'var(--color-border)' }}>
-          <StarIcon size={interactive ? 22 : 14} fill={s <= Math.round(rating) ? 'var(--color-warning)' : 'none'} />
+          style={{ background: 'none', border: 'none', cursor: interactive ? 'pointer' : 'default', padding: 0, color: s <= Math.round(rating) ? 'var(--warning)' : 'var(--border)' }}>
+          <StarIcon size={interactive ? 22 : 14} fill={s <= Math.round(rating) ? 'var(--warning)' : 'none'} />
         </button>
       ))}
     </div>
@@ -201,7 +201,7 @@ function ReviewsManagement() {
                 <td style={{ padding: '0.75rem 0.5rem', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>{r.review_text || '—'}</td>
                 <td style={{ padding: '0.75rem 0.5rem', whiteSpace: 'nowrap' }}>{r.review_date || '—'}</td>
                 <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                  <button className="btn btn-sm" style={{ background: r.is_featured ? 'var(--color-warning)' : 'transparent', color: r.is_featured ? 'var(--color-surface)' : 'var(--text-muted)', border: '1px solid', borderColor: r.is_featured ? 'var(--color-warning)' : 'var(--border)' }} onClick={() => handleToggleFeature(r.id)}>
+                  <button className="btn btn-sm" style={{ background: r.is_featured ? 'var(--warning)' : 'transparent', color: r.is_featured ? 'var(--card)' : 'var(--text-muted)', border: '1px solid', borderColor: r.is_featured ? 'var(--warning)' : 'var(--border)' }} onClick={() => handleToggleFeature(r.id)}>
                     <Star size={12} />
                   </button>
                 </td>

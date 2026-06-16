@@ -2,8 +2,8 @@
 
 .bookings-cms {
   padding: 16px;
-  background: var(--bg-main, var(--color-background));
-  color: var(--text-main, var(--color-text));
+  background: var(--bg-main, var(--background));
+  color: var(--text-main, var(--foreground));
 }
 
 /* CRM Metrics Row Widget */
@@ -14,14 +14,14 @@
 }
 
 .metric-card {
-  background: var(--bg-card, var(--color-surface));
-  border: 1px solid var(--border-color, var(--color-surfaceHover));
+  background: var(--bg-card, var(--card));
+  border: 1px solid var(--border-color, var(--secondary));
   border-radius: 12px;
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 4px 6px -2px var(--color-text);
+  box-shadow: 0 4px 6px -2px var(--foreground);
 }
 
 .metric-icon {
@@ -34,10 +34,10 @@
   flex-shrink: 0;
 }
 
-.metric-icon.total { background: var(--color-surfaceSecondary); color: var(--color-primaryHover); }
-.metric-icon.confirmed { background: var(--color-background); color: var(--color-danger); }
-.metric-icon.conversion { background: var(--color-surfaceSecondary); color: var(--color-textSecondary); }
-.metric-icon.pipeline { background: var(--color-background); color: var(--color-textMuted); }
+.metric-icon.total { background: var(--secondary); color: var(--primary); }
+.metric-icon.confirmed { background: var(--background); color: var(--destructive); }
+.metric-icon.conversion { background: var(--secondary); color: var(--muted-foreground); }
+.metric-icon.pipeline { background: var(--background); color: var(--muted-foreground); }
 
 .metric-info {
   display: flex;
@@ -47,21 +47,21 @@
 .metric-label {
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--text-muted, var(--color-textMuted));
+  color: var(--text-muted, var(--muted-foreground));
   text-transform: uppercase;
 }
 
 .metric-value {
   font-size: 1.5rem;
   font-weight: 800;
-  color: var(--text-main, var(--color-text));
+  color: var(--text-main, var(--foreground));
 }
 
 .category-pill {
   font-weight: 600;
-  color: var(--color-primaryHover);
-  background: var(--color-surfaceSecondary);
-  border: 1px solid var(--color-surfaceHover);
+  color: var(--primary);
+  background: var(--secondary);
+  border: 1px solid var(--secondary);
   padding: 2px 8px;
   border-radius: 99px;
   font-size: 0.8rem;
@@ -69,8 +69,8 @@
 
 .designer-assigned {
   font-weight: 600;
-  color: var(--color-primary);
-  background: var(--color-surfaceHover);
+  color: var(--primary);
+  background: var(--secondary);
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 0.82rem;
@@ -85,56 +85,56 @@
 }
 
 .quote-badge.success {
-  background: var(--color-surfaceSecondary);
-  color: var(--color-textSecondary);
-  border: 1px solid var(--color-border);
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
 }
 
 .quote-badge.pending {
-  background: var(--color-surfaceSecondary);
-  color: var(--color-icon);
-  border: 1px solid var(--color-border);
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
 }
 
 /* Dark mode overrides */
 html[data-theme="dark"] .bookings-cms {
-  background: var(--color-text);
-  color: var(--color-border);
+  background: var(--foreground);
+  color: var(--border);
 }
 
 html[data-theme="dark"] .metric-card {
-  background: var(--color-text);
-  border-color: var(--color-textSecondary);
+  background: var(--foreground);
+  border-color: var(--muted-foreground);
 }
 
 html[data-theme="dark"] .metric-value {
-  color: var(--color-background);
+  color: var(--background);
 }
 
-html[data-theme="dark"] .metric-icon.total { background: var(--color-textSecondary); color: var(--color-border); }
-html[data-theme="dark"] .metric-icon.confirmed { background: var(--color-textSecondary); color: var(--color-border); }
-html[data-theme="dark"] .metric-icon.conversion { background: var(--color-textSecondary); color: var(--color-border); }
-html[data-theme="dark"] .metric-icon.pipeline { background: var(--color-text); color: var(--color-surfaceHover); }
+html[data-theme="dark"] .metric-icon.total { background: var(--muted-foreground); color: var(--border); }
+html[data-theme="dark"] .metric-icon.confirmed { background: var(--muted-foreground); color: var(--border); }
+html[data-theme="dark"] .metric-icon.conversion { background: var(--muted-foreground); color: var(--border); }
+html[data-theme="dark"] .metric-icon.pipeline { background: var(--foreground); color: var(--secondary); }
 
 html[data-theme="dark"] .category-pill {
-  color: var(--color-border);
-  background: var(--color-textSecondary);
-  border-color: var(--color-textSecondary);
+  color: var(--border);
+  background: var(--muted-foreground);
+  border-color: var(--muted-foreground);
 }
 
 html[data-theme="dark"] .designer-assigned {
-  color: var(--color-border);
-  background: var(--color-textSecondary);
+  color: var(--border);
+  background: var(--muted-foreground);
 }
 
 html[data-theme="dark"] .quote-badge.success {
-  background: var(--color-textSecondary);
-  color: var(--color-border);
-  border-color: var(--color-success);
+  background: var(--muted-foreground);
+  color: var(--border);
+  border-color: var(--success);
 }
 
 html[data-theme="dark"] .quote-badge.pending {
-  background: var(--color-textSecondary);
-  color: var(--color-border);
-  border-color: var(--color-icon);
+  background: var(--muted-foreground);
+  color: var(--border);
+  border-color: var(--muted-foreground);
 }

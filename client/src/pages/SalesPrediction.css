@@ -12,12 +12,12 @@
 }
 
 .sp-growth-badge--up {
-    background: var(--color-icon);
+    background: var(--muted-foreground);
     color: var(--success);
 }
 
 .sp-growth-badge--down {
-    background: var(--color-danger);
+    background: var(--destructive);
     color: var(--error);
 }
 
@@ -35,21 +35,21 @@
 }
 
 .sp-demand-badge--high {
-    background: var(--color-danger);
+    background: var(--destructive);
     color: var(--error);
-    border: 1px solid var(--color-danger);
+    border: 1px solid var(--destructive);
 }
 
 .sp-demand-badge--medium {
-    background: var(--color-textMuted);
+    background: var(--muted-foreground);
     color: var(--warning);
-    border: 1px solid var(--color-textMuted);
+    border: 1px solid var(--muted-foreground);
 }
 
 .sp-demand-badge--low {
-    background: var(--color-icon);
+    background: var(--muted-foreground);
     color: var(--success);
-    border: 1px solid var(--color-icon);
+    border: 1px solid var(--muted-foreground);
 }
 
 /* Confidence Dot */
@@ -200,7 +200,7 @@
 
 .sp-stock-row--critical {
     border-left-color: var(--error);
-    background: var(--color-danger);
+    background: var(--destructive);
 }
 
 .sp-stock-row--low-stock {
@@ -239,22 +239,22 @@
 }
 
 .sp-stock-urgency-badge--critical {
-    background: var(--color-danger);
+    background: var(--destructive);
     color: var(--error);
 }
 
 .sp-stock-urgency-badge--low-stock {
-    background: var(--color-warning);
+    background: var(--warning);
     color: var(--warning);
 }
 
 .sp-stock-urgency-badge--reorder {
-    background: var(--color-textMuted);
+    background: var(--muted-foreground);
     color: var(--warning);
 }
 
 .sp-stock-urgency-badge--ok {
-    background: var(--color-icon);
+    background: var(--muted-foreground);
     color: var(--success);
 }
 
@@ -286,22 +286,22 @@
 
 .sp-purchase-card--critical {
     border-left-color: var(--error);
-    border-color: var(--color-danger);
+    border-color: var(--destructive);
 }
 
 .sp-purchase-card--low-stock {
     border-left-color: var(--warning);
-    border-color: var(--color-warning);
+    border-color: var(--warning);
 }
 
 .sp-purchase-card--reorder {
     border-left-color: var(--warning);
-    border-color: var(--color-textMuted);
+    border-color: var(--muted-foreground);
 }
 
 .sp-purchase-card--plan {
     border-left-color: var(--accent);
-    border-color: var(--color-primary);
+    border-color: var(--primary);
 }
 
 .sp-purchase-header {
@@ -362,31 +362,31 @@
 }
 
 .sp-purchase-urgency-badge--critical {
-    background: var(--color-danger);
+    background: var(--destructive);
     color: var(--error);
-    border-color: var(--color-danger);
+    border-color: var(--destructive);
 }
 
 .sp-purchase-urgency-badge--low-stock {
-    background: var(--color-warning);
+    background: var(--warning);
     color: var(--warning);
-    border-color: var(--color-warning);
+    border-color: var(--warning);
 }
 
 .sp-purchase-urgency-badge--reorder {
-    background: var(--color-textMuted);
+    background: var(--muted-foreground);
     color: var(--warning);
-    border-color: var(--color-textMuted);
+    border-color: var(--muted-foreground);
 }
 
 .sp-purchase-urgency-badge--plan {
-    background: var(--color-primary);
+    background: var(--primary);
     color: var(--accent);
-    border-color: var(--color-primary);
+    border-color: var(--primary);
 }
 
 .sp-purchase-urgency-badge--ok {
-    background: var(--color-icon);
+    background: var(--muted-foreground);
     color: var(--success);
     border-color: var(--border);
 }
@@ -468,7 +468,7 @@
     align-items: center;
     gap: 5px;
     padding: 6px 10px;
-    background: var(--color-primary);
+    background: var(--primary);
     border-radius: 6px;
 }
 
@@ -530,8 +530,8 @@
     padding: 12px 16px;
     border-radius: 10px;
     margin-bottom: 16px;
-    background: var(--color-danger);
-    border: 1px solid var(--color-danger);
+    background: var(--destructive);
+    border: 1px solid var(--destructive);
     color: var(--error);
     font-size: 13px;
     display: flex;
@@ -675,7 +675,7 @@
 }
 
 .sp-product-rank--top {
-    background: var(--color-warning);
+    background: var(--warning);
     color: var(--warning);
 }
 
@@ -1104,11 +1104,11 @@
 }
 
 .sp-purchase-summary-card--error {
-    border-color: var(--color-danger);
+    border-color: var(--destructive);
 }
 
 .sp-purchase-summary-card--warning {
-    border-color: var(--color-warning);
+    border-color: var(--warning);
 }
 
 .sp-purchase-summary-label {
@@ -1168,7 +1168,7 @@
 
 .sp-filter-pill--active {
     background: var(--accent);
-    color: var(--color-shadow);
+    color: var(--shadow-sm);
 }
 
 /* Info Banner */
@@ -1176,8 +1176,8 @@
     padding: 10px 14px;
     margin-bottom: 16px;
     border-radius: 10px;
-    background: var(--color-primary);
-    border: 1px solid var(--color-primary);
+    background: var(--primary);
+    border: 1px solid var(--primary);
     font-size: 12px;
     color: var(--muted);
     display: flex;

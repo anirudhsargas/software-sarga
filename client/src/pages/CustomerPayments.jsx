@@ -1442,7 +1442,7 @@ const CustomerPayments = () => {
         <div className="cp-filters-row" style={{ padding: '0 24px 20px', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '16px', borderBottom: '1px solid var(--border)', marginBottom: '20px' }}>
           {canVerify && (
             <div className="row gap-xs">
-              {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending', icon: ShieldAlert, color: 'var(--color-warning)' }, { key: 'verified', label: 'Verified', icon: ShieldCheck, color: 'var(--color-success)' }, { key: 'rejected', label: 'Rejected', icon: ShieldX, color: 'var(--color-danger)' }].map(f => (
+              {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending', icon: ShieldAlert, color: 'var(--warning)' }, { key: 'verified', label: 'Verified', icon: ShieldCheck, color: 'var(--success)' }, { key: 'rejected', label: 'Rejected', icon: ShieldX, color: 'var(--destructive)' }].map(f => (
                 <button
                   key={f.key}
                   className={`btn btn-xs ${verifyFilter === f.key ? 'btn-primary' : 'btn-ghost'}`}
@@ -1536,11 +1536,11 @@ const CustomerPayments = () => {
                   const isCash = p.payment_method === 'Cash';
                   const vStatus = isCash ? 'N/A' : (p.verification_status || 'Pending');
                   const methodColor = {
-                    Cash: 'var(--color-success)',
-                    UPI: 'var(--color-disabled)',
-                    Cheque: 'var(--color-warning)',
-                    'Account Transfer': 'var(--color-info)',
-                    Both: 'var(--color-info)',
+                    Cash: 'var(--success)',
+                    UPI: 'var(--muted-foreground)',
+                    Cheque: 'var(--warning)',
+                    'Account Transfer': 'var(--accent)',
+                    Both: 'var(--accent)',
                   }[p.payment_method] || 'var(--text-muted)';
                   return (
                     <tr key={p.id}>
@@ -1565,15 +1565,15 @@ const CustomerPayments = () => {
                         {vStatus === 'N/A' ? (
                           <span className="cp-verify-badge cp-verify-na" style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>
                         ) : vStatus === 'Verified' ? (
-                          <span className="cp-verify-badge cp-verify-ok" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-success)', fontWeight: 600 }}>
+                          <span className="cp-verify-badge cp-verify-ok" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>
                             <ShieldCheck size={13} aria-hidden="true" /> Verified
                           </span>
                         ) : vStatus === 'Rejected' ? (
-                          <span className="cp-verify-badge cp-verify-fail" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-danger)', fontWeight: 600 }}>
+                          <span className="cp-verify-badge cp-verify-fail" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--destructive)', fontWeight: 600 }}>
                             <ShieldX size={13} aria-hidden="true" /> Rejected
                           </span>
                         ) : (
-                          <span className="cp-verify-badge cp-verify-pending" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-warning)', fontWeight: 600 }}>
+                          <span className="cp-verify-badge cp-verify-pending" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--warning)', fontWeight: 600 }}>
                             <ShieldAlert size={13} aria-hidden="true" /> Pending
                           </span>
                         )}
@@ -1590,7 +1590,7 @@ const CustomerPayments = () => {
                               className="btn btn-ghost btn-xs touch-target"
                               title="Verify Payment"
                               aria-label={`Verify payment ${p.id}`}
-                              style={{ color: 'var(--color-success)' }}
+                              style={{ color: 'var(--success)' }}
                               onClick={() => handleVerify(p.id, 'Verified')}
                             >
                               <ShieldCheck size={15} aria-hidden="true" />
@@ -1599,7 +1599,7 @@ const CustomerPayments = () => {
                               className="btn btn-ghost btn-xs touch-target"
                               title="Reject Payment"
                               aria-label={`Reject payment ${p.id}`}
-                              style={{ color: 'var(--color-danger)' }}
+                              style={{ color: 'var(--destructive)' }}
                               onClick={() => handleVerify(p.id, 'Rejected')}
                             >
                               <ShieldX size={15} aria-hidden="true" />

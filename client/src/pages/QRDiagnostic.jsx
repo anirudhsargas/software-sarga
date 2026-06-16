@@ -83,7 +83,7 @@ const QRDiagnostic = () => {
         {result && (
           <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
             <div className="row gap-sm items-center" style={{ marginBottom: 10 }}>
-              {result.found ? <CheckCircle2 size={18} color='var(--color-success)' /> : <XCircle size={18} color='var(--color-danger)' />}
+              {result.found ? <CheckCircle2 size={18} color='var(--success)' /> : <XCircle size={18} color='var(--destructive)' />}
               <strong>{result.found ? 'Match Found' : 'No Match'}</strong>
             </div>
 

@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { lazy, Suspense } from 'react';
+import AppShellSkeleton from './components/ui/AppShellSkeleton';
 import './bones/registry';
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -130,7 +130,7 @@ function App() {
               error: { duration: 4000 },
             }}
           />
-          <Suspense fallback={<div style={{padding:40}}><span>Loading...</span></div>}>
+          <Suspense fallback={<AppShellSkeleton />}>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />

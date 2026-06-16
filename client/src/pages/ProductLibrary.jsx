@@ -2159,7 +2159,7 @@ const ProductLibrary = () => {
                                         <div className="image-overlay-actions" style={{
                                             position: 'absolute',
                                             inset: 0,
-                                            background: 'var(--color-shadow)',
+                                            background: 'var(--shadow-sm)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
@@ -2310,7 +2310,7 @@ const ProductLibrary = () => {
                                                                 borderRadius: '8px',
                                                                 transition: 'all 0.2s'
                                                             }}
-                                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--color-info)'}
+                                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent)'}
                                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                                         >
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -2326,7 +2326,7 @@ const ProductLibrary = () => {
                                                             <span style={{
                                                                 fontFamily: 'monospace', fontSize: '11px',
                                                                 fontWeight: 700, color: 'var(--accent)',
-                                                                background: 'var(--color-info)',
+                                                                background: 'var(--accent)',
                                                                 padding: '2px 6px', borderRadius: '4px',
                                                             }}>{c.code}</span>
                                                         </div>
@@ -2423,7 +2423,7 @@ const ProductLibrary = () => {
                                 alignItems: 'center',
                                 gap: '12px',
                                 padding: '12px 16px',
-                                background: newProduct.isPhysicalProduct ? 'var(--color-info)' : 'var(--surface-2, #1e293b)',
+                                background: newProduct.isPhysicalProduct ? 'var(--accent)' : 'var(--surface-2, #1e293b)',
                                 border: `1.5px solid ${newProduct.isPhysicalProduct ? 'var(--primary, #6366f1)' : 'var(--border, #334155)'}`,
                                 borderRadius: '10px',
                                 cursor: 'pointer',

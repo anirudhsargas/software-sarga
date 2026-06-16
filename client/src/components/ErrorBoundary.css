@@ -70,8 +70,8 @@
 .error-boundary__stack {
   margin: 12px 0 0 0;
   padding: 12px;
-  background-color: var(--color-text);
-  color: var(--color-success);
+  background-color: var(--foreground);
+  color: var(--success);
   font-family: 'Courier New', monospace;
   font-size: 12px;
   border-radius: 4px;
@@ -106,7 +106,7 @@
 .error-boundary__retry-btn:hover {
   background-color: var(--accent-2);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--color-shadow);
+  box-shadow: 0 4px 12px var(--shadow-sm);
 }
 
 .error-boundary__home-btn {
@@ -122,6 +122,6 @@
 
 /* Dark Mode Support — now uses .dark class to match app's theming */
 .dark .error-boundary__stack {
-  background-color: var(--color-text);
-  color: var(--color-success);
+  background-color: var(--foreground);
+  color: var(--success);
 }

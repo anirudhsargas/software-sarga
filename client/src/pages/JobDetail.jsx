@@ -17,9 +17,9 @@ import './JobDetail.css';
 const statusColors = {
     Pending: 'var(--warning)',
     Processing: 'var(--accent-2)',
-    'Approval Pending': 'var(--color-info)',
+    'Approval Pending': 'var(--accent)',
     Completed: 'var(--success)',
-    Delivered: 'var(--color-info)',
+    Delivered: 'var(--accent)',
     Cancelled: 'var(--error)',
 };
 
@@ -1299,8 +1299,8 @@ const JobDetail = () => {
                                 {proofs.map(p => {
                                     const proofUrl = imgUrl(p.file_url);
                                     const isImg = p.file_type === 'image';
-                                    const statusBg = p.status === 'Approved' ? 'var(--color-surfaceHover)' : p.status === 'Rejected' ? 'var(--error-bg)' : p.status === 'Revision Requested' ? 'var(--color-surfaceHover)' : 'var(--accent-light)';
-                                    const statusColor = p.status === 'Approved' ? 'var(--color-textSecondary)' : p.status === 'Rejected' ? 'var(--color-danger)' : p.status === 'Revision Requested' ? 'var(--color-danger)' : 'var(--color-primaryHover)';
+                                    const statusBg = p.status === 'Approved' ? 'var(--secondary)' : p.status === 'Rejected' ? 'var(--error-bg)' : p.status === 'Revision Requested' ? 'var(--secondary)' : 'var(--accent-light)';
+                                    const statusColor = p.status === 'Approved' ? 'var(--muted-foreground)' : p.status === 'Rejected' ? 'var(--destructive)' : p.status === 'Revision Requested' ? 'var(--destructive)' : 'var(--primary)';
 
                                     return (
                                         <div key={p.id} className="proof-card">
@@ -1337,9 +1337,9 @@ const JobDetail = () => {
                                                     {/* Auto Design Check Result */}
                                                     {p.designCheck && (
                                                         <div className="design-check-result" style={{
-                                                            background: p.designCheck.passed ? 'var(--color-icon)' : (p.designCheck.critical_issues > 0 ? 'var(--color-danger)' : 'var(--color-warning)'),
+                                                            background: p.designCheck.passed ? 'var(--muted-foreground)' : (p.designCheck.critical_issues > 0 ? 'var(--destructive)' : 'var(--warning)'),
                                                             color: p.designCheck.passed ? 'var(--success)' : (p.designCheck.critical_issues > 0 ? 'var(--error)' : 'var(--warning)'),
-                                                            borderColor: p.designCheck.passed ? 'var(--color-icon)' : (p.designCheck.critical_issues > 0 ? 'var(--color-danger)' : 'var(--color-warning)')
+                                                            borderColor: p.designCheck.passed ? 'var(--muted-foreground)' : (p.designCheck.critical_issues > 0 ? 'var(--destructive)' : 'var(--warning)')
                                                         }}>
                                                             <span className="design-check-status">
                                                                 {p.designCheck.passed ? '✓ Design Check Passed' : '⚠ Design Issues Found'}
@@ -1357,7 +1357,7 @@ const JobDetail = () => {
                                                         </div>
                                                     )}
                                                     {p.customer_feedback && (
-                                                        <div className="proof-feedback" style={{ background: p.status === 'Approved' ? 'var(--color-icon)' : 'var(--color-danger)' }}>
+                                                        <div className="proof-feedback" style={{ background: p.status === 'Approved' ? 'var(--muted-foreground)' : 'var(--destructive)' }}>
                                                             <strong>Feedback:</strong> {p.customer_feedback}
                                                         </div>
                                                     )}

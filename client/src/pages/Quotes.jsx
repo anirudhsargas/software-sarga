@@ -7,12 +7,12 @@ import toast from 'react-hot-toast';
 const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 
 const statusColors = {
-    draft: 'var(--color-textMuted)', sent: 'var(--color-info)', accepted: 'var(--color-success)', rejected: 'var(--color-danger)',
-    expired: 'var(--color-warning)', converted: 'var(--color-info)'
+    draft: 'var(--muted-foreground)', sent: 'var(--accent)', accepted: 'var(--success)', rejected: 'var(--destructive)',
+    expired: 'var(--warning)', converted: 'var(--accent)'
 };
 
 const cardStyle = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 24, marginBottom: 20, boxShadow: '0 12px 32px rgba(15, 23, 42, 0.05)' };
-const btnStyle = (bg = 'var(--color-primary)') => ({ background: bg, color: bg === 'var(--primary)' ? 'var(--on-accent)' : 'var(--color-surface)', border: 'none', borderRadius: 10, padding: '10px 18px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, minHeight: 42, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
+const btnStyle = (bg = 'var(--primary)') => ({ background: bg, color: bg === 'var(--primary)' ? 'var(--on-accent)' : 'var(--card)', border: 'none', borderRadius: 10, padding: '10px 18px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, minHeight: 42, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
 const inputStyle = { width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--input-bg, var(--surface))', color: 'var(--text)', fontSize: 14, minHeight: 42, boxSizing: 'border-box' };
 
 const emptyForm = () => ({
@@ -29,7 +29,7 @@ const QuoteCard = React.memo(({ q, onEdit, onSend, onConvert, onDelete }) => {
                 <div style={{ minWidth: 0, flex: '1 1 320px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                         <strong style={{ fontSize: 16 }}>{q.quote_number}</strong>
-                        <span style={{ background: statusColors[q.status] || 'var(--color-icon)', color: 'var(--color-surface)', padding: '4px 12px', borderRadius: 14, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                        <span style={{ background: statusColors[q.status] || 'var(--muted-foreground)', color: 'var(--card)', padding: '4px 12px', borderRadius: 14, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                             {q.status}
                         </span>
                     </div>
@@ -41,12 +41,12 @@ const QuoteCard = React.memo(({ q, onEdit, onSend, onConvert, onDelete }) => {
                     <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         {q.status !== 'converted' && (
                             <>
-                                <button onClick={() => onEdit(q.id)} className="touch-target" style={btnStyle('var(--color-textSecondary)')} title="Edit" aria-label={`Edit quote ${q.quote_number}`}><Edit2 size={14} /></button>
-                                <button onClick={() => onSend(q)} className="touch-target" style={btnStyle('var(--color-info)')} title="Send" aria-label={`Send quote ${q.quote_number}`}><Send size={14} /></button>
-                                <button onClick={() => onConvert(q.id)} className="touch-target" style={btnStyle('var(--color-success)')} title="Convert to Invoice" aria-label={`Convert quote ${q.quote_number} to invoice`}><ArrowRight size={14} /> Invoice</button>
+                                <button onClick={() => onEdit(q.id)} className="touch-target" style={btnStyle('var(--muted-foreground)')} title="Edit" aria-label={`Edit quote ${q.quote_number}`}><Edit2 size={14} /></button>
+                                <button onClick={() => onSend(q)} className="touch-target" style={btnStyle('var(--accent)')} title="Send" aria-label={`Send quote ${q.quote_number}`}><Send size={14} /></button>
+                                <button onClick={() => onConvert(q.id)} className="touch-target" style={btnStyle('var(--success)')} title="Convert to Invoice" aria-label={`Convert quote ${q.quote_number} to invoice`}><ArrowRight size={14} /> Invoice</button>
                             </>
                         )}
-                        <button onClick={() => onDelete(q.id)} className="touch-target" style={btnStyle('var(--color-danger)')} title="Delete" aria-label={`Delete quote ${q.quote_number}`}><Trash2 size={14} /></button>
+                        <button onClick={() => onDelete(q.id)} className="touch-target" style={btnStyle('var(--destructive)')} title="Delete" aria-label={`Delete quote ${q.quote_number}`}><Trash2 size={14} /></button>
                     </div>
                 </div>
             </div>
@@ -720,7 +720,7 @@ export default function Quotes() {
                                         <span style={{ fontWeight: 600 }}>₹{subtotal.toLocaleString('en-IN')}</span>
                                     </div>
                                     {form.discount_percent > 0 && (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, color: 'var(--color-surfaceHover)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, color: 'var(--secondary)' }}>
                                             <span style={{ fontSize: 13 }}>Discount ({form.discount_percent}%)</span>
                                             <span style={{ fontWeight: 600 }}>-₹{discountAmt.toLocaleString('en-IN')}</span>
                                         </div>

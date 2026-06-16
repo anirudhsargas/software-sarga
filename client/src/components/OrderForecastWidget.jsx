@@ -7,7 +7,7 @@ import api from '../services/api';
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const BAR_COLOR = 'var(--primary, #6366f1)';
-const PEAK_COLOR = 'var(--color-warning)';
+const PEAK_COLOR = 'var(--warning)';
 
 const OrderForecastWidget = ({ branchId }) => {
     const [data, setData] = useState(null);
@@ -150,7 +150,7 @@ const OrderForecastWidget = ({ branchId }) => {
                 <div style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     padding: '8px 12px', background: 'var(--warning-bg)', borderRadius: 8,
-                    fontSize: 13, color: 'var(--color-danger)', marginBottom: 16,
+                    fontSize: 13, color: 'var(--destructive)', marginBottom: 16,
                 }}>
                     <TrendingUp size={16} style={{ color: PEAK_COLOR }} />
                     <span><strong>Peak day:</strong> {peakLabel}</span>

@@ -31,12 +31,12 @@ const RequiresConnection = ({ children, feature = 'This feature' }) => {
                     width: '80px',
                     height: '80px',
                     borderRadius: '50%',
-                    background: 'var(--color-danger)',
+                    background: 'var(--destructive)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                 }}>
-                    <WifiOff size={36} color='var(--color-danger)' />
+                    <WifiOff size={36} color='var(--destructive)' />
                 </div>
                 <h2 style={{
                     fontSize: '20px',

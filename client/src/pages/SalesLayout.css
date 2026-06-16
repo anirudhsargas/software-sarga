@@ -12,10 +12,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--surface-2, var(--color-text));
+  background: var(--surface-2, var(--foreground));
   padding: 6px;
   border-radius: calc(var(--radius, 12px) + 2px);
-  border: 1px solid var(--border, var(--color-text));
+  border: 1px solid var(--border, var(--foreground));
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
 }
@@ -30,7 +30,7 @@
   gap: 8px;
   padding: 10px 16px;
   border-radius: var(--radius, 12px);
-  color: var(--text-muted, var(--color-disabled));
+  color: var(--text-muted, var(--muted-foreground));
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
@@ -41,15 +41,15 @@
 }
 
 .sales-tab:hover {
-  color: var(--text-main, var(--color-surfaceSecondary));
-  background: var(--color-surface);
+  color: var(--text-main, var(--secondary));
+  background: var(--card);
 }
 
 .sales-tab.active {
-  color: var(--text-main, var(--color-surfaceSecondary));
-  background: var(--surface, var(--color-shadow));
-  border-color: var(--border, var(--color-text));
-  box-shadow: 0 4px 12px var(--color-shadow);
+  color: var(--text-main, var(--secondary));
+  background: var(--surface, var(--shadow-sm));
+  border-color: var(--border, var(--foreground));
+  box-shadow: 0 4px 12px var(--shadow-sm);
 }
 
 .sales-tab-icon {
@@ -59,7 +59,7 @@
 }
 
 .sales-tab.active .sales-tab-icon {
-  color: var(--accent, var(--color-info));
+  color: var(--accent, var(--accent));
   transform: scale(1.1);
 }
 

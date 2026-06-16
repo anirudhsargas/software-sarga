@@ -17,19 +17,19 @@
 }
 
 .sync-bar--offline {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
+  background: var(--destructive);
+  border-color: var(--destructive);
   color: var(--error);
 }
 
 .sync-bar--syncing {
-  background: var(--color-warning);
-  border-color: var(--color-warning);
+  background: var(--warning);
+  border-color: var(--warning);
 }
 
 .sync-bar--synced {
-  background: var(--color-success);
-  border-color: var(--color-success);
+  background: var(--success);
+  border-color: var(--success);
 }
 
 .sync-bar__badge {

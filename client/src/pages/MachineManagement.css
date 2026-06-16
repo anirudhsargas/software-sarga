@@ -217,7 +217,7 @@
 .mm-modal-overlay {
     position: fixed;
     inset: 0;
-    background: var(--color-shadow);
+    background: var(--shadow-sm);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -368,7 +368,7 @@
 }
 
 .mm-btn--danger {
-    background: var(--color-danger);
+    background: var(--destructive);
     color: var(--error);
 }
 
@@ -405,11 +405,11 @@
 }
 
 .mm-stat-value--error {
-    color: var(--color-danger);
+    color: var(--destructive);
 }
 
 .mm-stat-value--warning {
-    color: var(--color-warning);
+    color: var(--warning);
 }
 
 .mm-stat-value--muted {
@@ -475,11 +475,11 @@
 }
 
 .mm-reading-input--error {
-    border-color: var(--color-danger);
+    border-color: var(--destructive);
 }
 
 .mm-reading-input--warning {
-    border-color: var(--color-warning);
+    border-color: var(--warning);
 }
 
 .mm-reading-label {
@@ -488,11 +488,11 @@
 }
 
 .mm-reading-label--error {
-    color: var(--color-danger);
+    color: var(--destructive);
 }
 
 .mm-reading-label--warning {
-    color: var(--color-warning);
+    color: var(--warning);
 }
 
 .mm-reading-label--muted {
@@ -506,15 +506,15 @@
 }
 
 .mm-reading-hint--error {
-    color: var(--color-danger);
+    color: var(--destructive);
 }
 
 .mm-reading-hint--warning {
-    color: var(--color-warning);
+    color: var(--warning);
 }
 
 .mm-reading-hint--success {
-    color: var(--color-success);
+    color: var(--success);
     font-weight: 600;
 }
 
@@ -537,20 +537,20 @@
 }
 
 .mm-good-prints-item--good {
-    color: var(--color-success);
+    color: var(--success);
     font-weight: 600;
 }
 
 .mm-good-prints-item--error {
-    color: var(--color-danger);
+    color: var(--destructive);
 }
 
 .mm-good-prints-item--warning {
-    color: var(--color-warning);
+    color: var(--warning);
 }
 
 .mm-good-prints-item--alert {
-    color: var(--color-danger);
+    color: var(--destructive);
     font-weight: 700;
 }
 
@@ -614,11 +614,11 @@
 }
 
 .mm-table-cell-mono--warning {
-    color: var(--color-warning);
+    color: var(--warning);
 }
 
 .mm-table-cell-mono--error {
-    color: var(--color-danger);
+    color: var(--destructive);
 }
 
 .mm-table-percent {
@@ -626,11 +626,11 @@
 }
 
 .mm-table-percent--error {
-    color: var(--color-danger);
+    color: var(--destructive);
 }
 
 .mm-table-percent--warning {
-    color: var(--color-warning);
+    color: var(--warning);
 }
 
 /* Monthly Stats */
@@ -648,11 +648,11 @@
 }
 
 .mm-monthly-stat-label--error {
-    color: var(--color-danger);
+    color: var(--destructive);
 }
 
 .mm-monthly-stat-label--warning {
-    color: var(--color-warning);
+    color: var(--warning);
 }
 
 .mm-monthly-stat-value {
@@ -660,11 +660,11 @@
 }
 
 .mm-monthly-stat-value--error {
-    color: var(--color-danger);
+    color: var(--destructive);
 }
 
 .mm-monthly-stat-value--warning {
-    color: var(--color-warning);
+    color: var(--warning);
 }
 
 /* Staff Section */
@@ -733,19 +733,19 @@
 }
 
 .mm-work-input-label--error {
-    color: var(--color-danger);
+    color: var(--destructive);
 }
 
 .mm-work-input-label--warning {
-    color: var(--color-warning);
+    color: var(--warning);
 }
 
 .mm-work-input--error {
-    border-color: var(--color-danger);
+    border-color: var(--destructive);
 }
 
 .mm-work-input--warning {
-    border-color: var(--color-warning);
+    border-color: var(--warning);
 }
 
 /* Assign Modal */

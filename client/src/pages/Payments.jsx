@@ -1281,7 +1281,7 @@ const Payments = () => {
                                 {payeeStatement.payee.type === 'Vendor' && (
                                     <div className="panel flex-1 text-center">
                                         <span className="label">Total Purchases</span>
-                                        <h3 style={{ fontSize: '1.5rem', color: 'var(--color-primary)' }}>
+                                        <h3 style={{ fontSize: '1.5rem', color: 'var(--primary)' }}>
                                             ₹{(payeeStatement.transactions || []).filter(t => t.entry_type === 'Purchase').reduce((sum, t) => sum + Number(t.total_amount), 0).toLocaleString()}
                                         </h3>
                                     </div>
@@ -1449,7 +1449,7 @@ const Payments = () => {
                                                                     {v.type === 'Vendor' && (
                                                                         <button
                                                                             className="btn btn-ghost btn-sm"
-                                                                            style={{ color: 'var(--color-primary)' }}
+                                                                            style={{ color: 'var(--primary)' }}
                                                                             onClick={() => {
                                                                                 setBillData({
                                                                                     vendor_id: v.id,

@@ -1033,7 +1033,7 @@ const MachineManagement = () => {
                                                 value={workForm.waste_copies}
                                                 onChange={e => setWorkForm({ ...workForm, waste_copies: e.target.value })}
                                                 placeholder="0"
-                                                style={{ borderColor: workForm.waste_copies ? 'var(--color-danger)' : undefined }} />
+                                                style={{ borderColor: workForm.waste_copies ? 'var(--destructive)' : undefined }} />
                                         </div>
                                         <div className="form-group mm-work-input-group">
                                             <label className="form-label mm-work-input-label--warning">Proof Copies</label>
@@ -1041,7 +1041,7 @@ const MachineManagement = () => {
                                                 value={workForm.proof_copies}
                                                 onChange={e => setWorkForm({ ...workForm, proof_copies: e.target.value })}
                                                 placeholder="0"
-                                                style={{ borderColor: workForm.proof_copies ? 'var(--color-warning)' : undefined }} />
+                                                style={{ borderColor: workForm.proof_copies ? 'var(--warning)' : undefined }} />
                                         </div>
                                         <div className="form-group mm-work-input-group">
                                             <label className="form-label">Payment Type</label>
