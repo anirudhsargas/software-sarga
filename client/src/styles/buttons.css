@@ -106,14 +106,14 @@
   color: var(--btn-primary-text, var(--color-surface));
   box-shadow:
     0 1px 2px var(--color-shadow),
-    0 0 0 0px var(--color-shadow), 0.4);
+    0 0 0 0px rgba(var(--accent-rgb), 0.4);
 }
 
 .btn-primary:hover {
   background: var(--accent-hover, color-mix(in srgb, var(--accent) 85%, white));
   box-shadow:
     0 4px 12px var(--color-shadow),
-    0 0 0 0px var(--color-shadow), 0.3);
+    0 0 0 0px rgba(var(--accent-rgb), 0.3);
   transform: translateY(-1px);
 }
 
@@ -121,13 +121,13 @@
   transform: translateY(0px) scale(0.98);
   box-shadow:
     0 1px 3px var(--color-shadow),
-    0 0 0 3px var(--color-shadow), 0.25);
+    0 0 0 3px rgba(var(--accent-rgb), 0.25);
   transition-duration: 80ms;
 }
 
 .btn-primary:focus-visible {
   box-shadow:
-    0 0 0 3px var(--color-shadow), 0.4),
+    0 0 0 3px rgba(var(--accent-rgb), 0.4),
     0 4px 12px var(--color-shadow);
 }
 
@@ -155,7 +155,7 @@
 .btn-ghost:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
-  box-shadow: 0 0 0 3px var(--color-shadow), 0.15);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
 }
 
 /* ── Danger Button ── */
@@ -294,7 +294,7 @@
 
 .btn-ghost .ripple,
 .btn-icon .ripple {
-  background: var(--color-shadow), 0.15);
+  background: rgba(var(--accent-rgb), 0.15);
 }
 
 @keyframes ripple-expand {
@@ -325,7 +325,7 @@
 .btn-chip:hover {
   border-color: var(--accent);
   color: var(--accent);
-  background: var(--color-shadow), 0.06);
+  background: rgba(var(--accent-rgb), 0.06);
   transform: translateY(-1px);
 }
 
@@ -353,7 +353,7 @@
   border-color: var(--accent);
   color: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--color-shadow), 0.2);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2);
 }
 
 .cp-method-pill--active {
@@ -361,7 +361,7 @@
   border-color: var(--accent);
   color: var(--on-accent);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px var(--color-shadow), 0.3);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
 }
 
 .cp-method-pill--active:hover {
@@ -385,7 +385,7 @@
 }
 
 .nav-item.active {
-  background: var(--color-shadow), 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   color: var(--accent);
   font-weight: 600;
   border-left: 3px solid var(--accent);
@@ -398,11 +398,11 @@
 }
 
 .table tbody tr:hover {
-  background: var(--color-shadow), 0.04);
+  background: rgba(var(--accent-rgb), 0.04);
 }
 
 .table tbody tr:active {
-  background: var(--color-shadow), 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
 }
 
 /* ── Card hover ── */
@@ -437,7 +437,7 @@
 
 .input-field:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--color-shadow), 0.15);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
   outline: none;
 }
 
@@ -448,7 +448,7 @@
 /* ── Select focus ── */
 select.input-field:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--color-shadow), 0.15);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
 }
 
 /* ── Modal backdrop ── */

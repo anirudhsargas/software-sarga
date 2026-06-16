@@ -69,6 +69,21 @@
   --toast-bg: #fbfaf7;
   --toast-text: #171717;
   --on-accent: #ffffff;
+  
+  /* Fallback Shadcn/UI Variables */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--bg-card);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary-foreground: var(--on-accent);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted-foreground: var(--text-muted);
+  --destructive: var(--error);
+  --destructive-foreground: #ffffff;
+  --ring: var(--accent);
 }
 
 .dark {
@@ -139,6 +154,21 @@
   --toast-bg: #1c1f20;
   --toast-text: #f3f4f5;
   --on-accent: #121314;
+  
+  /* Fallback Shadcn/UI Variables */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--bg-card);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary-foreground: var(--on-accent);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted-foreground: var(--text-muted);
+  --destructive: var(--error);
+  --destructive-foreground: #ffffff;
+  --ring: var(--accent);
 }
 
 * {
