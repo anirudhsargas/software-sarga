@@ -21,10 +21,18 @@ const { verifyWithAnySecret } = require('./middleware/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Health check endpoint for Render keepalive (no auth, no DB)
-app.get('/api/health', (req, res) => {
-    res.status(200).json({
-        status: 'ok',
+// Health check endpoint for Render keepalive (no auth, checks DB connectivity)
+app.get('/api/health', async (req, res) => {
+    let dbStatus = 'disconnected';
+    try {
+        const [rows] = await pool.query('SELECT 1 AS ok');
+        dbStatus = rows?.[0]?.ok === 1 ? 'connected' : 'error';
+    } catch (e) {
+        dbStatus = 'error';
+    }
+    res.status(dbStatus === 'connected' ? 200 : 503).json({
+        status: dbStatus === 'connected' ? 'ok' : 'degraded',
+        database: dbStatus,
         service: 'sarga-mis',
         time: new Date().toISOString()
     });
@@ -444,8 +452,11 @@ app.use(errorHandler);
 // --------------- Start Server ---------------
 if (process.env.NODE_ENV !== 'test') {
     initDb().then(() => {
+        logger.info('[DB] Database initialized successfully');
         const server = app.listen(PORT, '0.0.0.0', () => {
-            logger.info(`Server running on port ${PORT} (bound to 0.0.0.0)`);
+            const mode = process.env.NODE_ENV || 'development';
+            const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');
+            logger.info(`Server running on port ${PORT} (${mode}, DB: ${dbHost})`);
 
             // DEV: list registered routes to help debugging missing endpoints
             try {

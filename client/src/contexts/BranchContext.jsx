@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import auth from '../services/auth';
 
 const BranchContext = createContext(null);
 
@@ -28,6 +29,10 @@ export const BranchProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    if (!auth.isAuthenticated()) {
+      setLoading(false);
+      return;
+    }
     fetchBranches();
   }, [fetchBranches]);
 

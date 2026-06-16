@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { pool } = require('../database');
+const logger = require('../helpers/logger');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
@@ -34,7 +35,10 @@ const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
-    if (!token) return res.status(401).json({ message: 'Access denied. No token provided.' });
+    if (!token) {
+        logger.warn('[Auth] 401 No token provided', { path: req.path, method: req.method, ip: req.ip });
+        return res.status(401).json({ message: 'Access denied. No token provided.' });
+    }
 
     try {
         const user = verifyWithAnySecret(token);
@@ -51,26 +55,9 @@ const authenticateToken = async (req, res, next) => {
         }
 
         req.user = user;
-
-        // --- ENFORCE FRONT OFFICE BRANCH RULES ---
-        if (normalizeRole(req.user.role) === 'Front Office') {
-            const method = req.method.toUpperCase();
-            
-            if (['GET', 'DELETE', 'HEAD'].includes(method)) {
-                if (!req.query) req.query = {};
-                req.query.branch_id = req.user.branch_id;
-            } else if (['POST', 'PUT', 'PATCH'].includes(method)) {
-                if (!req.body) req.body = {};
-                if (req.body.branch_id && String(req.body.branch_id) !== String(req.user.branch_id)) {
-                    return res.status(403).json({ error: 'Branch access denied. Your account is restricted to your assigned branch.' });
-                }
-                req.body.branch_id = req.user.branch_id;
-            }
-        }
-        // -----------------------------------------
-
         next();
-    } catch (err) {
+    } catch (error) {
+        logger.warn('[Auth] 401 Invalid token', { path: req.path, method: req.method, ip: req.ip, error: error.message });
         return res.status(401).json({ message: 'Invalid or expired token.' });
     }
 };

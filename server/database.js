@@ -32,11 +32,11 @@ const pool = mysql.createPool({
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
-  // Enable SSL when DB_SSL=true or DB_SSL_MODE=REQUIRED (required for Aiven and most cloud MySQL providers)
-  ...((process.env.DB_SSL === 'true' || process.env.DB_SSL_MODE === 'REQUIRED') && {
+  // Enable SSL when DB_SSL=true, DB_SSL_MODE=REQUIRED, or PGSSLMODE=require (cloud deployments like Aiven/Render/Postgres)
+  ...((process.env.DB_SSL === 'true' || process.env.DB_SSL_MODE === 'REQUIRED' || process.env.PGSSLMODE === 'require') && {
     ssl: fs.existsSync(path.join(__dirname, 'aiven-ca.pem'))
       ? { ca: fs.readFileSync(path.join(__dirname, 'aiven-ca.pem')), rejectUnauthorized: true }
-      : {},
+      : { rejectUnauthorized: false },
   }),
 });
 

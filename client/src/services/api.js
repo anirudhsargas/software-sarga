@@ -237,10 +237,13 @@ api.interceptors.response.use(
         }
 
         if (status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
+            const hadToken = error.config?.headers?.Authorization;
+            if (hadToken) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                }
             }
         }
 
