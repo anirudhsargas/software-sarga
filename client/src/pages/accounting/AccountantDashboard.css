@@ -1,0 +1,370 @@
+.acc-dash-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.acc-dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.acc-dash-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.acc-dash-subtitle {
+  color: var(--muted);
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.acc-dash-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.acc-month-input {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.acc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.acc-btn.icon-only {
+  padding: 8px;
+}
+
+.acc-btn.primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.acc-btn.primary:hover {
+  background: var(--accent-dark);
+}
+
+.acc-btn.secondary {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.acc-btn.secondary:hover {
+  background: var(--border);
+}
+
+.acc-btn.outline {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.acc-btn.outline:hover {
+  background: var(--bg-hover);
+}
+
+.acc-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.acc-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.acc-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+}
+
+.acc-kpi-card {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease;
+}
+
+.acc-kpi-card:hover {
+  transform: translateY(-2px);
+}
+
+.acc-kpi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.acc-kpi-title {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.acc-kpi-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.acc-kpi-icon.green { background: rgba(34, 197, 94, 0.1); color: var(--success, #22c55e); }
+.acc-kpi-icon.red { background: rgba(239, 68, 68, 0.1); color: var(--error, #ef4444); }
+.acc-kpi-icon.blue { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.acc-kpi-icon.orange { background: rgba(249, 115, 22, 0.1); color: #f97316; }
+.acc-kpi-icon.purple { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
+
+.acc-kpi-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.acc-kpi-growth {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.acc-kpi-growth.positive { color: var(--success, #22c55e); }
+.acc-kpi-growth.negative { color: var(--error, #ef4444); }
+
+.acc-main-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 1024px) {
+  .acc-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.acc-grid-left, .acc-grid-right {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.acc-card-header {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.acc-card-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.acc-chart-card {
+  height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.acc-chart-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.acc-table-container {
+  overflow-x: auto;
+}
+
+.acc-data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.acc-data-table th, .acc-data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.acc-data-table th {
+  color: var(--muted);
+  font-weight: 500;
+  background: var(--bg);
+}
+
+.acc-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.acc-tag.pending {
+  background: rgba(249, 115, 22, 0.1);
+  color: #f97316;
+}
+
+.text-right { text-align: right; }
+.text-muted { color: var(--muted); }
+.font-mono { font-family: monospace; }
+.text-success { color: var(--success, #22c55e); }
+.text-error { color: var(--error, #ef4444); }
+
+.acc-btn-text {
+  background: none;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.acc-btn-text:hover {
+  text-decoration: underline;
+}
+
+.acc-row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.acc-alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.acc-alert-item {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-hover);
+  border-left: 4px solid;
+  border-radius: 8px;
+}
+
+.acc-alert-icon {
+  margin-top: 2px;
+}
+
+.acc-alert-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  font-size: 0.95rem;
+}
+
+.acc-alert-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.acc-alerts-all-clear {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 0;
+  color: var(--muted);
+  gap: 12px;
+}
+
+.acc-vendor-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.acc-v-stat {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.acc-v-stat:last-child {
+  border-bottom: none;
+}
+
+.acc-v-stat span {
+  color: var(--muted);
+}
+
+.acc-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 20px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.acc-empty-illus {
+  width: 120px;
+  height: 120px;
+  background: var(--bg-hover);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.acc-empty-state h2 {
+  margin: 0 0 8px 0;
+}
+
+.acc-empty-state p {
+  color: var(--muted);
+  margin: 0 0 24px 0;
+  max-width: 400px;
+}
+
+.acc-empty-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.acc-loading-state, .acc-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  gap: 16px;
+  color: var(--muted);
+}

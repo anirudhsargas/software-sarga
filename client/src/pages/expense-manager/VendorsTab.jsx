@@ -25,8 +25,8 @@ const TransactionRow = React.memo(({ r, openFullBillFromTransaction }) => (
     <td>
       <span style={{
         padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600,
-        background: r._entry_type === 'Purchase' ? '#fef3c7' : '#dcfce7',
-        color: r._entry_type === 'Purchase' ? '#92400e' : '#166534'
+        background: r._entry_type === 'Purchase' ? 'var(--color-surfaceHover)' : 'var(--color-surfaceHover)',
+        color: r._entry_type === 'Purchase' ? 'var(--color-danger)' : 'var(--color-textSecondary)'
       }}>
         {r._entry_type}
       </span>
@@ -710,7 +710,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
       container.style.opacity = '0';
       container.style.pointerEvents = 'none';
       container.style.width = '794px';
-      container.style.background = '#fff';
+      container.style.background = 'var(--color-surface)';
       container.innerHTML = DOMPurify.sanitize(summaryHtml, { ALLOWED_TAGS: ['div', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'h2', 'style'], ALLOWED_ATTR: ['style', 'id', 'colspan'] });
       document.body.appendChild(container);
 
@@ -759,7 +759,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
           console.warn('Vendor statement HTML appears empty');
         }
         // Render the HTML to a canvas using html2canvas
-        const canvas = await window.html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        const canvas = await window.html2canvas(container, { scale: 2, useCORS: true, backgroundColor: 'var(--color-surface)' });
         const imgWidthPx = canvas.width;
         const imgHeightPx = canvas.height;
         const pdfWidthPt = doc.internal.pageSize.getWidth();

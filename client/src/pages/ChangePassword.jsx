@@ -63,11 +63,15 @@ const ChangePassword = () => {
 
             // Update local user state
             const user = auth.getUser();
-            user.is_first_login = false;
-            localStorage.setItem('user', JSON.stringify(user));
+            if (user) {
+                user.is_first_login = false;
+                localStorage.setItem('user', JSON.stringify(user));
+            }
 
             setSuccess(true);
-            setTimeout(() => navigate('/dashboard', { replace: true }), 2000);
+            setTimeout(() => {
+                auth.logout();
+            }, 2000);
         } catch (err) {
             setError(err.response?.data?.message || 'Password change failed');
         } finally {
@@ -81,7 +85,7 @@ const ChangePassword = () => {
                 <div className="panel text-center container-sm">
                     <CheckCircle2 className="icon-success" size={64} />
                     <h2 className="section-title">Password Changed!</h2>
-                    <p className="section-subtitle">Redirecting to your dashboard...</p>
+                    <p className="section-subtitle">Logging you out to refresh your session...</p>
                 </div>
             </div>
         );

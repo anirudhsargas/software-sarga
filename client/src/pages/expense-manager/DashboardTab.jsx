@@ -206,7 +206,7 @@ const DashboardTab = ({ branches, onPayment }) => {
             <>
               <div className="em-donut-legend">
                 {Object.entries(d.by_category).sort((a, b) => b[1] - a[1]).map(([cat, val], i) => {
-                  const colors = ['var(--error)', 'var(--warning)', 'var(--accent-2)', 'var(--success)', '#8b5cf6', '#ec4899', '#06b6d4', 'var(--warning)'];
+                  const colors = ['var(--error)', 'var(--warning)', 'var(--accent-2)', 'var(--success)', 'var(--color-info)', 'var(--color-danger)', 'var(--color-info)', 'var(--warning)'];
                   const pct = ((val / d.total_expenses) * 100).toFixed(1);
                   return (
                     <div key={cat} className="em-donut-legend__item">
@@ -220,7 +220,7 @@ const DashboardTab = ({ branches, onPayment }) => {
               </div>
               <div className="em-breakdown" style={{ marginTop: 14 }}>
                 {Object.entries(d.by_category).sort((a, b) => b[1] - a[1]).map(([cat, val], i) => {
-                  const colors = ['var(--error)', 'var(--warning)', 'var(--accent-2)', 'var(--success)', '#8b5cf6', '#ec4899', '#06b6d4', 'var(--warning)'];
+                  const colors = ['var(--error)', 'var(--warning)', 'var(--accent-2)', 'var(--success)', 'var(--color-info)', 'var(--color-danger)', 'var(--color-info)', 'var(--warning)'];
                   return (
                     <div key={cat} className="em-breakdown__row">
                       <div className="em-breakdown__cat">{cat}</div>
@@ -285,7 +285,7 @@ const DashboardTab = ({ branches, onPayment }) => {
               {[
                 { label: 'Cash', value: cashTotal, color: 'var(--success)', icon: '💵' },
                 { label: 'UPI', value: upiTotal, color: 'var(--accent-2)', icon: '📱' },
-                { label: 'Bank Transfer', value: bankTotal, color: '#8b5cf6', icon: '🏦' },
+                { label: 'Bank Transfer', value: bankTotal, color: 'var(--color-info)', icon: '🏦' },
                 { label: 'Other', value: otherTotal, color: 'var(--warning)', icon: '💳' },
               ].filter(m => m.value > 0).map(mode => (
                 <div key={mode.label} className="em-payment-mode">

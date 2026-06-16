@@ -69,6 +69,7 @@ const UploadBills = () => {
   const [branches, setBranches] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(auth.getUser()?.branch_id || '');
+  const [savingBills, setSavingBills] = useState(new Set());
 
   // Fetch branches & categories on mount
   useEffect(() => {
@@ -440,6 +441,7 @@ const UploadBills = () => {
   };
 
   const confirmSingleBill = async (id) => {
+    if (savingBills.has(id)) return;
     const bill = extractedBillsData.find(b => b.id === id);
     if (!bill) return;
 
@@ -448,6 +450,7 @@ const UploadBills = () => {
       return;
     }
 
+    setSavingBills(prev => new Set(prev).add(id));
     try {
       const formData = new FormData();
       formData.append('file', bill.file);
@@ -479,7 +482,8 @@ const UploadBills = () => {
       formData.append('force_duplicate', '1');
 
       await api.post('/bills-documents/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000
       });
 
       // Save locally
@@ -492,35 +496,28 @@ const UploadBills = () => {
       }).catch(() => {});
 
       // Remove from review queue
-      setExtractedBillsData(prev => prev.filter(b => b.id !== id));
+      setExtractedBillsData(prev => {
+        const remaining = prev.filter(b => b.id !== id);
+        if (remaining.length === 0) {
+          setUiState('success');
+        }
+        return remaining;
+      });
       setCapturedBills(prev => prev.filter(b => b.id !== id));
       toast.success(`✓ ${bill.label} confirmed & saved`);
-
-      // If empty, navigate back
-      if (extractedBillsData.length <= 1) {
-        setUiState('success');
-      }
     } catch (err) {
       toast.error(`Failed to upload ${bill.label}: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setSavingBills(prev => { const next = new Set(prev); next.delete(id); return next; });
     }
   };
 
   const confirmAllSelected = async () => {
     const toConfirm = extractedBillsData.filter(b => selectedReviewIds.includes(b.id));
-    if (toConfirm.length === 0) {
-      toast.error('No bills selected for confirmation.');
-      return;
-    }
+    if (toConfirm.length === 0) { toast.error('No bills selected'); return; }
 
-    const invalid = toConfirm.find(b => !b.vendor_name || !b.amount);
-    if (invalid) {
-      toast.error(`Required fields missing in ${invalid.label}. Click Edit to complete.`);
-      return;
-    }
-
-    toast.loading('Saving selected bills...');
-    let successCount = 0;
-    
+    setSavingBills(prev => new Set([...prev, ...toConfirm.map(b => b.id)]));
+    const succeeded = [];
     for (const bill of toConfirm) {
       try {
         const formData = new FormData();
@@ -531,14 +528,8 @@ const UploadBills = () => {
         formData.append('bill_number', bill.bill_number);
         formData.append('bill_date', bill.bill_date);
         formData.append('amount', bill.amount);
-        if (bill.gst_category) {
-          formData.append('gst_category', bill.gst_category);
-          formData.append('subtotal', String(bill.taxable_amount || ''));
-          formData.append('tax_amount', String(bill.tax_amount || ''));
-          formData.append('gst_confidence', String(bill.gst_confidence || ''));
-        }
-        formData.append('description', bill.items.map(it => it.item_name).join(', ') || 'Bulk Smart Upload');
-        
+        const autoDesc = bill.items.map(it => it.item_name).filter(Boolean).join(', ') || 'Smart Bill Upload';
+        formData.append('description', autoDesc);
         const payloadItems = bill.items.map(it => ({
           ...it,
           quantity: Number(it.quantity) || 1,
@@ -550,10 +541,10 @@ const UploadBills = () => {
         formData.append('force_duplicate', '1');
 
         await api.post('/bills-documents/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 60000
         });
 
-        // Save locally
         await localDb.createVendorBill({
           vendor_name: bill.vendor_name,
           bill_number: bill.bill_number,
@@ -562,27 +553,26 @@ const UploadBills = () => {
           items: payloadItems
         }).catch(() => {});
 
-        successCount++;
+        succeeded.push(bill.id);
       } catch (err) {
-        console.error('Bulk upload failure:', bill.label, err);
+        console.error(`Failed to confirm bill ${bill.label}:`, err);
       }
     }
 
-    toast.dismiss();
-    
-    if (successCount === toConfirm.length) {
-      toast.success(`✓ Successfully uploaded ${successCount} bills!`);
-      setExtractedBillsData([]);
-      setCapturedBills([]);
-      setUiState('success');
-    } else if (successCount > 0) {
-      toast.warning(`Uploaded ${successCount} out of ${toConfirm.length} bills.`);
-      // Remove successful ones
-      setExtractedBillsData(prev => prev.filter(b => !toConfirm.slice(0, successCount).map(tc => tc.id).includes(b.id)));
-      setCapturedBills(prev => prev.filter(b => !toConfirm.slice(0, successCount).map(tc => tc.id).includes(b.id)));
+    if (succeeded.length > 0) {
+      const succeededSet = new Set(succeeded);
+      toast.success(`${succeeded.length} of ${toConfirm.length} bills confirmed`);
+      setExtractedBillsData(prev => {
+        const remaining = prev.filter(b => !succeededSet.has(b.id));
+        if (remaining.length === 0) setUiState('success');
+        return remaining;
+      });
+      setCapturedBills(prev => prev.filter(b => !succeededSet.has(b.id)));
+      setSelectedReviewIds([]);
     } else {
       toast.error('Failed to confirm any selected bills.');
     }
+    setSavingBills(new Set());
   };
 
   const toggleSelectReview = (id) => {

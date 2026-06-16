@@ -318,7 +318,7 @@ const FinanceTab = ({ branches, onError }) => {
         {loadingDetail ? <div className="em-loading"><Loader2 className="spin" size={20} /></div> : det ? (
           <>
             <div className="em-finance-header">
-              <Repeat size={24} style={{ color: '#8b5cf6' }} />
+              <Repeat size={24} style={{ color: 'var(--color-info)' }} />
               <div><h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{det.kuri_name || selectedKuri.kuri_name}</h2>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>Organizer: {det.organizer_name || selectedKuri.organizer_name || '—'} · Due day: {det.due_day || selectedKuri.due_day}th</span></div>
               <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => { setPayType('kuri'); setPayForm(p => ({ ...p, master_id: selectedKuri.id, amount: String(selectedKuri.monthly_installment || det.monthly_installment || '') })); setShowPayForm(true); }}>
@@ -454,7 +454,7 @@ const FinanceTab = ({ branches, onError }) => {
                 {kuris.map(k => (
                   <div role="button" tabIndex={0}  key={k.id} className="em-finance-card" onClick={() => openKuriDetail(k)} style={{ cursor: 'pointer' }}>
                     <div className="em-finance-card__header">
-                      <Repeat size={18} style={{ color: '#8b5cf6' }} />
+                      <Repeat size={18} style={{ color: 'var(--color-info)' }} />
                       <div className="em-finance-card__title">{k.kuri_name}</div>
                     </div>
                     <div className="em-finance-card__body">

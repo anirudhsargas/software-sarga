@@ -24,7 +24,13 @@ const verifyWithAnySecret = (token) => {
     throw lastError || new Error('Invalid token');
 };
 
-const authenticateToken = (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
+    // Prevent browser caching for protected routes
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -32,6 +38,18 @@ const authenticateToken = (req, res, next) => {
 
     try {
         const user = verifyWithAnySecret(token);
+        
+        // Verify session is not revoked
+        try {
+            const [sessions] = await pool.query('SELECT is_revoked FROM sarga_user_sessions WHERE session_token = ? LIMIT 1', [token]);
+            if (sessions.length > 0 && sessions[0].is_revoked) {
+                return res.status(401).json({ message: 'Session has been revoked. Please log in again.' });
+            }
+        } catch (dbErr) {
+            console.error('Session DB check error:', dbErr);
+            // Continue if DB fails, to prevent full outage
+        }
+
         req.user = user;
         next();
     } catch (err) {
@@ -50,6 +68,12 @@ const authorizeRoles = (...allowedRoles) => {
 
 // New enhanced authenticate for three books system
 const authenticate = async (req, res, next) => {
+    // Prevent browser caching for protected routes
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -58,6 +82,16 @@ const authenticate = async (req, res, next) => {
 
         const token = authHeader.split(' ')[1];
         const decoded = verifyWithAnySecret(token);
+
+        // Verify session is not revoked
+        try {
+            const [sessions] = await pool.query('SELECT is_revoked FROM sarga_user_sessions WHERE session_token = ? LIMIT 1', [token]);
+            if (sessions.length > 0 && sessions[0].is_revoked) {
+                return res.status(401).json({ error: 'Session has been revoked' });
+            }
+        } catch (dbErr) {
+            console.error('Session DB check error:', dbErr);
+        }
 
         // Fetch user from database
         const [users] = await pool.query(
@@ -70,7 +104,6 @@ const authenticate = async (req, res, next) => {
         }
 
         req.user = users[0];
-        // Debug log: help trace which user is authenticated for incoming requests
         try {
             console.log(`[Auth] user loaded id=${req.user.id} role=${req.user.role} branch_id=${req.user.branch_id}`);
         } catch (e) { }

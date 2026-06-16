@@ -22,10 +22,13 @@ const OtherStaffDashboard = () => {
   const [selectedType, setSelectedType] = useState('All');
   const [selectedPriority, setSelectedPriority] = useState('All');
   const [activeTab, setActiveTab] = useState('active');
+  const [fetchError, setFetchError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const fetchDashboard = useCallback(async () => {
     if (!staffId) return;
     setLoading(true);
+    setFetchError(false);
     try {
       const [history, branchList] = await Promise.all([
         localDb.getStaffWorkHistory(staffId),
@@ -35,6 +38,7 @@ const OtherStaffDashboard = () => {
       setBranches(branchList || []);
     } catch (err) {
       console.error('Dashboard fetch error:', err);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -73,15 +77,15 @@ const OtherStaffDashboard = () => {
 
   const getStatusColor = (status) => {
     const statusMap = {
-      'Processing': { bg: '#3b82f6', text: '#ffffff' },
-      'Pending': { bg: '#f59e0b', text: '#ffffff' },
-      'In Progress': { bg: '#8b5cf6', text: '#ffffff' },
-      'Completed': { bg: '#10b981', text: '#ffffff' },
-      'Delivered': { bg: '#06b6d4', text: '#ffffff' },
-      'Cancelled': { bg: '#ef4444', text: '#ffffff' },
-      'Failed': { bg: '#dc2626', text: '#ffffff' }
+      'Processing': { bg: 'var(--color-info)', text: 'var(--color-surface)' },
+      'Pending': { bg: 'var(--color-warning)', text: 'var(--color-surface)' },
+      'In Progress': { bg: 'var(--color-info)', text: 'var(--color-surface)' },
+      'Completed': { bg: 'var(--color-success)', text: 'var(--color-surface)' },
+      'Delivered': { bg: 'var(--color-info)', text: 'var(--color-surface)' },
+      'Cancelled': { bg: 'var(--color-danger)', text: 'var(--color-surface)' },
+      'Failed': { bg: 'var(--color-danger)', text: 'var(--color-surface)' }
     };
-    return statusMap[status] || { bg: '#6b7280', text: '#ffffff' };
+    return statusMap[status] || { bg: 'var(--color-textMuted)', text: 'var(--color-surface)' };
   };
 
   // Job types and priorities
@@ -127,12 +131,28 @@ const OtherStaffDashboard = () => {
     return workHistory.filter(j => ['Completed', 'Cancelled'].includes(j.assignment_status)).length;
   }, [workHistory]);
 
-  if (loading) {
+  if (loading && workHistory.length === 0) {
+    return (
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 16px' }}>
+        <div className="skeleton" style={{ width: 280, height: 28, marginBottom: 8, borderRadius: 6 }} />
+        <div className="skeleton" style={{ width: 200, height: 14, marginBottom: 24, borderRadius: 6 }} />
+        <div className="skeleton" style={{ width: '100%', height: 48, marginBottom: 16, borderRadius: 8 }} />
+        {[1,2,3].map(i => (
+          <div key={i} className="skeleton" style={{ width: '100%', height: 72, marginBottom: 8, borderRadius: 8 }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (fetchError && workHistory.length === 0) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
         <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
-          <div style={{ width: 32, height: 32, border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-          Loading your jobs...
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
+          <p style={{ margin: '0 0 16px' }}>Unable to load dashboard data.</p>
+          <button className="btn btn-primary" onClick={() => { setRetryCount(c => c + 1); fetchDashboard(); }}>
+            <RefreshCw size={16} /> Retry
+          </button>
         </div>
       </div>
     );
@@ -170,7 +190,7 @@ const OtherStaffDashboard = () => {
             transition: 'all 0.2s ease'
           }}
         >
-          My Active Jobs <span style={{ fontSize: 12, marginLeft: '6px', background: activeTab === 'active' ? 'var(--accent)' : 'var(--bg-tertiary)', color: activeTab === 'active' ? '#000' : 'var(--text-primary)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{activeCount}</span>
+          My Active Jobs <span style={{ fontSize: 12, marginLeft: '6px', background: activeTab === 'active' ? 'var(--accent)' : 'var(--bg-tertiary)', color: activeTab === 'active' ? 'var(--color-shadow)' : 'var(--text-primary)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{activeCount}</span>
         </button>
         <button
           onClick={() => setActiveTab('completed')}
@@ -186,7 +206,7 @@ const OtherStaffDashboard = () => {
             transition: 'all 0.2s ease'
           }}
         >
-          Completed / Cancelled <span style={{ fontSize: 12, marginLeft: '6px', background: activeTab === 'completed' ? 'var(--accent)' : 'var(--bg-tertiary)', color: activeTab === 'completed' ? '#000' : 'var(--text-primary)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{completedCount}</span>
+          Completed / Cancelled <span style={{ fontSize: 12, marginLeft: '6px', background: activeTab === 'completed' ? 'var(--accent)' : 'var(--bg-tertiary)', color: activeTab === 'completed' ? 'var(--color-shadow)' : 'var(--text-primary)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{completedCount}</span>
         </button>
       </div>
 
@@ -416,9 +436,9 @@ const OtherStaffDashboard = () => {
                         return (
                           <span key={i} style={{
                             fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 500,
-                            background: isColour ? '#fef3c7' : isNumbering ? '#dbeafe' : '#f3f4f6',
-                            color: isColour ? '#92400e' : isNumbering ? '#1e40af' : '#374151',
-                            border: `1px solid ${isColour ? '#fcd34d' : isNumbering ? '#93c5fd' : '#e5e7eb'}`
+                            background: isColour ? 'var(--color-surfaceHover)' : isNumbering ? 'var(--color-surfaceHover)' : 'var(--color-surfaceSecondary)',
+                            color: isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : 'var(--color-textSecondary)',
+                            border: `1px solid ${isColour ? 'var(--color-warning)' : isNumbering ? 'var(--color-border)' : 'var(--color-surfaceHover)'}`
                           }}>
                             {isColour && '🎨 '}{isNumbering && '🔢 '}{part}
                           </span>

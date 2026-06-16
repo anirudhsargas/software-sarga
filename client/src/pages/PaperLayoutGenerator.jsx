@@ -16,10 +16,28 @@ const PAPER_SIZES = [
     { name: 'Custom', w: 0, h: 0 },
 ];
 
+const UNIT_MM = 1;
+const UNIT_CM = 10;
+const UNIT_INCH = 25.4;
+const UNIT_LABELS = { mm: 'mm', cm: 'cm', inch: 'inch' };
+
+const convertToMm = (value, unit) => {
+    if (unit === 'cm') return Math.round(value * 10);
+    if (unit === 'inch') return Math.round(value * 25.4);
+    return Math.round(value);
+};
+
+const convertFromMm = (value, unit) => {
+    if (unit === 'cm') return +(value / 10).toFixed(2);
+    if (unit === 'inch') return +(value / 25.4).toFixed(3);
+    return value;
+};
+
 const PaperLayoutGenerator = () => {
     useSEO('Paper Layout Generator');
 
     const canvasRef = useRef(null);
+    const [unit, setUnit] = useState('mm');
     const [paperSize, setPaperSize] = useState('A3');
     const [paperW, setPaperW] = useState(297);
     const [paperH, setPaperH] = useState(420);
@@ -89,14 +107,14 @@ const PaperLayoutGenerator = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Paper
-        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#fbfaf7';
-        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#dedad1';
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || 'var(--color-background)';
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'var(--color-border)';
         ctx.lineWidth = 1;
         ctx.fillRect(offX, offY, paper_width * scale, paper_height * scale);
         ctx.strokeRect(offX, offY, paper_width * scale, paper_height * scale);
 
         // Designs
-        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#1f2a33';
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || 'var(--color-text)';
         if (placements) {
             placements.forEach((p, i) => {
                 const x = offX + p.x * scale;
@@ -113,7 +131,7 @@ const PaperLayoutGenerator = () => {
                 if (bleed > 0) {
                     ctx.save();
                     ctx.setLineDash([3, 3]);
-                    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--error').trim() || '#b03a2e';
+                    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--error').trim() || 'var(--color-danger)';
                     ctx.lineWidth = 0.5;
                     const bx = x + bleed * scale, by = y + bleed * scale;
                     const bw = w - 2 * bleed * scale, bh = h - 2 * bleed * scale;
@@ -132,7 +150,7 @@ const PaperLayoutGenerator = () => {
 
         // Cut marks
         const markLen = 8;
-        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6c7077';
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || 'var(--color-textMuted)';
         ctx.lineWidth = 0.5;
         ctx.setLineDash([]);
         if (placements) {
@@ -196,21 +214,36 @@ const PaperLayoutGenerator = () => {
 
                     {/* Paper Size */}
                     <div style={{ marginBottom: 14 }}>
-                        <label className="label">Paper Size</label>
-                        <select className="input-field" value={paperSize} onChange={e => setPaperSize(e.target.value)}>
-                            {PAPER_SIZES.map(p => <option key={p.name} value={p.name}>{p.name}{p.w ? ` (${p.w}×${p.h}mm)` : ''}</option>)}
+                        <label className="label" htmlFor="paper-size-select">Paper Size</label>
+                        <select id="paper-size-select" className="input-field" value={paperSize} onChange={e => setPaperSize(e.target.value)}>
+                            {PAPER_SIZES.map(p => <option key={p.name} value={p.name}>{p.name}{p.w ? ` (${convertFromMm(p.w, unit)}×${convertFromMm(p.h, unit)}${unit})` : ''}</option>)}
+                        </select>
+                    </div>
+
+                    <div style={{ marginBottom: 14 }}>
+                        <label className="label" htmlFor="unit-select">Unit</label>
+                        <select id="unit-select" className="input-field" value={unit} onChange={e => {
+                            const newUnit = e.target.value;
+                            const factor = newUnit === 'cm' ? 0.1 : newUnit === 'inch' ? 1 / 25.4 : 1;
+                            const toFactor = unit === 'cm' ? 0.1 : unit === 'inch' ? 1 / 25.4 : 1;
+                            setUnit(newUnit);
+                            setPaperW(+(paperW * UNIT_LABELS[unit] ? 1 : factor / toFactor).toFixed(3) || paperW);
+                        }}>
+                            <option value="mm">mm</option>
+                            <option value="cm">cm</option>
+                            <option value="inch">inch</option>
                         </select>
                     </div>
 
                     {(paperSize === 'Custom') && (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                             <div>
-                                <label className="label">Width (mm)</label>
-                                <input className="input-field" type="number" min={1} value={paperW} onChange={e => setPaperW(+e.target.value)} />
+                                <label className="label" htmlFor="paper-width">Width ({unit})</label>
+                                <input id="paper-width" className="input-field" type="number" min={0.1} step={unit === 'inch' ? 0.001 : unit === 'cm' ? 0.1 : 1} value={convertFromMm(paperW, unit)} onChange={e => setPaperW(convertToMm(+e.target.value, unit))} />
                             </div>
                             <div>
-                                <label className="label">Height (mm)</label>
-                                <input className="input-field" type="number" min={1} value={paperH} onChange={e => setPaperH(+e.target.value)} />
+                                <label className="label" htmlFor="paper-height">Height ({unit})</label>
+                                <input id="paper-height" className="input-field" type="number" min={0.1} step={unit === 'inch' ? 0.001 : unit === 'cm' ? 0.1 : 1} value={convertFromMm(paperH, unit)} onChange={e => setPaperH(convertToMm(+e.target.value, unit))} />
                             </div>
                         </div>
                     )}
@@ -218,35 +251,35 @@ const PaperLayoutGenerator = () => {
                     {/* Design Size */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                         <div>
-                            <label className="label">Design W (mm)</label>
-                            <input className="input-field" type="number" min={1} value={designW} onChange={e => setDesignW(+e.target.value)} />
+                            <label className="label" htmlFor="design-width">Design W ({unit})</label>
+                            <input id="design-width" className="input-field" type="number" min={0.1} step={unit === 'inch' ? 0.001 : unit === 'cm' ? 0.1 : 1} value={convertFromMm(designW, unit)} onChange={e => setDesignW(convertToMm(+e.target.value, unit))} />
                         </div>
                         <div>
-                            <label className="label">Design H (mm)</label>
-                            <input className="input-field" type="number" min={1} value={designH} onChange={e => setDesignH(+e.target.value)} />
+                            <label className="label" htmlFor="design-height">Design H ({unit})</label>
+                            <input id="design-height" className="input-field" type="number" min={0.1} step={unit === 'inch' ? 0.001 : unit === 'cm' ? 0.1 : 1} value={convertFromMm(designH, unit)} onChange={e => setDesignH(convertToMm(+e.target.value, unit))} />
                         </div>
                     </div>
 
                     {/* Bleed / Margin / Gutter */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 18 }}>
                         <div>
-                            <label className="label">Bleed</label>
-                            <input className="input-field" type="number" min={0} value={bleed} onChange={e => setBleed(+e.target.value)} />
+                            <label className="label" htmlFor="bleed-input">Bleed ({unit})</label>
+                            <input id="bleed-input" className="input-field" type="number" min={0} step={unit === 'inch' ? 0.001 : unit === 'cm' ? 0.1 : 1} value={convertFromMm(bleed, unit)} onChange={e => setBleed(convertToMm(+e.target.value, unit))} />
                         </div>
                         <div>
-                            <label className="label">Margin</label>
-                            <input className="input-field" type="number" min={0} value={margin} onChange={e => setMargin(+e.target.value)} />
+                            <label className="label" htmlFor="margin-input">Margin ({unit})</label>
+                            <input id="margin-input" className="input-field" type="number" min={0} step={unit === 'inch' ? 0.001 : unit === 'cm' ? 0.1 : 1} value={convertFromMm(margin, unit)} onChange={e => setMargin(convertToMm(+e.target.value, unit))} />
                         </div>
                         <div>
-                            <label className="label">Gutter</label>
-                            <input className="input-field" type="number" min={0} value={gutter} onChange={e => setGutter(+e.target.value)} />
+                            <label className="label" htmlFor="gutter-input">Gutter ({unit})</label>
+                            <input id="gutter-input" className="input-field" type="number" min={0} step={unit === 'inch' ? 0.001 : unit === 'cm' ? 0.1 : 1} value={convertFromMm(gutter, unit)} onChange={e => setGutter(convertToMm(+e.target.value, unit))} />
                         </div>
                     </div>
 
                     {/* Quantity */}
                     <div style={{ marginBottom: 18 }}>
-                        <label className="label">Quantity</label>
-                        <input className="input-field" type="number" min={1} value={quantity} onChange={e => setQuantity(+e.target.value)} />
+                        <label className="label" htmlFor="quantity-input">Quantity</label>
+                        <input id="quantity-input" className="input-field" type="number" min={1} value={quantity} onChange={e => setQuantity(+e.target.value)} />
                     </div>
 
                     {/* Optimization Toggle */}
@@ -292,7 +325,7 @@ const PaperLayoutGenerator = () => {
                                 { label: 'Waste', value: `${clientOptimization.wastePercent}%`, color: clientOptimization.wastePercent < 20 ? 'var(--success)' : clientOptimization.wastePercent < 40 ? 'var(--warning)' : 'var(--error)' },
                                 { label: 'Utilization', value: `${clientOptimization.utilizationPercent}%`, color: clientOptimization.utilizationPercent >= 80 ? 'var(--success)' : clientOptimization.utilizationPercent >= 60 ? 'var(--warning)' : 'var(--error)' },
                                 { label: 'Layout', value: `${clientOptimization.cols}×${clientOptimization.rows} (${clientOptimization.layout})` },
-                                { label: 'Paper', value: `${paperW}×${paperH}mm` },
+                                { label: 'Paper', value: `${convertFromMm(paperW, unit)}×${convertFromMm(paperH, unit)}${unit}` },
                             ].map((s, i) => (
                                 <div key={i} className="summary-tile" style={{ minHeight: 'auto', padding: 14 }}>
                                     <div className="summary-tile__title">{s.label}</div>
@@ -311,7 +344,7 @@ const PaperLayoutGenerator = () => {
                                         ? 'Mixed'
                                         : (layout.is_rotated ? 'Landscape' : 'Portrait')
                                 },
-                                { label: 'Paper', value: `${paperW}×${paperH}mm` },
+                                { label: 'Paper', value: `${convertFromMm(paperW, unit)}×${convertFromMm(paperH, unit)}${unit}` },
                             ].map((s, i) => (
                                 <div key={i} className="summary-tile" style={{ minHeight: 'auto', padding: 14 }}>
                                     <div className="summary-tile__title">{s.label}</div>

@@ -814,7 +814,7 @@ const CustomerPayments = () => {
           </div>
         </div>
         <div className="cp-header-badge">
-          <Receipt size={14} />
+          <Receipt size={14} aria-hidden="true" />
           <span>{invoiceId}</span>
         </div>
       </div>
@@ -842,7 +842,7 @@ const CustomerPayments = () => {
         {/* ─ LEFT: Customer & Bill ─ */}
         <div className="cp-panel">
           <div className="cp-panel-header">
-            <div className="cp-panel-icon"><User size={18} /></div>
+            <div className="cp-panel-icon"><User size={18} aria-hidden="true" /></div>
             <h2 className="cp-panel-title">Customer & Bill</h2>
           </div>
 
@@ -1144,24 +1144,30 @@ const CustomerPayments = () => {
             {/* Name & mobile */}
             <div className="cp-form-grid">
               <div>
-                <label className="label">Customer Name</label>
+                <label htmlFor="cp-customer-name" className="label">Customer Name</label>
                 <input
+                  id="cp-customer-name"
+                  name="cpCustomerName"
                   className="input-field"
                   value={formData.customer_name}
                   onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                   placeholder="Enter name"
                   required
+                  autoComplete="name"
                 />
               </div>
               <div>
-                <label className="label">Mobile</label>
+                <label htmlFor="cp-customer-mobile" className="label">Mobile</label>
                 <input
+                  id="cp-customer-mobile"
+                  name="cpCustomerMobile"
                   className="input-field"
                   value={formData.customer_mobile}
                   onChange={(e) => setFormData({ ...formData, customer_mobile: e.target.value })}
                   placeholder="10-digit mobile"
                   inputMode="numeric"
                   maxLength={10}
+                  autoComplete="tel"
                 />
               </div>
             </div>
@@ -1316,12 +1322,15 @@ const CustomerPayments = () => {
 
             {payment.selectedMethods.length === 1 && payment.selectedMethods[0] === 'Cash' && (
               <div>
-                <label className="label">Purpose / Notes</label>
+                <label htmlFor="cp-cash-notes" className="label">Purpose / Notes</label>
                 <input
+                  id="cp-cash-notes"
+                  name="cpCashNotes"
                   className="input-field"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Optional notes"
+                  autoComplete="off"
                 />
               </div>
             )}
@@ -1334,16 +1343,16 @@ const CustomerPayments = () => {
             )}
 
             {/* Submit */}
-            <button type="submit" className="btn btn-primary btn--full cp-submit touch-target" disabled={saving || !canSave} aria-label="Record customer payment">
-              <CheckCircle2 size={16} /> Review & Confirm — ₹{totals.gross.toFixed(2)}
+            <button type="submit" className="btn btn-primary btn--full cp-submit touch-target" disabled={saving || !canSave}>
+              <CheckCircle2 size={16} aria-hidden="true" /> Review & Confirm — ₹{totals.gross.toFixed(2)}
             </button>
           </form>
 
           {/* ── Confirmation Overlay ── */}
           {confirming && (
-            <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirming(false); }}>
+            <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="confirm-payment-title" onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirming(false); }}>
               <div className="em-modal em-modal--sm" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
-                <div className="em-modal__header"><h2>Confirm Customer Payment</h2><button className="btn btn-ghost btn-icon" onClick={() => setConfirming(false)}><X size={18} /></button></div>
+                <div className="em-modal__header"><h2 id="confirm-payment-title">Confirm Customer Payment</h2><button className="btn btn-ghost btn-icon" onClick={() => setConfirming(false)} aria-label="Go back to edit"><X size={18} aria-hidden="true" /></button></div>
                 <form onSubmit={handleSubmit}>
                   <div className="em-modal__body">
                     <div className="em-confirm-summary">
@@ -1374,10 +1383,10 @@ const CustomerPayments = () => {
 
       {/* ── Discount Approval Request Modal ── */}
       {showDiscountModal && (
-        <div className="modal-backdrop">
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="discount-modal-title">
           <div className="modal" style={{ maxWidth: '420px' }}>
             <div className="row items-center justify-between mb-16">
-              <h2 className="section-title">Request Discount Approval</h2>
+              <h2 id="discount-modal-title" className="section-title">Request Discount Approval</h2>
               <button type="button" className="btn btn-ghost" onClick={() => { setShowDiscountModal(false); setDiscountReason(''); }}>Close</button>
             </div>
             <div className="stack-md">
@@ -1394,8 +1403,10 @@ const CustomerPayments = () => {
                 </div>
               </div>
               <div>
-                <label className="label">Reason for Discount <span style={{ color: 'var(--clr-error, var(--error))' }}>*</span></label>
+                <label htmlFor="cp-discount-reason" className="label">Reason for Discount <span style={{ color: 'var(--clr-error, var(--error))' }}>*</span></label>
                 <textarea
+                  id="cp-discount-reason"
+                  name="cpDiscountReason"
                   className="input-field"
                   rows={3}
                   placeholder="Explain why this discount is needed..."
@@ -1431,7 +1442,7 @@ const CustomerPayments = () => {
         <div className="cp-filters-row" style={{ padding: '0 24px 20px', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '16px', borderBottom: '1px solid var(--border)', marginBottom: '20px' }}>
           {canVerify && (
             <div className="row gap-xs">
-              {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending', icon: ShieldAlert, color: '#f59e0b' }, { key: 'verified', label: 'Verified', icon: ShieldCheck, color: '#10b981' }, { key: 'rejected', label: 'Rejected', icon: ShieldX, color: '#ef4444' }].map(f => (
+              {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending', icon: ShieldAlert, color: 'var(--color-warning)' }, { key: 'verified', label: 'Verified', icon: ShieldCheck, color: 'var(--color-success)' }, { key: 'rejected', label: 'Rejected', icon: ShieldX, color: 'var(--color-danger)' }].map(f => (
                 <button
                   key={f.key}
                   className={`btn btn-xs ${verifyFilter === f.key ? 'btn-primary' : 'btn-ghost'}`}
@@ -1484,7 +1495,7 @@ const CustomerPayments = () => {
               style={{ height: '32px', padding: '0 12px', fontSize: '12px' }}
               aria-label="Download payment statement"
             >
-              {downloading ? <Loader2 size={14} className="cp-spin" /> : <FileText size={14} />}
+              {downloading ? <Loader2 size={14} className="cp-spin" aria-hidden="true" /> : <FileText size={14} aria-hidden="true" />}
             </button>
           </div>
         </div>
@@ -1525,17 +1536,17 @@ const CustomerPayments = () => {
                   const isCash = p.payment_method === 'Cash';
                   const vStatus = isCash ? 'N/A' : (p.verification_status || 'Pending');
                   const methodColor = {
-                    Cash: '#10b981',
-                    UPI: '#9ea1ff',
-                    Cheque: '#f59e0b',
-                    'Account Transfer': '#3b82f6',
-                    Both: '#8b5cf6',
+                    Cash: 'var(--color-success)',
+                    UPI: 'var(--color-disabled)',
+                    Cheque: 'var(--color-warning)',
+                    'Account Transfer': 'var(--color-info)',
+                    Both: 'var(--color-info)',
                   }[p.payment_method] || 'var(--text-muted)';
                   return (
                     <tr key={p.id}>
                       <td className="text-sm">
                         <div className="row gap-sm">
-                          <Calendar size={13} className="muted" />
+                          <Calendar size={13} className="muted" aria-hidden="true" />
                           {new Date(p.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </div>
                       </td>
@@ -1554,16 +1565,16 @@ const CustomerPayments = () => {
                         {vStatus === 'N/A' ? (
                           <span className="cp-verify-badge cp-verify-na" style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>
                         ) : vStatus === 'Verified' ? (
-                          <span className="cp-verify-badge cp-verify-ok" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#10b981', fontWeight: 600 }}>
-                            <ShieldCheck size={13} /> Verified
+                          <span className="cp-verify-badge cp-verify-ok" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-success)', fontWeight: 600 }}>
+                            <ShieldCheck size={13} aria-hidden="true" /> Verified
                           </span>
                         ) : vStatus === 'Rejected' ? (
-                          <span className="cp-verify-badge cp-verify-fail" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#ef4444', fontWeight: 600 }}>
-                            <ShieldX size={13} /> Rejected
+                          <span className="cp-verify-badge cp-verify-fail" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-danger)', fontWeight: 600 }}>
+                            <ShieldX size={13} aria-hidden="true" /> Rejected
                           </span>
                         ) : (
-                          <span className="cp-verify-badge cp-verify-pending" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>
-                            <ShieldAlert size={13} /> Pending
+                          <span className="cp-verify-badge cp-verify-pending" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-warning)', fontWeight: 600 }}>
+                            <ShieldAlert size={13} aria-hidden="true" /> Pending
                           </span>
                         )}
                       </td>
@@ -1579,19 +1590,19 @@ const CustomerPayments = () => {
                               className="btn btn-ghost btn-xs touch-target"
                               title="Verify Payment"
                               aria-label={`Verify payment ${p.id}`}
-                              style={{ color: '#10b981' }}
+                              style={{ color: 'var(--color-success)' }}
                               onClick={() => handleVerify(p.id, 'Verified')}
                             >
-                              <ShieldCheck size={15} />
+                              <ShieldCheck size={15} aria-hidden="true" />
                             </button>
                             <button
                               className="btn btn-ghost btn-xs touch-target"
                               title="Reject Payment"
                               aria-label={`Reject payment ${p.id}`}
-                              style={{ color: '#ef4444' }}
+                              style={{ color: 'var(--color-danger)' }}
                               onClick={() => handleVerify(p.id, 'Rejected')}
                             >
-                              <ShieldX size={15} />
+                              <ShieldX size={15} aria-hidden="true" />
                             </button>
                           </>
                         )}
@@ -1604,7 +1615,7 @@ const CustomerPayments = () => {
                             setShowReceipt(true);
                           }}
                         >
-                          <Printer size={15} />
+                          <Printer size={15} aria-hidden="true" />
                         </button>
                       </td>
                     </tr>

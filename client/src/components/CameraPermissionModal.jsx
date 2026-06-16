@@ -16,7 +16,7 @@ const CameraPermissionModal = ({ isOpen, onClose, onRetry }) => {
                     onClick={onClose}
                     style={{
                         position: 'absolute', top: '20px', right: '20px',
-                        background: 'rgba(255, 255, 255, 0.05)',
+                        background: 'var(--color-surface)',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
                         zIndex: 10
                     }}

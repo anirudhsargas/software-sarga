@@ -262,6 +262,25 @@ export async function searchCustomersLocal(query) {
  */
 export async function getVendors(filters = {}) {
     let vendors = await offlineDb.getAll('vendors');
+    // Fallback to server API if local store is empty
+    if (!vendors || vendors.length === 0) {
+        try {
+            const params = new URLSearchParams();
+            if (filters.search) params.append('search', filters.search);
+            if (filters.type) params.append('category', filters.type);
+            const res = await api.get(`/vendors?${params.toString()}&limit=1000`);
+            const serverVendors = res.data?.data || res.data || [];
+            if (Array.isArray(serverVendors) && serverVendors.length > 0) {
+                // Cache in IndexedDB for next time
+                for (const v of serverVendors) {
+                    await offlineDb.put('vendors', { ...v, id: v.id || v.vendor_id });
+                }
+                return serverVendors;
+            }
+        } catch (e) {
+            console.warn('[localDb] getVendors fallback failed:', e);
+        }
+    }
     if (filters.type) {
         vendors = vendors.filter(v => v.type === filters.type);
     }

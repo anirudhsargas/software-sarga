@@ -424,14 +424,14 @@ const Customers = () => {
         <div className="stack-lg">
             <header className="page-header bg-surface p-16 rounded-lg shadow-sm">
                 <div>
-                    <h1 className="page-title row items-center gap-sm">
-                        <Users className="text-accent" /> Customer Management
-                    </h1>
+                        <h1 className="page-title row items-center gap-sm">
+                            <Users className="text-accent" aria-hidden="true" /> Customer Management
+                        </h1>
                     <p className="muted">Manage your client database and create new job orders.</p>
                 </div>
                 <div className="row gap-sm flex-wrap">
                     <button
-                        className="btn btn-ghost"
+                        className="btn btn-ghost touch-target"
                         onClick={() => {
                             navigate('/dashboard/sales/invoices', {
                                 state: {
@@ -448,31 +448,34 @@ const Customers = () => {
                                 }
                             });
                         }}
+                        aria-label="Create walk-in job"
                     >
-                        <Plus size={18} /> Walk-in Job
+                        <Plus size={18} aria-hidden="true" /> Walk-in Job
                     </button>
-                    <button className="btn btn-primary" onClick={() => { setAddFormDirty(false); setShowAddModal(true); }}>
-                        <Plus size={18} /> Add New Customer
+                    <button className="btn btn-accent" onClick={() => { setAddFormDirty(false); setShowAddModal(true); }}>
+                        <Plus size={18} aria-hidden="true" /> Add New Customer
                     </button>
                 </div>
             </header>
 
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--surface)', padding: '10px 12px', borderRadius: 12, border: '1px solid var(--border)' }}>
                 <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <Search size={15} style={{ position: 'absolute', left: 10, color: 'var(--muted)', pointerEvents: 'none' }} />
+                    <Search size={15} aria-hidden="true" style={{ position: 'absolute', left: 10, color: 'var(--muted)', pointerEvents: 'none' }} />
                     <label htmlFor="customer-search" className="sr-only">Search customers</label>
                     <input
                         id="customer-search"
+                        name="customerSearch"
                         type="text"
                         placeholder="Search by name or mobile..."
                         className="input-field"
                         style={{ paddingLeft: 32, width: '100%', height: 36, fontSize: 14 }}
                         value={searchInput}
                         onChange={e => setSearchInput(e.target.value)}
+                        autoComplete="off"
                     />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 4px 0 8px', height: 36, flexShrink: 0 }}>
-                    <Filter size={13} style={{ color: 'var(--muted)' }} />
+                    <Filter size={13} aria-hidden="true" style={{ color: 'var(--muted)' }} />
                     <label htmlFor="customer-type-filter" className="sr-only">Filter by customer type</label>
                     <select
                         id="customer-type-filter"
@@ -527,16 +530,16 @@ const Customers = () => {
                                 <span className={`badge badge--${c.type.toLowerCase().replace(' ', '')}`} style={{ fontSize: 11 }}>{c.type}</span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2, color: 'var(--muted)', fontSize: 13 }}>
-                                <Phone size={12} style={{ flexShrink: 0 }} />
+                                <Phone size={12} aria-hidden="true" style={{ flexShrink: 0 }} />
                                 <span style={{ fontFamily: 'monospace' }}>{formatForDisplay(c.mobile)}</span>
-                                <a href={telHref(c.mobile)} title="Call" style={{ color: 'var(--success)', textDecoration: 'none', marginLeft: 4, display: 'flex' }}><Phone size={12} /></a>
-                                <a href={whatsappUrl(c.mobile, `Dear ${c.name || 'Customer'},\n\nGreetings from Sarga! 🙏\n\nHow can we help you today?`)} target="_blank" rel="noopener noreferrer" title="WhatsApp" style={{ color: '#25D366', textDecoration: 'none', marginLeft: 2, display: 'flex' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                <a href={telHref(c.mobile)} title="Call" style={{ color: 'var(--success)', textDecoration: 'none', marginLeft: 4, display: 'flex', minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }} aria-label={`Call ${c.name}`}><Phone size={16} aria-hidden="true" /></a>
+                                <a href={whatsappUrl(c.mobile, `Dear ${c.name || 'Customer'},\n\nGreetings from Sarga! 🙏\n\nHow can we help you today?`)} target="_blank" rel="noopener noreferrer" title="WhatsApp" style={{ color: 'var(--color-success)', textDecoration: 'none', marginLeft: 2, display: 'flex', minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }} aria-label={`WhatsApp ${c.name}`}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                                 </a>
                             </div>
                             {c.email && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1, color: 'var(--muted)', fontSize: 12, overflow: 'hidden' }}>
-                                    <Mail size={11} style={{ flexShrink: 0 }} />
+                                    <Mail size={11} aria-hidden="true" style={{ flexShrink: 0 }} />
                                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.email}</span>
                                 </div>
                             )}
@@ -559,7 +562,7 @@ const Customers = () => {
                                 title="Quick Add Job"
                                 aria-label={`Quick add job for ${c.name}`}
                             >
-                                <Plus size={13} /> Job
+                                <Plus size={13} aria-hidden="true" /> Job
                             </button>
                             <div style={{ display: 'flex', gap: 5 }}>
                                 <button
@@ -568,7 +571,7 @@ const Customers = () => {
                                     title={isAdmin ? 'Edit Customer' : 'Request Edit'}
                                     aria-label={`Edit ${c.name}`}
                                 >
-                                    <Edit2 size={14} />
+                                    <Edit2 size={14} aria-hidden="true" />
                                 </button>
                                 <button
                                     className="btn btn-ghost text-error touch-target"
@@ -576,7 +579,7 @@ const Customers = () => {
                                     title={isAdmin ? 'Delete Customer' : 'Request Delete'}
                                     aria-label={`Delete ${c.name}`}
                                 >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={14} aria-hidden="true" />
                                 </button>
                             </div>
                         </div>
@@ -595,40 +598,48 @@ const Customers = () => {
 
             {/* Modals... */}
             {showAddModal && (
-                <div className="modal-backdrop">
+                <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="add-customer-title">
                     <div className="modal">
-                        <button className="modal-close" aria-label="Close add customer modal" onClick={() => closeAddModal()}><X size={22} /></button>
-                        <h2 className="section-title mb-16">Add New Customer</h2>
+                        <button className="modal-close" aria-label="Close add customer modal" onClick={() => closeAddModal()}><X size={22} aria-hidden="true" /></button>
+                        <h2 id="add-customer-title" className="section-title mb-16">Add New Customer</h2>
                         {addFormDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
-                        <form onSubmit={handleAddCustomer} className="stack-md">
-                            <div>
-                                <label className="label">Full Name</label>
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    value={newCustomer.name}
-                                    onChange={(e) => updateNewCustomer({ name: e.target.value })}
-                                    required
-                                    autoFocus
-                                />
-                            </div>
-                            <div className="row gap-md">
-                                <div className="flex-1">
-                                    <label className="label">Mobile Number</label>
+                        <form onSubmit={handleAddCustomer} className="stack-md" noValidate>
+                            <div className="responsive-form-row">
+                                <div className="responsive-form-field responsive-form-field--name">
+                                    <label htmlFor="add-customer-name" className="label">Customer Name</label>
+                                    <input
+                                        id="add-customer-name"
+                                        name="customerName"
+                                        type="text"
+                                        className="input-field"
+                                        value={newCustomer.name}
+                                        onChange={(e) => updateNewCustomer({ name: e.target.value })}
+                                        required
+                                        autoFocus
+                                        autoComplete="name"
+                                    />
+                                </div>
+                                <div className="responsive-form-field responsive-form-field--mobile">
+                                    <label htmlFor="add-customer-phone" className="label">Mobile Number</label>
                                     <div className="row gap-sm">
                                         <CountryCodeSelect value={newCustomer.countryCode} onChange={(val) => updateNewCustomer({ countryCode: val })} />
                                         <input
+                                            id="add-customer-phone"
+                                            name="customerPhone"
                                             type="tel"
                                             className="input-field"
                                             value={newCustomer.mobile}
                                             onChange={(e) => updateNewCustomer({ mobile: filterMobile(e.target.value) })}
                                             required
+                                            autoComplete="tel"
                                         />
                                     </div>
                                 </div>
-                                <div className="flex-1">
-                                    <label className="label">Customer Type</label>
+                                <div className="responsive-form-field responsive-form-field--type">
+                                    <label htmlFor="add-customer-type" className="label">Customer Type</label>
                                     <select
+                                        id="add-customer-type"
+                                        name="customerType"
                                         className="input-field"
                                         value={newCustomer.type}
                                         onChange={(e) => updateNewCustomer({ type: e.target.value })}
@@ -638,16 +649,19 @@ const Customers = () => {
                                 </div>
                             </div>
                             <div>
-                                <label className="label">Email Address</label>
+                                <label htmlFor="add-customer-email" className="label">Email Address</label>
                                 <input
+                                    id="add-customer-email"
+                                    name="customerEmail"
                                     type="email"
                                     className="input-field"
                                     value={newCustomer.email}
                                     onChange={(e) => updateNewCustomer({ email: e.target.value })}
+                                    autoComplete="email"
                                 />
                             </div>
-                            <button type="submit" disabled={loading} className="btn btn-primary btn--full mt-8">
-                                {loading ? <Loader2 className="animate-spin" /> : "Add Customer"}
+                            <button type="submit" disabled={loading} className="btn btn-primary-blue btn--full mt-8 touch-target">
+                                {loading ? <><Loader2 className="animate-spin" aria-hidden="true" /> Adding...</> : "Add Customer"}
                             </button>
                         </form>
                     </div>
@@ -655,39 +669,47 @@ const Customers = () => {
             )}
 
             {showEditModal && selectedCustomer && (
-                <div className="modal-backdrop">
+                <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="edit-customer-title">
                     <div className="modal">
-                        <button className="modal-close" aria-label="Close edit customer modal" onClick={() => closeEditModal()}><X size={22} /></button>
-                        <h2 className="section-title mb-16">Edit Customer</h2>
+                        <button className="modal-close" aria-label="Close edit customer modal" onClick={() => closeEditModal()}><X size={22} aria-hidden="true" /></button>
+                        <h2 id="edit-customer-title" className="section-title mb-16">Edit Customer</h2>
                         {editFormDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
-                        <form onSubmit={handleUpdateCustomer} className="stack-md">
-                            <div>
-                                <label className="label">Full Name</label>
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    value={selectedCustomer.name}
-                                    onChange={(e) => updateSelectedCustomer({ name: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="row gap-md">
-                                <div className="flex-1">
-                                    <label className="label">Mobile Number</label>
+                        <form onSubmit={handleUpdateCustomer} className="stack-md" noValidate>
+                            <div className="responsive-form-row">
+                                <div className="responsive-form-field responsive-form-field--name">
+                                    <label htmlFor="edit-customer-name" className="label">Customer Name</label>
+                                    <input
+                                        id="edit-customer-name"
+                                        name="editCustomerName"
+                                        type="text"
+                                        className="input-field"
+                                        value={selectedCustomer.name}
+                                        onChange={(e) => updateSelectedCustomer({ name: e.target.value })}
+                                        required
+                                        autoComplete="name"
+                                    />
+                                </div>
+                                <div className="responsive-form-field responsive-form-field--mobile">
+                                    <label htmlFor="edit-customer-phone" className="label">Mobile Number</label>
                                     <div className="row gap-sm">
                                         <CountryCodeSelect value={selectedCustomer?.countryCode || '+91'} onChange={(val) => updateSelectedCustomer({ countryCode: val })} />
                                         <input
+                                            id="edit-customer-phone"
+                                            name="editCustomerPhone"
                                             type="tel"
                                             className="input-field"
                                             value={selectedCustomer.mobile}
                                             onChange={(e) => updateSelectedCustomer({ mobile: filterMobile(e.target.value) })}
                                             required
+                                            autoComplete="tel"
                                         />
                                     </div>
                                 </div>
-                                <div className="flex-1">
-                                    <label className="label">Customer Type</label>
+                                <div className="responsive-form-field responsive-form-field--type">
+                                    <label htmlFor="edit-customer-type" className="label">Customer Type</label>
                                     <select
+                                        id="edit-customer-type"
+                                        name="editCustomerType"
                                         className="input-field"
                                         value={selectedCustomer.type}
                                         onChange={(e) => updateSelectedCustomer({ type: e.target.value })}
@@ -697,35 +719,44 @@ const Customers = () => {
                                 </div>
                             </div>
                             <div>
-                                <label className="label">Email Address</label>
+                                <label htmlFor="edit-customer-email" className="label">Email Address</label>
                                 <input
+                                    id="edit-customer-email"
+                                    name="editCustomerEmail"
                                     type="email"
                                     className="input-field"
                                     value={selectedCustomer.email || ''}
                                     onChange={(e) => updateSelectedCustomer({ email: e.target.value })}
+                                    autoComplete="email"
                                 />
                             </div>
                             <div>
-                                <label className="label">GST Number</label>
+                                <label htmlFor="edit-customer-gst" className="label">GST Number</label>
                                 <input
+                                    id="edit-customer-gst"
+                                    name="editCustomerGst"
                                     type="text"
                                     className="input-field"
                                     value={selectedCustomer.gst || ''}
                                     onChange={(e) => updateSelectedCustomer({ gst: e.target.value.toUpperCase() })}
+                                    autoComplete="off"
                                 />
                             </div>
                             <div>
-                                <label className="label">Address</label>
+                                <label htmlFor="edit-customer-address" className="label">Address</label>
                                 <textarea
+                                    id="edit-customer-address"
+                                    name="editCustomerAddress"
                                     className="input-field"
                                     style={{ minHeight: '80px' }}
                                     value={selectedCustomer.address || ''}
                                     onChange={(e) => updateSelectedCustomer({ address: e.target.value })}
+                                    autoComplete="street-address"
                                 />
                             </div>
                             {error && <p className="text-sm text-error">{error}</p>}
-                            <button type="submit" disabled={loading} className="btn btn-primary btn--full mt-8">
-                                {loading ? <Loader2 className="animate-spin" /> : (isAdmin ? "Update Customer" : "Send Edit Request")}
+                            <button type="submit" disabled={loading} className="btn btn-primary-blue btn--full mt-8 touch-target">
+                                {loading ? <><Loader2 className="animate-spin" aria-hidden="true" /> Updating...</> : (isAdmin ? "Update Customer" : "Send Edit Request")}
                             </button>
                         </form>
                     </div>
@@ -735,9 +766,9 @@ const Customers = () => {
 
             {/* Advanced Add Job Modal */}
             {showJobModal && selectedCustomer && (
-                <div className="modal-backdrop">
+                <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Create job order">
                     <div className="modal" style={{ maxWidth: '800px' }}>
-                        <button className="modal-close" onClick={() => { setShowJobModal(false); resetJobForm(); }}><X size={22} /></button>
+                        <button className="modal-close" onClick={() => { setShowJobModal(false); resetJobForm(); }}><X size={22} aria-hidden="true" /></button>
                         <h2 className="section-title mb-4">Create Job Order</h2>
                         <p className="muted mb-20">
                             For: <b>{selectedCustomer.name}</b>
@@ -912,7 +943,7 @@ const Customers = () => {
                                                     value={ex.amount}
                                                     onChange={e => updateExtraInput(idx, 'amount', Number(e.target.value))}
                                                 />
-                                                <button type="button" className="btn btn-ghost p-4 text-error" onClick={() => removeExtraInput(idx)}><Trash2 size={14} /></button>
+                                                <button type="button" className="btn btn-ghost p-4 text-error" aria-label={`Remove extra ${ex.purpose || 'charge'}`} onClick={() => removeExtraInput(idx)}><Trash2 size={14} aria-hidden="true" /></button>
                                             </div>
                                         ))}
                                         <button type="button" className="btn btn-ghost btn-sm mt-4" onClick={addExtraInput}>

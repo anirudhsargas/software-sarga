@@ -12,10 +12,10 @@ import { formatCurrencyDecimal } from '../constants';
 import './PaymentVerification.css';
 
 const STATUS_CONFIG = {
-  Pending: { icon: ShieldAlert, color: '#f59e0b', bg: '#fef3c7', label: 'Pending' },
-  Verified: { icon: ShieldCheck, color: '#10b981', bg: '#d1fae5', label: 'Verified' },
-  Rejected: { icon: ShieldX, color: '#ef4444', bg: '#fee2e2', label: 'Rejected' },
-  'Not in Statement': { icon: FileX, color: '#8b5cf6', bg: '#ede9fe', label: 'Not in Statement' },
+  Pending: { icon: ShieldAlert, color: 'var(--color-warning)', bg: 'var(--color-surfaceHover)', label: 'Pending' },
+  Verified: { icon: ShieldCheck, color: 'var(--color-success)', bg: 'var(--color-surfaceHover)', label: 'Verified' },
+  Rejected: { icon: ShieldX, color: 'var(--color-danger)', bg: 'var(--color-surfaceHover)', label: 'Rejected' },
+  'Not in Statement': { icon: FileX, color: 'var(--color-info)', bg: 'var(--color-surfaceSecondary)', label: 'Not in Statement' },
 };
 
 const METHOD_ICONS = {

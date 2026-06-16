@@ -57,6 +57,7 @@ const MachineManagement = () => {
     const [liveCount, setLiveCount] = useState(null);
     const [liveCountLoading, setLiveCountLoading] = useState(false);
     const [selectedBranch, setSelectedBranch] = useState('All');
+    const [dailyBookType, setDailyBookType] = useState('Offset');
 
     // Book assignments (Offset / Laser / Other)
     const [bookAssignments, setBookAssignments] = useState({ Offset: [], Laser: [], Other: [] });
@@ -206,6 +207,7 @@ const MachineManagement = () => {
                     notes: ''
                 });
             }
+            setDailyBookType(res.data.book_type || 'Offset');
         } catch (e) {
             console.error('Error fetching machine details:', e);
             toast.error(e.response?.data?.error || 'Failed to load machine details');
@@ -467,10 +469,15 @@ const MachineManagement = () => {
                                     {machineDetails.today_reading ? fmt(machineDetails.today_reading.opening_count) : '—'}
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label">Daily Book</label>
-                                    <select className="input-field"
-                                        value={formData.book_type}
-                                        onChange={e => setFormData({ ...formData, book_type: e.target.value })}>
+                                    <label className="form-label" htmlFor={`daily-book-${selectedMachine?.id}`}>Daily Book</label>
+                                    <select id={`daily-book-${selectedMachine?.id}`} className="input-field"
+                                        value={dailyBookType}
+                                        onChange={e => {
+                                            setDailyBookType(e.target.value);
+                                            api.put(`/machines/${selectedMachine.id}`, { book_type: e.target.value })
+                                                .then(() => toast.success('Daily book updated'))
+                                                .catch(() => toast.error('Failed to update daily book'));
+                                        }}>
                                         {BOOK_TYPES.map(bt => (
                                             <option key={bt.key} value={bt.key}>{bt.label}</option>
                                         ))}
@@ -1025,7 +1032,7 @@ const MachineManagement = () => {
                                                 value={workForm.waste_copies}
                                                 onChange={e => setWorkForm({ ...workForm, waste_copies: e.target.value })}
                                                 placeholder="0"
-                                                style={{ borderColor: workForm.waste_copies ? '#dc2626' : undefined }} />
+                                                style={{ borderColor: workForm.waste_copies ? 'var(--color-danger)' : undefined }} />
                                         </div>
                                         <div className="form-group mm-work-input-group">
                                             <label className="form-label mm-work-input-label--warning">Proof Copies</label>
@@ -1033,7 +1040,7 @@ const MachineManagement = () => {
                                                 value={workForm.proof_copies}
                                                 onChange={e => setWorkForm({ ...workForm, proof_copies: e.target.value })}
                                                 placeholder="0"
-                                                style={{ borderColor: workForm.proof_copies ? '#d97706' : undefined }} />
+                                                style={{ borderColor: workForm.proof_copies ? 'var(--color-warning)' : undefined }} />
                                         </div>
                                         <div className="form-group mm-work-input-group">
                                             <label className="form-label">Payment Type</label>

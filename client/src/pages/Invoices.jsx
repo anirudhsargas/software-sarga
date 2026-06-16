@@ -10,7 +10,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import useTranslation from '../hooks/useTranslation';
 const Billing = React.lazy(() => import('./Billing'));
-import { downloadInvoicePDF, printInvoicePDF } from '../utils/invoicePdf';
+// pdfUtils loaded lazily in handlePrint/handleDownload
 import { formatCurrency } from '../constants';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
 
@@ -157,16 +157,18 @@ const Invoices = () => {
     };
   };
 
-  const handlePrint = (invoice, e) => {
+  const handlePrint = async (invoice, e) => {
     if (e) e.stopPropagation();
     const data = buildBillData(invoice);
+    const { printInvoicePDF } = await import('../utils/invoicePdf');
     printInvoicePDF(data);
     toast.success('Sent to printer');
   };
 
-  const handleDownload = (invoice, e) => {
+  const handleDownload = async (invoice, e) => {
     if (e) e.stopPropagation();
     const data = buildBillData(invoice);
+    const { downloadInvoicePDF } = await import('../utils/invoicePdf');
     downloadInvoicePDF(data);
     toast.success('Invoice PDF downloaded');
   };
@@ -322,35 +324,44 @@ const Invoices = () => {
           {/* Filters Bar */}
           <div className="panel stack-md">
             <div className="form-row--3">
+                  <div className="stack-xs">
+                    <label className="label" htmlFor="invoiceSearch">{t('search', 'Search Customer / Mobile / Invoice')}</label>
+                    <div className="search-input-wrapper">
+                      <Search className="search-input-icon" size={16} aria-hidden="true" />
+                      <input 
+                        id="invoiceSearch"
+                        name="invoiceSearch"
+                        type="text" 
+                        className="input-field" 
+                        placeholder={t('search_placeholder', 'Type customer name, invoice #...')} 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        autoComplete="off"
+                      />
+                    </div>
+                  </div>
               <div className="stack-xs">
-                <label className="label">{t('search', 'Search Customer / Mobile / Invoice')}</label>
-                <div className="search-input-wrapper">
-                  <Search className="search-input-icon" size={16} />
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    placeholder={t('search_placeholder', 'Type customer name, invoice #...')} 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="stack-xs">
-                <label className="label">{t('start_date', 'Start Date')}</label>
+                <label className="label" htmlFor="invoiceStartDate">{t('start_date', 'Start Date')}</label>
                 <input 
+                  id="invoiceStartDate"
+                  name="invoiceStartDate"
                   type="date" 
                   className="input-field" 
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
+                  autoComplete="off"
                 />
               </div>
               <div className="stack-xs">
-                <label className="label">{t('end_date', 'End Date')}</label>
+                <label className="label" htmlFor="invoiceEndDate">{t('end_date', 'End Date')}</label>
                 <input 
+                  id="invoiceEndDate"
+                  name="invoiceEndDate"
                   type="date" 
                   className="input-field" 
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
+                  autoComplete="off"
                 />
               </div>
             </div>
@@ -390,7 +401,7 @@ const Invoices = () => {
                           </div>
                           {inv.invoice_due_date && isDue && (
                             <div className="text-xs text-danger flex-center-y gap-xxs mt-xxs">
-                              <AlertTriangle size={10} />
+                              <AlertTriangle size={10} aria-hidden="true" />
                               Due: {new Date(inv.invoice_due_date).toLocaleDateString()}
                             </div>
                           )}
@@ -426,7 +437,7 @@ const Invoices = () => {
                               title="View Details"
                               aria-label={`View details for invoice ${inv.invoice_number}`}
                             >
-                              <Eye size={16} />
+                              <Eye size={16} aria-hidden="true" />
                             </button>
                             <button 
                               className="btn btn-ghost btn-icon touch-target" 
@@ -434,7 +445,7 @@ const Invoices = () => {
                               title="Print Invoice"
                               aria-label={`Print invoice ${inv.invoice_number}`}
                             >
-                              <Printer size={16} />
+                              <Printer size={16} aria-hidden="true" />
                             </button>
                             <button 
                               className="btn btn-ghost btn-icon touch-target" 
@@ -442,7 +453,7 @@ const Invoices = () => {
                               title="Download PDF"
                               aria-label={`Download PDF for invoice ${inv.invoice_number}`}
                             >
-                              <Download size={16} />
+                              <Download size={16} aria-hidden="true" />
                             </button>
                             {isDue && (
                               <button 
@@ -451,7 +462,7 @@ const Invoices = () => {
                                 title="Record Payment"
                                 aria-label={`Record payment for invoice ${inv.invoice_number}`}
                               >
-                                <CreditCard size={16} />
+                                <CreditCard size={16} aria-hidden="true" />
                               </button>
                             )}
                           </div>
@@ -495,8 +506,8 @@ const Invoices = () => {
           <div className="modal modal--large fade-in">
             <div className="modal-header">
               <h3>Invoice details: {selectedInvoice.invoice_number || `INV-${selectedInvoice.id}`}</h3>
-              <button className="btn btn-ghost btn-icon" onClick={() => setShowDetailsModal(false)}>
-                <X size={20} />
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowDetailsModal(false)} aria-label="Close invoice details">
+                <X size={20} aria-hidden="true" />
               </button>
             </div>
             <div className="modal-body stack-md">
@@ -517,8 +528,10 @@ const Invoices = () => {
                   <div className="panel stack-sm">
                     <div className="form-row--2">
                       <div className="stack-xs">
-                        <label className="label">Invoice Status</label>
+                        <label htmlFor="invoice-status" className="label">Invoice Status</label>
                         <select 
+                          id="invoice-status"
+                          name="invoiceStatus"
                           className="input-field" 
                           value={statusInput} 
                           onChange={(e) => setStatusInput(e.target.value)}
@@ -535,8 +548,10 @@ const Invoices = () => {
                         </select>
                       </div>
                       <div className="stack-xs">
-                        <label className="label">Due Date</label>
+                        <label htmlFor="invoice-due-date" className="label">Due Date</label>
                         <input 
+                          id="invoice-due-date"
+                          name="invoiceDueDate"
                           type="date" 
                           className="input-field" 
                           value={dueDateInput}
@@ -545,13 +560,16 @@ const Invoices = () => {
                       </div>
                     </div>
                     <div className="stack-xs">
-                      <label className="label">Notes / Follow-up Notes</label>
+                      <label htmlFor="invoice-notes" className="label">Notes / Follow-up Notes</label>
                       <input 
+                        id="invoice-notes"
+                        name="invoiceNotes"
                         type="text" 
                         className="input-field" 
                         placeholder="Add details, email logs, calls..." 
                         value={notesInput}
                         onChange={(e) => setNotesInput(e.target.value)}
+                        autoComplete="off"
                       />
                     </div>
                   </div>
@@ -562,12 +580,13 @@ const Invoices = () => {
               <div className="stack-xs">
                 <span className="font-semibold text-accent">Line Items</span>
                 <table className="table" style={{ width: '100%', fontSize: 13 }}>
+                  <caption className="sr-only">Invoice line items</caption>
                   <thead>
                     <tr>
-                      <th>Item Description</th>
-                      <th className="text-right">Quantity</th>
-                      <th className="text-right">Unit Price</th>
-                      <th className="text-right">Total</th>
+                      <th scope="col">Item Description</th>
+                      <th scope="col" className="text-right">Quantity</th>
+                      <th scope="col" className="text-right">Unit Price</th>
+                      <th scope="col" className="text-right">Total</th>
                     </tr>
                   </thead>
                   <tbody>

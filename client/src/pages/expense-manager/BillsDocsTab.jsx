@@ -150,7 +150,7 @@ const BillsDocsTab = ({ onError }) => {
                     <td style={{ wordBreak: 'break-word' }}>{d.vendor_name || '—'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>{d.bill_number || '—'}</td>
                     <td className="em-amount-cell">{d.amount ? `₹${fmt(d.amount)}` : '—'}</td>
-                    <td>{d.file_path ? <a href={imgUrl(d.file_path)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm"><Eye size={14} /> View</a> : '—'}</td>
+                    <td>{d.file_path ? <a href={imgUrl(d.file_path)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm"><Eye size={14} /> View</a> : '—'}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button className="btn btn-ghost btn-sm" onClick={() => setFullBillDocId(d.id)}><Eye size={14} /> Full Bill</button>

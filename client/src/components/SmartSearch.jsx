@@ -200,7 +200,7 @@ const SmartSearch = ({ isOpen, onClose }) => {
                     onClick={() => handleNavigate({ type: 'job', data: j })}
                     onMouseEnter={() => setSelectedIndex(idx)}
                   >
-                    <div className="smart-search-item-icon" style={{ background: 'rgba(47,125,74,0.12)', color: 'var(--success)' }}>
+                    <div className="smart-search-item-icon" style={{ background: 'var(--color-icon)', color: 'var(--success)' }}>
                       <Briefcase size={16} />
                     </div>
                     <div className="smart-search-item-info">
@@ -240,7 +240,7 @@ const SmartSearch = ({ isOpen, onClose }) => {
                     onClick={() => handleNavigate({ type: 'product', data: p })}
                     onMouseEnter={() => setSelectedIndex(idx)}
                   >
-                    <div className="smart-search-item-icon" style={{ background: 'rgba(179,107,0,0.12)', color: 'var(--warning)' }}>
+                    <div className="smart-search-item-icon" style={{ background: 'var(--color-warning)', color: 'var(--warning)' }}>
                       <Package size={16} />
                     </div>
                     <div className="smart-search-item-info">

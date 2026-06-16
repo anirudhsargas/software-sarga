@@ -397,6 +397,20 @@ module.exports = (upload, removeUploadFile) => {
     // Delete Category
     router.delete('/product-categories/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         try {
+            // Check if category has subcategories with products
+            const [subRows] = await pool.query(
+                `SELECT COUNT(*) AS cnt FROM sarga_product_subcategories WHERE category_id = ?`, [req.params.id]
+            );
+            if (subRows[0]?.cnt > 0) {
+                const [prodRows] = await pool.query(
+                    `SELECT COUNT(*) AS cnt FROM sarga_products p JOIN sarga_product_subcategories s ON p.subcategory_id = s.id WHERE s.category_id = ?`,
+                    [req.params.id]
+                );
+                if (prodRows[0]?.cnt > 0) {
+                    return res.status(400).json({ message: 'This category contains products. Move or delete products first.' });
+                }
+                return res.status(400).json({ message: 'This category contains subcategories. Delete them first.' });
+            }
             const [rows] = await pool.query("SELECT image_url FROM sarga_product_categories WHERE id = ?", [req.params.id]);
             if (rows[0]?.image_url) await removeUploadFile(rows[0].image_url).catch(() => {});
             await pool.query("DELETE FROM sarga_product_categories WHERE id = ?", [req.params.id]);
@@ -522,13 +536,21 @@ module.exports = (upload, removeUploadFile) => {
             if (!rows || rows.length === 0) {
                 return res.status(404).json({ message: 'Subcategory not found' });
             }
+
+            // Check if subcategory has products
+            const [prodRows] = await pool.query(
+                "SELECT COUNT(*) AS cnt FROM sarga_products WHERE subcategory_id = ?", [req.params.id]
+            );
+            if (prodRows[0]?.cnt > 0) {
+                return res.status(400).json({ message: 'This subcategory contains products. Move or delete products first.' });
+            }
             
             // Delete image file if exists
             if (rows[0]?.image_url) {
                 await removeUploadFile(rows[0].image_url).catch(() => {});
             }
             
-            // Delete subcategory (products will be cascade deleted)
+            // Delete subcategory
             await pool.query("DELETE FROM sarga_product_subcategories WHERE id = ?", [req.params.id]);
             invalidateHierarchyCache();
             auditLog(req.user.id, 'SUBCATEGORY_DELETE', `Deleted subcategory #${req.params.id}`, { entity_type: 'product_subcategory', entity_id: req.params.id });

@@ -1,12 +1,15 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Package, Edit2, Trash2, Loader2, Printer, Check, Minus, Search, Link, List, Grid, TrendingUp, TrendingDown, IndianRupee, BarChart3, Clock, ShoppingCart, ArrowLeftRight, Bell, Image as ImageIcon, Layers, Camera } from 'lucide-react';
+import { Trash2, Edit2, Plus, ArrowLeftRight, Minus, Package, Search, Bell, Camera, Filter, FileText, ChevronDown, CheckSquare, Layers, Download, Share2, Phone, ShoppingCart, List, Grid, X, Image as ImageIcon, Settings } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
 import auth from '../services/auth';
 import localDb from '../services/localDb';
 import Pagination from '../components/Pagination';
 import SecureImage from '../components/SecureImage';
+import InventoryImage from '../components/InventoryImage';
+import InventoryImageSettings from '../components/InventoryImageSettings';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import SmartBillUpload from './expense-manager/SmartBillUpload';
@@ -48,6 +51,7 @@ const Inventory = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showPrintModal, setShowPrintModal] = useState(false);
+    const [showImageSettingsModal, setShowImageSettingsModal] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
     const [newItem, setNewItem] = useState(emptyItem);
     const [error, setError] = useState('');
@@ -1013,6 +1017,25 @@ const Inventory = () => {
                             </button>
                         )}
 
+                        {/* Image Sync / Settings */}
+                        {isAdmin && (
+                            <>
+                                <button type="button" className="inv-action-btn" title="Image Fallback Settings" onClick={() => setShowImageSettingsModal(true)}>
+                                    <Settings size={16} />
+                                </button>
+                                <button type="button" className="inv-action-btn" title="Bulk Generate Missing Images" onClick={async () => {
+                                    try {
+                                        const res = await api.post('/inventory/bulk-generate-images');
+                                        toast.success(res.data.message);
+                                    } catch (e) {
+                                        toast.error('Failed to trigger bulk generation');
+                                    }
+                                }}>
+                                    <RefreshCw size={16} />
+                                </button>
+                            </>
+                        )}
+
                         {/* Pending Stock Requests Bell */}
                         <button
                             type="button"
@@ -1115,15 +1138,9 @@ const Inventory = () => {
                                                     />
                                                 </td>
                                                 <td>
-                                                    <div role="button" tabIndex={0} className="inv-item-cell" onClick={() => openItemDetail(item.id)}>
-                                                        <div className="inv-item-thumb">
-                                                            {resolveImageSrc(item) ? (
-                                                                <SecureImage src={resolveImageSrc(item)} alt={item.name} loading="lazy" decoding="async" width="40" height="40" />
-                                                            ) : (
-                                                                item.linked_product_id ? <Link size={14} /> : <Package size={16} />
-                                                            )}
-                                                        </div>
-                                                        <div className="inv-item-info">
+                                                    <div role="button" tabIndex={0} className="inv-item-cell">
+                                                        <InventoryImage item={item} onUpdate={handleImageUpdate} isAdmin={isAdmin} size={40} />
+                                                        <div className="inv-item-info" onClick={() => openItemDetail(item.id)}>
                                                             <span className="inv-item-name">{item.name}</span>
                                                             <span className="inv-item-sku">{item.sku || '-'}</span>
                                                         </div>
@@ -1223,8 +1240,8 @@ const Inventory = () => {
                             <div key={item.id} className="card" style={{ padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--surface)', border: '1px solid var(--border)' }}>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                                     <div role="button" tabIndex={0} style={{ width: 84, height: 84, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface-2)', cursor: 'pointer' }} onClick={() => openItemDetail(item.id)}>
-{resolveImageSrc(item) ? <SecureImage src={resolveImageSrc(item)} alt={item.name} loading="lazy" decoding="async" width="84" height="84" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>No Image</div>}
-                                                    </div>
+                                        <InventoryImage item={item} onUpdate={handleImageUpdate} isAdmin={isAdmin} size={84} />
+                                    </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                             <div style={{ minWidth: 0 }}>
@@ -1265,6 +1282,8 @@ const Inventory = () => {
             </div>
 
             <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} limit={limit} loading={loading} />
+
+            {showImageSettingsModal && <InventoryImageSettings onClose={() => setShowImageSettingsModal(false)} />}
 
             {
                 showAddModal && (

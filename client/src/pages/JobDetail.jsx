@@ -17,9 +17,9 @@ import './JobDetail.css';
 const statusColors = {
     Pending: 'var(--warning)',
     Processing: 'var(--accent-2)',
-    'Approval Pending': '#0ea5e9',
+    'Approval Pending': 'var(--color-info)',
     Completed: 'var(--success)',
-    Delivered: '#8b5cf6',
+    Delivered: 'var(--color-info)',
     Cancelled: 'var(--error)',
 };
 
@@ -1299,8 +1299,8 @@ const JobDetail = () => {
                                 {proofs.map(p => {
                                     const proofUrl = imgUrl(p.file_url);
                                     const isImg = p.file_type === 'image';
-                                    const statusBg = p.status === 'Approved' ? '#dcfce7' : p.status === 'Rejected' ? 'var(--error-bg)' : p.status === 'Revision Requested' ? '#fef3c7' : 'var(--accent-light)';
-                                    const statusColor = p.status === 'Approved' ? '#166534' : p.status === 'Rejected' ? '#991b1b' : p.status === 'Revision Requested' ? '#92400e' : '#1e40af';
+                                    const statusBg = p.status === 'Approved' ? 'var(--color-surfaceHover)' : p.status === 'Rejected' ? 'var(--error-bg)' : p.status === 'Revision Requested' ? 'var(--color-surfaceHover)' : 'var(--accent-light)';
+                                    const statusColor = p.status === 'Approved' ? 'var(--color-textSecondary)' : p.status === 'Rejected' ? 'var(--color-danger)' : p.status === 'Revision Requested' ? 'var(--color-danger)' : 'var(--color-primaryHover)';
 
                                     return (
                                         <div key={p.id} className="proof-card">
@@ -1337,9 +1337,9 @@ const JobDetail = () => {
                                                     {/* Auto Design Check Result */}
                                                     {p.designCheck && (
                                                         <div className="design-check-result" style={{
-                                                            background: p.designCheck.passed ? 'rgba(47,125,74,0.08)' : (p.designCheck.critical_issues > 0 ? 'rgba(176,58,46,0.08)' : 'rgba(179,107,0,0.08)'),
+                                                            background: p.designCheck.passed ? 'var(--color-icon)' : (p.designCheck.critical_issues > 0 ? 'var(--color-danger)' : 'var(--color-warning)'),
                                                             color: p.designCheck.passed ? 'var(--success)' : (p.designCheck.critical_issues > 0 ? 'var(--error)' : 'var(--warning)'),
-                                                            borderColor: p.designCheck.passed ? 'rgba(47,125,74,0.25)' : (p.designCheck.critical_issues > 0 ? 'rgba(176,58,46,0.25)' : 'rgba(179,107,0,0.25)')
+                                                            borderColor: p.designCheck.passed ? 'var(--color-icon)' : (p.designCheck.critical_issues > 0 ? 'var(--color-danger)' : 'var(--color-warning)')
                                                         }}>
                                                             <span className="design-check-status">
                                                                 {p.designCheck.passed ? '✓ Design Check Passed' : '⚠ Design Issues Found'}
@@ -1357,7 +1357,7 @@ const JobDetail = () => {
                                                         </div>
                                                     )}
                                                     {p.customer_feedback && (
-                                                        <div className="proof-feedback" style={{ background: p.status === 'Approved' ? 'rgba(47,125,74,0.08)' : 'rgba(176,58,46,0.08)' }}>
+                                                        <div className="proof-feedback" style={{ background: p.status === 'Approved' ? 'var(--color-icon)' : 'var(--color-danger)' }}>
                                                             <strong>Feedback:</strong> {p.customer_feedback}
                                                         </div>
                                                     )}

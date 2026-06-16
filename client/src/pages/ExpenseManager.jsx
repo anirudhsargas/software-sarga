@@ -345,7 +345,7 @@ const ExpenseManager = () => {
           {/* Payment Suggestions (Admin/Accountant only) */}
           {['Admin', 'Accountant'].includes(user?.role) && paymentSuggestions.length > 0 && (
             <div className="em-card" style={{ marginBottom: '20px', borderLeft: '4px solid #f59e0b' }}>
-              <div className="em-card__title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b' }}>
+              <div className="em-card__title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-warning)' }}>
                 <Lightbulb size={18} />
                 Smart Suggestions
               </div>

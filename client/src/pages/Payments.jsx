@@ -456,17 +456,24 @@ const Payments = () => {
             {/* Filters */}
             <div className="panel panel--tight">
                 <div className="row gap-sm" style={{ flexWrap: 'wrap' }}>
-                    <input
-                        type="text"
-                        className="input-field"
-                        placeholder="Search payments..."
-                        style={{ minWidth: 180 }}
-                        value={searchInput}
-                        onChange={e => setSearchInput(e.target.value)}
-                    />
+                    <div className="flex-1" style={{ minWidth: 180 }}>
+                        <label htmlFor="payments-search" className="label sr-only">Search payments</label>
+                        <input
+                            id="payments-search"
+                            name="paymentsSearch"
+                            type="text"
+                            className="input-field"
+                            placeholder="Search payments..."
+                            value={searchInput}
+                            onChange={e => setSearchInput(e.target.value)}
+                            autoComplete="off"
+                        />
+                    </div>
                     <div className="flex-1" style={{ minWidth: '200px' }}>
-                        <label className="label">Branch</label>
+                        <label htmlFor="payments-branch-filter" className="label">Branch</label>
                         <select
+                            id="payments-branch-filter"
+                            name="paymentsBranchFilter"
                             className="input-field"
                             value={filters.branch_id}
                             onChange={(e) => setFilters({ ...filters, branch_id: e.target.value })}
@@ -476,8 +483,10 @@ const Payments = () => {
                         </select>
                     </div>
                     <div className="flex-1" style={{ minWidth: '150px' }}>
-                        <label className="label">Type</label>
+                        <label htmlFor="payments-type-filter" className="label">Type</label>
                         <select
+                            id="payments-type-filter"
+                            name="paymentsTypeFilter"
                             className="input-field"
                             value={filters.type}
                             onChange={(e) => setFilters({ ...filters, type: e.target.value })}
@@ -487,8 +496,10 @@ const Payments = () => {
                         </select>
                     </div>
                     <div className="flex-1" style={{ minWidth: '150px' }}>
-                        <label className="label">Start Date</label>
+                        <label htmlFor="payments-start-date" className="label">Start Date</label>
                         <input
+                            id="payments-start-date"
+                            name="paymentsStartDate"
                             type="date"
                             className="input-field"
                             value={filters.startDate}
@@ -496,8 +507,10 @@ const Payments = () => {
                         />
                     </div>
                     <div className="flex-1" style={{ minWidth: '150px' }}>
-                        <label className="label">End Date</label>
+                        <label htmlFor="payments-end-date" className="label">End Date</label>
                         <input
+                            id="payments-end-date"
+                            name="paymentsEndDate"
                             type="date"
                             className="input-field"
                             value={filters.endDate}
@@ -598,11 +611,12 @@ const Payments = () => {
                                         <td className="text-accent">₹{Number(p.amount).toLocaleString()}</td>
                                         <td>
                                             <button
-                                                className="btn btn-ghost btn-danger"
+                                                className="btn btn-ghost btn-danger touch-target"
                                                 style={{ padding: '8px', minWidth: 'auto', border: 'none' }}
                                                 onClick={() => handleDelete(p.id)}
+                                                aria-label="Delete payment record"
                                             >
-                                                <Trash2 size={16} />
+                                                <Trash2 size={16} aria-hidden="true" />
                                             </button>
                                         </td>
                                     </tr>
@@ -617,8 +631,8 @@ const Payments = () => {
             {showModal && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '500px' }}>
-                        <button className="modal-close" onClick={() => setShowModal(false)}>
-                            <X size={22} />
+                        <button className="modal-close" onClick={() => setShowModal(false)} aria-label="Close payment modal">
+                            <X size={22} aria-hidden="true" />
                         </button>
                         <h2 className="section-title mb-16">
                             {isAutoPay ? `Payment to ${formData.payee_name}` : 'Record New Payment'}
@@ -627,8 +641,10 @@ const Payments = () => {
                             {!isAutoPay && (
                                 <div className="row gap-sm">
                                     <div className="flex-1">
-                                        <label className="label">Branch</label>
+                                        <label className="label" htmlFor="paymentBranch">Branch</label>
                                         <select
+                                            id="paymentBranch"
+                                            name="paymentBranch"
                                             className="input-field"
                                             value={formData.branch_id}
                                             onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
@@ -638,8 +654,10 @@ const Payments = () => {
                                         </select>
                                     </div>
                                     <div className="flex-1">
-                                        <label className="label">Payment Type</label>
+                                        <label className="label" htmlFor="paymentType">Payment Type</label>
                                         <select
+                                            id="paymentType"
+                                            name="paymentType"
                                             className="input-field"
                                             value={formData.type}
                                             onChange={(e) => setFormData({ ...formData, type: e.target.value })}
@@ -653,9 +671,11 @@ const Payments = () => {
 
                             {!isAutoPay && (
                                 <>
-                                    <label className="label">Payee / Entity</label>
+                                    <label className="label" htmlFor="paymentPayee">Payee / Entity</label>
                                     <div className="row gap-sm">
                                         <select
+                                            id="paymentPayee"
+                                            name="paymentPayee"
                                             className="input-field"
                                             style={{ flex: 1 }}
                                             value={formData.vendor_id}
@@ -678,16 +698,19 @@ const Payments = () => {
                                                 setShowVendorModal(true);
                                             }}
                                             title={`Add New ${formData.type}`}
+                                            aria-label={`Add new ${formData.type}`}
                                         >
-                                            <Plus size={18} />
+                                            <Plus size={18} aria-hidden="true" />
                                         </button>
                                     </div>
                                 </>
                             )}
 
                             <div>
-                                <label className="label">{formData.type === 'Vendor' ? 'Purpose' : 'Payee Name / Purpose'}</label>
+                                <label className="label" htmlFor="payeeName">{formData.type === 'Vendor' ? 'Purpose' : 'Payee Name / Purpose'}</label>
                                 <input
+                                    id="payeeName"
+                                    name="payeeName"
                                     type="text"
                                     className="input-field"
                                     placeholder={formData.type === 'Vendor' ? 'e.g. Bulk Paper, Machines' : 'e.g. Electric Dept, Vendor XYZ'}
@@ -695,42 +718,51 @@ const Payments = () => {
                                     onChange={(e) => setFormData({ ...formData, payee_name: e.target.value })}
                                     required
                                     disabled={isAutoPay && formData.vendor_id}
+                                    autoComplete="off"
                                 />
                             </div>
 
                             {!isAutoPay && (
                                 <div className="row gap-sm">
                                     <div className="flex-1">
-                                        <label className="label">Collecting Period (From)</label>
+                                        <label className="label" htmlFor="periodStart">Collecting Period (From)</label>
                                         <input
+                                            id="periodStart"
+                                            name="periodStart"
                                             type="date"
                                             className="input-field"
                                             value={formData.period_start}
                                             onChange={(e) => setFormData({ ...formData, period_start: e.target.value })}
+                                            autoComplete="off"
                                         />
                                     </div>
                                     <div className="flex-1">
-                                        <label className="label">Collecting Period (To)</label>
+                                        <label className="label" htmlFor="periodEnd">Collecting Period (To)</label>
                                         <input
+                                            id="periodEnd"
+                                            name="periodEnd"
                                             type="date"
                                             className="input-field"
                                             value={formData.period_end}
                                             onChange={(e) => setFormData({ ...formData, period_end: e.target.value })}
+                                            autoComplete="off"
                                         />
                                     </div>
                                 </div>
                             )}
 
                             <div className="row gap-sm">
-                                {/* Amount and DateTime row merged for normal view, but datetime hidden now */}
                                 <div className="flex-1">
-                                    <label className="label">Amount (₹)</label>
+                                    <label className="label" htmlFor="paymentAmount">Amount (₹)</label>
                                     <input
+                                        id="paymentAmount"
+                                        name="paymentAmount"
                                         type="number"
                                         className="input-field"
                                         value={formData.amount}
                                         onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                                         required
+                                        autoComplete="off"
                                     />
                                 </div>
                             </div>
@@ -931,8 +963,8 @@ const Payments = () => {
 
                             {error && <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>}
                             {success && <p className="text-sm" style={{ color: 'var(--color-ok)' }}>{success}</p>}
-                            <button type="submit" className="btn btn-primary btn--full" disabled={loading}>
-                                {loading ? <Loader2 className="animate-spin" /> : 'Record Payment'}
+                            <button type="submit" className="btn btn-primary btn--full" disabled={loading} aria-label="Record Payment">
+                                {loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : 'Record Payment'}
                             </button>
                         </form>
                     </div>

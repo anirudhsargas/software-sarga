@@ -60,7 +60,7 @@ const OTPVerification = ({
   if (isVerified) {
     return (
       <div className="otp-success">
-        <CheckCircle2 size={48} color="#10b981" />
+        <CheckCircle2 size={48} color='var(--color-success)' />
         <h3>Mobile Verified!</h3>
         <p>{phone || phoneNumber} verified successfully</p>
       </div>

@@ -189,13 +189,13 @@ const ChatbotTraining = () => {
                 <h3>
                   Model Status
                   {isOffline && (
-                    <span className="badge badge-error ml-8" style={{ backgroundColor: '#ef4444', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontSize: '12px' }}>
+                    <span className="badge badge-error ml-8" style={{ backgroundColor: 'var(--color-danger)', color: 'var(--color-surface)', padding: '2px 8px', borderRadius: '4px', fontSize: '12px' }}>
                       Chatbot Offline
                     </span>
                   )}
                 </h3>
                 {isOffline ? (
-                  <div style={{ color: '#ef4444', fontWeight: 'bold', marginTop: 8 }}>
+                  <div style={{ color: 'var(--color-danger)', fontWeight: 'bold', marginTop: 8 }}>
                     Chatbot Offline
                   </div>
                 ) : (
@@ -225,7 +225,7 @@ const ChatbotTraining = () => {
                         <XAxis dataKey="intent" />
                         <YAxis />
                         <Tooltip />
-                        <Bar dataKey="count" fill="#4f46e5" />
+                        <Bar dataKey="count" fill='var(--color-primary)' />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

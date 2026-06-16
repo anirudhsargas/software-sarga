@@ -2526,6 +2526,42 @@ const initDb = async () => {
       logger.warn('Warning: Could not initialize sample vendor data:', err.message);
     }
 
+    // Product Images Cache Table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_product_images (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        inventory_item_id INT NOT NULL,
+        image_url LONGTEXT,
+        source ENUM('Uploaded', 'Cached', 'Generated', 'Category', 'Default') DEFAULT 'Default',
+        confidence INT DEFAULT 0,
+        is_locked TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY idx_inv_item (inventory_item_id),
+        FOREIGN KEY (inventory_item_id) REFERENCES sarga_inventory(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Inventory Settings Table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_inventory_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        auto_assign_images TINYINT(1) DEFAULT 1,
+        cache_images TINYINT(1) DEFAULT 1,
+        generate_missing TINYINT(1) DEFAULT 1,
+        category_placeholders TINYINT(1) DEFAULT 1,
+        ask_before_saving TINYINT(1) DEFAULT 1,
+        image_quality ENUM('Low', 'Medium', 'High') DEFAULT 'Medium',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    try {
+      await connection.query('INSERT IGNORE INTO sarga_inventory_settings (id) VALUES (1)');
+    } catch (e) {
+      // Ignore
+    }
+
     // Performance indexes for frequently queried tables
     await safeIndex('idx_staff_user_id', 'CREATE INDEX idx_staff_user_id ON sarga_staff (user_id)');
     await safeIndex('idx_staff_branch_role', 'CREATE INDEX idx_staff_branch_role ON sarga_staff (branch_id, role)');

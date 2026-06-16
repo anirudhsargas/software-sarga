@@ -11,10 +11,19 @@ const auth = {
         return response.data;
     },
 
-    logout: () => {
+    logout: async () => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                // Inform backend to revoke session
+                await api.post('/auth/logout');
+            } catch (e) {
+                console.error('Logout failed on server', e);
+            }
+        }
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        window.location.replace('/login'); // Prevent back-navigation memory
     },
 
     getToken: () => localStorage.getItem('token'),

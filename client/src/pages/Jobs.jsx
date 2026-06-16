@@ -17,10 +17,10 @@ import { formatCurrency, formatCurrencyDecimal } from '../utils/formatters';
 
 // ── Priority helpers ──
 const URGENCY_CONFIG = {
-    critical: { label: 'Critical', color: 'var(--error)', bg: 'rgba(176,58,46,0.10)', border: 'rgba(176,58,46,0.25)', icon: '🔴' },
-    high: { label: 'High', color: 'var(--warning)', bg: 'rgba(179,107,0,0.10)', border: 'rgba(179,107,0,0.25)', icon: '🟠' },
-    medium: { label: 'Medium', color: 'var(--muted)', bg: 'rgba(108,112,119,0.10)', border: 'rgba(108,112,119,0.25)', icon: '🟡' },
-    low: { label: 'Low', color: 'var(--success)', bg: 'rgba(47,125,74,0.10)', border: 'rgba(47,125,74,0.25)', icon: '🟢' },
+    critical: { label: 'Critical', color: 'var(--error)', bg: 'var(--color-danger)', border: 'var(--color-danger)', icon: '🔴' },
+    high: { label: 'High', color: 'var(--warning)', bg: 'var(--color-warning)', border: 'var(--color-warning)', icon: '🟠' },
+    medium: { label: 'Medium', color: 'var(--muted)', bg: 'var(--color-textMuted)', border: 'var(--color-textMuted)', icon: '🟡' },
+    low: { label: 'Low', color: 'var(--success)', bg: 'var(--color-icon)', border: 'var(--color-icon)', icon: '🟢' },
 };
 
 function computeClientPriority(job) {
@@ -135,12 +135,10 @@ const Jobs = () => {
     });
     const [creditRequesting, setCreditRequesting] = useState(false);
     const [expandedPayments, setExpandedPayments] = useState(new Set());
-    const visibleRef = useRef(true);
-
-    // Pagination state
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
     const pageRef = useRef(page);
+    const visibleRef = useRef(true);
+    const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
     const LIMIT = 20;
     const PAGE_SIZE = 20;
@@ -652,9 +650,9 @@ const Jobs = () => {
                                                                                 fontSize: '10px',
                                                                                 padding: '1px 6px',
                                                                                 borderRadius: '4px',
-                                                                                background: isColour ? 'rgba(146, 64, 14, 0.1)' : isNumbering ? 'rgba(30, 64, 175, 0.1)' : isMatter ? 'rgba(124, 58, 237, 0.1)' : 'rgba(108, 117, 125, 0.1)',
-                                                                                color: isColour ? '#92400e' : isNumbering ? '#1e40af' : isMatter ? '#7c3aed' : 'var(--text-muted)',
-                                                                                border: `1px solid ${isColour ? 'rgba(146, 64, 14, 0.2)' : isNumbering ? 'rgba(30, 64, 175, 0.2)' : isMatter ? 'rgba(124, 58, 237, 0.2)' : 'rgba(108, 117, 125, 0.2)'}`,
+                                                                                background: isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--color-textMuted)',
+                                                                                color: isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--text-muted)',
+                                                                                border: `1px solid ${isColour ? 'var(--color-danger)' : isNumbering ? 'var(--color-primaryHover)' : isMatter ? 'var(--color-primary)' : 'var(--color-textMuted)'}`,
                                                                                 fontWeight: 600,
                                                                                 maxWidth: '120px',
                                                                                 overflow: 'hidden',

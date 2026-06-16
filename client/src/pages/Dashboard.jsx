@@ -7,11 +7,11 @@ import {
     Image, Calendar, Truck, Globe
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
-import api from '../services/api';
+import api, { imgUrl } from '../services/api';
 import RequiresConnection from '../components/RequiresConnection';
 import SecureImage from '../components/SecureImage';
 import ImageCropModal from '../components/ImageCropModal';
-const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
+import ScannerModal from '../components/ScannerModal';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useLocation } from 'react-router-dom';
 import ProgressBar from '../components/ProgressBar';
@@ -19,8 +19,8 @@ import AnomalyPanel from '../components/AnomalyPanel';
 import InsightsPanel from '../components/InsightsPanel';
 import PaperSidePanel from '../components/PaperSidePanel';
 import Button from '../components/Button';
+import useTranslation from '../hooks/useTranslation';
 import SkeletonLoader from '../components/SkeletonLoader';
-import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import '../styles/dashboard-redesign.css';
 import '../styles/profile-edit.css';
 
@@ -95,15 +95,6 @@ const DeliveryRulesManager = React.lazy(() => import('./admin/DeliveryRulesManag
 const TranslationsManager = React.lazy(() => import('./admin/TranslationsManager'));
 const SampleRequestsCMS = React.lazy(() => import('./SampleRequestsCMS'));
 const DesignBookingsCMS = React.lazy(() => import('./DesignBookingsCMS'));
-const AccessRestricted = React.lazy(() => import('./AccessRestricted'));
-
-const RoleRoute = ({ allowedRoles, children }) => {
-    const { user } = useAuth();
-    if (!user || !allowedRoles.includes(user.role)) {
-        return <AccessRestricted />;
-    }
-    return children;
-};
 const PageLoader = React.memo(() => (
     <div className="page-loader">
         <Loader2 size={20} className="animate-spin" /> Loading...
@@ -332,7 +323,7 @@ const Dashboard = () => {
     const [inventoryScanResult, setInventoryScanResult] = useState(null);
     const [inventoryScanLoading, setInventoryScanLoading] = useState(false);
     const [showPaperPanel, setShowPaperPanel] = useState(false);
-    const [, setSearchOpen] = useState(false);
+    const [searchOpen, setSearchOpen] = useState(false);
     const [anomalyCount, setAnomalyCount] = useState(0);
     const [companyInfo, setCompanyInfo] = useState({ name: 'SARGA', logo: null });
 
@@ -346,7 +337,7 @@ const Dashboard = () => {
                     return next;
                 });
             }
-        } catch { /* ignore */ }
+        } catch (err) { /* ignore */ }
     }, []);
 
     const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
@@ -367,6 +358,8 @@ const Dashboard = () => {
         window.addEventListener('resize', syncSidebarForViewport);
         return () => window.removeEventListener('resize', syncSidebarForViewport);
     }, []);
+
+    const { t } = useTranslation();
 
     const menuItems = useMemo(() => [
         // Dashboard
@@ -425,11 +418,11 @@ const Dashboard = () => {
         { key: 'manage', name: 'Pickup Bookings', icon: Calendar, path: '/dashboard/admin/pickup-bookings', roles: ['Admin'], group: 'website' },
         { key: 'manage', name: 'Delivery Rules', icon: Truck, path: '/dashboard/admin/delivery-rules', roles: ['Admin'], group: 'website' },
         { key: 'manage', name: 'Translations', icon: Globe, path: '/dashboard/admin/translations', roles: ['Admin'], group: 'website' },
-        { key: 'operations', name: 'Web Inquiries', icon: MessageSquare, path: '/dashboard/web-inquiries', roles: ['Admin'], group: 'website' },
-        { key: 'operations', name: 'Blog Journal CMS', icon: BookOpen, path: '/dashboard/blog-cms', roles: ['Admin', 'Designer'], group: 'website' },
-        { key: 'sample_requests', name: 'Sample Requests', icon: FileCheck, path: '/dashboard/sample-requests', roles: ['Admin', 'Accountant'], group: 'website' },
-        { key: 'design_bookings', name: 'Design Bookings', icon: ClipboardList, path: '/dashboard/design-bookings', roles: ['Admin', 'Designer'], group: 'website' },
-    ], []);
+        { key: 'operations', name: 'Web Inquiries', icon: MessageSquare, path: '/dashboard/web-inquiries', roles: ['Admin', 'Front Office'], group: 'website' },
+        { key: 'operations', name: 'Blog Journal CMS', icon: BookOpen, path: '/dashboard/blog-cms', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
+        { key: 'sample_requests', name: 'Sample Requests', icon: FileCheck, path: '/dashboard/sample-requests', roles: ['Admin', 'Front Office', 'Accountant'], group: 'website' },
+        { key: 'design_bookings', name: 'Design Bookings', icon: ClipboardList, path: '/dashboard/design-bookings', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
+    ], [t]);
 
     const filteredMenu = useMemo(() => {
         let items = menuItems.filter(item => item.roles.includes(user?.role));
@@ -600,7 +593,7 @@ const Dashboard = () => {
                 if (prev === next) return prev;
                 return next;
             });
-        } catch {
+        } catch (e) {
             // ignore
         }
     }, [user?.role]);
@@ -634,7 +627,7 @@ const Dashboard = () => {
                 window.removeEventListener('requestReviewed', handleRefresh);
             };
         }
-    }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [user]);
 
     // Fetch anomaly count for header badge (Admin / Accountant / Front Office)
     useEffect(() => {
@@ -831,7 +824,6 @@ const Dashboard = () => {
                 )}
 
                     <div className={`content-container ${isNavigating ? 'page-enter' : 'page-enter-active'}`} key={location.pathname}>
-                    <SectionErrorBoundary name="DashboardRoutes">
                     <Suspense fallback={<SuspenseFallback />}>
                         <Routes>
                             <Route path="" element={<DashboardHome />} />
@@ -844,8 +836,8 @@ const Dashboard = () => {
                                 <Route path="orders" element={<Jobs />} />
                                 <Route path="orders/:id" element={<JobDetail />} />
                                 <Route path="quotes" element={<Quotes />} />
-                                <Route path="invoices" element={<SectionErrorBoundary name="InvoicesPage"><Invoices /></SectionErrorBoundary>} />
-                                <Route path="payments" element={<SectionErrorBoundary name="CustomerPaymentsPage"><CustomerPayments /></SectionErrorBoundary>} />
+                                <Route path="invoices" element={<Invoices />} />
+                                <Route path="payments" element={<CustomerPayments />} />
                             </Route>
 
                             {/* Redirects for legacy/flat routes */}
@@ -904,25 +896,24 @@ const Dashboard = () => {
                             <Route path="paper/alerts" element={<PaperAlerts />} />
                             <Route path="paper/transfer" element={<PaperTransfer />} />
                             <Route path="inventory/consumables" element={<ConsumablesManagement />} />
-                            <Route path="recurring-invoices" element={<SectionErrorBoundary name="RecurringInvoices"><RecurringInvoices /></SectionErrorBoundary>} />
+                            <Route path="recurring-invoices" element={<RecurringInvoices />} />
                             <Route path="settings" element={<SettingsPage />} />
-                            <Route path="admin/chatbot-training" element={<RoleRoute allowedRoles={['Admin']}><ChatbotTraining /></RoleRoute>} />
-                            <Route path="admin/reviews" element={<RoleRoute allowedRoles={['Admin']}><ReviewsManagement /></RoleRoute>} />
-                            <Route path="admin/artwork" element={<RoleRoute allowedRoles={['Admin']}><ArtworkManager /></RoleRoute>} />
-                            <Route path="admin/portfolio" element={<RoleRoute allowedRoles={['Admin']}><PortfolioManager /></RoleRoute>} />
-                            <Route path="admin/promotions" element={<RoleRoute allowedRoles={['Admin']}><PromotionsManager /></RoleRoute>} />
-                            <Route path="admin/pickup-bookings" element={<RoleRoute allowedRoles={['Admin']}><PickupBookings /></RoleRoute>} />
-                            <Route path="admin/delivery-rules" element={<RoleRoute allowedRoles={['Admin']}><DeliveryRulesManager /></RoleRoute>} />
-                            <Route path="admin/translations" element={<RoleRoute allowedRoles={['Admin']}><TranslationsManager /></RoleRoute>} />
-                            <Route path="web-inquiries" element={<RoleRoute allowedRoles={['Admin']}><WebInquiries /></RoleRoute>} />
-                            <Route path="blog-cms" element={<RoleRoute allowedRoles={['Admin', 'Designer']}><BlogCMS /></RoleRoute>} />
-                            <Route path="sample-requests" element={<RoleRoute allowedRoles={['Admin', 'Accountant']}><SampleRequestsCMS /></RoleRoute>} />
-                            <Route path="design-bookings" element={<RoleRoute allowedRoles={['Admin', 'Designer']}><DesignBookingsCMS /></RoleRoute>} />
+                            <Route path="admin/chatbot-training" element={<ChatbotTraining />} />
+                            <Route path="admin/reviews" element={<ReviewsManagement />} />
+                            <Route path="admin/artwork" element={<ArtworkManager />} />
+                            <Route path="admin/portfolio" element={<PortfolioManager />} />
+                            <Route path="admin/promotions" element={<PromotionsManager />} />
+                            <Route path="admin/pickup-bookings" element={<PickupBookings />} />
+                            <Route path="admin/delivery-rules" element={<DeliveryRulesManager />} />
+                            <Route path="admin/translations" element={<TranslationsManager />} />
+                            <Route path="web-inquiries" element={<WebInquiries />} />
+                            <Route path="blog-cms" element={<BlogCMS />} />
+                            <Route path="sample-requests" element={<SampleRequestsCMS />} />
+                            <Route path="design-bookings" element={<DesignBookingsCMS />} />
                             <Route path="*" element={<NotFound />} />
 
                         </Routes>
                     </Suspense>
-                    </SectionErrorBoundary>
                 </div>
             </main>
 
@@ -1186,13 +1177,11 @@ const Dashboard = () => {
             />
 
             {/* Inventory QR Scanner */}
-            <Suspense fallback={null}>
-                <ScannerModal
-                    isOpen={showInventoryScan}
-                    onClose={() => setShowInventoryScan(false)}
-                    onScan={handleInventoryScan}
-                />
-            </Suspense>
+            <ScannerModal
+                isOpen={showInventoryScan}
+                onClose={() => setShowInventoryScan(false)}
+                onScan={handleInventoryScan}
+            />
 
             {/* Loading overlay when hardware scanner fires */}
             {inventoryScanLoading && (

@@ -15,7 +15,7 @@
 }
 
 .option-card {
-  background: var(--card-bg, rgba(30, 41, 59, 0.4));
+  background: var(--card-bg, var(--color-text));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-radius: 16px;
@@ -30,7 +30,7 @@
 .option-card:hover {
   transform: translateY(-4px);
   border-color: var(--primary);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 20px var(--color-shadow);
 }
 
 .icon-badge {
@@ -44,13 +44,13 @@
 }
 
 .icon-badge.camera-style {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
+  background: var(--color-info);
+  color: var(--color-info);
 }
 
 .icon-badge.file-style {
-  background: rgba(168, 85, 247, 0.15);
-  color: #a855f7;
+  background: var(--color-disabled);
+  color: var(--color-disabled);
 }
 
 .btn-card {
@@ -60,7 +60,7 @@
 
 /* Advanced settings styling */
 .advanced-settings-card {
-  background: var(--surface-1, rgba(30, 41, 59, 0.2));
+  background: var(--surface-1, var(--color-text));
   border-radius: 12px;
   padding: 20px;
 }
@@ -107,7 +107,7 @@
 
 /* Session queue panel */
 .session-queue-panel {
-  background: var(--card-bg, rgba(30, 41, 59, 0.4));
+  background: var(--card-bg, var(--color-text));
   border-radius: 16px;
   padding: 20px;
   min-height: 320px;
@@ -136,7 +136,7 @@
   height: 44px;
   border-radius: 6px;
   object-fit: cover;
-  background: #000;
+  background: var(--color-shadow);
 }
 
 .queue-actions-footer {
@@ -145,7 +145,7 @@
 
 /* ────────────────── CAMERA SCREEN VIEW ────────────────── */
 .camera-fullscreen-view {
-  background: #090d16;
+  background: var(--color-text);
   position: fixed;
   top: 0;
   left: 0;
@@ -154,26 +154,26 @@
   z-index: 1100;
   display: flex;
   flex-direction: column;
-  color: #f8fafc;
+  color: var(--color-background);
 }
 
 .camera-dark-header {
-  background: rgba(9, 13, 22, 0.95);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-text);
+  border-bottom: 1px solid var(--color-surface);
 }
 
 .camera-back-btn {
-  color: #f8fafc !important;
+  color: var(--color-background) !important;
 }
 
 .camera-header-title {
   font-size: 15px;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--color-background);
 }
 
 .camera-tool-btn {
-  color: #94a3b8 !important;
+  color: var(--color-disabled) !important;
   font-size: 13px !important;
 }
 
@@ -216,7 +216,7 @@
 
 .grid-line {
   position: absolute;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--color-surface);
 }
 
 .grid-line.horizontal {
@@ -234,7 +234,7 @@
   position: absolute;
   width: 32px;
   height: 32px;
-  border: 3px solid #10b981;
+  border: 3px solid var(--color-success);
   pointer-events: none;
   opacity: 0.85;
 }
@@ -286,14 +286,14 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 30px var(--color-shadow);
 }
 
 .scan-processed-badge {
   position: absolute;
   bottom: 20px;
-  background: rgba(16, 185, 129, 0.95);
-  color: #fff;
+  background: var(--color-success);
+  color: var(--color-surface);
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 11px;
@@ -301,13 +301,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px var(--color-shadow);
 }
 
 /* Camera Footer controls */
 .camera-dark-footer {
-  background: rgba(9, 13, 22, 0.95);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-text);
+  border-top: 1px solid var(--color-surface);
 }
 
 /* Horizontal thumbnail strip */
@@ -327,9 +327,9 @@
   height: 54px;
   border-radius: 8px;
   position: relative;
-  background: #000;
+  background: var(--color-shadow);
   flex-shrink: 0;
-  border-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: var(--color-surface) !important;
 }
 
 .strip-thumbnail-img {
@@ -346,8 +346,8 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #ef4444;
-  color: #fff;
+  background: var(--color-danger);
+  color: var(--color-surface);
   border: none;
   font-size: 12px;
   font-weight: 700;
@@ -365,8 +365,8 @@
   right: 0;
   text-align: center;
   font-size: 8px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #fff;
+  background: var(--color-shadow);
+  color: var(--color-surface);
   border-bottom-left-radius: 6px;
   border-bottom-right-radius: 6px;
   font-weight: 500;
@@ -378,7 +378,7 @@
   height: 72px;
   border-radius: 50%;
   background: transparent;
-  border: 4px solid #fff;
+  border: 4px solid var(--color-surface);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -390,7 +390,7 @@
   width: 54px;
   height: 54px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--color-surface);
   transition: transform 0.15s ease;
 }
 
@@ -399,7 +399,7 @@
 }
 
 .camera-action-minor-btn {
-  color: #94a3b8 !important;
+  color: var(--color-disabled) !important;
   font-size: 13px !important;
   min-width: 70px;
 }
@@ -436,7 +436,7 @@
 
 .stepper-step.active .step-circle {
   background: var(--primary);
-  color: #fff;
+  color: var(--color-surface);
 }
 
 /* ────────────────── REVIEW GRID & CARDS ────────────────── */
@@ -453,7 +453,7 @@
 }
 
 .review-bill-card {
-  background: var(--card-bg, rgba(30, 41, 59, 0.4));
+  background: var(--card-bg, var(--color-text));
   border-radius: 16px;
   padding: 20px;
   transition: border-color 0.25s ease;
@@ -468,15 +468,15 @@
   height: 38px;
   border-radius: 6px;
   object-fit: cover;
-  background: #000;
+  background: var(--color-shadow);
 }
 
 .uncertain-alert-badge {
   font-size: 10px;
   font-weight: 700;
-  color: #856404;
-  background: #fff3cd;
-  border: 1px solid #ffeeba;
+  color: var(--color-icon);
+  background: var(--color-surfaceSecondary);
+  border: 1px solid var(--color-surfaceHover);
   padding: 2px 8px;
   border-radius: 12px;
 }
@@ -510,29 +510,29 @@
 /* Yellow uncertainty highlight alert */
 .uncertain-highlight {
   border-radius: 8px;
-  border: 1px solid #ffeeba !important;
-  background: rgba(255, 243, 205, 0.12) !important;
+  border: 1px solid var(--color-surfaceHover) !important;
+  background: var(--color-surfaceSecondary) !important;
   padding: 6px 10px;
 }
 
 .uncertain-highlight label {
-  color: #856404 !important;
+  color: var(--color-icon) !important;
   font-weight: 600;
 }
 
 .uncertain-highlight input {
-  border-color: #ffeeba;
+  border-color: var(--color-surfaceHover);
 }
 
 .uncertainty-caption {
   font-size: 9px;
-  color: #856404;
+  color: var(--color-icon);
   font-weight: 500;
   margin-top: 2px;
 }
 
 .review-bill-card.has-alerts {
-  border-color: rgba(217, 119, 6, 0.4);
+  border-color: var(--color-warning);
 }
 
 .branch-dropdown-field {

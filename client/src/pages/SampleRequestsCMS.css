@@ -158,12 +158,12 @@
   letter-spacing: 0.01em;
 }
 
-.status-badge--pending { background: #eff8ff; color: #175cd3; }
-.status-badge--approved { background: #ecfdf3; color: #027a48; }
-.status-badge--dispatched { background: #f9f5ff; color: #6941c6; }
-.status-badge--ready-for-pickup { background: #fef8f3; color: #b93815; }
-.status-badge--completed { background: #d4f5e4; color: #05603a; }
-.status-badge--cancelled { background: #fef3f2; color: #b42318; }
+.status-badge--pending { background: var(--color-surfaceSecondary); color: var(--color-primaryHover); }
+.status-badge--approved { background: var(--color-surfaceSecondary); color: var(--color-textSecondary); }
+.status-badge--dispatched { background: var(--color-background); color: var(--color-textMuted); }
+.status-badge--ready-for-pickup { background: var(--color-background); color: var(--color-danger); }
+.status-badge--completed { background: var(--color-surfaceHover); color: var(--color-textSecondary); }
+.status-badge--cancelled { background: var(--color-background); color: var(--color-danger); }
 
 .materials-grid {
   display: grid;

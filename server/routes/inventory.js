@@ -12,6 +12,7 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs');
 const { extractBillData } = require('../utils/ocrParser');
+const { resolveInventoryImage, getInventoryImageSettings } = require('../services/imageService');
 
 // Configure Multer for file uploads (temporary storage)
 const upload = multer({ dest: os.tmpdir() });
@@ -173,11 +174,12 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
                          LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
                          ${whereSection}`;
         
-        const dataQuery = `SELECT DISTINCT i.*, p.id as linked_product_id, p.image_url as product_image_url, ps.name as product_subcategory_name, pc.name as product_category_name 
+        const dataQuery = `SELECT DISTINCT i.*, p.id as linked_product_id, p.image_url as product_image_url, ps.name as product_subcategory_name, pc.name as product_category_name, spi.image_url as cached_image_url, spi.source as image_source, spi.confidence as image_confidence, spi.is_locked as image_locked 
                         FROM sarga_inventory i 
                         LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
                         LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
                         LEFT JOIN sarga_product_categories pc ON ps.category_id = pc.id
+                        LEFT JOIN sarga_product_images spi ON i.id = spi.inventory_item_id
                         ${whereSection}
                         ORDER BY ${finalSortBy} ${finalSortOrder}, i.id ASC
                         LIMIT ? OFFSET ?`;
@@ -202,11 +204,13 @@ router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Front O
             `SELECT i.*, 
                     p.id as linked_product_id, p.image_url as product_image_url, p.description as product_description,
                     ps.name as product_subcategory_name, ps.id as subcategory_id,
-                    pc.name as product_category_name, pc.id as category_id
+                    pc.name as product_category_name, pc.id as category_id,
+                    spi.image_url as cached_image_url, spi.source as image_source, spi.confidence as image_confidence, spi.is_locked as image_locked
              FROM sarga_inventory i 
              LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
              LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
              LEFT JOIN sarga_product_categories pc ON ps.category_id = pc.id
+             LEFT JOIN sarga_product_images spi ON i.id = spi.inventory_item_id
              WHERE i.id = ? LIMIT 1`,
             [req.params.id]
         );
@@ -1169,6 +1173,156 @@ router.post('/inventory/transfer', authenticateToken, authorizeRoles('Admin', 'A
         res.status(500).json({ message: 'Internal server error during transfer' });
     } finally {
         connection.release();
+    }
+});
+
+// --- Image Management Routes ---
+
+router.get('/inventory/settings/image', authenticateToken, async (req, res) => {
+    try {
+        const settings = await getInventoryImageSettings();
+        res.json(settings);
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to fetch settings' });
+    }
+});
+
+router.put('/inventory/settings/image', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    try {
+        const { auto_assign_images, cache_images, generate_missing, category_placeholders, ask_before_saving, image_quality } = req.body;
+        await pool.query(
+            `UPDATE sarga_inventory_settings 
+             SET auto_assign_images = ?, cache_images = ?, generate_missing = ?, category_placeholders = ?, ask_before_saving = ?, image_quality = ?
+             WHERE id = 1`,
+            [auto_assign_images ? 1 : 0, cache_images ? 1 : 0, generate_missing ? 1 : 0, category_placeholders ? 1 : 0, ask_before_saving ? 1 : 0, image_quality || 'Medium']
+        );
+        res.json({ message: 'Settings updated' });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to update settings' });
+    }
+});
+
+router.post('/inventory/:id/image', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
+    try {
+        const id = req.params.id;
+        if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+        // For this demo, we save locally or use cloudinary. If cloudinary is setup, we'd upload there. 
+        // We'll simulate a local upload by keeping the file in /uploads and returning a local path.
+        const ext = path.extname(req.file.originalname) || '.jpg';
+        const filename = `inv_${id}_${Date.now()}${ext}`;
+        const targetPath = path.join(__dirname, '../uploads', filename);
+        
+        // Ensure uploads directory exists
+        if (!fs.existsSync(path.join(__dirname, '../uploads'))) {
+            fs.mkdirSync(path.join(__dirname, '../uploads'), { recursive: true });
+        }
+        
+        fs.renameSync(req.file.path, targetPath);
+        const imageUrl = `/uploads/${filename}`;
+
+        await pool.query(
+            `INSERT INTO sarga_product_images (inventory_item_id, image_url, source, confidence, is_locked)
+             VALUES (?, ?, 'Uploaded', 100, 1)
+             ON DUPLICATE KEY UPDATE image_url = VALUES(image_url), source = VALUES(source), confidence = VALUES(confidence), is_locked = VALUES(is_locked)`,
+            [id, imageUrl]
+        );
+
+        res.json({ message: 'Image uploaded successfully', image_url: imageUrl, source: 'Uploaded' });
+    } catch (err) {
+        console.error('Image upload error:', err);
+        res.status(500).json({ message: 'Failed to upload image' });
+    }
+});
+
+router.delete('/inventory/:id/image', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    try {
+        const id = req.params.id;
+        await pool.query('DELETE FROM sarga_product_images WHERE inventory_item_id = ?', [id]);
+        res.json({ message: 'Image removed successfully' });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to remove image' });
+    }
+});
+
+router.post('/inventory/:id/regenerate-image', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    try {
+        const id = req.params.id;
+        
+        // Fetch inventory details
+        const [rows] = await pool.query(
+            `SELECT i.*, ps.name as product_subcategory_name 
+             FROM sarga_inventory i 
+             LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+             LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
+             WHERE i.id = ? LIMIT 1`, [id]
+        );
+        
+        if (!rows.length) return res.status(404).json({ message: 'Item not found' });
+        
+        const item = rows[0];
+        const { findImageMatch } = require('../services/imageService');
+        
+        const match = await findImageMatch(item.name, item.product_subcategory_name, item.category);
+        
+        if (match && match.url) {
+            await pool.query(
+                `INSERT INTO sarga_product_images (inventory_item_id, image_url, source, confidence, is_locked)
+                 VALUES (?, ?, 'Generated', ?, 0)
+                 ON DUPLICATE KEY UPDATE image_url = VALUES(image_url), source = VALUES(source), confidence = VALUES(confidence), is_locked = 0`,
+                [id, match.url, match.confidence]
+            );
+            return res.json({ message: 'Image regenerated', image_url: match.url, source: 'Generated' });
+        }
+        
+        res.status(404).json({ message: 'No match found' });
+    } catch (err) {
+        res.status(500).json({ message: 'Regeneration failed' });
+    }
+});
+
+router.post('/inventory/bulk-generate-images', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    // In a real system, queue this. For now, we process asynchronously in background.
+    try {
+        const { force } = req.body;
+        
+        const [items] = await pool.query(
+            `SELECT i.id, i.name, i.category, ps.name as product_subcategory_name 
+             FROM sarga_inventory i
+             LEFT JOIN sarga_product_images spi ON i.id = spi.inventory_item_id
+             LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+             LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
+             WHERE spi.id IS NULL OR spi.source = 'Default'`
+        );
+        
+        res.json({ message: `Queued ${items.length} items for image generation`, queued_count: items.length });
+        
+        // Async processing (simulate background job)
+        const { findImageMatch } = require('../services/imageService');
+        
+        setTimeout(async () => {
+            console.log(`Starting bulk generation for ${items.length} items...`);
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                try {
+                    const match = await findImageMatch(item.name, item.product_subcategory_name, item.category);
+                    if (match && match.url && match.confidence >= 70) {
+                        await pool.query(
+                            `INSERT INTO sarga_product_images (inventory_item_id, image_url, source, confidence, is_locked)
+                             VALUES (?, ?, 'Generated', ?, 0)
+                             ON DUPLICATE KEY UPDATE image_url = VALUES(image_url), source = VALUES(source), confidence = VALUES(confidence)`,
+                            [item.id, match.url, match.confidence]
+                        );
+                    }
+                } catch(e) {
+                    console.error('Bulk generation error for item', item.id, e.message);
+                }
+            }
+            console.log('Bulk generation complete');
+        }, 1000);
+        
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to start bulk generation' });
     }
 });
 

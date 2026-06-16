@@ -149,7 +149,7 @@ const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <strong>Attachment</strong>
-                    <a href={attachmentUrl} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+                    <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
                       <ExternalLink size={14} /> Open Original
                     </a>
                   </div>
@@ -162,7 +162,7 @@ const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }
                     />
                   )}
                   {!isImage && !isPdf && (
-                    <a href={attachmentUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
+                    <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
                       <FileText size={14} /> View Attachment
                     </a>
                   )}

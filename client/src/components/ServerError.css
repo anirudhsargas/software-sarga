@@ -5,8 +5,8 @@
   padding: 16px;
   margin: 16px 0;
   border-radius: 8px;
-  background-color: var(--error-banner-bg, #fffbeb);
-  border: 1px solid var(--error-banner-border, #fcd34d);
+  background-color: var(--error-banner-bg, var(--color-background));
+  border: 1px solid var(--error-banner-border, var(--color-warning));
 }
 
 .server-error__banner {
@@ -22,8 +22,8 @@
   width: 48px;
   height: 48px;
   border-radius: 6px;
-  background-color: var(--error-icon-bg, #fef3c7);
-  color: var(--error-icon-color, #b45309);
+  background-color: var(--error-icon-bg, var(--color-surfaceHover));
+  color: var(--error-icon-color, var(--color-danger));
 }
 
 .server-error__content {
@@ -37,20 +37,20 @@
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--error-title-color, #b45309);
+  color: var(--error-title-color, var(--color-danger));
 }
 
 .server-error__description {
   margin: 0;
   font-size: 14px;
-  color: var(--error-description-color, #92400e);
+  color: var(--error-description-color, var(--color-danger));
   line-height: 1.5;
 }
 
 .server-error__timestamp {
   margin: 4px 0 0 0;
   font-size: 12px;
-  color: var(--error-timestamp-color, #a16207);
+  color: var(--error-timestamp-color, var(--color-warning));
   font-style: italic;
 }
 
@@ -62,7 +62,7 @@
   padding: 10px 16px;
   border: none;
   border-radius: 6px;
-  background-color: var(--error-btn-bg, #f59e0b);
+  background-color: var(--error-btn-bg, var(--color-warning));
   color: var(--on-accent);
   font-size: 14px;
   font-weight: 500;
@@ -72,9 +72,9 @@
 }
 
 .server-error__retry-btn:hover {
-  background-color: var(--error-btn-hover-bg, #d97706);
+  background-color: var(--error-btn-hover-bg, var(--color-warning));
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px var(--color-shadow);
 }
 
 .server-error__retry-btn:active {
@@ -88,28 +88,28 @@
 
 /* Dark mode support — using .dark class to match app theming */
 .dark .server-error {
-  --error-banner-bg: #78350f;
-  --error-banner-border: #b45309;
+  --error-banner-bg: var(--color-textSecondary);
+  --error-banner-border: var(--color-danger);
 }
 
 .dark .server-error__icon {
-  --error-icon-bg: #92400e;
-  --error-icon-color: #fcd34d;
+  --error-icon-bg: var(--color-danger);
+  --error-icon-color: var(--color-warning);
 }
 
 .dark .server-error__title {
-  --error-title-color: #fcd34d;
+  --error-title-color: var(--color-warning);
 }
 
 .dark .server-error__description {
-  --error-description-color: #f59e0b;
+  --error-description-color: var(--color-warning);
 }
 
 .dark .server-error__timestamp {
-  --error-timestamp-color: #d97706;
+  --error-timestamp-color: var(--color-warning);
 }
 
 .dark .server-error__retry-btn {
-  --error-btn-bg: #d97706;
-  --error-btn-hover-bg: #b45309;
+  --error-btn-bg: var(--color-warning);
+  --error-btn-hover-bg: var(--color-danger);
 }

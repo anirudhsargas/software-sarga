@@ -159,11 +159,11 @@ const StockRow = ({ item }) => {
 
 // ──────────────── Purchase Row ────────────────
 const urgencyConfig = {
-    critical: { label: 'Critical',   color: 'var(--error)',   bg: 'rgba(176,58,46,0.08)',  border: 'rgba(176,58,46,0.3)' },
-    low_stock:{ label: 'Low Stock',  color: 'var(--warning)', bg: 'rgba(179,107,0,0.08)',  border: 'rgba(179,107,0,0.3)' },
-    reorder:  { label: 'Reorder',    color: 'var(--warning)', bg: 'rgba(108,112,119,0.08)',border: 'rgba(108,112,119,0.2)' },
-    plan:     { label: 'Plan Ahead', color: 'var(--accent)',  bg: 'rgba(0,122,255,0.06)',  border: 'rgba(0,122,255,0.15)' },
-    ok:       { label: 'OK',         color: 'var(--success)', bg: 'rgba(47,125,74,0.06)',  border: 'var(--border)' }
+    critical: { label: 'Critical',   color: 'var(--error)',   bg: 'var(--color-danger)',  border: 'var(--color-danger)' },
+    low_stock:{ label: 'Low Stock',  color: 'var(--warning)', bg: 'var(--color-warning)',  border: 'var(--color-warning)' },
+    reorder:  { label: 'Reorder',    color: 'var(--warning)', bg: 'var(--color-textMuted)',border: 'var(--color-textMuted)' },
+    plan:     { label: 'Plan Ahead', color: 'var(--accent)',  bg: 'var(--color-primary)',  border: 'var(--color-primary)' },
+    ok:       { label: 'OK',         color: 'var(--success)', bg: 'var(--color-icon)',  border: 'var(--border)' }
 };
 
 const PurchaseCard = ({ item, index }) => {

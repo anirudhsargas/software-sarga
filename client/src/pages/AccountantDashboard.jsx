@@ -213,7 +213,7 @@ const AccountantDashboard = () => {
     ? 'All Branches'
     : selectedBranches.map(id => branches.find(b => String(b.id) === id)?.name || id).join(', ');
 
-  const CAT_COLORS = ['var(--accent)', 'var(--error)', 'var(--success)', 'var(--accent)', 'var(--warning)', '#0d9488', 'var(--warning)', 'var(--accent)'];
+  const CAT_COLORS = ['var(--accent)', 'var(--error)', 'var(--success)', 'var(--accent)', 'var(--warning)', 'var(--color-success)', 'var(--warning)', 'var(--accent)'];
 
   return (
     <div className="acc-dash">
@@ -317,40 +317,40 @@ const AccountantDashboard = () => {
             <Section title="Alerts & Action Items" icon={AlertTriangle}>
               <div style={{ display: 'grid', gap: 10 }}>
                 {pendingRequests.length > 0 && (
-                  <AlertCard icon={ShieldAlert} color="var(--warning)" bg="rgba(249,115,22,0.06)"
+                  <AlertCard icon={ShieldAlert} color="var(--warning)" bg='var(--color-warning)'
                     title={`${pendingRequests.length} Discount Request${pendingRequests.length > 1 ? 's' : ''} Pending`}
                     desc="Review and approve/reject discount requests"
                     onAction={() => navigate('/dashboard/requests')}
                   />
                 )}
                 {overdueVendors.length > 0 && (
-                  <AlertCard icon={AlertTriangle} color="var(--error)" bg="rgba(176,58,46,0.05)"
+                  <AlertCard icon={AlertTriangle} color="var(--error)" bg='var(--color-danger)'
                     title={`${overdueVendors.length} Vendor${overdueVendors.length > 1 ? 's' : ''} with Outstanding Balance`}
                     desc={`Total vendor payable: ${fmtCur(vendorPayable)}`}
                     onAction={() => navigate('/dashboard/expenses')}
                   />
                 )}
                 {dueEmis.length > 0 && (
-                  <AlertCard icon={Banknote} color="var(--accent)" bg="rgba(124,58,237,0.05)"
+                  <AlertCard icon={Banknote} color="var(--accent)" bg='var(--color-primary)'
                     title={`${dueEmis.length} EMI${dueEmis.length > 1 ? 's' : ''} Due This Month`}
                     desc={dueEmis.map(e => `${e.name} — ${fmtCur(e.amount)} (due day ${e.due_day})`).join(' · ')}
                   />
                 )}
                 {dueKuris.length > 0 && (
-                  <AlertCard icon={CircleDollarSign} color="var(--warning)" bg="rgba(108,112,119,0.05)"
+                  <AlertCard icon={CircleDollarSign} color="var(--warning)" bg='var(--color-textMuted)'
                     title={`${dueKuris.length} Kuri${dueKuris.length > 1 ? 's' : ''} Pending`}
                     desc={dueKuris.map(k => `${k.name} — ${fmtCur(k.remaining)} remaining`).join(' · ')}
                   />
                 )}
                 {overdueUtilities.length > 0 && (
-                  <AlertCard icon={AlertCircle} color="var(--warning)" bg="rgba(179,107,0,0.05)"
+                  <AlertCard icon={AlertCircle} color="var(--warning)" bg='var(--color-warning)'
                     title={`${overdueUtilities.length} Utility Bill${overdueUtilities.length > 1 ? 's' : ''} Unpaid`}
                     desc={overdueUtilities.map(u => u.name).join(', ')}
                     onAction={() => navigate('/dashboard/expenses')}
                   />
                 )}
                 {unpaidRents.length > 0 && (
-                  <AlertCard icon={Building2} color="#0891b2" bg="rgba(8,145,178,0.05)"
+                  <AlertCard icon={Building2} color='var(--color-success)' bg='var(--color-success)'
                     title={`${unpaidRents.length} Rent${unpaidRents.length > 1 ? 's' : ''} Pending`}
                     desc={unpaidRents.map(r => `${r.property_name} — ${fmtCur(r.remaining)}`).join(' · ')}
                   />
@@ -557,7 +557,7 @@ const AccountantDashboard = () => {
                 {/* Branch comparison cards */}
                 <div className="acc-branch-grid">
                   {expDash.branch_expenses.map((b, i) => {
-                    const branchColors = ['var(--accent)', 'var(--accent)', '#0d9488', 'var(--warning)', 'var(--error)'];
+                    const branchColors = ['var(--accent)', 'var(--accent)', 'var(--color-success)', 'var(--warning)', 'var(--error)'];
                     const color = branchColors[i % branchColors.length];
                     const isSelected = selectedBranches.length === 0 || selectedBranches.includes(String(b.branch_id));
                     return (

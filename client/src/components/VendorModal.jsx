@@ -105,7 +105,7 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
   };
 
   return (
-    <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', zIndex: 1000, padding: 20 }}>
+    <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'var(--color-shadow)', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', zIndex: 1000, padding: 20 }}>
       <div className="modal-content-premium" style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 28, width: '100%', maxWidth: 720, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' }}>
         <div className="modal-header-premium" style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -266,7 +266,7 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
               Discard
             </button>
             <button type="submit" className="btn btn-primary" style={{ padding: '8px 32px', height: 44 }} disabled={loading}>
-              {loading ? <div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div> : (vendor ? 'Update Profile' : 'Finalize Onboarding')}
+              {loading ? <div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'var(--color-surface)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div> : (vendor ? 'Update Profile' : 'Finalize Onboarding')}
             </button>
           </div>
         </form>

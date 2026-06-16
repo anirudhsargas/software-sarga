@@ -2,9 +2,9 @@
 .skeleton-box {
   background: linear-gradient(
     90deg,
-    var(--surface, #f5f5f5) 0%,
-    var(--border, #e0e0e0) 40%,
-    var(--surface, #f5f5f5) 80%
+    var(--surface, var(--color-surfaceSecondary)) 0%,
+    var(--border, var(--color-surfaceHover)) 40%,
+    var(--surface, var(--color-surfaceSecondary)) 80%
   );
   background-size: 300% 100%;
   animation: skeleton-shimmer 1.8s ease-in-out infinite;
@@ -32,8 +32,8 @@
   gap: 14px;
   padding: 16px;
   border-radius: var(--radius, 8px);
-  background: var(--surface, #ffffff);
-  border: 1.5px solid var(--border, #e0e0e0);
+  background: var(--surface, var(--color-surface));
+  border: 1.5px solid var(--border, var(--color-surfaceHover));
   min-height: 70px;
 }
 
@@ -81,7 +81,7 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--border, var(--color-surfaceHover));
   border-radius: 8px;
   overflow: hidden;
 }
@@ -90,7 +90,7 @@
   display: grid;
   gap: 0;
   padding: 12px;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-bottom: 1px solid var(--border, var(--color-surfaceHover));
   align-items: center;
   min-height: 48px;
 }
@@ -100,15 +100,15 @@
 }
 
 .skeleton-row--header {
-  background-color: var(--surface-2, #f9fafb);
+  background-color: var(--surface-2, var(--color-background));
   padding: 16px 12px;
   height: auto;
   font-weight: 600;
   font-size: 12px;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary, var(--color-textMuted));
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 2px solid var(--border, #e5e7eb);
+  border-bottom: 2px solid var(--border, var(--color-surfaceHover));
 }
 
 .skeleton-cell {
@@ -131,7 +131,7 @@
   animation: none;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary, var(--color-textMuted));
 }
 
 .skeleton-box--line {
@@ -156,7 +156,7 @@
   justify-content: center;
   gap: 8px;
   padding: 16px;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary, var(--color-textMuted));
   font-size: 14px;
 }
 
@@ -180,7 +180,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--border, #e0e0e0);
+  border-bottom: 1px solid var(--border, var(--color-surfaceHover));
 }
 
 .skeleton-customer-row:last-child {
@@ -259,14 +259,14 @@
 .skeleton-attendance-card {
   padding: 16px;
   border-radius: 12px;
-  background: var(--surface, #ffffff);
-  border: 1px solid var(--border, #e0e0e0);
+  background: var(--surface, var(--color-surface));
+  border: 1px solid var(--border, var(--color-surfaceHover));
 }
 
 .skeleton-calendar {
-  background: var(--surface, #ffffff);
+  background: var(--surface, var(--color-surface));
   border-radius: 12px;
-  border: 1px solid var(--border, #e0e0e0);
+  border: 1px solid var(--border, var(--color-surfaceHover));
   padding: 20px;
   margin-bottom: 24px;
 }
@@ -290,8 +290,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  border: 1px solid var(--border, #e0e0e0);
-  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, var(--color-surfaceHover));
+  background: var(--surface, var(--color-surface));
 }
 
 /* ═══ Form skeleton ═══ */
@@ -323,9 +323,9 @@
   width: 100px;
   background: linear-gradient(
     90deg,
-    var(--surface, #f5f5f5) 0%,
-    var(--border, #e0e0e0) 40%,
-    var(--surface, #f5f5f5) 80%
+    var(--surface, var(--color-surfaceSecondary)) 0%,
+    var(--border, var(--color-surfaceHover)) 40%,
+    var(--surface, var(--color-surfaceSecondary)) 80%
   );
   background-size: 300% 100%;
   animation: skeleton-shimmer 1.8s ease-in-out infinite;
@@ -336,9 +336,9 @@
   height: 40px;
   background: linear-gradient(
     90deg,
-    var(--surface, #f5f5f5) 0%,
-    var(--border, #e0e0e0) 40%,
-    var(--surface, #f5f5f5) 80%
+    var(--surface, var(--color-surfaceSecondary)) 0%,
+    var(--border, var(--color-surfaceHover)) 40%,
+    var(--surface, var(--color-surfaceSecondary)) 80%
   );
   background-size: 300% 100%;
   animation: skeleton-shimmer 1.8s ease-in-out infinite;
@@ -349,9 +349,9 @@
   height: 40px;
   background: linear-gradient(
     90deg,
-    var(--surface, #f5f5f5) 0%,
-    var(--border, #e0e0e0) 40%,
-    var(--surface, #f5f5f5) 80%
+    var(--surface, var(--color-surfaceSecondary)) 0%,
+    var(--border, var(--color-surfaceHover)) 40%,
+    var(--surface, var(--color-surfaceSecondary)) 80%
   );
   background-size: 300% 100%;
   animation: skeleton-shimmer 1.8s ease-in-out infinite;
@@ -366,12 +366,12 @@
   .skeleton-label,
   .skeleton-input,
   .skeleton-button {
-    --surface: #1f2937;
-    --border: #374151;
+    --surface: var(--color-text);
+    --border: var(--color-textSecondary);
   }
 
   .skeleton-row--header {
-    --header-bg: #111827;
+    --header-bg: var(--color-text);
   }
 
   .skeleton-fo-card,
@@ -379,7 +379,7 @@
   .skeleton-attendance-card,
   .skeleton-calendar,
   .skeleton-calendar-cell {
-    --border: #374151;
-    background: #1f2937;
+    --border: var(--color-textSecondary);
+    background: var(--color-text);
   }
 }

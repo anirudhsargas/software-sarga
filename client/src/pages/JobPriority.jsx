@@ -9,10 +9,10 @@ import {
 import { formatCurrency } from '../utils/formatters';
 
 const URGENCY_CONFIG = {
-    critical: { label: 'Critical', color: 'var(--error)', bg: 'rgba(176,58,46,0.10)', border: 'rgba(176,58,46,0.25)', icon: '🔴' },
-    high: { label: 'High', color: 'var(--warning)', bg: 'rgba(179,107,0,0.10)', border: 'rgba(179,107,0,0.25)', icon: '🟠' },
-    medium: { label: 'Medium', color: 'var(--muted)', bg: 'rgba(108,112,119,0.10)', border: 'rgba(108,112,119,0.25)', icon: '🟡' },
-    low: { label: 'Low', color: 'var(--success)', bg: 'rgba(47,125,74,0.10)', border: 'rgba(47,125,74,0.25)', icon: '🟢' }
+    critical: { label: 'Critical', color: 'var(--error)', bg: 'var(--color-danger)', border: 'var(--color-danger)', icon: '🔴' },
+    high: { label: 'High', color: 'var(--warning)', bg: 'var(--color-warning)', border: 'var(--color-warning)', icon: '🟠' },
+    medium: { label: 'Medium', color: 'var(--muted)', bg: 'var(--color-textMuted)', border: 'var(--color-textMuted)', icon: '🟡' },
+    low: { label: 'Low', color: 'var(--success)', bg: 'var(--color-icon)', border: 'var(--color-icon)', icon: '🟢' }
 };
 
 const formatDate = (d) => {
@@ -111,11 +111,11 @@ const JobRow = ({ job, position, onPriorityChange }) => {
             padding: '12px 16px',
             borderBottom: '1px solid var(--border)',
             borderLeft: `3px solid ${urgencyConfig.color}`,
-            background: job.urgency === 'critical' ? 'rgba(176,58,46,0.03)' : 'transparent',
+            background: job.urgency === 'critical' ? 'var(--color-danger)' : 'transparent',
             transition: 'background 0.2s',
         }}
             onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
-            onMouseLeave={e => e.currentTarget.style.background = job.urgency === 'critical' ? 'rgba(176,58,46,0.03)' : 'transparent'}
+            onMouseLeave={e => e.currentTarget.style.background = job.urgency === 'critical' ? 'var(--color-danger)' : 'transparent'}
         >
             {/* Position */}
             <div style={{
@@ -229,7 +229,7 @@ const MachineQueueCard = ({ queue, onRefresh }) => {
                     {criticalCount > 0 && (
                         <span style={{
                             padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
-                            background: 'rgba(176,58,46,0.10)', color: 'var(--error)'
+                            background: 'var(--color-danger)', color: 'var(--error)'
                         }}>
                             {criticalCount} critical
                         </span>
@@ -237,7 +237,7 @@ const MachineQueueCard = ({ queue, onRefresh }) => {
                     {highCount > 0 && (
                         <span style={{
                             padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
-                            background: 'rgba(179,107,0,0.10)', color: 'var(--warning)'
+                            background: 'var(--color-warning)', color: 'var(--warning)'
                         }}>
                             {highCount} high
                         </span>
@@ -427,8 +427,8 @@ const JobPriority = () => {
                     <label style={{
                         display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px',
                         color: 'var(--muted)', cursor: 'pointer', padding: '6px 10px',
-                        borderRadius: '8px', background: autoRefresh ? 'rgba(47,125,74,0.08)' : 'var(--bg-2)',
-                        border: `1px solid ${autoRefresh ? 'rgba(47,125,74,0.2)' : 'var(--border)'}`
+                        borderRadius: '8px', background: autoRefresh ? 'var(--color-icon)' : 'var(--bg-2)',
+                        border: `1px solid ${autoRefresh ? 'var(--color-icon)' : 'var(--border)'}`
                     }}>
                         <input type="checkbox" checked={autoRefresh} onChange={() => setAutoRefresh(p => !p)}
                             style={{ accentColor: 'var(--success)' }} />
@@ -456,7 +456,7 @@ const JobPriority = () => {
             {error && (
                 <div style={{
                     padding: '12px 16px', borderRadius: '10px', marginBottom: '16px',
-                    background: 'rgba(176,58,46,0.08)', border: '1px solid rgba(176,58,46,0.2)',
+                    background: 'var(--color-danger)', border: '1px solid rgba(176,58,46,0.2)',
                     color: 'var(--error)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px'
                 }}>
                     <XCircle size={16} /> {error}

@@ -276,7 +276,7 @@ export async function generateInvoicePDF(billData) {
     const qrDataUrl = await QRCode.toDataURL(upiStr, {
       width: 160,
       margin: 1,
-      color: { dark: '#1e3a5f', light: '#ffffff' },
+      color: { dark: 'var(--color-textSecondary)', light: 'var(--color-surface)' },
     });
     doc.addImage(qrDataUrl, 'PNG', margin, y, qrSize, qrSize);
 

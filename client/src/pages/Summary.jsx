@@ -88,8 +88,8 @@ const Summary = () => {
   }, [filters.branch_id, branches]);
 
   const statusColor = useCallback((status) => {
-    const map = { Completed: '#22c55e', Delivered: '#60a5fa', Processing: '#fbbf24', Pending: '#6b7280', 'Approval Pending': '#fbbf24', Cancelled: '#ef4444' };
-    return map[status] || '#e2e8f0';
+    const map = { Completed: 'var(--color-success)', Delivered: 'var(--color-info)', Processing: 'var(--color-warning)', Pending: 'var(--color-textMuted)', 'Approval Pending': 'var(--color-warning)', Cancelled: 'var(--color-danger)' };
+    return map[status] || 'var(--color-surfaceHover)';
   }, []);
 
   const lowStockItems = useMemo(() => statsOverall?.low_stock || [], [statsOverall]);
@@ -141,18 +141,18 @@ const Summary = () => {
         <>
           {/* ROW 1: KPI Cards */}
           <div className="kpi-grid">
-            <KpiCard title="Sales Today" value={fmt(statsToday?.jobs?.total_sales)} subtitle={`${fmtNum(statsToday?.jobs?.total_count)} jobs`} icon={TrendingUp} color="#22c55e" />
-            <KpiCard title="Collections" value={fmt(statsToday?.payments?.total_collected_today)} subtitle={`Cash ${fmt(statsToday?.payments?.cash_today)} · UPI ${fmt(statsToday?.payments?.upi_today)}`} icon={Wallet} color="#60a5fa" />
-            <KpiCard title="Expenses" value={fmt(statsToday?.expenses?.today)} subtitle={`Month: ${fmt(statsOverall?.expenses?.month)}`} icon={IndianRupee} color="#ef4444" />
-            <KpiCard title="Outstanding" value={fmt(statsOverall?.jobs?.total_balance)} subtitle="Pending receivables" icon={AlertTriangle} color="#f59e0b" />
+            <KpiCard title="Sales Today" value={fmt(statsToday?.jobs?.total_sales)} subtitle={`${fmtNum(statsToday?.jobs?.total_count)} jobs`} icon={TrendingUp} color='var(--color-success)' />
+            <KpiCard title="Collections" value={fmt(statsToday?.payments?.total_collected_today)} subtitle={`Cash ${fmt(statsToday?.payments?.cash_today)} · UPI ${fmt(statsToday?.payments?.upi_today)}`} icon={Wallet} color='var(--color-info)' />
+            <KpiCard title="Expenses" value={fmt(statsToday?.expenses?.today)} subtitle={`Month: ${fmt(statsOverall?.expenses?.month)}`} icon={IndianRupee} color='var(--color-danger)' />
+            <KpiCard title="Outstanding" value={fmt(statsOverall?.jobs?.total_balance)} subtitle="Pending receivables" icon={AlertTriangle} color='var(--color-warning)' />
           </div>
 
           {/* ROW 2: Secondary KPIs */}
           <div className="kpi-grid">
             <KpiCard title="Orders Today" value={`${fmtNum(statsToday?.jobs?.new_today)} / ${fmtNum(statsToday?.jobs?.completed_today)}`} subtitle="New / Completed" icon={ClipboardList} />
-            <KpiCard title="In Progress" value={fmtNum(statsOverall?.jobs?.in_progress)} subtitle="Across all stages" icon={Activity} color="#8b5cf6" />
-            <KpiCard title="Inventory Value" value={fmt(statsOverall?.inventory?.total_value)} subtitle={`${fmtNum(statsOverall?.inventory?.total_items)} items`} icon={Package} color="#06b6d4" />
-            <KpiCard title="Urgent / Overdue" value={`${fmtNum(statsToday?.jobs?.urgent_today)} / ${fmtNum(statsOverall?.jobs?.overdue)}`} subtitle="Needs attention" icon={ShieldAlert} color="#ef4444" />
+            <KpiCard title="In Progress" value={fmtNum(statsOverall?.jobs?.in_progress)} subtitle="Across all stages" icon={Activity} color='var(--color-info)' />
+            <KpiCard title="Inventory Value" value={fmt(statsOverall?.inventory?.total_value)} subtitle={`${fmtNum(statsOverall?.inventory?.total_items)} items`} icon={Package} color='var(--color-info)' />
+            <KpiCard title="Urgent / Overdue" value={`${fmtNum(statsToday?.jobs?.urgent_today)} / ${fmtNum(statsOverall?.jobs?.overdue)}`} subtitle="Needs attention" icon={ShieldAlert} color='var(--color-danger)' />
           </div>
 
           {/* Fraud Alert Banner */}

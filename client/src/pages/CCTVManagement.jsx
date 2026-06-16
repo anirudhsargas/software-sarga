@@ -269,14 +269,14 @@ const CCTVManagement = () => {
   const togglePassword = (camId) => setShowPassword(prev => ({ ...prev, [camId]: !prev[camId] }));
 
   const BRANCH_COLORS = {
-    perambra: { bg: 'rgba(99,102,241,0.12)', color: '#818cf8', dot: '#6366f1' },
-    meppayur_main: { bg: 'rgba(16,185,129,0.12)', color: '#34d399', dot: '#10b981' },
-    meppayur_room: { bg: 'rgba(245,158,11,0.12)', color: '#fbbf24', dot: '#f59e0b' },
+    perambra: { bg: 'var(--color-info)', color: 'var(--color-disabled)', dot: 'var(--color-info)' },
+    meppayur_main: { bg: 'var(--color-success)', color: 'var(--color-success)', dot: 'var(--color-success)' },
+    meppayur_room: { bg: 'var(--color-warning)', color: 'var(--color-warning)', dot: 'var(--color-warning)' },
   };
 
   const BranchPill = ({ branch }) => {
     const label = BRANCHES.find(b => b.value === branch)?.label || branch;
-    const c = BRANCH_COLORS[branch] || { bg: 'rgba(148,163,184,0.15)', color: 'var(--muted)', dot: 'var(--muted)' };
+    const c = BRANCH_COLORS[branch] || { bg: 'var(--color-disabled)', color: 'var(--muted)', dot: 'var(--muted)' };
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: c.bg, color: c.color }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot, display: 'inline-block' }} />
@@ -386,8 +386,8 @@ const CCTVManagement = () => {
                   <div style={{ padding: '14px 16px', display: 'grid', gap: 8 }}>
                     <InfoRow icon={<Network size={13} />} label="IP Address" value={<code style={{ fontFamily: 'monospace', fontSize: 12, background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 5 }}>{cam.ip_address}:{cam.port}</code>} />
                     <InfoRow icon={<User size={13} />} label="Username" value={cam.username} />
-                    <InfoRow icon={cam.is_active ? <Wifi size={13} style={{ color: '#10b981' }} /> : <WifiOff size={13} style={{ color: 'var(--error)' }} />} label="Status" value={
-                      <span style={{ fontSize: 12, fontWeight: 600, color: cam.is_active ? '#10b981' : 'var(--muted)' }}>
+                    <InfoRow icon={cam.is_active ? <Wifi size={13} style={{ color: 'var(--color-success)' }} /> : <WifiOff size={13} style={{ color: 'var(--error)' }} />} label="Status" value={
+                      <span style={{ fontSize: 12, fontWeight: 600, color: cam.is_active ? 'var(--color-success)' : 'var(--muted)' }}>
                         {cam.is_active ? 'Active' : 'Disabled'}
                       </span>
                     } />
@@ -410,7 +410,7 @@ const CCTVManagement = () => {
                     <button
                       onClick={() => toggleCameraActive(cam)}
                       title={cam.is_active ? 'Disable' : 'Enable'}
-                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: cam.is_active ? 'var(--error)' : '#10b981', transition: 'background .15s' }}
+                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: cam.is_active ? 'var(--error)' : 'var(--color-success)', transition: 'background .15s' }}
                     >
                       {cam.is_active ? <WifiOff size={13} /> : <Wifi size={13} />}
                     </button>
@@ -476,10 +476,10 @@ const CCTVManagement = () => {
                       <span style={{ fontSize: 13, opacity: 0.6 }}>Connecting to camera…</span>
                     </div>
                   ) : snapshotError ? (
-                    <div style={{ color: '#f87171', textAlign: 'center', padding: 40 }}>
+                    <div style={{ color: 'var(--color-danger)', textAlign: 'center', padding: 40 }}>
                       <WifiOff size={36} style={{ display: 'block', margin: '0 auto 12px', opacity: 0.6 }} />
                       <p style={{ fontSize: 13, marginBottom: 12 }}>{snapshotError}</p>
-                      <button onClick={() => fetchSnapshot(liveCamera)} style={{ padding: '7px 16px', borderRadius: 8, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 12 }}>
+                      <button onClick={() => fetchSnapshot(liveCamera)} style={{ padding: '7px 16px', borderRadius: 8, background: 'var(--color-surface)', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 12 }}>
                         Retry
                       </button>
                     </div>
@@ -513,7 +513,7 @@ const CCTVManagement = () => {
                         onClick={() => setAttendanceType(t)}
                         style={{
                           padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
-                          background: attendanceType === t ? (t === 'entry' ? '#10b981' : '#f59e0b') : 'var(--surface-2)',
+                          background: attendanceType === t ? (t === 'entry' ? 'var(--color-success)' : 'var(--color-warning)') : 'var(--surface-2)',
                           color: attendanceType === t ? 'var(--on-accent)' : 'var(--muted)',
                         }}
                       >
@@ -590,8 +590,8 @@ const CCTVManagement = () => {
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4,
                             padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                            background: s.face_count > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-                            color: s.face_count > 0 ? '#10b981' : '#ef4444',
+                            background: s.face_count > 0 ? 'var(--color-success)' : 'var(--color-danger)',
+                            color: s.face_count > 0 ? 'var(--color-success)' : 'var(--color-danger)',
                           }}>
                             <Image size={11} /> {s.face_count} {s.face_count === 1 ? 'image' : 'images'}
                           </span>
@@ -649,7 +649,7 @@ const CCTVManagement = () => {
                             <div style={{ fontWeight: 500, fontSize: 11, color: 'var(--text)' }}>{fd.label || '—'}</div>
                             <div style={{ color: 'var(--muted)', fontSize: 10 }}>{new Date(fd.created_at).toLocaleDateString()}</div>
                           </div>
-                          <button onClick={() => handleDeleteFaceData(fd.id)} style={{ position: 'absolute', top: 5, right: 5, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: 6, padding: '4px 5px', cursor: 'pointer', color: 'var(--on-accent)', lineHeight: 0 }} title="Remove">
+                          <button onClick={() => handleDeleteFaceData(fd.id)} style={{ position: 'absolute', top: 5, right: 5, background: 'var(--color-shadow)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: 6, padding: '4px 5px', cursor: 'pointer', color: 'var(--on-accent)', lineHeight: 0 }} title="Remove">
                             <Trash2 size={11} />
                           </button>
                         </div>

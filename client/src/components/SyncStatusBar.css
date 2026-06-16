@@ -17,19 +17,19 @@
 }
 
 .sync-bar--offline {
-  background: rgba(239,68,68,0.08);
-  border-color: rgba(239,68,68,0.3);
+  background: var(--color-danger);
+  border-color: var(--color-danger);
   color: var(--error);
 }
 
 .sync-bar--syncing {
-  background: rgba(245,158,11,0.08);
-  border-color: rgba(245,158,11,0.3);
+  background: var(--color-warning);
+  border-color: var(--color-warning);
 }
 
 .sync-bar--synced {
-  background: rgba(16,185,129,0.08);
-  border-color: rgba(16,185,129,0.3);
+  background: var(--color-success);
+  border-color: var(--color-success);
 }
 
 .sync-bar__badge {

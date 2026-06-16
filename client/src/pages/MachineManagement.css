@@ -217,7 +217,7 @@
 .mm-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.5);
+    background: var(--color-shadow);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -368,7 +368,7 @@
 }
 
 .mm-btn--danger {
-    background: rgba(176,58,46,0.1);
+    background: var(--color-danger);
     color: var(--error);
 }
 
@@ -405,11 +405,11 @@
 }
 
 .mm-stat-value--error {
-    color: #dc2626;
+    color: var(--color-danger);
 }
 
 .mm-stat-value--warning {
-    color: #d97706;
+    color: var(--color-warning);
 }
 
 .mm-stat-value--muted {
@@ -475,11 +475,11 @@
 }
 
 .mm-reading-input--error {
-    border-color: #dc2626;
+    border-color: var(--color-danger);
 }
 
 .mm-reading-input--warning {
-    border-color: #d97706;
+    border-color: var(--color-warning);
 }
 
 .mm-reading-label {
@@ -488,11 +488,11 @@
 }
 
 .mm-reading-label--error {
-    color: #dc2626;
+    color: var(--color-danger);
 }
 
 .mm-reading-label--warning {
-    color: #d97706;
+    color: var(--color-warning);
 }
 
 .mm-reading-label--muted {
@@ -506,15 +506,15 @@
 }
 
 .mm-reading-hint--error {
-    color: #dc2626;
+    color: var(--color-danger);
 }
 
 .mm-reading-hint--warning {
-    color: #d97706;
+    color: var(--color-warning);
 }
 
 .mm-reading-hint--success {
-    color: #16a34a;
+    color: var(--color-success);
     font-weight: 600;
 }
 
@@ -537,20 +537,20 @@
 }
 
 .mm-good-prints-item--good {
-    color: #16a34a;
+    color: var(--color-success);
     font-weight: 600;
 }
 
 .mm-good-prints-item--error {
-    color: #dc2626;
+    color: var(--color-danger);
 }
 
 .mm-good-prints-item--warning {
-    color: #d97706;
+    color: var(--color-warning);
 }
 
 .mm-good-prints-item--alert {
-    color: #dc2626;
+    color: var(--color-danger);
     font-weight: 700;
 }
 
@@ -614,11 +614,11 @@
 }
 
 .mm-table-cell-mono--warning {
-    color: #d97706;
+    color: var(--color-warning);
 }
 
 .mm-table-cell-mono--error {
-    color: #dc2626;
+    color: var(--color-danger);
 }
 
 .mm-table-percent {
@@ -626,11 +626,11 @@
 }
 
 .mm-table-percent--error {
-    color: #dc2626;
+    color: var(--color-danger);
 }
 
 .mm-table-percent--warning {
-    color: #d97706;
+    color: var(--color-warning);
 }
 
 /* Monthly Stats */
@@ -648,11 +648,11 @@
 }
 
 .mm-monthly-stat-label--error {
-    color: #dc2626;
+    color: var(--color-danger);
 }
 
 .mm-monthly-stat-label--warning {
-    color: #d97706;
+    color: var(--color-warning);
 }
 
 .mm-monthly-stat-value {
@@ -660,11 +660,11 @@
 }
 
 .mm-monthly-stat-value--error {
-    color: #dc2626;
+    color: var(--color-danger);
 }
 
 .mm-monthly-stat-value--warning {
-    color: #d97706;
+    color: var(--color-warning);
 }
 
 /* Staff Section */
@@ -733,19 +733,19 @@
 }
 
 .mm-work-input-label--error {
-    color: #dc2626;
+    color: var(--color-danger);
 }
 
 .mm-work-input-label--warning {
-    color: #d97706;
+    color: var(--color-warning);
 }
 
 .mm-work-input--error {
-    border-color: #dc2626;
+    border-color: var(--color-danger);
 }
 
 .mm-work-input--warning {
-    border-color: #d97706;
+    border-color: var(--color-warning);
 }
 
 /* Assign Modal */

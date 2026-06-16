@@ -92,7 +92,7 @@ function AppearanceSettings() {
                     </div>
                     <div className="sp-theme-label">
                         <span className="font-bold">Dark Mode</span>
-                        <div className="sp-dot" style={{ background: '#22c55e' }} />
+                        <div className="sp-dot" style={{ background: 'var(--color-success)' }} />
                     </div>
                 </div>
                 

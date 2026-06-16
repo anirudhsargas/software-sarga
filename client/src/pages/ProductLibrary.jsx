@@ -575,11 +575,35 @@ const ProductLibrary = () => {
         setImageRequestSubmitting(false);
     };
 
+    const validateCategoryName = (name, excludeId) => {
+        const trimmed = (name || '').trim();
+        if (!trimmed) { toast.error('Category name cannot be empty'); return false; }
+        const duplicate = hierarchy.find(c =>
+            c.name.toLowerCase() === trimmed.toLowerCase() && c.id !== excludeId
+        );
+        if (duplicate) { toast.error(`Category "${trimmed}" already exists`); return false; }
+        return true;
+    };
+
+    const validateSubcategoryName = (name, categoryId, excludeId) => {
+        const trimmed = (name || '').trim();
+        if (!trimmed) { toast.error('Subcategory name cannot be empty'); return false; }
+        const cat = hierarchy.find(c => c.id === categoryId);
+        if (!cat) return true;
+        const duplicate = (cat.subcategories || []).find(s =>
+            s.name.toLowerCase() === trimmed.toLowerCase() && s.id !== excludeId
+        );
+        if (duplicate) { toast.error(`Subcategory "${trimmed}" already exists in this category`); return false; }
+        return true;
+    };
+
     const handleSaveCategory = async (e) => {
         e.preventDefault();
+        const trimmedName = (newCatName || '').trim();
+        if (!validateCategoryName(trimmedName, isEditing ? editId : null)) return;
         try {
             const formData = new FormData();
-            formData.append('name', newCatName);
+            formData.append('name', trimmedName);
             if (catImage) formData.append('image', catImage);
             else formData.append('image_url', catImageUrl);
             if (isEditing) {
@@ -602,10 +626,12 @@ const ProductLibrary = () => {
 
     const handleSaveSubcategory = async (e) => {
         e.preventDefault();
+        const trimmedName = (newSubName || '').trim();
+        if (!validateSubcategoryName(trimmedName, selectedCatId, isEditing ? editId : null)) return;
         try {
             const formData = new FormData();
             formData.append('category_id', selectedCatId);
-            formData.append('name', newSubName);
+            formData.append('name', trimmedName);
             if (subImage) formData.append('image', subImage);
             else formData.append('image_url', subImageUrl);
             if (isEditing) {
@@ -877,6 +903,29 @@ const ProductLibrary = () => {
             toast.error('Virtual subcategories cannot be deleted. Delete individual inventory items instead.');
             return;
         }
+
+        // Check if category has products
+        if (type === 'category') {
+            const cat = hierarchy.find(c => c.id === id);
+            if (cat) {
+                const totalProducts = (cat.subcategories || []).reduce((sum, s) => sum + (s.products?.length || 0), 0);
+                if (totalProducts > 0) {
+                    toast.error('This category contains products. Move or delete products first.');
+                    return;
+                }
+            }
+        }
+
+        // Check if subcategory has products
+        if (type === 'subcategory') {
+            const cat = hierarchy.find(c => (c.subcategories || []).some(s => s.id === id));
+            const sub = cat?.subcategories?.find(s => s.id === id);
+            if (sub && (sub.products?.length || 0) > 0) {
+                toast.error('This subcategory contains products. Move or delete products first.');
+                return;
+            }
+        }
+
         const isConfirmed = await confirm({
             title: `Delete ${type.charAt(0).toUpperCase() + type.slice(1)}`,
             message: `Are you sure you want to delete this ${type}: "${name}"?`,
@@ -2002,21 +2051,57 @@ const ProductLibrary = () => {
                                         <span className="text-xs font-bold">{availableSubcategories.find(s => s.id === selectedSubId)?.name || 'New Item'}</span>
                                     </div>
                                     <div className="stack-xs">
-                                        <label className="label">Sub-category</label>
-                                        <select
-                                            className="input-field"
-                                            style={{ background: 'var(--bg)', border: 'none' }}
-                                            value={selectedSubId || ''}
-                                            onChange={(e) => setSelectedSubId(e.target.value ? Number(e.target.value) : null)}
-                                            required
-                                            disabled={availableSubcategories.length === 0}
-                                        >
-                                            <option value="" disabled>Select Sub-category</option>
-                                            {availableSubcategories.map((sub) => (
-                                                <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                            ))}
-                                        </select>
+                                        <label className="label">Category</label>
+                                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                            <select
+                                                className="input-field"
+                                                style={{ background: 'var(--bg)', border: 'none', flex: 1 }}
+                                                value={selectedCatId || ''}
+                                                onChange={(e) => { setSelectedCatId(e.target.value ? Number(e.target.value) : null); setSelectedSubId(null); }}
+                                                aria-label="Select category"
+                                            >
+                                                <option value="" disabled>Select Category</option>
+                                                {hierarchy.map((cat) => (
+                                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                                ))}
+                                            </select>
+                                            {isPrivileged && (
+                                                <>
+                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setIsEditing(false); setNewCatName(''); setShowCatModal(true); }} title="Add Category" aria-label="Add Category" style={{ padding: '4px 6px' }}><Plus size={14} /></button>
+                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { const cat = hierarchy.find(c => c.id === selectedCatId); if (cat) startEditCategory(cat); }} title="Edit Category" aria-label="Edit Category" disabled={!selectedCatId} style={{ padding: '4px 6px' }}><Edit2 size={14} /></button>
+                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (selectedCatId) { const cat = hierarchy.find(c => c.id === selectedCatId); if (cat) handleDelete('category', cat.id, cat.name); } }} title="Delete Category" aria-label="Delete Category" disabled={!selectedCatId} style={{ padding: '4px 6px', color: 'var(--error)' }}><Trash2 size={14} /></button>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
+                                    {selectedCatId && (
+                                    <div className="stack-xs">
+                                        <label className="label">Sub-category</label>
+                                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                            <select
+                                                className="input-field"
+                                                style={{ background: 'var(--bg)', border: 'none', flex: 1 }}
+                                                value={selectedSubId || ''}
+                                                onChange={(e) => setSelectedSubId(e.target.value ? Number(e.target.value) : null)}
+                                                required
+                                                disabled={availableSubcategories.length === 0}
+                                                aria-label="Select subcategory"
+                                            >
+                                                <option value="" disabled>Select Sub-category</option>
+                                                {availableSubcategories.map((sub) => (
+                                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                                ))}
+                                            </select>
+                                            {isPrivileged && (
+                                                <>
+                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setSelectedCatId(selectedCatId); setIsEditing(false); setNewSubName(''); setShowSubModal(true); }} title="Add Subcategory" aria-label="Add Subcategory" style={{ padding: '4px 6px' }}><Plus size={14} /></button>
+                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { const cat = hierarchy.find(c => c.id === selectedCatId); const sub = cat?.subcategories?.find(s => s.id === selectedSubId); if (sub) startEditSubcategory(sub); }} title="Edit Subcategory" aria-label="Edit Subcategory" disabled={!selectedSubId} style={{ padding: '4px 6px' }}><Edit2 size={14} /></button>
+                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (selectedSubId) { const cat = hierarchy.find(c => c.id === selectedCatId); const sub = cat?.subcategories?.find(s => s.id === selectedSubId); if (sub) handleDelete('subcategory', sub.id, sub.name); } }} title="Delete Subcategory" aria-label="Delete Subcategory" disabled={!selectedSubId} style={{ padding: '4px 6px', color: 'var(--error)' }}><Trash2 size={14} /></button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                    )}
                                 </div>
 
                                 <div className="stack-xs" style={{ minWidth: '120px' }}>
@@ -2074,7 +2159,7 @@ const ProductLibrary = () => {
                                         <div className="image-overlay-actions" style={{
                                             position: 'absolute',
                                             inset: 0,
-                                            background: 'rgba(0,0,0,0.4)',
+                                            background: 'var(--color-shadow)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
@@ -2225,7 +2310,7 @@ const ProductLibrary = () => {
                                                                 borderRadius: '8px',
                                                                 transition: 'all 0.2s'
                                                             }}
-                                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.15)'}
+                                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--color-info)'}
                                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                                         >
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -2241,7 +2326,7 @@ const ProductLibrary = () => {
                                                             <span style={{
                                                                 fontFamily: 'monospace', fontSize: '11px',
                                                                 fontWeight: 700, color: 'var(--accent)',
-                                                                background: 'rgba(99,102,241,0.1)',
+                                                                background: 'var(--color-info)',
                                                                 padding: '2px 6px', borderRadius: '4px',
                                                             }}>{c.code}</span>
                                                         </div>
@@ -2338,7 +2423,7 @@ const ProductLibrary = () => {
                                 alignItems: 'center',
                                 gap: '12px',
                                 padding: '12px 16px',
-                                background: newProduct.isPhysicalProduct ? 'rgba(99,102,241,0.06)' : 'var(--surface-2, #1e293b)',
+                                background: newProduct.isPhysicalProduct ? 'var(--color-info)' : 'var(--surface-2, #1e293b)',
                                 border: `1.5px solid ${newProduct.isPhysicalProduct ? 'var(--primary, #6366f1)' : 'var(--border, #334155)'}`,
                                 borderRadius: '10px',
                                 cursor: 'pointer',

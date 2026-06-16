@@ -5,9 +5,9 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const SEV_STYLE = {
-    error: { bg: 'rgba(176,58,46,0.10)', border: 'rgba(176,58,46,0.28)', color: 'var(--error)', icon: XCircle },
-    warning: { bg: 'rgba(179,107,0,0.10)', border: 'rgba(179,107,0,0.28)', color: 'var(--warning)', icon: AlertTriangle },
-    info: { bg: 'rgba(47,59,70,0.08)', border: 'rgba(47,59,70,0.18)', color: 'var(--accent-2)', icon: Eye },
+    error: { bg: 'var(--color-danger)', border: 'var(--color-danger)', color: 'var(--error)', icon: XCircle },
+    warning: { bg: 'var(--color-warning)', border: 'var(--color-warning)', color: 'var(--warning)', icon: AlertTriangle },
+    info: { bg: 'var(--color-textSecondary)', border: 'var(--color-textSecondary)', color: 'var(--accent-2)', icon: Eye },
 };
 
 const DesignChecker = () => {
@@ -74,7 +74,7 @@ const DesignChecker = () => {
                             border: `2px dashed ${dragActive ? 'var(--accent)' : 'var(--border)'}`,
                             borderRadius: 14, padding: file ? '20px' : '48px 20px',
                             textAlign: 'center', cursor: 'pointer',
-                            background: dragActive ? 'rgba(31,42,51,0.04)' : 'var(--surface-2)',
+                            background: dragActive ? 'var(--color-text)' : 'var(--surface-2)',
                             transition: 'border-color 0.2s, background 0.2s',
                         }}>
                         <input ref={inputRef} type="file" accept="image/*,.pdf" hidden

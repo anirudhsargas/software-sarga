@@ -309,6 +309,8 @@ app.use('/api', require('./routes/customerDesigns'));
 app.use('/api', require('./routes/requests'));
 app.use('/api/staff', require('./routes/staff')(upload, removeUploadFile));
 app.use('/api/staff', require('./routes/staffDashboard'));
+app.use('/api', require('./routes/staffPortal')(upload));
+app.use('/api', require('./routes/designWorkspace')(upload));
 app.use('/api/schedules', require('./routes/scheduleManagement'));
 app.use('/api', require('./routes/jobs').router);
 app.use('/api', require('./routes/products')(upload, removeUploadFile));
@@ -328,6 +330,7 @@ try {
     logger.warn('[DevRoutes] Not loaded:', (e && e.stack) ? e.stack : (e && e.message) ? e.message : e);
 }
 app.use('/api', require('./routes/frontOffice'));
+app.use('/api/quick-billing', require('./routes/quickBilling'));
 app.use('/api', require('./routes/expenses'));
 app.use('/api', require('./routes/finance'));
 app.use('/api', require('./routes/expenses-extended'));

@@ -24,6 +24,17 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXAttribute[name.name='style'] ObjectExpression Property > Literal[value=/^#|^rgb|^rgba/i]",
+          message: 'Inline colors are disallowed. Please use the global theme.color.* tokens from src/theme/colors.js.',
+        },
+        {
+          selector: "JSXAttribute[name.name='style'] ObjectExpression Property > TemplateLiteral TemplateElement[value.raw=/^#|^rgb|^rgba/i]",
+          message: 'Inline colors are disallowed. Please use the global theme.color.* tokens from src/theme/colors.js.',
+        }
+      ],
     },
   },
 ])

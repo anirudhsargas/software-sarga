@@ -12,10 +12,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--surface-2, #18181b);
+  background: var(--surface-2, var(--color-text));
   padding: 6px;
   border-radius: calc(var(--radius, 12px) + 2px);
-  border: 1px solid var(--border, #27272a);
+  border: 1px solid var(--border, var(--color-text));
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
 }
@@ -30,7 +30,7 @@
   gap: 8px;
   padding: 10px 16px;
   border-radius: var(--radius, 12px);
-  color: var(--text-muted, #a1a1aa);
+  color: var(--text-muted, var(--color-disabled));
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
@@ -41,15 +41,15 @@
 }
 
 .sales-tab:hover {
-  color: var(--text-main, #f4f4f5);
-  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-main, var(--color-surfaceSecondary));
+  background: var(--color-surface);
 }
 
 .sales-tab.active {
-  color: var(--text-main, #f4f4f5);
-  background: var(--surface, #09090b);
-  border-color: var(--border, #27272a);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: var(--text-main, var(--color-surfaceSecondary));
+  background: var(--surface, var(--color-shadow));
+  border-color: var(--border, var(--color-text));
+  box-shadow: 0 4px 12px var(--color-shadow);
 }
 
 .sales-tab-icon {
@@ -59,7 +59,7 @@
 }
 
 .sales-tab.active .sales-tab-icon {
-  color: var(--accent, #6366f1);
+  color: var(--accent, var(--color-info));
   transform: scale(1.1);
 }
 

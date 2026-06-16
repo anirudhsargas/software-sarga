@@ -11,7 +11,7 @@ const DEPARTMENTS = [
 ];
 
 const DEPT_LABEL = { offset: 'Sarga Offset', digital: 'Sarga Digital', admin: 'Sarga Admin' };
-const DEPT_COLOR = { offset: '#6366f1', digital: '#0ea5e9', admin: '#10b981' };
+const DEPT_COLOR = { offset: 'var(--color-info)', digital: 'var(--color-info)', admin: 'var(--color-success)' };
 
 const formatNum = (n) => (typeof n === 'number' ? n.toLocaleString() : '—');
 const fmtDate = (d) => {
@@ -161,8 +161,8 @@ const InternalUsageReport = () => {
 
                 {/* Per-department cards */}
                 {Object.entries(summary).map(([dept, data]) => (
-                    <div key={dept} className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 6, borderLeft: `3px solid ${DEPT_COLOR[dept] || '#6366f1'}` }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: DEPT_COLOR[dept] || '#6366f1' }}>
+                    <div key={dept} className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 6, borderLeft: `3px solid ${DEPT_COLOR[dept] || 'var(--color-info)'}` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: DEPT_COLOR[dept] || 'var(--color-info)' }}>
                             <Building2 size={13} />
                             {DEPT_LABEL[dept] || dept.toUpperCase()}
                         </div>
@@ -196,7 +196,7 @@ const InternalUsageReport = () => {
                                                     style={{
                                                         width: 14,
                                                         height: h,
-                                                        background: DEPT_COLOR[dept] || '#6366f1',
+                                                        background: DEPT_COLOR[dept] || 'var(--color-info)',
                                                         borderRadius: 3,
                                                         opacity: 0.85,
                                                     }}
@@ -260,7 +260,7 @@ const InternalUsageReport = () => {
                                                 style={{
                                                     fontSize: 11,
                                                     background: `rgba(${DEPT_COLOR[bill.department] ? hexToRgb(DEPT_COLOR[bill.department]) : '99,102,241'}, 0.12)`,
-                                                    color: DEPT_COLOR[bill.department] || '#6366f1',
+                                                    color: DEPT_COLOR[bill.department] || 'var(--color-info)',
                                                 }}
                                             >
                                                 {DEPT_LABEL[bill.department] || bill.department || '—'}

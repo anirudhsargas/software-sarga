@@ -872,7 +872,7 @@ const BillsDocsTab = () => {
                                         )}
                                         <td>
                                             {d.file_path ? (
-                                                <a href={getFileUrl(d.file_path)} target="_blank" rel="noreferrer" className="acc-btn acc-btn--ghost acc-btn--xs">
+                                                <a href={getFileUrl(d.file_path)} target="_blank" rel="noopener noreferrer" className="acc-btn acc-btn--ghost acc-btn--xs">
                                                     <Eye size={14} /> View
                                                 </a>
                                             ) : '—'}

@@ -1,8 +1,8 @@
 /* JobDetail page styles */
 @keyframes pulse {
-    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
-    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
-    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 var(--color-info); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px var(--color-info); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 var(--color-info); }
 }
 .pulse-dot {
     animation: pulse 2s infinite;
@@ -212,7 +212,7 @@
 }
 
 .whatsapp-button {
-    background: #25D366;
+    background: var(--color-success);
     color: var(--on-accent);
     border: none;
     border-radius: 6px;
@@ -230,7 +230,7 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    box-shadow: 0 4px 16px var(--color-shadow);
     z-index: 9999;
     min-width: 210px;
     overflow: hidden;
@@ -407,21 +407,21 @@
 }
 
 .job-tag--colour {
-    background: rgba(146, 64, 14, 0.1);
-    color: #d97706;
-    border-color: rgba(217, 119, 6, 0.3);
+    background: var(--color-danger);
+    color: var(--color-warning);
+    border-color: var(--color-warning);
 }
 
 .job-tag--numbering {
-    background: rgba(30, 64, 175, 0.1);
-    color: #3b82f6;
-    border-color: rgba(59, 130, 246, 0.3);
+    background: var(--color-primaryHover);
+    color: var(--color-info);
+    border-color: var(--color-info);
 }
 
 .job-tag--matter {
-    background: rgba(124, 58, 237, 0.1);
-    color: #8b5cf6;
-    border-color: rgba(139, 92, 246, 0.3);
+    background: var(--color-primary);
+    color: var(--color-info);
+    border-color: var(--color-info);
 }
 
 .job-tag strong {
@@ -529,8 +529,8 @@
     position: absolute;
     top: 2px;
     right: 2px;
-    background: rgba(0,0,0,0.6);
-    color: #fff;
+    background: var(--color-shadow);
+    color: var(--color-surface);
     border: none;
     border-radius: 50%;
     width: 18px;
@@ -1119,7 +1119,7 @@
     position: absolute;
     top: 4px;
     right: 4px;
-    background: rgba(0,0,0,0.6);
+    background: var(--color-shadow);
     color: var(--on-accent);
     border: none;
     border-radius: 4px;
@@ -1156,7 +1156,7 @@
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.5);
+    background: var(--color-shadow);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1165,16 +1165,16 @@
 }
 
 .modal {
-    background: #222;
+    background: var(--color-text);
     border-radius: 16px;
     width: 100%;
     max-width: 400px;
     padding: 32px;
-    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    box-shadow: 0 20px 25px -5px var(--color-shadow);
 }
 
 .modal--dark {
-    background: #222;
+    background: var(--color-text);
 }
 
 .modal-title {
@@ -1212,10 +1212,10 @@
     font-size: 20px;
     color: var(--text);
     background: var(--surface-2);
-    border: 2px solid #555;
+    border: 2px solid var(--color-icon);
     border-radius: 8px;
     padding: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.16);
+    box-shadow: 0 2px 8px var(--color-shadow);
     width: 100%;
     outline: none;
     font-weight: 600;
@@ -1333,7 +1333,7 @@
 /* Refund Modal */
 .refund-max-info {
     padding: 12px;
-    background: #1e293b;
+    background: var(--color-text);
     border-radius: 8px;
     margin-bottom: 16px;
     display: flex;

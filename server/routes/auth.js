@@ -63,7 +63,14 @@ module.exports = (upload) => {
             const token = jwt.sign(
                 { id: user.id, user_id: user.user_id, role: user.role, branch_id: user.branch_id },
                 JWT_SECRET,
-                { expiresIn: '8h' }
+                { expiresIn: '12h' } // Shortened from 8h, but wait let's keep 12h and rely on revocation
+            );
+
+            // Record session
+            await pool.query(
+                `INSERT INTO sarga_user_sessions (user_id_internal, session_token, ip_address, user_agent, expires_at) 
+                 VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 12 HOUR))`,
+                [user.id, token, req.ip, req.headers['user-agent']]
             );
 
             auditLog(user.id, 'LOGIN', `User ${user.user_id} logged in`);
@@ -126,8 +133,11 @@ module.exports = (upload) => {
             const hashedPassword = await bcrypt.hash(newPassword, 10);
             await pool.query("UPDATE sarga_staff SET password = ?, is_first_login = 0 WHERE id = ?", [hashedPassword, userId]);
 
+            // Revoke ALL active sessions for this user to force immediate logout
+            await pool.query("UPDATE sarga_user_sessions SET is_revoked = 1 WHERE user_id_internal = ?", [userId]);
+
             auditLog(userId, 'PASSWORD_CHANGE', 'User changed password with complexity requirements');
-            res.json({ message: 'Password updated successfully' });
+            res.json({ message: 'Password updated successfully. All sessions revoked.' });
         } catch (err) {
             console.error('Change password error:', err);
             res.status(500).json({ message: 'Internal server error' });
@@ -210,6 +220,21 @@ module.exports = (upload) => {
         } catch (err) {
             console.error('Settings update error:', err);
             res.status(500).json({ message: 'Failed to save settings' });
+        }
+    });
+
+    // Logout endpoint
+    router.post('/auth/logout', authenticateToken, async (req, res) => {
+        try {
+            const authHeader = req.headers['authorization'];
+            const token = authHeader && authHeader.split(' ')[1];
+            if (token) {
+                await pool.query("UPDATE sarga_user_sessions SET is_revoked = 1 WHERE session_token = ?", [token]);
+            }
+            res.json({ message: 'Logged out successfully' });
+        } catch (err) {
+            console.error('Logout error:', err);
+            res.status(500).json({ message: 'Failed to logout' });
         }
     });
 

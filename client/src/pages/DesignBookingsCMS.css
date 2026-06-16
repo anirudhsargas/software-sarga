@@ -2,8 +2,8 @@
 
 .bookings-cms {
   padding: 16px;
-  background: var(--bg-main, #fcfcfd);
-  color: var(--text-main, #1d2939);
+  background: var(--bg-main, var(--color-background));
+  color: var(--text-main, var(--color-text));
 }
 
 /* CRM Metrics Row Widget */
@@ -14,14 +14,14 @@
 }
 
 .metric-card {
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #eaecf0);
+  background: var(--bg-card, var(--color-surface));
+  border: 1px solid var(--border-color, var(--color-surfaceHover));
   border-radius: 12px;
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 4px 6px -2px rgba(16, 24, 40, 0.03);
+  box-shadow: 0 4px 6px -2px var(--color-text);
 }
 
 .metric-icon {
@@ -34,10 +34,10 @@
   flex-shrink: 0;
 }
 
-.metric-icon.total { background: #eff8ff; color: #175cd3; }
-.metric-icon.confirmed { background: #fef8f3; color: #b93815; }
-.metric-icon.conversion { background: #ecfdf3; color: #027a48; }
-.metric-icon.pipeline { background: #f9f5ff; color: #6941c6; }
+.metric-icon.total { background: var(--color-surfaceSecondary); color: var(--color-primaryHover); }
+.metric-icon.confirmed { background: var(--color-background); color: var(--color-danger); }
+.metric-icon.conversion { background: var(--color-surfaceSecondary); color: var(--color-textSecondary); }
+.metric-icon.pipeline { background: var(--color-background); color: var(--color-textMuted); }
 
 .metric-info {
   display: flex;
@@ -47,21 +47,21 @@
 .metric-label {
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--text-muted, #667085);
+  color: var(--text-muted, var(--color-textMuted));
   text-transform: uppercase;
 }
 
 .metric-value {
   font-size: 1.5rem;
   font-weight: 800;
-  color: var(--text-main, #1d2939);
+  color: var(--text-main, var(--color-text));
 }
 
 .category-pill {
   font-weight: 600;
-  color: #0369a1;
-  background: #f0f9ff;
-  border: 1px solid #e0f2fe;
+  color: var(--color-primaryHover);
+  background: var(--color-surfaceSecondary);
+  border: 1px solid var(--color-surfaceHover);
   padding: 2px 8px;
   border-radius: 99px;
   font-size: 0.8rem;
@@ -69,8 +69,8 @@
 
 .designer-assigned {
   font-weight: 600;
-  color: #4f46e5;
-  background: #e0e7ff;
+  color: var(--color-primary);
+  background: var(--color-surfaceHover);
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 0.82rem;
@@ -85,56 +85,56 @@
 }
 
 .quote-badge.success {
-  background: #ecfdf3;
-  color: #027a48;
-  border: 1px solid #a7f3d0;
+  background: var(--color-surfaceSecondary);
+  color: var(--color-textSecondary);
+  border: 1px solid var(--color-border);
 }
 
 .quote-badge.pending {
-  background: #f2f4f7;
-  color: #475467;
-  border: 1px solid #d0d5dd;
+  background: var(--color-surfaceSecondary);
+  color: var(--color-icon);
+  border: 1px solid var(--color-border);
 }
 
 /* Dark mode overrides */
 html[data-theme="dark"] .bookings-cms {
-  background: #0f172a;
-  color: #cbd5e1;
+  background: var(--color-text);
+  color: var(--color-border);
 }
 
 html[data-theme="dark"] .metric-card {
-  background: #1e293b;
-  border-color: #334155;
+  background: var(--color-text);
+  border-color: var(--color-textSecondary);
 }
 
 html[data-theme="dark"] .metric-value {
-  color: #f8fafc;
+  color: var(--color-background);
 }
 
-html[data-theme="dark"] .metric-icon.total { background: #1e3a8a; color: #93c5fd; }
-html[data-theme="dark"] .metric-icon.confirmed { background: #7c2d12; color: #fde68a; }
-html[data-theme="dark"] .metric-icon.conversion { background: #064e3b; color: #a7f3d0; }
-html[data-theme="dark"] .metric-icon.pipeline { background: #311042; color: #e9d5ff; }
+html[data-theme="dark"] .metric-icon.total { background: var(--color-textSecondary); color: var(--color-border); }
+html[data-theme="dark"] .metric-icon.confirmed { background: var(--color-textSecondary); color: var(--color-border); }
+html[data-theme="dark"] .metric-icon.conversion { background: var(--color-textSecondary); color: var(--color-border); }
+html[data-theme="dark"] .metric-icon.pipeline { background: var(--color-text); color: var(--color-surfaceHover); }
 
 html[data-theme="dark"] .category-pill {
-  color: #7dd3fc;
-  background: #0c4a6e;
-  border-color: #0c4a6e;
+  color: var(--color-border);
+  background: var(--color-textSecondary);
+  border-color: var(--color-textSecondary);
 }
 
 html[data-theme="dark"] .designer-assigned {
-  color: #c7d2fe;
-  background: #312e81;
+  color: var(--color-border);
+  background: var(--color-textSecondary);
 }
 
 html[data-theme="dark"] .quote-badge.success {
-  background: #064e3b;
-  color: #a7f3d0;
-  border-color: #059669;
+  background: var(--color-textSecondary);
+  color: var(--color-border);
+  border-color: var(--color-success);
 }
 
 html[data-theme="dark"] .quote-badge.pending {
-  background: #334155;
-  color: #cbd5e1;
-  border-color: #4b5563;
+  background: var(--color-textSecondary);
+  color: var(--color-border);
+  border-color: var(--color-icon);
 }

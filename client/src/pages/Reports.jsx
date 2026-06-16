@@ -13,7 +13,7 @@ const MONTH_FULL = {
 
 // Green color scale from light (#C8E6C9) to dark (#1B5E20)
 function indexToColor(val) {
-    if (!val || val === 0) return '#e0e0e0';
+    if (!val || val === 0) return 'var(--color-surfaceHover)';
     // Clamp between 0.4 and 1.6 for color mapping
     const clamped = Math.max(0.4, Math.min(1.6, val));
     const t = (clamped - 0.4) / 1.2; // normalize 0..1
@@ -33,9 +33,9 @@ function indexLabel(val, peakMonths, slowMonths, monthFull) {
 }
 
 const TREND_CONFIG = {
-    growing: { icon: TrendingUp, color: '#16a34a', label: 'Growing' },
-    stable: { icon: Minus, color: '#ca8a04', label: 'Stable' },
-    declining: { icon: TrendingDown, color: '#dc2626', label: 'Declining' },
+    growing: { icon: TrendingUp, color: 'var(--color-success)', label: 'Growing' },
+    stable: { icon: Minus, color: 'var(--color-warning)', label: 'Stable' },
+    declining: { icon: TrendingDown, color: 'var(--color-danger)', label: 'Declining' },
 };
 
 export default function Reports() {
@@ -130,7 +130,7 @@ export default function Reports() {
                                 {grid.flat().map((month) => {
                                     const val = seasonalIndex[month] || 0;
                                     const bg = indexToColor(val);
-                                    const textColor = val > 1.1 ? '#fff' : val > 0.8 ? '#1B5E20' : '#555';
+                                    const textColor = val > 1.1 ? 'var(--color-surface)' : val > 0.8 ? 'var(--color-textSecondary)' : 'var(--color-icon)';
                                     const fullName = MONTH_FULL[month];
                                     const tipText = indexLabel(val, peakMonths, slowMonths, fullName);
 
@@ -227,7 +227,7 @@ export default function Reports() {
                         {/* Best Day */}
                         <div style={cardStyle}>
                             <div style={cardLabelStyle}>
-                                <Sun size={14} color="#f59e0b" /> Best Day
+                                <Sun size={14} color='var(--color-warning)' /> Best Day
                             </div>
                             <div style={cardValueStyle}>{bestDay}</div>
                             <div style={cardSubStyle}>Highest avg revenue</div>
@@ -236,7 +236,7 @@ export default function Reports() {
                         {/* Worst Day */}
                         <div style={cardStyle}>
                             <div style={cardLabelStyle}>
-                                <CloudRain size={14} color="#6b7280" /> Worst Day
+                                <CloudRain size={14} color='var(--color-textMuted)' /> Worst Day
                             </div>
                             <div style={cardValueStyle}>{worstDay}</div>
                             <div style={cardSubStyle}>Lowest avg revenue</div>
@@ -246,13 +246,13 @@ export default function Reports() {
                         <div style={cardStyle}>
                             <div style={cardLabelStyle}>
                                 {yoy >= 0
-                                    ? <TrendingUp size={14} color="#16a34a" />
-                                    : <TrendingDown size={14} color="#dc2626" />}
+                                    ? <TrendingUp size={14} color='var(--color-success)' />
+                                    : <TrendingDown size={14} color='var(--color-danger)' />}
                                 YoY Growth
                             </div>
                             <div style={{
                                 ...cardValueStyle,
-                                color: yoy > 0 ? '#16a34a' : yoy < 0 ? '#dc2626' : 'var(--text)',
+                                color: yoy > 0 ? 'var(--color-success)' : yoy < 0 ? 'var(--color-danger)' : 'var(--text)',
                             }}>
                                 {yoy > 0 ? '+' : ''}{yoy}%
                             </div>

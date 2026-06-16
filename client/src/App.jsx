@@ -21,8 +21,33 @@ import { AuthProvider } from './hooks/useAuth';
 
 import { HelmetProvider } from 'react-helmet-async';
 
+import { ThemeProvider } from './theme/ThemeProvider';
+
 import { syncManager } from './services/syncWorkerManager';
 import { SyncStatusBar } from './components/SyncStatusBar';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const AccountantLayout = lazy(() => import('./layouts/AccountantLayout'));
+const StaffLayout = lazy(() => import('./layouts/StaffLayout'));
+const StaffDashboard = lazy(() => import('./pages/staff/StaffDashboard'));
+const LeaveManagement = lazy(() => import('./pages/staff/LeaveManagement'));
+const MyTasks = lazy(() => import('./pages/staff/MyTasks'));
+
+const DesignerLayout = lazy(() => import('./layouts/DesignerLayout'));
+const DesignDashboard = lazy(() => import('./pages/designer/DesignDashboard'));
+const ProductLibrary = lazy(() => import('./pages/designer/ProductLibrary'));
+const DesignBooking = lazy(() => import('./pages/designer/DesignBooking'));
+const BlockJournal = lazy(() => import('./pages/designer/BlockJournal'));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 30000,
+      retry: 1
+    }
+  }
+});
 
 const ProtectedRoute = ({ children, roles }) => {
   if (!auth.isAuthenticated()) {
@@ -71,35 +96,19 @@ function App() {
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pageshow', handlePageShow);
 
-    // Theme handling (unchanged)
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const applyTheme = (isDark) => {
-      document.documentElement.classList.toggle('dark', isDark);
-    };
-    applyTheme(media.matches);
-    const handleChange = (event) => applyTheme(event.matches);
-    if (media.addEventListener) {
-      media.addEventListener('change', handleChange);
-    } else {
-      media.addListener(handleChange);
-    }
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('pageshow', handlePageShow);
-      if (media.removeEventListener) {
-        media.removeEventListener('change', handleChange);
-      } else {
-        media.removeListener(handleChange);
-      }
       syncManager.destroy();
     };
   }, []);
 
   return (
+    <QueryClientProvider client={queryClient}>
     <HelmetProvider>
+    <ThemeProvider>
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
@@ -159,6 +168,39 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/accounting/*"
+                element={
+                  <ProtectedRoute roles={['Accountant', 'Admin']}>
+                    <AccountantLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/staff/*"
+                element={
+                  <ProtectedRoute>
+                    <StaffLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<StaffDashboard />} />
+                <Route path="leaves" element={<LeaveManagement />} />
+                <Route path="tasks" element={<MyTasks />} />
+              </Route>
+              <Route
+                path="/designer/*"
+                element={
+                  <ProtectedRoute roles={['Designer', 'Admin']}>
+                    <DesignerLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<DesignDashboard />} />
+                <Route path="library" element={<ProductLibrary />} />
+                <Route path="bookings" element={<DesignBooking />} />
+                <Route path="blocks" element={<BlockJournal />} />
+              </Route>
               <Route path="/error/server" element={<ServerError />} />
               <Route path="/error/network" element={<NetworkError />} />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -170,7 +212,9 @@ function App() {
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>
+    </ThemeProvider>
     </HelmetProvider>
+    </QueryClientProvider>
   );
 }
 

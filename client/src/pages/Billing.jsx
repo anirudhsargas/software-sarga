@@ -548,10 +548,10 @@ const Billing = () => {
           <p className="billing-header__subtitle">Create invoice in under 30 seconds</p>
         </div>
         <div className="billing-header__right">
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowRecentBills(true)}><Clock size={15} /> Recent</button>
-          <button className="btn btn-ghost btn-sm" onClick={handleChangeCustomer}><User size={15} /> New Customer</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowRecentBills(true)}><Clock size={15} aria-hidden="true" /> Recent</button>
+          <button className="btn btn-ghost btn-sm" onClick={handleChangeCustomer}><User size={15} aria-hidden="true" /> New Customer</button>
           <button className="btn btn-primary btn-sm" onClick={handleAddOrder} disabled={saving || !canProceed}>
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />} Create Invoice
+            {saving ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Zap size={15} aria-hidden="true" />} Create Invoice
           </button>
         </div>
       </header>
@@ -614,12 +614,13 @@ const Billing = () => {
 
           {/* Search existing */}
           <div className="billing-field">
-            <Search size={14} className="billing-field__icon" />
-            <input ref={customerMobileRef} type="text" placeholder="Search by mobile / name / GST..." value={form.mobile || form.name}
+            <Search size={14} className="billing-field__icon" aria-hidden="true" />
+            <label htmlFor="billing-customer-search" className="sr-only">Search customer by mobile or name</label>
+            <input id="billing-customer-search" name="billingCustomerSearch" ref={customerMobileRef} type="text" placeholder="Search by mobile / name / GST..." value={form.mobile || form.name}
               onChange={e => { const v = e.target.value; setForm(p => ({ ...p, mobile: v.replace(/\D/g, '').slice(0, 10) })); setExistingCustomer(null); }}
               onKeyDown={e => { if (e.key === 'Enter') { customerNameRef.current?.focus(); } }}
-              className="billing-field__input" />
-            <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowScanner(true)} title="Scan barcode"><Camera size={14} /></button>
+              className="billing-field__input" autoComplete="off" />
+            <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowScanner(true)} title="Scan barcode" aria-label="Scan barcode"><Camera size={14} aria-hidden="true" /></button>
           </div>
 
           {customerMatches.length > 0 && (
@@ -661,40 +662,45 @@ const Billing = () => {
             <div className="billing-customer-form">
               <div className="billing-customer-form__grid">
                 <div className="billing-field">
-                  <User size={14} className="billing-field__icon" />
-                  <input ref={customerNameRef} type="text" placeholder={isWalkIn || form.type === 'Retail' ? 'Full Name' : 'Full Name *'} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                  <User size={14} className="billing-field__icon" aria-hidden="true" />
+                  <label htmlFor="billing-name" className="sr-only">Customer Name</label>
+                  <input id="billing-name" name="billingName" ref={customerNameRef} type="text" placeholder={isWalkIn || form.type === 'Retail' ? 'Full Name' : 'Full Name *'} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                     onKeyDown={e => { if (e.key === 'Enter') { const next = needsGst ? customerGstRef : customerEmailRef; next.current?.focus(); } }}
-                    className="billing-field__input" />
+                    className="billing-field__input" autoComplete="name" />
                 </div>
                 <div className="billing-field billing-field--mobile">
-                  <Phone size={14} className="billing-field__icon" />
-                  <input type="tel" placeholder={isWalkIn || form.type === 'Retail' ? 'Mobile' : 'Mobile *'} value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                  <Phone size={14} className="billing-field__icon" aria-hidden="true" />
+                  <label htmlFor="billing-mobile" className="sr-only">Mobile Number</label>
+                  <input id="billing-mobile" name="billingMobile" type="tel" placeholder={isWalkIn || form.type === 'Retail' ? 'Mobile' : 'Mobile *'} value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                     onKeyDown={e => { if (e.key === 'Enter') { customerNameRef.current?.focus(); } }}
-                    className="billing-field__input" />
+                    className="billing-field__input" autoComplete="tel" />
                 </div>
                 {needsGst && (
                   <div className="billing-field">
-                    <FileText size={14} className="billing-field__icon" />
-                    <input ref={customerGstRef} type="text" placeholder={form.type === 'Wholesale' ? 'GST Number *' : 'GST Number'} value={form.gst} onChange={e => setForm(p => ({ ...p, gst: e.target.value }))}
+                    <FileText size={14} className="billing-field__icon" aria-hidden="true" />
+                    <label htmlFor="billing-gst" className="sr-only">GST Number</label>
+                    <input id="billing-gst" name="billingGst" ref={customerGstRef} type="text" placeholder={form.type === 'Wholesale' ? 'GST Number *' : 'GST Number'} value={form.gst} onChange={e => setForm(p => ({ ...p, gst: e.target.value }))}
                       onKeyDown={e => { if (e.key === 'Enter') { customerEmailRef.current?.focus(); } }}
-                      className="billing-field__input" />
+                      className="billing-field__input" autoComplete="off" />
                   </div>
                 )}
                 <div className="billing-field">
-                  <Mail size={14} className="billing-field__icon" />
-                  <input ref={customerEmailRef} type="email" placeholder="Email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                  <Mail size={14} className="billing-field__icon" aria-hidden="true" />
+                  <label htmlFor="billing-email" className="sr-only">Email</label>
+                  <input id="billing-email" name="billingEmail" ref={customerEmailRef} type="email" placeholder="Email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
                     onKeyDown={e => { if (e.key === 'Enter') { customerAddressRef.current?.focus(); } }}
-                    className="billing-field__input" />
+                    className="billing-field__input" autoComplete="email" />
                 </div>
               </div>
               <div className="billing-field">
-                <MapPin size={14} className="billing-field__icon" />
-                <input ref={customerAddressRef} type="text" placeholder="Address" value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
+                <MapPin size={14} className="billing-field__icon" aria-hidden="true" />
+                <label htmlFor="billing-address" className="sr-only">Address</label>
+                <input id="billing-address" name="billingAddress" ref={customerAddressRef} type="text" placeholder="Address" value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
                   onKeyDown={e => { if (e.key === 'Enter') { document.querySelector('.billing-section--customer .btn--full')?.click(); } }}
-                  className="billing-field__input" />
+                  className="billing-field__input" autoComplete="street-address" />
               </div>
               <button className="btn btn-primary btn-sm btn--full mt-8" onClick={() => setStep('products')} disabled={!canProceed && !isWalkIn}>
-                Continue <ChevronDown size={14} />
+                Continue <ChevronDown size={14} aria-hidden="true" />
               </button>
             </div>
           )}
@@ -710,8 +716,8 @@ const Billing = () => {
           <div className="billing-product-top">
             <div className="billing-search-row" style={{ position: 'relative' }}>
               <div className="billing-field billing-field--search">
-                <Search size={16} className="billing-field__icon" />
-                <input ref={productSearchRef} type="text" placeholder="Scan barcode • Search product • Enter code" value={productSearchQuery}
+                <Search size={16} className="billing-field__icon" aria-hidden="true" />
+                <input ref={productSearchRef} id="billingProductSearch" name="billingProductSearch" type="text" placeholder="Scan barcode • Search product • Enter code" value={productSearchQuery}
                   onChange={e => { setProductSearchQuery(e.target.value); setSelectedSuggestionIdx(-1); }}
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
@@ -730,13 +736,13 @@ const Billing = () => {
                     if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedSuggestionIdx(i => Math.max(i - 1, 0)); }
                     if (e.key === 'Escape') { setProductSuggestions([]); setProductSearchQuery(''); }
                   }}
-                  className="billing-field__input" />
-                {productSearching && <Loader2 size={14} className="animate-spin" style={{ color: 'var(--muted)', flexShrink: 0 }} />}
+                  className="billing-field__input" aria-label="Search products by name or barcode" autoComplete="off" />
+                {productSearching && <Loader2 size={14} className="animate-spin" style={{ color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true" />}
               </div>
               <div className="billing-quick-actions">
-                <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowScanner(true)} title="Camera Scan"><Camera size={16} /></button>
-                <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowQuickEntry(true)} title="Quick Add"><Zap size={16} /></button>
-                {recentProducts.length > 0 && <button className="btn btn-ghost btn-icon btn-xs" onClick={() => { const r = recentProducts[0]; if (r) handleAddLineItem(r); }} title="Recent"><Clock size={16} /></button>}
+                <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowScanner(true)} title="Camera Scan" aria-label="Camera scan"><Camera size={16} aria-hidden="true" /></button>
+                <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowQuickEntry(true)} title="Quick Add" aria-label="Quick add product"><Zap size={16} aria-hidden="true" /></button>
+                {recentProducts.length > 0 && <button className="btn btn-ghost btn-icon btn-xs" onClick={() => { const r = recentProducts[0]; if (r) handleAddLineItem(r); }} title="Recent" aria-label="Add most recent product"><Clock size={16} aria-hidden="true" /></button>}
               </div>
               {/* Product suggestions dropdown */}
               {productSuggestions.length > 0 && (
@@ -774,9 +780,12 @@ const Billing = () => {
           {/* Quick Entry popup */}
           {showQuickEntry && (
             <div className="billing-quick-entry">
-              <input type="text" placeholder="Product name" value={quickEntry.name} onChange={e => setQuickEntry(p => ({ ...p, name: e.target.value }))} className="billing-field__input" />
-              <input type="number" placeholder="Amount" value={quickEntry.amount} onChange={e => setQuickEntry(p => ({ ...p, amount: e.target.value }))} className="billing-field__input" />
-              <select value={quickEntry.book_type} onChange={e => setQuickEntry(p => ({ ...p, book_type: e.target.value }))} className="billing-select">
+              <label htmlFor="billing-quick-name" className="sr-only">Product name</label>
+              <input id="billing-quick-name" name="billingQuickName" type="text" placeholder="Product name" value={quickEntry.name} onChange={e => setQuickEntry(p => ({ ...p, name: e.target.value }))} className="billing-field__input" autoComplete="off" />
+              <label htmlFor="billing-quick-amount" className="sr-only">Amount</label>
+              <input id="billing-quick-amount" name="billingQuickAmount" type="number" placeholder="Amount" value={quickEntry.amount} onChange={e => setQuickEntry(p => ({ ...p, amount: e.target.value }))} className="billing-field__input" />
+              <label htmlFor="billing-quick-type" className="sr-only">Book type</label>
+              <select id="billing-quick-type" name="billingQuickType" value={quickEntry.book_type} onChange={e => setQuickEntry(p => ({ ...p, book_type: e.target.value }))} className="billing-select">
                 <option value="Laser">Laser</option><option value="Offset">Offset</option><option value="Other">Other</option>
               </select>
               <button className="btn btn-primary btn-sm" onClick={handleQuickAdd}>Add</button>
@@ -789,7 +798,7 @@ const Billing = () => {
             <div className="billing-catalog-grid">
               {(hierarchy.find(c => c.id === selectedCategoryId)?.subcategories.find(s => s.id === selectedSubcategoryId)?.products || []).slice(0, 12).map(prod => (
                 <div key={prod.id} className="billing-catalog-item" onClick={() => handleAddLineItem(prod)}>
-                  <div className="billing-catalog-item__icon"><Package size={20} /></div>
+                  <div className="billing-catalog-item__icon"><Package size={20} aria-hidden="true" /></div>
                   <div className="billing-catalog-item__name">{prod.name || prod.title}</div>
                   <div className="billing-catalog-item__price">₹{Number(prod.mrp || prod.sell_price || 0).toLocaleString()}</div>
                 </div>
@@ -801,16 +810,16 @@ const Billing = () => {
           {orderLines.length > 0 ? (
             <div className="billing-products-layout">
               <div className="billing-table-wrapper">
-                <table className="billing-table">
+                  <table className="billing-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '30%' }}>Product</th>
-                      <th style={{ width: '12%' }}>Qty</th>
-                      <th style={{ width: '12%' }}>Rate</th>
-                      <th style={{ width: '10%' }}>Disc%</th>
-                      <th style={{ width: '12%' }}>Tax</th>
-                      <th style={{ width: '14%' }}>Total</th>
-                      <th style={{ width: '10%' }}></th>
+                      <th scope="col" style={{ width: '30%' }}>Product</th>
+                      <th scope="col" style={{ width: '12%' }}>Qty</th>
+                      <th scope="col" style={{ width: '12%' }}>Rate</th>
+                      <th scope="col" style={{ width: '10%' }}>Disc%</th>
+                      <th scope="col" style={{ width: '12%' }}>Tax</th>
+                      <th scope="col" style={{ width: '14%' }}>Total</th>
+                      <th scope="col" style={{ width: '10%' }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -914,9 +923,9 @@ const Billing = () => {
           <div className="billing-payment-inputs">
             {payment.selectedMethods.map((m, i) => (
               <div key={m} className="billing-field">
-                <IndianRupee size={14} className="billing-field__icon" />
-                <input ref={m === 'Cash' ? paymentAmountRef : null} type="number" placeholder={`${m} amount`} value={payment.methodAmounts[m] || ''}
-                  onChange={e => updateMethodAmount(m, e.target.value)} className="billing-field__input" />
+                <IndianRupee size={14} className="billing-field__icon" aria-hidden="true" />
+                <input ref={m === 'Cash' ? paymentAmountRef : null} id={`paymentAmount-${m}`} name={`paymentAmount-${m}`} type="number" placeholder={`${m} amount`} value={payment.methodAmounts[m] || ''}
+                  onChange={e => updateMethodAmount(m, e.target.value)} className="billing-field__input" aria-label={`${m} amount`} autoComplete="off" />
                 <span className="text-xs muted">{m}</span>
               </div>
             ))}
@@ -931,18 +940,20 @@ const Billing = () => {
           {/* Reference + Notes */}
           <div className="billing-payment-extras">
             <div className="billing-field">
-              <Hash size={14} className="billing-field__icon" />
-              <input ref={paymentRefNumberRef} type="text" placeholder="Reference number (required for non-cash)" value={payment.referenceNumber}
+              <Hash size={14} className="billing-field__icon" aria-hidden="true" />
+              <label htmlFor="billing-ref" className="sr-only">Reference number</label>
+              <input id="billing-ref" name="billingRef" ref={paymentRefNumberRef} type="text" placeholder="Reference number (required for non-cash)" value={payment.referenceNumber}
                 onChange={e => setPayment(p => ({ ...p, referenceNumber: e.target.value }))}
                 onKeyDown={e => { if (e.key === 'Enter') { document.querySelector('.billing-bottom-bar .btn-primary')?.click(); } }}
-                className="billing-field__input" />
+                className="billing-field__input" autoComplete="off" />
             </div>
             <div className="billing-field">
-              <MessageSquare size={14} className="billing-field__icon" />
-              <input type="text" placeholder="Notes (optional)" value={payment.description}
+              <MessageSquare size={14} className="billing-field__icon" aria-hidden="true" />
+              <label htmlFor="billing-notes" className="sr-only">Notes</label>
+              <input id="billing-notes" name="billingNotes" type="text" placeholder="Notes (optional)" value={payment.description}
                 onChange={e => setPayment(p => ({ ...p, description: e.target.value }))}
                 onKeyDown={e => { if (e.key === 'Enter') { document.querySelector('.billing-bottom-bar .btn-primary')?.click(); } }}
-                className="billing-field__input" />
+                className="billing-field__input" autoComplete="off" />
             </div>
           </div>
 
@@ -978,29 +989,30 @@ const Billing = () => {
       <div className="billing-bottom-bar">
         <div className="billing-bottom-bar__left">
           <button className="btn btn-ghost btn-sm" onClick={() => { localStorage.setItem('billingDraft', JSON.stringify({ customer: form, orders: orderLines, totals })); toast.success('Draft saved'); }}>
-            <Save size={15} /> Save Draft
+            <Save size={15} aria-hidden="true" /> Save Draft
           </button>
-          {lastBillData && <button className="btn btn-ghost btn-sm" onClick={handlePrintLast}><Eye size={15} /> Preview</button>}
+          {lastBillData && <button className="btn btn-ghost btn-sm" onClick={handlePrintLast}><Eye size={15} aria-hidden="true" /> Preview</button>}
         </div>
         <div className="billing-bottom-bar__right">
           <button className="btn btn-primary btn--full-mobile" onClick={handleAddOrder} disabled={saving || !canProceed}>
-            {saving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <><Zap size={16} /> {step === 'payment' ? 'Generate Invoice' : 'Create Invoice'}</>}
+            {saving ? <><Loader2 size={16} className="animate-spin" aria-hidden="true" /> Saving...</> : <><Zap size={16} aria-hidden="true" /> {step === 'payment' ? 'Generate Invoice' : 'Create Invoice'}</>}
           </button>
         </div>
       </div>
 
       {/* Scanner Modal */}
       {showScanner && (
-        <div className="modal-backdrop" onClick={() => setShowScanner(false)}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="scanner-title" onClick={() => setShowScanner(false)}>
           <div className="modal modal--sm" onClick={e => e.stopPropagation()}>
             <div className="modal__header">
-              <h3>Scan Barcode / QR</h3>
-              <button className="modal-close" onClick={() => setShowScanner(false)}><X size={18} /></button>
+              <h3 id="scanner-title">Scan Barcode / QR</h3>
+              <button className="modal-close" onClick={() => setShowScanner(false)} aria-label="Close scanner"><X size={18} aria-hidden="true" /></button>
             </div>
             <div className="modal__body">
               <p className="text-xs muted mb-8">Enter code manually or use camera:</p>
-              <input type="text" placeholder="Paste or type code..." className="billing-field__input"
-                onKeyDown={e => { if (e.key === 'Enter' && e.target.value) { handleQrLookup(e.target.value); setShowScanner(false); } }} autoFocus />
+              <label htmlFor="scanner-code" className="sr-only">Barcode or QR code</label>
+              <input id="scanner-code" name="scannerCode" type="text" placeholder="Paste or type code..." className="billing-field__input"
+                onKeyDown={e => { if (e.key === 'Enter' && e.target.value) { handleQrLookup(e.target.value); setShowScanner(false); } }} autoComplete="off" autoFocus />
             </div>
           </div>
         </div>
@@ -1008,18 +1020,18 @@ const Billing = () => {
 
       {/* Post-bill options */}
       {showPostBillOptions && (
-        <div className="modal-backdrop" onClick={() => setShowPostBillOptions(false)}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="post-bill-title" onClick={() => setShowPostBillOptions(false)}>
           <div className="modal modal--sm" onClick={e => e.stopPropagation()}>
             <div className="modal__header">
-              <h3>Invoice Created!</h3>
-              <button className="modal-close" onClick={() => setShowPostBillOptions(false)}><X size={18} /></button>
+              <h3 id="post-bill-title">Invoice Created!</h3>
+              <button className="modal-close" aria-label="Close" onClick={() => setShowPostBillOptions(false)}><X size={18} aria-hidden="true" /></button>
             </div>
             <div className="modal__body stack-sm">
               <button className="btn btn-primary btn--full" onClick={() => { handlePrintLast(); setShowPostBillOptions(false); }}>
-                <Printer size={16} className="mr-8" /> Print Invoice
+                <Printer size={16} className="mr-8" aria-hidden="true" /> Print Invoice
               </button>
               <button className="btn btn-ghost btn--full" onClick={() => { setShowPostBillOptions(false); }}>
-                <Plus size={16} className="mr-8" /> New Invoice
+                <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
               </button>
             </div>
           </div>
@@ -1028,19 +1040,19 @@ const Billing = () => {
 
       {/* Scanned preview modal */}
       {scannedPreview && (
-        <div className="modal-backdrop" onClick={() => setScannedPreview(null)}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Preview scanned product: ${scannedPreview.product?.name}`} onClick={() => setScannedPreview(null)}>
           <div className="modal modal--sm" onClick={e => e.stopPropagation()}>
             <div className="modal__header">
               <h3>{scannedPreview.product?.name}</h3>
-              <button className="modal-close" onClick={() => setScannedPreview(null)}><X size={18} /></button>
+              <button className="modal-close" onClick={() => setScannedPreview(null)} aria-label="Close scanned preview"><X size={18} aria-hidden="true" /></button>
             </div>
             <div className="modal__body stack-sm">
               <div className="row gap-sm items-center">
                 <span className="text-xs muted">Qty:</span>
                 <div className="billing-qty-adjust">
-                  <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setScannedQty(Math.max(1, scannedQty - 1))}><Minus size={12} /></button>
+                  <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setScannedQty(Math.max(1, scannedQty - 1))} aria-label="Decrease quantity"><Minus size={12} aria-hidden="true" /></button>
                   <span className="font-bold px-8">{scannedQty}</span>
-                  <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setScannedQty(scannedQty + 1)}><Plus size={12} /></button>
+                  <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setScannedQty(scannedQty + 1)} aria-label="Increase quantity"><Plus size={12} aria-hidden="true" /></button>
                 </div>
               </div>
               <div className="row gap-sm">

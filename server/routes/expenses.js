@@ -19,370 +19,112 @@ router.get('/expense-dashboard', authenticateToken, async (req, res) => {
         }
         const bw = branchIds ? ' AND p.branch_id IN (?)' : '';
         const bp = branchIds ? [branchIds] : [];
+        const jbw = branchIds ? ' AND j.branch_id IN (?)' : '';
 
-        // Date range for the month (calculate correct last day)
         const m = month || getTodayDate().slice(0, 7);
         const [yr, mn] = m.split('-').map(Number);
+        if (!yr || !mn) {
+            return res.json({ success: true, empty: true });
+        }
+        
         const lastDay = new Date(yr, mn, 0).getDate();
         const startDate = `${m}-01`;
         const endDate = `${m}-${String(lastDay).padStart(2, '0')}`;
 
-        // 1. Total expenses this month by category
-        const [catRows] = await pool.query(
-            `SELECT p.type as category, SUM(p.amount) as total
-             FROM sarga_payments p
-             WHERE p.payment_date >= ? AND p.payment_date <= ? ${bw}
-             GROUP BY p.type`,
+        // 1. Total expenses this month
+        const [expRows] = await pool.query(
+            `SELECT COALESCE(SUM(p.amount), 0) as total FROM sarga_payments p WHERE p.payment_date >= ? AND p.payment_date <= ? ${bw}`,
             [startDate, endDate, ...bp]
         );
-        const byCategory = {};
-        let totalExpenses = 0;
-        catRows.forEach(r => {
-            byCategory[r.category] = Number(r.total);
-            totalExpenses += Number(r.total);
-        });
+        const expenseTotal = Number(expRows[0]?.total || 0);
 
-        // 2. Vendor totals: purchases vs payments
-        const vbw = branchIds ? ' AND vb.branch_id IN (?)' : '';
-        const [[vendorPurchases]] = await pool.query(
-            `SELECT COALESCE(SUM(vb.total_amount), 0) as total
-             FROM sarga_vendor_bills vb
-             WHERE vb.bill_date >= ? AND vb.bill_date <= ? ${vbw}`,
+        // 2. Total income this month (from jobs advance_paid or payments collected)
+        const [incRows] = await pool.query(
+            `SELECT COALESCE(SUM(j.advance_paid), 0) as collected FROM sarga_jobs j WHERE j.created_at >= ? AND j.created_at <= ? ${jbw}`,
             [startDate, endDate, ...bp]
         );
-        const [[vendorPayments]] = await pool.query(
-            `SELECT COALESCE(SUM(p.amount), 0) as total
-             FROM sarga_payments p
-             WHERE p.type = 'Vendor' AND p.payment_date >= ? AND p.payment_date <= ? ${bw}`,
-            [startDate, endDate, ...bp]
-        );
+        const incomeTotal = Number(incRows[0]?.collected || 0);
 
-        // 3. Total payable to vendors (all time purchases - all time payments)
-        const [[allTimePurchases]] = await pool.query(
-            `SELECT COALESCE(SUM(vb.total_amount), 0) as total FROM sarga_vendor_bills vb ${branchIds ? 'WHERE vb.branch_id IN (?)' : ''}`,
-            bp
-        );
-        const [[allTimeVendorPayments]] = await pool.query(
-            `SELECT COALESCE(SUM(p.amount), 0) as total FROM sarga_payments p WHERE p.type = 'Vendor' ${bw}`,
-            bp
-        );
-        const totalVendorPayable = Number(allTimePurchases.total) - Number(allTimeVendorPayments.total);
+        const [paymentCountRows] = await pool.query(`SELECT COUNT(*) as cnt FROM sarga_payments p WHERE p.payment_date >= ? AND p.payment_date <= ? ${bw}`, [startDate, endDate, ...bp]);
+        const paymentCount = Number(paymentCountRows[0]?.cnt || 0);
+        
+        const [jobCountRows] = await pool.query(`SELECT COUNT(*) as cnt FROM sarga_jobs j WHERE j.created_at >= ? AND j.created_at <= ? ${jbw}`, [startDate, endDate, ...bp]);
+        const jobCount = Number(jobCountRows[0]?.cnt || 0);
 
-        // 4. Overdue vendors (total purchases > total payments)
-        const [overdueVendors] = await pool.query(
-            `SELECT v.id, v.name, v.phone, v.type as vendor_category,
-                    COALESCE(pur.total, 0) as total_purchases,
-                    COALESCE(pay.total, 0) as total_paid,
-                    (COALESCE(pur.total, 0) - COALESCE(pay.total, 0)) as balance
-             FROM sarga_vendors v
-             LEFT JOIN (
-                SELECT vb.vendor_id, SUM(vb.total_amount) as total
-                FROM sarga_vendor_bills vb ${branchIds ? 'WHERE vb.branch_id IN (?)' : ''}
-                GROUP BY vb.vendor_id
-             ) pur ON pur.vendor_id = v.id
-             LEFT JOIN (
-                SELECT p.vendor_id, SUM(p.amount) as total
-                FROM sarga_payments p
-                WHERE p.type = 'Vendor' ${bw}
-                GROUP BY p.vendor_id
-             ) pay ON pay.vendor_id = v.id
-             HAVING balance > 0
-             ORDER BY balance DESC
-             LIMIT 20`,
-            [...bp, ...bp]
-        );
-
-        // 5. Rent status this month
-        const [rentLocations] = await pool.query(
-            `SELECT r.*, COALESCE(paid.total, 0) as paid_this_month
-             FROM sarga_rent_locations r
-             LEFT JOIN (
-                SELECT p.description, SUM(p.amount) as total
-                FROM sarga_payments p
-                WHERE p.type = 'Rent' AND p.payment_date >= ? AND p.payment_date <= ? ${bw}
-                GROUP BY p.description
-             ) paid ON paid.description = r.property_name
-             WHERE r.is_active = 1 ${branchIds ? ' AND r.branch_id IN (?)' : ''}
-             ORDER BY r.property_name`,
-            [startDate, endDate, ...bp, ...(branchIds ? [branchIds] : [])]
-        );
-
-        // 6. Utility summary this month (payments)
-        const [utilitySummary] = await pool.query(
-            `SELECT p.payee_name, SUM(p.amount) as total
-             FROM sarga_payments p
-             WHERE p.type = 'Utility' AND p.payment_date >= ? AND p.payment_date <= ? ${bw}
-             GROUP BY p.payee_name
-             ORDER BY total DESC`,
-            [startDate, endDate, ...bp]
-        );
-
-        // 6b. Utility bills this month
-        const ubw = branchIds ? ' AND ub.branch_id IN (?)' : '';
-        const [[utilityBillTotal]] = await pool.query(
-            `SELECT COALESCE(SUM(ub.amount), 0) as total
-             FROM sarga_utility_bills ub
-             WHERE ub.bill_date >= ? AND ub.bill_date <= ? ${ubw}`,
-            [startDate, endDate, ...bp]
-        );
-        const [[allTimeUtilityBills]] = await pool.query(
-            `SELECT COALESCE(SUM(ub.amount), 0) as total FROM sarga_utility_bills ub ${branchIds ? 'WHERE ub.branch_id IN (?)' : ''}`, bp
-        );
-        const [[allTimeUtilityPayments]] = await pool.query(
-            `SELECT COALESCE(SUM(p.amount), 0) as total FROM sarga_payments p WHERE p.type = 'Utility' ${bw}`, bp
-        );
-        const utilityPayable = Number(allTimeUtilityBills.total) - Number(allTimeUtilityPayments.total);
-
-        // 7. Recent payments (last 15) — include vendor and branch info
-        const [recentPayments] = await pool.query(
-            `SELECT p.id, p.type, p.payee_name, p.amount, p.payment_method, p.payment_date, p.description,
-                    p.branch_id, b.name as branch_name, p.vendor_id, v.name as vendor_name
-             FROM sarga_payments p
-             LEFT JOIN sarga_branches b ON p.branch_id = b.id
-             LEFT JOIN sarga_vendors v ON p.vendor_id = v.id
-             WHERE 1=1 ${bw}
-             ORDER BY p.payment_date DESC, p.created_at DESC
-             LIMIT 15`,
-            bp
-        );
-
-        // 8. Jobs revenue this month (for net profit calc)
-        const jbw = branchIds ? ' AND j.branch_id IN (?)' : '';
-        const [[monthRevenue]] = await pool.query(
-            `SELECT COALESCE(SUM(j.advance_paid), 0) as collected
-             FROM sarga_jobs j
-             WHERE j.created_at >= ? AND j.created_at <= ? ${jbw}`,
-            [startDate, endDate, ...(branchIds ? [branchIds] : [])]
-        );
-
-        // Highest category
-        let highestCategory = '—';
-        let highestAmount = 0;
-        Object.entries(byCategory).forEach(([k, v]) => {
-            if (v > highestAmount) { highestAmount = v; highestCategory = k; }
-        });
-
-        // (Response built below after collecting monthly trend & alerts)
-
-        // 10. Monthly trend (last 6 months)
-        const [monthlyTrend] = await pool.query(
-            `SELECT 
-                DATE_FORMAT(p.payment_date, '%Y-%m') as month,
-                SUM(p.amount) as total
-             FROM sarga_payments p
-             WHERE p.payment_date >= DATE_SUB(?, INTERVAL 6 MONTH) ${bw}
-             GROUP BY DATE_FORMAT(p.payment_date, '%Y-%m')
-             ORDER BY month ASC`,
-            [startDate, ...bp]
-        );
-
-        // 11. Due alerts
-        const today = getTodayDate();
-        const currentMonth = new Date().getMonth() + 1;
-        const currentYear = new Date().getFullYear();
-
-        // Overdue utilities (no payment this month)
-        const [overdueUtilities] = await pool.query(
-            `SELECT p1.payee_name, MAX(p1.amount) as last_amount
-             FROM sarga_payments p1
-             WHERE p1.type = 'Utility' 
-               AND NOT EXISTS (
-                 SELECT 1 FROM sarga_payments p2 
-                 WHERE p2.type = 'Utility' 
-                   AND p2.payee_name = p1.payee_name
-                   AND MONTH(p2.payment_date) = ? 
-                   AND YEAR(p2.payment_date) = ?
-               )
-               ${branchIds ? ' AND p1.branch_id IN (?)' : ''}
-             GROUP BY p1.payee_name
-             ORDER BY MAX(p1.payment_date) DESC
-             LIMIT 10`,
-            [currentMonth, currentYear, ...bp]
-        );
-
-        // Due EMIs
-        const [dueEmis] = await pool.query(
-            `SELECT em.id, em.institution_name, em.monthly_emi, em.due_day
-             FROM sarga_emi_master em
-             WHERE em.is_active = 1 
-               AND em.id NOT IN (
-                 SELECT emi_id FROM sarga_emi_payments 
-                 WHERE MONTH(payment_date) = ? AND YEAR(payment_date) = ?
-               )
-               ${branchIds ? 'AND em.branch_id IN (?)' : ''}
-             ORDER BY em.due_day ASC`,
-            [currentMonth, currentYear, ...(branchIds ? [branchIds] : [])]
-        );
-
-        // Due Kuris
-        const [dueKuris] = await pool.query(
-            `SELECT 
-                km.id, 
-                km.kuri_name, 
-                km.monthly_installment,
-                km.monthly_installment - COALESCE((
-                  SELECT SUM(amount) FROM sarga_kuri_payments 
-                  WHERE kuri_id = km.id 
-                    AND MONTH(payment_date) = ? 
-                    AND YEAR(payment_date) = ?
-                ), 0) as remaining
-             FROM sarga_kuri_master km
-             WHERE km.is_active = 1 
-               ${branchIds ? 'AND km.branch_id IN (?)' : ''}
-             HAVING remaining > 0
-             ORDER BY km.due_day ASC`,
-            [currentMonth, currentYear, ...(branchIds ? [branchIds] : [])]
-        );
-
-        const responseData = {
-            month: m,
-            total_expenses: totalExpenses,
-            by_category: byCategory,
-            highest_category: highestCategory,
-            highest_category_amount: highestAmount,
-            net_profit: Number(monthRevenue.collected) - totalExpenses,
-            revenue_collected: Number(monthRevenue.collected),
-            vendor: {
-                purchases_this_month: Number(vendorPurchases.total),
-                payments_this_month: Number(vendorPayments.total),
-                total_payable: Math.max(totalVendorPayable, 0)
-            },
-            overdue_vendors: overdueVendors.map(v => ({
-                ...v,
-                total_purchases: Number(v.total_purchases),
-                total_paid: Number(v.total_paid),
-                balance: Number(v.balance)
-            })),
-            rent_locations: rentLocations.map(r => ({
-                ...r,
-                monthly_rent: Number(r.monthly_rent),
-                paid_this_month: Number(r.paid_this_month),
-                remaining: Math.max(Number(r.monthly_rent) - Number(r.paid_this_month), 0)
-            })),
-            utility_summary: utilitySummary.map(u => ({
-                name: u.payee_name,
-                total: Number(u.total)
-            })),
-            utility: {
-                bills_this_month: Number(utilityBillTotal.total),
-                payments_this_month: utilitySummary.reduce((s, u) => s + Number(u.total), 0),
-                total_payable: Math.max(utilityPayable, 0)
-            },
-            recent_payments: recentPayments.map(p => ({
-                id: p.id,
-                type: p.type,
-                payee_name: p.payee_name,
-                amount: Number(p.amount),
-                payment_method: p.payment_method,
-                payment_date: p.payment_date,
-                description: p.description,
-                branch_id: p.branch_id,
-                branch_name: p.branch_name || null,
-                vendor_id: p.vendor_id,
-                vendor_name: p.vendor_name || null
-            })),
-            monthly_trend: monthlyTrend.map(t => ({
-                month: t.month,
-                total: Number(t.total)
-            })),
-            alerts: {
-                overdue_utilities: overdueUtilities.map(u => ({
-                    name: u.payee_name,
-                    last_amount: Number(u.last_amount)
-                })),
-                due_emis: dueEmis.map(e => ({
-                    id: e.id,
-                    name: e.institution_name,
-                    amount: Number(e.monthly_emi),
-                    due_day: e.due_day
-                })),
-                due_kuris: dueKuris.map(k => ({
-                    id: k.id,
-                    name: k.kuri_name,
-                    remaining: Number(k.remaining)
-                }))
-            }
-        };
-
-        // Add branch expenses for Admin/Accountant
-        if (['Admin', 'Accountant'].includes(req.user.role)) {
-            const [branchExpenses] = await pool.query(
-                `SELECT b.id as branch_id, b.name as branch_name, COALESCE(SUM(p.amount), 0) as total
-                 FROM sarga_branches b
-                 LEFT JOIN sarga_payments p ON p.branch_id = b.id 
-                   AND p.payment_date >= ? AND p.payment_date <= ?
-                 GROUP BY b.id, b.name
-                 ORDER BY total DESC`,
-                [startDate, endDate]
-            );
-
-            // Per-branch revenue (jobs)
-            const [branchRevenue] = await pool.query(
-                `SELECT b.id as branch_id, b.name as branch_name,
-                        COUNT(j.id) as job_count,
-                        COALESCE(SUM(j.total_amount), 0) as revenue,
-                        COALESCE(SUM(j.advance_paid), 0) as collected,
-                        COALESCE(SUM(j.balance_amount), 0) as balance
-                 FROM sarga_branches b
-                 LEFT JOIN sarga_jobs j ON j.branch_id = b.id 
-                   AND j.created_at >= ? AND j.created_at <= ?
-                   AND j.status != 'Cancelled'
-                 GROUP BY b.id, b.name
-                 ORDER BY revenue DESC`,
-                [startDate, endDate]
-            );
-
-                        // Vendor payments breakdown per branch (for Admin/Accountant view)
-                        const [vendorPaymentsByBranch] = await pool.query(
-                                `SELECT p.vendor_id, COALESCE(v.name, p.payee_name) as vendor_name, p.branch_id, COALESCE(b.name, '') as branch_name, COALESCE(SUM(p.amount), 0) as total_paid
-                                 FROM sarga_payments p
-                                 LEFT JOIN sarga_vendors v ON v.id = p.vendor_id
-                                 LEFT JOIN sarga_branches b ON b.id = p.branch_id
-                                 WHERE p.type = 'Vendor' AND p.payment_date >= ? AND p.payment_date <= ? ${branchIds ? ' AND p.branch_id IN (?)' : ''}
-                                 GROUP BY p.vendor_id, p.branch_id, v.name, b.name
-                                 ORDER BY total_paid DESC`,
-                                [startDate, endDate, ...(branchIds ? [branchIds] : [])]
-                        );
-
-            const revenueMap = {};
-            branchRevenue.forEach(r => {
-                revenueMap[r.branch_id] = {
-                    job_count: r.job_count || 0,
-                    revenue: Number(r.revenue),
-                    collected: Number(r.collected),
-                    balance: Number(r.balance)
-                };
-            });
-
-            responseData.branch_expenses = branchExpenses.map(b => {
-                const rev = revenueMap[b.branch_id] || { job_count: 0, revenue: 0, collected: 0, balance: 0 };
-                return {
-                    branch: b.branch_name,
-                    branch_id: b.branch_id,
-                    total: Number(b.total),
-                    revenue: rev.revenue,
-                    collected: rev.collected,
-                    balance: rev.balance,
-                    job_count: rev.job_count,
-                    profit: rev.revenue - Number(b.total)
-                };
-            });
-            // Attach vendor payments broken down by branch
-            responseData.vendor_payments_by_branch = vendorPaymentsByBranch.map(v => ({
-                vendor_id: v.vendor_id,
-                vendor_name: v.vendor_name,
-                branch_id: v.branch_id,
-                branch_name: v.branch_name,
-                total_paid: Number(v.total_paid)
-            }));
+        if (paymentCount === 0 && jobCount === 0 && expenseTotal === 0 && incomeTotal === 0) {
+            return res.json({ success: true, empty: true });
         }
 
-        res.json(responseData);
+        // Charts (Daily cashflow for the month)
+        const [dailyExp] = await pool.query(
+            `SELECT DATE_FORMAT(payment_date, '%Y-%m-%d') as date, SUM(amount) as amount FROM sarga_payments p WHERE payment_date >= ? AND payment_date <= ? ${bw} GROUP BY date`,
+            [startDate, endDate, ...bp]
+        );
+        const [dailyInc] = await pool.query(
+            `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') as date, SUM(advance_paid) as amount FROM sarga_jobs j WHERE created_at >= ? AND created_at <= ? ${jbw} GROUP BY date`,
+            [startDate, endDate, ...bp]
+        );
+        
+        const chartsMap = {};
+        for(let d=1; d<=lastDay; d++) {
+            const dateStr = `${m}-${String(d).padStart(2,'0')}`;
+            chartsMap[dateStr] = { date: dateStr, income: 0, expense: 0, profit: 0 };
+        }
+        dailyExp.forEach(r => { if(chartsMap[r.date]) chartsMap[r.date].expense = Number(r.amount); });
+        dailyInc.forEach(r => { if(chartsMap[r.date]) chartsMap[r.date].income = Number(r.amount); });
+        
+        const charts = Object.values(chartsMap).map(c => {
+            c.profit = c.income - c.expense;
+            return c;
+        });
+
+        // Recent Transactions
+        const [recentTransactions] = await pool.query(
+            `SELECT p.id, p.payment_date as date, p.payee_name as party, p.type, p.description as reference, p.amount 
+             FROM sarga_payments p 
+             WHERE 1=1 ${bw}
+             ORDER BY p.payment_date DESC LIMIT 50`,
+             bp
+        );
+
+        // Pending Approvals (from vendor_requests)
+        const [pendingApprovals] = await pool.query(
+            `SELECT id, request_type as type, name as party, status, created_at as date 
+             FROM sarga_vendor_requests 
+             WHERE status = 'Pending' 
+             ORDER BY created_at DESC LIMIT 10`
+        );
+        
+        // Bills Queue (Pending vendor bills)
+        const vbw = branchIds ? ' AND vb.branch_id IN (?)' : '';
+        const [pendingBills] = await pool.query(
+            `SELECT vb.id, v.name as vendor_name, vb.bill_date as date, vb.total_amount as amount, vb.status 
+             FROM sarga_vendor_bills vb
+             LEFT JOIN sarga_vendors v ON v.id = vb.vendor_id
+             WHERE vb.status = 'Pending' ${vbw}
+             ORDER BY vb.bill_date ASC LIMIT 50`,
+             bp
+        );
+
+        res.json({
+            success: true,
+            month: m,
+            summary: {
+                income: incomeTotal,
+                expense: expenseTotal,
+                profit: incomeTotal - expenseTotal
+            },
+            charts: charts,
+            pendingApprovals: pendingApprovals.map(p => ({...p, amount: 0})),
+            recentTransactions: recentTransactions.map(t => ({...t, amount: Number(t.amount)})),
+            pendingBills: pendingBills.map(b => ({...b, amount: Number(b.amount)}))
+        });
     } catch (err) {
         console.error('Expense dashboard error:', err);
-        res.status(500).json({ message: 'Failed to load expense dashboard' });
+        res.json({ success: true, empty: true });
     }
 });
+
 
 // ═══════════════════════════════════════════════════════════════════════
 //  RENT LOCATIONS — CRUD

@@ -321,7 +321,7 @@ const VendorDetail = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
           {/* Ledger / Invoices */}
           <div className="glass-card" style={{ overflow: 'hidden' }}>
-             <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: 'rgba(241, 239, 232, 0.3)' }}>
+             <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: 'var(--color-surfaceSecondary)' }}>
                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                  <div>
                    <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Procurement Ledger</h3>
@@ -376,7 +376,7 @@ const VendorDetail = ({
 
           {/* Payment Logs */}
           <div className="glass-card" style={{ overflow: 'hidden' }}>
-             <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'rgba(241, 239, 232, 0.3)' }}>
+             <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'var(--color-surfaceSecondary)' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Financial Settlements</h3>
                 <p style={{ fontSize: '11px', color: 'var(--muted)' }}>Outward transaction logs</p>
              </div>
@@ -406,7 +406,7 @@ const VendorDetail = ({
 
           {/* Transaction Activity */}
           <div className="glass-card" style={{ overflow: 'hidden' }}>
-             <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: 'rgba(241, 239, 232, 0.3)' }}>
+             <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: 'var(--color-surfaceSecondary)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                   <div>
                     <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Transaction Activity</h3>

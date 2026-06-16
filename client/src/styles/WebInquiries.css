@@ -12,21 +12,21 @@
     --radius-xl: 20px;
     
     /* Dedicated color tokens for dynamic feedback */
-    --status-new-bg: rgba(59, 130, 246, 0.1);
-    --status-new-color: #3b82f6;
-    --status-contacted-bg: rgba(245, 158, 11, 0.1);
-    --status-contacted-color: #f59e0b;
-    --status-closed-bg: rgba(16, 185, 129, 0.1);
-    --status-closed-color: #10b981;
+    --status-new-bg: var(--color-info);
+    --status-new-color: var(--color-info);
+    --status-contacted-bg: var(--color-warning);
+    --status-contacted-color: var(--color-warning);
+    --status-closed-bg: var(--color-success);
+    --status-closed-color: var(--color-success);
 }
 
 .dark {
-    --status-new-bg: rgba(96, 165, 250, 0.15);
-    --status-new-color: #60a5fa;
-    --status-contacted-bg: rgba(251, 191, 36, 0.15);
-    --status-contacted-color: #fbbf24;
-    --status-closed-bg: rgba(52, 211, 153, 0.15);
-    --status-closed-color: #34d399;
+    --status-new-bg: var(--color-info);
+    --status-new-color: var(--color-info);
+    --status-contacted-bg: var(--color-warning);
+    --status-contacted-color: var(--color-warning);
+    --status-closed-bg: var(--color-success);
+    --status-closed-color: var(--color-success);
 }
 
 .web-inquiries-container {
@@ -75,8 +75,8 @@
     width: 48px;
     height: 48px;
     border-radius: var(--radius-md);
-    background: rgba(var(--primary-rgb), 0.08);
-    border: 1px solid rgba(var(--primary-rgb), 0.12);
+    background: var(--color-shadow), 0.08);
+    border: 1px solid var(--color-shadow), 0.12);
 }
 
 /* Layout Grid */
@@ -133,7 +133,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
-    background: rgba(var(--surface-rgb), 0.5);
+    background: var(--color-shadow), 0.5);
 }
 
 .search-box-modern {
@@ -151,7 +151,7 @@
 .search-box-modern:focus-within {
     border-color: var(--primary);
     background: var(--surface);
-    box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.12);
+    box-shadow: 0 0 0 3px var(--color-shadow), 0.12);
 }
 
 .search-box-modern input {
@@ -204,7 +204,7 @@
 .inquiry-card {
     padding: var(--space-md);
     border-radius: var(--radius-md);
-    background: rgba(var(--surface-rgb), 0.3);
+    background: var(--color-shadow), 0.3);
     border: 1px solid transparent;
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -239,8 +239,8 @@
 }
 
 .inquiry-card.unread {
-    background: rgba(var(--primary-rgb), 0.03);
-    border-color: rgba(var(--primary-rgb), 0.1);
+    background: var(--color-shadow), 0.03);
+    border-color: var(--color-shadow), 0.1);
 }
 
 .inquiry-card.unread .inquiry-name {
@@ -281,7 +281,7 @@
 }
 
 .inquiry-service {
-    background: rgba(var(--primary-rgb), 0.08);
+    background: var(--color-shadow), 0.08);
     color: var(--text-secondary);
     padding: 2px 8px;
     border-radius: 4px;
@@ -411,7 +411,7 @@
 
 /* Message Box */
 .detail-message-box {
-    background: rgba(var(--surface-rgb), 0.4);
+    background: var(--color-shadow), 0.4);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: var(--space-md);
@@ -437,7 +437,7 @@
 
 /* Action Area */
 .detail-actions {
-    background: rgba(var(--primary-rgb), 0.02);
+    background: var(--color-shadow), 0.02);
     border: 1px dashed var(--border);
     padding: var(--space-md);
     border-radius: var(--radius-md);
@@ -451,26 +451,26 @@
 }
 
 .btn--whatsapp {
-    color: #25D366;
-    border-color: rgba(37, 211, 102, 0.4);
-    background: rgba(37, 211, 102, 0.03);
+    color: var(--color-success);
+    border-color: var(--color-success);
+    background: var(--color-success);
 }
 
 .btn--whatsapp:hover:not(:disabled) {
-    background: rgba(37, 211, 102, 0.09);
-    border-color: #25D366;
+    background: var(--color-success);
+    border-color: var(--color-success);
     transform: translateY(-1px);
 }
 
 .btn--email {
-    color: #3b82f6;
-    border-color: rgba(59, 130, 246, 0.4);
-    background: rgba(59, 130, 246, 0.03);
+    color: var(--color-info);
+    border-color: var(--color-info);
+    background: var(--color-info);
 }
 
 .btn--email:hover:not(:disabled) {
-    background: rgba(59, 130, 246, 0.09);
-    border-color: #3b82f6;
+    background: var(--color-info);
+    border-color: var(--color-info);
     transform: translateY(-1px);
 }
 
@@ -524,7 +524,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: rgba(var(--surface-rgb), 0.2);
+    background: var(--color-shadow), 0.2);
     border: 1px dashed var(--border);
     border-radius: var(--radius-lg);
     text-align: center;

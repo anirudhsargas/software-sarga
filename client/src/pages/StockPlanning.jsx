@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useRef } from 'react';
-import { Package, AlertTriangle, CheckCircle, ShoppingCart, Download, Loader2, RefreshCw, X } from 'lucide-react';
+import { Package, AlertTriangle, CheckCircle, ShoppingCart, Download, Loader2, RefreshCw, X, Plus, Search } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -25,6 +25,16 @@ const StockPlanning = () => {
     const [sortDir, setSortDir] = useState('asc');
     const [editableList, setEditableList] = useState([]);
     const modalContentRef = useRef(null);
+
+    const [showAddItem, setShowAddItem] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [searching, setSearching] = useState(false);
+    const [manualItem, setManualItem] = useState({
+        name: '', material_id: '', suggested_qty: 1, unit: 'pcs',
+        estimated_cost: 0, vendor_name: '', urgency: 'normal', notes: ''
+    });
+    const searchTimer = useRef(null);
 
     // Sync editableList when purchaseList changes
     useEffect(() => {
@@ -131,6 +141,38 @@ const StockPlanning = () => {
         printWin.print();
     };
 
+    const handleSearchProducts = (query) => {
+        setSearchQuery(query);
+        if (searchTimer.current) clearTimeout(searchTimer.current);
+        if (!query.trim()) { setSearchResults([]); return; }
+        searchTimer.current = setTimeout(async () => {
+            setSearching(true);
+            try {
+                const res = await api.get('/products', { params: { search: query, limit: 10 } });
+                setSearchResults(res.data?.data || res.data || []);
+            } catch { setSearchResults([]); }
+            finally { setSearching(false); }
+        }, 300);
+    };
+
+    const handleAddManualItem = () => {
+        if (!manualItem.name.trim()) { toast.error('Item name is required'); return; }
+        const newItem = {
+            ...manualItem,
+            material_id: manualItem.material_id || `manual_${Date.now()}`,
+            name: manualItem.name.trim(),
+            suggested_qty: Number(manualItem.suggested_qty) || 1,
+            estimated_cost: Number(manualItem.estimated_cost) || 0,
+            _edited: true
+        };
+        setEditableList(prev => [...prev, newItem]);
+        setManualItem({ name: '', material_id: '', suggested_qty: 1, unit: 'pcs', estimated_cost: 0, vendor_name: '', urgency: 'normal', notes: '' });
+        setSearchQuery('');
+        setSearchResults([]);
+        setShowAddItem(false);
+        toast.success('Item added to purchase list');
+    };
+
     // Sorting
     const sorted = [...stockStatus].sort((a, b) => {
         let av = a[sortField], bv = b[sortField];
@@ -171,6 +213,9 @@ const StockPlanning = () => {
                 <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-ghost" onClick={() => fetchStockStatus(true)} disabled={refreshing}>
                         <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> Refresh
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => setShowAddItem(true)}>
+                        <Plus size={16} /> Add Item
                     </button>
                     <button className="btn btn-primary" onClick={handleGeneratePurchaseList}>
                         <ShoppingCart size={16} /> Generate Purchase List
@@ -362,6 +407,102 @@ const StockPlanning = () => {
                                     disabled={approving || purchaseList.length === 0}>
                                     {approving ? <><Loader2 size={16} className="animate-spin" /> Saving…</> : 'Approve & Save Order'}
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Item Modal */}
+            {showAddItem && (
+                <div className="modal-backdrop" onClick={() => setShowAddItem(false)}>
+                    <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+                        <button className="modal-close" onClick={() => setShowAddItem(false)}><X size={20} /></button>
+                        <h2 className="section-title mb-16">Add Item to Purchase List</h2>
+
+                        <div className="stack-md">
+                            <div>
+                                <label className="label" htmlFor="add-item-search">Search Existing Products</label>
+                                <div style={{ position: 'relative' }}>
+                                    <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                    <input id="add-item-search" className="input-field" style={{ paddingLeft: 32 }}
+                                        placeholder="Type product name..."
+                                        value={searchQuery}
+                                        onChange={e => handleSearchProducts(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                                {searching && <div className="muted text-sm" style={{ marginTop: 4 }}>Searching...</div>}
+                                {searchResults.length > 0 && (
+                                    <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, maxHeight: 180, overflowY: 'auto' }}>
+                                        {searchResults.map(p => (
+                                            <div key={p.id} role="button" tabIndex={0} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                                onClick={() => {
+                                                    setManualItem(prev => ({ ...prev, name: p.name, material_id: p.id, unit: p.unit || 'pcs' }));
+                                                    setSearchQuery(p.name);
+                                                    setSearchResults([]);
+                                                }}>
+                                                <span style={{ fontWeight: 500 }}>{p.name}</span>
+                                                <span className="muted text-sm">{p.unit || 'pcs'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div>
+                                    <label className="label" htmlFor="add-item-name">Product Name</label>
+                                    <input id="add-item-name" className="input-field" value={manualItem.name}
+                                        onChange={e => setManualItem(prev => ({ ...prev, name: e.target.value }))}
+                                        placeholder="e.g. Ink Cartridge" />
+                                </div>
+                                <div>
+                                    <label className="label" htmlFor="add-item-qty">Required Qty</label>
+                                    <input id="add-item-qty" className="input-field" type="number" min={1} value={manualItem.suggested_qty}
+                                        onChange={e => setManualItem(prev => ({ ...prev, suggested_qty: e.target.value }))} />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div>
+                                    <label className="label" htmlFor="add-item-unit">Unit</label>
+                                    <select id="add-item-unit" className="input-field" value={manualItem.unit}
+                                        onChange={e => setManualItem(prev => ({ ...prev, unit: e.target.value }))}>
+                                        <option value="pcs">Pieces</option>
+                                        <option value="kg">Kg</option>
+                                        <option value="liter">Liter</option>
+                                        <option value="meter">Meter</option>
+                                        <option value="ream">Ream</option>
+                                        <option value="roll">Roll</option>
+                                        <option value="pack">Pack</option>
+                                        <option value="box">Box</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="label" htmlFor="add-item-cost">Est. Cost (₹)</label>
+                                    <input id="add-item-cost" className="input-field" type="number" min={0} step="0.01" value={manualItem.estimated_cost}
+                                        onChange={e => setManualItem(prev => ({ ...prev, estimated_cost: e.target.value }))} />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="label" htmlFor="add-item-vendor">Vendor</label>
+                                <input id="add-item-vendor" className="input-field" value={manualItem.vendor_name}
+                                    onChange={e => setManualItem(prev => ({ ...prev, vendor_name: e.target.value }))}
+                                    placeholder="Vendor name (optional)" />
+                            </div>
+
+                            <div>
+                                <label className="label" htmlFor="add-item-notes">Notes</label>
+                                <textarea id="add-item-notes" className="input-field" style={{ minHeight: 60, resize: 'vertical' }} value={manualItem.notes}
+                                    onChange={e => setManualItem(prev => ({ ...prev, notes: e.target.value }))}
+                                    placeholder="Optional notes..." />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                                <button className="btn btn-ghost" onClick={() => setShowAddItem(false)}>Cancel</button>
+                                <button className="btn btn-primary" onClick={handleAddManualItem}>Add to List</button>
                             </div>
                         </div>
                     </div>

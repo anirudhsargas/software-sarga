@@ -4,13 +4,13 @@ import toast from 'react-hot-toast';
 import { Search, ExternalLink, RefreshCw, Loader2, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
 
 const STATUSES = [
-  { value: 'uploaded', label: 'Uploaded', color: '#1967d2' },
-  { value: 'under_review', label: 'Under Review', color: '#e37400' },
-  { value: 'proof_sent', label: 'Proof Sent', color: '#2e7d32' },
-  { value: 'approved', label: 'Approved', color: '#1b5e20' },
-  { value: 'printing', label: 'Printing', color: '#7b1fa2' },
-  { value: 'completed', label: 'Completed', color: '#1b5e20' },
-  { value: 'cancelled', label: 'Cancelled', color: '#c62828' },
+  { value: 'uploaded', label: 'Uploaded', color: 'var(--color-primaryHover)' },
+  { value: 'under_review', label: 'Under Review', color: 'var(--color-warning)' },
+  { value: 'proof_sent', label: 'Proof Sent', color: 'var(--color-textSecondary)' },
+  { value: 'approved', label: 'Approved', color: 'var(--color-textSecondary)' },
+  { value: 'printing', label: 'Printing', color: 'var(--color-textMuted)' },
+  { value: 'completed', label: 'Completed', color: 'var(--color-textSecondary)' },
+  { value: 'cancelled', label: 'Cancelled', color: 'var(--color-danger)' },
 ];
 
 function ArtworkManager() {
@@ -120,7 +120,7 @@ function ArtworkManager() {
         <h2 style={{ margin: 0 }}>Artwork Uploads</h2>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
-            <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
+            <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-disabled)' }} />
             <input className="input" placeholder="Search name, order, phone..." value={search}
               onChange={e => { setSearch(e.target.value); setPage(1); }}
               style={{ paddingLeft: '32px', width: '220px' }} />
@@ -257,7 +257,7 @@ function ArtworkManager() {
                       background: 'var(--glass-bg)', borderRadius: '6px', fontSize: '0.8rem'
                     }}>
                       <span style={{
-                        width: 6, height: 6, borderRadius: '50%', background: f.error ? '#dc3545' : '#27ae60', flexShrink: 0
+                        width: 6, height: 6, borderRadius: '50%', background: f.error ? 'var(--color-danger)' : 'var(--color-success)', flexShrink: 0
                       }} />
                       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {f.original_name}
@@ -288,7 +288,7 @@ function ArtworkManager() {
 
             {/* Delete */}
             <button className="btn btn-sm btn-ghost" onClick={() => handleDelete(detail.id)}
-              style={{ color: '#dc3545', fontSize: '0.8rem' }}>
+              style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>
               Delete Artwork
             </button>
           </div>

@@ -121,18 +121,18 @@
 }
 
 .otp-summary-item.success {
-  background: var(--success-bg, #ecfdf5);
-  border-color: var(--success, #10b981);
+  background: var(--success-bg, var(--color-surfaceSecondary));
+  border-color: var(--success, var(--color-success));
 }
 
 .otp-summary-item.warning {
-  background: var(--warning-bg, #fffbeb);
-  border-color: var(--warning, #f59e0b);
+  background: var(--warning-bg, var(--color-background));
+  border-color: var(--warning, var(--color-warning));
 }
 
 .otp-summary-item.error {
-  background: var(--error-bg, #fef2f2);
-  border-color: var(--error, #ef4444);
+  background: var(--error-bg, var(--color-background));
+  border-color: var(--error, var(--color-danger));
 }
 
 .otp-summary-item:hover {
@@ -173,11 +173,11 @@
 }
 
 .otp-category.success {
-  border-color: var(--success, #10b981);
+  border-color: var(--success, var(--color-success));
 }
 
 .otp-category.warning {
-  border-color: var(--warning, #f59e0b);
+  border-color: var(--warning, var(--color-warning));
 }
 
 /* Category Header */
@@ -239,7 +239,7 @@
 }
 
 .otp-test.fail {
-  background-color: var(--error-bg, rgba(239, 68, 68, 0.04));
+  background-color: var(--error-bg, var(--color-danger));
 }
 
 .otp-test-icon {
@@ -250,11 +250,11 @@
 }
 
 .otp-icon-pass {
-  color: var(--success, #10b981);
+  color: var(--success, var(--color-success));
 }
 
 .otp-icon-fail {
-  color: var(--error, #ef4444);
+  color: var(--error, var(--color-danger));
 }
 
 .otp-test-content {
@@ -313,7 +313,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  color: var(--success, #10b981);
+  color: var(--success, var(--color-success));
   width: 100%;
 }
 
@@ -337,7 +337,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  color: var(--warning, #f59e0b);
+  color: var(--warning, var(--color-warning));
   width: 100%;
 }
 
@@ -394,13 +394,13 @@
 
 /* Dark Mode — using .dark class to match app theming */
 .dark .otp-summary-item.success {
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--color-success);
 }
 
 .dark .otp-summary-item.warning {
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--color-warning);
 }
 
 .dark .otp-summary-item.error {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger);
 }

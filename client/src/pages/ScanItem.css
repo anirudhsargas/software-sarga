@@ -55,7 +55,7 @@
 
 /* Control Card & Tabs */
 .scanner-control-card {
-    background: var(--card-bg, rgba(30, 41, 59, 0.4));
+    background: var(--card-bg, var(--color-text));
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-radius: 16px;
@@ -65,7 +65,7 @@
 }
 
 .tabs-header {
-    background: var(--bg-3, rgba(15, 23, 42, 0.3));
+    background: var(--bg-3, var(--color-text));
     border-bottom: 1px solid var(--border);
 }
 
@@ -84,13 +84,13 @@
 
 .tab-btn:hover {
     color: var(--text);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--color-surface);
 }
 
 .tab-btn.active {
     color: var(--primary);
     border-bottom-color: var(--primary);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--color-surface);
 }
 
 .tab-body {
@@ -124,7 +124,7 @@
     width: 100%;
     aspect-ratio: 1.0;
     max-height: 380px;
-    background: #000;
+    background: var(--color-shadow);
     border-radius: 12px;
     overflow: hidden;
     margin-bottom: 16px;
@@ -143,7 +143,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.45);
+    background: var(--color-shadow);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -157,7 +157,7 @@
     border: 2px solid var(--primary);
     border-radius: 12px;
     position: relative;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 0 0 9999px var(--color-shadow);
     background: transparent;
 }
 
@@ -191,7 +191,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(15, 23, 42, 0.85);
+    background: var(--color-text);
     z-index: 5;
     backdrop-filter: blur(4px);
 }
@@ -208,7 +208,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.01);
+    background: var(--color-surface);
     transition: all 0.25s ease;
     position: relative;
     padding: 24px;
@@ -217,7 +217,7 @@
 
 .upload-dropzone:hover {
     border-color: var(--primary);
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--color-surface);
 }
 
 .dropzone-loader {
@@ -226,7 +226,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(15, 23, 42, 0.9);
+    background: var(--color-text);
     border-radius: 12px;
     backdrop-filter: blur(2px);
     z-index: 3;
@@ -234,8 +234,8 @@
 
 /* Error Alerts */
 .scan-error-alert {
-    background: var(--error-bg-trans, rgba(239, 68, 68, 0.1));
-    border-color: var(--error-border-trans, rgba(239, 68, 68, 0.2));
+    background: var(--error-bg-trans, var(--color-danger));
+    border-color: var(--error-border-trans, var(--color-danger));
     padding: 12px 16px;
     border-radius: 8px;
 }
@@ -246,7 +246,7 @@
 }
 
 .result-card {
-    background: var(--card-bg, rgba(30, 41, 59, 0.4));
+    background: var(--card-bg, var(--color-text));
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-radius: 16px;
@@ -296,8 +296,8 @@
     align-items: center;
     font-size: 11px;
     font-weight: 600;
-    color: var(--primary-light, #38bdf8);
-    background: rgba(56, 189, 248, 0.1);
+    color: var(--primary-light, var(--color-info));
+    background: var(--color-info);
     padding: 2px 8px;
     border-radius: 4px;
 }
@@ -308,7 +308,7 @@
     grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
     gap: 16px;
     margin: 16px 0;
-    background: var(--bg-2, rgba(15, 23, 42, 0.2));
+    background: var(--bg-2, var(--color-text));
     border-radius: 12px;
     padding: 16px;
     border: 1px solid var(--border);
@@ -365,7 +365,7 @@
 }
 
 .low-stock-alert-bar {
-    background: rgba(239, 68, 68, 0.08);
+    background: var(--color-danger);
     padding: 8px 12px;
     border-radius: 6px;
     border-left: 3px solid var(--error);
@@ -373,7 +373,7 @@
 
 /* Action Forms */
 .action-form {
-    background: rgba(15, 23, 42, 0.2);
+    background: var(--color-text);
     border-radius: 12px;
     padding: 16px;
     border: 1px solid var(--border);
