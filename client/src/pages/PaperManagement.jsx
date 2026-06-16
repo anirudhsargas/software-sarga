@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
 import { useConfirm } from '../contexts/ConfirmContext';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const PaperManagement = () => {
     useSEO('Paper Management');
 
@@ -231,11 +232,11 @@ const PaperManagement = () => {
                     <div className="row gap-sm items-center wrap">
                         <div className="row gap-xs items-center mr-8">
                             <MapPin size={16} className="muted" />
-                            <select className="input-field py-xs" style={{ width: 140 }} value={filterBranch} onChange={(e) => setFilterBranch(e.target.value)}>
+                            <BranchSelect className="input-field py-xs" style={{ width: 140 }} value={filterBranch} onChange={(e) => setFilterBranch(e.target.value)}>
                                 <option value="All">All Branches</option>
                                 <option value="Perambra">Perambra</option>
                                 <option value="Meppayur">Meppayur</option>
-                            </select>
+                            </BranchSelect>
                         </div>
 
                         <div className="row gap-xs items-center">
@@ -381,10 +382,10 @@ const PaperManagement = () => {
                                 </div>
                                 <div>
                                     <label className="label">Branch *</label>
-                                    <select className="input-field" required value={formData.branch} onChange={e => setFormData({...formData, branch: e.target.value})}>
+                                    <BranchSelect className="input-field" required value={formData.branch} onChange={e => setFormData({...formData, branch: e.target.value})}>
                                         <option value="Perambra">Perambra</option>
                                         <option value="Meppayur">Meppayur</option>
-                                    </select>
+                                    </BranchSelect>
                                 </div>
                                 <div>
                                     <label className="label">Price per Ream (₹)</label>

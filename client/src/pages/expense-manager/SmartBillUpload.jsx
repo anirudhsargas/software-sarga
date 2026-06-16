@@ -5,6 +5,7 @@ import CameraCapture from '../../components/CameraCapture';
 import api from '../../services/api';
 import auth from '../../services/auth';
 import localDb from '../../services/localDb';
+import BranchSelect from '../../components/ui/BranchSelect';
 import './SmartBillUpload.css';
 
 const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, defaultRelatedTab }) => {
@@ -783,7 +784,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 {editableItems.length > 0 && (
                   <div className="data-item">
                     <label>Stock goes to Branch</label>
-                    <select aria-label="Select option" 
+                    <BranchSelect aria-label="Select option" 
                       value={stockBranchId}
                       onChange={(e) => setStockBranchId(e.target.value)}
                     >
@@ -791,7 +792,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                       {branches.filter(b => b.id !== auth.getUser()?.branch_id).map(b => (
                         <option key={b.id} value={b.id}>{b.name}{b.short_name ? ` (${b.short_name})` : ''}</option>
                       ))}
-                    </select>
+                    </BranchSelect>
                   </div>
                 )}
                 <div className="data-item">

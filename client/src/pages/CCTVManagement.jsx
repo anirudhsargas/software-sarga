@@ -1,10 +1,11 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Camera, Plus, X, Edit2, Trash2, Loader2, RefreshCw, Eye, EyeOff, Wifi, WifiOff, User, Upload, Image, Video, MonitorPlay, Network, KeyRound, UserCheck, ChevronRight, ExternalLink } from 'lucide-react';
 import api from '../services/api';
 import SecureImage from '../components/SecureImage';
 import toast from 'react-hot-toast';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const BRANCHES = [
   { value: 'perambra', label: 'Perambra' },
   { value: 'meppayur_main', label: 'Meppayur Main' },
@@ -502,9 +503,9 @@ const CCTVManagement = () => {
                 <div style={{ padding: 14, display: 'grid', gap: 10 }}>
                   <div>
                     <label className="label" style={{ fontSize: 11 }}>Branch</label>
-                    <select className="input-field" value={attendanceBranch || liveCamera.branch} onChange={e => setAttendanceBranch(e.target.value)}>
+                    <BranchSelect className="input-field" value={attendanceBranch || liveCamera.branch} onChange={e => setAttendanceBranch(e.target.value)}>
                       {BRANCHES.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
-                    </select>
+                    </BranchSelect>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
                     {['entry', 'exit'].map(t => (
@@ -695,9 +696,9 @@ const CCTVManagement = () => {
                   </div>
                   <div>
                     <label className="label">Branch <span style={{ color: 'var(--error)' }}>*</span></label>
-                    <select className="input-field" value={cameraForm.branch} onChange={e => setCameraForm(f => ({ ...f, branch: e.target.value }))} required>
+                    <BranchSelect className="input-field" value={cameraForm.branch} onChange={e => setCameraForm(f => ({ ...f, branch: e.target.value }))} required>
                       {BRANCHES.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
-                    </select>
+                    </BranchSelect>
                   </div>
                 </div>
 

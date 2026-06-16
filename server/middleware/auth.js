@@ -51,6 +51,24 @@ const authenticateToken = async (req, res, next) => {
         }
 
         req.user = user;
+
+        // --- ENFORCE FRONT OFFICE BRANCH RULES ---
+        if (normalizeRole(req.user.role) === 'Front Office') {
+            const method = req.method.toUpperCase();
+            
+            if (['GET', 'DELETE', 'HEAD'].includes(method)) {
+                if (!req.query) req.query = {};
+                req.query.branch_id = req.user.branch_id;
+            } else if (['POST', 'PUT', 'PATCH'].includes(method)) {
+                if (!req.body) req.body = {};
+                if (req.body.branch_id && String(req.body.branch_id) !== String(req.user.branch_id)) {
+                    return res.status(403).json({ error: 'Branch access denied. Your account is restricted to your assigned branch.' });
+                }
+                req.body.branch_id = req.user.branch_id;
+            }
+        }
+        // -----------------------------------------
+
         next();
     } catch (err) {
         return res.status(401).json({ message: 'Invalid or expired token.' });
@@ -107,6 +125,31 @@ const authenticate = async (req, res, next) => {
         try {
             console.log(`[Auth] user loaded id=${req.user.id} role=${req.user.role} branch_id=${req.user.branch_id}`);
         } catch (e) { }
+
+        // --- ENFORCE FRONT OFFICE BRANCH RULES ---
+        if (normalizeRole(req.user.role) === 'Front Office') {
+            const method = req.method.toUpperCase();
+            
+            // For GET/DELETE/HEAD requests, override query params
+            if (['GET', 'DELETE', 'HEAD'].includes(method)) {
+                if (!req.query) req.query = {};
+                req.query.branch_id = req.user.branch_id;
+            } 
+            // For POST/PUT/PATCH, enforce body validation
+            else if (['POST', 'PUT', 'PATCH'].includes(method)) {
+                if (!req.body) req.body = {};
+                
+                // If they provided a branch_id and it mismatches, reject
+                if (req.body.branch_id && String(req.body.branch_id) !== String(req.user.branch_id)) {
+                    return res.status(403).json({ error: 'Branch access denied. Your account is restricted to your assigned branch.' });
+                }
+                
+                // Always ensure branch_id is correctly set
+                req.body.branch_id = req.user.branch_id;
+            }
+        }
+        // -----------------------------------------
+
         next();
     } catch (error) {
         console.error('Auth error:', error);
@@ -133,4 +176,21 @@ const requireRole = (allowedRoles) => {
     };
 };
 
-module.exports = { authenticateToken, authorizeRoles, JWT_SECRET, authenticate, requireRole, verifyWithAnySecret };
+/**
+ * Normalize role string to canonical casing.
+ * "Front Office" → "Front Office", "front office" → "Front Office", "FRONT OFFICE" → "Front Office"
+ */
+function normalizeRole(role) {
+    if (!role || typeof role !== 'string') return role;
+    const map = {
+        'admin': 'Admin',
+        'front office': 'Front Office',
+        'designer': 'Designer',
+        'printer': 'Printer',
+        'accountant': 'Accountant',
+        'other staff': 'Other Staff',
+    };
+    return map[role.toLowerCase().trim()] || role;
+}
+
+module.exports = { authenticateToken, authorizeRoles, JWT_SECRET, authenticate, requireRole, verifyWithAnySecret, normalizeRole };

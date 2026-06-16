@@ -4,6 +4,7 @@ import { Loader2, Search, Calendar, Filter } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 
+import BranchSelect from '../../components/ui/BranchSelect';
 function PickupBookings() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -49,10 +50,10 @@ function PickupBookings() {
           <option value="">All Status</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option>
         </select>
         <input className="input" type="date" value={filter.date} onChange={e => setFilter({ ...filter, date: e.target.value })} />
-        <select className="input" value={filter.branch_id} onChange={e => setFilter({ ...filter, branch_id: e.target.value })}>
+        <BranchSelect className="input" value={filter.branch_id} onChange={e => setFilter({ ...filter, branch_id: e.target.value })}>
           <option value="">All Branches</option>
           {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
+        </BranchSelect>
         <button className="btn btn-sm" onClick={loadBookings}><Filter size={14} /> Apply</button>
       </div>
       <div className="mgr-table-wrap">

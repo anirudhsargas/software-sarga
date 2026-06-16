@@ -6,6 +6,7 @@ import auth from '../services/auth';
 import localDb from '../services/localDb';
 import { useOfflineSync } from '../hooks/useOffline';
 import LoadingButton from '../components/LoadingButton';
+import BranchSelect from '../components/ui/BranchSelect';
 
 const DesignerDashboard = () => {
     useSEO('Designer Dashboard');
@@ -259,7 +260,7 @@ const DesignerDashboard = () => {
 
         {/* Branch Filter */}
         {branches.length > 0 && (
-          <select
+          <BranchSelect
             value={selectedBranch}
             onChange={(e) => setSelectedBranch(e.target.value)}
             style={{
@@ -287,7 +288,7 @@ const DesignerDashboard = () => {
                 {branch.name}
               </option>
             ))}
-          </select>
+          </BranchSelect>
         )}
       </div>
 

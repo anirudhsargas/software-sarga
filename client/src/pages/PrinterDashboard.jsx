@@ -7,6 +7,7 @@ import auth from '../services/auth';
 import localDb from '../services/localDb';
 import { useOfflineSync } from '../hooks/useOffline';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const PrinterDashboard = () => {
     useSEO('Printer Dashboard');
 
@@ -259,7 +260,7 @@ const PrinterDashboard = () => {
 
         {/* Branch Filter */}
         {branches.length > 0 && (
-          <select
+          <BranchSelect
             value={selectedBranch}
             onChange={(e) => setSelectedBranch(e.target.value)}
             style={{
@@ -287,7 +288,7 @@ const PrinterDashboard = () => {
                 {branch.name}
               </option>
             ))}
-          </select>
+          </BranchSelect>
         )}
       </div>
 

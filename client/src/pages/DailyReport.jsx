@@ -16,6 +16,7 @@ import { serverToday, serverNow } from '../services/serverTime';
 import toast from 'react-hot-toast';
 import { formatCurrencyDecimal } from '../constants';
 import SkeletonLoader from '../components/SkeletonLoader';
+import BranchSelect from '../components/ui/BranchSelect';
 import './DailyReport.css';
 
 const TABS = [
@@ -1618,11 +1619,11 @@ const DailyReport = () => {
                         <div className="dr-controls-branch">
                             <Building2 size={15} />
                             <label htmlFor="branch-selector" className="sr-only">Select Branch</label>
-                            <select id="branch-selector" aria-label="Select Branch" className="input-field dr-controls-branch-select" value={selectedBranch || ''}
+                            <BranchSelect id="branch-selector" aria-label="Select Branch" className="input-field dr-controls-branch-select" value={selectedBranch || ''}
                                 onChange={(e) => setSelectedBranch(Number(e.target.value))}
                             >
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                            </select>
+                            </BranchSelect>
                         </div>
                     )}
                     <div className="dr-controls-date">

@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     Plus, Edit2, Trash2, Power, PowerOff, Loader2, Building2, Settings,
     Users, UserPlus, X, Eye, Hash, Gauge, IndianRupee, ClipboardList,
@@ -16,6 +16,7 @@ import MeterVerification from '../components/MeterVerification';
 import { formatCurrency, formatCurrencyDecimal } from '../utils/formatters';
 import './MachineManagement.css';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const MachineManagement = () => {
     useSEO('Machine Management');
 
@@ -1209,7 +1210,7 @@ const MachineManagement = () => {
                         {isAdmin && (
                             <div className="row items-center gap-sm ml-auto">
                                 <span className="text-sm font-medium muted">Branch:</span>
-                                <select 
+                                <BranchSelect 
                                     className="mm-filter-select"
                                     value={selectedBranch}
                                     onChange={e => setSelectedBranch(e.target.value)}
@@ -1218,7 +1219,7 @@ const MachineManagement = () => {
                                     {branches.map(b => (
                                         <option key={b.id} value={b.id}>{b.name}</option>
                                     ))}
-                                </select>
+                                </BranchSelect>
                             </div>
                         )}
                     </div>
@@ -1333,12 +1334,12 @@ const MachineManagement = () => {
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Branch *</label>
-                                    <select className="input-field" required
+                                    <BranchSelect className="input-field" required
                                         value={formData.branch_id}
                                         onChange={e => setFormData({ ...formData, branch_id: e.target.value })}>
                                         <option value="">Select Branch</option>
                                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                    </select>
+                                    </BranchSelect>
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Location</label>
@@ -1490,14 +1491,14 @@ const MachineManagement = () => {
                                 {/* Branch selector */}
                                 <div className="mm-branch-selector">
                                     <label className="label mm-label-xs">Branch</label>
-                                    <select
+                                    <BranchSelect
                                         className="input-field"
                                         value={bookAssignBranchId}
                                         onChange={e => handleModalBranchChange(e.target.value)}
                                     >
                                         <option value="">Select branch…</option>
                                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                    </select>
+                                    </BranchSelect>
                                 </div>
                                 <div className="stack-sm">
                                     {foStaff.length === 0 ? (

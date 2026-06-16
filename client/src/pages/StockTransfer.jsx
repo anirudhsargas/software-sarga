@@ -11,6 +11,7 @@ import auth from '../services/auth';
 import toast from 'react-hot-toast';
 import './StockTransfer.css';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const StockTransfer = () => {
     useSEO('Stock Transfer');
 
@@ -300,7 +301,7 @@ const StockTransfer = () => {
                                     <div className="form-row form-row--2">
                                         <div className="stack-xs" style={{ opacity: transferMode === 'request' ? 0.6 : 1 }}>
                                             <label className="label">Source Branch</label>
-                                            <select 
+                                            <BranchSelect 
                                                 className="input-field" 
                                                 value={fromBranchId} 
                                                 onChange={e => setFromBranchId(e.target.value)}
@@ -309,12 +310,12 @@ const StockTransfer = () => {
                                                 {branches.map(b => (
                                                     <option key={b.id} value={b.id}>{b.name} (Qty: {branchStockMap[b.id] || 0})</option>
                                                 ))}
-                                            </select>
+                                            </BranchSelect>
                                         </div>
 
                                         <div className="stack-xs">
                                             <label className="label">{transferMode === 'direct' ? 'Destination Branch' : 'Request From Branch'}</label>
-                                            <select 
+                                            <BranchSelect 
                                                 className="input-field" 
                                                 value={toBranchId} 
                                                 onChange={e => setToBranchId(e.target.value)}
@@ -323,7 +324,7 @@ const StockTransfer = () => {
                                                 {branches.filter(b => String(b.id) !== String(myBranchId)).map(b => (
                                                     <option key={b.id} value={b.id}>{b.name} (Avail: {branchStockMap[b.id] || 0})</option>
                                                 ))}
-                                            </select>
+                                            </BranchSelect>
                                         </div>
                                     </div>
 

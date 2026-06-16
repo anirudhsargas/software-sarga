@@ -8,6 +8,7 @@ import {
 import api from '../services/api';
 import { formatCurrency as fmt } from '../constants';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const CONFIDENCE_COLORS = {
     High: { bg: 'var(--color-ok, #16a34a)', light: 'var(--success-bg)', text: 'var(--success)' },
     Medium: { bg: 'var(--color-warning, #f59e0b)', light: 'var(--warning-bg)', text: 'var(--warning)' },
@@ -99,10 +100,10 @@ const OrderPredictions = () => {
                 {/* Branch filter */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 4px 0 10px', height: 36 }}>
                     <Building2 size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
-                    <select className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ border: 'none', background: 'transparent', boxShadow: 'none', height: 34, padding: '0 28px 0 4px', fontSize: 13, color: 'var(--text)', minWidth: 110 }}>
+                    <BranchSelect className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ border: 'none', background: 'transparent', boxShadow: 'none', height: 34, padding: '0 28px 0 4px', fontSize: 13, color: 'var(--text)', minWidth: 110 }}>
                         <option value="">All Branches</option>
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
+                    </BranchSelect>
                 </div>
 
                 {/* Lookahead filter */}

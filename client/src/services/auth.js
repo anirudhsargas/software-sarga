@@ -47,14 +47,20 @@ const auth = {
             return false;
         }
     },
+    normalizeRole: (role) => {
+        if (!role) return '';
+        const map = { 'admin': 'Admin', 'front office': 'Front Office', 'designer': 'Designer', 'printer': 'Printer', 'accountant': 'Accountant', 'other staff': 'Other Staff' };
+        return map[role.toLowerCase().trim()] || role;
+    },
+
     getRole: () => {
         const user = auth.getUser();
         return user && user.role ? user.role : '';
     },
 
     isRole: (...roles) => {
-        const role = auth.getRole();
-        return roles.includes(role);
+        const role = auth.normalizeRole(auth.getRole());
+        return roles.some(r => auth.normalizeRole(r) === role);
     },
 
     can: (permission) => {

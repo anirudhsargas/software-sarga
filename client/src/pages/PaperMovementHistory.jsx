@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const PaperMovementHistory = () => {
     useSEO('Paper Movement History');
 
@@ -73,7 +74,7 @@ const PaperMovementHistory = () => {
             <div className="panel row gap-md items-center wrap">
                 <div className="row gap-sm wrap items-center">
                     <Filter size={18} className="muted" />
-                    <select 
+                    <BranchSelect 
                         className="input-field" 
                         style={{ width: 160 }}
                         value={filters.branch_id}
@@ -81,7 +82,7 @@ const PaperMovementHistory = () => {
                     >
                         <option value="">All Branches</option>
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
+                    </BranchSelect>
                     <select 
                         className="input-field" 
                         style={{ width: 160 }}

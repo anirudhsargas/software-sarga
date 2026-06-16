@@ -14,6 +14,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import './Accounts.css';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const TABS = [
     { key: 'gst', label: 'GST Summary', icon: PieChart },
     { key: 'sales', label: 'Sales Register', icon: TrendingUp },
@@ -51,10 +52,10 @@ const Accounts = () => {
                 <div className="acc-header__right">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px' }}>
                         <Building2 size={15} className="muted" style={{ flexShrink: 0 }} />
-                        <select className="acc-select" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', minWidth: 130 }}>
+                        <BranchSelect className="acc-select" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', minWidth: 130 }}>
                             <option value="">All Branches</option>
                             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                        </select>
+                        </BranchSelect>
                     </div>
                 </div>
             </div>

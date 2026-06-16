@@ -6,6 +6,7 @@ import auth from '../services/auth';
 import localDb from '../services/localDb';
 import { useOfflineSync } from '../hooks/useOffline';
 import LoadingButton from '../components/LoadingButton';
+import BranchSelect from '../components/ui/BranchSelect';
 
 const OtherStaffDashboard = () => {
     useSEO('Other Staff Dashboard');
@@ -258,7 +259,7 @@ const OtherStaffDashboard = () => {
 
         {/* Branch Filter */}
         {branches.length > 0 && (
-          <select
+          <BranchSelect
             value={selectedBranch}
             onChange={(e) => setSelectedBranch(e.target.value)}
             style={{
@@ -286,7 +287,7 @@ const OtherStaffDashboard = () => {
                 {branch.name}
               </option>
             ))}
-          </select>
+          </BranchSelect>
         )}
       </div>
 

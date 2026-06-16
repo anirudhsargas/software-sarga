@@ -18,6 +18,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import toast from 'react-hot-toast';
+import BranchSelect from '../components/ui/BranchSelect';
 
 const Customers = () => {
     useSEO('Customers');
@@ -491,7 +492,7 @@ const Customers = () => {
                 </div>
             </div>
 
-            <div className="card p-0 overflow-hidden shadow-sm">
+            <div className="card p-0 overflow-hidden shadow-sm" style={{ contain: 'layout', minHeight: '600px' }}>
                 <div className="customer-list" style={{ display: 'flex', flexDirection: 'column' }}>
                 {loading && customers.length === 0 ? (
                     <SkeletonLoader type="customer-list" count={8} />
@@ -911,7 +912,7 @@ const Customers = () => {
 
                                 <div>
                                     <label className="label">Branch</label>
-                                    <select
+                                    <BranchSelect
                                         className="input-field"
                                         value={jobData.branch_id}
                                         onChange={(e) => setJobData({ ...jobData, branch_id: e.target.value })}
@@ -920,7 +921,7 @@ const Customers = () => {
                                         {branches.map(b => (
                                             <option key={b.id} value={b.id}>{b.name}</option>
                                         ))}
-                                    </select>
+                                    </BranchSelect>
                                 </div>
                             </div>
 

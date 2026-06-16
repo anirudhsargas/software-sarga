@@ -11,6 +11,7 @@ import api from '../services/api';
 import { formatCurrency as fmt } from '../constants';
 import usePolling from '../hooks/usePolling';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const STAGE_CONFIG = {
     Pending:          { icon: Clock,        color: 'var(--text-muted)', bg: 'var(--surface-2)', label: 'Pending' },
     Designing:        { icon: Palette,      color: 'var(--accent)', bg: 'var(--surface-2)', label: 'Designing' },
@@ -88,10 +89,10 @@ const ProductionTracker = () => {
             <div className="row gap-sm items-center flex-wrap mb-16">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px' }}>
                     <Building2 size={15} className="muted" style={{ flexShrink: 0 }} />
-                    <select className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', minWidth: 130 }}>
+                    <BranchSelect className="input-field" value={branchId} onChange={e => setBranchId(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', minWidth: 130 }}>
                         <option value="">All Branches</option>
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
+                    </BranchSelect>
                 </div>
                 <div className="row gap-xs items-center" style={{ marginLeft: 'auto' }}>
                     <Search size={16} className="muted" />

@@ -15,6 +15,7 @@ import CountryCodeSelect from '../components/CountryCodeSelect';
 import { formatForDisplay, telHref } from '../utils/phone';
 import { validatePhone, filterMobile } from '../utils/validators';
 
+import BranchSelect from '../components/ui/BranchSelect';
 // Memoized staff row
 const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword, handleMarkAttendance, todayAttendance, onOpenSettings }) => (
     <tr
@@ -495,7 +496,7 @@ const StaffManagement = () => {
                     value={searchInput}
                     onChange={e => setSearchInput(e.target.value)}
                 />
-                <select 
+                <BranchSelect 
                     className="input-field" 
                     style={{ width: 180 }}
                     value={selectedBranchFilter}
@@ -503,7 +504,7 @@ const StaffManagement = () => {
                 >
                     <option value="">All Branches</option>
                     {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
+                </BranchSelect>
             </div>
 
             <div className="table-scroll">
@@ -574,10 +575,10 @@ const StaffManagement = () => {
                             </div>
                             <div>
                                 <label className="label">Branch</label>
-                                <select name="newStaffBranch" className="input-field" value={newStaff.branch_id} onChange={e => setNewStaff({...newStaff, branch_id: e.target.value})} required>
+                                <BranchSelect name="newStaffBranch" className="input-field" value={newStaff.branch_id} onChange={e => setNewStaff({...newStaff, branch_id: e.target.value})} required>
                                     <option value="">Select Branch</option>
                                     {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </select>
+                                </BranchSelect>
                             </div>
                             <div>
                                 <label className="label">Role</label>
@@ -644,10 +645,10 @@ const StaffManagement = () => {
                             </div>
                             <div>
                                 <label className="label">Branch</label>
-                                <select name="editStaffBranch" className="input-field" value={selectedStaff.branch_id || ''} onChange={e => setSelectedStaff({...selectedStaff, branch_id: e.target.value})}>
+                                <BranchSelect name="editStaffBranch" className="input-field" value={selectedStaff.branch_id || ''} onChange={e => setSelectedStaff({...selectedStaff, branch_id: e.target.value})}>
                                     <option value="">Select Branch</option>
                                     {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </select>
+                                </BranchSelect>
                             </div>
                             <div>
                                 <label className="label">Role</label>

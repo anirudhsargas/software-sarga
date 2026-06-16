@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Camera, Upload, X, AlertCircle, Loader2, CheckCircle, Plus, Trash2, 
@@ -11,6 +11,7 @@ import localDb from '../services/localDb';
 import toast from 'react-hot-toast';
 import './UploadBills.css';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const ESTIMATED_TIME_PER_BILL = 15; // in seconds
 
 const UploadBills = () => {
@@ -1014,7 +1015,7 @@ const UploadBills = () => {
             
             <div className="row gap-sm items-center">
               <span className="muted text-xs">Branch Stock:</span>
-              <select 
+              <BranchSelect 
                 value={selectedBranchId}
                 onChange={e => setSelectedBranchId(e.target.value)}
                 className="branch-dropdown-field border p-8 rounded-8 text-xs font-semibold"
@@ -1022,7 +1023,7 @@ const UploadBills = () => {
                 {branches.map(b => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
-              </select>
+              </BranchSelect>
             </div>
           </div>
 

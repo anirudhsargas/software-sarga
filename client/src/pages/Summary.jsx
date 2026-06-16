@@ -8,6 +8,7 @@ import { formatCurrency as formatCurrencyShared } from '../constants';
 import OrderForecastWidget from '../components/OrderForecastWidget';
 
 
+import BranchSelect from '../components/ui/BranchSelect';
 const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 
@@ -120,10 +121,10 @@ const Summary = () => {
         <div className="summary-topbar__right">
           <div className="branch-selector">
             <Building2 size={16} />
-            <select value={filters.branch_id} onChange={(e) => setFilters(p => ({ ...p, branch_id: e.target.value }))}>
+            <BranchSelect value={filters.branch_id} onChange={(e) => setFilters(p => ({ ...p, branch_id: e.target.value }))}>
               <option value="">All Branches</option>
               {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            </BranchSelect>
           </div>
           <span className="summary-topbar__date">{branchName} — {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
         </div>

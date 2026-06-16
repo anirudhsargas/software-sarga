@@ -1,5 +1,4 @@
 import { useSEO } from '../hooks/useSEO';
-import React from 'react';
 import InternalTransfers from './InternalTransfers';
 
 const InternalTransactions = () => {

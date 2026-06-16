@@ -1,4 +1,3 @@
-import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { PenTool, Image, BookOpen, Clock, Settings, LogOut } from 'lucide-react';
 import auth from '../services/auth';

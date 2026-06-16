@@ -1,4 +1,3 @@
-import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { LayoutDashboard, CalendarDays, CheckSquare, LogOut, Settings } from 'lucide-react';
 import auth from '../services/auth';

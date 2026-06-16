@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { useLocation } from 'react-router-dom';
 import { Plus, X, Trash2, Filter, Receipt, Loader2, Calendar, User, CreditCard, ShoppingBag, ExternalLink, FileText, Search, PlusCircle, Building2, RefreshCw, AlertTriangle } from 'lucide-react';

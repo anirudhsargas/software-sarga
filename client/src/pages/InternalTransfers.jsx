@@ -4,6 +4,7 @@ import { BookOpen, Building2, ArrowRightCircle } from 'lucide-react';
 import api from '../services/api';
 import auth from '../services/auth';
 import toast from 'react-hot-toast';
+import BranchSelect from '../components/ui/BranchSelect';
 
 const BOOK_TYPES = [
   { key: 'Offset', label: 'Offset' },
@@ -92,10 +93,10 @@ const InternalTransfers = () => {
           {isAdmin && (
             <div>
               <label className="label">Branch</label>
-              <select className="input-field" value={branchId || ''} onChange={e => setBranchId(e.target.value)}>
+              <BranchSelect className="input-field" value={branchId || ''} onChange={e => setBranchId(e.target.value)}>
                 <option value="">Select Branch</option>
                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
+              </BranchSelect>
             </div>
           )}
 

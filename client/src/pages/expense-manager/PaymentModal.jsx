@@ -4,6 +4,7 @@ import { fmt } from './constants';
 import auth from '../../services/auth';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import BranchSelect from '../../components/ui/BranchSelect';
 
 const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) => {
   const [confirming, setConfirming] = useState(false);
@@ -129,10 +130,10 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                 {isAdmin && (branches || []).length > 0 && (
                   <div className="em-form-group">
                     <label htmlFor="branch_id">Branch</label>
-                    <select id="branch_id" name="branch_id" className="em-input" value={form.branch_id} onChange={e => setForm(p => ({ ...p, branch_id: e.target.value }))}>
+                    <BranchSelect id="branch_id" name="branch_id" className="em-input" value={form.branch_id} onChange={e => setForm(p => ({ ...p, branch_id: e.target.value }))}>
                       <option value="">Auto (your branch)</option>
                       {(branches || []).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
+                    </BranchSelect>
                   </div>
                 )}
 

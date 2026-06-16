@@ -1,5 +1,4 @@
 import { useSEO } from '../hooks/useSEO';
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WifiOff } from 'lucide-react';
 import ErrorPage from '../components/ErrorPage';

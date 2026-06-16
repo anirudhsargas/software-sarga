@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Trash2, Printer, Save, CheckCircle2, ShoppingBag } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { useBranch } from '../../contexts/BranchContext';
+import { useBranches } from '../../contexts/BranchContext';
+import useAuth from '../../hooks/useAuth';
 
 const QuickCart = ({ isOpen, setIsOpen, items, setItems }) => {
     const [loading, setLoading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
-    const { selectedBranch } = useBranch();
+    const { getUserBranch } = useBranches();
+    const { user } = useAuth();
+    const selectedBranch = getUserBranch(user);
 
     const subtotal = items.reduce((acc, item) => acc + item.total, 0);
 

@@ -9,6 +9,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import './InventoryModern.css';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const PaperStockDashboard = () => {
     useSEO('Paper Stock Dashboard');
 
@@ -188,13 +189,13 @@ const PaperStockDashboard = () => {
                 <div className="inv-toolbar-row justify-between wrap gap-sm">
                     <div className="inv-chips">
                         <div className="inv-chip">
-                            <select 
+                            <BranchSelect 
                                 value={filters.branch_id}
                                 onChange={(e) => setFilters({...filters, branch_id: e.target.value})}
                             >
                                 <option value="">All Branches</option>
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                            </select>
+                            </BranchSelect>
                         </div>
                         <div className="inv-chip">
                             <select 

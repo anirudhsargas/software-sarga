@@ -498,60 +498,12 @@ if (process.env.NODE_ENV !== 'test') {
                 logger.warn('[Migration] Inventory link deduplication not loaded:', e.message);
             }
 
-            // Start daily report auto-mailer cron job
+            // Initialize Scheduler (consolidated cron management)
             try {
-                require('./scripts/sendDailyReports');
+                const { initializeScheduler } = require('./services/scheduler');
+                initializeScheduler();
             } catch (e) {
-                logger.warn('[Warning] scripts/sendDailyReports not loaded:', e.message);
-            }
-
-            // Anomaly detection cron — every 15 minutes
-            try {
-                const cron = require('node-cron');
-                const { checkAnomalies } = require('./routes/anomalies');
-                cron.schedule('*/15 * * * *', () => {
-                    logger.info('[Cron] Running anomaly check…');
-                    checkAnomalies().catch(err => logger.error('[Cron] Anomaly check failed:', err.message));
-                });
-                // Run once on startup (after a short delay so DB is warm)
-                setTimeout(() => checkAnomalies().catch(() => {}), 10_000);
-                logger.info('[Cron] Anomaly detection scheduled every 15 minutes');
-            } catch (e) {
-                logger.warn('[Warning] Anomaly cron not loaded:', e.message);
-            }
-
-            // Business insights cron — daily at 7:00 AM
-            try {
-                const cron2 = require('node-cron');
-                const { generateInsights } = require('./routes/insights');
-                cron2.schedule('0 7 * * *', () => {
-                    logger.info('[Cron] Generating daily business insights…');
-                    generateInsights().catch(err => logger.error('[Cron] Insights generation failed:', err.message));
-                });
-                logger.info('[Cron] Business insights scheduled daily at 7:00 AM');
-            } catch (e) {
-                logger.warn('[Warning] Insights cron not loaded:', e.message);
-            }
-
-            // Seasonal analysis cron — 1st of every month at 6:00 AM
-            try {
-                const cron3 = require('node-cron');
-                const { computeSeasonal } = require('./routes/seasonal');
-                cron3.schedule('0 6 1 * *', () => {
-                    logger.info('[Cron] Recomputing seasonal analysis…');
-                    computeSeasonal().catch(err => logger.error('[Cron] Seasonal analysis failed:', err.message));
-                });
-                logger.info('[Cron] Seasonal analysis scheduled monthly (1st at 6:00 AM)');
-            } catch (e) {
-                logger.warn('[Warning] Seasonal cron not loaded:', e.message);
-            }
-
-            // Bill email parser cron — daily at 9:00 AM
-            try {
-                const { scheduleDaily } = require('./services/billScheduler');
-                scheduleDaily();
-            } catch (e) {
-                logger.warn('[Warning] Bill email parser not loaded:', e.message);
+                logger.warn('[Warning] Scheduler not loaded:', e.message);
             }
         });
     }).catch(err => {

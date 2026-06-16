@@ -5,6 +5,7 @@ import api from '../services/api';
 import SecureImage from '../components/SecureImage';
 import toast from 'react-hot-toast';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const BRANCHES = [
   { value: 'perambra', label: 'Perambra' },
   { value: 'meppayur_main', label: 'Meppayur Main' },
@@ -334,7 +335,7 @@ const CCTVAttendance = () => {
               </div>
               <div>
                 <label className="label">Branch</label>
-                <select
+                <BranchSelect
                   className="input"
                   value={manualBranch}
                   onChange={(e) => setManualBranch(e.target.value)}
@@ -343,7 +344,7 @@ const CCTVAttendance = () => {
                   {BRANCHES.map(b => (
                     <option key={b.value} value={b.value}>{b.label}</option>
                   ))}
-                </select>
+                </BranchSelect>
               </div>
               <div>
                 <label className="label">Event Type</label>

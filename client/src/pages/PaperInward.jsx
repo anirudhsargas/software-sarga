@@ -8,6 +8,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
+import BranchSelect from '../components/ui/BranchSelect';
 const PaperInward = () => {
     useSEO('Paper Inward');
 
@@ -104,7 +105,7 @@ const PaperInward = () => {
 
                         <div>
                             <label className="label">Branch *</label>
-                            <select 
+                            <BranchSelect 
                                 className="input-field" 
                                 required
                                 value={formData.branch_id}
@@ -112,7 +113,7 @@ const PaperInward = () => {
                             >
                                 <option value="">-- Select Branch --</option>
                                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                            </select>
+                            </BranchSelect>
                         </div>
 
                         <div>

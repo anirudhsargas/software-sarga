@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, Lock, FileText, IndianRupee, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';

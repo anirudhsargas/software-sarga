@@ -14,6 +14,7 @@ import { fmt, fmtDate } from './expense-manager/constants';
 import './ExpenseManager.css';
 import ServerError from '../components/ServerError';
 import toast from 'react-hot-toast';
+import BranchSelect from '../components/ui/BranchSelect';
 
 /* ── Tab Components ── */
 import DashboardTab from './expense-manager/DashboardTab';
@@ -551,7 +552,7 @@ const ExpenseManager = () => {
                   </div>
                   <div className="em-form-group">
                     <label htmlFor="request-branch">Branch</label>
-                    <select
+                    <BranchSelect
                       id="request-branch"
                       className="em-input"
                       aria-label="Select Branch"
@@ -561,7 +562,7 @@ const ExpenseManager = () => {
                       {branches.map(b => (
                         <option key={b.id} value={b.id}>{b.name}</option>
                       ))}
-                    </select>
+                    </BranchSelect>
                   </div>
                   <div className="em-form-group em-form-group--full">
                     <label>Reason for Request</label>
@@ -716,7 +717,7 @@ const ExpenseManager = () => {
                   </div>
                   <div className="em-form-group">
                     <label htmlFor="payment-branch">Branch</label>
-                    <select
+                    <BranchSelect
                       id="payment-branch"
                       className="em-input"
                       aria-label="Select Branch"
@@ -726,7 +727,7 @@ const ExpenseManager = () => {
                       {branches.map(b => (
                         <option key={b.id} value={b.id}>{b.name}</option>
                       ))}
-                    </select>
+                    </BranchSelect>
                   </div>
                   <div className="em-form-group em-form-group--full">
                     <label>Description</label>

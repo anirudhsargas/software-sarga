@@ -1,16 +1,16 @@
-import React, { useEffect, useMemo, useState, Suspense, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, Suspense, useCallback, useRef, lazy } from 'react';
 import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate, Navigate, useParams } from 'react-router-dom';
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store,
     Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare, Star, Upload,
-    Image, Calendar, Truck, Globe
+    Image, Calendar, Truck, Globe, Layout
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
 import RequiresConnection from '../components/RequiresConnection';
 import SecureImage from '../components/SecureImage';
-import ImageCropModal from '../components/ImageCropModal';
+const ImageCropModal = lazy(() => import('../components/ImageCropModal'));
 import ScannerModal from '../components/ScannerModal';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useLocation } from 'react-router-dom';
@@ -95,6 +95,16 @@ const DeliveryRulesManager = React.lazy(() => import('./admin/DeliveryRulesManag
 const TranslationsManager = React.lazy(() => import('./admin/TranslationsManager'));
 const SampleRequestsCMS = React.lazy(() => import('./SampleRequestsCMS'));
 const DesignBookingsCMS = React.lazy(() => import('./DesignBookingsCMS'));
+const AccessRestricted = React.lazy(() => import('./AccessRestricted'));
+
+// Design Studio Pages
+const DesignStudioHome = React.lazy(() => import('./design-studio/DesignStudioHome'));
+const DesignEditor = React.lazy(() => import('./design-studio/DesignEditor'));
+const AlbumDesigner = React.lazy(() => import('./design-studio/AlbumDesigner'));
+const InvitationScanner = React.lazy(() => import('./design-studio/InvitationScanner'));
+const AIMatterBuilder = React.lazy(() => import('./design-studio/AIMatterBuilder'));
+const AIDesignGenerator = React.lazy(() => import('./design-studio/AIDesignGenerator'));
+
 const PageLoader = React.memo(() => (
     <div className="page-loader">
         <Loader2 size={20} className="animate-spin" /> Loading...
@@ -366,6 +376,8 @@ const Dashboard = () => {
         { key: 'dashboard', name: 'Summary', icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
         { key: 'dashboard', name: 'Front Office', icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
         { key: 'dashboard', name: 'Dashboard', icon: Grid, path: '/dashboard', roles: ['Accountant', 'Other Staff', 'Designer'], group: 'main' },
+        // Design Studio
+        { key: 'design-studio', name: 'Design Studio', icon: Layout, path: '/dashboard/design-studio', roles: ['Admin', 'Designer'], group: 'main' },
         // Sales
         { key: 'sales_customers', name: 'Customers', icon: UserSquare, path: '/dashboard/sales/customers', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
         { key: 'sales_orders', name: 'Orders', icon: ClipboardList, path: '/dashboard/sales/orders', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
@@ -910,6 +922,13 @@ const Dashboard = () => {
                             <Route path="blog-cms" element={<BlogCMS />} />
                             <Route path="sample-requests" element={<SampleRequestsCMS />} />
                             <Route path="design-bookings" element={<DesignBookingsCMS />} />
+                            {/* Design Studio Routes */}
+                            <Route path="design-studio" element={<DesignStudioHome />} />
+                            <Route path="design-studio/editor/:id" element={<DesignEditor />} />
+                            <Route path="design-studio/album" element={<AlbumDesigner />} />
+                            <Route path="design-studio/scanner" element={<InvitationScanner />} />
+                            <Route path="design-studio/ai-matter" element={<AIMatterBuilder />} />
+                            <Route path="design-studio/ai-design" element={<AIDesignGenerator />} />
                             <Route path="*" element={<NotFound />} />
 
                         </Routes>
@@ -1168,13 +1187,17 @@ const Dashboard = () => {
                 </div>
             )}
 
-            <ImageCropModal
-                file={cropState?.file || null}
-                title="Crop Profile Photo"
-                outputSize={512}
-                onCancel={handleCropCancel}
-                onComplete={handleCropComplete}
-            />
+            {cropState?.file && (
+                <Suspense fallback={null}>
+                    <ImageCropModal
+                        file={cropState?.file || null}
+                        title="Crop Profile Photo"
+                        outputSize={512}
+                        onComplete={handleCropComplete}
+                        onCancel={() => setCropState({ file: null })}
+                    />
+                </Suspense>
+            )}
 
             {/* Inventory QR Scanner */}
             <ScannerModal
