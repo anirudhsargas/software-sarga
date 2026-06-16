@@ -63,7 +63,7 @@
 }
 
 .sidebar-btn:hover {
-  background: rgba(0, 0, 0, 0.03);
+  background: var(--accent-light);
   color: var(--accent);
 }
 
@@ -145,7 +145,7 @@
 
 .product-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 36px rgba(20, 20, 20, 0.08);
+  box-shadow: var(--shadow-md);
 }
 
 .product-card__img-wrap {
@@ -170,7 +170,7 @@
 .product-card__icon-wrap {
   height: 160px;
   width: 100%;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.06) 100%);
+  background: var(--accent-light);
   display: flex;
   align-items: center;
   justify-content: center;

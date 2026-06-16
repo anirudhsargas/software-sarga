@@ -70,14 +70,17 @@ export default function Home() {
     resizeCam()
     window.addEventListener('resize', resizeCam)
 
+    const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark' || document.documentElement.classList.contains('dark')
     const sheetCount = window.innerWidth < 768 ? 8 : 22
     const sheets = []
     const geo  = new THREE.PlaneGeometry(1.2, .85)
-    const cols = [0x1a1a1a, 0x0f0f0f, 0x333333, 0x2a2a2a, 0xf0ede6]
+    const cols = isDarkTheme
+      ? [0xf0ede6, 0xe0ddd6, 0xa0a0a0, 0x808080, 0x1a1a1a]
+      : [0x1a1a1a, 0x0f0f0f, 0x333333, 0x2a2a2a, 0xf5f3ef]
     for (let i = 0; i < sheetCount; i++) {
       const mat = new THREE.MeshBasicMaterial({
         color: cols[i % cols.length], transparent: true,
-        opacity: i % cols.length === 4 ? .1 : .06 + Math.random() * .06,
+        opacity: isDarkTheme ? .08 + Math.random() * .08 : .06 + Math.random() * .06,
         side: THREE.DoubleSide
       })
       const m = new THREE.Mesh(geo, mat)
@@ -319,42 +322,42 @@ export default function Home() {
         <div className="story-sticky">
           <div className="story-visual" id="vis1">
             <svg viewBox="0 0 260 260" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="30" y="40" width="200" height="140" rx="8" fill="#1a1a1a" stroke="#555555" strokeWidth="1.5"/>
-              <rect x="50" y="62" width="80" height="8" rx="4" fill="#8B0000" opacity=".8"/>
-              <rect x="50" y="80" width="140" height="5" rx="2.5" fill="#555555" opacity=".45"/>
-              <rect x="50" y="94" width="110" height="5" rx="2.5" fill="#555555" opacity=".45"/>
-              <rect x="50" y="118" width="68" height="46" rx="4" fill="#8B0000" opacity=".12" stroke="#8B0000" strokeWidth="1"/>
-              <rect x="128" y="118" width="62" height="46" rx="4" fill="#555555" opacity=".12" stroke="#555555" strokeWidth="1"/>
-              <circle cx="130" cy="210" r="6" fill="#8B0000"/>
-              <circle cx="148" cy="210" r="6" fill="#555555" opacity=".35"/>
-              <circle cx="166" cy="210" r="6" fill="#555555" opacity=".18"/>
+              <rect x="30" y="40" width="200" height="140" rx="8" fill="var(--accent-2)" stroke="var(--text-muted)" strokeWidth="1.5"/>
+              <rect x="50" y="62" width="80" height="8" rx="4" fill="var(--red-accent)" opacity=".8"/>
+              <rect x="50" y="80" width="140" height="5" rx="2.5" fill="var(--text-muted)" opacity=".45"/>
+              <rect x="50" y="94" width="110" height="5" rx="2.5" fill="var(--text-muted)" opacity=".45"/>
+              <rect x="50" y="118" width="68" height="46" rx="4" fill="var(--red-accent)" opacity=".12" stroke="var(--red-accent)" strokeWidth="1"/>
+              <rect x="128" y="118" width="62" height="46" rx="4" fill="var(--text-muted)" opacity=".12" stroke="var(--text-muted)" strokeWidth="1"/>
+              <circle cx="130" cy="210" r="6" fill="var(--red-accent)"/>
+              <circle cx="148" cy="210" r="6" fill="var(--text-muted)" opacity=".35"/>
+              <circle cx="166" cy="210" r="6" fill="var(--text-muted)" opacity=".18"/>
               <animateTransform attributeName="transform" type="translate" values="0 0;0 -7;0 0" dur="4s" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"/>
             </svg>
           </div>
           <div className="story-visual" id="vis2" style={{ opacity: 0, transform: 'translateY(20px) scale(.95)' }}>
             <svg viewBox="0 0 260 260" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="50" y="30" width="160" height="100" rx="6" fill="#1a1a1a" stroke="#555555" strokeWidth="1.5"/>
-              <rect x="70" y="50" width="80" height="6" rx="3" fill="#8B0000" opacity=".7"/>
-              <rect x="70" y="65" width="120" height="4" rx="2" fill="#555555" opacity=".4"/>
-              <rect x="70" y="75" width="90" height="4" rx="2" fill="#555555" opacity=".4"/>
-              <rect x="60" y="148" width="140" height="50" rx="6" fill="#2a2a2a" stroke="#444" strokeWidth="1"/>
-              <rect x="75" y="158" width="30" height="30" rx="3" fill="#333"/>
-              <line x1="116" y1="165" x2="185" y2="165" stroke="#555" strokeWidth="3" strokeLinecap="round"/>
-              <line x1="116" y1="175" x2="170" y2="175" stroke="#555" strokeWidth="3" strokeLinecap="round"/>
-              <path d="M110 130 L110 148 M150 130 L150 148" stroke="#555555" strokeWidth="1.5" strokeDasharray="3 3"/>
+              <rect x="50" y="30" width="160" height="100" rx="6" fill="var(--accent-2)" stroke="var(--text-muted)" strokeWidth="1.5"/>
+              <rect x="70" y="50" width="80" height="6" rx="3" fill="var(--red-accent)" opacity=".7"/>
+              <rect x="70" y="65" width="120" height="4" rx="2" fill="var(--text-muted)" opacity=".4"/>
+              <rect x="70" y="75" width="90" height="4" rx="2" fill="var(--text-muted)" opacity=".4"/>
+              <rect x="60" y="148" width="140" height="50" rx="6" fill="var(--bg-tertiary)" stroke="var(--text-muted)" strokeWidth="1"/>
+              <rect x="75" y="158" width="30" height="30" rx="3" fill="var(--text-muted)"/>
+              <line x1="116" y1="165" x2="185" y2="165" stroke="var(--text-muted)" strokeWidth="3" strokeLinecap="round"/>
+              <line x1="116" y1="175" x2="170" y2="175" stroke="var(--text-muted)" strokeWidth="3" strokeLinecap="round"/>
+              <path d="M110 130 L110 148 M150 130 L150 148" stroke="var(--text-muted)" strokeWidth="1.5" strokeDasharray="3 3"/>
               <animateTransform attributeName="transform" type="translate" values="0 0;0 -7;0 0" dur="4s" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"/>
             </svg>
           </div>
           <div className="story-visual" id="vis3" style={{ opacity: 0, transform: 'translateY(20px) scale(.95)' }}>
             <svg viewBox="0 0 260 260" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="40" y="80" width="180" height="110" rx="10" fill="#1a1a1a" stroke="#555555" strokeWidth="1.5"/>
-              <path d="M60 116 H200" stroke="#555555" strokeWidth="1" opacity=".4"/>
-              <circle cx="130" cy="148" r="17" fill="#8B0000" opacity=".14" stroke="#8B0000" strokeWidth="1.5"/>
-              <path d="M122 148 L128 154 L138 142" stroke="#8B0000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="90" cy="212" r="10" fill="#2a2a2a" stroke="#555555" strokeWidth="1.5"/>
-              <circle cx="170" cy="212" r="10" fill="#2a2a2a" stroke="#555555" strokeWidth="1.5"/>
-              <path d="M100 212 L160 212" stroke="#555555" strokeWidth="1.5"/>
-              <path d="M30 182 Q42 170 58 176 Q62 160 82 155" stroke="#8B0000" strokeWidth="1" strokeDasharray="4 4" opacity=".45" fill="none"/>
+              <rect x="40" y="80" width="180" height="110" rx="10" fill="var(--accent-2)" stroke="var(--text-muted)" strokeWidth="1.5"/>
+              <path d="M60 116 H200" stroke="var(--text-muted)" strokeWidth="1" opacity=".4"/>
+              <circle cx="130" cy="148" r="17" fill="var(--red-accent)" opacity=".14" stroke="var(--red-accent)" strokeWidth="1.5"/>
+              <path d="M122 148 L128 154 L138 142" stroke="var(--red-accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="90" cy="212" r="10" fill="var(--bg-tertiary)" stroke="var(--text-muted)" strokeWidth="1.5"/>
+              <circle cx="170" cy="212" r="10" fill="var(--bg-tertiary)" stroke="var(--text-muted)" strokeWidth="1.5"/>
+              <path d="M100 212 L160 212" stroke="var(--text-muted)" strokeWidth="1.5"/>
+              <path d="M30 182 Q42 170 58 176 Q62 160 82 155" stroke="var(--red-accent)" strokeWidth="1" strokeDasharray="4 4" opacity=".45" fill="none"/>
               <animateTransform attributeName="transform" type="translate" values="0 0;0 -7;0 0" dur="4s" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"/>
             </svg>
           </div>

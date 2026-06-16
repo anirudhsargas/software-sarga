@@ -1,6 +1,54 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      (function() {
+        try {
+          var VALID_MODES = ['light', 'dark', 'system'];
+          var STORAGE_KEY = 'app-theme';
+
+          function getSystemPref() {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+
+          function isValidTheme(m) { return VALID_MODES.indexOf(m) !== -1; }
+
+          function applyTheme(mode) {
+            var effective = mode === 'system' ? getSystemPref() : mode;
+            var isDark = effective === 'dark';
+            document.documentElement.setAttribute('data-theme', effective);
+            if (isDark) {
+              document.documentElement.classList.add('dark');
+            } else {
+              document.documentElement.classList.remove('dark');
+            }
+          }
+
+          var saved = localStorage.getItem(STORAGE_KEY);
+
+          if (!saved || !isValidTheme(saved)) {
+            try {
+              var user = JSON.parse(localStorage.getItem('user') || '{}');
+              saved = user && user.settings && user.settings.theme;
+            } catch (e) {}
+            if (!saved || !isValidTheme(saved)) {
+              saved = 'system';
+              localStorage.setItem(STORAGE_KEY, 'system');
+            }
+          }
+
+          applyTheme(saved);
+
+          if (saved === 'system') {
+            var mql = window.matchMedia('(prefers-color-scheme: dark)');
+            var listener = function() { applyTheme('system'); };
+            try { mql.addEventListener('change', listener); } catch (e) {
+              try { mql.addListener(listener); } catch (_) {}
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="manifest" href="/manifest.json" />
@@ -13,7 +61,7 @@
     <meta name="keywords" content="printing management, offset printing, billing software, inventory, Sarga Printing" />
     <meta name="author" content="Sarga Printing" />
     <meta name="robots" content="index, follow" />
-    <meta name="theme-color" content="#111827" />
+    <meta name="theme-color" id="theme-color" content="#f5f3ef" />
 
     <meta property="og:title" content="Sarga Print Shop" />
     <meta property="og:description" content="Manage Sarga Printing operations including billing, inventory, customers, reports, expense tracking, orders, and production in one system." />
@@ -32,42 +80,43 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-    <!-- Preload critical resources -->
     <link rel="preload" as="image" href="/icons/icon-192.avif" type="image/avif">
     <link rel="preload" as="image" href="/icons/icon-192.png" type="image/png">
-    <!-- Preconnect to backend (Render) -->
     <link rel="preconnect" href="https://software-sarga-2.onrender.com">
     <link rel="dns-prefetch" href="https://software-sarga-2.onrender.com">
     <title>Sarga Print Shop</title>
+    <script>
+      (function() {
+        var isDark = document.documentElement.classList.contains('dark');
+        var meta = document.getElementById('theme-color');
+        if (meta) meta.content = isDark ? '#0f1111' : '#f5f3ef';
+      })();
+    </script>
     <style>
       #splash-screen {
         position: fixed;
         inset: 0;
-        background: #0f1111;
+        z-index: 9999;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        z-index: 9999;
         transition: opacity 0.4s ease, visibility 0.4s;
       }
       .splash-logo {
         width: 80px;
         height: 80px;
         margin-bottom: 24px;
-        animation: pulse 2s infinite ease-in-out;
+        animation: splashPulse 2s infinite ease-in-out;
       }
       .splash-spinner {
         width: 40px;
         height: 40px;
-        border: 3px solid rgba(255, 255, 255, 0.1);
-        border-top-color: #e7e4dd;
         border-radius: 50%;
-        animation: spin 1s linear infinite;
+        animation: splashSpin 1s linear infinite;
       }
       .splash-text {
         margin-top: 16px;
-        color: #e7e4dd;
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 14px;
         font-weight: 500;
@@ -75,8 +124,8 @@
         text-transform: uppercase;
         opacity: 0.8;
       }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      @keyframes pulse {
+      @keyframes splashSpin { to { transform: rotate(360deg); } }
+      @keyframes splashPulse {
         0%, 100% { transform: scale(1); opacity: 1; }
         50% { transform: scale(1.05); opacity: 0.8; }
       }

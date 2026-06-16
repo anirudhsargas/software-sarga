@@ -9,10 +9,10 @@ export default function LanguageSwitcher() {
         onClick={() => setLang('en')}
         style={{
           padding: '4px 10px', fontSize: '0.75rem', fontWeight: 600,
-          border: '1px solid var(--border-color, #e2e8f0)',
+          border: '1px solid var(--border)',
           borderRadius: '6px 0 0 6px', cursor: 'pointer',
-          background: lang === 'en' ? 'var(--primary, #2563eb)' : 'transparent',
-          color: lang === 'en' ? '#fff' : 'var(--text-primary, #1a1a2e)',
+          background: lang === 'en' ? 'var(--accent)' : 'transparent',
+          color: lang === 'en' ? 'var(--on-accent)' : 'var(--text)',
           transition: 'all 0.2s'
         }}
         aria-label={t('language.switch_to_en')}
@@ -23,10 +23,10 @@ export default function LanguageSwitcher() {
         onClick={() => setLang('ml')}
         style={{
           padding: '4px 10px', fontSize: '0.75rem', fontWeight: 600,
-          border: '1px solid var(--border-color, #e2e8f0)',
+          border: '1px solid var(--border)',
           borderLeft: 'none', borderRadius: '0 6px 6px 0', cursor: 'pointer',
-          background: lang === 'ml' ? 'var(--primary, #2563eb)' : 'transparent',
-          color: lang === 'ml' ? '#fff' : 'var(--text-primary, #1a1a2e)',
+          background: lang === 'ml' ? 'var(--accent)' : 'transparent',
+          color: lang === 'ml' ? 'var(--on-accent)' : 'var(--text)',
           transition: 'all 0.2s'
         }}
         aria-label={t('language.switch_to_ml')}

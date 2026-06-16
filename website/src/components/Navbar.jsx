@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { Menu, X, Printer, Palette } from 'lucide-react'
 import './Navbar.css'
 import CartIcon from './Cart/CartIcon'
+import ThemeToggle from './ThemeToggle'
 
 const navLinks = [
   { path: '/', label: 'Home' },
@@ -50,9 +51,13 @@ export default function Navbar() {
               </Link>
             </li>
           ))}
+          <li style={{ marginTop: 12, display: 'flex', justifyContent: 'center' }}>
+            <ThemeToggle />
+          </li>
         </ul>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ThemeToggle />
           <Link to="/signin" className="btn btn-outline btn-sm navbar__cta-desktop" id="nav-sign-in-desktop">
             Sign In
           </Link>

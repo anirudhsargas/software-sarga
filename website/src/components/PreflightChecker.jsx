@@ -40,15 +40,15 @@ export default function PreflightChecker({ onCheckComplete, jobId }) {
   }
 
   const severityColor = (s) => {
-    if (s === 'CRITICAL') return '#dc2626'
-    if (s === 'WARNING') return '#f59e0b'
-    return '#64748b'
+    if (s === 'CRITICAL') return 'var(--error)'
+    if (s === 'WARNING') return 'var(--warning)'
+    return 'var(--text-muted)'
   }
 
   const statusBadge = (status) => {
-    if (status === 'PASS') return { bg: '#dcfce7', text: '#16a34a', label: 'Passed' }
-    if (status === 'WARN') return { bg: '#fef3c7', text: '#d97706', label: 'Warnings' }
-    return { bg: '#fef2f2', text: '#dc2626', label: 'Critical' }
+    if (status === 'PASS') return { bg: 'var(--success-bg)', text: 'var(--success)', label: 'Passed' }
+    if (status === 'WARN') return { bg: 'var(--warning-bg)', text: 'var(--warning)', label: 'Warnings' }
+    return { bg: 'var(--error-bg)', text: 'var(--error)', label: 'Critical' }
   }
 
   const badge = result ? statusBadge(result.status) : null
@@ -102,15 +102,15 @@ export default function PreflightChecker({ onCheckComplete, jobId }) {
                   <div key={i} className="preflight-issue" style={{
                     display: 'flex', gap: 10, padding: '8px 12px',
                     borderLeft: `3px solid ${severityColor(issue.severity)}`,
-                    background: '#f8fafc', borderRadius: '0 6px 6px 0', marginBottom: 6
+                    background: 'var(--surface-2)', borderRadius: '0 6px 6px 0', marginBottom: 6
                   }}>
                     <span style={{ color: severityColor(issue.severity), fontWeight: 700, fontSize: '0.75rem', minWidth: 60, textTransform: 'uppercase' }}>
                       {issue.severity}
                     </span>
                     <div>
                       <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{issue.message}</div>
-                      {issue.fix && <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 2 }}>Fix: {issue.fix}</div>}
-                      {issue.current && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Current: {issue.current} | Required: {issue.required}</div>}
+                      {issue.fix && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>Fix: {issue.fix}</div>}
+                      {issue.current && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Current: {issue.current} | Required: {issue.required}</div>}
                     </div>
                   </div>
                 ))}
@@ -119,7 +119,7 @@ export default function PreflightChecker({ onCheckComplete, jobId }) {
 
             {/* Info summary */}
             {result.info && (
-              <div className="preflight-info" style={{ marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.75rem', color: '#64748b' }}>
+              <div className="preflight-info" style={{ marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 {result.info.width && <span>Size: {result.info.width}×{result.info.height}px</span>}
                 {result.info.dpi && <span>DPI: {result.info.dpi}</span>}
                 {result.info.colorSpace && <span>Color: {result.info.colorSpace.toUpperCase()}</span>}
@@ -131,15 +131,15 @@ export default function PreflightChecker({ onCheckComplete, jobId }) {
       </div>
 
       <style>{`
-        .preflight-card { background: var(--card-bg,#fff); border: 1px solid var(--border-color,#e2e8f0); border-radius: 12px; padding: 24px; }
+        .preflight-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
         .preflight-title { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px; }
-        .preflight-desc { font-size: 0.85rem; color: var(--text-muted,#64748b); margin-bottom: 16px; }
+        .preflight-desc { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; }
         .preflight-file-input { display: none; }
-        .preflight-file-info { padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 0.85rem; color: var(--text-muted,#64748b); margin-bottom: 10px; }
+        .preflight-file-info { padding: 12px; background: var(--surface-2); border-radius: 8px; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; }
         .preflight-actions { display: flex; gap: 8px; }
         .btn-sm { padding: 6px 14px; font-size: 0.8rem; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-        .btn-outline { background: transparent; border: 1px solid var(--border-color,#e2e8f0); }
-        .btn-primary { background: var(--primary,#2563eb); color: #fff; border: none; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); }
+        .btn-primary { background: var(--accent); color: var(--on-accent); border: none; }
         .btn-primary.disabled { opacity: 0.5; cursor: not-allowed; }
       `}</style>
     </div>

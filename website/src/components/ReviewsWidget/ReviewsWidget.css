@@ -150,7 +150,7 @@
   gap: 2px;
   align-items: center;
 }
-.rw-star--filled { color: #f59e0b; fill: #f59e0b; }
+.rw-star--filled { color: var(--warning); fill: var(--warning); }
 .rw-star--empty { color: var(--border); fill: var(--border); }
 
 /* ─── Carousel ─── */

@@ -1,12 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script>
+      (function() {
+        try {
+          var VALID_MODES = ['light', 'dark', 'system'];
+          var STORAGE_KEY = 'sarga_theme';
+
+          function getSystemPref() {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+
+          function isValidTheme(m) { return VALID_MODES.indexOf(m) !== -1; }
+
+          function applyTheme(mode) {
+            var effective = mode === 'system' ? getSystemPref() : mode;
+            document.documentElement.setAttribute('data-theme', effective);
+          }
+
+          var saved = localStorage.getItem(STORAGE_KEY);
+          if (!saved || !isValidTheme(saved)) {
+            saved = 'system';
+            localStorage.setItem(STORAGE_KEY, 'system');
+          }
+
+          applyTheme(saved);
+
+          if (saved === 'system') {
+            var mql = window.matchMedia('(prefers-color-scheme: dark)');
+            var listener = function() { applyTheme('system'); };
+            try { mql.addEventListener('change', listener); } catch (e) {
+              try { mql.addListener(listener); } catch (_) {}
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Sarga Prints is a leading premium printing press in Kozhikode, Kerala. Professional offset printing, digital printing, packaging, and creative design services." />
     <meta name="keywords" content="Sarga, printing, offset printing, digital printing, design, Perambra, Meppayur, Kerala, Kozhikode" />
     <meta name="author" content="Sarga" />
-    <meta name="theme-color" content="#f5f3ef" />
+    <meta name="theme-color" id="theme-color" content="#f5f3ef" />
+    <script>
+      (function() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var meta = document.getElementById('theme-color');
+        if (meta) meta.content = isDark ? '#0A0A0A' : '#f5f3ef';
+      })();
+    </script>
 
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/favicon.png" />

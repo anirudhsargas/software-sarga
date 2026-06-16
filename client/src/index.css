@@ -20,28 +20,11 @@
   --text-muted: #6c7077;
   --text-secondary: #6c7077;
   --text-disabled: #a8adb4;
-  --muted: #6c7077;
-  --border: #dedad1;
-  --border-color: #dedad1;
-  --border-subtle: rgba(23, 23, 23, 0.06);
   --accent: #1f2a33;
   --accent-2: #2f3b46;
   --accent-rgb: 31, 42, 51;
   --accent-soft: #dde2e6;
-  --success: #2f7d4a;
-  --success-bg: rgba(47, 125, 74, 0.1);
-  --error: #b03a2e;
-  --error-bg: rgba(176, 58, 46, 0.1);
-  --error-text: #b03a2e;
-  --warning: #b36b00;
-  --warning-bg: rgba(179, 107, 0, 0.1);
-  --clr-success: #2f7d4a;
-  --clr-warning: #b36b00;
-  --clr-error: #b03a2e;
-  --clr-danger: #ef4444;
   --accent-light: #eff6ff;
-  --primary: var(--accent);
-  --primary-rgb: 31, 42, 51;
   --radius: 14px;
   --shadow-sm: 0 8px 24px rgba(20, 20, 20, 0.08);
   --shadow-md: 0 12px 40px rgba(20, 20, 20, 0.10);
@@ -70,6 +53,34 @@
   --toast-text: #171717;
   --on-accent: #ffffff;
   
+  /* Theme Token System */
+  --primary: var(--accent);
+  --primary-rgb: 31, 42, 51;
+  --secondary: var(--surface-2);
+  --success: #2f7d4a;
+  --success-bg: rgba(47, 125, 74, 0.1);
+  --warning: #b36b00;
+  --warning-bg: rgba(179, 107, 0, 0.1);
+  --error: #b03a2e;
+  --error-bg: rgba(176, 58, 46, 0.1);
+  --error-text: #b03a2e;
+  --danger: var(--error);
+  --border: #dedad1;
+  --muted: #6c7077;
+  --hover: var(--bg-hover);
+  --focus: var(--accent);
+
+  /* Semantic WCAG AA Compliant Text Colors */
+  --text-success: #1e5e34;
+  --text-warning: #863c00;
+  --text-danger: #b03a2e;
+
+  /* Legacy & Fallback Compatibility */
+  --clr-success: var(--success);
+  --clr-warning: var(--warning);
+  --clr-error: var(--error);
+  --clr-danger: var(--danger);
+  
   /* Fallback Shadcn/UI Variables */
   --background: var(--bg);
   --foreground: var(--text);
@@ -78,10 +89,9 @@
   --popover: var(--surface);
   --popover-foreground: var(--text);
   --primary-foreground: var(--on-accent);
-  --secondary: var(--surface-2);
   --secondary-foreground: var(--text);
   --muted-foreground: var(--text-muted);
-  --destructive: var(--error);
+  --destructive: var(--danger);
   --destructive-foreground: #ffffff;
   --ring: var(--accent);
 }
@@ -106,28 +116,11 @@
   --text-muted: #a8adb4;
   --text-secondary: #a8adb4;
   --text-disabled: #6c7077;
-  --muted: #a8adb4;
-  --border: #2a2f33;
-  --border-color: #2a2f33;
-  --border-subtle: rgba(243, 244, 245, 0.06);
   --accent: #e7e4dd;
   --accent-2: #c9c3b7;
   --accent-rgb: 231, 228, 221;
   --accent-soft: #2a2f33;
-  --success: #4ade80;
-  --success-bg: rgba(74, 222, 128, 0.15);
-  --error: #f87171;
-  --error-bg: rgba(248, 113, 113, 0.15);
-  --error-text: #f87171;
-  --warning: #fbbf24;
-  --warning-bg: rgba(251, 191, 36, 0.15);
-  --clr-success: #4ade80;
-  --clr-warning: #fbbf24;
-  --clr-error: #f87171;
-  --clr-danger: #f87171;
   --accent-light: rgba(231, 228, 221, 0.08);
-  --primary: var(--accent);
-  --primary-rgb: 231, 228, 221;
   --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.40);
   --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.45);
@@ -155,6 +148,34 @@
   --toast-text: #f3f4f5;
   --on-accent: #121314;
   
+  /* Theme Token System */
+  --primary: var(--accent);
+  --primary-rgb: 231, 228, 221;
+  --secondary: var(--surface-2);
+  --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.15);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.15);
+  --error: #f87171;
+  --error-bg: rgba(248, 113, 113, 0.15);
+  --error-text: #f87171;
+  --danger: var(--error);
+  --border: #2a2f33;
+  --muted: #a8adb4;
+  --hover: var(--bg-hover);
+  --focus: var(--accent);
+
+  /* Semantic WCAG AA Compliant Text Colors */
+  --text-success: #4ade80;
+  --text-warning: #fbbf24;
+  --text-danger: #f87171;
+
+  /* Legacy & Fallback Compatibility */
+  --clr-success: var(--success);
+  --clr-warning: var(--warning);
+  --clr-error: var(--error);
+  --clr-danger: var(--danger);
+  
   /* Fallback Shadcn/UI Variables */
   --background: var(--bg);
   --foreground: var(--text);
@@ -163,10 +184,9 @@
   --popover: var(--surface);
   --popover-foreground: var(--text);
   --primary-foreground: var(--on-accent);
-  --secondary: var(--surface-2);
   --secondary-foreground: var(--text);
   --muted-foreground: var(--text-muted);
-  --destructive: var(--error);
+  --destructive: var(--danger);
   --destructive-foreground: #ffffff;
   --ring: var(--accent);
 }

@@ -183,7 +183,7 @@
 .dh-card:nth-child(4) { animation-delay: 0.2s; }
 .dh-card:hover {
   transform: translateY(-8px) scale(1.01);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.08), 0 8px 20px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow-lg);
   background: var(--glass-bg-strong);
   border-color: color-mix(in srgb, var(--tool-color) 40%, var(--border));
 }

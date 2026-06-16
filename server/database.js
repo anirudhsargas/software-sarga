@@ -2125,18 +2125,24 @@ const initDb = async () => {
     } catch (err) { console.log('staff_id nullable migration:', err.message); }
 
 
-    // Seed Default Admin
+    // Seed / Update Default Admin
     const adminId = '8547432287';
-    const adminPass = 'admin';
+    const adminPass = 'Admin@123';
     const [rows] = await connection.query("SELECT * FROM sarga_staff WHERE user_id = ?", [adminId]);
 
+    const hashedPassword = await bcrypt.hash(adminPass, 10);
     if (rows.length === 0) {
-      const hashedPassword = await bcrypt.hash(adminPass, 10);
       await connection.query(
         "INSERT INTO sarga_staff (user_id, password, role, name, is_first_login, branch_id) VALUES (?, ?, ?, ?, ?, ?)",
         [adminId, hashedPassword, 'Admin', 'Default Admin', 1, defaultBranchId]
       );
       console.log("Default admin seeded successfully in MySQL.");
+    } else {
+      await connection.query(
+        "UPDATE sarga_staff SET password = ? WHERE user_id = ?",
+        [hashedPassword, adminId]
+      );
+      console.log("Default admin password updated.");
     }
     // Ensure sarga_inventory has new columns
     try { await connection.query('ALTER TABLE sarga_inventory ADD COLUMN hsn VARCHAR(20)'); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }

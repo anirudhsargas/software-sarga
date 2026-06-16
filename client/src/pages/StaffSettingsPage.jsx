@@ -1,10 +1,11 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Settings as SettingsIcon, UserSquare, Loader2 } from 'lucide-react';
 import './SettingsPage.css';
 import useAuth from '../hooks/useAuth';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import AppearanceSettings from '../components/AppearanceSettings';
 
 const staffTabs = [
     { key: 'profile', label: 'Profile', icon: UserSquare, desc: 'Your staff profile' },
@@ -44,10 +45,7 @@ function SidebarVisibilitySettings() {
         
         setLoading(true);
         try {
-            const currentSettings = user?.settings ? (typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings) : {};
-            const newSettings = { ...currentSettings, sidebar: newVisible };
-            
-            const { data } = await api.put('/staff/me', { settings: newSettings });
+            const { data } = await api.patch('/staff/settings', { settings: { sidebar: newVisible } });
             updateUser({ ...user, settings: data.settings });
             toast.success('Sidebar preferences updated');
         } catch (err) {
@@ -123,7 +121,7 @@ export default function StaffSettingsPage() {
             <main className="sp-content">
                 <div className="sp-content-inner">
                     {activeTab === 'profile' && <div>Your staff profile settings go here.</div>}
-                    {activeTab === 'appearance' && <div>Theme and interface options for staff.</div>}
+                    {activeTab === 'appearance' && <AppearanceSettings />}
                     {activeTab === 'sidebar' && <SidebarVisibilitySettings />}
                 </div>
             </main>

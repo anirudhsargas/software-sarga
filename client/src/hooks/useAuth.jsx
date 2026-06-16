@@ -1,16 +1,33 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import auth from '../services/auth';
+import { useTheme } from '../theme/ThemeProvider';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => auth.getUser());
+    const { setTheme } = useTheme();
 
     const login = useCallback(async (userId, password) => {
         const data = await auth.login(userId, password);
         setUser(data.user);
+        
+        // Apply backend theme preference on login if it exists
+        let backendTheme = null;
+        if (data.user?.settings) {
+            try {
+                const settingsObj = typeof data.user.settings === 'string'
+                    ? JSON.parse(data.user.settings)
+                    : data.user.settings;
+                backendTheme = settingsObj?.theme;
+            } catch (e) {}
+        }
+        if (backendTheme) {
+            setTheme(backendTheme, false);
+        }
+        
         return data;
-    }, [setUser]);
+    }, [setUser, setTheme]);
 
     const logout = useCallback(() => {
         auth.logout();
