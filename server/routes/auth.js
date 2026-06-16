@@ -66,12 +66,16 @@ module.exports = (upload) => {
                 { expiresIn: '12h' } // Shortened from 8h, but wait let's keep 12h and rely on revocation
             );
 
-            // Record session
-            await pool.query(
-                `INSERT INTO sarga_user_sessions (user_id_internal, session_token, ip_address, user_agent, expires_at) 
-                 VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 12 HOUR))`,
-                [user.id, token, req.ip, req.headers['user-agent']]
-            );
+            // Record session (non-fatal — login succeeds even if session recording fails)
+            try {
+                await pool.query(
+                    `INSERT INTO sarga_user_sessions (user_id_internal, session_token, ip_address, user_agent, expires_at) 
+                     VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 12 HOUR))`,
+                    [user.id, token, req.ip, req.headers['user-agent']]
+                );
+            } catch (sessionErr) {
+                console.error('Session recording failed (non-fatal):', sessionErr.message);
+            }
 
             auditLog(user.id, 'LOGIN', `User ${user.user_id} logged in`);
 
@@ -134,7 +138,11 @@ module.exports = (upload) => {
             await pool.query("UPDATE sarga_staff SET password = ?, is_first_login = 0 WHERE id = ?", [hashedPassword, userId]);
 
             // Revoke ALL active sessions for this user to force immediate logout
-            await pool.query("UPDATE sarga_user_sessions SET is_revoked = 1 WHERE user_id_internal = ?", [userId]);
+            try {
+                await pool.query("UPDATE sarga_user_sessions SET is_revoked = 1 WHERE user_id_internal = ?", [userId]);
+            } catch (sessionErr) {
+                console.error('Session revocation failed (non-fatal):', sessionErr.message);
+            }
 
             auditLog(userId, 'PASSWORD_CHANGE', 'User changed password with complexity requirements');
             res.json({ message: 'Password updated successfully. All sessions revoked.' });
@@ -229,7 +237,11 @@ module.exports = (upload) => {
             const authHeader = req.headers['authorization'];
             const token = authHeader && authHeader.split(' ')[1];
             if (token) {
-                await pool.query("UPDATE sarga_user_sessions SET is_revoked = 1 WHERE session_token = ?", [token]);
+                try {
+                    await pool.query("UPDATE sarga_user_sessions SET is_revoked = 1 WHERE session_token = ?", [token]);
+                } catch (sessionErr) {
+                    console.error('Session revocation failed (non-fatal):', sessionErr.message);
+                }
             }
             res.json({ message: 'Logged out successfully' });
         } catch (err) {

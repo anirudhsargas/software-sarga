@@ -2561,6 +2561,24 @@ const initDb = async () => {
       // Ignore
     }
 
+    // User sessions table (auth tokens, session management)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sarga_user_sessions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id_internal INT NOT NULL,
+        session_token VARCHAR(500) NOT NULL,
+        ip_address VARCHAR(45) DEFAULT NULL,
+        user_agent TEXT DEFAULT NULL,
+        expires_at DATETIME DEFAULT NULL,
+        is_revoked TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_session_token (session_token(255)),
+        INDEX idx_user_sessions_user (user_id_internal),
+        INDEX idx_user_sessions_expires (expires_at),
+        INDEX idx_user_sessions_revoked (is_revoked)
+      )
+    `);
+
     // Performance indexes for frequently queried tables
     await safeIndex('idx_staff_user_id', 'CREATE INDEX idx_staff_user_id ON sarga_staff (user_id)');
     await safeIndex('idx_staff_branch_role', 'CREATE INDEX idx_staff_branch_role ON sarga_staff (branch_id, role)');
