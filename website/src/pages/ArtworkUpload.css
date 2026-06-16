@@ -47,8 +47,8 @@
 }
 
 .artwork-tabs .tab.active {
-  background: var(--accent, #000);
-  color: #fff;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 /* Dropzone */
@@ -64,13 +64,13 @@
 }
 
 .dropzone:hover, .dropzone.drag-over {
-  border-color: var(--accent, #333);
-  background: rgba(0,0,0,0.02);
+  border-color: var(--accent);
+  background: var(--accent-light);
 }
 
 .dropzone.drag-over {
-  border-color: var(--accent, #000);
-  background: rgba(0,0,0,0.04);
+  border-color: var(--accent);
+  background: var(--accent-soft);
   transform: scale(1.01);
 }
 
@@ -148,8 +148,8 @@
 }
 
 .file-remove:hover {
-  background: rgba(220, 53, 69, 0.1);
-  color: #dc3545;
+  background: var(--error-bg);
+  color: var(--error);
 }
 
 /* Order form */
@@ -189,10 +189,10 @@
 
 .form-group .input {
   padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border, #ddd);
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   font-size: 0.9rem;
-  background: #fff;
+  background: var(--input-bg);
   transition: border-color 0.2s;
 }
 
@@ -245,8 +245,8 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  background: #fff0f0;
-  color: #c0392b;
+  background: var(--error-bg);
+  color: var(--error);
   border-radius: 8px;
   font-size: 0.9rem;
   margin-bottom: 1rem;
@@ -298,7 +298,7 @@
 }
 
 .success-icon {
-  color: #27ae60;
+  color: var(--success);
   margin-bottom: 1rem;
 }
 
@@ -329,7 +329,7 @@
 }
 
 .success-details .warn {
-  color: #e67e22;
+  color: var(--warning);
 }
 
 .success-actions {
@@ -390,13 +390,13 @@
   font-weight: 600;
 }
 
-.status-uploaded { background: #e8f0fe; color: #1967d2; }
-.status-under_review { background: #fef7e0; color: #e37400; }
-.status-proof_sent { background: #e8f5e9; color: #2e7d32; }
-.status-approved { background: #e8f5e9; color: #1b5e20; }
-.status-printing { background: #f3e5f5; color: #7b1fa2; }
-.status-completed { background: #e8f5e9; color: #1b5e20; }
-.status-cancelled { background: #ffebee; color: #c62828; }
+.status-uploaded { background: var(--info-bg); color: var(--info); }
+.status-under_review { background: var(--warning-bg); color: var(--warning); }
+.status-proof_sent { background: var(--success-bg); color: var(--success); }
+.status-approved { background: var(--success-bg); color: var(--success); }
+.status-printing { background: var(--accent-soft); color: var(--accent-2); }
+.status-completed { background: var(--success-bg); color: var(--success); }
+.status-cancelled { background: var(--error-bg); color: var(--error); }
 
 .track-progress {
   display: flex;
@@ -434,9 +434,9 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--border, #ddd);
+  background: var(--border);
   z-index: 1;
-  border: 2px solid #fff;
+  border: 2px solid var(--card-bg);
 }
 
 .progress-step.done .step-dot {

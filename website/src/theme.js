@@ -20,7 +20,7 @@ function applyTheme(mode) {
 }
 
 function setTheme(mode) {
-  const resolved = isValidTheme(mode) ? mode : 'system'
+  const resolved = isValidTheme(mode) ? mode : 'dark'
   localStorage.setItem(STORAGE_KEY, resolved)
   applyTheme(resolved)
   setupSystemListener(resolved)
@@ -29,8 +29,8 @@ function setTheme(mode) {
 function getStoredTheme() {
   const stored = localStorage.getItem(STORAGE_KEY)
   if (stored && isValidTheme(stored)) return stored
-  localStorage.setItem(STORAGE_KEY, 'system')
-  return 'system'
+  localStorage.setItem(STORAGE_KEY, 'dark')
+  return 'dark'
 }
 
 function getResolvedTheme() {

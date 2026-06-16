@@ -17,6 +17,7 @@
             var effective = mode === 'system' ? getSystemPref() : mode;
             var isDark = effective === 'dark';
             document.documentElement.setAttribute('data-theme', effective);
+            document.documentElement.style.colorScheme = effective;
             if (isDark) {
               document.documentElement.classList.add('dark');
             } else {
@@ -32,8 +33,8 @@
               saved = user && user.settings && user.settings.theme;
             } catch (e) {}
             if (!saved || !isValidTheme(saved)) {
-              saved = 'system';
-              localStorage.setItem(STORAGE_KEY, 'system');
+              saved = 'dark';
+              localStorage.setItem(STORAGE_KEY, 'dark');
             }
           }
 
@@ -93,35 +94,36 @@
       })();
     </script>
     <style>
+      html { color-scheme: light dark; }
       #splash-screen {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
         transition: opacity 0.4s ease, visibility 0.4s;
+        background: #f5f3ef; color: #171717;
+      }
+      html.dark #splash-screen {
+        background: #0f1111; color: #e7e4dd;
       }
       .splash-logo {
-        width: 80px;
-        height: 80px;
-        margin-bottom: 24px;
+        width: 80px; height: 80px; margin-bottom: 24px;
         animation: splashPulse 2s infinite ease-in-out;
       }
       .splash-spinner {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
+        width: 40px; height: 40px; border-radius: 50%;
+        border: 3px solid rgba(23,23,23,0.1);
+        border-top-color: #1f2a33;
         animation: splashSpin 1s linear infinite;
+      }
+      html.dark .splash-spinner {
+        border-color: rgba(255,255,255,0.1);
+        border-top-color: #e7e4dd;
       }
       .splash-text {
         margin-top: 16px;
         font-family: system-ui, -apple-system, sans-serif;
-        font-size: 14px;
-        font-weight: 500;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
+        font-size: 14px; font-weight: 500;
+        letter-spacing: 0.1em; text-transform: uppercase;
         opacity: 0.8;
       }
       @keyframes splashSpin { to { transform: rotate(360deg); } }
@@ -130,8 +132,7 @@
         50% { transform: scale(1.05); opacity: 0.8; }
       }
       body.loaded #splash-screen {
-        opacity: 0;
-        visibility: hidden;
+        opacity: 0; visibility: hidden;
       }
     </style>
   </head>

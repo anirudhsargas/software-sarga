@@ -51,8 +51,8 @@ function loadPersistedTheme() {
     return saved;
   }
 
-  localStorage.setItem(STORAGE_KEY, 'system');
-  return 'system';
+  localStorage.setItem(STORAGE_KEY, 'dark');
+  return 'dark';
 }
 
 export const ThemeProvider = ({ children }) => {

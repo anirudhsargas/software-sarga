@@ -304,7 +304,7 @@
 }
 .dh-card:hover .dh-card__cta {
   background: var(--tool-color);
-  color: #fff;
+  color: var(--on-accent);
   border-top-color: var(--tool-color);
 }
 .dh-card:hover .dh-card__arrow {

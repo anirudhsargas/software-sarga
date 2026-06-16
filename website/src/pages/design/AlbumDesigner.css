@@ -342,8 +342,8 @@
 }
 
 .album-designer__layer-remove:hover {
-  background: rgba(220, 38, 38, 0.1);
-  color: #dc2626;
+  background: var(--error-bg);
+  color: var(--error);
 }
 
 .album-designer__layer-empty {
