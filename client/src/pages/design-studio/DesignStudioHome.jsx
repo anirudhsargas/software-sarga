@@ -48,10 +48,6 @@ const DesignStudioHome = () => {
     const [recentProjects, setRecentProjects] = useState(recentProjectsData);
     const [contextMenu, setContextMenu] = useState(null);
 
-    useEffect(() => {
-        if (searchParams.get('create') === 'true') setShowCreate(true);
-    }, [searchParams]);
-
     const filteredCategories = useMemo(() => {
         if (!search) return categories;
         const q = search.toLowerCase();

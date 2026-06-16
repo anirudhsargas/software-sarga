@@ -544,7 +544,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-\.]/g, '');
+        const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
         a.download = `vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.csv`;
         document.body.appendChild(a);
         a.click();
@@ -745,7 +745,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
           yPos += 20;
           doc.setFontSize(10);
           doc.text(`Generated: ${new Date().toLocaleString()}`, margin, yPos);
-          const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-\.]/g, '');
+        const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
           doc.save(`vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.pdf`);
           container.remove();
           toast.success('PDF downloaded');
@@ -784,7 +784,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
           y += h;
         }
 
-        const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-\.]/g, '');
+        const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
         doc.save(`vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.pdf`);
         container.remove();
         toast.success('PDF downloaded');

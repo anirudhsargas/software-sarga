@@ -183,7 +183,7 @@ export function validatePassword(value, { required = true, label = 'Password' } 
     hasUppercase: /[A-Z]/.test(str),
     hasLowercase: /[a-z]/.test(str),
     hasNumber: /[0-9]/.test(str),
-    hasSpecial: /[@$!%*?&^#()_+\-=\[\]{};':",./<>?|`~]/.test(str),
+    hasSpecial: /[@$!%*?&^#()_+\-=[\]{};':",./<>?|`~]/.test(str),
   };
   const failed = Object.entries(checks).filter(([, v]) => !v).map(([k]) => k);
   if (failed.length > 0) return fail('Password must have 8+ characters, uppercase, lowercase, number, and special character');

@@ -85,7 +85,7 @@ const getRequestKey = (url, config) => {
     let params = '';
     try {
         if (config && config.params) params = JSON.stringify(config.params);
-    } catch (e) {
+    } catch {
         params = String(config.params || '');
     }
     return `${path}|${params}`;
@@ -203,10 +203,9 @@ api.interceptors.response.use(
         const data = error.response?.data;
         const serverError = data?.error;
         const userMsg = serverError?.userMessage;
-        const suggestion = serverError?.suggestion;
 
         if (error.request && !error.response) {
-            try { toast.error('Network error — failed to reach server'); } catch (e) {}
+            try { toast.error('Network error — failed to reach server'); } catch {}
             if (window.location.pathname !== '/error/network') {
                 window.location.href = '/error/network';
             }
@@ -216,12 +215,12 @@ api.interceptors.response.use(
         const status = error.response?.status;
 
         if (status === 429) {
-            try { toast.error(userMsg || 'Too many requests. Please slow down.'); } catch (e) {}
+            try { toast.error(userMsg || 'Too many requests. Please slow down.'); } catch {}
             return Promise.reject(error);
         }
 
         if (status === 403) {
-            try { toast.error(userMsg || 'Access denied.'); } catch (e) {}
+            try { toast.error(userMsg || 'Access denied.'); } catch {}
             const token = localStorage.getItem('token');
             if (!token) {
                 window.location.href = '/login';
@@ -232,7 +231,7 @@ api.interceptors.response.use(
         }
 
         if (status >= 500) {
-            try { toast.error(userMsg || 'Server error. Please try again.'); } catch (e) {}
+            try { toast.error(userMsg || 'Server error. Please try again.'); } catch {}
             return Promise.reject(error);
         }
 
@@ -248,7 +247,7 @@ api.interceptors.response.use(
         }
 
         if (status === 422 && userMsg) {
-            try { toast.error(userMsg); } catch (e) {}
+            try { toast.error(userMsg); } catch {}
         }
 
         return Promise.reject(error);

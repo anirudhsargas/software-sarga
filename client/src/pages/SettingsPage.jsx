@@ -216,13 +216,12 @@ function TaxSettings() {
     const [form, setForm] = useState({ name: '', rate: 0, type: 'percentage', is_default: false, applies_to: 'all' });
     const [editingId, setEditingId] = useState(null);
 
-    const fetch = useCallback(async () => {
-        try { const { data } = await api.get('/tax-settings'); setTaxes(data); } catch (err) { void err; }
-        setLoading(false);
-    }, []);
     useEffect(() => {
-        fetch();
-    }, [fetch]);
+        (async () => {
+            try { const { data } = await api.get('/tax-settings'); setTaxes(data); } catch (err) { void err; }
+            setLoading(false);
+        })();
+    }, []);
 
     const handleSave = async () => {
         if (!form.name) return toast.error('Name is required');
@@ -318,13 +317,12 @@ function PaymentModeSettings() {
     const [form, setForm] = useState({ name: '', description: '', is_default: false, sort_order: 0 });
     const [editingId, setEditingId] = useState(null);
 
-    const fetch = useCallback(async () => {
-        try { const { data } = await api.get('/payment-modes'); setModes(data); } catch (err) { void err; }
-        setLoading(false);
-    }, []);
     useEffect(() => {
-        fetch();
-    }, [fetch]);
+        (async () => {
+            try { const { data } = await api.get('/payment-modes'); setModes(data); } catch (err) { void err; }
+            setLoading(false);
+        })();
+    }, []);
 
     const handleSave = async () => {
         if (!form.name) return toast.error('Name is required');
@@ -447,11 +445,14 @@ function LanguageSettings() {
     };
 
     useEffect(() => {
-        setLoading(true);
-        api.get(`/i18n/${locale}`)
-            .then(r => { setOverrides(r.data); })
-            .catch(() => {})
-            .finally(() => { setLoading(false); });
+        (async () => {
+            setLoading(true);
+            try {
+                const r = await api.get(`/i18n/${locale}`);
+                setOverrides(r.data);
+            } catch (e) { void e; }
+            setLoading(false);
+        })();
     }, [locale]);
 
     const handleSave = async () => {

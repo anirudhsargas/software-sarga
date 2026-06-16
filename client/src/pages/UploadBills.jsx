@@ -175,7 +175,7 @@ const UploadBills = () => {
     }, 'image/jpeg', 0.85);
   };
 
-  const usePhoto = () => {
+  const applyCapturedPhoto = () => {
     if (!capturedPhoto) return;
     
     const newBill = {
@@ -905,16 +905,16 @@ const UploadBills = () => {
                   <button className="btn btn-secondary border flex-1" onClick={() => setCapturedPhoto(null)}>
                     Retake
                   </button>
-                  <button className="btn btn-primary flex-1" onClick={usePhoto}>
+                  <button className="btn btn-primary flex-1" onClick={applyCapturedPhoto}>
                     Use Photo
                   </button>
                 </div>
 
                 <div className="sticky-action-bar border-top pt-16 row gap-sm w-100">
-                  <button className="btn btn-ghost text-primary flex-1" onClick={() => { usePhoto(); startOcrProcessing(); }}>
+                  <button className="btn btn-ghost text-primary flex-1" onClick={() => { applyCapturedPhoto(); startOcrProcessing(); }}>
                     Upload &amp; Process All
                   </button>
-                  <button className="btn btn-secondary border flex-1" onClick={() => { usePhoto(); /* Keeps camera active */ }}>
+                  <button className="btn btn-secondary border flex-1" onClick={() => { applyCapturedPhoto(); /* Keeps camera active */ }}>
                     Next Photo →
                   </button>
                 </div>

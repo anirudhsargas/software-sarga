@@ -9,8 +9,9 @@ import BranchSelect from '../../components/ui/BranchSelect';
 import './SmartBillUpload.css';
 
 const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, defaultRelatedTab }) => {
-  const [step, setStep] = useState('upload'); // upload | extracting | suggestions | pricing | linking | confirming
-  const [file, setFile] = useState(null);
+  const [step, setStep] = useState('upload'); // upload | queue | extracting | suggestions | pricing | linking | confirming
+  const [files, setFiles] = useState([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -42,6 +43,8 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
   });
   const [gstAnalysis, setGstAnalysis] = useState(null);
   const fileInputRef = useRef(null);
+
+  const currentFile = files[currentFileIndex];
 
   const normalizeDocumentType = (value, relatedTab = '') => {
     const raw = String(value || '').trim().toLowerCase();
@@ -285,14 +288,67 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
 
   const handleFileDrop = (e) => {
     e.preventDefault();
-    const files = e.dataTransfer?.files || e.target.files;
-    if (files?.[0]) {
-      setFile(files[0]);
+    const droppedFiles = e.dataTransfer?.files || e.target.files;
+    if (!droppedFiles?.length) return;
+    const validFiles = Array.from(droppedFiles).filter(f => {
+      const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+      if (!validTypes.includes(f.type)) {
+        setError(`Unsupported file type: ${f.name}. Use PDF, PNG, JPG, or WebP.`);
+        return false;
+      }
+      if (f.size > 10 * 1024 * 1024) {
+        setError(`File too large: ${f.name} (max 10MB)`);
+        return false;
+      }
+      return true;
+    });
+    if (validFiles.length) {
+      setFiles(prev => [...prev, ...validFiles]);
       setError('');
+      if (step === 'upload' && !currentFile) setCurrentFileIndex(0);
     }
   };
 
-  const extractBillDetails = async () => {
+  const removeFile = (index) => {
+    setFiles(prev => {
+      const next = prev.filter((_, i) => i !== index);
+      if (index <= currentFileIndex && currentFileIndex > 0) setCurrentFileIndex(c => c - 1);
+      if (index === currentFileIndex && next.length === 0) setCurrentFileIndex(0);
+      return next;
+    });
+    setError('');
+  };
+
+  const validateFileForBill = async (file) => {
+    // Basic type check
+    const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      return { valid: false, reason: 'Unsupported file type. Use PDF, PNG, JPG, or WebP.' };
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return { valid: false, reason: 'File too large (max 10MB).' };
+    }
+    return { valid: true };
+  };
+
+  const processQueue = async () => {
+    if (currentFileIndex >= files.length) {
+      setStep('upload');
+      setCurrentFileIndex(0);
+      setFiles([]);
+      return;
+    }
+    const file = files[currentFileIndex];
+    const validation = await validateFileForBill(file);
+    if (!validation.valid) {
+      setError(`${file.name}: ${validation.reason}`);
+      setTimeout(() => processQueue(), 2000);
+      return;
+    }
+    await extractBillDetails(file);
+  };
+
+  const extractBillDetails = async (file) => {
     if (!file) {
       setError('Please select a file');
       return;
@@ -311,8 +367,6 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
       const extractedItems = response.data.extracted_data?.items || [];
       const gst = response.data.gst_analysis;
       setGstAnalysis(gst || null);
-      // Derive a bill-level fallback GST rate from tax_amount/subtotal
-      // so per-item GST can be inferred even when the server doesn't return it per line
       const billTax = Number(response.data.extracted_data?.tax || 0);
       const billSubtotal = Number(response.data.extracted_data?.subtotal || 0);
       const fallbackGstPct = (billTax > 0 && billSubtotal > 0)
@@ -321,7 +375,6 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
       setEditableItems(buildEditableItems(extractedItems, fallbackGstPct));
       setStep('suggestions');
 
-      // Pre-fill form with extracted data
       setFinalForm(prev => ({
         ...prev,
         document_type: response.data.extracted_data.detected_type || 'Invoice',
@@ -336,7 +389,6 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
 
       fetchHierarchyOptions(response.data.extracted_data.vendor_name || '');
 
-      // Build OCR text for ML categorizer from extracted data
       const rawParts = [
         response.data.extracted_data.vendor_name,
         response.data.extracted_data.raw_text,
@@ -346,13 +398,11 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
       const ocrText = rawParts.join(' ').trim();
       setOcrRawText(ocrText);
 
-      // Call ML expense categorizer
       if (ocrText) {
         try {
           const catRes = await api.post('/ai/categorize-expense', { ocr_text: ocrText });
           if (catRes.data?.predicted_category && catRes.data.confidence > 0) {
             setMlPrediction(catRes.data);
-            // Auto-fill related_tab from ML prediction
             const tabMap = {
               'Vendor': 'vendors', 'Utility': 'utilities', 'Rent': 'rent',
               'Office & Admin': 'office', 'Transport & Delivery': 'transport',
@@ -502,6 +552,32 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     return false;
   };
 
+  const resetFormState = () => {
+    setExtractedData(null);
+    setEditableItems([]);
+    setHierarchyOptions([]);
+    setCategoryMode('single');
+    setGlobalCategoryId('');
+    setGlobalSubcategoryId('');
+    setLinkedProduct(null);
+    setProductSuggestions([]);
+    setMlPrediction(null);
+    setCategoryOverridden(false);
+    setOcrRawText('');
+    setError('');
+    setFinalForm({
+      document_type: defaultDocumentType || 'Invoice',
+      vendor_name: '',
+      vendor_contact: '',
+      bill_number: '',
+      bill_date: '',
+      amount: '',
+      description: '',
+      related_tab: defaultRelatedTab || '',
+      gst_category: ''
+    });
+  };
+
   const submitForm = async () => {
     if (!finalForm.amount) {
       setError('Amount is required');
@@ -519,7 +595,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     try {
       const buildUploadFormData = (payloadItems, forceDuplicate = false) => {
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', currentFile);
         formData.append('document_type', normalizeDocumentType(finalForm.document_type, finalForm.related_tab));
         formData.append('related_tab', finalForm.related_tab);
         formData.append('vendor_name', finalForm.vendor_name);
@@ -581,10 +657,9 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
         bill_date: finalForm.bill_date,
         amount: finalForm.amount,
         description: finalForm.description,
-        // Store the original uploaded file blob for local viewing
-        file_blob: file || undefined,
-        file_name: file?.name || undefined,
-        file_type: file?.type || undefined,
+        file_blob: currentFile || undefined,
+        file_name: currentFile?.name || undefined,
+        file_type: currentFile?.type || undefined,
       });
 
       // Upload to server so inventory is synced
@@ -612,8 +687,17 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
         }
       }
 
-      setStep('confirming');
       onSuccess?.();
+
+      // Advance to next file in queue
+      const nextIndex = currentFileIndex + 1;
+      if (nextIndex < files.length) {
+        setCurrentFileIndex(nextIndex);
+        resetFormState();
+        setTimeout(() => processQueue(), 300);
+      } else {
+        setStep('confirming');
+      }
 
       // Save OCR text + chosen category to training data for future ML improvement
       if (ocrRawText && finalForm.related_tab) {
@@ -648,7 +732,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
         {step === 'upload' && (
           <div className="upload-section">
             <h2>📄 Smart Bill Upload</h2>
-            <p className="subtitle">Upload bill image or PDF to auto-extract details</p>
+            <p className="subtitle">Upload bill images or PDFs to auto-extract details</p>
 
             <div
               className="upload-area"
@@ -657,25 +741,67 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload size={48} />
-              <h3>Drag & drop your bill here</h3>
-              <p>or click to select a file</p>
-              <small>Supports PNG, JPG, PDF (max 10MB)</small>
+              <h3>Drag & drop bills here</h3>
+              <p>or click to select files (multiple)</p>
+              <small>Supports PNG, JPG, PDF, WebP (max 10MB each)</small>
               <input
                 ref={fileInputRef}
                 type="file"
                 hidden
                 accept=".pdf,.png,.jpg,.jpeg,.webp"
+                multiple
                 onChange={(e) => handleFileDrop(e)}
               />
             </div>
 
-            {file && (
-              <div className="file-selected">
-                <CheckCircle size={20} className="text-green-500" />
-                <span>{file.name}</span>
-                <button onClick={() => setFile(null)} className="btn-remove">
-                  Change
-                </button>
+            {files.length > 0 && (
+              <div className="file-queue">
+                <h4>Files ready ({files.length})</h4>
+                {files.map((f, idx) => (
+                  <div key={idx} className="file-queue-item">
+                    <div className="file-info">
+                      <span className="file-type">
+                        {f.type === 'application/pdf' ? (
+                          <FileText size={16} className="text-red-500" />
+                        ) : (
+                          <FileText size={16} className="text-blue-500" />
+                        )}
+                      </span>
+                      <span className="file-name">{f.name}</span>
+                      <span className="file-size">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                    </div>
+                    <button
+                      className="btn-remove"
+                      onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
+                      aria-label={`Remove ${f.name}`}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+                <div className="queue-actions">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setShowCamera(true)}
+                    style={{ width: '100%', marginBottom: '8px' }}
+                  >
+                    <Camera size={18} /> Take Photo with Camera
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => { setCurrentFileIndex(0); processQueue(); }}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 size={18} className="spin" />
+                        Processing {currentFileIndex + 1} of {files.length}...
+                      </>
+                    ) : (
+                      'Process Queue'
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -689,21 +815,6 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
               style={{ width: '100%', marginBottom: '12px' }}
             >
               <Camera size={18} /> Take Photo with Camera
-            </button>
-
-            <button
-              className="btn btn-primary"
-              onClick={extractBillDetails}
-              disabled={!file || loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={18} className="spin" />
-                  Extracting...
-                </>
-              ) : (
-                'Extract Details'
-              )}
             </button>
 
             {error && (
@@ -1424,28 +1535,9 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
             <div className="action-buttons" style={{ justifyContent: 'center' }}>
               <button className="btn btn-outline" onClick={() => {
                 setStep('upload');
-                setFile(null);
-                setExtractedData(null);
-                setEditableItems([]);
-                setHierarchyOptions([]);
-                setCategoryMode('single');
-                setGlobalCategoryId('');
-                setGlobalSubcategoryId('');
-                setLinkedProduct(null);
-                setProductSuggestions([]);
-                setMlPrediction(null);
-                setCategoryOverridden(false);
-                setOcrRawText('');
-                setError('');
-                setFinalForm({
-                  document_type: 'Invoice',
-                  vendor_name: '',
-                  bill_number: '',
-                  bill_date: '',
-                  amount: '',
-                  description: '',
-                  related_tab: ''
-                });
+                setFiles([]);
+                setCurrentFileIndex(0);
+                resetFormState();
               }}>
                 Upload Another Bill
               </button>
@@ -1460,7 +1552,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
       {showCamera && (
         <CameraCapture
           onCapture={(file) => {
-            setFile(file);
+            setFiles([file]);
             setShowCamera(false);
           }}
           onClose={() => setShowCamera(false)}

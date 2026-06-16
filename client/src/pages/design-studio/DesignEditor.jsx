@@ -44,8 +44,12 @@ const DesignEditor = () => {
 
     const creationParams = location.state;
 
+    const prevCreationParams = useRef(creationParams);
     useEffect(() => {
-        if (creationParams?.name) setDocName(creationParams.name);
+        if (creationParams?.name && creationParams !== prevCreationParams.current) {
+            setDocName(creationParams.name);
+            prevCreationParams.current = creationParams;
+        }
     }, [creationParams]);
 
     const handleBack = () => navigate('/dashboard/design-studio');
