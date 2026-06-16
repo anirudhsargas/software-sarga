@@ -252,7 +252,7 @@ const ProductLibrary = () => {
         if (searchTimer.current) clearTimeout(searchTimer.current);
         searchTimer.current = setTimeout(() => {
             setDebouncedSearch(productSearch);
-        }, 250);
+        }, 100);
         return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
     }, [productSearch]);
 
@@ -1445,12 +1445,25 @@ const ProductLibrary = () => {
                         }} />
                         <input
                             className="input-field"
-                            style={{ paddingLeft: 32, height: 36 }}
+                            style={{ paddingLeft: 32, height: 36, paddingRight: productSearch ? 32 : 12 }}
                             placeholder="Search by name, code, size…"
                             aria-label="Search products"
                             value={productSearch}
                             onChange={e => { setProductSearch(e.target.value); setProductPage(1); }}
                         />
+                        {productSearch && (
+                            <button
+                                onClick={() => { setProductSearch(''); setDebouncedSearch(''); setProductPage(1); }}
+                                style={{
+                                    position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    color: 'var(--text-muted)', padding: 4, lineHeight: 1
+                                }}
+                                aria-label="Clear search"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
                     </div>
 
                     {/* Vendor filter */}

@@ -233,8 +233,8 @@
 }
 
 .acc-tag.pending {
-  background: rgba(249, 115, 22, 0.1);
-  color: #f97316;
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .text-right { text-align: right; }

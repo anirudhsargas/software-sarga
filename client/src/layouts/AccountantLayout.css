@@ -3,9 +3,9 @@
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background-color: var(--bg-body, #f8f9fa);
-  color: var(--text, #111827);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
 .acc-main-content {

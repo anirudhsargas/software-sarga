@@ -11,8 +11,8 @@ const OrderForecastWidgetSkeleton = () => (
     <section className="summary-section animate-fade-up" style={{ marginTop: 24 }}>
         <div className="summary-section__header">
             <div>
-                <div className="skeleton" style={{ width: 220, height: 16, borderRadius: 4, background: 'var(--border, #e5e7eb)' }} />
-                <div className="skeleton" style={{ width: 140, height: 12, borderRadius: 4, background: 'var(--border, #e5e7eb)', marginTop: 8 }} />
+        <div className="skeleton" style={{ width: 220, height: 16, borderRadius: 4, background: 'var(--border)' }} />
+                <div className="skeleton" style={{ width: 140, height: 12, borderRadius: 4, background: 'var(--border)', marginTop: 8 }} />
             </div>
         </div>
         <div style={{ display: 'flex', gap: 8, height: 180, alignItems: 'flex-end', padding: '16px 0' }}>
@@ -20,7 +20,7 @@ const OrderForecastWidgetSkeleton = () => (
                 <div key={i} className="skeleton" style={{
                     flex: 1,
                     borderRadius: 4,
-                    background: 'var(--border, #e5e7eb)',
+                    background: 'var(--border)',
                     height,
                     animation: 'pulse 1.5s ease-in-out infinite',
                     animationDelay: `${i * 0.1}s`,
@@ -136,7 +136,7 @@ const SummaryWidgets = React.memo(({ statsToday, statsOverall, navigate, fmt, fm
                                     </div>
                                 ))}
                             </div>
-                            <div style={{ marginTop: 12, padding: '8px 12px', background: 'var(--surface-lowest, #f8fafc)', borderRadius: 6, fontSize: 13 }}>
+                            <div style={{ marginTop: 12, padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 6, fontSize: 13 }}>
                                 <strong>This Month:</strong> {fmt(statsToday?.sales?.month_total)} · {fmtNum(statsToday?.sales?.bill_count)} bills · Avg: {fmt(statsToday?.sales?.avg_bill)}
                             </div>
                         </section>
@@ -265,7 +265,7 @@ const SummaryWidgets = React.memo(({ statsToday, statsOverall, navigate, fmt, fm
                                     <h2 className="section-title">Low Stock Alerts</h2>
                                     <p className="section-subtitle">{lowStockItems.length} item{lowStockItems.length !== 1 ? 's' : ''} need attention</p>
                                 </div>
-                                <AlertTriangle size={22} style={{ color: lowStockItems.length > 0 ? 'var(--error, #dc2626)' : 'var(--text-muted)' }} />
+                                <AlertTriangle size={22} style={{ color: lowStockItems.length > 0 ? 'var(--error)' : 'var(--text-muted)' }} />
                             </div>
                             {lowStockItems.length > 0 ? (
                                 <div className="summary-data-list">
@@ -275,7 +275,7 @@ const SummaryWidgets = React.memo(({ statsToday, statsOverall, navigate, fmt, fm
                                                 <span className="font-medium">{item.name}</span>
                                                 {item.sku && <span className="text-xs muted" style={{ marginLeft: 6 }}>{item.sku}</span>}
                                             </div>
-                                            <span style={{ color: Number(item.quantity) === 0 ? 'var(--error, #dc2626)' : 'var(--color-warning, #f59e0b)', fontWeight: 700 }}>
+                                            <span style={{ color: Number(item.quantity) === 0 ? 'var(--error)' : 'var(--warning)', fontWeight: 700 }}>
                                                 {item.quantity} left
                                             </span>
                                         </div>

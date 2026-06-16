@@ -16,12 +16,12 @@ const KpiCard = React.memo(({ title, value, subtitle, icon: Icon, color, trend }
   <div className="kpi-card">
     <div className="kpi-card__header">
       <span className="kpi-card__title">{title}</span>
-      <Icon size={18} className="kpi-card__icon" style={{ color: color || 'var(--muted)' }} />
+      <Icon size={18} className={`kpi-card__icon ${color ? `kpi-card__icon--${color.replace('var(--', '').replace(')', '')}` : ''}`} />
     </div>
     <div className="kpi-card__value">{value}</div>
     {subtitle && <div className="kpi-card__subtitle">{subtitle}</div>}
     {trend && (
-      <div className="kpi-card__trend" style={{ color: trend >= 0 ? 'var(--success)' : 'var(--error)' }}>
+      <div className={`kpi-card__trend ${trend >= 0 ? 'kpi-card__trend--up' : 'kpi-card__trend--down'}`}>
         {trend >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
         <span>{Math.abs(trend)}%</span>
       </div>

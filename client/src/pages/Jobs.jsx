@@ -408,95 +408,67 @@ const Jobs = () => {
 
     return (
         <div className="stack-lg">
-            <div className="page-header">
-                <div>
-                    <h1 className="section-title">Jobs & Work Orders</h1>
-                    <p className="section-subtitle">Track and manage all print jobs and their statuses.</p>
+            <header className="page-header flex justify-between items-center flex-wrap gap-md p-12 rounded-lg shadow-sm">
+                <div className="flex items-center gap-sm">
+                    <h1 className="page-title">
+                        <FileText className="text-heading" size={20} aria-hidden="true" /> Jobs & Work Orders
+                    </h1>
                 </div>
-                <div className="jobs-filter-row row gap-md items-center justify-between wrap">
-                    <div className="search-box glass-card" style={{ maxWidth: '400px', flex: 1 }}>
-                        <Search size={18} className="muted" />
-                        <label htmlFor="job-search" className="sr-only">Search jobs</label>
-                        <input
-                            id="job-search"
-                            type="text"
-                            placeholder="Search by Job No, Name, or Customer..."
-                            value={filterInput.search}
-                            onChange={(e) => updateFilter('search', e.target.value)}
-                            style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', padding: '8px' }}
-                        />
-                    </div>
-                    <div className="jobs-filter-group row gap-sm">
-                        <button
-                            onClick={() => setSortByPriority(v => !v)}
-                            title={sortByPriority ? 'Sort by date (default)' : 'Sort by priority'}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
-                                borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                                border: sortByPriority ? '1px solid var(--accent)' : '1px solid var(--border)',
-                                background: sortByPriority ? 'var(--accent-soft)' : 'var(--surface)',
-                                color: sortByPriority ? 'var(--accent)' : 'var(--text)',
-                                transition: 'all 0.2s',
-                            }}
-                        >
-                            <Zap size={14} /> Priority
-                        </button>
-                        <div className="select-box glass-card" style={{ padding: '0 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Building2 size={16} className="muted" style={{ flexShrink: 0 }} />
-                            <label htmlFor="job-branch-filter" className="sr-only">Filter by branch</label>
-                            <select
-                                id="job-branch-filter"
-                                value={filterInput.branch}
-                                onChange={(e) => updateFilter('branch', e.target.value)}
-                                style={{ border: 'none', background: 'transparent', outline: 'none', padding: '8px 0', flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', cursor: 'pointer', minWidth: 0 }}
-                                aria-label="Filter by branch"
-                            >
-                                <option value="">All Branches</option>
-                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                            </select>
-                            <ChevronDown size={14} className="muted" style={{ flexShrink: 0, pointerEvents: 'none' }} />
-                        </div>
-                    </div>
+                <div className="flex gap-sm flex-wrap">
+                    <button className="btn btn-primary" onClick={() => navigate('/dashboard/sales/orders/create')}>
+                        <Plus size={18} aria-hidden="true" /> Create Job
+                    </button>
+                </div>
+            </header>
+
+            <div className="flex flex-wrap gap-sm items-center p-3 rounded-lg border" style={{ background: 'var(--surface)' }}>
+                <div className="relative flex-1 min-w-[200px]" style={{ maxWidth: '400px' }}>
+                    <Search size={16} aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+                    <label htmlFor="job-search" className="sr-only">Search jobs</label>
+                    <input
+                        id="job-search"
+                        type="text"
+                        placeholder="Search by Job No, Name, or Customer..."
+                        value={filterInput.search}
+                        onChange={(e) => updateFilter('search', e.target.value)}
+                        className="input-field"
+                        style={{ paddingLeft: 36, width: '100%', height: 36, fontSize: 14 }}
+                    />
+                </div>
+                <button
+                    onClick={() => setSortByPriority(v => !v)}
+                    title={sortByPriority ? 'Sort by date (default)' : 'Sort by priority'}
+                    className={`btn btn-sm ${sortByPriority ? 'btn-primary' : 'btn-ghost'}`}
+                >
+                    <Zap size={14} /> Priority
+                </button>
+                <div className="relative flex-1" style={{ maxWidth: 180, minWidth: 140 }}>
+                    <Building2 size={16} aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+                    <label htmlFor="job-branch-filter" className="sr-only">Filter by branch</label>
+                    <select
+                        id="job-branch-filter"
+                        value={filterInput.branch}
+                        onChange={(e) => updateFilter('branch', e.target.value)}
+                        className="input-field"
+                        style={{ paddingLeft: 32, width: '100%', height: 36, fontSize: 14, appearance: 'none' }}
+                        aria-label="Filter by branch"
+                    >
+                        <option value="">All Branches</option>
+                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
                 </div>
             </div>
 
-            <div className="jobs-tab-bar">
-                {['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole) ? (
-                    <>
-                        <button onClick={() => setActiveTab('active')} className={`jobs-tab${activeTab === 'active' ? ' jobs-tab--active' : ''}`}>Active Jobs</button>
-                        <button onClick={() => setActiveTab('completed')} className={`jobs-tab${activeTab === 'completed' ? ' jobs-tab--active' : ''}`}>Completed Jobs</button>
-                        <button onClick={() => setActiveTab('delivered')} className={`jobs-tab${activeTab === 'delivered' ? ' jobs-tab--active' : ''}`}>Delivered</button>
-                        <button onClick={() => setActiveTab('due')} className={`jobs-tab${activeTab === 'due' ? ' jobs-tab--active' : ''}`}>Due Collection</button>
-                        <button onClick={() => setActiveTab('overdue')} className={`jobs-tab${activeTab === 'overdue' ? ' jobs-tab--active' : ''}`}>Overdue</button>
-                        <button onClick={() => setActiveTab('payments')} className={`jobs-tab${activeTab === 'payments' ? ' jobs-tab--active' : ''}`}>Recent Payments</button>
-                    </>
-                ) : (
-                    <>
-                        <button onClick={() => setActiveTab('active')} className={`jobs-tab${activeTab === 'active' ? ' jobs-tab--active' : ''}`}>My Active Jobs</button>
-                        <button onClick={() => setActiveTab('history')} className={`jobs-tab${activeTab === 'history' ? ' jobs-tab--active' : ''}`}>Completed / Cancelled</button>
-                    </>
-                )}
+            <div className="flex flex-wrap gap-sm p-3 rounded-lg border" style={{ background: 'var(--surface)' }}>
+                <span className="text-sm text-muted" style={{ fontWeight: 700, minWidth: 'fit-content' }}>Type:</span>
+                <button onClick={() => updateFilter('category', '')} className={`btn btn-chip ${categoryFilter === '' ? 'active' : ''}`}>All</button>
+                <button onClick={() => updateFilter('category', 'OFFSET')} className={`btn btn-chip ${categoryFilter === 'OFFSET' ? 'active' : ''}`}>Offset</button>
+                <button onClick={() => updateFilter('category', 'LASER')} className={`btn btn-chip ${categoryFilter === 'LASER' ? 'active' : ''}`}>Laser</button>
+                <button onClick={() => updateFilter('category', 'OTHER')} className={`btn btn-chip ${categoryFilter === 'OTHER' ? 'active' : ''}`}>Others</button>
             </div>
 
-            <div className="row gap-sm wrap" style={{ padding: '12px 0', marginBottom: 16 }}>
-                <span className="text-sm" style={{ fontWeight: 700, color: 'var(--muted)', minWidth: 'fit-content', marginRight: 4 }}>Type:</span>
-                <button onClick={() => updateFilter('category', '')} className={`jobs-cat-btn${categoryFilter === '' ? ' jobs-cat-btn--active' : ''}`}>All</button>
-                <button onClick={() => updateFilter('category', 'OFFSET')} className={`jobs-cat-btn${categoryFilter === 'OFFSET' ? ' jobs-cat-btn--active' : ''}`}>Offset</button>
-                <button onClick={() => updateFilter('category', 'LASER')} className={`jobs-cat-btn${categoryFilter === 'LASER' ? ' jobs-cat-btn--active' : ''}`}>Laser</button>
-                <button onClick={() => updateFilter('category', 'OTHER')} className={`jobs-cat-btn${categoryFilter === 'OTHER' ? ' jobs-cat-btn--active' : ''}`}>Others</button>
-            </div>
-
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 0',
-                fontSize: '13px',
-                color: 'var(--text-muted)'
-            }}>
-                <span>
-                    {loading ? 'Loading...' : `Showing ${((page-1)*LIMIT)+1}–${Math.min(page*LIMIT, total)} of ${total} jobs`}
-                </span>
+            <div className="flex justify-between items-center text-sm text-muted" style={{ padding: '8px 0' }}>
+                <span>{loading ? 'Loading...' : `Showing ${((page-1)*LIMIT)+1}–${Math.min(page*LIMIT, total)} of ${total} jobs`}</span>
                 <span>{totalPages} pages total</span>
             </div>
 

@@ -159,7 +159,7 @@ const InventoryImage = ({ item, onUpdate, size = 40, isAdmin = false }) => {
                             type="button"
                             onClick={handleRemove}
                             title="Remove Image"
-                            style={{ background: 'none', border: 'none', color: '#ff4d4f', cursor: 'pointer', padding: 4 }}
+                            style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: 4 }}
                         >
                             <Trash2 size={size > 60 ? 16 : 12} />
                         </button>

@@ -1,7 +1,7 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Edit2, Plus, ArrowLeftRight, Minus, Package, Search, Bell, Camera, Filter, FileText, ChevronDown, CheckSquare, Layers, Download, Share2, Phone, ShoppingCart, List, Grid, X, Image as ImageIcon, Settings } from 'lucide-react';
+import { Trash2, Edit2, Plus, ArrowLeftRight, Minus, Package, Search, Bell, Camera, Filter, FileText, ChevronDown, CheckSquare, Layers, Download, Share2, Phone, ShoppingCart, List, Grid, X, Image as ImageIcon, Settings, IndianRupee, BarChart3, TrendingUp, RefreshCw } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
 import auth from '../services/auth';

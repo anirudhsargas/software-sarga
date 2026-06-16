@@ -41,7 +41,7 @@ export default function ForgotPassword() {
         boxShadow: '0 20px 60px rgba(0,0,0,0.15)'
     };
     const inputStyle = {
-        width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid #d1d5db',
+        width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--input-border)',
         fontSize: 15, outline: 'none', boxSizing: 'border-box'
     };
     const btnStyle = {

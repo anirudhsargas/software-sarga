@@ -746,7 +746,7 @@ const Dashboard = () => {
             {/* Sidebar */}
             <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''} ${sidebarOpen ? 'sidebar--open' : ''}`}>
                 <div className="sidebar-header">
-                    <div className="row gap-sm items-center">
+                    <div className="logo-wrap">
                         {companyInfo.logo ? (
                            <img src={companyInfo.logo} alt={companyInfo.name} className="logo-img" />
                         ) : (
@@ -807,7 +807,14 @@ const Dashboard = () => {
                     <button className="icon-button" aria-label="Open navigation menu" onClick={toggleSidebar}>
                         <Grid size={20} />
                     </button>
-                    <div className="logo-text">{companyInfo.name}</div>
+                    <div className="logo-wrap" style={{ gap: 10 }}>
+                        {companyInfo.logo ? (
+                           <img src={companyInfo.logo} alt={companyInfo.name} className="logo-img" />
+                        ) : (
+                           <img src="/icons/icon-192.png" alt="Sarga" className="logo-img" />
+                        )}
+                        <span className="logo-text">{companyInfo.name}</span>
+                    </div>
                     <div className="topbar-actions">
                         {anomalyCount > 0 && ['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
                             <span className="anomaly-badge" title={`${anomalyCount} anomalies detected`}>

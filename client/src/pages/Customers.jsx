@@ -423,14 +423,13 @@ const Customers = () => {
 
     return (
         <div className="stack-lg">
-            <header className="page-header bg-surface p-16 rounded-lg shadow-sm">
-                <div>
-                        <h1 className="page-title row items-center gap-sm">
-                            <Users className="text-accent" aria-hidden="true" /> Customer Management
-                        </h1>
-                    <p className="muted">Manage your client database and create new job orders.</p>
+            <header className="page-header flex justify-between items-center flex-wrap gap-md p-12 rounded-lg shadow-sm">
+                <div className="flex items-center gap-sm">
+                    <h1 className="page-title">
+                        <Users className="text-heading" aria-hidden="true" size={20} /> Customer Management
+                    </h1>
                 </div>
-                <div className="row gap-sm flex-wrap">
+                <div className="flex gap-sm flex-wrap">
                     <button
                         className="btn btn-ghost touch-target"
                         onClick={() => {
@@ -453,14 +452,14 @@ const Customers = () => {
                     >
                         <Plus size={18} aria-hidden="true" /> Walk-in Job
                     </button>
-                    <button className="btn btn-accent" onClick={() => { setAddFormDirty(false); setShowAddModal(true); }}>
-                        <Plus size={18} aria-hidden="true" /> Add New Customer
+                    <button className="btn btn-primary" onClick={() => { setAddFormDirty(false); setShowAddModal(true); }}>
+                        <Plus size={18} aria-hidden="true" /> Add Customer
                     </button>
                 </div>
             </header>
 
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--surface)', padding: '10px 12px', borderRadius: 12, border: '1px solid var(--border)' }}>
-                <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <div className="flex gap-sm items-center p-3 rounded-lg border" style={{ background: 'var(--surface)' }}>
+                <div className="flex-1 relative flex items-center">
                     <Search size={15} aria-hidden="true" style={{ position: 'absolute', left: 10, color: 'var(--muted)', pointerEvents: 'none' }} />
                     <label htmlFor="customer-search" className="sr-only">Search customers</label>
                     <input
@@ -475,21 +474,24 @@ const Customers = () => {
                         autoComplete="off"
                     />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 4px 0 8px', height: 36, flexShrink: 0 }}>
+                <div className="flex items-center gap-xs bg-surface-2 border rounded-lg px-3 h-9" style={{ flexShrink: 0 }}>
                     <Filter size={13} aria-hidden="true" style={{ color: 'var(--muted)' }} />
-                    <label htmlFor="customer-type-filter" className="sr-only">Filter by customer type</label>
                     <select
-                        id="customer-type-filter"
                         className="input-field"
-                        style={{ border: 'none', background: 'transparent', boxShadow: 'none', height: 34, padding: '0 24px 0 2px', fontSize: 13, color: 'var(--text)', minWidth: 90 }}
+                        style={{ border: 'none', background: 'transparent', height: '100%', padding: 0, minWidth: 140, fontSize: 13 }}
                         value={typeFilter}
-                        onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+                        onChange={e => { setTypeFilter(e.target.value); setPage(1); }}
                         aria-label="Filter by customer type"
                     >
                         <option value="">All Types</option>
-                        {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                        <option value="Walk-in">Walk-in</option>
+                        <option value="Regular">Regular</option>
+                        <option value="Corporate">Corporate</option>
                     </select>
                 </div>
+                <button className="btn btn-ghost btn-sm px-3 h-9" onClick={() => { setSearchInput(''); setTypeFilter(''); setPage(1); }} aria-label="Clear filters">
+                    <X size={13} />
+                </button>
             </div>
 
             <div className="card p-0 overflow-hidden shadow-sm" style={{ contain: 'layout', minHeight: '600px' }}>

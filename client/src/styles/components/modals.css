@@ -4,7 +4,7 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--modal-overlay);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   display: flex;
@@ -23,7 +23,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-lg, 0 16px 40px rgba(0,0,0,0.1));
+  box-shadow: var(--shadow-lg);
   width: 100%;
   max-width: 420px;
   max-height: 90vh;

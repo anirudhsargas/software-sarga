@@ -137,14 +137,14 @@ const SmartSearch = ({ isOpen, onClose }) => {
             <div className="smart-search-hint">
               <Search size={32} style={{ opacity: 0.15, marginBottom: 8 }} />
               <span>Type at least 2 characters to search</span>
-              <span style={{ fontSize: 11, opacity: 0.5 }}>Search by customer name, phone, order number, or product</span>
+              <span className="text-sm text-muted">Search by customer name, phone, order number, or product</span>
             </div>
           )}
 
           {noResults && (
             <div className="smart-search-hint">
               <span>No results found for "{query}"</span>
-              <span style={{ fontSize: 11, opacity: 0.5 }}>Try a different search term</span>
+              <span className="text-sm text-muted">Try a different search term</span>
             </div>
           )}
 
