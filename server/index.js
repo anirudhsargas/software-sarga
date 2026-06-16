@@ -21,6 +21,15 @@ const { verifyWithAnySecret } = require('./middleware/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Health check endpoint for Render keepalive (no auth, no DB)
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        service: 'sarga-mis',
+        time: new Date().toISOString()
+    });
+});
+
 // Configure allowed CORS origins (normalize and remove trailing slashes)
 const allowedOrigins = [
     'https://software-sarga-git-main-anirudhsargas-projects.vercel.app',
