@@ -634,40 +634,64 @@ const Dashboard = () => {
     usePolling(fetchPendingCount, 60000, isAdminOrAccountant);
     usePolling(fetchChatbotCounts, 60000, user?.role === 'Admin');
 
+    // Consolidated initial data fetch on mount with parallel requests
     useEffect(() => {
+        const initialFetch = async () => {
+            const promises = [];
+            promises.push(fetchCompanyInfo());
+            if (isAdminOrAccountant) {
+                promises.push(fetchPendingCount());
+            }
+            if (['Admin', 'Accountant', 'Front Office'].includes(user?.role)) {
+                promises.push(
+                    api.get('ai/anomalies').then(res => {
+                        setAnomalyCount(res.data?.anomalies?.length || 0);
+                    }).catch(() => {})
+                );
+            }
+            await Promise.all(promises);
+        };
+        initialFetch();
+
+        // Event listeners for real-time updates
+        const handleRefresh = () => fetchPendingCount();
+        const handleCompanyUpdate = () => fetchCompanyInfo();
         if (isAdminOrAccountant) {
-            fetchPendingCount();
-
-            const handleRefresh = () => fetchPendingCount();
             window.addEventListener('requestReviewed', handleRefresh);
-
-            return () => {
-                window.removeEventListener('requestReviewed', handleRefresh);
-            };
         }
+        window.addEventListener('companySettingsUpdated', handleCompanyUpdate);
+
+        // Anomaly polling interval
+        let anomalyInterval;
+        if (['Admin', 'Accountant', 'Front Office'].includes(user?.role)) {
+            anomalyInterval = setInterval(async () => {
+                try {
+                    const res = await api.get('ai/anomalies');
+                    setAnomalyCount(res.data?.anomalies?.length || 0);
+                } catch { /* ignore */ }
+            }, 5 * 60 * 1000);
+        }
+
+        return () => {
+            window.removeEventListener('requestReviewed', handleRefresh);
+            window.removeEventListener('companySettingsUpdated', handleCompanyUpdate);
+            if (anomalyInterval) clearInterval(anomalyInterval);
+        };
     }, [user]);
 
-    // Fetch anomaly count for header badge (Admin / Accountant / Front Office)
+    // ESC key closes all modals
     useEffect(() => {
-        if (!['Admin', 'Accountant', 'Front Office'].includes(user?.role)) return;
-        let cancelled = false;
-        const fetchCount = async () => {
-            try {
-                const res = await api.get('ai/anomalies');
-                if (!cancelled) setAnomalyCount(res.data?.anomalies?.length || 0);
-            } catch { /* ignore */ }
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                if (showProfileModal) setShowProfileModal(false);
+                else if (showProfilePanel) setShowProfilePanel(false);
+                else if (inventoryScanResult) setInventoryScanResult(null);
+                else if (showInventoryScan) setShowInventoryScan(false);
+            }
         };
-        fetchCount();
-        const interval = setInterval(fetchCount, 5 * 60 * 1000);
-        return () => { cancelled = true; clearInterval(interval); };
-    }, [user?.role]);
-
-    // Fetch and listen for company settings updates
-    useEffect(() => {
-        fetchCompanyInfo();
-        window.addEventListener('companySettingsUpdated', fetchCompanyInfo);
-        return () => window.removeEventListener('companySettingsUpdated', fetchCompanyInfo);
-    }, [fetchCompanyInfo]);
+        document.addEventListener('keydown', handleEsc);
+        return () => document.removeEventListener('keydown', handleEsc);
+    }, [showProfileModal, showProfilePanel, inventoryScanResult, showInventoryScan]);
 
     const handleProfileSave = useCallback(async (e) => {
         e.preventDefault();
@@ -892,8 +916,8 @@ const Dashboard = () => {
                             <Route path="design-check" element={<RequiresConnection feature="Design Checker"><DesignChecker /></RequiresConnection>} />
                             <Route path="paper-layout" element={<RequiresConnection feature="Paper Layout Generator"><PaperLayoutGenerator /></RequiresConnection>} />
                             <Route path="job-priority" element={<JobPriority />} />
-                                <Route path="sales-prediction" element={<RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection>} />
-                                <Route path="reports" element={<Reports />} />
+                            <Route path="sales-prediction" element={<RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection>} />
+                            <Route path="reports" element={<Reports />} />
                             <Route path="accounts" element={<RequiresConnection feature="Accounts & GST"><Accounts /></RequiresConnection>} />
                             <Route path="plates" element={<PlateManagement />} />
                             <Route path="order-predictions" element={<RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection>} />
@@ -943,7 +967,7 @@ const Dashboard = () => {
             </main>
 
             {showProfilePanel && (
-                <div className="modal-backdrop modal-backdrop--high">
+                <div className="modal-backdrop modal-backdrop--high" role="dialog" aria-modal="true" aria-label="Profile panel">
                     <div className="modal modal--profile-panel">
                         {/* Profile Header */}
                         <div className="profile-panel-header">
@@ -984,7 +1008,7 @@ const Dashboard = () => {
             )}
 
             {showProfileModal && (
-                <div className="modal-backdrop">
+                <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit profile">
                     <div className="modal modal--profile">
                         <button className="modal-close" aria-label="Close profile modal" onClick={() => setShowProfileModal(false)} title="Close"><X size={20} /></button>
                         <h2 className="section-title mb-16">Edit Profile</h2>
@@ -1217,7 +1241,7 @@ const Dashboard = () => {
 
             {/* Loading overlay when hardware scanner fires */}
             {inventoryScanLoading && (
-                <div className="modal-backdrop modal-backdrop--medium">
+                <div className="modal-backdrop modal-backdrop--medium" role="dialog" aria-modal="true" aria-label="Scanning">
                     <div className="modal modal--scan-loading">
                         <Loader2 size={32} className="animate-spin modal-loader-icon" />
                         <div className="modal-loading-title">Looking up item…</div>
@@ -1228,7 +1252,7 @@ const Dashboard = () => {
 
             {/* Inventory Scan Result */}
             {inventoryScanResult && (
-                <div className="modal-backdrop modal-backdrop--low">
+                <div className="modal-backdrop modal-backdrop--low" role="dialog" aria-modal="true" aria-label="Product details">
                     <div className="modal modal--scan-result">
                         <div className="row space-between items-center mb-16">
                             <h2 className="section-title">Product Details</h2>

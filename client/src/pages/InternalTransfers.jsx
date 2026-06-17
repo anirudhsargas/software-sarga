@@ -82,7 +82,7 @@ const InternalTransfers = () => {
   };
 
   return (
-    <div className="panel">
+    <div className="panel" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
       <div className="panel-header">
         <BookOpen size={18} />
         <h2>Internal Transfers</h2>
@@ -133,9 +133,9 @@ const InternalTransfers = () => {
         </form>
       </div>
 
-      <div className="transfers-history">
+      <div className="transfers-history" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <h3>Recent Transfers</h3>
-        <div className="table-scroll">
+        <div className="table-scroll" style={{ flex: 1, minHeight: 0 }}>
           <table className="table">
             <thead>
               <tr>

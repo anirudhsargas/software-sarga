@@ -217,7 +217,7 @@
 .mm-modal-overlay {
     position: fixed;
     inset: 0;
-    background: var(--shadow-sm);
+    background: var(--modal-overlay, rgba(0, 0, 0, 0.3));
     display: flex;
     align-items: center;
     justify-content: center;

@@ -10,10 +10,14 @@
 
 /* Fix doubled sidebar spacing: remove original padding-left, use margin-left on main-content only */
 .dashboard-layout {
+  display: flex;
+  height: 100dvh;
   padding-left: 0 !important;
 }
 
 .dashboard-layout--collapsed {
+  display: flex;
+  height: 100dvh;
   padding-left: 0 !important;
 }
 
@@ -501,6 +505,7 @@
 /* ── Sidebar ── */
 .sidebar {
   width: 260px;
+  flex-shrink: 0;
   z-index: 40;
   overflow-y: auto;
   display: flex;
@@ -767,18 +772,19 @@
 }
 
 .main-content {
-  margin-left: 260px;
-  min-height: 100%;
-  min-height: 100dvh;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   background: var(--bg);
-  transition: margin-left var(--transition-normal);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
 .dashboard-layout--collapsed .main-content {
-  margin-left: 72px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 .content-container {
@@ -788,6 +794,18 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Page Header (heading + actions row) ── */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 /* ── Shared Input Field ── */
@@ -1283,7 +1301,8 @@ select.input-field {
   }
 
   .main-content {
-    margin-left: 0 !important;
+    flex: 1;
+    min-width: 0;
   }
 
   .topbar.mobile-only {

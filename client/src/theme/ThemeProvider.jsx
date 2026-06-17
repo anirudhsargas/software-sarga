@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import api from '../services/api';
 
 const ThemeContext = createContext();
@@ -20,9 +20,14 @@ function isValidTheme(mode) {
   return VALID_MODES.includes(mode);
 }
 
-function applyThemeToDOM(resolvedTheme) {
+function applyThemeToDOM(resolvedTheme, transition = false) {
   if (typeof document !== 'undefined') {
     const isDark = resolvedTheme === 'dark';
+    
+    if (transition) {
+      document.documentElement.classList.add('theme-transitioning');
+    }
+    
     document.documentElement.setAttribute('data-theme', resolvedTheme);
     document.body.setAttribute('data-theme', resolvedTheme);
     document.documentElement.style.colorScheme = resolvedTheme;
@@ -36,6 +41,12 @@ function applyThemeToDOM(resolvedTheme) {
     const meta = document.getElementById('theme-color');
     if (meta) {
       meta.content = isDark ? '#0a0a0a' : '#fafafa';
+    }
+
+    if (transition) {
+      setTimeout(() => {
+        document.documentElement.classList.remove('theme-transitioning');
+      }, 250);
     }
   }
 }
@@ -92,9 +103,14 @@ export const ThemeProvider = ({ children }) => {
   // Compute resolved theme
   const resolvedTheme = themeMode === 'system' ? systemPref : themeMode;
 
+  const isFirstRender = useRef(true);
+
   // Apply resolved theme whenever it changes
   useEffect(() => {
-    applyThemeToDOM(resolvedTheme);
+    applyThemeToDOM(resolvedTheme, !isFirstRender.current);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+    }
   }, [resolvedTheme]);
 
   const syncToBackend = useCallback((mode) => {

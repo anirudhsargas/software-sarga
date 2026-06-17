@@ -105,7 +105,7 @@ const OrderForecastWidget = ({ branchId }) => {
             {/* Chart */}
             {mounted && (
                 <div style={{ width: '100%', height: 300, marginBottom: 4 }}>
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer width="100%" height={300} minWidth={0}>
                         <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--border, #e5e7eb)" />
                         <XAxis

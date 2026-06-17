@@ -273,7 +273,7 @@ export async function getVendors(filters = {}) {
             if (Array.isArray(serverVendors) && serverVendors.length > 0) {
                 // Cache in IndexedDB for next time
                 for (const v of serverVendors) {
-                    await offlineDb.put('vendors', { ...v, id: v.id || v.vendor_id });
+                    await offlineDb.save('vendors', { ...v, id: v.id || v.vendor_id });
                 }
                 return serverVendors;
             }

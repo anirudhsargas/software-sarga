@@ -119,7 +119,7 @@ const Chatbot = () => {
     if (typeof opt === 'string') {
       if (opt === 'Track Order') { navigate('/track'); setOpen(false); return; }
       if (opt === 'Get a Quote') { navigate('/contact'); setOpen(false); return; }
-      if (opt === 'Call Us') { window.location.href = 'tel:+919496XXXXX'; return; }
+      if (opt === 'Call Us') { window.location.href = 'tel:+919495177283'; return; }
       sendMessage(opt);
       return;
     }

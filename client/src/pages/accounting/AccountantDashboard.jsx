@@ -190,7 +190,7 @@ export default function AccountantDashboard() {
                   <h3>Cashflow Overview</h3>
                 </div>
                 <div className="acc-chart-wrap">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
                     <BarChart data={data?.charts || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                       <XAxis dataKey="date" tick={{fontSize: 12, fill: 'var(--muted)'}} tickLine={false} axisLine={false} />

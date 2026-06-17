@@ -16,7 +16,14 @@ function isValidTheme(mode) {
 function applyTheme(mode) {
   const el = document.documentElement
   const effective = mode === 'system' ? getSystemPref() : mode
+  // Scope transitions during theme switch to prevent layout thrashing
+  el.classList.add('theme-transitioning')
   el.setAttribute('data-theme', effective)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.classList.remove('theme-transitioning')
+    })
+  })
 }
 
 function setTheme(mode) {

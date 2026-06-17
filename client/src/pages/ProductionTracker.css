@@ -1,0 +1,130 @@
+.production-pipeline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.production-stage-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+    background: var(--surface-2);
+}
+
+.production-stage-chip:hover {
+    opacity: 0.8;
+}
+
+.production-stage-count {
+    background: rgba(0,0,0,0.08);
+    padding: 0 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.production-stage-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.production-stage-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    gap: 8px;
+}
+
+.production-stage-header:hover {
+    background: var(--bg);
+}
+
+.production-stage-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.production-stage-badge {
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 4px;
+}
+
+.production-jobs-grid {
+    padding: 0 14px 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 10px;
+}
+
+.production-job-card {
+    display: flex;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+}
+
+.production-job-card:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.production-job-priority {
+    width: 4px;
+    flex-shrink: 0;
+}
+
+.production-job-content {
+    flex: 1;
+    padding: 10px 12px;
+    min-width: 0;
+}
+
+.production-overdue-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--error);
+    background: color-mix(in srgb, var(--error), transparent 85%);
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.production-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    background: var(--surface-2);
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+}

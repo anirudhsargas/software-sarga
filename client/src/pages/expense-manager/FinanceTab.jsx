@@ -424,11 +424,8 @@ const FinanceTab = ({ branches, onError }) => {
       {/* ── Kuri sub-tab ── */}
       {subTab === 'kuri' && (
         <>
-          <div style={{ position: 'relative', overflow: 'hidden', height: 160, marginBottom: 12 }}>
-            <div ref={kuriBgRef} style={{ position: 'absolute', top: -40, left: 0, right: 0, height: 260, background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(124,58,237,0.06))', backgroundSize: 'cover', backgroundPosition: 'center', transform: 'translateY(0)', transition: 'transform 0.05s linear', willChange: 'transform' }} aria-hidden="true" />
-            <div style={{ position: 'relative', zIndex: 1, padding: '12px 16px' }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Kuri / Chit Funds</h3>
-            </div>
+          <div style={{ marginBottom: 12 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, padding: '4px 0' }}>Kuri / Chit Funds</h3>
           </div>
           {kuriDash && (
             <div className="em-kpi-grid em-kpi-grid--3">

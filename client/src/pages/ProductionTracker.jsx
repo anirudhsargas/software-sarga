@@ -12,6 +12,7 @@ import { formatCurrency as fmt } from '../constants';
 import usePolling from '../hooks/usePolling';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import './ProductionTracker.css';
 const STAGE_CONFIG = {
     Pending:          { icon: Clock,        color: 'var(--text-muted)', bg: 'var(--surface-2)', label: 'Pending' },
     Designing:        { icon: Palette,      color: 'var(--accent)', bg: 'var(--surface-2)', label: 'Designing' },

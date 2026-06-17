@@ -220,7 +220,7 @@ const ChatbotTraining = () => {
                 <h4>Intent distribution</h4>
                 {intentDist.length > 0 && chartReady ? (
                   <div style={{ minWidth: 200, minHeight: 180 }}>
-                    <ResponsiveContainer width="100%" height={180}>
+                    <ResponsiveContainer width="100%" height={180} minWidth={0}>
                       <BarChart data={intentDist}>
                         <XAxis dataKey="intent" />
                         <YAxis />

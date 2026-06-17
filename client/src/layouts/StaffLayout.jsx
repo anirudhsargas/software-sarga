@@ -30,7 +30,7 @@ const StaffLayout = () => {
                 </nav>
 
                 <div className="sidebar__footer">
-                    <NavLink to="/staff/settings" className={({isActive}) => `sidebar__link ${isActive ? 'active' : ''}`}>
+                    <NavLink to="/staff-settings" className={({isActive}) => `sidebar__link ${isActive ? 'active' : ''}`}>
                         <Settings size={20} />
                         <span>Settings</span>
                     </NavLink>

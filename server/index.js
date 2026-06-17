@@ -105,9 +105,13 @@ app.use(helmet({
 // Response compression
 app.use(compression());
 
-// Body parsing with size limits (increased for Base64 images)
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Body parsing with size limits (increased only for routes handling large base64 designs/images)
+app.use('/api/website/designs', express.json({ limit: '50mb' }));
+app.use('/api/website/designs', express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Default body parsing with safe 1mb limits to prevent OOM/DoS attacks
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Request logger
 app.use((req, res, next) => {

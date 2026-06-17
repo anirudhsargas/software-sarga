@@ -148,7 +148,7 @@
 }
 
 .sv-status-icon--completed {
-    color: var(--success);
+    color: var(--on-accent, #fff);
 }
 
 .sv-status-icon--draft {
@@ -162,7 +162,7 @@
 }
 
 .sv-status-text--completed {
-    color: var(--success);
+    color: var(--on-accent, #fff);
 }
 
 .sv-status-text--draft {

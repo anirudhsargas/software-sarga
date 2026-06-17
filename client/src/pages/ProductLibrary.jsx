@@ -1352,16 +1352,17 @@ const ProductLibrary = () => {
         <div className="stack-lg">
             <header className="stack-sm">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {viewPath.length > 0 && (
-                            <button 
-                                className="btn btn-ghost" 
-                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px' }}
+                            <a 
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => navigateBack(viewPath.length - 2)}
                                 title="Go back"
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--accent)', cursor: 'pointer', fontSize: 13, fontWeight: 500, textDecoration: 'none', whiteSpace: 'nowrap' }}
                             >
-                                <ChevronLeft size={18} /> Back
-                            </button>
+                                <ChevronLeft size={16} /> Back
+                            </a>
                         )}
                         <div>
                             <h1 className="page-title" style={{ margin: 0 }}>Product & Rate Library</h1>
@@ -2660,22 +2661,23 @@ const ProductLibrary = () => {
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="stack-sm bg-light p-16 rounded border overflow-x-auto" style={{ background: 'var(--surface-1)', borderColor: 'var(--border)' }}>
-                                        <div className="row gap-md px-4 pb-12 text-xs muted font-bold uppercase min-w-[500px]" style={{ borderBottom: '1px solid var(--border)', letterSpacing: '0.05em' }}>
-                                            <div className="flex-1">Min Qty</div>
-                                            {newProduct.calculation_type === 'Range' && <div className="flex-1">Max Qty</div>}
-                                            {newProduct.calculation_type === 'Slab' && <div className="flex-1">Base Value (Total ₹)</div>}
-                                            {newProduct.calculation_type === 'Slab' && newProduct.has_double_side_rate && <div className="flex-1">Double Side Rate (₹)</div>}
-                                            {newProduct.calculation_type === 'Range' && <div className="flex-1">Retail Rate (₹)</div>}
-                                            {newProduct.calculation_type === 'Range' && <div className="flex-1">Offset Rate (₹)</div>}
-                                            {newProduct.calculation_type === 'Range' && newProduct.has_double_side_rate && <div className="flex-1">Double Side Rate (₹)</div>}
-                                            <div style={{ width: '36px' }}></div>
+                                    <div className="stack-sm bg-light p-16 rounded border" style={{ background: 'var(--surface-1)', borderColor: 'var(--border)', overflowX: 'auto' }}>
+                                        <div className="row gap-xs px-4 pb-12 text-xs muted font-bold uppercase" style={{ borderBottom: '1px solid var(--border)', letterSpacing: '0.05em', minWidth: 480 }}>
+                                            <div style={{ width: 80, flexShrink: 0 }}>Min Qty</div>
+                                            {newProduct.calculation_type === 'Range' && <div style={{ width: 80, flexShrink: 0 }}>Max Qty</div>}
+                                            {newProduct.calculation_type === 'Slab' && <div style={{ width: 100, flexShrink: 0 }}>Base Value (₹)</div>}
+                                            {newProduct.calculation_type === 'Slab' && newProduct.has_double_side_rate && <div style={{ width: 105, flexShrink: 0 }}>Double Side (₹)</div>}
+                                            {newProduct.calculation_type === 'Range' && <div style={{ minWidth: 85, flex: 1 }}>Retail Rate (₹)</div>}
+                                            {newProduct.calculation_type === 'Range' && <div style={{ minWidth: 85, flex: 1 }}>Offset Rate (₹)</div>}
+                                            {newProduct.calculation_type === 'Range' && newProduct.has_double_side_rate && <div style={{ minWidth: 95, flex: 1 }}>Double Side (₹)</div>}
+                                            <div style={{ width: 28, flexShrink: 0 }}></div>
                                         </div>
                                         {newProduct.slabs.map((slab, idx) => (
-                                            <div key={idx} className="row gap-sm items-center min-w-[500px]">
+                                            <div key={idx} className="row gap-sm items-center" style={{ minWidth: 480 }}>
+                                                <div style={{ width: 80, flexShrink: 0 }}>
                                                 <input
-                                                    type="number" className="input-field text-sm"
-                                                    placeholder="Min Qty"
+                                                    type="number" className="input-field text-sm" style={{ width: '100%' }}
+                                                    placeholder="Min"
                                                     value={slab.min_qty}
                                                     data-slab-row={idx}
                                                     data-slab-col={0}
@@ -2691,10 +2693,12 @@ const ProductLibrary = () => {
                                                         }
                                                     }}
                                                 />
+                                                </div>
                                                 {newProduct.calculation_type === 'Range' && (
+                                                    <div style={{ width: 80, flexShrink: 0 }}>
                                                     <input
-                                                        type="number" className="input-field text-sm"
-                                                        placeholder="Max Qty"
+                                                        type="number" className="input-field text-sm" style={{ width: '100%' }}
+                                                        placeholder="Max"
                                                         value={slab.max_qty}
                                                         data-slab-row={idx}
                                                         data-slab-col={1}
@@ -2719,11 +2723,13 @@ const ProductLibrary = () => {
                                                                 moveSlabFocus(idx, 1, e.key === 'ArrowUp' ? -1 : 1);
                                                             }
                                                         }}
-                                                        />
+                                                         />
+                                                    </div>
                                                 )}
                                                 {newProduct.calculation_type === 'Slab' && (
+                                                    <div style={{ width: 100, flexShrink: 0 }}>
                                                     <input
-                                                        type="number" className="input-field text-sm"
+                                                        type="number" className="input-field text-sm" style={{ width: '100%' }}
                                                         placeholder="Base Value"
                                                         step="any"
                                                         value={slab.base_value !== undefined ? slab.base_value : ''}
@@ -2741,14 +2747,16 @@ const ProductLibrary = () => {
                                                             } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                                                                 e.preventDefault();
                                                                 moveSlabFocus(idx, 1, e.key === 'ArrowUp' ? -1 : 1);
-                                                            }
-                                                        }}
-                                                        />
+                                                             }
+                                                         }}
+                                                         />
+                                                    </div>
                                                 )}
                                                 {newProduct.calculation_type === 'Slab' && newProduct.has_double_side_rate && (
+                                                    <div style={{ width: 105, flexShrink: 0 }}>
                                                     <input
-                                                        type="number" className="input-field text-sm"
-                                                        placeholder="Double Side Rate"
+                                                        type="number" className="input-field text-sm" style={{ width: '100%' }}
+                                                        placeholder="Double Side"
                                                         step="any"
                                                         value={slab.double_side_unit_rate !== undefined ? slab.double_side_unit_rate : ''}
                                                         data-slab-row={idx}
@@ -2767,12 +2775,14 @@ const ProductLibrary = () => {
                                                                 moveSlabFocus(idx, 2, e.key === 'ArrowUp' ? -1 : 1);
                                                             }
                                                         }}
-                                                        />
+                                                         />
+                                                    </div>
                                                 )}
                                                 {newProduct.calculation_type === 'Range' && (
                                                     <>
+                                                        <div style={{ minWidth: 85, flex: 1 }}>
                                                         <input
-                                                            type="number" className="input-field text-sm"
+                                                            type="number" className="input-field text-sm" style={{ width: '100%' }}
                                                             placeholder="Retail Rate"
                                                             step="any"
                                                             value={slab.unit_rate !== undefined ? slab.unit_rate : ''}
@@ -2790,8 +2800,10 @@ const ProductLibrary = () => {
                                                                 }
                                                             }}
                                                                 />
+                                                        </div>
+                                                        <div style={{ minWidth: 85, flex: 1 }}>
                                                         <input
-                                                            type="number" className="input-field text-sm"
+                                                            type="number" className="input-field text-sm" style={{ width: '100%' }}
                                                             placeholder="Offset Rate"
                                                             step="any"
                                                             value={slab.offset_unit_rate !== undefined ? slab.offset_unit_rate : ''}
@@ -2812,10 +2824,12 @@ const ProductLibrary = () => {
                                                                 }
                                                             }}
                                                                 />
+                                                        </div>
                                                         {newProduct.has_double_side_rate && (
+                                                            <div style={{ minWidth: 95, flex: 1 }}>
                                                             <input
-                                                                type="number" className="input-field text-sm"
-                                                                placeholder="Double Side Rate"
+                                                                type="number" className="input-field text-sm" style={{ width: '100%' }}
+                                                                placeholder="Double Side"
                                                                 step="any"
                                                                 value={slab.double_side_unit_rate !== undefined ? slab.double_side_unit_rate : ''}
                                                                 data-slab-row={idx}
@@ -2830,8 +2844,9 @@ const ProductLibrary = () => {
                                                                         e.preventDefault();
                                                                         moveSlabFocus(idx, 4, e.key === 'ArrowUp' ? -1 : 1);
                                                                     }
-                                                                }}
-                                                                        />
+                                                        }}
+                                                                 />
+                                                            </div>
                                                         )}
                                                     </>
                                                 )}

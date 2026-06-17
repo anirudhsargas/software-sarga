@@ -11,7 +11,7 @@
 .smart-bill-upload-modal .modal-overlay {
   position: absolute;
   inset: 0;
-  background: var(--shadow-sm);
+  background: var(--modal-overlay, rgba(0, 0, 0, 0.3));
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   z-index: 0;

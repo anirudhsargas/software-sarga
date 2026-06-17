@@ -5,7 +5,7 @@ const InternalTransactions = () => {
     useSEO('Internal Transactions');
 
   return (
-    <div className="page-container internal-transactions-page">
+    <div className="page-container internal-transactions-page" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
       <div className="page-header">
         <div className="page-header__title">
           <h1 className="section-title">Internal Transactions</h1>

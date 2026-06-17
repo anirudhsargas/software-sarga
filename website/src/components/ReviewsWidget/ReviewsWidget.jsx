@@ -4,6 +4,7 @@ import { getReviews, getReviewStats } from '../../api'
 import './ReviewsWidget.css'
 
 const STARS = [1, 2, 3, 4, 5]
+const GOOGLE_PLACE_ID = import.meta.env.VITE_GOOGLE_PLACE_ID || ''
 
 function StarRating({ rating, size = 14 }) {
   return (
@@ -127,15 +128,17 @@ export default function ReviewsWidget() {
             <span className="rw-eyebrow">Customer Reviews</span>
             <h2 className="rw-title">What Our Clients Say</h2>
           </div>
-          <a
-            href="https://search.google.com/local/writereview?placeid=PLACE_ID"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rw-write-btn"
-          >
-            <MessageSquare size={14} />
-            Write a Review
-          </a>
+          {GOOGLE_PLACE_ID && (
+            <a
+              href={`https://search.google.com/local/writereview?placeid=${GOOGLE_PLACE_ID}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rw-write-btn"
+            >
+              <MessageSquare size={14} />
+              Write a Review
+            </a>
+          )}
         </div>
 
         {/* Rating Summary */}
@@ -196,11 +199,13 @@ export default function ReviewsWidget() {
         )}
 
         {/* Footer link */}
-        <div className="rw-footer">
-          <a href="https://search.google.com/local/reviews?placeid=PLACE_ID" target="_blank" rel="noopener noreferrer" className="rw-footer__link">
-            See all reviews on Google <ExternalLink size={12} />
-          </a>
-        </div>
+        {GOOGLE_PLACE_ID && (
+          <div className="rw-footer">
+            <a href={`https://search.google.com/local/reviews?placeid=${GOOGLE_PLACE_ID}`} target="_blank" rel="noopener noreferrer" className="rw-footer__link">
+              See all reviews on Google <ExternalLink size={12} />
+            </a>
+          </div>
+        )}
       </div>
     </section>
   )

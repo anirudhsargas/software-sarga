@@ -20,7 +20,7 @@ export function CartProvider({ children }) {
     setItems((prev) => [...prev, { id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2), ...item }]);
   };
   const removeItem = (id) => setItems((prev) => prev.filter(i => i.id !== id));
-  const updateQuantity = (id, qty) => setItems((prev) => prev.map(i => i.id === id ? { ...i, quantity: qty } : i));
+  const updateQuantity = (id, qty) => setItems((prev) => prev.map(i => i.id === id ? { ...i, quantity: Math.max(1, qty) } : i));
   const clearCart = () => setItems([]);
   const openCart = () => setOpen(true);
   const closeCart = () => setOpen(false);

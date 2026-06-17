@@ -1210,7 +1210,7 @@ select.em-input {
 .em-modal-backdrop {
     position: fixed;
     inset: 0;
-    background: var(--shadow-sm);
+    background: var(--modal-overlay, rgba(0, 0, 0, 0.3));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1220,7 +1220,7 @@ select.em-input {
 
 .dark .modal-backdrop,
 .dark .em-modal-backdrop {
-    background: var(--shadow-sm);
+    background: var(--modal-overlay, rgba(0, 0, 0, 0.4));
 }
 
 /* ─── Responsive ──────────────────────────────────────── */
@@ -1678,175 +1678,83 @@ select.em-input {
 
 .em-kpi-card--red .em-kpi-card__icon {
     color: var(--destructive);
-    background: var(--destructive);
-}
-
-.em-kpi-card--red .em-kpi-card__value {
-    color: var(--destructive);
-}
-
-.em-kpi-card--green {
-    border-left-color: var(--success);
+    background: color-mix(in srgb, var(--destructive), transparent 85%);
 }
 
 .em-kpi-card--green .em-kpi-card__icon {
     color: var(--success);
-    background: var(--success);
-}
-
-.em-kpi-card--green .em-kpi-card__value {
-    color: var(--success);
-}
-
-.em-kpi-card--blue {
-    border-left-color: var(--primary);
+    background: color-mix(in srgb, var(--success), transparent 85%);
 }
 
 .em-kpi-card--blue .em-kpi-card__icon {
     color: var(--primary);
-    background: var(--primary);
-}
-
-.em-kpi-card--blue .em-kpi-card__value {
-    color: var(--primary);
-}
-
-.em-kpi-card--amber {
-    border-left-color: var(--warning);
+    background: color-mix(in srgb, var(--primary), transparent 85%);
 }
 
 .em-kpi-card--amber .em-kpi-card__icon {
     color: var(--warning);
-    background: var(--warning);
-}
-
-.em-kpi-card--amber .em-kpi-card__value {
-    color: var(--warning);
-}
-
-.em-kpi-card--purple {
-    border-left-color: var(--primary);
+    background: color-mix(in srgb, var(--warning), transparent 85%);
 }
 
 .em-kpi-card--purple .em-kpi-card__icon {
     color: var(--primary);
-    background: var(--primary);
-}
-
-.em-kpi-card--purple .em-kpi-card__value {
-    color: var(--primary);
-}
-
-.em-kpi-card--teal {
-    border-left-color: var(--success);
+    background: color-mix(in srgb, var(--primary), transparent 85%);
 }
 
 .em-kpi-card--teal .em-kpi-card__icon {
     color: var(--success);
-    background: var(--success);
-}
-
-.em-kpi-card--teal .em-kpi-card__value {
-    color: var(--success);
-}
-
-.em-kpi-card--cyan {
-    border-left-color: var(--success);
+    background: color-mix(in srgb, var(--success), transparent 85%);
 }
 
 .em-kpi-card--cyan .em-kpi-card__icon {
-    color: var(--success);
-    background: var(--success);
-}
-
-.em-kpi-card--cyan .em-kpi-card__value {
-    color: var(--success);
-}
-
-.em-kpi-card--indigo {
-    border-left-color: var(--primary);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary), transparent 85%);
 }
 
 .em-kpi-card--indigo .em-kpi-card__icon {
     color: var(--primary);
-    background: var(--primary);
-}
-
-.em-kpi-card--indigo .em-kpi-card__value {
-    color: var(--primary);
+    background: color-mix(in srgb, var(--primary), transparent 85%);
 }
 
 /* Dark mode KPI card variants */
 .dark .em-kpi-card--red .em-kpi-card__icon {
     color: var(--destructive);
-    background: var(--destructive);
-}
-
-.dark .em-kpi-card--red .em-kpi-card__value {
-    color: var(--destructive);
+    background: color-mix(in srgb, var(--destructive), transparent 85%);
 }
 
 .dark .em-kpi-card--green .em-kpi-card__icon {
     color: var(--success);
-    background: var(--success);
-}
-
-.dark .em-kpi-card--green .em-kpi-card__value {
-    color: var(--success);
+    background: color-mix(in srgb, var(--success), transparent 85%);
 }
 
 .dark .em-kpi-card--blue .em-kpi-card__icon {
     color: var(--accent);
-    background: var(--accent);
-}
-
-.dark .em-kpi-card--blue .em-kpi-card__value {
-    color: var(--accent);
+    background: color-mix(in srgb, var(--accent), transparent 85%);
 }
 
 .dark .em-kpi-card--amber .em-kpi-card__icon {
     color: var(--warning);
-    background: var(--warning);
-}
-
-.dark .em-kpi-card--amber .em-kpi-card__value {
-    color: var(--warning);
+    background: color-mix(in srgb, var(--warning), transparent 85%);
 }
 
 .dark .em-kpi-card--purple .em-kpi-card__icon {
     color: var(--muted-foreground);
-    background: var(--muted-foreground);
-}
-
-.dark .em-kpi-card--purple .em-kpi-card__value {
-    color: var(--muted-foreground);
+    background: color-mix(in srgb, var(--muted-foreground), transparent 85%);
 }
 
 .dark .em-kpi-card--teal .em-kpi-card__icon {
     color: var(--success);
-    background: var(--success);
-}
-
-.dark .em-kpi-card--teal .em-kpi-card__value {
-    color: var(--success);
+    background: color-mix(in srgb, var(--success), transparent 85%);
 }
 
 .dark .em-kpi-card--cyan .em-kpi-card__icon {
     color: var(--accent);
-    background: var(--accent);
-}
-
-.dark .em-kpi-card--cyan .em-kpi-card__value {
-    color: var(--accent);
+    background: color-mix(in srgb, var(--accent), transparent 85%);
 }
 
 .dark .em-kpi-card--indigo .em-kpi-card__icon {
     color: var(--muted-foreground);
-    background: var(--muted-foreground);
-}
-
-.dark .em-kpi-card--indigo .em-kpi-card__value {
-    color: var(--muted-foreground);
+    background: color-mix(in srgb, var(--muted-foreground), transparent 85%);
 }
 
 /* ─── Trend Badge ─────────────────────────────────────── */

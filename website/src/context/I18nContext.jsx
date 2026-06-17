@@ -58,21 +58,21 @@ const FALLBACK = {
     },
     footer: {
       'brand_description': 'പ്രീമ്യം പ്രിന്റിംഗ്, ഫോട്ടോകോപ്പി & ഡിസൈൻ സേവനങ്ങൾ. 1994 മുതൽ കേരളത്തിൽ വിശ്വാസം നിർമ്മിക്കുന്നു.',
-      'quick_links': 'عرب links',
-      'services': 'خدمات',
-      'contact_us': 'اتصل بنا',
+      'quick_links': 'Quick Links',
+      'services': 'Services',
+      'contact_us': 'Contact Us',
       'location': 'പെറാമ്ബ്ര & മെപ്പായ്യുർ, കേരളം',
       'phone_pba': 'PBA: +91 94951 77283',
       'phone_mpr': 'MPR: +91 91883 31197',
       'hours': 'Mon - Sat: 9:00 AM - 7:00 PM',
       'company_name': 'Sarga',
       'since_year': '1994 മുതൽ',
-      'all_rights_reserved': '모든 권리 보유',
-      'privacy_policy': '개인정보 처리방침',
-      'terms_of_service': '서비스 이용약관',
-      'service_offset_digital': 'オフセット & デジタル印刷',
-      'service_photostat_id': 'フォト stat & ID カード',
-      'service_mementos_frames': 'Souvenirs & Cadres Photo',
+      'all_rights_reserved': 'All Rights Reserved.',
+      'privacy_policy': 'Privacy Policy',
+      'terms_of_service': 'Terms of Service',
+      'service_offset_digital': 'Offset & Digital Printing',
+      'service_photostat_id': 'Photostat & ID Cards',
+      'service_mementos_frames': 'Souvenirs & Photo Frames',
       'service_hard_spiral_binding': 'Hard & Spiral Binding',
       'service_rubber_seals_stamps': 'Rubber Seals & Stamps'
     }
@@ -119,8 +119,8 @@ const FALLBACK = {
       'hero.cta': 'സേവനങ്ങൾ കാണുക',
     },
     theme: {
-      'toggle_aria_label': 'ダー�ക/ലൈറ്റ് തീം മാറ്റുക',
-      'toggle_title_dark': 'ダー�ക മോഡിലേക്ക് മാറ്റുക',
+      'toggle_aria_label': 'തീം മാറ്റുക',
+      'toggle_title_dark': 'ഡാർക്ക് മോഡിലേക്ക് മാറ്റുക',
       'toggle_title_light': 'ലൈറ്റ് മോഡിലേക്ക് മാറ്റുക'
     },
     language: {
@@ -130,10 +130,10 @@ const FALLBACK = {
       'switch_to_ml': 'Switch to Malayalam'
     },
     footer: {
-      'brand_description': 'പ്രീമ്യം പ്രിന്റിംഗ്, ഫോട്ടോകോപ്പി & ഡിസൈൻ സേവനങ്ങൾ. 1994 മുതല്‍ കേരളത്തിൽ việത്വാസം നിര്‍മ്മിക്കുന്നു.',
-      'quick_links': 'ddot links',
+      'brand_description': 'പ്രീമിയം പ്രിന്റിംഗ്, ഫോട്ടോകോപ്പി & ഡിസൈൻ സേവനങ്ങൾ. 1994 മുതല്‍ കേരളത്തിൽ വിശ്വാസം നിര്‍മ്മിക്കുന്നു.',
+      'quick_links': 'പെട്ടെന്നുള്ള ലിങ്കുകള്‍',
       'services': 'സേവനങ്ങൾ',
-      'contact_us': 'ਸെพระ нами',
+      'contact_us': 'ഞങ്ങളെ ബന്ധപ്പെടുക',
       'location': 'പെറാമ്ബ്ര & മെപ്പായ്യുർ, കേരളം',
       'phone_pba': 'PBA: +91 94951 77283',
       'phone_mpr': 'MPR: +91 91883 31197',
@@ -141,12 +141,12 @@ const FALLBACK = {
       'company_name': 'Sarga',
       'since_year': '1994 മുതല്‍',
       'all_rights_reserved': 'എല്ലാ അവകാശങ്ങളും സുരക്ഷിതമാണ്',
-      'privacy_policy': 'പ്രൈവەസി പ considérable',
-      'terms_of_service': 'സേവന নিয়നമप्रവFrameBorder',
+      'privacy_policy': 'സ്വകാര്യതാ നയം',
+      'terms_of_service': 'സേവന നിബന്ധനകള്‍',
       'service_offset_digital': 'ഒഫ്‍സെറ്റ് & ഡിജിറ്റൽ പ്രിന്റിംഗ്',
       'service_photostat_id': 'ഫോട്ടോസ്റ്റാറ്റ് & ഐഡി കാർഡുകൾ',
-      'service_mementos_frames': 'സമ്മемentos & ഫോട്ടോ ফ্রെയിംുകൾ',
-      'service_hard_spiral_binding': 'ഹാര്‍ഡ് & ಸ್ಪൈറല്‍ ബൈн딩',
+      'service_mementos_frames': 'സമ്മാനങ്ങളും ഫോട്ടോ ഫ്രെയിമുകളും',
+      'service_hard_spiral_binding': 'ഹാര്‍ഡ് & സ്‌പൈറല്‍ ബൈൻഡിംഗ്',
       'service_rubber_seals_stamps': 'റബ്ബർ സീലുകള്‍ & സ്റ്റാം്പുകൾ'
     }
   }

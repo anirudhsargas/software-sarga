@@ -159,7 +159,7 @@ export default function ForecastChart() {
                 </div>
             ) : mounted ? (
                 <div style={{ width: '100%', height: 300 }}>
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={300} minWidth={0}>
                     <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis

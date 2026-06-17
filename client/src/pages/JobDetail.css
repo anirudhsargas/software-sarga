@@ -12,7 +12,7 @@
 .job-detail-container {
     max-width: 1100px;
     margin: 0 auto;
-    padding: 0 0 40px;
+    padding: 0 0 24px;
 }
 
 /* Header */
@@ -20,9 +20,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 12px;
     flex-wrap: wrap;
-    gap: 16px;
+    gap: 10px;
 }
 
 .job-detail-header h1 {
@@ -75,20 +75,20 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 16px;
+    padding: 14px;
+    margin-bottom: 10px;
 }
 
 .job-section-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 16px;
+    gap: 6px;
+    margin-bottom: 10px;
 }
 
 .job-section-header h3 {
     margin: 0;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
 }
 
@@ -99,19 +99,19 @@
 /* Stat Cards */
 .job-stat-cards-row {
     display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
+    gap: 10px;
+    margin-bottom: 12px;
     overflow-x: auto;
-    padding-bottom: 8px;
+    padding-bottom: 4px;
 }
 
 .job-stat-card-inner {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
+    border-radius: 10px;
+    padding: 12px;
     flex: 1;
-    min-width: 160px;
+    min-width: 150px;
 }
 
 .job-stat-card-header {
@@ -137,9 +137,9 @@
 }
 
 .stat-value {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
-    margin: 4px 0;
+    margin: 2px 0;
 }
 
 .job-stat-subvalue {
@@ -151,8 +151,8 @@
 .job-info-row {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    padding: 8px 0;
+    gap: 6px;
+    padding: 4px 0;
     border-bottom: 1px solid var(--border);
 }
 
@@ -164,8 +164,8 @@
 
 .job-info-label {
     color: var(--muted);
-    font-size: 13px;
-    min-width: 110px;
+    font-size: 12px;
+    min-width: 90px;
     flex-shrink: 0;
 }
 
@@ -293,28 +293,28 @@
 /* Main Grid */
 .job-detail-main-grid {
     display: grid;
-    grid-template-columns: 1fr 360px;
-    gap: 24px;
+    grid-template-columns: 1fr 320px;
+    gap: 16px;
 }
 
 .job-detail-info-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    gap: 8px;
 }
 
 /* Cost Grid */
 .job-detail-cost-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    gap: 10px;
 }
 
 /* Workforce Grid */
 .job-workforce-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
 }
 
 /* Status Select */
@@ -370,10 +370,10 @@
 
 /* Job Description */
 .job-description-section {
-    margin-top: 20px;
-    padding: 16px;
+    margin-top: 10px;
+    padding: 10px;
     background: var(--bg);
-    border-radius: 10px;
+    border-radius: 8px;
     border: 1px solid var(--border);
 }
 
@@ -436,10 +436,10 @@
 
 /* Matter Images */
 .matter-images-section {
-    margin-top: 20px;
-    padding: 16px;
+    margin-top: 10px;
+    padding: 10px;
     background: var(--bg);
-    border-radius: 10px;
+    border-radius: 8px;
     border: 1px solid var(--border);
 }
 
@@ -552,10 +552,10 @@
 /* Workforce Cards */
 .workforce-card {
     display: flex;
-    gap: 16px;
-    padding: 16px;
+    gap: 10px;
+    padding: 10px;
     background: var(--surface-2);
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid var(--border);
     position: relative;
     overflow: hidden;
@@ -656,9 +656,9 @@
 }
 
 .cost-card {
-    padding: 16px;
+    padding: 10px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
 .cost-card-label {
@@ -667,23 +667,23 @@
 }
 
 .cost-card-value {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
-    margin-top: 4px;
+    margin-top: 2px;
 }
 
 /* Paper Summary */
 .paper-summary-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 8px;
+    margin-bottom: 10px;
 }
 
 .paper-summary-card {
-    padding: 14px;
+    padding: 10px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 8px;
     text-align: center;
 }
 
@@ -696,7 +696,7 @@
 }
 
 .paper-summary-value {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
 }
 
@@ -708,7 +708,7 @@
 .paper-log-button-container {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 /* Paper Waste Bar */
@@ -818,8 +818,8 @@
 
 .proof-card-content {
     display: flex;
-    gap: 16px;
-    padding: 16px;
+    gap: 10px;
+    padding: 10px;
     align-items: flex-start;
 }
 
@@ -1156,7 +1156,7 @@
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: var(--shadow-sm);
+    background: var(--modal-overlay, rgba(0, 0, 0, 0.3));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1425,13 +1425,13 @@
     }
     /* Section padding reduced */
     .job-section {
-        padding: 14px !important;
+        padding: 10px !important;
         border-radius: 8px !important;
-        margin-bottom: 12px !important;
+        margin-bottom: 8px !important;
     }
     /* Container padding */
     .job-detail-container {
-        padding: 0 12px 32px !important;
+        padding: 0 8px 24px !important;
     }
     /* Workforce cards */
     .job-workforce-grid {

@@ -421,7 +421,7 @@
 .employee-detail__modal {
   position: fixed;
   inset: 0;
-  background: var(--shadow-sm);
+  background: var(--modal-overlay, rgba(0, 0, 0, 0.3));
   display: grid;
   place-items: center;
   padding: 16px;

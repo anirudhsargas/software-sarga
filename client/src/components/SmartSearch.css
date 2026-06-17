@@ -2,7 +2,7 @@
 .smart-search-backdrop {
     position: fixed;
     inset: 0;
-    background-color: var(--shadow-sm);
+    background: var(--modal-overlay, rgba(0, 0, 0, 0.3));
     backdrop-filter: blur(4px);
     z-index: 9998;
     animation: fadeIn 0.2s ease-out;

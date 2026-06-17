@@ -73,6 +73,15 @@
   --toast-text: #111111;
   --toast-border: #e2dfd8;
 
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --space-4xl: 6rem;
+
   --radius: 14px;
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -147,16 +156,40 @@ html[data-theme="dark"] {
   --toast-bg: #1c2022;
   --toast-text: #f0ede6;
   --toast-border: #232729;
+
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --space-4xl: 6rem;
 }
 
-*, *::before, *::after {
-  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+/* Smooth theme transitions (scoped to active transitions) - prevents layout thrashing */
+.theme-transitioning,
+.theme-transitioning * {
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease !important;
 }
 
 .no-theme-transition, .no-theme-transition *,
 [class*="spinner"], [class*="loading"],
 .toast, .toast * {
   transition: none !important;
+}
+
+/* Accessibility: prefers-reduced-motion support */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-delay: -1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    background-attachment: initial !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
 }
 
 @keyframes samsung-fade-up {

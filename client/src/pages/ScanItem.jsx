@@ -498,18 +498,7 @@ const ScanItem = () => {
                                         </div>
                                     )}
                                 </div>
-                                
-                                <div className="camera-actions row justify-center">
-                                    {isCamActive ? (
-                                        <button className="btn btn-ghost btn-sm text-error" onClick={() => setIsCamActive(false)}>
-                                            <X size={14} className="mr-4" /> Stop Camera Feed
-                                        </button>
-                                    ) : (
-                                        <button className="btn btn-ghost btn-sm text-primary" onClick={async () => { setCameraError(''); const ok = await requestCameraPermission(); if (ok) { setIsCamActive(true); } }}>
-                                            <Camera size={14} className="mr-4" /> Start Camera
-                                        </button>
-                                    )}
-                                </div>
+
                             </div>
                         )}
 
