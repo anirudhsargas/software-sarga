@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import { downloadInvoicePDF } from '../utils/invoicePdf';
 import { whatsappUrl, workStatusMessage, paymentReminderMessage, orderReadyMessage } from '../utils/whatsapp';
 import { formatCurrency } from '../utils/formatters';
+const fmt = formatCurrency;
 import './JobDetail.css';
 
 const statusColors = {
@@ -237,7 +238,7 @@ const JobDetail = () => {
                             // also cache related details if helper exists
                             if (srv.assignments || srv.paper_logs || srv.designs || srv.proofs) {
                                 if (typeof localDb.cacheJobDetails === 'function') {
-                                    try { await localDb.cacheJobDetails(srv.job.id, { assignments: srv.assignments, paper_logs: srv.paper_logs, designs: srv.designs, proofs: srv.proofs }); } catch(e) {}
+                                    try { await localDb.cacheJobDetails(srv.job.id, { assignments: srv.assignments, paper_logs: srv.paper_logs, designs: srv.designs, proofs: srv.proofs }); } catch {}
                                 }
                             }
                         } catch (e) {
@@ -1150,7 +1151,7 @@ const JobDetail = () => {
                                     </Section>
                                 );
                             }
-                        } catch (e) { } return null;
+                        } catch {} return null;
                     })()}
 
                     {/* Cost Breakdown - Hidden for Front Office and Production Staff */}

@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'dev-dist', 'public/syncWorker.js', 'generate-icons.js']),
+  globalIgnores(['dist', 'dev-dist', '.vercel', 'public/syncWorker.js', 'generate-icons.js']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -23,7 +23,8 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_' }],
+      'no-empty': ['warn', { allowEmptyCatch: true }],
       'no-restricted-syntax': [
         'error',
         {

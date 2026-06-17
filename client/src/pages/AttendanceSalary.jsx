@@ -8,6 +8,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import SecureImage from '../components/SecureImage';
 import { formatCurrency } from '../utils/formatters';
+const fmt = formatCurrency;
 
 const statusConfig = {
   Present: { color: 'var(--success)', bg: 'var(--success)18', label: 'P' },

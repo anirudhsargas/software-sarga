@@ -68,6 +68,10 @@ const Inventory = () => {
     const [allProducts, setAllProducts] = useState([]);
     const [productSearch, setProductSearch] = useState('');
     const [filterType, setFilterType] = useState('');
+
+    const handleImageUpdate = useCallback(() => {
+        fetchInventory();
+    }, []);
     const [filterCategory, setFilterCategory] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterVendor, setFilterVendor] = useState('');

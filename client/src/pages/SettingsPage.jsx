@@ -218,7 +218,7 @@ function TaxSettings() {
 
     useEffect(() => {
         (async () => {
-            try { const { data } = await api.get('/tax-settings'); setTaxes(data); } catch (err) { void err; }
+            try { const { data } = await api.get('/tax-settings'); setTaxes(data); } catch { /* ignore */ }
             setLoading(false);
         })();
     }, []);
@@ -319,7 +319,7 @@ function PaymentModeSettings() {
 
     useEffect(() => {
         (async () => {
-            try { const { data } = await api.get('/payment-modes'); setModes(data); } catch (err) { void err; }
+            try { const { data } = await api.get('/payment-modes'); setModes(data); } catch { /* ignore */ }
             setLoading(false);
         })();
     }, []);
@@ -450,7 +450,7 @@ function LanguageSettings() {
             try {
                 const r = await api.get(`/i18n/${locale}`);
                 setOverrides(r.data);
-            } catch (e) { void e; }
+            } catch { /* ignore */ }
             setLoading(false);
         })();
     }, [locale]);

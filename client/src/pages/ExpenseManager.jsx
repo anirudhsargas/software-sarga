@@ -103,15 +103,15 @@ const ExpenseManager = () => {
 
   /* ── Shared fetchers ── */
   const fetchBranches = useCallback(async () => {
-    try { const data = await localDb.getBranches(); setBranches(data || []); } catch (err) { void err; }
+    try { const data = await localDb.getBranches(); setBranches(data || []); } catch { /* ignore */ }
   }, []);
 
   const fetchVendors = useCallback(async () => {
-    try { const data = await localDb.getVendors(); setVendors(data || []); } catch (err) { void err; }
+    try { const data = await localDb.getVendors(); setVendors(data || []); } catch { /* ignore */ }
   }, []);
 
   const fetchDashboardForUtilities = useCallback(async () => {
-    try { const data = await localDb.getExpenseDashboard(); setDashboard(data); } catch (err) { void err; }
+    try { const data = await localDb.getExpenseDashboard(); setDashboard(data); } catch { /* ignore */ }
   }, []);
 
   const fetchVendorRequests = useCallback(async () => {

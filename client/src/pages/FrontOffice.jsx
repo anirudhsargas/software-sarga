@@ -190,14 +190,14 @@ const FrontOffice = () => {
                     const laserRes = await api.get('/daily-report/laser-live', { params: { date: today } });
                     myMachines = laserRes.data.machines || [];
                     myMachines.forEach(m => { machineHasReading[m.id] = !!m.has_reading; });
-                } catch (err) { void err; }
+                } catch { /* ignore */ }
 
                 // Fetch previous closing for pre-filling counter values
                 let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
                 try {
                     const prevRes = await api.get('/daily-report/previous-closing', { params: { date: today } });
                     prevData = prevRes.data;
-                } catch (err) { void err; }
+                } catch { /* ignore */ }
 
                 // Machines that don't yet have a reading today
                 const unenteredMachines = myMachines.filter(m => !machineHasReading[m.id]);

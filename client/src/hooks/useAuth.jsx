@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import auth from '../services/auth';
 import { useTheme } from '../theme/ThemeProvider';
@@ -20,7 +21,7 @@ export const AuthProvider = ({ children }) => {
                     ? JSON.parse(data.user.settings)
                     : data.user.settings;
                 backendTheme = settingsObj?.theme;
-            } catch (e) {}
+            } catch {}
         }
         if (backendTheme) {
             setTheme(backendTheme, false);

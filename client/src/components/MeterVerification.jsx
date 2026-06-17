@@ -62,7 +62,7 @@ const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosi
         try {
             const res = await api.get(`/machines/${machineId}/meter-comparison`, { params: { page: 1, limit: 10 } });
             setComparisonHistory(res.data.comparisons);
-        } catch (_) {}
+        } catch {}
     };
 
     useEffect(() => {
@@ -78,7 +78,7 @@ const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosi
         if (isOnline && (manualOpeningCount === '' || manualOpeningCount == null)) {
             try {
                 setManualOpeningCount(String(totalCount));
-            } catch (e) {}
+            } catch {}
         }
     }, [isOnline, totalCount]);
     const fetchedTime = meterData?.fetched_at ? new Date(meterData.fetched_at) : null;

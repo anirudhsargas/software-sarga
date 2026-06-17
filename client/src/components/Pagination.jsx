@@ -3,27 +3,23 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
 import './Pagination.css';
 
 const Pagination = React.memo(({ page, totalPages, total, limit = 20, onPageChange, loading }) => {
-  if (totalPages <= 1) return null;
-
   const start = (page - 1) * limit + 1;
   const end = Math.min(page * limit, total);
 
   // Generate page numbers to show
   const getPages = useMemo(() => {
     const pages = [];
-    const delta = 2; // Pages around current
+    const delta = 2;
 
     for (let i = Math.max(1, page - delta); i <= Math.min(totalPages, page + delta); i++) {
       pages.push(i);
     }
 
-    // Add first page
     if (pages[0] > 1) {
       if (pages[0] > 2) pages.unshift('...');
       pages.unshift(1);
     }
 
-    // Add last page
     if (pages[pages.length - 1] < totalPages) {
       if (pages[pages.length - 1] < totalPages - 1) pages.push('...');
       pages.push(totalPages);
@@ -42,6 +38,8 @@ const Pagination = React.memo(({ page, totalPages, total, limit = 20, onPageChan
       onPageChange(val);
     }
   }, [totalPages, onPageChange]);
+
+  if (totalPages <= 1) return null;
 
   return (
     <div className="pagination">

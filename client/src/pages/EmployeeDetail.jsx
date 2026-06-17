@@ -132,7 +132,7 @@ const EmployeeDetail = () => {
                 };
                 await api.post(`/staff/${staffId}/attendance`, payload);
                 // Broadcast an update so other pages (Daily Report) can refresh in realtime
-                try { localStorage.setItem('attendance:updated', String(Date.now())); } catch (e) { }
+                try { localStorage.setItem('attendance:updated', String(Date.now())); } catch {}
                 setShowAttendanceModal(false);
                 setAttendanceForm({ status: 'Present', time: '09:00', gone_time: '', notes: '' });
                 fetchAttendanceData(); // Refresh to get real ID and update salary calc
@@ -268,7 +268,7 @@ const EmployeeDetail = () => {
                 };
                 await api.post(`/staff/${staffId}/attendance`, payload);
                 // Notify other pages to refresh
-                try { localStorage.setItem('attendance:updated', String(Date.now())); } catch (e) { }
+                try { localStorage.setItem('attendance:updated', String(Date.now())); } catch {}
                 fetchAttendanceData();
                 return (prev) => prev.map(a => a.id === newRecord.id ? { ...a, _optimistic: false } : a);
             },
@@ -380,6 +380,11 @@ const EmployeeDetail = () => {
         });
     };
 
+    const salaryTotal = useMemo(() => (salaryInfo?.staff?.base_salary || 0), [salaryInfo]);
+    const pendingPayment = useMemo(() => {
+        return salaryTotal - (salaryInfo?.recentPayments?.reduce((sum, p) => sum + Number(p.payment_amount), 0) || 0);
+    }, [salaryTotal, salaryInfo]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-screen">
@@ -402,11 +407,6 @@ const EmployeeDetail = () => {
             </div>
         );
     }
-
-    const salaryTotal = useMemo(() => (salaryInfo?.staff?.base_salary || 0), [salaryInfo]);
-    const pendingPayment = useMemo(() => {
-        return salaryTotal - (salaryInfo?.recentPayments?.reduce((sum, p) => sum + Number(p.payment_amount), 0) || 0);
-    }, [salaryTotal, salaryInfo]);
 
     return (
         <div className="employee-detail">

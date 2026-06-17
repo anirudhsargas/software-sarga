@@ -69,6 +69,7 @@ const ConsumablesManagement = () => {
     const navigate = useNavigate();
 
     const [tabCounts, setTabCounts] = useState({ general: 0, paper: 0, consumables: 0 });
+    const [consumables, setConsumables] = useState([]);
 
     useEffect(() => {
         let isMounted = true;

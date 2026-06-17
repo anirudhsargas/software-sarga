@@ -53,7 +53,7 @@ function ArtworkManager() {
     try {
       const res = await api.get('/artwork/designers/list');
       setDesigners(res.data.designers || []);
-    } catch (e) { /* ignore */ }
+    } catch {  }
   }, []);
 
   useEffect(() => { fetchList(); }, [fetchList]);

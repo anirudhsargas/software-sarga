@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 
@@ -43,7 +44,7 @@ function loadPersistedTheme() {
   let saved = null;
   try {
     saved = localStorage.getItem(STORAGE_KEY);
-  } catch (e) { /* ignore */ }
+  } catch {  }
 
   if (saved && isValidTheme(saved)) {
     return saved;
@@ -56,12 +57,12 @@ function loadPersistedTheme() {
       localStorage.setItem(STORAGE_KEY, backendTheme);
       return backendTheme;
     }
-  } catch (e) { /* ignore */ }
+  } catch {  }
 
   // If no saved value → create "system"
   try {
     localStorage.setItem(STORAGE_KEY, 'system');
-  } catch (e) { /* ignore */ }
+  } catch {  }
   return 'system';
 }
 
@@ -85,7 +86,7 @@ export const ThemeProvider = ({ children }) => {
         mediaQuery.addListener(listener);
         return () => mediaQuery.removeListener(listener);
       }
-    } catch (e) { /* ignore */ }
+    } catch {  }
   }, []);
 
   // Compute resolved theme
@@ -109,7 +110,7 @@ export const ThemeProvider = ({ children }) => {
             userObj.settings.theme = mode;
             localStorage.setItem('user', JSON.stringify(userObj));
           }
-        } catch (e) { /* ignore */ }
+        } catch {  }
       })
       .catch(() => {});
   }, []);
@@ -118,7 +119,7 @@ export const ThemeProvider = ({ children }) => {
     const resolvedMode = isValidTheme(mode) ? mode : 'system';
     try {
       localStorage.setItem(STORAGE_KEY, resolvedMode);
-    } catch (e) { /* ignore */ }
+    } catch {  }
     setThemeMode(resolvedMode);
     if (syncToBackendFlag) {
       syncToBackend(resolvedMode);

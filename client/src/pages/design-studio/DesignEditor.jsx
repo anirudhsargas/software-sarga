@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, Save, Undo2, Redo2, Eye, Download, Share2, Clock,
@@ -43,14 +43,6 @@ const DesignEditor = () => {
     const [imageToolbar, setImageToolbar] = useState(null);
 
     const creationParams = location.state;
-
-    const prevCreationParams = useRef(creationParams);
-    useEffect(() => {
-        if (creationParams?.name && creationParams !== prevCreationParams.current) {
-            setDocName(creationParams.name);
-            prevCreationParams.current = creationParams;
-        }
-    }, [creationParams]);
 
     const handleBack = () => navigate('/dashboard/design-studio');
 

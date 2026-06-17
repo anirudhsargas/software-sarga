@@ -275,6 +275,11 @@ const CustomerDetails = () => {
     return (bytes / 1048576).toFixed(1) + ' MB';
   };
 
+  // Reset payments page when customer or online state changes
+  useEffect(() => {
+    setPaymentsPage(1);
+  }, [id, isOnline]);
+
   /* ───── loading / error ───── */
   if (error) return <div className="alert alert--error">{error}</div>;
 
@@ -288,10 +293,6 @@ const CustomerDetails = () => {
   const paymentsTotal = payments.total || paymentRecords.length || 0;
   const paymentsTotalPages = Math.max(1, Math.ceil(paymentsTotal / (paymentsLimit || 1)));
   const paginatedPayments = payments.total ? paymentRecords : paymentRecords.slice((paymentsPage - 1) * paymentsLimit, paymentsPage * paymentsLimit);
-  // Reset payments page when customer or online state changes
-  useEffect(() => {
-    setPaymentsPage(1);
-  }, [id, isOnline]);
   const reorderItems = data?.reorderItems || [];
   const customerDisplayPhone = formatForDisplay(customer?.mobile);
   const customerTelHref = telHref(customer?.mobile);

@@ -13,7 +13,7 @@ function PickupBookings() {
   const [branches, setBranches] = useState([])
 
   const loadBranches = useCallback(async () => {
-    try { const r = await api.get('/branches'); setBranches(r.data || []) } catch (e) {}
+    try { const r = await api.get('/branches'); setBranches(r.data || []) } catch {}
   }, [])
 
   const loadBookings = useCallback(async () => {

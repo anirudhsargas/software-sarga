@@ -14,6 +14,7 @@ function PortfolioManager() {
   const [form, setForm] = useState({ title: '', description: '', category: 'Custom Projects', cover_image: '', gallery_images: [], featured: false, published: true, position: 0 })
   const [search, setSearch] = useState('')
   const [uploading, setUploading] = useState(false)
+  const filtered = projects.filter(p => !search || p.title?.toLowerCase().includes(search.toLowerCase()) || p.category?.toLowerCase().includes(search.toLowerCase()))
 
   const loadProjects = useCallback(async () => {
     setLoading(true)

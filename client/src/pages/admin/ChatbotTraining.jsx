@@ -87,7 +87,7 @@ const ChatbotTraining = () => {
     try {
       const res = await api.get('chatbot/model-versions', { skipGlobalErrorHandling: true });
       setModelVersions(res.data.rows || []);
-    } catch (e) {}
+    } catch {}
   }, []);
 
   useEffect(() => {

@@ -291,14 +291,14 @@ const DailyReport = () => {
                     const laserRes = await api.get('/daily-report/laser-live', { params: { date: reportDate, ...branchParam } });
                     myMachines = laserRes.data.machines || [];
                     myMachines.forEach(m => { machineHasReading[m.id] = !!m.has_reading; });
-                } catch (err) { /* ignore */ }
+                } catch {  }
 
                 if (!promptDone) {
                     let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
                     try {
                         const prevRes = await api.get('/daily-report/previous-closing', { params: { date: reportDate, ...branchParam } });
                         prevData = prevRes.data;
-                    } catch (err) { /* ignore */ }
+                    } catch {  }
 
                     const unenteredMachines = myMachines.filter(m => !machineHasReading[m.id]);
 

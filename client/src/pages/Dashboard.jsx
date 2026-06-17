@@ -353,7 +353,7 @@ const Dashboard = () => {
                     return next;
                 });
             }
-        } catch (err) { /* ignore */ }
+        } catch {  }
     }, []);
 
     const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
