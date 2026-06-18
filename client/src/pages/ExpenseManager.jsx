@@ -41,8 +41,7 @@ const tabs = [
   { key: 'office', label: 'Office', icon: Briefcase },
   { key: 'misc', label: 'Miscellaneous', icon: HelpCircle },
   { key: 'utilities', label: 'Utilities', icon: Zap },
-  { key: 'staff-expenses', label: 'Staff & Salary', icon: Users },
-  { key: 'other', label: 'Other Payments', icon: PlusCircle },
+  { key: 'staff-expenses', label: 'Staff & Salary', icon: Users }
 ];
 
 /* ══════════ Main Component ══════════ */
@@ -88,18 +87,7 @@ const ExpenseManager = () => {
   });
   const [showRequestsListModal, setShowRequestsListModal] = useState(false);
 
-  // Other Payments State
-  const [otherPayments, setOtherPayments] = useState([]);
-  const [showOtherPaymentModal, setShowOtherPaymentModal] = useState(false);
-  const [otherPaymentForm, setOtherPaymentForm] = useState({
-    payee_name: '',
-    amount: '',
-    payment_method: 'Cash',
-    payment_date: new Date().toISOString().slice(0, 16),
-    description: '',
-    branch_id: ''
-  });
-  const [paymentSuggestions, setPaymentSuggestions] = useState([]);
+  // Other Payments State removed
 
   /* ── Shared fetchers ── */
   const fetchBranches = useCallback(async () => {
@@ -138,41 +126,20 @@ const ExpenseManager = () => {
     }
   }, [user]);
 
-  const fetchPaymentSuggestions = useCallback(async () => {
-    if (!user?.role || !['Admin', 'Accountant'].includes(user.role)) return;
-    try {
-      const res = await api.get('/payment-suggestions', { params: { min_occurrences: 3 } });
-      setPaymentSuggestions(res.data || []);
-    } catch (err) {
-      console.error('Failed to load payment suggestions:', err);
-    }
-  }, [user]);
-
-  const fetchOtherPayments = useCallback(async () => {
-    try {
-      const data = await localDb.getPayments({ type: 'Other' });
-      setOtherPayments(data || []);
-    } catch (err) {
-      console.error('Failed to load other payments:', err);
-    }
-  }, []);
+  // Fetchers removed
 
   useEffect(() => {
     const t = setTimeout(() => {
       void fetchBranches();
       void fetchVendors();
       void fetchVendorRequests();
-      void fetchPaymentSuggestions();
-      void fetchOtherPayments();
     }, 0);
     return () => clearTimeout(t);
-  }, [fetchBranches, fetchVendors, fetchVendorRequests, fetchPaymentSuggestions, fetchOtherPayments]);
+  }, [fetchBranches, fetchVendors, fetchVendorRequests]);
 
   useEffect(() => {
     void fetchVendorRequests();
-    void fetchPaymentSuggestions();
-    void fetchOtherPayments();
-  }, [refreshKey, fetchVendorRequests, fetchPaymentSuggestions, fetchOtherPayments]);
+  }, [refreshKey, fetchVendorRequests]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -242,43 +209,7 @@ const ExpenseManager = () => {
     }
   };
 
-  const createOtherPayment = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post('payments', {
-        ...otherPaymentForm,
-        type: 'Other',
-        amount: Number(otherPaymentForm.amount),
-        cash_amount: otherPaymentForm.payment_method === 'Cash' ? Number(otherPaymentForm.amount) : 0,
-        upi_amount: otherPaymentForm.payment_method === 'UPI' ? Number(otherPaymentForm.amount) : 0
-      });
-      toast.success('Payment recorded successfully');
-      setShowOtherPaymentModal(false);
-      setOtherPaymentForm({
-        payee_name: '',
-        amount: '',
-        payment_method: 'Cash',
-        payment_date: new Date().toISOString().slice(0, 16),
-        description: '',
-        branch_id: ''
-      });
-      await fetchOtherPayments();
-      await fetchPaymentSuggestions();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to record payment');
-    }
-  };
-
-  const deleteExpense = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this payment record?')) return;
-    try {
-      await api.delete(`/payments/${id}`);
-      toast.success('Payment record deleted');
-      await fetchOtherPayments();
-    } catch (err) {
-      toast.error('Failed to delete payment');
-    }
-  };
+  // Handlers removed
 
   /* ══════════ RENDER ══════════ */
   return (
@@ -330,119 +261,7 @@ const ExpenseManager = () => {
       {activeTab === 'staff-expenses' && <StaffExpensesTab key={`staff-${refreshKey}`} onPayment={openPayment} onError={setError} />}
       {activeTab === 'reports' && <ReportsTab key={`rpt-${refreshKey}`} branches={branches} onError={setError} />}
 
-      {/* Other Payments Tab */}
-      {activeTab === 'other' && (
-        <div className="em-section">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 className="em-section-title">
-              <PlusCircle size={20} style={{ marginRight: '8px' }} />
-              Other Payments
-            </h3>
-            <button className="btn btn-primary btn-sm" onClick={() => setShowOtherPaymentModal(true)}>
-              <Plus size={16} /> Record Payment
-            </button>
-          </div>
 
-          {/* Payment Suggestions (Admin/Accountant only) */}
-          {['Admin', 'Accountant'].includes(user?.role) && paymentSuggestions.length > 0 && (
-            <div className="em-card" style={{ marginBottom: '20px', borderLeft: '4px solid var(--warning)' }}>
-              <div className="em-card__title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--warning)' }}>
-                <Lightbulb size={18} />
-                Smart Suggestions
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '12px' }}>
-                These payees appear multiple times in "Other" payments. Consider adding them as vendors.
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {paymentSuggestions.slice(0, 5).map(sug => (
-                  <div key={sug.id} className="em-list__item" style={{ padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                    <div className="em-list__info">
-                      <div className="em-list__name" style={{ fontWeight: 600 }}>{sug.payee_name}</div>
-                      <div className="em-list__meta" style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                        {sug.occurrence_count} payment{sug.occurrence_count !== 1 ? 's' : ''} · Total: ₹{fmt(sug.total_amount_paid)}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn btn-primary btn-sm"
-                        onClick={async () => {
-                          if (window.confirm(`Add "${sug.payee_name}" as a vendor?`)) {
-                            try {
-                              await api.post('/vendors', {
-                                name: sug.payee_name,
-                                type: 'Vendor',
-                                branch_id: null
-                              });
-                              await api.put(`/payment-suggestions/${sug.id}/convert`);
-                              toast.success(`${sug.payee_name} added as vendor`);
-                              await fetchVendors();
-                              await fetchPaymentSuggestions();
-                            } catch (err) {
-                              toast.error('Failed to add vendor');
-                            }
-                          }
-                        }}>
-                        Add as Vendor
-                      </button>
-                      <button className="btn btn-ghost btn-icon btn-sm"
-                        onClick={async () => {
-                          try {
-                            await api.put(`/payment-suggestions/${sug.id}/dismiss`);
-                            await fetchPaymentSuggestions();
-                            toast.success('Suggestion dismissed');
-                          } catch (err) {
-                            toast.error('Failed to dismiss suggestion');
-                          }
-                        }}>
-                        <X size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Recent Other Payments */}
-          <div className="em-card">
-            <div className="em-card__title">Recent Payments</div>
-            <div className="em-table-wrap">
-              <table className="em-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Payee</th>
-                    <th>Description</th>
-                    <th>Method</th>
-                    <th>Amount</th>
-                    {user?.role === 'Admin' && <th>Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {otherPayments.map(exp => (
-                    <tr key={exp.id}>
-                      <td>{fmtDate(exp.payment_date)}</td>
-                      <td style={{ fontWeight: 600 }}>{exp.payee_name}</td>
-                      <td className="em-desc-cell">{exp.description || '—'}</td>
-                      <td>{exp.payment_method}</td>
-                      <td className="em-amount-cell">₹{fmt(exp.amount)}</td>
-                      {user?.role === 'Admin' && (
-                        <td>
-                          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteExpense(exp.id)} style={{ color: 'var(--error)' }}>
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                  {otherPayments.length === 0 && (
-                    <tr><td colSpan="6" className="em-empty-text">No other payments recorded</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ═══════ Bills & Docs Side Panel ═══════ */}
       {showBillsPanel && (
@@ -657,94 +476,7 @@ const ExpenseManager = () => {
         </div>
       )}
 
-      {/* Clean "Other Payment" Modal */}
-      {showOtherPaymentModal && (
-        <div className="modal-backdrop" onClick={() => setShowOtherPaymentModal(false)}>
-          <div className="em-modal" onClick={e => e.stopPropagation()}>
-            <div className="em-modal__header">
-              <h2>Record Other Payment</h2>
-              <button className="btn btn-ghost btn-icon" onClick={() => setShowOtherPaymentModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            <form onSubmit={createOtherPayment}>
-              <div className="em-modal__body">
-                <div className="em-form-grid">
-                  <div className="em-form-group em-form-group--full">
-                    <label htmlFor="payment-payee">Payee Name *</label>
-                    <input
-                      id="payment-payee"
-                      className="em-input"
-                      aria-label="Payee Name"
-                      value={otherPaymentForm.payee_name} required
-                      onChange={e => setOtherPaymentForm({ ...otherPaymentForm, payee_name: e.target.value })}
-                      placeholder="Who are you paying?" />
-                  </div>
-                  <div className="em-form-group">
-                    <label htmlFor="payment-amount">Amount *</label>
-                    <input
-                      id="payment-amount"
-                      type="number"
-                      className="em-input"
-                      aria-label="Payment Amount"
-                      value={otherPaymentForm.amount} required
-                      onChange={e => setOtherPaymentForm({ ...otherPaymentForm, amount: e.target.value })}
-                      placeholder="0.00" step="0.01" />
-                  </div>
-                  <div className="em-form-group">
-                    <label htmlFor="payment-method">Payment Method *</label>
-                    <select
-                      id="payment-method"
-                      className="em-input"
-                      aria-label="Payment Method"
-                      value={otherPaymentForm.payment_method}
-                      onChange={e => setOtherPaymentForm({ ...otherPaymentForm, payment_method: e.target.value })}>
-                      <option value="Cash">Cash</option>
-                      <option value="UPI">UPI</option>
-                      <option value="Cheque">Cheque</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                    </select>
-                  </div>
-                  <div className="em-form-group">
-                    <label htmlFor="payment-date">Payment Date *</label>
-                    <input
-                      id="payment-date"
-                      type="datetime-local"
-                      className="em-input"
-                      aria-label="Payment Date"
-                      value={otherPaymentForm.payment_date} required
-                      onChange={e => setOtherPaymentForm({ ...otherPaymentForm, payment_date: e.target.value })} />
-                  </div>
-                  <div className="em-form-group">
-                    <label htmlFor="payment-branch">Branch</label>
-                    <BranchSelect
-                      id="payment-branch"
-                      className="em-input"
-                      aria-label="Select Branch"
-                      value={otherPaymentForm.branch_id || ''}
-                      onChange={e => setOtherPaymentForm({ ...otherPaymentForm, branch_id: e.target.value || null })}>
-                      <option value="">All Branches</option>
-                      {branches.map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </BranchSelect>
-                  </div>
-                  <div className="em-form-group em-form-group--full">
-                    <label>Description</label>
-                    <textarea className="em-input" rows={3} value={otherPaymentForm.description}
-                      onChange={e => setOtherPaymentForm({ ...otherPaymentForm, description: e.target.value })}
-                      placeholder="What is this payment for?" />
-                  </div>
-                </div>
-              </div>
-              <div className="em-modal__footer">
-                <button type="button" className="btn btn-ghost" onClick={() => setShowOtherPaymentModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Record Payment</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 };

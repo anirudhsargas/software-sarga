@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import * as localDb from '../services/localDb';
 import { toast } from 'react-hot-toast';
 import { 
   X, Store, User, Phone, 
@@ -80,17 +81,17 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
     }
     setLoading(true);
     try {
-      if (vendor) {
-        await api.put(`/vendors/${vendor.id}`, formData);
-        toast.success('Vendor intelligence updated');
-      } else {
-        await api.post('/vendors', formData);
-        toast.success('New partner onboarded');
-      }
+      const toSave = {
+        ...formData,
+        id: vendor ? vendor.id : undefined,
+        syncStatus: vendor ? vendor.syncStatus : undefined
+      };
+      await localDb.saveVendor(toSave);
+      toast.success(vendor ? 'Vendor intelligence updated' : 'New partner onboarded');
       onSave();
     } catch (error) {
       console.error('Error saving vendor:', error);
-      toast.error(error.response?.data?.message || 'Failed to sync partner data');
+      toast.error(error.response?.data?.message || error.message || 'Failed to sync partner data');
       if (error.response?.data?.errors) {
         const serverErrors = error.response.data.errors;
         Object.entries(serverErrors).forEach(([field, msg]) => {

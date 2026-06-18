@@ -492,6 +492,7 @@ body {
   overflow: hidden;
 }
 
+/*
 @media (min-width: 1024px) {
   .main {
     margin-left: 280px;
@@ -501,6 +502,7 @@ body {
     margin-left: 88px;
   }
 }
+*/
 
 .content {
   padding: 16px;

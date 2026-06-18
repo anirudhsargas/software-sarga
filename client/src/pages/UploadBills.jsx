@@ -626,7 +626,7 @@ const UploadBills = () => {
                   <div className="icon-badge camera-style">
                     <Camera size={28} />
                   </div>
-                  <h3>📷 Camera Capture</h3>
+                  <h3>Camera Capture</h3>
                   <p className="muted text-xs">
                     Open device camera directly and capture bills instantly. Designed for quick mobile scan sessions.
                   </p>
@@ -645,7 +645,7 @@ const UploadBills = () => {
                   <div className="icon-badge file-style">
                     <Upload size={28} />
                   </div>
-                  <h3>📁 Upload Existing Files</h3>
+                  <h3>Upload Existing Files</h3>
                   <p className="muted text-xs">
                     Select images or PDFs from your device. Supports batch file selections up to 10MB each.
                   </p>

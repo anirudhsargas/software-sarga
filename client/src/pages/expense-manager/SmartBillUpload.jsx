@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Upload, X, AlertCircle, Loader2, CheckCircle, Link2, Plus, Trash2, Camera, FileText, Zap } from 'lucide-react';
+import { Upload, X, AlertCircle, Loader2, CheckCircle, Link2, Plus, Trash2, Camera, FileText, Zap, Folder, Sparkles, Layers } from 'lucide-react';
 import CameraCapture from '../../components/CameraCapture';
 import api from '../../services/api';
 import auth from '../../services/auth';
@@ -715,20 +715,213 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to upload bill');
     } finally {
+  const handleSubcategorySelect = (subcategoryName) => {
+    if (!globalCategoryId) return;
+    const category = hierarchyOptions.find(c => String(c.id) === String(globalCategoryId));
+    const matched = category?.subcategories?.find(s => String(s.name || '').includes(subcategoryName));
+    if (matched) {
+      setGlobalSubcategoryId(String(matched.id));
+    }
+  };
+
+  const handleProductLink = (product) => {
+    setLinkedProduct(product);
+    setStep('linking');
+  };
+
+  const isLowConfidence = Number(extractedData?.confidence || 1) < 0.5;
+
+  const hasRequiredCategorySelection = () => {
+    if (!isLowConfidence) return true;
+    if (!editableItems.length) return true;
+
+    if (categoryMode === 'single') {
+      return Boolean(globalCategoryId && globalSubcategoryId);
+    }
+
+    if (categoryMode === 'per-item') {
+      return editableItems.every((item) => Boolean(item.category_id && item.subcategory_id));
+    }
+
+    return false;
+  };
+
+  const resetFormState = () => {
+    setExtractedData(null);
+    setEditableItems([]);
+    setHierarchyOptions([]);
+    setCategoryMode('single');
+    setGlobalCategoryId('');
+    setGlobalSubcategoryId('');
+    setLinkedProduct(null);
+    setProductSuggestions([]);
+    setMlPrediction(null);
+    setCategoryOverridden(false);
+    setOcrRawText('');
+    setError('');
+    setFinalForm({
+      document_type: defaultDocumentType || 'Invoice',
+      vendor_name: '',
+      vendor_contact: '',
+      bill_number: '',
+      bill_date: '',
+      amount: '',
+      description: '',
+      related_tab: defaultRelatedTab || '',
+      gst_category: ''
+    });
+  };
+
+  const submitForm = async () => {
+    if (!finalForm.amount) {
+      setError('Amount is required');
+      return;
+    }
+
+    if (!hasRequiredCategorySelection()) {
+      setError('Low confidence extraction: please select category and subcategory before uploading.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const buildUploadFormData = (payloadItems, forceDuplicate = false) => {
+        const formData = new FormData();
+        formData.append('file', currentFile);
+        formData.append('document_type', normalizeDocumentType(finalForm.document_type, finalForm.related_tab));
+        formData.append('related_tab', finalForm.related_tab);
+        formData.append('vendor_name', finalForm.vendor_name);
+        formData.append('bill_number', finalForm.bill_number);
+        formData.append('bill_date', finalForm.bill_date);
+        formData.append('amount', finalForm.amount);
+        if (finalForm.gst_category) {
+          formData.append('gst_category', finalForm.gst_category);
+          if (gstAnalysis) {
+            formData.append('subtotal', String(gstAnalysis.taxable_amount || ''));
+            formData.append('tax_amount', String(gstAnalysis.tax_amount || ''));
+            formData.append('gst_confidence', String(gstAnalysis.confidence || ''));
+          }
+        }
+        const autoDescription = editableItems.length > 0
+          ? editableItems.slice(0, 6).map((item) => item.item_name).filter(Boolean).join(', ')
+          : '';
+        formData.append('description', finalForm.description || autoDescription);
+        formData.append('line_items', JSON.stringify(payloadItems));
+        if (forceDuplicate) {
+          formData.append('force_duplicate', '1');
+        }
+        if (stockBranchId) {
+          formData.append('stock_branch_id', stockBranchId);
+        }
+        return formData;
+      };
+
+      const payloadItems = editableItems.map((item) => {
+        const resolvedCategory = resolveItemCategory(item);
+        const consumable = isConsumableItem(item, resolvedCategory);
+        return {
+          ...item,
+          category_id: resolvedCategory.categoryId,
+          subcategory_id: resolvedCategory.subcategoryId,
+          category_name: resolvedCategory.categoryName,
+          subcategory_name: resolvedCategory.subcategoryName,
+          sku: String(item.sku || '').trim() || getSkuSuggestion(item, Number(item.serial_no || 0) - 1),
+          sell_price: Number(item.sell_price || 0) || 0,
+          skip_product_library: consumable
+        };
+      });
+
+      // Save locally first
+      await localDb.createVendorBill({
+        vendor_id: null,
+        vendor_name: finalForm.vendor_name,
+        bill_number: finalForm.bill_number,
+        bill_date: finalForm.bill_date,
+        total_amount: Number(finalForm.amount),
+        items: payloadItems
+      });
+
+      await localDb.saveBillDocument({
+        document_type: normalizeDocumentType(finalForm.document_type, finalForm.related_tab),
+        related_tab: finalForm.related_tab,
+        vendor_name: finalForm.vendor_name,
+        bill_number: finalForm.bill_number,
+        bill_date: finalForm.bill_date,
+        amount: finalForm.amount,
+        description: finalForm.description,
+        file_blob: currentFile || undefined,
+        file_name: currentFile?.name || undefined,
+        file_type: currentFile?.type || undefined,
+      });
+
+      // Upload to server so inventory is synced
+      try {
+        const formData = buildUploadFormData(payloadItems);
+        await api.post('/bills-documents/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } catch (uploadErr) {
+        if (uploadErr.response?.status === 409) {
+          const existingName = uploadErr.response.data?.duplicate?.file_name || 'a previous bill';
+          const proceed = window.confirm(
+            `A similar bill (${existingName}) was already uploaded. Upload this one anyway?`
+          );
+          if (!proceed) {
+            setError('Upload cancelled — possible duplicate bill detected.');
+            return;
+          }
+          const forceFormData = buildUploadFormData(payloadItems, true);
+          await api.post('/bills-documents/upload', forceFormData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        } else {
+          throw uploadErr;
+        }
+      }
+
+      onSuccess?.();
+
+      // Advance to next file in queue
+      const nextIndex = currentFileIndex + 1;
+      if (nextIndex < files.length) {
+        setCurrentFileIndex(nextIndex);
+        resetFormState();
+        setTimeout(() => processQueue(), 300);
+      } else {
+        setStep('confirming');
+      }
+
+      // Save OCR text + chosen category to training data for future ML improvement
+      if (ocrRawText && finalForm.related_tab) {
+        const tabToCat = {
+          'vendors': 'Vendor', 'utilities': 'Utility', 'rent': 'Rent',
+          'office': 'Office & Admin', 'transport': 'Transport & Delivery',
+          'finance': 'Bank & Finance', 'misc': 'Miscellaneous'
+        };
+        const finalCategory = tabToCat[finalForm.related_tab] || finalForm.related_tab;
+        api.post('/ai/categorize-expense/feedback', {
+          ocr_text: ocrRawText,
+          category: finalCategory
+        }).catch(() => {});
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to upload bill');
+    } finally {
       setLoading(false);
     }
   };
 
   return createPortal(
-    <React.Fragment>
-      <div className="smart-bill-upload-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+    <React.Fragment>      <div className="smart-bill-upload-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
         <div className="modal-overlay" />
         <div className="modal-content">
           {/* UPLOAD STEP */}
           {step === 'upload' && (
             <div className="upload-section">
               <div className="smart-bill-header">
-                <h2>📄 Smart Bill Upload</h2>
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><FileText size={20} /> Smart Bill Upload</h2>
                 <div className="smart-bill-header-actions">
                   <button className="header-icon-btn" onClick={() => fileInputRef.current?.click()} aria-label="Select files">
                     <Upload size={20} />
@@ -742,11 +935,6 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 </div>
               </div>
               <p className="subtitle">Upload bill images or PDFs to auto-extract details</p>
-
-            <div
-              className="upload-area"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleFileDrop}
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload size={48} />

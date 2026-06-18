@@ -129,6 +129,67 @@ const Billing = () => {
   const [lastOrderCustomerType, setLastOrderCustomerType] = useState('');
   const [lastOrderAutoDelivered, setLastOrderAutoDelivered] = useState(false);
   const [showRecentBills, setShowRecentBills] = useState(false);
+  const [recentBills, setRecentBills] = useState([]);
+  const [loadingRecentBills, setLoadingRecentBills] = useState(false);
+
+  const fetchRecentBills = useCallback(async () => {
+    setLoadingRecentBills(true);
+    try {
+      let onlineBills = [];
+      try {
+        const res = await api.get('/customer-payments?limit=20');
+        onlineBills = res.data?.data || res.data || [];
+      } catch (err) {
+        console.warn('Failed to fetch online bills', err);
+      }
+
+      let localBills = [];
+      try {
+        const offlineDb = (await import('../services/offlineDb')).default;
+        localBills = await offlineDb.getAll('offlineBills');
+      } catch (err) {
+        console.warn('Failed to fetch offline bills', err);
+      }
+
+      const merged = [
+        ...localBills.map(b => ({ ...b, isOffline: true })),
+        ...onlineBills.filter(ob => !localBills.some(lb => lb.id === ob.id))
+      ];
+
+      merged.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.payment_date || a.paymentDate || 0);
+        const dateB = new Date(b.created_at || b.payment_date || b.paymentDate || 0);
+        return dateB - dateA;
+      });
+
+      setRecentBills(merged);
+    } catch (err) {
+      toast.error('Failed to load recent bills');
+    } finally {
+      setLoadingRecentBills(false);
+    }
+  }, []);
+
+  const handlePrintRecent = useCallback((b) => {
+    try {
+      const printData = {
+        invoice_number: b.invoice_number || b.id || 'Draft',
+        customer_name: b.customer_name || b.customerName || 'Retail Customer',
+        customer_mobile: b.customer_mobile || b.customerMobile || '',
+        customer_email: b.customer_email || b.email || '',
+        customer_address: b.customer_address || b.address || '',
+        customer_gst: b.customer_gst || b.gst || '',
+        net_amount: b.net_amount || b.netAmount || b.totalAmount || 0,
+        advance_paid: b.advance_paid != null ? b.advance_paid : (b.advancePaid != null ? b.advancePaid : 0),
+        payment_method: b.payment_method || b.paymentMethod || 'Cash',
+        payment_date: b.payment_date || b.paymentDate || b.created_at,
+        order_lines: b.orderLines || b.order_lines || []
+      };
+      printInvoicePDF(printData);
+    } catch (err) {
+      toast.error('Failed to print invoice');
+    }
+  }, []);
 
   // Derived
   const isWalkIn = form.type === 'Walk-in';
@@ -556,7 +617,7 @@ const Billing = () => {
           <p className="billing-header__subtitle">Create invoice in under 30 seconds</p>
         </div>
         <div className="billing-header__right">
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowRecentBills(true)}><Clock size={15} aria-hidden="true" /> Recent</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => { setShowRecentBills(true); fetchRecentBills(); }}><Clock size={15} aria-hidden="true" /> Recent</button>
           <button className="btn btn-ghost btn-sm" onClick={handleChangeCustomer}><User size={15} aria-hidden="true" /> New Customer</button>
           <button className="btn btn-primary btn-sm" onClick={handleAddOrder} disabled={saving || !canProceed}>
             {saving ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Zap size={15} aria-hidden="true" />} Create Invoice
@@ -779,7 +840,7 @@ const Billing = () => {
               {selectedCategoryId && (
                 <select value={selectedSubcategoryId} onChange={e => setSelectedSubcategoryId(e.target.value)} className="billing-select">
                   <option value="">All Subcategories</option>
-                  {(hierarchy.find(c => c.id === selectedCategoryId)?.subcategories || []).map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
+                  {(hierarchy.find(c => String(c.id) === String(selectedCategoryId))?.subcategories || []).map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
                 </select>
               )}
             </div>
@@ -804,7 +865,7 @@ const Billing = () => {
           {/* Products from catalog */}
           {selectedSubcategoryId && (
             <div className="billing-catalog-grid">
-              {(hierarchy.find(c => c.id === selectedCategoryId)?.subcategories.find(s => s.id === selectedSubcategoryId)?.products || []).slice(0, 12).map(prod => (
+              {(hierarchy.find(c => String(c.id) === String(selectedCategoryId))?.subcategories.find(s => String(s.id) === String(selectedSubcategoryId))?.products || []).slice(0, 12).map(prod => (
                 <div key={prod.id} className="billing-catalog-item" onClick={() => handleAddLineItem(prod)}>
                   <div className="billing-catalog-item__icon"><Package size={20} aria-hidden="true" /></div>
                   <div className="billing-catalog-item__name">{prod.name || prod.title}</div>
@@ -1041,6 +1102,55 @@ const Billing = () => {
               <button className="btn btn-ghost btn--full" onClick={() => { setShowPostBillOptions(false); }}>
                 <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Bills Modal */}
+      {showRecentBills && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="recent-bills-title" onClick={() => setShowRecentBills(false)}>
+          <div className="modal modal--md" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px' }}>
+            <div className="modal__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <h3 id="recent-bills-title" className="modal__title" style={{ margin: 0 }}>Recent Invoices</h3>
+              <button className="modal-close" onClick={() => setShowRecentBills(false)} aria-label="Close recent bills" style={{ position: 'static' }}><X size={18} aria-hidden="true" /></button>
+            </div>
+            <div className="modal__body" style={{ maxHeight: '60dvh', overflowY: 'auto', padding: '16px' }}>
+              {loadingRecentBills ? (
+                <div className="flex-center py-24"><Loader2 size={24} className="animate-spin" /></div>
+              ) : recentBills.length === 0 ? (
+                <div className="text-center muted py-24">No recent invoices found</div>
+              ) : (
+                <div className="recent-bills-list" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {recentBills.map((b) => (
+                    <div key={b.id || b.localId} className="recent-bill-item" style={{
+                      padding: 12,
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      background: 'var(--surface-2, var(--bg-2))',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <div className="font-semibold">{b.customer_name || b.customerName || 'Walk-in Customer'}</div>
+                        <div className="text-xs muted">{b.customer_mobile || b.customerMobile || 'No mobile'} • {new Date(b.payment_date || b.paymentDate || b.created_at || Date.now()).toLocaleDateString()}</div>
+                        <div className="text-xs" style={{ marginTop: 4 }}>
+                          {b.isOffline ? (
+                            <span style={{ color: 'var(--warning)' }}>Unsynced (Offline)</span>
+                          ) : (
+                            <span style={{ color: 'var(--success)' }}>Synced ({b.invoice_number || b.id})</span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div className="font-bold">₹{Number(b.net_amount || b.netAmount || b.total_amount || b.totalAmount || 0).toFixed(2)}</div>
+                        <button className="btn btn-ghost btn-xs btn-icon" onClick={() => handlePrintRecent(b)} title="Print invoice"><Printer size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

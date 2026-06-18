@@ -38,6 +38,8 @@ const DesignDashboard = lazy(() => import('./pages/designer/DesignDashboard'));
 const ProductLibrary = lazy(() => import('./pages/designer/ProductLibrary'));
 const DesignBooking = lazy(() => import('./pages/designer/DesignBooking'));
 const BlockJournal = lazy(() => import('./pages/designer/BlockJournal'));
+const AssignedJobs = lazy(() => import('./pages/designer/AssignedJobs'));
+const DesignAnalytics = lazy(() => import('./pages/designer/DesignAnalytics'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -200,6 +202,8 @@ function App() {
                 <Route path="library" element={<ProductLibrary />} />
                 <Route path="bookings" element={<DesignBooking />} />
                 <Route path="blocks" element={<BlockJournal />} />
+                <Route path="assigned" element={<AssignedJobs />} />
+                <Route path="analytics" element={<DesignAnalytics />} />
               </Route>
               <Route path="/error/server" element={<ServerError />} />
               <Route path="/error/network" element={<NetworkError />} />

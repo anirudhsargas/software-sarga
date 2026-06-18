@@ -1,4 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
+import './FrontOffice.css';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import usePolling from '../hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
@@ -822,7 +823,15 @@ const FrontOffice = () => {
                             </div>
                         </div>
                         {activeLoading ? (
-                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading active jobs...</p></div>
+                            <SkeletonLoader type="table" count={5} columns={[
+                                { header: 'Job', width: '2fr', lines: 2 },
+                                { header: 'Customer', width: '1.5fr', lines: 2 },
+                                { header: 'Status', width: '1fr', pill: true },
+                                { header: 'Amount', width: '1fr' },
+                                { header: 'Due', width: '1.2fr' },
+                                { header: 'Delivery', width: '1.2fr' },
+                                { header: 'Actions', width: '0.8fr' }
+                            ]} />
                         ) : (() => {
                             const filteredJobs = activeQueueJobs.filter(job => matchesCategory(job.category));
                             return filteredJobs.length === 0 ? (
@@ -930,7 +939,13 @@ const FrontOffice = () => {
                             </div>
                         </div>
                         {dueLoading ? (
-                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading due collection...</p></div>
+                            <SkeletonLoader type="table" count={5} columns={[
+                                { header: 'Customer', width: '2fr', lines: 2 },
+                                { header: 'Billed', width: '1.2fr' },
+                                { header: 'Paid', width: '1.2fr' },
+                                { header: 'Due', width: '1.2fr' },
+                                { header: 'Actions', width: '2fr' }
+                            ]} />
                         ) : (() => {
                             const filteredDues = (!dueCustomers || dueCustomers.length === 0) ? [] : dueCustomers;
                             return filteredDues.length === 0 ? (
@@ -1025,7 +1040,15 @@ const FrontOffice = () => {
                             </div>
                         </div>
                         {overdueLoading ? (
-                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading overdue jobs...</p></div>
+                            <SkeletonLoader type="table" count={5} columns={[
+                                { header: 'Job', width: '2fr', lines: 2 },
+                                { header: 'Customer', width: '1.5fr', lines: 2 },
+                                { header: 'Status', width: '1.2fr', pill: true },
+                                { header: 'Delivery Was', width: '1.2fr' },
+                                { header: 'Overdue By', width: '1.2fr' },
+                                { header: 'Balance', width: '1.2fr' },
+                                { header: 'Actions', width: '0.8fr' }
+                            ]} />
                         ) : (() => {
                             const filteredOverdue = (!overdueJobs || overdueJobs.length === 0) ? [] : overdueJobs.filter(job => matchesCategory(job.category));
                             return filteredOverdue.length === 0 ? (
@@ -1151,7 +1174,15 @@ const FrontOffice = () => {
                         </div>
 
                         {completedLoading ? (
-                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading completed jobs...</p></div>
+                            <SkeletonLoader type="table" count={5} columns={[
+                                { header: 'Job', width: '2fr', lines: 2 },
+                                { header: 'Customer', width: '1.5fr', lines: 2 },
+                                { header: 'Status', width: '1.2fr', pill: true },
+                                { header: 'Amount', width: '1.2fr' },
+                                { header: 'Balance', width: '1.2fr' },
+                                { header: 'Updated', width: '1.2fr' },
+                                { header: 'Actions', width: '0.8fr' }
+                            ]} />
                         ) : (() => {
                             const filteredCompleted = (!completedJobs || completedJobs.length === 0) ? [] : completedJobs.filter(job => matchesCategory(job.category));
                             return filteredCompleted.length === 0 ? (
@@ -1297,7 +1328,11 @@ const FrontOffice = () => {
                             </div>
                         </div>
                         {paymentsLoading ? (
-                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading payments...</p></div>
+                            <SkeletonLoader type="table" count={5} columns={[
+                                { header: 'Customer', width: '2.5fr' },
+                                { header: 'Method', width: '2fr' },
+                                { header: 'Amount', width: '1.5fr' }
+                            ]} />
                         ) : (!recentPayments || recentPayments.length === 0) ? (
                             <div className="fo-empty"><Receipt size={40} /><p>No recent payments</p></div>
                         ) : (
@@ -1337,7 +1372,14 @@ const FrontOffice = () => {
                             </div>
                         </div>
                         {deliveredLoading ? (
-                            <div className="fo-empty"><Loader2 size={30} className="spin" /><p>Loading delivered jobs...</p></div>
+                            <SkeletonLoader type="table" count={5} columns={[
+                                { header: 'Job', width: '2fr', lines: 2 },
+                                { header: 'Customer', width: '1.5fr', lines: 2 },
+                                { header: 'Amount', width: '1.2fr' },
+                                { header: 'Balance', width: '1.2fr' },
+                                { header: 'Delivery Date', width: '1.2fr' },
+                                { header: 'Actions', width: '0.8fr' }
+                            ]} />
                         ) : (() => {
                             const filteredDelivered = (deliveredJobs || []).filter(job => matchesCategory(job.category));
                             return filteredDelivered.length === 0 ? (

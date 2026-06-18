@@ -230,21 +230,11 @@ const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleG
         ));
     }
 
-    if (sidebarCollapsed) {
-        return (
-            <div className={`sidebar-group nav-item ${hasActiveChild ? 'active' : ''}`} title={group.label} aria-label={group.label}>
-                <div className="nav-item-inner">
-                    <GroupIcon size={20} />
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="sidebar-group">
+        <div className={`sidebar-group ${sidebarCollapsed ? 'sidebar-group--collapsed' : ''}`}>
             <button
                 className={`sidebar-group-toggle${hasActiveChild ? ' active' : ''}`}
-                onClick={() => toggleGroup(group.key)}
+                onClick={() => !sidebarCollapsed && toggleGroup(group.key)}
                 title={group.label}
                 aria-label={group.label}
             >
@@ -252,11 +242,15 @@ const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleG
                     <GroupIcon size={20} />
                     <span className="nav-label">{group.label}</span>
                 </div>
-                <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} />
+                {!sidebarCollapsed && (
+                    <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} />
+                )}
             </button>
-            {!isCollapsed && group.items.map(item => (
-                <SidebarNavItem key={item.name} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} onAction={onAction} />
-            ))}
+            <div className="sidebar-group-items" style={{ display: (isCollapsed || sidebarCollapsed) ? 'none' : 'block' }}>
+                {group.items.map(item => (
+                    <SidebarNavItem key={item.name} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} onAction={onAction} />
+                ))}
+            </div>
         </div>
     );
 });
@@ -306,7 +300,27 @@ const Dashboard = () => {
     const { confirm } = useConfirm();
     const navigate = useNavigate();
     const location = useLocation();
-    const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => {
+        try {
+            const saved = localStorage.getItem('sargaSidebarCollapsed');
+            return saved ? JSON.parse(saved) : false;
+        } catch {
+            return false;
+        }
+    });
+
+    const toggleSidebarCollapsed = useCallback(() => {
+        setSidebarCollapsed(prev => {
+            const next = !prev;
+            try {
+                localStorage.setItem('sargaSidebarCollapsed', JSON.stringify(next));
+            } catch (e) {
+                console.error('Error saving sidebar state:', e);
+            }
+            return next;
+        });
+    }, []);
+
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
 
@@ -362,10 +376,22 @@ const Dashboard = () => {
         if (action === 'scanner') setShowInventoryScan(true);
     }, []);
 
-    // On tablets/phones, keep sidebar expanded so labels are always visible.
+    // Sync sidebar state for different viewports
     useEffect(() => {
         const syncSidebarForViewport = () => {
-            if (window.innerWidth <= 1023) {
+            if (window.innerWidth >= 1024) {
+                // Restore desktop state from localStorage
+                try {
+                    const saved = localStorage.getItem('sargaSidebarCollapsed');
+                    setSidebarCollapsed(saved ? JSON.parse(saved) : false);
+                } catch {
+                    setSidebarCollapsed(false);
+                }
+            } else if (window.innerWidth >= 768) {
+                // Tablet: Compact mode
+                setSidebarCollapsed(true);
+            } else {
+                // Mobile: Expanded under overlay drawer
                 setSidebarCollapsed(false);
             }
         };
@@ -679,7 +705,7 @@ const Dashboard = () => {
         };
     }, [user]);
 
-    // ESC key closes all modals
+    // ESC key closes all modals and sidebar overlay
     useEffect(() => {
         const handleEsc = (e) => {
             if (e.key === 'Escape') {
@@ -687,11 +713,12 @@ const Dashboard = () => {
                 else if (showProfilePanel) setShowProfilePanel(false);
                 else if (inventoryScanResult) setInventoryScanResult(null);
                 else if (showInventoryScan) setShowInventoryScan(false);
+                else if (sidebarOpen) setSidebarOpen(false);
             }
         };
         document.addEventListener('keydown', handleEsc);
         return () => document.removeEventListener('keydown', handleEsc);
-    }, [showProfileModal, showProfilePanel, inventoryScanResult, showInventoryScan]);
+    }, [showProfileModal, showProfilePanel, inventoryScanResult, showInventoryScan, sidebarOpen]);
 
     const handleProfileSave = useCallback(async (e) => {
         e.preventDefault();
@@ -780,7 +807,7 @@ const Dashboard = () => {
                     </div>
                     <button
                         className="sidebar-toggle"
-                        onClick={() => setSidebarCollapsed((prev) => !prev)}
+                        onClick={toggleSidebarCollapsed}
                         aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                         title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     >
@@ -819,7 +846,7 @@ const Dashboard = () => {
                         </div>
                     </div>
                     <button className="btn btn-ghost btn--full mt-16 btn--danger" onClick={handleLogout}>
-                        <LogOut size={18} className="mr-8" /> Logout
+                        <LogOut size={18} className="mr-8" /> <span className="logout-text">Logout</span>
                     </button>
                 </div>
             </aside>

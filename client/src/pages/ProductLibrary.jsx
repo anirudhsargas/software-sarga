@@ -455,7 +455,7 @@ const ProductLibrary = () => {
     const hasActiveFilters = debouncedSearch.trim() !== '' || filterVendor !== 'all' || filterCalcType !== 'all';
 
     const availableSubcategories = selectedCatId
-        ? hierarchy.find(c => c.id === selectedCatId)?.subcategories || []
+        ? hierarchy.find(c => String(c.id) === String(selectedCatId))?.subcategories || []
         : [];
 
     // Build a deduplicated list of known companies from the whole hierarchy + vendors
@@ -998,7 +998,7 @@ const ProductLibrary = () => {
         try {
             const res = await api.get(`/products/${prodId}`);
             const prod = res.data;
-            const parentCategory = hierarchy.find(c => c.subcategories.some(s => s.id === prod.subcategory_id));
+            const parentCategory = hierarchy.find(c => c.subcategories.some(s => String(s.id) === String(prod.subcategory_id)));
             setIsEditing(true);
             setEditId(prod.id);
             setSelectedSubId(prod.subcategory_id);
@@ -1166,7 +1166,7 @@ const ProductLibrary = () => {
         try {
             const res = await api.get(`/products/${prodId}`);
             const prod = res.data;
-            const parentCategory = hierarchy.find(c => c.subcategories.some(s => s.id === prod.subcategory_id));
+            const parentCategory = hierarchy.find(c => c.subcategories.some(s => String(s.id) === String(prod.subcategory_id)));
 
             setIsEditing(false); // Mode is create
             setEditId(null);
@@ -2012,11 +2012,16 @@ const ProductLibrary = () => {
             {showProdModal && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '620px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <button className="modal-close" onClick={() => { setShowProdModal(false); setIsEditing(false); resetProductForm(); }}><X size={20} /></button>
-                        <h2 className="section-title" style={{ marginBottom: '4px', flexShrink: 0 }}>{isEditing ? (isAdmin ? 'Edit Product' : (canRequestImageUpdate ? 'Request Product Image Update' : 'View Product Rates')) : 'Add New Product'}</h2>
-                        {isAdmin && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: '0 0 20px', flexShrink: 0 }}>Define pricing rules and default extras.</p>}
-                        {canRequestImageUpdate && isEditing && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: '0 0 20px', flexShrink: 0 }}>Upload a new product image. Admin approval is required before it goes live.</p>}
-                        <form onSubmit={isPrivileged ? handleSaveProduct : handleSubmitProductUpdateRequest} className="stack-md" style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+                        <div className="modal-header" style={{ padding: '20px 24px', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <h2 className="modal-title" style={{ margin: 0 }}>{isEditing ? (isAdmin ? 'Edit Product' : (canRequestImageUpdate ? 'Request Product Image Update' : 'View Product Rates')) : 'Add New Product'}</h2>
+                                {isAdmin && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: 0 }}>Define pricing rules and default extras.</p>}
+                                {canRequestImageUpdate && isEditing && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: 0 }}>Upload a new product image. Admin approval is required before it goes live.</p>}
+                            </div>
+                            <button className="modal-close modal-close--static" onClick={() => { setShowProdModal(false); setIsEditing(false); resetProductForm(); }}><X size={20} /></button>
+                        </div>
+                        <div className="modal-body" style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
+                            <form onSubmit={isPrivileged ? handleSaveProduct : handleSubmitProductUpdateRequest} className="stack-md" style={{ width: '100%' }}>
                             {canRequestImageUpdate && isEditing && (
                             <div>
                                 <label className="label">Proposed Product Image</label>
@@ -2085,7 +2090,7 @@ const ProductLibrary = () => {
                                     <div className="row items-center gap-sm mb-4">
                                         <label className="label mb-0" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent, #6366f1)' }}>Placement</label>
                                         <ChevronRight size={12} className="muted" />
-                                        <span className="text-xs font-bold">{availableSubcategories.find(s => s.id === selectedSubId)?.name || 'New Item'}</span>
+                                        <span className="text-xs font-bold">{availableSubcategories.find(s => String(s.id) === String(selectedSubId))?.name || 'New Item'}</span>
                                     </div>
                                     <div className="stack-xs">
                                         <label className="label">Category</label>
@@ -2105,8 +2110,8 @@ const ProductLibrary = () => {
                                             {isPrivileged && (
                                                 <>
                                                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setIsEditing(false); setNewCatName(''); setShowCatModal(true); }} title="Add Category" aria-label="Add Category" style={{ padding: '4px 6px' }}><Plus size={14} /></button>
-                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { const cat = hierarchy.find(c => c.id === selectedCatId); if (cat) startEditCategory(cat); }} title="Edit Category" aria-label="Edit Category" disabled={!selectedCatId} style={{ padding: '4px 6px' }}><Edit2 size={14} /></button>
-                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (selectedCatId) { const cat = hierarchy.find(c => c.id === selectedCatId); if (cat) handleDelete('category', cat.id, cat.name); } }} title="Delete Category" aria-label="Delete Category" disabled={!selectedCatId} style={{ padding: '4px 6px', color: 'var(--error)' }}><Trash2 size={14} /></button>
+                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { const cat = hierarchy.find(c => String(c.id) === String(selectedCatId)); if (cat) startEditCategory(cat); }} title="Edit Category" aria-label="Edit Category" disabled={!selectedCatId} style={{ padding: '4px 6px' }}><Edit2 size={14} /></button>
+                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (selectedCatId) { const cat = hierarchy.find(c => String(c.id) === String(selectedCatId)); if (cat) handleDelete('category', cat.id, cat.name); } }} title="Delete Category" aria-label="Delete Category" disabled={!selectedCatId} style={{ padding: '4px 6px', color: 'var(--error)' }}><Trash2 size={14} /></button>
                                                 </>
                                             )}
                                         </div>
@@ -2132,8 +2137,8 @@ const ProductLibrary = () => {
                                             {isPrivileged && (
                                                 <>
                                                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setSelectedCatId(selectedCatId); setIsEditing(false); setNewSubName(''); setShowSubModal(true); }} title="Add Subcategory" aria-label="Add Subcategory" style={{ padding: '4px 6px' }}><Plus size={14} /></button>
-                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { const cat = hierarchy.find(c => c.id === selectedCatId); const sub = cat?.subcategories?.find(s => s.id === selectedSubId); if (sub) startEditSubcategory(sub); }} title="Edit Subcategory" aria-label="Edit Subcategory" disabled={!selectedSubId} style={{ padding: '4px 6px' }}><Edit2 size={14} /></button>
-                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (selectedSubId) { const cat = hierarchy.find(c => c.id === selectedCatId); const sub = cat?.subcategories?.find(s => s.id === selectedSubId); if (sub) handleDelete('subcategory', sub.id, sub.name); } }} title="Delete Subcategory" aria-label="Delete Subcategory" disabled={!selectedSubId} style={{ padding: '4px 6px', color: 'var(--error)' }}><Trash2 size={14} /></button>
+                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { const cat = hierarchy.find(c => String(c.id) === String(selectedCatId)); const sub = cat?.subcategories?.find(s => String(s.id) === String(selectedSubId)); if (sub) startEditSubcategory(sub); }} title="Edit Subcategory" aria-label="Edit Subcategory" disabled={!selectedSubId} style={{ padding: '4px 6px' }}><Edit2 size={14} /></button>
+                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (selectedSubId) { const cat = hierarchy.find(c => String(c.id) === String(selectedCatId)); const sub = cat?.subcategories?.find(s => String(s.id) === String(selectedSubId)); if (sub) handleDelete('subcategory', sub.id, sub.name); } }} title="Delete Subcategory" aria-label="Delete Subcategory" disabled={!selectedSubId} style={{ padding: '4px 6px', color: 'var(--error)' }}><Trash2 size={14} /></button>
                                                 </>
                                             )}
                                         </div>
@@ -2642,7 +2647,7 @@ const ProductLibrary = () => {
                                                     slabs[0].unit_rate = e.target.value === '' ? '' : Number(e.target.value);
                                                     setNewProduct({ ...newProduct, slabs });
                                                 }}
-                                                onWheel={e => e.preventDefault()}
+                                                onWheel={e => e.target.blur()}
                                             />
                                         </div>
                                         <div className="stack-xs">
@@ -2660,7 +2665,7 @@ const ProductLibrary = () => {
                                                     slabs[0].offset_unit_rate = e.target.value === '' ? '' : Number(e.target.value);
                                                     setNewProduct({ ...newProduct, slabs });
                                                 }}
-                                                onWheel={e => e.preventDefault()}
+                                                onWheel={e => e.target.blur()}
                                             />
                                         </div>
                                         {newProduct.has_double_side_rate && (
@@ -2920,7 +2925,7 @@ const ProductLibrary = () => {
                                                     extras[idx].amount = Number(e.target.value);
                                                     setNewProduct({ ...newProduct, extras });
                                                 }}
-                                                onWheel={e => e.preventDefault()}
+                                                onWheel={e => e.target.blur()}
                                             />
                                             {isAdmin && <button type="button" className="btn btn-ghost btn-sm text-error" style={{ flexShrink: 0 }} onClick={() => removeExtra(idx)}><Trash2 size={14} /></button>}
                                         </div>
@@ -3050,7 +3055,8 @@ const ProductLibrary = () => {
                                     )}
                                 </div>
                             )}
-                        </form>
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}
@@ -3065,9 +3071,11 @@ const ProductLibrary = () => {
             {showUpdateRequestModal && activeUpdateRequest && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '760px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <button className="modal-close" onClick={closeUpdateRequestModal}><X size={20} /></button>
-                        <h2 className="section-title" style={{ marginBottom: '4px' }}>{`Review Update Request — ${activeUpdateRequest.product_name || `#${activeUpdateRequest.product_id}`}`}</h2>
-                        <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8 }}>
+                        <div className="modal-header" style={{ padding: '20px 24px', flexShrink: 0 }}>
+                            <h2 className="modal-title" style={{ margin: 0 }}>{`Review Update Request — ${activeUpdateRequest.product_name || `#${activeUpdateRequest.product_id}`}`}</h2>
+                            <button className="modal-close modal-close--static" onClick={closeUpdateRequestModal}><X size={20} /></button>
+                        </div>
+                        <div className="modal-body" style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
                             <div className="row gap-md">
                                 <div style={{ flex: 1 }}>
                                     <strong>Current</strong>
@@ -3086,6 +3094,7 @@ const ProductLibrary = () => {
                                 <button className="btn btn-ghost" onClick={() => handleReviewUpdateRequest(activeUpdateRequest.id, 'reject', activeUpdateRequest.admin_note)}>Reject</button>
                                 <button className="btn btn-primary" onClick={() => handleReviewUpdateRequest(activeUpdateRequest.id, 'approve', activeUpdateRequest.admin_note)}>Approve & Apply</button>
                             </div>
+                        </div>
                         </div>
                     </div>
                 </div>

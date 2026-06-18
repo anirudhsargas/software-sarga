@@ -1,60 +1,246 @@
-import { NavLink, Outlet } from 'react-router-dom';
-import { PenTool, Image, BookOpen, Clock, Settings, LogOut } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import {
+  PenTool, Image, BookOpen, Clock, Settings, LogOut,
+  Briefcase, BarChart2, Menu, X, Plus, ChevronRight
+} from 'lucide-react';
 import auth from '../services/auth';
+import '../styles/designer-dashboard.css';
+
+const NAV_ITEMS = [
+  {
+    to: '/designer',
+    end: true,
+    icon: PenTool,
+    label: 'Dashboard',
+    kbd: 'D',
+    id: 'nav-dashboard',
+  },
+  {
+    to: '/designer/assigned',
+    icon: Briefcase,
+    label: 'Assigned Jobs',
+    kbd: 'A',
+    id: 'nav-assigned',
+  },
+  {
+    to: '/designer/bookings',
+    icon: Clock,
+    label: 'Design Queue',
+    kbd: 'B',
+    id: 'nav-bookings',
+  },
+  {
+    to: '/designer/library',
+    icon: Image,
+    label: 'Product Library',
+    id: 'nav-library',
+  },
+  {
+    to: '/designer/blocks',
+    icon: BookOpen,
+    label: 'Block Journal',
+    id: 'nav-blocks',
+  },
+  {
+    to: '/designer/analytics',
+    icon: BarChart2,
+    label: 'Analytics',
+    id: 'nav-analytics',
+  },
+];
+
+const PAGE_TITLES = {
+  '/designer': 'Dashboard',
+  '/designer/assigned': 'Assigned Jobs',
+  '/designer/bookings': 'Design Queue',
+  '/designer/library': 'Product Library',
+  '/designer/blocks': 'Block Journal',
+  '/designer/analytics': 'Analytics',
+};
 
 const DesignerLayout = () => {
-    const handleLogout = () => {
-        auth.logout();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const user = auth.getUser();
+
+  const handleLogout = useCallback(() => {
+    auth.logout();
+  }, []);
+
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      if (!e.altKey) return;
+      switch (e.key.toLowerCase()) {
+        case 'd': e.preventDefault(); navigate('/designer'); closeSidebar(); break;
+        case 'a': e.preventDefault(); navigate('/designer/assigned'); closeSidebar(); break;
+        case 'b': e.preventDefault(); navigate('/designer/bookings'); closeSidebar(); break;
+        case 'u': e.preventDefault(); navigate('/designer/bookings'); closeSidebar(); break;
+        case 'j': e.preventDefault(); navigate('/designer/bookings'); closeSidebar(); break;
+        default: break;
+      }
     };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [navigate, closeSidebar]);
 
-    return (
-        <div className="app-layout">
-            <aside className="sidebar">
-                <div className="sidebar__header">
-                    <h2 className="sidebar__logo">Design Studio</h2>
-                </div>
-                
-                <nav className="sidebar__nav">
-                    <NavLink to="/designer" end className={({isActive}) => `sidebar__link ${isActive ? 'active' : ''}`}>
-                        <PenTool size={20} />
-                        <span>Workspace</span>
-                    </NavLink>
-                    <NavLink to="/designer/library" className={({isActive}) => `sidebar__link ${isActive ? 'active' : ''}`}>
-                        <Image size={20} />
-                        <span>Product Library</span>
-                    </NavLink>
-                    <NavLink to="/designer/bookings" className={({isActive}) => `sidebar__link ${isActive ? 'active' : ''}`}>
-                        <Clock size={20} />
-                        <span>Design Queue</span>
-                    </NavLink>
-                    <NavLink to="/designer/blocks" className={({isActive}) => `sidebar__link ${isActive ? 'active' : ''}`}>
-                        <BookOpen size={20} />
-                        <span>Block Journal</span>
-                    </NavLink>
-                </nav>
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
-                <div className="sidebar__footer">
-                    <NavLink to="/staff-settings" className={({isActive}) => `sidebar__link ${isActive ? 'active' : ''}`}>
-                        <Settings size={20} />
-                        <span>Profile</span>
-                    </NavLink>
-                    <button className="sidebar__link btn-text text-danger" onClick={handleLogout}>
-                        <LogOut size={20} />
-                        <span>Logout</span>
-                    </button>
-                </div>
-            </aside>
-            
-            <div className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-                <header className="content-header" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 24px', backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-                    <h2 className="section-title" style={{ margin: 0 }}>Design Studio</h2>
-                </header>
-                <main className="content-area" style={{ flex: 1, overflowY: 'auto' }}>
-                    <Outlet />
-                </main>
-            </div>
+  const pageTitle = PAGE_TITLES[location.pathname] || 'Design Studio';
+  const initials = user?.name
+    ? user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+    : 'DS';
+
+  return (
+    <div className="designer-layout">
+
+      {/* ── Sidebar overlay (mobile) ── */}
+      <div
+        className={`designer-overlay${sidebarOpen ? ' designer-overlay--visible' : ''}`}
+        onClick={closeSidebar}
+        aria-hidden="true"
+      />
+
+      {/* ── Sidebar ── */}
+      <aside className={`designer-sidebar${sidebarOpen ? ' designer-sidebar--open' : ''}`} role="navigation" aria-label="Designer Navigation">
+
+        {/* Brand */}
+        <div className="designer-sidebar__brand">
+          <h2 className="designer-sidebar__logo">Design Studio</h2>
+          <div className="designer-sidebar__role">
+            {user?.name || 'Designer'} · {user?.role || 'Designer'}
+          </div>
         </div>
-    );
+
+        {/* Nav */}
+        <nav className="designer-sidebar__nav">
+          <div className="designer-sidebar__section-label">Navigation</div>
+
+          {NAV_ITEMS.map(item => {
+            const IconComp = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                id={item.id}
+                className={({ isActive }) =>
+                  `designer-nav-link${isActive ? ' active' : ''}`
+                }
+              >
+                <span className="designer-nav-link__icon">
+                  <IconComp size={18} />
+                </span>
+                <span className="designer-nav-link__label">{item.label}</span>
+                {item.kbd && (
+                  <span className="designer-nav-link__kbd">Alt+{item.kbd}</span>
+                )}
+              </NavLink>
+            );
+          })}
+        </nav>
+
+        {/* Quick action in sidebar */}
+        <div style={{ padding: '0 10px 12px' }}>
+          <button
+            className="designer-nav-link quick-action-btn quick-action-btn--primary"
+            style={{ width: '100%', justifyContent: 'center', borderRadius: 10 }}
+            onClick={() => navigate('/designer/bookings')}
+            id="sidebar-new-booking"
+          >
+            <Plus size={15} /> New Booking
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div className="designer-sidebar__footer">
+          <NavLink
+            to="/staff-settings"
+            id="nav-settings"
+            className={({ isActive }) => `designer-nav-link${isActive ? ' active' : ''}`}
+          >
+            <span className="designer-nav-link__icon"><Settings size={18} /></span>
+            <span className="designer-nav-link__label">Profile & Settings</span>
+          </NavLink>
+
+          <button
+            className="designer-nav-link"
+            style={{ color: 'var(--danger)', width: '100%', marginTop: 4 }}
+            onClick={handleLogout}
+            id="nav-logout"
+          >
+            <span className="designer-nav-link__icon"><LogOut size={18} /></span>
+            <span className="designer-nav-link__label">Logout</span>
+          </button>
+
+          {/* Keyboard shortcut hint */}
+          <div style={{ padding: '10px 14px 0', fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            <strong>Shortcuts:</strong><br />
+            Alt+D · Alt+A · Alt+B<br />
+            Alt+U (Upload) · Alt+J (Job)
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Main ── */}
+      <div className="designer-main">
+
+        {/* Topbar */}
+        <header className="designer-topbar">
+          {/* Mobile menu button */}
+          <button
+            className="designer-topbar__menu-btn"
+            onClick={() => setSidebarOpen(o => !o)}
+            aria-label="Toggle navigation"
+            id="topbar-menu-btn"
+          >
+            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+
+          {/* Page title */}
+          <div className="designer-topbar__title">{pageTitle}</div>
+
+          {/* Top right actions */}
+          <div className="designer-topbar__actions">
+            <button
+              className="quick-action-btn quick-action-btn--primary"
+              onClick={() => navigate('/designer/bookings')}
+              id="topbar-new-booking"
+              style={{ padding: '7px 14px' }}
+            >
+              <Plus size={14} /> New
+            </button>
+
+            {/* User avatar */}
+            <div
+              title={user?.name}
+              style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                display: 'grid', placeItems: 'center',
+                fontSize: 12, fontWeight: 800, color: 'var(--text-heading)',
+                cursor: 'default', flexShrink: 0
+              }}
+            >
+              {initials}
+            </div>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="designer-content" id="designer-main-content">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
 };
 
 export default DesignerLayout;

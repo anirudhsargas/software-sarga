@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import * as localDb from '../services/localDb';
 import { toast } from 'react-hot-toast';
 import VendorModal from './VendorModal';
 import InvoiceModal from './InvoiceModal';
@@ -36,13 +37,12 @@ const Vendors = ({
   const loadVendors = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
-      if (categoryFilter) params.append('category', categoryFilter);
-
-      const response = await api.get(`/vendors?${params}`);
-      setVendors(response.data.data);
-      return response.data.data;
+      const data = await localDb.getVendors({
+        search: searchTerm,
+        type: categoryFilter
+      });
+      setVendors(data);
+      return data;
     } catch (error) {
       console.error('Error loading vendors:', error);
       toast.error('Failed to load vendors');
@@ -66,14 +66,14 @@ const Vendors = ({
     if (!window.confirm('Are you sure you want to delete this vendor? This action cannot be undone.')) return;
 
     try {
-      await api.delete(`/vendors/${vendorId}`);
+      await localDb.deleteVendor(vendorId);
       toast.success('Vendor deleted successfully');
       setViewMode('list');
       setSelectedVendor(null);
       loadVendors();
     } catch (error) {
       console.error('Error deleting vendor:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete vendor');
+      toast.error(error.response?.data?.message || error.message || 'Failed to delete vendor');
     }
   };
 

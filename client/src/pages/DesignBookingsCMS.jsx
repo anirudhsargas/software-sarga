@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import React, { useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Calendar, Clock, Video, Phone, Users, Check, X, Tag, DollarSign, Award, AlertTriangle, Search, Filter } from 'lucide-react';
 import api from '../services/api';
 import './DesignBookingsCMS.css';
@@ -124,7 +123,7 @@ function DesignBookingsCMS() {
     const total = bookings.length;
     const confirmed = bookings.filter(b => b.status === 'Confirmed').length;
     const completedBookings = bookings.filter(b => b.status === 'Completed');
-    
+
     // Conversion Rate: % of completed consultations that generated a follow-up quote
     const completedCount = completedBookings.length;
     const convertedCount = completedBookings.filter(b => b.quote_issued === 1 || b.quote_amount > 0).length;
@@ -134,7 +133,7 @@ function DesignBookingsCMS() {
     const pipelineValue = bookings.reduce((sum, b) => sum + (parseFloat(b.quote_amount) || 0), 0);
 
     return { total, confirmed, conversionRate, pipelineValue };
-  })();
+  }, [bookings]);
 
   // Filter Bookings
   const filteredBookings = useMemo(() => bookings.filter(b => {

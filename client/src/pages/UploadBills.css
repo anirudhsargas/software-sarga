@@ -45,13 +45,15 @@
 }
 
 .icon-badge.camera-style {
-  background: var(--accent);
+  background: var(--surface-2);
   color: var(--accent);
+  border: 1px solid var(--border);
 }
 
 .icon-badge.file-style {
-  background: var(--muted-foreground);
-  color: var(--muted-foreground);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
 }
 
 .btn-card {

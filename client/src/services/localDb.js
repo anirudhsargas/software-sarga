@@ -262,6 +262,9 @@ export async function searchCustomersLocal(query) {
  */
 export async function getVendors(filters = {}) {
     let vendors = await offlineDb.getAll('vendors');
+    // Filter out pending delete
+    vendors = (vendors || []).filter(v => v.syncStatus !== 'pending_delete');
+
     // Fallback to server API if local store is empty
     if (!vendors || vendors.length === 0) {
         try {
@@ -273,9 +276,15 @@ export async function getVendors(filters = {}) {
             if (Array.isArray(serverVendors) && serverVendors.length > 0) {
                 // Cache in IndexedDB for next time
                 for (const v of serverVendors) {
+                    const localExisting = await offlineDb.getById('vendors', v.id || v.vendor_id);
+                    if (localExisting && localExisting.syncStatus === 'pending_delete') {
+                        continue;
+                    }
                     await offlineDb.save('vendors', { ...v, id: v.id || v.vendor_id });
                 }
-                return serverVendors;
+                // Re-fetch from DB to apply filters and skip pending deletes properly
+                vendors = await offlineDb.getAll('vendors');
+                vendors = (vendors || []).filter(v => v.syncStatus !== 'pending_delete');
             }
         } catch (e) {
             console.warn('[localDb] getVendors fallback failed:', e);
@@ -300,12 +309,13 @@ export async function saveVendor(vendor) {
     const record = {
         ...vendor,
         id,
+        syncStatus: isNew ? 'pending_create' : (vendor.syncStatus || 'pending_update'),
         updated_at: new Date().toISOString(),
         created_at: vendor.created_at || new Date().toISOString()
     };
     
     // Save to IndexedDB first
-    const result = await offlineDb.save('vendors', record);
+    await offlineDb.save('vendors', record);
 
     // Try to sync to server (non-blocking, best-effort) — unified /api/vendors
     if (navigator.onLine) {
@@ -324,7 +334,7 @@ export async function saveVendor(vendor) {
                 });
                 if (res.data && res.data.id) {
                     await offlineDb.delete('vendors', id);
-                    await offlineDb.save('vendors', { ...record, id: res.data.id });
+                    await offlineDb.save('vendors', { ...record, id: res.data.id, syncStatus: 'synced' });
                     return { id: res.data.id, isNew };
                 }
             } else {
@@ -338,24 +348,41 @@ export async function saveVendor(vendor) {
                     order_link: vendor.order_link || null,
                     branch_id: vendor.branch_id || null
                 });
+                await offlineDb.save('vendors', { ...record, syncStatus: 'synced' });
             }
         } catch (err) {
             console.error('Failed to sync vendor save to server:', err);
         }
     }
 
-    return { id: result, isNew };
+    return { id, isNew };
 }
 
 export async function deleteVendor(id) {
-    await offlineDb.delete('vendors', id);
+    const isTempId = String(id).startsWith('VEND');
+    
     if (navigator.onLine) {
-        const isTempId = String(id).startsWith('VEND');
         if (!isTempId) {
             try {
+                // Perform online deletion first, letting error (e.g. 400 Bad Request) bubble up
                 await api.delete(`vendors/${id}`);
+                await offlineDb.delete('vendors', id);
             } catch (err) {
-                console.error('Failed to sync vendor deletion to server:', err);
+                console.error('Failed to delete vendor on server:', err);
+                throw err; // bubble up to UI
+            }
+        } else {
+            // Local-only temporary vendor, just delete locally
+            await offlineDb.delete('vendors', id);
+        }
+    } else {
+        // Offline mode
+        if (isTempId) {
+            await offlineDb.delete('vendors', id);
+        } else {
+            const vendor = await offlineDb.getById('vendors', id);
+            if (vendor) {
+                await offlineDb.save('vendors', { ...vendor, syncStatus: 'pending_delete' });
             }
         }
     }

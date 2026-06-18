@@ -215,7 +215,7 @@ const downloadMasterData = async (db) => {
     // JOBS SYNC: Download recent jobs to ensure local status/balance accuracy
     { key: 'jobs', url: '/api/jobs?limit=500', store: 'jobs' },
     // VENDORS SYNC: Download expense vendors to sync IndexedDB and server sarga_vendors table
-    { key: 'vendors', url: '/api/expense-vendors', store: 'vendors' },
+    { key: 'vendors', url: '/api/vendors?limit=1000', store: 'vendors' },
   ];
 
   for (const item of downloads) {
@@ -279,11 +279,31 @@ const downloadMasterData = async (db) => {
       const items = Array.isArray(data) ? data : (data.data || []);
       const tx_db = await openDB();
       // For jobs and vendors, clear the local store first so deleted items don't persist
-      if (item.key === 'jobs' || item.key === 'vendors') {
-        await clearStore(tx_db, item.store);
-      }
-      for (const record of items) {
-        await putToStore(tx_db, item.store, record);
+      if (item.key === 'vendors') {
+        const localVendors = await getAllFromStore(tx_db, 'vendors');
+        const unsyncedVendors = localVendors.filter(v => 
+          v.syncStatus === 'pending_create' || 
+          v.syncStatus === 'pending_update' || 
+          v.syncStatus === 'pending_delete'
+        );
+        await clearStore(tx_db, 'vendors');
+        for (const record of items) {
+          const isPendingDelete = unsyncedVendors.some(uv => String(uv.id) === String(record.id) && uv.syncStatus === 'pending_delete');
+          if (isPendingDelete) {
+            continue;
+          }
+          await putToStore(tx_db, 'vendors', { ...record, syncStatus: 'synced' });
+        }
+        for (const uv of unsyncedVendors) {
+          await putToStore(tx_db, 'vendors', uv);
+        }
+      } else {
+        if (item.key === 'jobs') {
+          await clearStore(tx_db, item.store);
+        }
+        for (const record of items) {
+          await putToStore(tx_db, item.store, record);
+        }
       }
 
       // Update sync meta
@@ -313,6 +333,94 @@ const downloadMasterData = async (db) => {
   return results;
 };
 
+// ── Upload pending vendors ──
+const syncPendingVendors = async (db) => {
+  const vendors = await getAllFromStore(db, 'vendors');
+  if (!vendors.length) return { synced: 0 };
+
+  let synced = 0;
+  for (const v of vendors) {
+    if (!v.syncStatus || v.syncStatus === 'synced') continue;
+
+    try {
+      if (v.syncStatus === 'pending_create') {
+        const isTempId = String(v.id).startsWith('VEND');
+        const body = {
+          name: v.name,
+          type: v.type || 'Vendor',
+          contact_person: v.contact_person || null,
+          phone: v.phone || null,
+          address: v.address || null,
+          gstin: v.gstin || null,
+          order_link: v.order_link || null,
+          branch_id: v.branch_id || null
+        };
+        const result = await workerFetch('/api/vendors', {
+          method: 'POST',
+          body: JSON.stringify(body)
+        });
+        
+        if (isTempId) {
+          await deleteFromStore(db, 'vendors', v.id);
+        }
+        await putToStore(db, 'vendors', {
+          ...v,
+          id: result.id || result.vendor_id || v.id,
+          syncStatus: 'synced'
+        });
+        synced++;
+      } else if (v.syncStatus === 'pending_update') {
+        const body = {
+          name: v.name,
+          type: v.type || 'Vendor',
+          contact_person: v.contact_person || null,
+          phone: v.phone || null,
+          address: v.address || null,
+          gstin: v.gstin || null,
+          order_link: v.order_link || null,
+          branch_id: v.branch_id || null
+        };
+        await workerFetch(`/api/vendors/${v.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(body)
+        });
+        await putToStore(db, 'vendors', {
+          ...v,
+          syncStatus: 'synced'
+        });
+        synced++;
+      } else if (v.syncStatus === 'pending_delete') {
+        try {
+          await workerFetch(`/api/vendors/${v.id}`, {
+            method: 'DELETE'
+          });
+          await deleteFromStore(db, 'vendors', v.id);
+          synced++;
+        } catch (err) {
+          // If server rejects deletion with 400 Bad Request
+          if (err.message.includes('400')) {
+            await putToStore(db, 'vendors', {
+              ...v,
+              syncStatus: 'synced' // restore locally
+            });
+            self.postMessage({
+              type: 'VENDOR_DELETE_FAILED',
+              vendorId: v.id,
+              error: 'Cannot delete vendor with active transactions.'
+            });
+          } else {
+            // Keep pending_delete for next retry
+            throw err;
+          }
+        }
+      }
+    } catch (err) {
+      logError(`[Sync] Failed to sync vendor ${v.id}:`, err.message);
+    }
+  }
+  return { synced };
+};
+
 // ── Main sync function ──
 const runSync = async () => {
   if (isSyncing) return;
@@ -326,6 +434,7 @@ const runSync = async () => {
     // 1. Upload pending data first
     const billsResult = await syncPendingBills(db);
     const paymentsResult = await syncPendingPayments(db);
+    const vendorsResult = await syncPendingVendors(db);
 
     // 2. Download fresh master data
     const downloadResult = await downloadMasterData(db);
@@ -334,6 +443,7 @@ const runSync = async () => {
       type: 'SYNC_COMPLETED',
       billsSynced: billsResult.synced,
       paymentsSynced: paymentsResult.synced,
+      vendorsSynced: vendorsResult.synced,
       downloaded: downloadResult,
       timestamp: Date.now()
     });

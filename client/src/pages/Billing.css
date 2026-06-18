@@ -280,9 +280,9 @@
 }
 
 .chip.active {
-  background: var(--card);
-  border-color: var(--border);
-  color: var(--card);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }
 
 .chip__check {
@@ -335,7 +335,7 @@
 }
 
 .billing-field__input::placeholder {
-  color: var(--text-disabled, var(--card));
+  color: var(--text-muted);
 }
 
 /* ── Dropdown ── */
@@ -357,7 +357,7 @@
 }
 
 .billing-dropdown__item:hover {
-  background: var(--card);
+  background: var(--hover);
 }
 
 .billing-dropdown__add {
