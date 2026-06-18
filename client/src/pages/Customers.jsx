@@ -1,13 +1,11 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
 import { Users, Search, Phone, User, Loader2, Plus, X, Edit2, Trash2, Filter, Mail, MapPin } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
 import localDb from '../services/localDb';
-import { isTouchDevice } from '../services/utils';
 import { calculateProductPrice } from '../utils/pricing';
 import { whatsappUrl } from '../utils/whatsapp';
 import { formatForDisplay, telHref } from '../utils/phone';
@@ -19,6 +17,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import toast from 'react-hot-toast';
 import BranchSelect from '../components/ui/BranchSelect';
+import './Customers.css';
 
 const Customers = () => {
     useSEO('Customers');
@@ -50,6 +49,19 @@ const Customers = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+    const fetchAbortRef = useRef(null);
+
+    // Autocomplete state
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [highlightIndex, setHighlightIndex] = useState(-1);
+    const [nameSearch, setNameSearch] = useState('');
+    const [mobileSearch, setMobileSearch] = useState('');
+    const nameSearchQuery = useDebounce(nameSearch, 300);
+    const mobileSearchQuery = useDebounce(mobileSearch, 300);
+    const nameRef = useRef(null);
+    const mobileRef = useRef(null);
+    const suggestRef = useRef(null);
 
     // --- ADVANCED JOB MODAL STATE ---
     const [showJobModal, setShowJobModal] = useState(false);
@@ -74,25 +86,20 @@ const Customers = () => {
     const [extraInputs, setExtraInputs] = useState([]); // [{purpose, amount}]
     const [turnaroundEstimate, setTurnaroundEstimate] = useState(null);
 
-    const customerListRef = useRef(null);
-    const customerVirtualizer = useVirtualizer({
-        count: customers.length,
-        getScrollElement: () => customerListRef.current,
-        estimateSize: () => 72,
-        overscan: 10,
-    });
-
-
     const hasUnsavedChanges = (showAddModal && addFormDirty) || (showEditModal && editFormDirty);
 
     const updateNewCustomer = (patch) => {
         setNewCustomer(prev => ({ ...prev, ...patch }));
         setAddFormDirty(true);
+        if (patch.name !== undefined) setNameSearch(patch.name);
+        if (patch.mobile !== undefined) setMobileSearch(patch.mobile);
     };
 
     const updateSelectedCustomer = (patch) => {
         setSelectedCustomer(prev => ({ ...prev, ...patch }));
         setEditFormDirty(true);
+        if (patch.name !== undefined) setNameSearch(patch.name);
+        if (patch.mobile !== undefined) setMobileSearch(patch.mobile);
     };
 
     const closeAddModal = (force = false) => {
@@ -122,6 +129,11 @@ const Customers = () => {
 
     // --- PAGINATED FETCH ---
     const fetchCustomers = async (pageNum = 1) => {
+        if (fetchAbortRef.current) {
+            fetchAbortRef.current.abort();
+        }
+        const controller = new AbortController();
+        fetchAbortRef.current = controller;
         setLoading(true);
         setError('');
         try {
@@ -130,7 +142,7 @@ const Customers = () => {
             params.append('limit', LIMIT);
             if (searchQuery) params.append('search', searchQuery);
             if (typeFilter) params.append('type', typeFilter);
-            const res = await api.get(`/customers?${params.toString()}`);
+            const res = await api.get(`/customers?${params.toString()}`, { signal: controller.signal });
             if (res.data?.data && res.data?.total !== undefined) {
                 setCustomers(res.data.data);
                 setTotal(res.data.total);
@@ -148,7 +160,7 @@ const Customers = () => {
             }
             setPage(pageNum);
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        } catch (err) {
+        } catch {
             setError('Failed to fetch customers from server');
             setCustomers([]);
         } finally {
@@ -182,6 +194,80 @@ const Customers = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [showAddModal, showEditModal, showJobModal]);
 
+    // --- AUTOCOMPLETE SUGGESTIONS ---
+    const fetchSuggestions = useCallback(async (searchTerm, _isMobile = false) => {
+        if (!searchTerm || searchTerm.length < 2) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+            return;
+        }
+        try {
+            const params = new URLSearchParams();
+            params.append('search', searchTerm);
+            params.append('limit', '8');
+            const res = await api.get(`/customers?${params.toString()}`);
+            const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+            const filtered = data.filter(c => c.client_type !== 'internal');
+            setSuggestions(filtered);
+            setShowSuggestions(filtered.length > 0);
+            setHighlightIndex(-1);
+        } catch {
+            setSuggestions([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (showAddModal || showEditModal) {
+            fetchSuggestions(nameSearchQuery, false);
+        }
+    }, [nameSearchQuery, showAddModal, showEditModal]);
+
+    useEffect(() => {
+        if (showAddModal || showEditModal) {
+            fetchSuggestions(mobileSearchQuery, true);
+        }
+    }, [mobileSearchQuery, showAddModal, showEditModal]);
+
+    const handleSuggestionSelect = (customer) => {
+        if (showAddModal) {
+            setNewCustomer(prev => ({
+                ...prev,
+                name: customer.name,
+                mobile: customer.mobile.replace(/^\+\d+/, ''),
+                countryCode: customer.mobile.startsWith('+') ? customer.mobile.slice(0, customer.mobile.length - 10) : '+91',
+                type: customer.type || 'Walk-in',
+                email: customer.email || '',
+            }));
+        } else if (showEditModal && selectedCustomer) {
+            updateSelectedCustomer({
+                name: customer.name,
+                mobile: customer.mobile.replace(/^\+\d+/, ''),
+                countryCode: customer.mobile.startsWith('+') ? customer.mobile.slice(0, customer.mobile.length - 10) : '+91',
+                type: customer.type || selectedCustomer.type,
+                email: customer.email || selectedCustomer.email,
+            });
+        }
+        setShowSuggestions(false);
+        setNameSearch('');
+        setMobileSearch('');
+    };
+
+    const handleSuggestionKeyDown = (e) => {
+        if (!showSuggestions || suggestions.length === 0) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightIndex(prev => Math.min(prev + 1, suggestions.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightIndex(prev => Math.max(prev - 1, 0));
+        } else if (e.key === 'Enter' && highlightIndex >= 0) {
+            e.preventDefault();
+            handleSuggestionSelect(suggestions[highlightIndex]);
+        } else if (e.key === 'Escape') {
+            setShowSuggestions(false);
+        }
+    };
+
     // --- PAGINATION HANDLER ---
     const goToPage = (pageNum) => {
         if (pageNum < 1 || pageNum > totalPages) return;
@@ -206,7 +292,7 @@ const Customers = () => {
             setNewCustomer({ mobile: '', name: '', type: 'Walk-in', email: '', gst: '', address: '' });
             toast.success('Customer added locally');
             fetchCustomers();
-        } catch (err) {
+        } catch {
             setError('Failed to add customer');
         } finally {
             setLoading(false);
@@ -229,7 +315,7 @@ const Customers = () => {
             setSelectedCustomer(null);
             toast.success('Customer updated locally');
             fetchCustomers();
-        } catch (err) {
+        } catch {
             setError('Failed to update customer');
             setCustomers(prevCustomers);
         } finally {
@@ -247,8 +333,8 @@ const Customers = () => {
                     note: note || ''
                 });
                 setError('');
-            } catch (err) {
-                setError(err.response?.data?.message || 'Failed to submit delete request');
+            } catch (e) {
+                setError(e.response?.data?.message || 'Failed to submit delete request');
             }
             return;
         }
@@ -267,8 +353,8 @@ const Customers = () => {
         try {
             await api.delete(`/customers/${id}`);
             fetchCustomers();
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to delete customer');
+        } catch (e) {
+            setError(e.response?.data?.message || 'Failed to delete customer');
             fetchCustomers();
         }
     };
@@ -280,6 +366,7 @@ const Customers = () => {
         } else {
             setTurnaroundEstimate(null);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showJobModal]);
 
     // Fetch turnaround estimate when product + quantity + branch change
@@ -310,17 +397,27 @@ const Customers = () => {
             if ((data || []).length > 0) {
                 setJobData(prev => ({ ...prev, branch_id: data[0].id }));
             }
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch branches');
         }
     };
 
     const fetchHierarchy = async () => {
         try {
-            const data = await localDb.getProducts(); // Hierarchy is cached in meta/products
+            let data = await localDb.getProducts();
+            if (!data || data.length === 0) {
+                const res = await api.get('/product-hierarchy');
+                data = res.data || [];
+            }
             setHierarchy(data);
-        } catch (err) {
-            console.error("Hierarchy error", err);
+        } catch {
+            try {
+                const res = await api.get('/product-hierarchy');
+                const data = res.data || [];
+                setHierarchy(data);
+            } catch {
+                setHierarchy([]);
+            }
         }
     };
 
@@ -345,7 +442,7 @@ const Customers = () => {
             }));
             setExtraInputs(fullProd.extras.map(e => ({ purpose: e.purpose, amount: e.amount })));
             calculateDynamicPrice(fullProd, jobData.quantity, fullProd.extras, fullProd.has_paper_rate ? fullProd.paper_rate : 0);
-        } catch (err) {
+        } catch {
             setError("Failed to fetch product details");
         } finally {
             setLoading(false);
@@ -392,8 +489,8 @@ const Customers = () => {
             setShowJobModal(false);
             resetJobForm();
             fetchCustomers();
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to add job');
+        } catch (e) {
+            setError(e.response?.data?.message || 'Failed to add job');
         } finally {
             setLoading(false);
         }
@@ -422,10 +519,10 @@ const Customers = () => {
     };
 
     return (
-        <div className="stack-lg">
-            <header className="page-header flex justify-between items-center flex-wrap gap-md p-12 rounded-lg shadow-sm">
+        <div className="customer-page">
+            <header className="page-header flex justify-between items-center flex-wrap gap-md p-16 rounded-xl shadow-sm mb-24" style={{ background: 'var(--card)' }}>
                 <div className="flex items-center gap-sm">
-                    <h1 className="page-title">
+                    <h1 className="page-title" style={{ fontSize: 20 }}>
                         <Users className="text-heading" aria-hidden="true" size={20} /> Customer Management
                     </h1>
                 </div>
@@ -458,27 +555,25 @@ const Customers = () => {
                 </div>
             </header>
 
-            <div className="flex gap-sm items-center p-3 rounded-lg border" style={{ background: 'var(--surface)' }}>
-                <div className="flex-1 relative flex items-center">
-                    <Search size={15} aria-hidden="true" style={{ position: 'absolute', left: 10, color: 'var(--muted)', pointerEvents: 'none' }} />
+            <div className="customer-search-bar">
+                <div className="search-input-wrapper">
+                    <Search size={16} className="search-icon" aria-hidden="true" />
                     <label htmlFor="customer-search" className="sr-only">Search customers</label>
                     <input
                         id="customer-search"
                         name="customerSearch"
                         type="text"
                         placeholder="Search by name or mobile..."
-                        className="input-field"
-                        style={{ paddingLeft: 32, width: '100%', height: 36, fontSize: 14 }}
                         value={searchInput}
                         onChange={e => setSearchInput(e.target.value)}
                         autoComplete="off"
                     />
                 </div>
-                <div className="flex items-center gap-xs bg-surface-2 border rounded-lg px-3 h-9" style={{ flexShrink: 0 }}>
-                    <Filter size={13} aria-hidden="true" style={{ color: 'var(--muted)' }} />
+                <div className="flex items-center gap-xs bg-surface-2 border rounded-lg px-3" style={{ flexShrink: 0, height: 44 }}>
+                    <Filter size={14} aria-hidden="true" style={{ color: 'var(--muted)' }} />
                     <select
                         className="input-field"
-                        style={{ border: 'none', background: 'transparent', height: '100%', padding: 0, minWidth: 140, fontSize: 13 }}
+                        style={{ border: 'none', background: 'transparent', height: '100%', padding: '0 4px', minWidth: 130, fontSize: 13 }}
                         value={typeFilter}
                         onChange={e => { setTypeFilter(e.target.value); setPage(1); }}
                         aria-label="Filter by customer type"
@@ -489,8 +584,8 @@ const Customers = () => {
                         <option value="Corporate">Corporate</option>
                     </select>
                 </div>
-                <button className="btn btn-ghost btn-sm px-3 h-9" onClick={() => { setSearchInput(''); setTypeFilter(''); setPage(1); }} aria-label="Clear filters">
-                    <X size={13} />
+                <button className="btn btn-ghost" style={{ height: 44, width: 44, padding: 0 }} onClick={() => { setSearchInput(''); setTypeFilter(''); setPage(1); }} aria-label="Clear filters">
+                    <X size={14} />
                 </button>
             </div>
 
@@ -601,69 +696,132 @@ const Customers = () => {
 
             {/* Modals... */}
             {showAddModal && (
-                <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="add-customer-title">
-                    <div className="modal">
-                        <button className="modal-close" aria-label="Close add customer modal" onClick={() => closeAddModal()}><X size={22} aria-hidden="true" /></button>
-                        <h2 id="add-customer-title" className="section-title mb-16">Add New Customer</h2>
-                        {addFormDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
-                        <form onSubmit={handleAddCustomer} className="stack-md" noValidate>
-                            <div className="responsive-form-row">
-                                <div className="responsive-form-field responsive-form-field--name">
-                                    <label htmlFor="add-customer-name" className="label">Customer Name</label>
+                <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="add-customer-title" style={{ alignItems: 'flex-start', paddingTop: '8vh' }}>
+                    <div className="modal" style={{ padding: 20 }}>
+                        <button className="modal-close" aria-label="Close add customer modal" onClick={() => closeAddModal()}><X size={20} aria-hidden="true" /></button>
+                        <h2 id="add-customer-title" className="section-title mb-20" style={{ fontSize: 18, paddingRight: 40 }}>Add New Customer</h2>
+                        {addFormDirty && <div className="alert alert--warning mb-16">Unsaved changes</div>}
+                        <form onSubmit={handleAddCustomer} noValidate>
+                            <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="add-customer-name" className="label" style={{ marginBottom: 6, display: 'block' }}>Customer Name</label>
+                                <div className="autocomplete-wrapper">
                                     <input
                                         id="add-customer-name"
                                         name="customerName"
                                         type="text"
                                         className="input-field"
-                                        value={newCustomer.name}
-                                        onChange={(e) => updateNewCustomer({ name: e.target.value })}
+                                        style={{ width: '100%', height: 44 }}
+                                        value={nameSearch || newCustomer.name}
+                                        onChange={(e) => { setNameSearch(e.target.value); updateNewCustomer({ name: e.target.value }); }}
+                                        onKeyDown={handleSuggestionKeyDown}
+                                        onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                        ref={nameRef}
                                         required
                                         autoFocus
-                                        autoComplete="name"
+                                        autoComplete="off"
+                                        placeholder="Start typing customer name..."
                                     />
+                                    {showSuggestions && suggestions.length > 0 && (
+                                        <div className="autocomplete-dropdown" ref={suggestRef} role="listbox" aria-label="Customer suggestions">
+                                            {suggestions.map((c, i) => (
+                                                <div
+                                                    key={c.id}
+                                                    className={`autocomplete-item ${i === highlightIndex ? 'autocomplete-item--highlighted' : ''}`}
+                                                    onClick={() => handleSuggestionSelect(c)}
+                                                    onMouseEnter={() => setHighlightIndex(i)}
+                                                    role="option"
+                                                    aria-selected={i === highlightIndex}
+                                                >
+                                                    <div className="autocomplete-item__avatar">{c.name?.charAt(0) || '?'}</div>
+                                                    <div className="autocomplete-item__info">
+                                                        <div className="autocomplete-item__name">{c.name}</div>
+                                                        <div className="autocomplete-item__meta">
+                                                            <span>{formatForDisplay(c.mobile)}</span>
+                                                            <span>{c.type}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="responsive-form-field responsive-form-field--mobile">
-                                    <label htmlFor="add-customer-phone" className="label">Mobile Number</label>
-                                    <div className="row gap-sm">
+                            </div>
+                            <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="add-customer-phone" className="label" style={{ marginBottom: 6, display: 'block' }}>Mobile Number</label>
+                                <div className="autocomplete-wrapper">
+                                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                                         <CountryCodeSelect value={newCustomer.countryCode} onChange={(val) => updateNewCustomer({ countryCode: val })} />
                                         <input
                                             id="add-customer-phone"
                                             name="customerPhone"
                                             type="tel"
                                             className="input-field"
+                                            style={{ flex: 1, height: 44 }}
                                             value={newCustomer.mobile}
-                                            onChange={(e) => updateNewCustomer({ mobile: filterMobile(e.target.value) })}
+                                            onChange={(e) => { updateNewCustomer({ mobile: filterMobile(e.target.value) }); setMobileSearch(filterMobile(e.target.value)); }}
+                                            onKeyDown={handleSuggestionKeyDown}
+                                            onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                                            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                            ref={mobileRef}
                                             required
                                             autoComplete="tel"
+                                            placeholder="Mobile number"
                                         />
                                     </div>
-                                </div>
-                                <div className="responsive-form-field responsive-form-field--type">
-                                    <label htmlFor="add-customer-type" className="label">Customer Type</label>
-                                    <select
-                                        id="add-customer-type"
-                                        name="customerType"
-                                        className="input-field"
-                                        value={newCustomer.type}
-                                        onChange={(e) => updateNewCustomer({ type: e.target.value })}
-                                    >
-                                        {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
+                                    {showSuggestions && suggestions.length > 0 && (
+                                        <div className="autocomplete-dropdown" role="listbox" aria-label="Mobile suggestions">
+                                            {suggestions.map((c, i) => (
+                                                <div
+                                                    key={c.id}
+                                                    className={`autocomplete-item ${i === highlightIndex ? 'autocomplete-item--highlighted' : ''}`}
+                                                    onClick={() => handleSuggestionSelect(c)}
+                                                    onMouseEnter={() => setHighlightIndex(i)}
+                                                    role="option"
+                                                    aria-selected={i === highlightIndex}
+                                                >
+                                                    <div className="autocomplete-item__avatar">{c.name?.charAt(0) || '?'}</div>
+                                                    <div className="autocomplete-item__info">
+                                                        <div className="autocomplete-item__name">{c.name}</div>
+                                                        <div className="autocomplete-item__meta">
+                                                            <span>{formatForDisplay(c.mobile)}</span>
+                                                            <span>{c.type}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                            <div>
-                                <label htmlFor="add-customer-email" className="label">Email Address</label>
+                            <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="add-customer-type" className="label" style={{ marginBottom: 6, display: 'block' }}>Customer Type</label>
+                                <select
+                                    id="add-customer-type"
+                                    name="customerType"
+                                    className="input-field"
+                                    style={{ width: '100%', height: 44 }}
+                                    value={newCustomer.type}
+                                    onChange={(e) => updateNewCustomer({ type: e.target.value })}
+                                >
+                                    {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="add-customer-email" className="label" style={{ marginBottom: 6, display: 'block' }}>Email Address</label>
                                 <input
                                     id="add-customer-email"
                                     name="customerEmail"
                                     type="email"
                                     className="input-field"
+                                    style={{ width: '100%', height: 44 }}
                                     value={newCustomer.email}
                                     onChange={(e) => updateNewCustomer({ email: e.target.value })}
                                     autoComplete="email"
                                 />
                             </div>
-                            <button type="submit" disabled={loading} className="btn btn-primary-blue btn--full mt-8 touch-target">
+                            {error && <p className="text-sm text-error" style={{ marginBottom: 16 }} role="alert">{error}</p>}
+                            <button type="submit" disabled={loading} className="btn btn-primary-blue btn--full touch-target" style={{ height: 42 }}>
                                 {loading ? <><Loader2 className="animate-spin" aria-hidden="true" /> Adding...</> : "Add Customer"}
                             </button>
                         </form>
@@ -672,93 +830,154 @@ const Customers = () => {
             )}
 
             {showEditModal && selectedCustomer && (
-                <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="edit-customer-title">
-                    <div className="modal">
-                        <button className="modal-close" aria-label="Close edit customer modal" onClick={() => closeEditModal()}><X size={22} aria-hidden="true" /></button>
-                        <h2 id="edit-customer-title" className="section-title mb-16">Edit Customer</h2>
-                        {editFormDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
-                        <form onSubmit={handleUpdateCustomer} className="stack-md" noValidate>
-                            <div className="responsive-form-row">
-                                <div className="responsive-form-field responsive-form-field--name">
-                                    <label htmlFor="edit-customer-name" className="label">Customer Name</label>
+                <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="edit-customer-title" style={{ alignItems: 'flex-start', paddingTop: '8vh' }}>
+                    <div className="modal" style={{ padding: 20 }}>
+                        <button className="modal-close" aria-label="Close edit customer modal" onClick={() => closeEditModal()}><X size={20} aria-hidden="true" /></button>
+                        <h2 id="edit-customer-title" className="section-title mb-20" style={{ fontSize: 18, paddingRight: 40 }}>Edit Customer</h2>
+                        {editFormDirty && <div className="alert alert--warning mb-16">Unsaved changes</div>}
+                        <form onSubmit={handleUpdateCustomer} noValidate>
+                            <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="edit-customer-name" className="label" style={{ marginBottom: 6, display: 'block' }}>Customer Name</label>
+                                <div className="autocomplete-wrapper">
                                     <input
                                         id="edit-customer-name"
                                         name="editCustomerName"
                                         type="text"
                                         className="input-field"
-                                        value={selectedCustomer.name}
-                                        onChange={(e) => updateSelectedCustomer({ name: e.target.value })}
+                                        style={{ width: '100%', height: 44 }}
+                                        value={nameSearch || selectedCustomer.name}
+                                        onChange={(e) => { setNameSearch(e.target.value); updateSelectedCustomer({ name: e.target.value }); }}
+                                        onKeyDown={handleSuggestionKeyDown}
+                                        onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                                         required
-                                        autoComplete="name"
+                                        autoComplete="off"
+                                        placeholder="Customer name"
                                     />
+                                    {showSuggestions && suggestions.length > 0 && (
+                                        <div className="autocomplete-dropdown" role="listbox" aria-label="Customer suggestions">
+                                            {suggestions.map((c, i) => (
+                                                <div
+                                                    key={c.id}
+                                                    className={`autocomplete-item ${i === highlightIndex ? 'autocomplete-item--highlighted' : ''}`}
+                                                    onClick={() => handleSuggestionSelect(c)}
+                                                    onMouseEnter={() => setHighlightIndex(i)}
+                                                    role="option"
+                                                    aria-selected={i === highlightIndex}
+                                                >
+                                                    <div className="autocomplete-item__avatar">{c.name?.charAt(0) || '?'}</div>
+                                                    <div className="autocomplete-item__info">
+                                                        <div className="autocomplete-item__name">{c.name}</div>
+                                                        <div className="autocomplete-item__meta">
+                                                            <span>{formatForDisplay(c.mobile)}</span>
+                                                            <span>{c.type}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="responsive-form-field responsive-form-field--mobile">
-                                    <label htmlFor="edit-customer-phone" className="label">Mobile Number</label>
-                                    <div className="row gap-sm">
+                            </div>
+                            <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="edit-customer-phone" className="label" style={{ marginBottom: 6, display: 'block' }}>Mobile Number</label>
+                                <div className="autocomplete-wrapper">
+                                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                                         <CountryCodeSelect value={selectedCustomer?.countryCode || '+91'} onChange={(val) => updateSelectedCustomer({ countryCode: val })} />
                                         <input
                                             id="edit-customer-phone"
                                             name="editCustomerPhone"
                                             type="tel"
                                             className="input-field"
+                                            style={{ flex: 1, height: 44 }}
                                             value={selectedCustomer.mobile}
-                                            onChange={(e) => updateSelectedCustomer({ mobile: filterMobile(e.target.value) })}
+                                            onChange={(e) => { updateSelectedCustomer({ mobile: filterMobile(e.target.value) }); setMobileSearch(filterMobile(e.target.value)); }}
+                                            onKeyDown={handleSuggestionKeyDown}
+                                            onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                                            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                                             required
                                             autoComplete="tel"
+                                            placeholder="Mobile number"
                                         />
                                     </div>
-                                </div>
-                                <div className="responsive-form-field responsive-form-field--type">
-                                    <label htmlFor="edit-customer-type" className="label">Customer Type</label>
-                                    <select
-                                        id="edit-customer-type"
-                                        name="editCustomerType"
-                                        className="input-field"
-                                        value={selectedCustomer.type}
-                                        onChange={(e) => updateSelectedCustomer({ type: e.target.value })}
-                                    >
-                                        {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
+                                    {showSuggestions && suggestions.length > 0 && (
+                                        <div className="autocomplete-dropdown" role="listbox" aria-label="Mobile suggestions">
+                                            {suggestions.map((c, i) => (
+                                                <div
+                                                    key={c.id}
+                                                    className={`autocomplete-item ${i === highlightIndex ? 'autocomplete-item--highlighted' : ''}`}
+                                                    onClick={() => handleSuggestionSelect(c)}
+                                                    onMouseEnter={() => setHighlightIndex(i)}
+                                                    role="option"
+                                                    aria-selected={i === highlightIndex}
+                                                >
+                                                    <div className="autocomplete-item__avatar">{c.name?.charAt(0) || '?'}</div>
+                                                    <div className="autocomplete-item__info">
+                                                        <div className="autocomplete-item__name">{c.name}</div>
+                                                        <div className="autocomplete-item__meta">
+                                                            <span>{formatForDisplay(c.mobile)}</span>
+                                                            <span>{c.type}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                            <div>
-                                <label htmlFor="edit-customer-email" className="label">Email Address</label>
+                            <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="edit-customer-type" className="label" style={{ marginBottom: 6, display: 'block' }}>Customer Type</label>
+                                <select
+                                    id="edit-customer-type"
+                                    name="editCustomerType"
+                                    className="input-field"
+                                    style={{ width: '100%', height: 44 }}
+                                    value={selectedCustomer.type}
+                                    onChange={(e) => updateSelectedCustomer({ type: e.target.value })}
+                                >
+                                    {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="edit-customer-email" className="label" style={{ marginBottom: 6, display: 'block' }}>Email Address</label>
                                 <input
                                     id="edit-customer-email"
                                     name="editCustomerEmail"
                                     type="email"
                                     className="input-field"
+                                    style={{ width: '100%', height: 44 }}
                                     value={selectedCustomer.email || ''}
                                     onChange={(e) => updateSelectedCustomer({ email: e.target.value })}
                                     autoComplete="email"
                                 />
                             </div>
-                            <div>
-                                <label htmlFor="edit-customer-gst" className="label">GST Number</label>
+                            <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="edit-customer-gst" className="label" style={{ marginBottom: 6, display: 'block' }}>GST Number</label>
                                 <input
                                     id="edit-customer-gst"
                                     name="editCustomerGst"
                                     type="text"
                                     className="input-field"
+                                    style={{ width: '100%', height: 44 }}
                                     value={selectedCustomer.gst || ''}
                                     onChange={(e) => updateSelectedCustomer({ gst: e.target.value.toUpperCase() })}
                                     autoComplete="off"
                                 />
                             </div>
-                            <div>
-                                <label htmlFor="edit-customer-address" className="label">Address</label>
+                            <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="edit-customer-address" className="label" style={{ marginBottom: 6, display: 'block' }}>Address</label>
                                 <textarea
                                     id="edit-customer-address"
                                     name="editCustomerAddress"
                                     className="input-field"
-                                    style={{ minHeight: '80px' }}
+                                    style={{ width: '100%', minHeight: 80 }}
                                     value={selectedCustomer.address || ''}
                                     onChange={(e) => updateSelectedCustomer({ address: e.target.value })}
                                     autoComplete="street-address"
                                 />
                             </div>
-                            {error && <p className="text-sm text-error">{error}</p>}
-                            <button type="submit" disabled={loading} className="btn btn-primary-blue btn--full mt-8 touch-target">
+                            {error && <p className="text-sm text-error" style={{ marginBottom: 16 }} role="alert">{error}</p>}
+                            <button type="submit" disabled={loading} className="btn btn-primary-blue btn--full touch-target" style={{ height: 42 }}>
                                 {loading ? <><Loader2 className="animate-spin" aria-hidden="true" /> Updating...</> : (isAdmin ? "Update Customer" : "Send Edit Request")}
                             </button>
                         </form>
@@ -787,7 +1006,7 @@ const Customers = () => {
                                         <select
                                             className="input-field"
                                             onChange={(e) => {
-                                                const subId = e.target.value;
+                                                const _subId = e.target.value;
                                             }}
                                             defaultValue=""
                                         >

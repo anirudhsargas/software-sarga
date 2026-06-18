@@ -105,6 +105,11 @@ export default function Reports() {
                 <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted, var(--muted))' }}>
                     Loading seasonal data…
                 </div>
+            ) : !data || Object.keys(seasonalIndex).length === 0 ? (
+                <div className="empty-state-global" style={{ textAlign: 'center', padding: 60 }}>
+                    <div className="empty-state-global__icon"><BarChart3 size={48} /></div>
+                    <p className="empty-state-global__title">No data available</p>
+                </div>
             ) : (
                 <>
                     {/* Seasonal Heatmap */}

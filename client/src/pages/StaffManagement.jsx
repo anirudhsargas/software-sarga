@@ -28,7 +28,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
             <div className="row gap-sm">
                 <div className="user-avatar avatar-sm">
                     {s.image_url ? (
-                        <SecureImage src={s.image_url} alt={s.name} className="avatar-img" />
+                        <SecureImage src={s.image_url} alt={s.name} className="avatar-img" onError={(e) => { e.currentTarget.src = ''; e.currentTarget.style.display = 'none'; }} />
                     ) : (
                         <User size={16} />
                     )}
@@ -36,7 +36,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                 <span className="user-name">{s.name}</span>
             </div>
         </td>
-        <td>{s.role}</td>
+        <td style={{ whiteSpace: 'nowrap' }}>{s.role}</td>
         <td>{s.branch_name || 'N/A'}</td>
         <td>{formatForDisplay(s.user_id || s.mobile)}</td>
         <td>{new Date(s.created_at).toLocaleDateString()}</td>

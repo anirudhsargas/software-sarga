@@ -209,14 +209,25 @@ const ProductLibrary = () => {
         return () => URL.revokeObjectURL(url);
     }, [productImage]);
 
-    const fetchHierarchy = async () => {
+    const fetchHierarchy = async (forceRefresh) => {
         try {
+            if (forceRefresh) {
+                await api.post('/product-hierarchy/refresh').catch(() => {});
+            }
             const res = await api.get('/product-hierarchy');
-            setHierarchy(res.data);
-            setLoading(false);
+            if (Array.isArray(res.data) && res.data.length > 0) {
+                setHierarchy(res.data);
+                setLoading(false);
+            } else if (!Array.isArray(res.data) || res.data.length === 0) {
+                setLoading(false);
+            } else {
+                setHierarchy(res.data);
+                setLoading(false);
+            }
         } catch (err) {
-            console.error("Fetch hierarchy error:", err);
-            toast.error(err.response?.data?.message || err.message || 'Failed to load product library');
+            if (err?.name !== 'CanceledError') {
+                toast.error(err.response?.data?.message || err.message || 'Failed to load product library');
+            }
             setLoading(false);
         }
     };
@@ -1329,7 +1340,7 @@ const ProductLibrary = () => {
     };
 
     if (loading) return (
-        <div className="stack-lg">
+        <div className="stack-lg" style={{ padding: 32, textAlign: 'center' }}>
             <div className="skeleton-wrapper">
                 <div className="skeleton skeleton--title" style={{ width: '200px', height: 28, marginBottom: 16 }} />
                 <div className="skeleton skeleton--text" style={{ width: '320px', height: 16, marginBottom: 24 }} />
@@ -1344,6 +1355,12 @@ const ProductLibrary = () => {
                         </div>
                     ))}
                 </div>
+                <p className="muted" style={{ marginTop: 24, fontSize: 13 }}>
+                    Loading product library...{' '}
+                    <button className="btn btn-ghost btn-sm" onClick={fetchHierarchy} aria-label="Retry loading">
+                        Retry
+                    </button>
+                </p>
             </div>
         </div>
     );

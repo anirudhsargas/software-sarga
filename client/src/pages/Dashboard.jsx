@@ -805,7 +805,7 @@ const Dashboard = () => {
                 </nav>
 
                 <div className="sidebar-footer">
-                    <div className="user-profile" onClick={() => setShowProfilePanel(true)} role="button" tabIndex={0}>
+                    <div className="user-profile" onClick={() => setShowProfilePanel(true)} role="button" tabIndex={0} aria-label="User profile">
                         <div className="user-avatar">
                             {user?.image_url ? (
                                 <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
@@ -999,8 +999,10 @@ const Dashboard = () => {
                             </div>
                         )}
                         {!['Designer', 'Printer', 'Front Office', 'Other Staff'].includes(user?.role) && (
-                            <div className="profile-panel-empty">
-                                Click <strong>Edit Profile</strong> to update your name or photo.
+                            <div className="profile-panel-empty empty-state-global">
+                              <div className="empty-state-global__icon"><Users size={48} aria-hidden="true" /></div>
+                              <p className="empty-state-global__title">No profile data</p>
+                              <p className="empty-state-global__message">Select a user to view their profile details here.</p>
                             </div>
                         )}
                     </div>

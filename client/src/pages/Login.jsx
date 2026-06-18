@@ -28,6 +28,15 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        if (!userId.trim()) {
+            setError('Please enter your User ID / Mobile Number');
+            return;
+        }
+        if (!password.trim()) {
+            setError('Please enter your password');
+            return;
+        }
+
         const { valid, normalized: cleanedUserId, error: phoneError } = validatePhone(userId);
         if (!valid) {
             setError(phoneError);
@@ -139,12 +148,13 @@ const Login = () => {
                     <button
                         type="submit"
                         disabled={loading}
+                        aria-busy={loading}
                         className="btn btn-primary btn--full"
                     >
                         {loading ? (
                             <div className="row gap-sm">
                                 <Loader2 className="animate-spin" size={18} />
-                                <span>Signing In...</span>
+                                <span>Logging in...</span>
                             </div>
                         ) : "Sign In"}
                     </button>

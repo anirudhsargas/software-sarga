@@ -137,19 +137,27 @@ const Billing = () => {
 
   // ── Data loading ──
   useEffect(() => {
+    let cancelled = false;
     Promise.all([
       localDb.getBranches().catch(() => []),
       localDb.getMachines().catch(() => []),
       localDb.getProducts().catch(() => []),
     ]).then(([b, m, h]) => {
+      if (cancelled) return;
       setBranches(b || []);
       setMachines(m || []);
       setHierarchy(h || []);
       setLoading(false);
     });
-    api.get('/machines').then(r => setMachines(r.data || [])).catch(() => {});
-    api.get('/product-hierarchy').then(r => { setHierarchy(r.data || []); }).catch(() => {});
-    api.get('/branches').then(r => { setBranches(r.data || []); }).catch(() => {});
+    api.get('/product-hierarchy').then(r => {
+      if (cancelled || !r.data) return;
+      setHierarchy(r.data);
+    }).catch(() => {});
+    api.get('/branches').then(r => {
+      if (cancelled || !r.data) return;
+      setBranches(r.data || []);
+    }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   // Fetch branch UPI

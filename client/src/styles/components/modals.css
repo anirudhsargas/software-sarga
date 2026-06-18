@@ -77,26 +77,33 @@
   position: absolute;
   right: 16px;
   top: 16px;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: transparent;
-  color: var(--muted-foreground);
-  border: none;
+  background: var(--surface);
+  color: var(--foreground);
+  border: 1px solid var(--border);
   cursor: pointer;
   transition: all 0.2s;
-  z-index: 10;
+  z-index: 50;
+  box-shadow: 0 2px 8px var(--shadow-sm);
 }
 
 .modal-close:hover {
   background: var(--secondary);
   color: var(--foreground);
+  transform: scale(1.05);
 }
 
 .modal-close:active {
   transform: scale(0.95);
+}
+
+.modal-close:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .modal-close--static {

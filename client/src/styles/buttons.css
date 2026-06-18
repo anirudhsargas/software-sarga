@@ -73,6 +73,10 @@
   transform: translateY(-1px);
 }
 
+.dark .btn-primary-blue:hover {
+  filter: brightness(1.15);
+}
+
 .btn-primary-blue:active {
   transform: translateY(0px) scale(0.98);
   transition-duration: 80ms;
@@ -103,6 +107,10 @@
   filter: brightness(0.85);
   box-shadow: 0 4px 12px var(--shadow-md);
   transform: translateY(-1px);
+}
+
+.dark .btn-primary:hover {
+  filter: brightness(1.15);
 }
 
 .btn-primary:active {
@@ -137,6 +145,11 @@
   transform: translateY(-1px);
 }
 
+.dark .btn-ghost:hover {
+  background: var(--surface-2);
+  border-color: var(--text-secondary);
+}
+
 .btn-ghost:active {
   transform: translateY(0) scale(0.98);
   transition-duration: 80ms;
@@ -158,6 +171,14 @@
   transform: translateY(-1px);
 }
 
+.dark .btn-danger {
+  color: #0a0a0a;
+}
+
+.dark .btn-danger:hover {
+  filter: brightness(1.15);
+}
+
 .btn-danger:active {
   transform: translateY(0) scale(0.98);
   transition-duration: 80ms;
@@ -177,6 +198,14 @@
 .btn-success:hover {
   filter: brightness(0.85);
   transform: translateY(-1px);
+}
+
+.dark .btn-success {
+  color: #0a0a0a;
+}
+
+.dark .btn-success:hover {
+  filter: brightness(1.15);
 }
 
 .btn-success:active {
@@ -250,11 +279,15 @@
 
 /* ── Disabled State ── */
 .btn:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
   pointer-events: none;
+}
+
+.dark .btn:disabled {
+  opacity: 0.6;
 }
 
 /* ── Loading State ── */

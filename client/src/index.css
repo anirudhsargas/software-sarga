@@ -113,6 +113,7 @@ body[data-theme="light"] {
   --radius: 12px;
   --radius-sm: 8px;
   --radius-md: 12px;
+  --radius-lg: 16px;
 
   --text-success: var(--success);
   --text-warning: var(--warning);
@@ -265,6 +266,7 @@ body[data-theme="dark"] {
   --radius: 12px;
   --radius-sm: 8px;
   --radius-md: 12px;
+  --radius-lg: 16px;
 
   --text-success: var(--success);
   --text-warning: var(--warning);

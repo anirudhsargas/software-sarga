@@ -30,6 +30,8 @@ export default function ResetPassword() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        if (!password) return setError('Please enter a new password');
+        if (!confirm) return setError('Please confirm your new password');
         if (password.length < 6) return setError('Password must be at least 6 characters');
         if (password !== confirm) return setError('Passwords do not match');
         setLoading(true);
@@ -121,7 +123,7 @@ export default function ResetPassword() {
                         </div>
                     </div>
                     {error && <div style={{ color: 'var(--destructive)', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}</div>}
-                    <button type="submit" disabled={loading} style={btnStyle}>
+                    <button type="submit" disabled={loading} aria-busy={loading} style={btnStyle}>
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <Lock size={18} />}
                         {loading ? 'Resetting...' : 'Reset Password'}
                     </button>

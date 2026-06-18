@@ -277,3 +277,9 @@
     font-size: 13px;
     font-weight: 500;
 }
+
+.sv-status-btn {
+  color: var(--text-primary);
+  min-height: 40px;
+  font-weight: 600;
+}

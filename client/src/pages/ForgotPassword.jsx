@@ -84,7 +84,7 @@ export default function ForgotPassword() {
                         </div>
                     </div>
                     {error && <div style={{ color: 'var(--destructive)', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}</div>}
-                    <button type="submit" disabled={loading} style={btnStyle}>
+                    <button type="submit" disabled={loading} aria-busy={loading} style={btnStyle}>
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
                         {loading ? 'Sending...' : 'Send Reset Link'}
                     </button>

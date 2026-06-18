@@ -318,3 +318,14 @@
     padding: 16px;
   }
 }
+
+.settings-page {
+  padding: var(--page-padding);
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}

@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { Settings as SettingsIcon, DollarSign, CreditCard, Building2, Globe, Plus, Edit2, Trash2, Save, X, Loader2, ToggleLeft, ToggleRight, Sparkles, Layout, UserSquare, ShieldCheck } from 'lucide-react';
+import { Settings as SettingsIcon, DollarSign, CreditCard, Building2, Globe, Plus, Edit2, Trash2, Save, X, Loader2, ToggleLeft, ToggleRight, Sparkles, Layout, UserSquare, ShieldCheck, CheckCircle } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import AppearanceSettings from '../components/AppearanceSettings';
@@ -69,6 +69,7 @@ function CompanySettings() {
     const [settings, setSettings] = useState({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
 
     useEffect(() => {
         api.get('/company-settings').then(r => { setSettings(r.data); setLoading(false); }).catch(() => setLoading(false));
@@ -79,7 +80,9 @@ function CompanySettings() {
         try { 
             await api.put('/company-settings', settings); 
             window.dispatchEvent(new CustomEvent('companySettingsUpdated'));
-            toast.success('Settings saved and applied'); 
+            toast.success('Settings saved and applied');
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
         }
         catch { toast.error('Failed to save'); }
         finally { setSaving(false); }
@@ -201,8 +204,8 @@ function CompanySettings() {
 
             <div className="sp-actions sp-actions--end">
                 <button onClick={handleSave} disabled={saving} className="btn btn-primary">
-                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
-                    Save Company Profile
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : saved ? <CheckCircle size={16} /> : <Save size={16} />} 
+                    {saved ? 'Saved!' : 'Save Company Profile'}
                 </button>
             </div>
         </div>

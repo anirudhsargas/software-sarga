@@ -245,6 +245,7 @@ const StockVerification = () => {
                         <div className="sv-loading">Loading inventory data...</div>
                     ) : (
                         <div className="table-scroll sv-table-scroll">
+                            <div className="table-responsive">
                             <table className="table sv-table">
                                 <thead>
                                     <tr>
@@ -308,6 +309,7 @@ const StockVerification = () => {
                                     )}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     )}
 

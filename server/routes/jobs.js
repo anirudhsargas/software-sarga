@@ -922,6 +922,12 @@ router.get('/product-hierarchy', authenticateToken, async (req, res) => {
     }
 });
 
+// Force-refresh hierarchy cache
+router.post('/product-hierarchy/refresh', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    invalidateHierarchyCache();
+    res.json({ message: 'Hierarchy cache cleared' });
+});
+
 // --- JOB STAFF ASSIGNMENTS ---
 
 // Suggest staff for jobs by product usage
