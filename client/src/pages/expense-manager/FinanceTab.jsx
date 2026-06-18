@@ -491,16 +491,16 @@ const FinanceTab = ({ branches, onError }) => {
               <div className="em-modal__body">
                 {kuriRequestError && <div className="em-error" style={{ marginBottom: 12 }}>{kuriRequestError}</div>}
                 <div className="em-form-grid">
-                  <div className="em-form-group"><label>Kuri Name *</label><input className="em-input" value={kuriRequest.kuri_name} onChange={e => setKuriRequest(p => ({ ...p, kuri_name: e.target.value }))} required /></div>
-                  <div className="em-form-group"><label>Organizer</label><input className="em-input" value={kuriRequest.organizer_name} onChange={e => setKuriRequest(p => ({ ...p, organizer_name: e.target.value }))} /></div>
-                  <div className="em-form-group"><label>Monthly Installment (₹)</label><input className="em-input" type="number" min="0" value={kuriRequest.monthly_installment} onChange={e => setKuriRequest(p => ({ ...p, monthly_installment: e.target.value }))} /></div>
-                  <div className="em-form-group"><label>Duration (Months)</label><input className="em-input" type="number" min="0" value={kuriRequest.duration_months} onChange={e => setKuriRequest(p => ({ ...p, duration_months: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Kuri Name *</label><input name="kuri_name" className="em-input" value={kuriRequest.kuri_name} onChange={e => setKuriRequest(p => ({ ...p, kuri_name: e.target.value }))} required /></div>
+                  <div className="em-form-group"><label>Organizer</label><input name="organizer_name" className="em-input" value={kuriRequest.organizer_name} onChange={e => setKuriRequest(p => ({ ...p, organizer_name: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Monthly Installment (₹)</label><input name="monthly_installment" className="em-input" type="number" min="0" value={kuriRequest.monthly_installment} onChange={e => setKuriRequest(p => ({ ...p, monthly_installment: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Duration (Months)</label><input name="duration_months" className="em-input" type="number" min="0" value={kuriRequest.duration_months} onChange={e => setKuriRequest(p => ({ ...p, duration_months: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Start Date</label>
         <label htmlFor="date-e02qf7" className="sr-only">Select Date</label>
-        <input id="date-e02qf7"  className="em-input" type="date" value={kuriRequest.start_date} onChange={e => setKuriRequest(p => ({ ...p, start_date: e.target.value }))} /></div>
-                  <div className="em-form-group"><label>Due Day</label><input className="em-input" type="number" min="1" max="31" value={kuriRequest.due_day} onChange={e => setKuriRequest(p => ({ ...p, due_day: e.target.value }))} /></div>
-                  {branches.length > 0 && <div className="em-form-group"><label>Branch</label><select aria-label="Select option"  className="em-input" value={kuriRequest.branch_id} onChange={e => setKuriRequest(p => ({ ...p, branch_id: e.target.value }))}><option value="">Select Branch</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
-                  <div className="em-form-group em-form-group--full"><label>Reason / Notes</label><input className="em-input" value={kuriRequestReason} onChange={e => setKuriRequestReason(e.target.value)} placeholder="Why is this kuri needed?" /></div>
+        <input id="date-e02qf7" name="start_date" className="em-input" type="date" value={kuriRequest.start_date} onChange={e => setKuriRequest(p => ({ ...p, start_date: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Due Day</label><input name="due_day" className="em-input" type="number" min="1" max="31" value={kuriRequest.due_day} onChange={e => setKuriRequest(p => ({ ...p, due_day: e.target.value }))} /></div>
+                  {branches.length > 0 && <div className="em-form-group"><label>Branch</label><select name="branch_id" aria-label="Select option"  className="em-input" value={kuriRequest.branch_id} onChange={e => setKuriRequest(p => ({ ...p, branch_id: e.target.value }))}><option value="">Select Branch</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
+                  <div className="em-form-group em-form-group--full"><label>Reason / Notes</label><input name="kuri_request_reason" className="em-input" value={kuriRequestReason} onChange={e => setKuriRequestReason(e.target.value)} placeholder="Why is this kuri needed?" /></div>
                 </div>
               </div>
               <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setShowKuriRequest(false)}>Cancel</button><button type="submit" className="btn btn-primary" disabled={kuriRequestSaving}>{kuriRequestSaving ? 'Submitting...' : 'Submit Request'}</button></div>
@@ -517,17 +517,17 @@ const FinanceTab = ({ branches, onError }) => {
             <form onSubmit={submitEmi}>
               <div className="em-modal__body">
                 <div className="em-form-grid">
-                  <div className="em-form-group"><label>Institution</label><input className="em-input" value={emiForm.institution_name} onChange={e => setEmiForm(p => ({ ...p, institution_name: e.target.value }))} required /></div>
-                  <div className="em-form-group"><label>Type</label><select aria-label="Select option"  className="em-input" value={emiForm.emi_type} onChange={e => setEmiForm(p => ({ ...p, emi_type: e.target.value }))}><option>Loan</option><option>Vehicle Loan</option><option>Equipment Loan</option><option>Personal Loan</option><option>Gold Loan</option><option>Other</option></select></div>
-                  <div className="em-form-group"><label>Loan Amount (₹)</label><input className="em-input" type="number" min="0" value={emiForm.loan_amount} onChange={e => setEmiForm(p => ({ ...p, loan_amount: e.target.value }))} required /></div>
-                  <div className="em-form-group"><label>Monthly EMI (₹)</label><input className="em-input" type="number" min="0" value={emiForm.monthly_emi} onChange={e => setEmiForm(p => ({ ...p, monthly_emi: e.target.value }))} required /></div>
-                  <div className="em-form-group"><label>Tenure (Months)</label><input className="em-input" type="number" min="0" value={emiForm.tenure_months} onChange={e => setEmiForm(p => ({ ...p, tenure_months: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Institution</label><input name="institution_name" className="em-input" value={emiForm.institution_name} onChange={e => setEmiForm(p => ({ ...p, institution_name: e.target.value }))} required /></div>
+                  <div className="em-form-group"><label>Type</label><select name="emi_type" aria-label="Select option"  className="em-input" value={emiForm.emi_type} onChange={e => setEmiForm(p => ({ ...p, emi_type: e.target.value }))}><option>Loan</option><option>Vehicle Loan</option><option>Equipment Loan</option><option>Personal Loan</option><option>Gold Loan</option><option>Other</option></select></div>
+                  <div className="em-form-group"><label>Loan Amount (₹)</label><input name="loan_amount" className="em-input" type="number" min="0" value={emiForm.loan_amount} onChange={e => setEmiForm(p => ({ ...p, loan_amount: e.target.value }))} required /></div>
+                  <div className="em-form-group"><label>Monthly EMI (₹)</label><input name="monthly_emi" className="em-input" type="number" min="0" value={emiForm.monthly_emi} onChange={e => setEmiForm(p => ({ ...p, monthly_emi: e.target.value }))} required /></div>
+                  <div className="em-form-group"><label>Tenure (Months)</label><input name="tenure_months" className="em-input" type="number" min="0" value={emiForm.tenure_months} onChange={e => setEmiForm(p => ({ ...p, tenure_months: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Start Date</label>
         <label htmlFor="date-jbpltg" className="sr-only">Select Date</label>
-        <input id="date-jbpltg"  className="em-input" type="date" value={emiForm.start_date} onChange={e => setEmiForm(p => ({ ...p, start_date: e.target.value }))} /></div>
-                  <div className="em-form-group"><label>Due Day</label><input className="em-input" type="number" min="1" max="31" value={emiForm.due_day} onChange={e => setEmiForm(p => ({ ...p, due_day: e.target.value }))} /></div>
-                  {branches.length > 0 && <div className="em-form-group"><label>Branch</label><select aria-label="Select option"  className="em-input" value={emiForm.branch_id} onChange={e => setEmiForm(p => ({ ...p, branch_id: e.target.value }))}><option value="">Select Branch</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
-                  <div className="em-form-group em-form-group--full"><label>Remarks</label><input className="em-input" value={emiForm.remarks} onChange={e => setEmiForm(p => ({ ...p, remarks: e.target.value }))} /></div>
+        <input id="date-jbpltg" name="start_date" className="em-input" type="date" value={emiForm.start_date} onChange={e => setEmiForm(p => ({ ...p, start_date: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Due Day</label><input name="due_day" className="em-input" type="number" min="1" max="31" value={emiForm.due_day} onChange={e => setEmiForm(p => ({ ...p, due_day: e.target.value }))} /></div>
+                  {branches.length > 0 && <div className="em-form-group"><label>Branch</label><select name="branch_id" aria-label="Select option"  className="em-input" value={emiForm.branch_id} onChange={e => setEmiForm(p => ({ ...p, branch_id: e.target.value }))}><option value="">Select Branch</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
+                  <div className="em-form-group em-form-group--full"><label>Remarks</label><input name="remarks" className="em-input" value={emiForm.remarks} onChange={e => setEmiForm(p => ({ ...p, remarks: e.target.value }))} /></div>
                 </div>
               </div>
               <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setShowEmiForm(false)}>Cancel</button><button type="submit" className="btn btn-primary">{editingEmi ? 'Update' : 'Add'}</button></div>
@@ -544,18 +544,18 @@ const FinanceTab = ({ branches, onError }) => {
             <form onSubmit={submitKuri}>
               <div className="em-modal__body">
                 <div className="em-form-grid">
-                  <div className="em-form-group"><label>Kuri Name</label><input className="em-input" value={kuriForm.kuri_name} onChange={e => setKuriForm(p => ({ ...p, kuri_name: e.target.value }))} required /></div>
-                  <div className="em-form-group"><label>Organizer Name</label><input className="em-input" value={kuriForm.organizer_name} onChange={e => setKuriForm(p => ({ ...p, organizer_name: e.target.value }))} /></div>
-                  <div className="em-form-group"><label>Organizer Phone</label><input className="em-input" value={kuriForm.organizer_phone} onChange={e => setKuriForm(p => ({ ...p, organizer_phone: e.target.value }))} /></div>
-                  <div className="em-form-group"><label>Total Amount (₹)</label><input className="em-input" type="number" min="0" value={kuriForm.total_amount} onChange={e => setKuriForm(p => ({ ...p, total_amount: e.target.value }))} required /></div>
-                  <div className="em-form-group"><label>Monthly Installment (₹)</label><input className="em-input" type="number" min="0" value={kuriForm.monthly_installment} onChange={e => setKuriForm(p => ({ ...p, monthly_installment: e.target.value }))} required /></div>
-                  <div className="em-form-group"><label>Duration (Months)</label><input className="em-input" type="number" min="0" value={kuriForm.duration_months} onChange={e => setKuriForm(p => ({ ...p, duration_months: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Kuri Name</label><input name="kuri_name" className="em-input" value={kuriForm.kuri_name} onChange={e => setKuriForm(p => ({ ...p, kuri_name: e.target.value }))} required /></div>
+                  <div className="em-form-group"><label>Organizer Name</label><input name="organizer_name" className="em-input" value={kuriForm.organizer_name} onChange={e => setKuriForm(p => ({ ...p, organizer_name: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Organizer Phone</label><input name="organizer_phone" className="em-input" value={kuriForm.organizer_phone} onChange={e => setKuriForm(p => ({ ...p, organizer_phone: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Total Amount (₹)</label><input name="total_amount" className="em-input" type="number" min="0" value={kuriForm.total_amount} onChange={e => setKuriForm(p => ({ ...p, total_amount: e.target.value }))} required /></div>
+                  <div className="em-form-group"><label>Monthly Installment (₹)</label><input name="monthly_installment" className="em-input" type="number" min="0" value={kuriForm.monthly_installment} onChange={e => setKuriForm(p => ({ ...p, monthly_installment: e.target.value }))} required /></div>
+                  <div className="em-form-group"><label>Duration (Months)</label><input name="duration_months" className="em-input" type="number" min="0" value={kuriForm.duration_months} onChange={e => setKuriForm(p => ({ ...p, duration_months: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Start Date</label>
         <label htmlFor="date-fiwlvg" className="sr-only">Select Date</label>
-        <input id="date-fiwlvg"  className="em-input" type="date" value={kuriForm.start_date} onChange={e => setKuriForm(p => ({ ...p, start_date: e.target.value }))} /></div>
-                  <div className="em-form-group"><label>Due Day</label><input className="em-input" type="number" min="1" max="31" value={kuriForm.due_day} onChange={e => setKuriForm(p => ({ ...p, due_day: e.target.value }))} /></div>
-                  {branches.length > 0 && <div className="em-form-group"><label>Branch</label><select aria-label="Select option"  className="em-input" value={kuriForm.branch_id} onChange={e => setKuriForm(p => ({ ...p, branch_id: e.target.value }))}><option value="">Select Branch</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
-                  <div className="em-form-group em-form-group--full"><label>Remarks</label><input className="em-input" value={kuriForm.description} onChange={e => setKuriForm(p => ({ ...p, description: e.target.value }))} /></div>
+        <input id="date-fiwlvg" name="start_date" className="em-input" type="date" value={kuriForm.start_date} onChange={e => setKuriForm(p => ({ ...p, start_date: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Due Day</label><input name="due_day" className="em-input" type="number" min="1" max="31" value={kuriForm.due_day} onChange={e => setKuriForm(p => ({ ...p, due_day: e.target.value }))} /></div>
+                  {branches.length > 0 && <div className="em-form-group"><label>Branch</label><select name="branch_id" aria-label="Select option"  className="em-input" value={kuriForm.branch_id} onChange={e => setKuriForm(p => ({ ...p, branch_id: e.target.value }))}><option value="">Select Branch</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
+                  <div className="em-form-group em-form-group--full"><label>Remarks</label><input name="description" className="em-input" value={kuriForm.description} onChange={e => setKuriForm(p => ({ ...p, description: e.target.value }))} /></div>
                 </div>
               </div>
               <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setShowKuriForm(false)}>Cancel</button><button type="submit" className="btn btn-primary">{editingKuri ? 'Update' : 'Add'}</button></div>
@@ -573,11 +573,11 @@ const FinanceTab = ({ branches, onError }) => {
               <form onSubmit={handlePayReview}>
                 <div className="em-modal__body">
                   <div className="em-form-grid">
-                    <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} required /></div>
+                    <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className="em-input" type="number" min="0" step="0.01" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} required /></div>
 
-                    <div className="em-form-group"><label>Payment Method</label><select aria-label="Select option"  className="em-input" value={payForm.payment_method} onChange={e => setPayForm(p => ({ ...p, payment_method: e.target.value }))}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
-                    <div className="em-form-group"><label>Reference #</label><input className="em-input" value={payForm.reference_number} onChange={e => setPayForm(p => ({ ...p, reference_number: e.target.value }))} /></div>
-                    <div className="em-form-group em-form-group--full"><label>Remarks</label><input className="em-input" value={payForm.remarks} onChange={e => setPayForm(p => ({ ...p, remarks: e.target.value }))} /></div>
+                    <div className="em-form-group"><label>Payment Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={payForm.payment_method} onChange={e => setPayForm(p => ({ ...p, payment_method: e.target.value }))}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
+                    <div className="em-form-group"><label>Reference #</label><input name="reference_number" className="em-input" value={payForm.reference_number} onChange={e => setPayForm(p => ({ ...p, reference_number: e.target.value }))} /></div>
+                    <div className="em-form-group em-form-group--full"><label>Remarks</label><input name="remarks" className="em-input" value={payForm.remarks} onChange={e => setPayForm(p => ({ ...p, remarks: e.target.value }))} /></div>
                   </div>
                 </div>
                 <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => setShowPayForm(false)}>Cancel</button><button type="submit" className="btn btn-primary" disabled={!payForm.amount || Number(payForm.amount) <= 0}>Review & Confirm</button></div>

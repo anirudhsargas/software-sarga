@@ -516,7 +516,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
             <div className="em-modal__body">
               <div className="em-form-group">
                 <label>Utility Name *</label>
-                <input className="em-input" value={newTypeName} onChange={e => setNewTypeName(e.target.value)} placeholder="e.g. Gas, Solar, Cable TV" autoFocus />
+                <input name="new_type_name" className="em-input" value={newTypeName} onChange={e => setNewTypeName(e.target.value)} placeholder="e.g. Gas, Solar, Cable TV" autoFocus />
               </div>
             </div>
             <div className="em-modal__footer">
@@ -555,8 +555,8 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
             </div>
             <div className="em-modal__body">
               <div className="em-form-group" style={{ display: 'flex', gap: 8 }}>
-                <input className="em-input" placeholder="Connection ID" value={newConnection.connection_id} onChange={e => setNewConnection(n => ({ ...n, connection_id: e.target.value }))} />
-                <input className="em-input" placeholder="Label (optional)" value={newConnection.label} onChange={e => setNewConnection(n => ({ ...n, label: e.target.value }))} />
+                <input name="connection_id" className="em-input" placeholder="Connection ID" value={newConnection.connection_id} onChange={e => setNewConnection(n => ({ ...n, connection_id: e.target.value }))} />
+                <input name="connection_label" className="em-input" placeholder="Label (optional)" value={newConnection.label} onChange={e => setNewConnection(n => ({ ...n, label: e.target.value }))} />
                 <button className="btn btn-primary" disabled={connectionSaving} onClick={() => addConnection(selectedUtility || billForm.utility_type)}>{connectionSaving ? 'Saving...' : 'Add'}</button>
               </div>
               <div style={{ marginTop: 12 }}>
@@ -599,11 +599,11 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
               {requestError && <div className="em-error" style={{ marginBottom: 12 }}>{requestError}</div>}
               <div className="em-form-group">
                 <label>Utility Name *</label>
-                <input className="em-input" value={requestTypeName} onChange={e => setRequestTypeName(e.target.value)} placeholder="e.g. Gas, Solar, Cable TV" autoFocus />
+                <input name="request_type_name" className="em-input" value={requestTypeName} onChange={e => setRequestTypeName(e.target.value)} placeholder="e.g. Gas, Solar, Cable TV" autoFocus />
               </div>
               <div className="em-form-group">
                 <label>Reason / Notes</label>
-                <input className="em-input" value={requestReason} onChange={e => setRequestReason(e.target.value)} placeholder="Why is this utility needed?" />
+                <input name="request_reason" className="em-input" value={requestReason} onChange={e => setRequestReason(e.target.value)} placeholder="Why is this utility needed?" />
               </div>
             </div>
             <div className="em-modal__footer">
@@ -633,7 +633,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                     <>
                       <div className="em-form-group em-form-group--full">
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <input type="checkbox" checked={multipleConsumers} onChange={e => setMultipleConsumers(e.target.checked)} />
+                          <input name="multiple_consumers" type="checkbox" checked={multipleConsumers} onChange={e => setMultipleConsumers(e.target.checked)} />
                           Record multiple consumer numbers
                         </label>
                       </div>
@@ -641,20 +641,20 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                       {!multipleConsumers && (
                         <div className="em-form-group">
                           <label>Amount (₹) *</label>
-                          <input className="em-input" type="number" step="0.01" min="0" required value={billForm.amount} onChange={e => setBillForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter bill amount" />
+<input name="bill_amount" className="em-input" type="number" step="0.01" min="0" required value={billForm.amount} onChange={e => setBillForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter bill amount" />
                         </div>
                       )}
 
                       <div className="em-form-group">
                         <label>Bill Number</label>
-                        <input className="em-input" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. ELEC-2026-001" />
+<input name="bill_number" className="em-input" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. ELEC-2026-001" />
                       </div>
 
                       <div className="em-form-group">
                         <label>Bill Date</label>
                         
         <label htmlFor="date-pljnfp" className="sr-only">Select Date</label>
-        <input id="date-pljnfp"  className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
+        <input id="date-pljnfp" name="bill_date" className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
                       </div>
 
                       {multipleConsumers ? (
@@ -662,9 +662,9 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                           <label>Consumers</label>
                           {billEntries.map((entry, idx) => (
                             <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                              <input className="em-input" list="connections-list" placeholder="Connection ID" value={entry.connection_id} onChange={e => updateBillEntry(idx, 'connection_id', e.target.value)} />
-                              <input className="em-input" placeholder="Amount (₹)" type="number" step="0.01" min="0" value={entry.amount} onChange={e => updateBillEntry(idx, 'amount', e.target.value)} />
-                              <input className="em-input" placeholder="Bill Number (optional)" value={entry.bill_number} onChange={e => updateBillEntry(idx, 'bill_number', e.target.value)} />
+                              <input name="entry_connection_id" className="em-input" list="connections-list" placeholder="Connection ID" value={entry.connection_id} onChange={e => updateBillEntry(idx, 'connection_id', e.target.value)} />
+                              <input name="entry_amount" className="em-input" placeholder="Amount (₹)" type="number" step="0.01" min="0" value={entry.amount} onChange={e => updateBillEntry(idx, 'amount', e.target.value)} />
+                              <input name="entry_bill_number" className="em-input" placeholder="Bill Number (optional)" value={entry.bill_number} onChange={e => updateBillEntry(idx, 'bill_number', e.target.value)} />
                               <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => removeBillEntry(idx)} title="Remove"><Trash2 size={14} /></button>
                             </div>
                           ))}
@@ -675,7 +675,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                       ) : (
                         <div className="em-form-group">
                           <label>Connection ID / Account No.</label>
-                          <input className="em-input" list="connections-list" value={billForm.connection_id} onChange={e => setBillForm(p => ({ ...p, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" />
+                          <input name="connection_id" className="em-input" list="connections-list" value={billForm.connection_id} onChange={e => setBillForm(p => ({ ...p, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" />
                           <datalist id="connections-list">
                             {connections.map(c => (<option key={c.id} value={c.connection_id}>{c.label || c.connection_id}</option>))}
                           </datalist>
@@ -686,28 +686,28 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                     <>
                       <div className="em-form-group">
                         <label>Amount (₹) *</label>
-                        <input className="em-input" type="number" step="0.01" min="0" required value={billForm.amount} onChange={e => setBillForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter bill amount" />
+                        <input name="bill_amount" className="em-input" type="number" step="0.01" min="0" required value={billForm.amount} onChange={e => setBillForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter bill amount" />
                       </div>
                       <div className="em-form-group">
                         <label>Bill Number</label>
-                        <input className="em-input" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. ELEC-2026-001" />
+                        <input name="bill_number" className="em-input" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. ELEC-2026-001" />
                       </div>
                       <div className="em-form-group">
                         <label>Bill Date</label>
                         
         <label htmlFor="date-5o5u4c" className="sr-only">Select Date</label>
-        <input id="date-5o5u4c"  className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
+        <input id="date-5o5u4c" name="bill_date" className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
                       </div>
                       <div className="em-form-group">
                         <label>Connection ID / Account No.</label>
-                        <input className="em-input" list="connections-list" value={billForm.connection_id} onChange={e => setBillForm(p => ({ ...p, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" />
+                        <input name="connection_id" className="em-input" list="connections-list" value={billForm.connection_id} onChange={e => setBillForm(p => ({ ...p, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" />
                       </div>
                     </>
                   )}
 
                   <div className="em-form-group em-form-group--full">
                     <label>Description</label>
-                    <textarea className="em-input" rows={3} value={billForm.description} onChange={e => setBillForm(p => ({ ...p, description: e.target.value }))} placeholder="Bill details, period, meter reading etc." />
+                    <textarea name="description" className="em-input" rows={3} value={billForm.description} onChange={e => setBillForm(p => ({ ...p, description: e.target.value }))} placeholder="Bill details, period, meter reading etc." />
                   </div>
                 </div>
               </div>

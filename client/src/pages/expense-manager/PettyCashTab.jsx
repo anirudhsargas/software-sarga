@@ -249,21 +249,21 @@ const PettyCashTab = ({ onError }) => {
               <form onSubmit={!editing ? handleReview : submitForm}>
                 <div className="em-modal__body">
                   <div className="em-form-grid">
-                    <div className="em-form-group"><label>Type</label><select aria-label="Select option"  className="em-input" value={form.transaction_type} onChange={e => updateForm({ transaction_type: e.target.value })}><option>Opening</option><option>Cash In</option><option>Cash Out</option></select></div>
-                    <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
+<div className="em-form-group"><label>Type</label><select name="transaction_type" aria-label="Select option"  className="em-input" value={form.transaction_type} onChange={e => updateForm({ transaction_type: e.target.value })}><option>Opening</option><option>Cash In</option><option>Cash Out</option></select></div>
+                    <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
                     <div className="em-form-group"><label>Date</label>
         <label htmlFor="date-t2y6d8" className="sr-only">Select Date</label>
-        <input id="date-t2y6d8"  className="em-input" type="date" value={form.transaction_date} onChange={e => updateForm({ transaction_date: e.target.value })} /></div>
+        <input id="date-t2y6d8" name="transaction_date" className="em-input" type="date" value={form.transaction_date} onChange={e => updateForm({ transaction_date: e.target.value })} /></div>
                     <div className="em-form-group"><label>Category</label>
-                      <select aria-label="Select option"  className="em-input" value={form.category} onChange={e => updateForm({ category: e.target.value })}>
+                      <select name="category" aria-label="Select option"  className="em-input" value={form.category} onChange={e => updateForm({ category: e.target.value })}>
                         <option value="">Select Category</option>
                         {PETTY_CATEGORIES.map(c => <option key={c}>{c}</option>)}
                       </select>
                     </div>
-                    {form.transaction_type === 'Cash In' && <div className="em-form-group"><label>Received From</label><input className="em-input" value={form.received_from} onChange={e => updateForm({ received_from: e.target.value })} /></div>}
-                    {form.transaction_type === 'Cash Out' && <div className="em-form-group"><label>Paid To</label><input className="em-input" value={form.paid_to} onChange={e => updateForm({ paid_to: e.target.value })} /></div>}
-                    <div className="em-form-group"><label>Reference #</label><input className="em-input" value={form.reference_number} onChange={e => updateForm({ reference_number: e.target.value })} /></div>
-                    <div className="em-form-group em-form-group--full"><label>Description</label><input className="em-input" value={form.description} onChange={e => updateForm({ description: e.target.value })} /></div>
+                    {form.transaction_type === 'Cash In' && <div className="em-form-group"><label>Received From</label><input name="received_from" className="em-input" value={form.received_from} onChange={e => updateForm({ received_from: e.target.value })} /></div>}
+                    {form.transaction_type === 'Cash Out' && <div className="em-form-group"><label>Paid To</label><input name="paid_to" className="em-input" value={form.paid_to} onChange={e => updateForm({ paid_to: e.target.value })} /></div>}
+                    <div className="em-form-group"><label>Reference #</label><input name="reference_number" className="em-input" value={form.reference_number} onChange={e => updateForm({ reference_number: e.target.value })} /></div>
+                    <div className="em-form-group em-form-group--full"><label>Description</label><input name="description" className="em-input" value={form.description} onChange={e => updateForm({ description: e.target.value })} /></div>
                   </div>
                 </div>
                 <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => closeFormModal()}>Cancel</button><button type="submit" className="btn btn-primary">{editing ? 'Update' : 'Review & Confirm'}</button></div>

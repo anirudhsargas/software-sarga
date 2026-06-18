@@ -223,19 +223,19 @@ const TransportTab = ({ onError }) => {
               <form onSubmit={!editing ? handleReview : submitForm}>
                 <div className="em-modal__body">
                   <div className="em-form-grid">
-                    <div className="em-form-group"><label>Transport Type</label><select aria-label="Select option"  className="em-input" value={form.transport_type} onChange={e => updateForm({ transport_type: e.target.value })} required><option value="">Select Type</option>{TRANSPORT_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
-                    <div className="em-form-group"><label>Vehicle #</label><input className="em-input" value={form.vehicle_number} onChange={e => updateForm({ vehicle_number: e.target.value })} /></div>
-                    <div className="em-form-group"><label>Driver Name</label><input className="em-input" value={form.driver_name} onChange={e => updateForm({ driver_name: e.target.value })} /></div>
-                    <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
-                    <div className="em-form-group"><label>From</label><input className="em-input" value={form.from_location} onChange={e => updateForm({ from_location: e.target.value })} /></div>
-                    <div className="em-form-group"><label>To</label><input className="em-input" value={form.to_location} onChange={e => updateForm({ to_location: e.target.value })} /></div>
-                    <div className="em-form-group"><label>Distance (km)</label><input className="em-input" type="number" min="0" value={form.distance_km} onChange={e => updateForm({ distance_km: e.target.value })} /></div>
-                    <div className="em-form-group"><label>Payment Method</label><select aria-label="Select option"  className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer'].map(m => <option key={m}>{m}</option>)}</select></div>
+<div className="em-form-group"><label>Transport Type</label><select name="transport_type" aria-label="Select option"  className="em-input" value={form.transport_type} onChange={e => updateForm({ transport_type: e.target.value })} required><option value="">Select Type</option>{TRANSPORT_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
+                    <div className="em-form-group"><label>Vehicle #</label><input name="vehicle_number" className="em-input" value={form.vehicle_number} onChange={e => updateForm({ vehicle_number: e.target.value })} /></div>
+                    <div className="em-form-group"><label>Driver Name</label><input name="driver_name" className="em-input" value={form.driver_name} onChange={e => updateForm({ driver_name: e.target.value })} /></div>
+                    <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
+                    <div className="em-form-group"><label>From</label><input name="from_location" className="em-input" value={form.from_location} onChange={e => updateForm({ from_location: e.target.value })} /></div>
+                    <div className="em-form-group"><label>To</label><input name="to_location" className="em-input" value={form.to_location} onChange={e => updateForm({ to_location: e.target.value })} /></div>
+                    <div className="em-form-group"><label>Distance (km)</label><input name="distance_km" className="em-input" type="number" min="0" value={form.distance_km} onChange={e => updateForm({ distance_km: e.target.value })} /></div>
+                    <div className="em-form-group"><label>Payment Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer'].map(m => <option key={m}>{m}</option>)}</select></div>
                     <div className="em-form-group"><label>Date</label>
         <label htmlFor="date-y2ztc" className="sr-only">Select Date</label>
-        <input id="date-y2ztc"  className="em-input" type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} /></div>
-                    <div className="em-form-group"><label>Bill #</label><input className="em-input" value={form.bill_number} onChange={e => updateForm({ bill_number: e.target.value })} /></div>
-                    <div className="em-form-group em-form-group--full"><label>Description</label><input className="em-input" value={form.description} onChange={e => updateForm({ description: e.target.value })} /></div>
+        <input id="date-y2ztc" name="expense_date" className="em-input" type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} /></div>
+                    <div className="em-form-group"><label>Bill #</label><input name="bill_number" className="em-input" value={form.bill_number} onChange={e => updateForm({ bill_number: e.target.value })} /></div>
+                    <div className="em-form-group em-form-group--full"><label>Description</label><input name="description" className="em-input" value={form.description} onChange={e => updateForm({ description: e.target.value })} /></div>
                   </div>
                 </div>
                 <div className="em-modal__footer"><button type="button" className="btn btn-ghost" onClick={() => closeFormModal()}>Cancel</button><button type="submit" className="btn btn-primary">{editing ? 'Update' : 'Review & Confirm'}</button></div>

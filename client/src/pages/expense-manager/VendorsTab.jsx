@@ -971,7 +971,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <label style={{ cursor: 'pointer' }}><input type="checkbox" checked={selectAll} onChange={toggleSelectAll} /> Select all</label>
+                  <label style={{ cursor: 'pointer' }}><input name="select_all" type="checkbox" checked={selectAll} onChange={toggleSelectAll} /> Select all</label>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn btn-ghost btn-sm" onClick={downloadSelected}><FileText size={14} /> Download</button>
@@ -998,7 +998,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                     {vendorItems.map(it => (
                       <tr key={it.inventory_id}>
                         <td style={{ textAlign: 'center' }}>
-                          <input type="checkbox" checked={selectedItemIds.has(it.inventory_id)} onChange={() => toggleSelectItem(it.inventory_id)} />
+                          <input name="select_item" type="checkbox" checked={selectedItemIds.has(it.inventory_id)} onChange={() => toggleSelectItem(it.inventory_id)} />
                         </td>
                         <td>{it.item_name}</td>
                         <td>{it.sku || '—'}</td>
@@ -1133,11 +1133,11 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                 <div className="em-form-grid">
                   <div className="em-form-group">
                     <label>Vendor Name *</label>
-                    <input className="em-input" value={vendorForm.name} onChange={e => setVendorForm(p => ({ ...p, name: e.target.value }))} required />
+                    <input name="vendor_name" className="em-input" value={vendorForm.name} onChange={e => setVendorForm(p => ({ ...p, name: e.target.value }))} required />
                   </div>
                   <div className="em-form-group">
                     <label>Type</label>
-                    <select aria-label="Select option"  className="em-input" value={vendorForm.type} onChange={e => setVendorForm(p => ({ ...p, type: e.target.value }))}>
+                    <select name="vendor_type" aria-label="Select option"  className="em-input" value={vendorForm.type} onChange={e => setVendorForm(p => ({ ...p, type: e.target.value }))}>
                       <option value="Vendor">Vendor</option>
                       <option value="Paper Supplier">Paper Supplier</option>
                       <option value="Ink Supplier">Ink Supplier</option>
@@ -1148,23 +1148,23 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                   </div>
                   <div className="em-form-group">
                     <label>Contact Person</label>
-                    <input className="em-input" value={vendorForm.contact_person} onChange={e => setVendorForm(p => ({ ...p, contact_person: e.target.value }))} />
+                    <input name="contact_person" className="em-input" value={vendorForm.contact_person} onChange={e => setVendorForm(p => ({ ...p, contact_person: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>Phone</label>
-                    <input className="em-input" value={vendorForm.phone} onChange={e => setVendorForm(p => ({ ...p, phone: e.target.value }))} />
+                    <input name="phone" className="em-input" value={vendorForm.phone} onChange={e => setVendorForm(p => ({ ...p, phone: e.target.value }))} />
                   </div>
                   <div className="em-form-group em-form-group--full">
                     <label>Address</label>
-                    <input className="em-input" value={vendorForm.address} onChange={e => setVendorForm(p => ({ ...p, address: e.target.value }))} />
+                    <input name="address" className="em-input" value={vendorForm.address} onChange={e => setVendorForm(p => ({ ...p, address: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>GSTIN</label>
-                    <input className="em-input" value={vendorForm.gstin} onChange={e => setVendorForm(p => ({ ...p, gstin: e.target.value }))} />
+                    <input name="gstin" className="em-input" value={vendorForm.gstin} onChange={e => setVendorForm(p => ({ ...p, gstin: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>Order Link</label>
-                    <input className="em-input" value={vendorForm.order_link} onChange={e => setVendorForm(p => ({ ...p, order_link: e.target.value }))} placeholder="https://..." />
+                    <input name="order_link" className="em-input" value={vendorForm.order_link} onChange={e => setVendorForm(p => ({ ...p, order_link: e.target.value }))} placeholder="https://..." />
                   </div>
                 </div>
               </div>
@@ -1191,27 +1191,27 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                 <div className="em-form-grid">
                   <div className="em-form-group">
                     <label>Vendor Name *</label>
-                    <input className="em-input" value={requestForm.name} onChange={e => setRequestForm(p => ({ ...p, name: e.target.value }))} required />
+                    <input name="vendor_name" className="em-input" value={requestForm.name} onChange={e => setRequestForm(p => ({ ...p, name: e.target.value }))} required />
                   </div>
                   <div className="em-form-group">
                     <label>Contact Person</label>
-                    <input className="em-input" value={requestForm.contact_person} onChange={e => setRequestForm(p => ({ ...p, contact_person: e.target.value }))} />
+                    <input name="contact_person" className="em-input" value={requestForm.contact_person} onChange={e => setRequestForm(p => ({ ...p, contact_person: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>Phone</label>
-                    <input className="em-input" value={requestForm.phone} onChange={e => setRequestForm(p => ({ ...p, phone: e.target.value }))} />
+                    <input name="phone" className="em-input" value={requestForm.phone} onChange={e => setRequestForm(p => ({ ...p, phone: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>GSTIN</label>
-                    <input className="em-input" value={requestForm.gstin} onChange={e => setRequestForm(p => ({ ...p, gstin: e.target.value }))} />
+                    <input name="gstin" className="em-input" value={requestForm.gstin} onChange={e => setRequestForm(p => ({ ...p, gstin: e.target.value }))} />
                   </div>
                   <div className="em-form-group em-form-group--full">
                     <label>Address</label>
-                    <input className="em-input" value={requestForm.address} onChange={e => setRequestForm(p => ({ ...p, address: e.target.value }))} />
+                    <input name="address" className="em-input" value={requestForm.address} onChange={e => setRequestForm(p => ({ ...p, address: e.target.value }))} />
                   </div>
                   <div className="em-form-group em-form-group--full">
                     <label>Reason / Notes</label>
-                    <input className="em-input" value={requestReason} onChange={e => setRequestReason(e.target.value)} placeholder="Why is this vendor needed?" />
+                    <input name="request_reason" className="em-input" value={requestReason} onChange={e => setRequestReason(e.target.value)} placeholder="Why is this vendor needed?" />
                   </div>
                 </div>
               </div>
@@ -1239,21 +1239,21 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                 <div className="em-form-grid">
                   <div className="em-form-group">
                     <label>Amount (₹) *</label>
-                    <input className="em-input" type="number" step="0.01" min="0" required value={purchaseForm.amount} onChange={e => setPurchaseForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter purchase amount" />
+                    <input name="purchase_amount" className="em-input" type="number" step="0.01" min="0" required value={purchaseForm.amount} onChange={e => setPurchaseForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter purchase amount" />
                   </div>
                   <div className="em-form-group">
                     <label>Bill Number</label>
-                    <input className="em-input" value={purchaseForm.bill_number} onChange={e => setPurchaseForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. INV-001" />
+                    <input name="purchase_bill_number" className="em-input" value={purchaseForm.bill_number} onChange={e => setPurchaseForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. INV-001" />
                   </div>
                   <div className="em-form-group">
                     <label>Bill Date</label>
                     
         <label htmlFor="date-302bgm" className="sr-only">Select Date</label>
-        <input id="date-302bgm"  className="em-input" type="date" value={purchaseForm.bill_date} onChange={e => setPurchaseForm(p => ({ ...p, bill_date: e.target.value }))} />
+        <input id="date-302bgm" name="purchase_bill_date" className="em-input" type="date" value={purchaseForm.bill_date} onChange={e => setPurchaseForm(p => ({ ...p, bill_date: e.target.value }))} />
                   </div>
                   <div className="em-form-group em-form-group--full">
                     <label>Description</label>
-                    <textarea className="em-input" rows={3} value={purchaseForm.description} onChange={e => setPurchaseForm(p => ({ ...p, description: e.target.value }))} placeholder="What was purchased?" />
+                    <textarea name="purchase_description" className="em-input" rows={3} value={purchaseForm.description} onChange={e => setPurchaseForm(p => ({ ...p, description: e.target.value }))} placeholder="What was purchased?" />
                   </div>
                 </div>
               </div>
@@ -1281,13 +1281,13 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                 <div className="em-form-grid">
                   <div className="em-form-group">
                     <label>Bill Number</label>
-                    <input className="em-input" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. INV-001" />
+                    <input name="bill_number" className="em-input" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. INV-001" />
                   </div>
                   <div className="em-form-group">
                     <label>Bill Date</label>
                     
         <label htmlFor="date-w9flil" className="sr-only">Select Date</label>
-        <input id="date-w9flil"  className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
+        <input id="date-w9flil" name="bill_date" className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
                   </div>
                 </div>
 
@@ -1311,15 +1311,15 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                         {billItems.map((item, idx) => (
                           <tr key={idx}>
                             <td>
-                              <select aria-label="Select option"  className="em-input" value={item.inventory_item_id} onChange={e => updateBillItem(idx, 'inventory_item_id', e.target.value)} style={{ minWidth: 200 }}>
+                              <select name="inventory_item_id" aria-label="Select option"  className="em-input" value={item.inventory_item_id} onChange={e => updateBillItem(idx, 'inventory_item_id', e.target.value)} style={{ minWidth: 200 }}>
                                 <option value="">Select item...</option>
                                 {inventoryOptions.map(inv => (
                                   <option key={inv.id} value={inv.id}>{inv.name} {inv.sku ? `(${inv.sku})` : ''}</option>
                                 ))}
                               </select>
                             </td>
-                            <td><input className="em-input" type="number" min="1" value={item.quantity} onChange={e => updateBillItem(idx, 'quantity', e.target.value)} /></td>
-                            <td><input className="em-input" type="number" step="0.01" min="0" value={item.unit_cost} onChange={e => updateBillItem(idx, 'unit_cost', e.target.value)} /></td>
+                            <td><input name="item_quantity" className="em-input" type="number" min="1" value={item.quantity} onChange={e => updateBillItem(idx, 'quantity', e.target.value)} /></td>
+                            <td><input name="item_unit_cost" className="em-input" type="number" step="0.01" min="0" value={item.unit_cost} onChange={e => updateBillItem(idx, 'unit_cost', e.target.value)} /></td>
                             <td style={{ fontWeight: 600 }}>₹{(Number(item.total_cost) || 0).toFixed(2)}</td>
                             <td><button type="button" className="btn btn-ghost btn-sm" onClick={() => removeBillItemRow(idx)} title="Remove"><Trash2 size={14} /></button></td>
                           </tr>
@@ -1364,39 +1364,39 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                 <div className="em-form-grid">
                   <div className="em-form-group">
                     <label>Item Name *</label>
-                    <input className="em-input" value={addInventoryForm.name} onChange={e => setAddInventoryForm(p => ({ ...p, name: e.target.value }))} required />
+                    <input name="item_name" className="em-input" value={addInventoryForm.name} onChange={e => setAddInventoryForm(p => ({ ...p, name: e.target.value }))} required />
                   </div>
                   <div className="em-form-group">
                     <label>SKU</label>
-                    <input className="em-input" value={addInventoryForm.sku} onChange={e => setAddInventoryForm(p => ({ ...p, sku: e.target.value }))} />
+                    <input name="sku" className="em-input" value={addInventoryForm.sku} onChange={e => setAddInventoryForm(p => ({ ...p, sku: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>Category</label>
-                    <input className="em-input" value={addInventoryForm.category} onChange={e => setAddInventoryForm(p => ({ ...p, category: e.target.value }))} />
+                    <input name="category" className="em-input" value={addInventoryForm.category} onChange={e => setAddInventoryForm(p => ({ ...p, category: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>Quantity</label>
-                    <input className="em-input" type="number" min="0" value={addInventoryForm.quantity} onChange={e => setAddInventoryForm(p => ({ ...p, quantity: e.target.value }))} />
+                    <input name="quantity" className="em-input" type="number" min="0" value={addInventoryForm.quantity} onChange={e => setAddInventoryForm(p => ({ ...p, quantity: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>Unit</label>
-                    <input className="em-input" value={addInventoryForm.unit} onChange={e => setAddInventoryForm(p => ({ ...p, unit: e.target.value }))} />
+                    <input name="unit" className="em-input" value={addInventoryForm.unit} onChange={e => setAddInventoryForm(p => ({ ...p, unit: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>Cost Price</label>
-                    <input className="em-input" type="number" step="0.01" min="0" value={addInventoryForm.cost_price} onChange={e => setAddInventoryForm(p => ({ ...p, cost_price: e.target.value }))} />
+                    <input name="cost_price" className="em-input" type="number" step="0.01" min="0" value={addInventoryForm.cost_price} onChange={e => setAddInventoryForm(p => ({ ...p, cost_price: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>Sell Price</label>
-                    <input className="em-input" type="number" step="0.01" min="0" value={addInventoryForm.sell_price} onChange={e => setAddInventoryForm(p => ({ ...p, sell_price: e.target.value }))} />
+                    <input name="sell_price" className="em-input" type="number" step="0.01" min="0" value={addInventoryForm.sell_price} onChange={e => setAddInventoryForm(p => ({ ...p, sell_price: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>Vendor</label>
-                    <input className="em-input" value={addInventoryForm.vendor_name} onChange={e => setAddInventoryForm(p => ({ ...p, vendor_name: e.target.value }))} />
+                    <input name="vendor_name" className="em-input" value={addInventoryForm.vendor_name} onChange={e => setAddInventoryForm(p => ({ ...p, vendor_name: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>Vendor Contact</label>
-                    <input className="em-input" value={addInventoryForm.vendor_contact} onChange={e => setAddInventoryForm(p => ({ ...p, vendor_contact: e.target.value }))} />
+                    <input name="vendor_contact" className="em-input" value={addInventoryForm.vendor_contact} onChange={e => setAddInventoryForm(p => ({ ...p, vendor_contact: e.target.value }))} />
                   </div>
                 </div>
               </div>

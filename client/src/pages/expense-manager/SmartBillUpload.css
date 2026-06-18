@@ -33,15 +33,26 @@
   color: var(--text, var(--muted-foreground));
 }
 
-.smart-bill-upload-modal .close-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
+.smart-bill-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.smart-bill-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.smart-bill-header .close-btn {
+  position: static;
+  padding: 6px;
   background: none;
   border: none;
   cursor: pointer;
   color: var(--text-secondary, var(--muted-foreground));
-  padding: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -49,9 +60,28 @@
   transition: all 0.2s;
 }
 
-.smart-bill-upload-modal .close-btn:hover {
+.smart-bill-header .close-btn:hover {
   background: var(--surface-2, var(--secondary));
   color: var(--text, var(--muted-foreground));
+}
+
+.header-icon-btn {
+  background: none;
+  border: 1px solid var(--border, var(--border));
+  cursor: pointer;
+  color: var(--text-secondary, var(--muted-foreground));
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.header-icon-btn:hover {
+  background: var(--surface-2, var(--secondary));
+  color: var(--text, var(--muted-foreground));
+  border-color: var(--accent);
 }
 
 /* UPLOAD SECTION */

@@ -11,10 +11,11 @@ const COUNTRIES = [
   { code: '+966', label: 'Saudi Arabia (+966)' }
 ];
 
-export default function CountryCodeSelect({ value = '+91', onChange = () => {}, id, className = '' }) {
+export default function CountryCodeSelect({ value = '+91', onChange = () => {}, id, name, className = '' }) {
   return (
     <select
       id={id}
+      name={name}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`badge country-code-select ${className}`}

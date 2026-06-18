@@ -954,6 +954,7 @@ tbody tr:nth-child(even):hover { background: var(--table-row-hover); }
   padding-right: 32px;
   cursor: pointer;
 }
+select.input-field option { background: var(--surface); color: var(--text); }
 .dark select.input-field option { background: var(--surface); color: var(--text); }
 
 .checkbox-row {

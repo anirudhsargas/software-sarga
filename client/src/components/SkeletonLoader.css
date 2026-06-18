@@ -2,9 +2,9 @@
 .skeleton-box {
   background: linear-gradient(
     90deg,
-    var(--surface, var(--secondary)) 0%,
-    var(--border, var(--secondary)) 40%,
-    var(--surface, var(--secondary)) 80%
+    var(--skeleton-base, var(--surface)) 0%,
+    var(--skeleton-shimmer, var(--border)) 40%,
+    var(--skeleton-base, var(--surface)) 80%
   );
   background-size: 300% 100%;
   animation: skeleton-shimmer 1.8s ease-in-out infinite;

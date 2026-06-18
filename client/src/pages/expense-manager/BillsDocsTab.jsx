@@ -114,13 +114,14 @@ const BillsDocsTab = ({ onError }) => {
       </div>
 
       <div className="em-filter-row">
-        <select aria-label="Select option"  className="em-input em-input--sm" value={filter.document_type} onChange={e => setFilter(p => ({ ...p, document_type: e.target.value }))}>
+        <select name="filter_document_type" aria-label="Select option"  className="em-input em-input--sm" value={filter.document_type} onChange={e => setFilter(p => ({ ...p, document_type: e.target.value }))}>
           <option value="">All Types</option>
           {DOCUMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
         <div className="em-search-wrap">
           <Search className="em-search-icon" size={16} />
           <input
+            name="search"
             className="em-input"
             placeholder="Search bills & docs..."
             value={search}
@@ -178,18 +179,18 @@ const BillsDocsTab = ({ onError }) => {
             <form onSubmit={uploadDoc}>
               <div className="em-modal__body">
                 <div className="em-form-grid">
-                  <div className="em-form-group"><label>Document Type</label><select aria-label="Select option"  className="em-input" value={form.document_type} onChange={e => setForm(p => ({ ...p, document_type: e.target.value }))}>{DOCUMENT_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
-                  <div className="em-form-group"><label>Related Tab</label><select aria-label="Select option"  className="em-input" value={form.related_tab} onChange={e => setForm(p => ({ ...p, related_tab: e.target.value }))}><option value="">General</option><option value="office">Office</option><option value="transport">Transport</option><option value="misc">Misc</option><option value="rent">Rent</option><option value="vendor">Vendor</option></select></div>
-                  <div className="em-form-group"><label>Vendor Name</label><input className="em-input" value={form.vendor_name} onChange={e => setForm(p => ({ ...p, vendor_name: e.target.value }))} /></div>
-                  <div className="em-form-group"><label>Bill #</label><input className="em-input" value={form.bill_number} onChange={e => setForm(p => ({ ...p, bill_number: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Document Type</label><select name="document_type" aria-label="Select option"  className="em-input" value={form.document_type} onChange={e => setForm(p => ({ ...p, document_type: e.target.value }))}>{DOCUMENT_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
+                  <div className="em-form-group"><label>Related Tab</label><select name="related_tab" aria-label="Select option"  className="em-input" value={form.related_tab} onChange={e => setForm(p => ({ ...p, related_tab: e.target.value }))}><option value="">General</option><option value="office">Office</option><option value="transport">Transport</option><option value="misc">Misc</option><option value="rent">Rent</option><option value="vendor">Vendor</option></select></div>
+                  <div className="em-form-group"><label>Vendor Name</label><input name="vendor_name" className="em-input" value={form.vendor_name} onChange={e => setForm(p => ({ ...p, vendor_name: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Bill #</label><input name="bill_number" className="em-input" value={form.bill_number} onChange={e => setForm(p => ({ ...p, bill_number: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Bill Date</label>
         <label htmlFor="date-v0kghe" className="sr-only">Select Date</label>
-        <input id="date-v0kghe"  className="em-input" type="date" value={form.bill_date} onChange={e => setForm(p => ({ ...p, bill_date: e.target.value }))} /></div>
-                  <div className="em-form-group"><label>Amount (₹)</label><input className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></div>
-                  <div className="em-form-group em-form-group--full"><label>Description</label><input className="em-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
+        <input id="date-v0kghe" name="bill_date" className="em-input" type="date" value={form.bill_date} onChange={e => setForm(p => ({ ...p, bill_date: e.target.value }))} /></div>
+                  <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></div>
+                  <div className="em-form-group em-form-group--full"><label>Description</label><input name="description" className="em-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
                   <div className="em-form-group em-form-group--full">
                     <label>File (JPG, PNG, PDF, XLS, DOC — max 10MB)</label>
-                    <input type="file" className="em-input" accept=".jpg,.jpeg,.png,.webp,.pdf,.xls,.xlsx,.doc,.docx" onChange={e => setForm(p => ({ ...p, file: e.target.files[0] || null }))} />
+                    <input name="file" type="file" className="em-input" accept=".jpg,.jpeg,.png,.webp,.pdf,.xls,.xlsx,.doc,.docx" onChange={e => setForm(p => ({ ...p, file: e.target.files[0] || null }))} />
                   </div>
                 </div>
               </div>

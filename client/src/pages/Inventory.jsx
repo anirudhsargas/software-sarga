@@ -905,7 +905,6 @@ const Inventory = () => {
                             >
                                 <option value="">All Types</option>
                                 <option value="Retail">Retail</option>
-                                <option value="Consumable">Consumable</option>
                             </select>
                         </div>
                         <div className="inv-chip">
@@ -1330,10 +1329,6 @@ const Inventory = () => {
                                             <input type="radio" name="add_item_type" value="Retail" checked={newItem.item_type === 'Retail'} onChange={(e) => setNewItem({ ...newItem, item_type: e.target.value })} />
                                             <span>Retail Product</span>
                                         </label>
-                                        <label className="row items-center gap-sm cursor-pointer">
-                                            <input type="radio" name="add_item_type" value="Consumable" checked={newItem.item_type === 'Consumable'} onChange={(e) => setNewItem({ ...newItem, item_type: e.target.value })} />
-                                            <span>Internal Consumable</span>
-                                        </label>
                                     </div>
                                 </div>
                                 <div className="row gap-sm">
@@ -1616,10 +1611,6 @@ const Inventory = () => {
                                         <label className="row items-center gap-sm cursor-pointer">
                                             <input type="radio" name="edit_item_type" value="Retail" checked={selectedItem.item_type === 'Retail'} onChange={(e) => setSelectedItem({ ...selectedItem, item_type: e.target.value })} />
                                             <span>Retail Product</span>
-                                        </label>
-                                        <label className="row items-center gap-sm cursor-pointer">
-                                            <input type="radio" name="edit_item_type" value="Consumable" checked={selectedItem.item_type === 'Consumable'} onChange={(e) => setSelectedItem({ ...selectedItem, item_type: e.target.value })} />
-                                            <span>Internal Consumable</span>
                                         </label>
                                     </div>
                                 </div>

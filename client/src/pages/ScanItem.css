@@ -161,28 +161,36 @@
     background: transparent;
 }
 
-/* Pulsing Scanning Line */
-.scan-laser-line {
+/* QR Code Corner Brackets */
+.scan-corner {
     position: absolute;
-    width: 100%;
-    height: 3px;
-    background: linear-gradient(to right, transparent, var(--primary), transparent);
-    box-shadow: 0 0 8px var(--primary);
-    top: 0;
-    left: 0;
-    animation: scanAnimation 2s linear infinite;
+    width: 30px;
+    height: 30px;
+    border-color: var(--primary);
+    border-style: solid;
+}
+.scan-corner--tl { top: 8px; left: 8px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+.scan-corner--tr { top: 8px; right: 8px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+.scan-corner--bl { bottom: 8px; left: 8px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+.scan-corner--br { bottom: 8px; right: 8px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+.scan-pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    margin: -20px 0 0 -20px;
+    border: 2px solid var(--primary);
+    border-radius: 50%;
+    animation: pulseRing 2s ease-in-out infinite;
+    opacity: 0;
 }
 
-@keyframes scanAnimation {
-    0% {
-        top: 0%;
-    }
-    50% {
-        top: 100%;
-    }
-    100% {
-        top: 0%;
-    }
+@keyframes pulseRing {
+    0% { transform: scale(0.5); opacity: 0.6; }
+    50% { transform: scale(2); opacity: 0; }
+    100% { transform: scale(0.5); opacity: 0; }
 }
 
 .camera-paused {

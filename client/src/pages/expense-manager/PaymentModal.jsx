@@ -397,7 +397,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ minWidth: 140 }}>
                     <label className="label">From</label>
-                    <select aria-label="Select option"  className="input-field" value={transferForm.from_book_type} onChange={e => setTransferForm(f => ({ ...f, from_book_type: e.target.value }))}>
+                    <select name="from_book_type" aria-label="Select option"  className="input-field" value={transferForm.from_book_type} onChange={e => setTransferForm(f => ({ ...f, from_book_type: e.target.value }))}>
                       {['Offset','Laser','Other'].map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                     {transferForm.from_book_type && bookBalances[transferForm.from_book_type] != null && (
@@ -406,17 +406,17 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                   </div>
                   <div style={{ minWidth: 140 }}>
                     <label className="label">To</label>
-                    <select aria-label="Select option"  className="input-field" value={transferForm.to_book_type} onChange={e => setTransferForm(f => ({ ...f, to_book_type: e.target.value }))}>
+                    <select name="to_book_type" aria-label="Select option"  className="input-field" value={transferForm.to_book_type} onChange={e => setTransferForm(f => ({ ...f, to_book_type: e.target.value }))}>
                       {['Offset','Laser','Other'].filter(b => b !== transferForm.from_book_type).map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                   </div>
                   <div style={{ minWidth: 120 }}>
                     <label className="label">Amount (₹)</label>
-                    <input type="number" min="0" step="0.01" className="input-field" value={transferForm.amount} onChange={e => setTransferForm(f => ({ ...f, amount: e.target.value }))} placeholder="0.00" />
+                    <input name="transfer_amount" type="number" min="0" step="0.01" className="input-field" value={transferForm.amount} onChange={e => setTransferForm(f => ({ ...f, amount: e.target.value }))} placeholder="0.00" />
                   </div>
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <label className="label">Note</label>
-                    <input className="input-field" value={transferForm.note} onChange={e => setTransferForm(f => ({ ...f, note: e.target.value }))} placeholder="Optional note" />
+                    <input name="transfer_note" className="input-field" value={transferForm.note} onChange={e => setTransferForm(f => ({ ...f, note: e.target.value }))} placeholder="Optional note" />
                   </div>
                 </div>
                 <div style={{ marginTop: 10, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

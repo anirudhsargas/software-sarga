@@ -151,25 +151,6 @@
     color: var(--warning);
 }
 
-/* Entry Table */
-.entry-table-container {
-    overflow-x: auto;
-    border-radius: 12px;
-}
-
-.entry-table-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-
-.entry-table-pagination span {
-    font-size: 13px;
-    color: var(--muted);
-}
-
 /* Empty State */
 .dr-empty p {
     font-weight: 500;
@@ -178,25 +159,6 @@
 
 .dr-empty p:last-child {
     font-size: 12px;
-    color: var(--muted);
-}
-
-/* Entry Table */
-.entry-table-container {
-    overflow-x: auto;
-    border-radius: 12px;
-}
-
-.entry-table-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-
-.entry-table-pagination span {
-    font-size: 13px;
     color: var(--muted);
 }
 
@@ -1032,8 +994,150 @@ select:focus-visible,
     border-bottom: 1px solid var(--surface-3);
 }
 
+/* ── Daily Report Layout & Component Styles ── */
+
+.dr-root {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header Controls */
+.dr-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .dr-controls-date {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Title Row */
+.dr-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dr-icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Tab Bar */
+.dr-tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dr-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.dr-tab:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.dr-tab--active {
+  color: var(--text);
+  background: var(--surface);
+  font-weight: 600;
+  box-shadow: 0 1px 3px var(--shadow-sm);
+}
+
+.dr-tab__badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--border);
+  color: var(--muted);
+  font-weight: 600;
+  margin-left: 2px;
+}
+
+/* Machine Card */
+.dr-machine-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.machine-view-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.machine-view-chevron {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* Empty State Icon */
+.dr-empty__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+  margin: 0 auto 12px;
+}
+
+/* Entry Table Responsive */
+.entry-table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.entry-table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .entry-table {
+    min-width: 640px;
+  }
+  .machine-view-row {
+    flex-wrap: wrap;
+  }
 }

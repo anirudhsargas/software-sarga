@@ -483,7 +483,11 @@ const ScanItem = () => {
                                     {isCamActive && (
                                         <div className="viewport-overlay">
                                             <div className="scan-cutout">
-                                                <div className="scan-laser-line" />
+                                                <div className="scan-corner scan-corner--tl" />
+                                                <div className="scan-corner scan-corner--tr" />
+                                                <div className="scan-corner scan-corner--bl" />
+                                                <div className="scan-corner scan-corner--br" />
+                                                <div className="scan-pulse" />
                                             </div>
                                         </div>
                                     )}

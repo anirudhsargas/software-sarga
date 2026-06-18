@@ -1451,7 +1451,7 @@ const DailyReport = () => {
     }, [fetchAttendanceData, fetchLiveCounts]);
 
     return (
-        <div className="stack-lg" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div className="stack-lg dr-root">
             {/* Opening Balance Prompt Modal */}
             {showOpeningPrompt && (
                 <div className="modal-backdrop">

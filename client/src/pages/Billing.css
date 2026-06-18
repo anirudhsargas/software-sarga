@@ -461,6 +461,8 @@
   outline: none;
   cursor: pointer;
   min-width: 140px;
+  appearance: auto;
+  -webkit-appearance: auto;
 }
 
 .billing-select option {
@@ -844,6 +846,11 @@
   padding-top: 8px;
   border-top: 1px solid var(--border);
   font-size: 15px;
+  color: var(--text);
+}
+.billing-payment-summary__row--balance span:first-child {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 /* ── Utility Helpers ── */

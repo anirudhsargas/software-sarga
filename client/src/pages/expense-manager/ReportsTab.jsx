@@ -67,12 +67,12 @@ const ReportsTab = ({ branches, onError }) => {
         <label htmlFor="date-mpi2cv" className="sr-only">Select Date</label>
         <input id="date-mpi2cv"  type="date" className="em-input em-input--sm" placeholder="To" value={filters.end_date} onChange={e => setFilters(p => ({ ...p, end_date: e.target.value }))} />
         {branches?.length > 1 && (
-          <select aria-label="Select option"  className="em-input em-input--sm" value={filters.branch_id} onChange={e => setFilters(p => ({ ...p, branch_id: e.target.value }))}>
+          <select name="branch_id" aria-label="Select option"  className="em-input em-input--sm" value={filters.branch_id} onChange={e => setFilters(p => ({ ...p, branch_id: e.target.value }))}>
             <option value="">All Branches</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         )}
-        {reportType === 'vendor-ledger' && <input className="em-input em-input--sm" placeholder="Vendor name" value={filters.vendor_name} onChange={e => setFilters(p => ({ ...p, vendor_name: e.target.value }))} />}
+        {reportType === 'vendor-ledger' && <input name="vendor_name" className="em-input em-input--sm" placeholder="Vendor name" value={filters.vendor_name} onChange={e => setFilters(p => ({ ...p, vendor_name: e.target.value }))} />}
         <button className="btn btn-primary btn-sm" onClick={fetchReport}><BarChart3 size={14} /> Generate</button>
       </div>
 

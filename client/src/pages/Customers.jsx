@@ -697,10 +697,13 @@ const Customers = () => {
             {/* Modals... */}
             {showAddModal && (
                 <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="add-customer-title" style={{ alignItems: 'flex-start', paddingTop: '8vh' }}>
-                    <div className="modal" style={{ padding: 20 }}>
-                        <button className="modal-close" aria-label="Close add customer modal" onClick={() => closeAddModal()}><X size={20} aria-hidden="true" /></button>
-                        <h2 id="add-customer-title" className="section-title mb-20" style={{ fontSize: 18, paddingRight: 40 }}>Add New Customer</h2>
-                        {addFormDirty && <div className="alert alert--warning mb-16">Unsaved changes</div>}
+                    <div className="modal">
+                        <div className="modal-header">
+                            <h2 id="add-customer-title" className="modal-title">Add New Customer</h2>
+                            <button className="modal-close modal-close--static" aria-label="Close add customer modal" onClick={() => closeAddModal()}><X size={20} aria-hidden="true" /></button>
+                        </div>
+                        {addFormDirty && <div className="alert alert--warning" style={{ margin: '0 24px' }}>Unsaved changes</div>}
+                        <div className="modal-body">
                         <form onSubmit={handleAddCustomer} noValidate>
                             <div style={{ marginBottom: 16 }}>
                                 <label htmlFor="add-customer-name" className="label" style={{ marginBottom: 6, display: 'block' }}>Customer Name</label>
@@ -751,7 +754,7 @@ const Customers = () => {
                                 <label htmlFor="add-customer-phone" className="label" style={{ marginBottom: 6, display: 'block' }}>Mobile Number</label>
                                 <div className="autocomplete-wrapper">
                                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                                        <CountryCodeSelect value={newCustomer.countryCode} onChange={(val) => updateNewCustomer({ countryCode: val })} />
+                                        <CountryCodeSelect id="add-customer-country" name="customerCountry" value={newCustomer.countryCode} onChange={(val) => updateNewCustomer({ countryCode: val })} />
                                         <input
                                             id="add-customer-phone"
                                             name="customerPhone"
@@ -799,7 +802,7 @@ const Customers = () => {
                                 <select
                                     id="add-customer-type"
                                     name="customerType"
-                                    className="input-field"
+                                    className="input-field select-field"
                                     style={{ width: '100%', height: 44 }}
                                     value={newCustomer.type}
                                     onChange={(e) => updateNewCustomer({ type: e.target.value })}
@@ -825,16 +828,20 @@ const Customers = () => {
                                 {loading ? <><Loader2 className="animate-spin" aria-hidden="true" /> Adding...</> : "Add Customer"}
                             </button>
                         </form>
+                        </div>
                     </div>
                 </div>
             )}
 
             {showEditModal && selectedCustomer && (
                 <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="edit-customer-title" style={{ alignItems: 'flex-start', paddingTop: '8vh' }}>
-                    <div className="modal" style={{ padding: 20 }}>
-                        <button className="modal-close" aria-label="Close edit customer modal" onClick={() => closeEditModal()}><X size={20} aria-hidden="true" /></button>
-                        <h2 id="edit-customer-title" className="section-title mb-20" style={{ fontSize: 18, paddingRight: 40 }}>Edit Customer</h2>
-                        {editFormDirty && <div className="alert alert--warning mb-16">Unsaved changes</div>}
+                    <div className="modal">
+                        <div className="modal-header">
+                            <h2 id="edit-customer-title" className="modal-title">Edit Customer</h2>
+                            <button className="modal-close modal-close--static" aria-label="Close edit customer modal" onClick={() => closeEditModal()}><X size={20} aria-hidden="true" /></button>
+                        </div>
+                        {editFormDirty && <div className="alert alert--warning" style={{ margin: '0 24px' }}>Unsaved changes</div>}
+                        <div className="modal-body">
                         <form onSubmit={handleUpdateCustomer} noValidate>
                             <div style={{ marginBottom: 16 }}>
                                 <label htmlFor="edit-customer-name" className="label" style={{ marginBottom: 6, display: 'block' }}>Customer Name</label>
@@ -883,7 +890,7 @@ const Customers = () => {
                                 <label htmlFor="edit-customer-phone" className="label" style={{ marginBottom: 6, display: 'block' }}>Mobile Number</label>
                                 <div className="autocomplete-wrapper">
                                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                                        <CountryCodeSelect value={selectedCustomer?.countryCode || '+91'} onChange={(val) => updateSelectedCustomer({ countryCode: val })} />
+                                        <CountryCodeSelect id="edit-customer-country" name="editCustomerCountry" value={selectedCustomer?.countryCode || '+91'} onChange={(val) => updateSelectedCustomer({ countryCode: val })} />
                                         <input
                                             id="edit-customer-phone"
                                             name="editCustomerPhone"
@@ -930,7 +937,7 @@ const Customers = () => {
                                 <select
                                     id="edit-customer-type"
                                     name="editCustomerType"
-                                    className="input-field"
+                                    className="input-field select-field"
                                     style={{ width: '100%', height: 44 }}
                                     value={selectedCustomer.type}
                                     onChange={(e) => updateSelectedCustomer({ type: e.target.value })}
@@ -981,6 +988,7 @@ const Customers = () => {
                                 {loading ? <><Loader2 className="animate-spin" aria-hidden="true" /> Updating...</> : (isAdmin ? "Update Customer" : "Send Edit Request")}
                             </button>
                         </form>
+                        </div>
                     </div>
                 </div>
             )}

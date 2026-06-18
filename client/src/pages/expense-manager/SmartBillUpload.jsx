@@ -721,18 +721,27 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
 
   return createPortal(
     <React.Fragment>
-    <div className="smart-bill-upload-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-      <div className="modal-overlay" />
-      <div className="modal-content">
-        <button className="close-btn" onClick={onClose}>
-          <X size={24} />
-        </button>
-
-        {/* UPLOAD STEP */}
-        {step === 'upload' && (
-          <div className="upload-section">
-            <h2>📄 Smart Bill Upload</h2>
-            <p className="subtitle">Upload bill images or PDFs to auto-extract details</p>
+      <div className="smart-bill-upload-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" />
+        <div className="modal-content">
+          {/* UPLOAD STEP */}
+          {step === 'upload' && (
+            <div className="upload-section">
+              <div className="smart-bill-header">
+                <h2>📄 Smart Bill Upload</h2>
+                <div className="smart-bill-header-actions">
+                  <button className="header-icon-btn" onClick={() => fileInputRef.current?.click()} aria-label="Select files">
+                    <Upload size={20} />
+                  </button>
+                  <button className="header-icon-btn" onClick={() => setShowCamera(true)} aria-label="Take photo with camera">
+                    <Camera size={20} />
+                  </button>
+                  <button className="close-btn" onClick={onClose} aria-label="Close">
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
+              <p className="subtitle">Upload bill images or PDFs to auto-extract details</p>
 
             <div
               className="upload-area"
@@ -746,6 +755,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
               <small>Supports PNG, JPG, PDF, WebP (max 10MB each)</small>
               <input
                 ref={fileInputRef}
+                name="file_upload"
                 type="file"
                 hidden
                 accept=".pdf,.png,.jpg,.jpeg,.webp"
@@ -781,13 +791,6 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 ))}
                 <div className="queue-actions">
                   <button
-                    className="btn btn-secondary"
-                    onClick={() => setShowCamera(true)}
-                    style={{ width: '100%', marginBottom: '8px' }}
-                  >
-                    <Camera size={18} /> Take Photo with Camera
-                  </button>
-                  <button
                     className="btn btn-primary"
                     onClick={() => { setCurrentFileIndex(0); processQueue(); }}
                     disabled={loading}
@@ -804,18 +807,6 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 </div>
               </div>
             )}
-
-            <div className="upload-divider">
-              <span className="divider-text">or</span>
-            </div>
-
-            <button
-              className="btn btn-secondary"
-              onClick={() => setShowCamera(true)}
-              style={{ width: '100%', marginBottom: '12px' }}
-            >
-              <Camera size={18} /> Take Photo with Camera
-            </button>
 
             {error && (
               <div className="error-message" role="alert" aria-live="polite">
@@ -849,6 +840,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 <div className="data-item">
                   <label>Amount (₹)</label>
                   <input
+                    name="amount"
                     type="number"
                     value={finalForm.amount}
                     onChange={(e) => setFinalForm(prev => ({ ...prev, amount: e.target.value }))}
@@ -858,6 +850,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 <div className="data-item">
                   <label>Bill Number</label>
                   <input
+                    name="bill_number"
                     type="text"
                     value={finalForm.bill_number}
                     onChange={(e) => setFinalForm(prev => ({ ...prev, bill_number: e.target.value }))}
@@ -877,6 +870,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 <div className="data-item">
                   <label>Vendor Name</label>
                   <input
+                    name="vendor_name"
                     type="text"
                     value={finalForm.vendor_name}
                     onChange={(e) => setFinalForm(prev => ({ ...prev, vendor_name: e.target.value }))}
@@ -886,6 +880,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 <div className="data-item">
                   <label>Vendor Contact</label>
                   <input
+                    name="vendor_contact"
                     type="text"
                     value={finalForm.vendor_contact}
                     onChange={(e) => setFinalForm(prev => ({ ...prev, vendor_contact: e.target.value }))}
@@ -909,6 +904,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 <div className="data-item">
                   <label>Type</label>
                   <input
+                    name="document_type"
                     type="text"
                     value={finalForm.document_type}
                     onChange={(e) => setFinalForm(prev => ({ ...prev, document_type: e.target.value }))}
@@ -938,6 +934,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                   <div className="data-item">
                     <label>GST Category</label>
                     <select
+                      name="gst_category"
                       value={finalForm.gst_category}
                       onChange={(e) => setFinalForm(prev => ({ ...prev, gst_category: e.target.value }))}
                       style={{ marginTop: '4px' }}
@@ -1141,7 +1138,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                     <div className="category-single-selects">
                       <div className="category-select-group">
                         <label className="category-select-label">📁 Category</label>
-                        <select aria-label="Select option" 
+                        <select name="category_id" aria-label="Select option" 
                           className="category-select"
                           value={globalCategoryId}
                           onChange={(e) => {
@@ -1163,7 +1160,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                       </div>
                       <div className="category-select-group">
                         <label className="category-select-label">📂 Subcategory</label>
-                        <select aria-label="Select option" 
+                        <select name="subcategory_id" aria-label="Select option" 
                           className="category-select"
                           value={globalSubcategoryId}
                           onChange={(e) => setGlobalSubcategoryId(e.target.value)}
@@ -1201,6 +1198,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                         <tr key={idx}>
                           <td>
                             <input
+                              name="serial_no"
                               type="number"
                               value={item.serial_no}
                               onChange={(e) => updateEditableItem(idx, 'serial_no', e.target.value)}
@@ -1210,6 +1208,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                           </td>
                           <td>
                             <input
+                              name="item_name"
                               type="text"
                               value={item.item_name}
                               onChange={(e) => updateEditableItem(idx, 'item_name', e.target.value)}
@@ -1218,6 +1217,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                           </td>
                           <td>
                             <input
+                              name="hsn_sac"
                               type="text"
                               value={item.hsn_sac}
                               onChange={(e) => updateEditableItem(idx, 'hsn_sac', e.target.value)}
@@ -1226,6 +1226,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                           </td>
                           <td>
                             <input
+                              name="item_quantity"
                               type="number"
                               value={item.quantity}
                               onChange={(e) => updateEditableItem(idx, 'quantity', e.target.value)}
@@ -1235,6 +1236,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                           </td>
                           <td>
                             <input
+                              name="rate"
                               type="number"
                               value={item.rate}
                               onChange={(e) => updateEditableItem(idx, 'rate', e.target.value)}
@@ -1244,6 +1246,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                           </td>
                           <td>
                             <input
+                              name="gst_percent"
                               type="number"
                               value={item.gst_percent}
                               onChange={(e) => updateEditableItem(idx, 'gst_percent', e.target.value)}
@@ -1253,6 +1256,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                           </td>
                           <td>
                             <input
+                              name="mrp"
                               type="number"
                               value={item.mrp}
                               onChange={(e) => updateEditableItem(idx, 'mrp', e.target.value)}
@@ -1262,7 +1266,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                           </td>
                           {categoryMode === 'per-item' && (
                             <td>
-                              <select aria-label="Select option" 
+                              <select name="item_category_id" aria-label="Select option" 
                                 className="table-category-select"
                                 value={item.category_id || ''}
                                 onChange={(e) => {
@@ -1286,7 +1290,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                           )}
                           {categoryMode === 'per-item' && (
                             <td>
-                              <select aria-label="Select option" 
+                              <select name="item_subcategory_id" aria-label="Select option" 
                                 className="table-category-select"
                                 value={item.subcategory_id || ''}
                                 onChange={(e) => {
@@ -1410,6 +1414,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                       <td className="pricing-cost">₹{(Number(item.rate || 0) * (1 + Number(item.gst_percent || 0) / 100)).toFixed(2)}</td>
                       <td>
                         <input
+                          name="sku"
                           type="text"
                           className="pricing-input"
                           value={item.sku || ''}
@@ -1419,6 +1424,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                       </td>
                       <td>
                         <input
+                          name="sell_price"
                           type="number"
                           className="pricing-input pricing-sell-input"
                           value={item.sell_price || ''}
@@ -1468,11 +1474,12 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
             <div className="product-link-form">
               <div className="form-group">
                 <label>Product</label>
-                <input type="text" value={linkedProduct.name} disabled />
+                <input name="product_name" type="text" value={linkedProduct.name} disabled />
               </div>
               <div className="form-group">
                 <label>Quantity</label>
                 <input
+                  name="link_quantity"
                   type="number"
                   value={linkedProduct.quantity}
                   onChange={(e) =>
@@ -1484,6 +1491,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
               <div className="form-group">
                 <label>Unit Price</label>
                 <input
+                  name="link_unit_price"
                   type="number"
                   value={linkedProduct.unit_price}
                   onChange={(e) =>

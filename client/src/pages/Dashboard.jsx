@@ -1012,8 +1012,10 @@ const Dashboard = () => {
             {showProfileModal && (
                 <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit profile">
                     <div className="modal modal--profile">
-                        <button className="modal-close" aria-label="Close profile modal" onClick={() => setShowProfileModal(false)} title="Close"><X size={20} /></button>
-                        <h2 className="section-title mb-16">Edit Profile</h2>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Edit Profile</h2>
+                            <button className="modal-close modal-close--static" aria-label="Close profile modal" onClick={() => setShowProfileModal(false)} title="Close"><X size={20} /></button>
+                        </div>
 
                         {/* Tab Navigation */}
                         <div className="profile-tabs">

@@ -260,6 +260,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
         <div className="row gap-sm items-center mb-12" style={{ justifyContent: 'space-between' }}>
           <label className="row gap-sm items-center" style={{ fontSize: 13, color: 'var(--muted)' }}>
             <input
+              name="select_all"
               type="checkbox"
               checked={selectedStaffIds.length > 0 && selectedStaffIds.length === staffList.length}
               onChange={toggleSelectAll}
@@ -293,6 +294,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
             <div role="button" tabIndex={0}  key={s.id} className="em-staff-card" onClick={() => openStaffSalary(s)}>
               <div style={{ alignSelf: 'flex-start' }}>
                 <input
+                  name="staff_checkbox"
                   type="checkbox"
                   checked={selectedStaffIds.includes(s.id)}
                   onClick={(e) => e.stopPropagation()}
@@ -348,15 +350,15 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
             <form onSubmit={submitBulkSalaryPayment}>
               <div className="em-modal__body">
                 <div className="em-form-grid">
-                  <div className="em-form-group"><label>For Month</label><input className="em-input" type="month" value={month} onChange={e => { setMonth(e.target.value); setBulkDirty(true); }} required /></div>
+<div className="em-form-group"><label>For Month</label><input name="month" className="em-input" type="month" value={month} onChange={e => { setMonth(e.target.value); setBulkDirty(true); }} required /></div>
                   <div className="em-form-group"><label>Payment Date</label>
         <label htmlFor="date-tugw48" className="sr-only">Select Date</label>
-        <input id="date-tugw48"  className="em-input" type="date" value={bulkForm.payment_date} onChange={e => { setBulkForm(p => ({ ...p, payment_date: e.target.value })); setBulkDirty(true); }} required /></div>
-                  <div className="em-form-group"><label>Method</label><select aria-label="Select option"  className="em-input" value={bulkForm.payment_method} onChange={e => { setBulkForm(p => ({ ...p, payment_method: e.target.value })); setBulkDirty(true); }}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
-                  <div className="em-form-group"><label>Reference #</label><input className="em-input" value={bulkForm.reference_number} onChange={e => { setBulkForm(p => ({ ...p, reference_number: e.target.value })); setBulkDirty(true); }} /></div>
-                  <div className="em-form-group"><label>Bonus (applies each)</label><input className="em-input" type="number" min="0" value={bulkForm.bonus} onChange={e => { setBulkForm(p => ({ ...p, bonus: e.target.value })); setBulkDirty(true); }} /></div>
-                  <div className="em-form-group"><label>Deduction (applies each)</label><input className="em-input" type="number" min="0" value={bulkForm.deduction} onChange={e => { setBulkForm(p => ({ ...p, deduction: e.target.value })); setBulkDirty(true); }} /></div>
-                  <div className="em-form-group em-form-group--full"><label>Notes</label><input className="em-input" value={bulkForm.notes} onChange={e => { setBulkForm(p => ({ ...p, notes: e.target.value })); setBulkDirty(true); }} /></div>
+        <input id="date-tugw48" name="payment_date" className="em-input" type="date" value={bulkForm.payment_date} onChange={e => { setBulkForm(p => ({ ...p, payment_date: e.target.value })); setBulkDirty(true); }} required /></div>
+                  <div className="em-form-group"><label>Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={bulkForm.payment_method} onChange={e => { setBulkForm(p => ({ ...p, payment_method: e.target.value })); setBulkDirty(true); }}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
+                  <div className="em-form-group"><label>Reference #</label><input name="reference_number" className="em-input" value={bulkForm.reference_number} onChange={e => { setBulkForm(p => ({ ...p, reference_number: e.target.value })); setBulkDirty(true); }} /></div>
+                  <div className="em-form-group"><label>Bonus (applies each)</label><input name="bonus" className="em-input" type="number" min="0" value={bulkForm.bonus} onChange={e => { setBulkForm(p => ({ ...p, bonus: e.target.value })); setBulkDirty(true); }} /></div>
+                  <div className="em-form-group"><label>Deduction (applies each)</label><input name="deduction" className="em-input" type="number" min="0" value={bulkForm.deduction} onChange={e => { setBulkForm(p => ({ ...p, deduction: e.target.value })); setBulkDirty(true); }} /></div>
+                  <div className="em-form-group em-form-group--full"><label>Notes</label><input name="notes" className="em-input" value={bulkForm.notes} onChange={e => { setBulkForm(p => ({ ...p, notes: e.target.value })); setBulkDirty(true); }} /></div>
                 </div>
               </div>
               <div className="em-modal__footer">

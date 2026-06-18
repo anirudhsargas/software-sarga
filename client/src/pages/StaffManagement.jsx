@@ -554,8 +554,10 @@ const StaffManagement = () => {
             {showAddModal && (
                 <div className="modal-backdrop">
                     <div className="modal">
-                        <button className="modal-close" onClick={() => setShowAddModal(false)}><X size={22} /></button>
-                        <h2 className="section-title mb-16">Add Staff Member</h2>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Add Staff Member</h2>
+                            <button className="modal-close modal-close--static" onClick={() => setShowAddModal(false)}><X size={22} /></button>
+                        </div>
                         <form onSubmit={handleAddStaff} className="stack-md">
                             <div>
                                 <label className="label">Staff Photo</label>
@@ -619,8 +621,10 @@ const StaffManagement = () => {
             {showEditModal && selectedStaff && (
                 <div className="modal-backdrop">
                     <div className="modal">
-                        <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={22} /></button>
-                        <h2 className="section-title mb-16">Edit Staff Member</h2>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Edit Staff Member</h2>
+                            <button className="modal-close modal-close--static" onClick={() => setShowEditModal(false)}><X size={22} /></button>
+                        </div>
                         <form onSubmit={handleUpdateStaff} className="stack-md">
                             <div>
                                 <label className="label">Staff Photo</label>
@@ -771,9 +775,11 @@ const StaffSettingsModal = ({ staff, onClose, onUpdate }) => {
     return (
         <div className="modal-backdrop">
             <div className="modal">
-                <button className="modal-close" onClick={onClose}><X size={22} /></button>
-                <h2 className="section-title mb-8">Settings: {staff.name}</h2>
-                <p className="section-subtitle mb-24">Configure permissions and preferences for this staff member.</p>
+                <div className="modal-header">
+                    <h2 className="modal-title">Settings: {staff.name}</h2>
+                    <button className="modal-close modal-close--static" onClick={onClose}><X size={22} /></button>
+                </div>
+                <p className="section-subtitle" style={{ margin: '0 24px 16px' }}>Configure permissions and preferences for this staff member.</p>
 
                 <div className="stack-md">
                     <div>

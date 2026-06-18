@@ -1487,7 +1487,7 @@ const ProductLibrary = () => {
                     {/* Vendor filter */}
                     {vendorOptions.length > 0 && (
                         <select
-                            className="input-field"
+                            className="input-field select-field"
                             style={{ flex: '0 1 180px', height: 36, minWidth: 140 }}
                             value={filterVendor}
                             aria-label="Filter by vendor"
@@ -1503,7 +1503,7 @@ const ProductLibrary = () => {
                     {/* Calculation type filter */}
                     {calcTypeOptions.length > 1 && (
                         <select
-                            className="input-field"
+                            className="input-field select-field"
                             style={{ flex: '0 1 160px', height: 36, minWidth: 130 }}
                             value={filterCalcType}
                             aria-label="Filter by calculation type"
@@ -1518,7 +1518,7 @@ const ProductLibrary = () => {
 
                     {/* Sort dropdown */}
                     <select
-                        className="input-field"
+                        className="input-field select-field"
                         style={{ flex: '0 1 160px', height: 36, minWidth: 130 }}
                         value={sortBy}
                         aria-label="Sort products"
@@ -1918,7 +1918,10 @@ const ProductLibrary = () => {
             {showCatModal && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '420px' }}>
-                        <h2 className="section-title mb-16">{isEditing ? 'Edit Category' : 'New Category'}</h2>
+                        <div className="modal-header">
+                            <h2 className="modal-title">{isEditing ? 'Edit Category' : 'New Category'}</h2>
+                            <button className="modal-close modal-close--static" onClick={() => { setShowCatModal(false); setCatImage(null); setCatImagePreview(''); setIsEditing(false); setEditId(null); setNewCatName(''); }}><X size={20} /></button>
+                        </div>
                         <form onSubmit={handleSaveCategory} className="stack-md">
                             <div>
                                 <label className="label">Category Name</label>
@@ -1962,7 +1965,10 @@ const ProductLibrary = () => {
             {showSubModal && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '420px' }}>
-                        <h2 className="section-title mb-16">{isEditing ? 'Edit Sub-category' : 'New Sub-category'}</h2>
+                        <div className="modal-header">
+                            <h2 className="modal-title">{isEditing ? 'Edit Sub-category' : 'New Sub-category'}</h2>
+                            <button className="modal-close modal-close--static" onClick={() => { setShowSubModal(false); setSubImage(null); setSubImagePreview(''); setIsEditing(false); setEditId(null); setNewSubName(''); }}><X size={20} /></button>
+                        </div>
                         <form onSubmit={handleSaveSubcategory} className="stack-md">
                             <div>
                                 <label className="label">Sub-category Name</label>
