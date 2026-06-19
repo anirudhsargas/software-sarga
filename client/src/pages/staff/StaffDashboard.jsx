@@ -4,7 +4,7 @@ import api from '../../services/api';
 import auth from '../../services/auth';
 import { useSEO } from '../../hooks/useSEO';
 import { CheckCircle, Clock, CalendarX, User, Activity } from 'lucide-react';
-import PageContainer from '../components/ui/PageContainer';
+import PageContainer from '../../components/ui/PageContainer';
 
 const StaffDashboard = () => {
     useSEO('Staff Portal - Overview');

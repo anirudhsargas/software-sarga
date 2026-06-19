@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../../services/api';
 import { useSEO } from '../../hooks/useSEO';
 import { CheckSquare, Clock, AlertTriangle, PlayCircle } from 'lucide-react';
-import PageContainer from '../components/ui/PageContainer';
+import PageContainer from '../../components/ui/PageContainer';
 
 const MyTasks = () => {
     useSEO('My Tasks');

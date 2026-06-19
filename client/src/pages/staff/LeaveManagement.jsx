@@ -5,7 +5,7 @@ import api from '../../services/api';
 import { useSEO } from '../../hooks/useSEO';
 import { CalendarDays, AlertCircle, Plus, X } from 'lucide-react';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import PageContainer from '../components/ui/PageContainer';
+import PageContainer from '../../components/ui/PageContainer';
 
 const LeaveManagement = () => {
     useSEO('Leave Management');
