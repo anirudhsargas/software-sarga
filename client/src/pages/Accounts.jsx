@@ -85,7 +85,7 @@ const Accounts = () => {
                 {tab === 'bills' && <BillsDocsTab branchId={branchId} />}
                 {tab === 'upload' && <UploadBillTab onUploaded={() => setTab('bills')} />}
             </div>
-        </div>
+        </PageContainer>
     );
 };
 
@@ -270,7 +270,7 @@ const GSTSummaryTab = ({ branchId }) => {
                     <div className="acc-liability-card__item">Input: <strong>{fmt(t.input_gst)}</strong></div>
                 </div>
             </div>
-        </PageContainer>
+        </div>
     );
 };
 

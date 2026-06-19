@@ -4,25 +4,25 @@
 
 :root {
   /* Spacing Scale (global-fixes overrides, uses shared vars from index.css) */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
+  --space-xs: var(--space-4, 4px);
+  --space-sm: var(--space-8, 8px);
+  --space-md: var(--space-16, 16px);
+  --space-lg: var(--space-24, 24px);
+  --space-xl: var(--space-32, 32px);
 
-  --page-padding: 24px;
-  --card-padding: 20px;
-  --section-gap: 24px;
-  --field-gap: 16px;
+  --page-padding: var(--space-24, 24px);
+  --card-padding: var(--space-24, 24px);
+  --section-gap: var(--space-24, 24px);
+  --field-gap: var(--space-16, 16px);
   --button-height: 44px;
   --input-height: 44px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 10px;  /* Inputs, small elements */
+  --radius-md: 16px;  /* Cards */
+  --radius-lg: 20px;  /* Modals */
   --focus-ring-color: 59, 130, 246;
   --focus-ring: 0 0 0 3px rgba(var(--focus-ring-color), 0.35);
-  --skeleton-base: #e8e8e8;
-  --skeleton-shimmer: #d0d0d0;
+  --skeleton-base: var(--surface-2);
+  --skeleton-shimmer: var(--surface);
 }
 
 .dark {

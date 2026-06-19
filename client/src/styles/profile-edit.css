@@ -280,6 +280,11 @@
   transform: translateX(20px);
 }
 
+.toggle-switch input:focus-visible + .toggle-slider {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 /* Profile Footer */
 .profile-footer {
   display: flex;
