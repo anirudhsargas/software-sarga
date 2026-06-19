@@ -9,6 +9,7 @@ import OrderForecastWidget from '../components/OrderForecastWidget';
 
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 
@@ -105,17 +106,17 @@ const Summary = () => {
 
   if (loading && !statsToday && !statsOverall) {
     return (
-      <div className="summary-page">
+    <PageContainer>
         <div className="summary-loading">
           <Loader2 size={24} className="animate-spin" />
           <span>Loading dashboard...</span>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="summary-page">
+    <PageContainer>
       <div className="summary-topbar">
         <h1 className="summary-topbar__title">Business Summary</h1>
         <div className="summary-topbar__right">
@@ -287,7 +288,7 @@ const Summary = () => {
           <OrderPredictions />
         </Suspense>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

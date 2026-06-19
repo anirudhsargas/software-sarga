@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import SkeletonLoader from '../../components/SkeletonLoader';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import ChatWidget from '../../components/chatbot/ChatWidget';
+import PageContainer from '../../components/ui/PageContainer';
 
 const INTENTS = [
   'order_status','price_enquiry','delivery_query','reorder','complaint','payment_query','branch_info','general_greeting','other'
@@ -171,7 +172,7 @@ const ChatbotTraining = () => {
   }, [fetchIntentDistribution, fetchTrainingExamples, trainingPage, trainingLimit, trainingQuery]);
 
   return (
-    <div className="page-header">
+    <PageContainer>
       <div className="page-actions">
         <div className="tabs">
           <button className={`btn ${tab==='dashboard'?'btn-primary':''}`} onClick={() => setTab('dashboard')}>Dashboard</button>
@@ -301,7 +302,7 @@ const ChatbotTraining = () => {
 
       {/* Floating chat widget for admin */}
       <ChatWidget />
-    </div>
+    </PageContainer>
   );
 };
 

@@ -4,6 +4,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import { X, Check, Eye, Loader2, Search, Save, Send, History, ArrowRight, Clock, AlertTriangle, FileText } from 'lucide-react';
 import { useConfirm } from '../contexts/ConfirmContext';
+import PageContainer from '../components/ui/PageContainer';
 
 const STATUS_CONFIG = {
     Draft: { color: 'var(--text-muted)', bg: 'var(--surface-2)', label: 'Draft' },
@@ -169,7 +170,7 @@ const ProductRequests = () => {
     const [filterStatus, setFilterStatus] = useState('all');
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             {/* Header */}
             <div className="row space-between items-center flex-wrap gap-md mb-16">
                 <div>
@@ -506,7 +507,7 @@ const ProductRequests = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

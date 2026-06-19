@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import localDb from '../../services/localDb';
 import { fmt, fmtDate, thisMonth } from './constants';
+import PageContainer from '../components/ui/PageContainer';
 
 const DashboardTab = ({ branches, onPayment }) => {
   const [loading, setLoading] = useState(false);
@@ -77,7 +78,7 @@ const DashboardTab = ({ branches, onPayment }) => {
   const paymentTotal = cashTotal + upiTotal + bankTotal + otherTotal || 1;
 
   return (
-    <div className="em-section">
+    <PageContainer>
       {/* Filters */}
       <div className="em-filter-row">
         <label htmlFor="dash-month" className="em-filter-label">Month:</label>
@@ -357,7 +358,7 @@ const DashboardTab = ({ branches, onPayment }) => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

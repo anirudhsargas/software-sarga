@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { useSEO } from '../../hooks/useSEO';
 import { BookOpen, Plus, X, Search } from 'lucide-react';
+import PageContainer from '../../components/ui/PageContainer';
 
 const BlockJournal = () => {
     useSEO('Block Journal');
@@ -56,7 +57,7 @@ const BlockJournal = () => {
     ) || [];
 
     return (
-        <div className="container-lg">
+        <PageContainer>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                     <h1 className="section-title">Block Journal</h1>
@@ -223,7 +224,7 @@ const BlockJournal = () => {
                     </table>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

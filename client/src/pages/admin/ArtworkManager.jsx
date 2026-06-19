@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { Search, ExternalLink, RefreshCw, Loader2, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
+import PageContainer from '../../components/ui/PageContainer';
 
 const STATUSES = [
   { value: 'uploaded', label: 'Uploaded', color: 'var(--primary)' },
@@ -115,7 +116,7 @@ function ArtworkManager() {
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading artwork uploads...</div>;
 
   return (
-    <div style={{ padding: '1.5rem' }}>
+    <PageContainer>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
         <h2 style={{ margin: 0 }}>Artwork Uploads</h2>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -294,7 +295,7 @@ function ArtworkManager() {
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }
 

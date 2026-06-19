@@ -7,6 +7,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import PageContainer from '../components/ui/PageContainer';
 
 const PaperTransfer = () => {
     useSEO('Paper Transfer');
@@ -76,7 +77,7 @@ const PaperTransfer = () => {
     const isInsufficient = requestedSheets > availableSheets;
 
     return (
-        <div className="stack-lg p-md" style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <PageContainer>
             {/* Header */}
             <div className="row items-center gap-md">
                 <button className="btn btn-ghost p-sm" onClick={() => navigate(-1)}>
@@ -219,7 +220,7 @@ const PaperTransfer = () => {
                     </div>
                 </div>
             </form>
-        </div>
+        </PageContainer>
     );
 };
 

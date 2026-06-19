@@ -4,6 +4,7 @@ import api from '../../services/api';
 import auth from '../../services/auth';
 import { useSEO } from '../../hooks/useSEO';
 import { CheckCircle, Clock, CalendarX, User, Activity } from 'lucide-react';
+import PageContainer from '../components/ui/PageContainer';
 
 const StaffDashboard = () => {
     useSEO('Staff Portal - Overview');
@@ -36,7 +37,7 @@ const StaffDashboard = () => {
     const pendingTasks = tasks?.filter(t => t.status !== 'Completed') || [];
 
     return (
-        <div className="container-lg">
+        <PageContainer>
             <h1 className="section-title">Welcome back, {user?.name || 'Staff Member'}</h1>
             <p className="section-subtitle mb-20">Here is your current performance overview.</p>
 
@@ -150,7 +151,7 @@ const StaffDashboard = () => {
                     )}
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

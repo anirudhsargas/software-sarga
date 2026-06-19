@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { Upload, FileCheck, AlertTriangle, CheckCircle2, XCircle, Loader2, Image, Eye, Clock } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import PageContainer from '../components/ui/PageContainer';
 
 const SEV_STYLE = {
     error: { bg: 'var(--destructive)', border: 'var(--destructive)', color: 'var(--error)', icon: XCircle },
@@ -54,7 +55,7 @@ const DesignChecker = () => {
     const warnings = issues.filter(i => i.severity === 'warning').length;
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             <div className="page-header">
                 <div>
                     <h1 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -195,7 +196,7 @@ const DesignChecker = () => {
                     .ai-grid--sidebar-lg { grid-template-columns: 1fr !important; }
                 }
             `}</style>
-        </div>
+        </PageContainer>
     );
 };
 

@@ -3,6 +3,7 @@ import { Mail, Search, Filter, BookOpen, ExternalLink, Calendar, User, Save, Ref
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import './BlogCMS.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const CATEGORIES = [
   'Wedding Card Guides',
@@ -233,7 +234,7 @@ const BlogCMS = () => {
   }), [posts, searchTerm, filterStatus]);
 
   return (
-    <div className="blog-cms-container">
+    <PageContainer>
       <div className="page-header">
         <div className="row gap-md items-center">
           <div className="header-icon-wrapper">
@@ -619,7 +620,7 @@ const BlogCMS = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

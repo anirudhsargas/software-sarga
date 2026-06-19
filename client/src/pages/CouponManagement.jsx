@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { Tag, Plus, X, Trash2, ToggleLeft, ToggleRight, Loader2, Edit3, CheckCircle, Clock, Infinity as InfinityIcon } from 'lucide-react';
+import PageContainer from '../components/ui/PageContainer';
 
 const usageTypeLabels = { one_time: 'One-Time', limited: 'Limited', unlimited: 'Unlimited' };
 
@@ -116,7 +117,7 @@ const CouponManagement = () => {
   const isExhausted = (c) => c.max_uses !== null && c.used_count >= c.max_uses;
 
   return (
-    <div className="stack-lg" style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
+    <PageContainer>
       {/* Header */}
       <div className="row space-between items-center" style={{ flexWrap: 'wrap', gap: '12px' }}>
         <div className="row gap-sm items-center">
@@ -342,7 +343,7 @@ const CouponManagement = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

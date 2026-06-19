@@ -13,6 +13,7 @@ const Billing = React.lazy(() => import('./Billing'));
 // pdfUtils loaded lazily in handlePrint/handleDownload
 import { formatCurrency } from '../constants';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
+import PageContainer from '../components/ui/PageContainer';
 
 const statusColors = {
   draft: 'var(--text-muted)',
@@ -292,7 +293,7 @@ const Invoices = () => {
 
   return (
     <SectionErrorBoundary name="InvoicesPage">
-    <div className="stack-lg fade-in">
+    <PageContainer className="fade-in">
       {viewMode === 'create' ? (
         <div className="stack-md">
           <div className="flex-center-y justify-between">
@@ -301,13 +302,11 @@ const Invoices = () => {
             </button>
             <h2>{t('create_invoice', 'New Customer Invoice')}</h2>
           </div>
-          <div className="panel" style={{ padding: 0 }}>
-            <React.Suspense fallback={<div className="p-20 text-center"><Loader2 className="animate-spin" size={20} /> Loading billing…</div>}>
+          <React.Suspense fallback={<div className="p-20 text-center"><Loader2 className="animate-spin" size={20} /> Loading billing…</div>}>
               <SectionErrorBoundary name="BillingForm" title="Failed to load billing form" message="The billing form encountered an error. Please try again.">
                 <Billing />
               </SectionErrorBoundary>
             </React.Suspense>
-          </div>
         </div>
       ) : (
         <>
@@ -689,7 +688,7 @@ const Invoices = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
     </SectionErrorBoundary>
   );
 };

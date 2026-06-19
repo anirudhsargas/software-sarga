@@ -1,4 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
+import PageContainer from '../components/ui/PageContainer';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, TrendingUp, TrendingDown, Minus, Sun, CloudRain, RefreshCw, BarChart3 } from 'lucide-react';
 import api from '../services/api';
@@ -78,7 +79,7 @@ export default function Reports() {
     }
 
     return (
-        <div style={{ padding: '0 0 24px', maxWidth: 900, margin: '0 auto' }}>
+        <PageContainer>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                 <Calendar size={22} color="var(--primary)" />
@@ -290,7 +291,7 @@ export default function Reports() {
                     )}
                 </>
             )}
-        </div>
+        </PageContainer>
     );
 }
 

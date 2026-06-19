@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { FileText, Plus, Edit2, Trash2, Send, ArrowRight, Search, X, Loader2, UserSquare, Package, Clock, Camera } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import PageContainer from '../components/ui/PageContainer';
 
 const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 
@@ -372,7 +373,7 @@ export default function Quotes() {
     }, [fetchQuotes]);
 
     return (
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        <PageContainer>
             <style>{`
                 .quote-item-card {
                     display: grid !important;
@@ -752,6 +753,6 @@ export default function Quotes() {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 }

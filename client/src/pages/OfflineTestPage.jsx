@@ -4,6 +4,7 @@ import { RefreshCw, Download, CheckCircle2, AlertCircle, Clock } from 'lucide-re
 import { runAllOfflineTests } from '../tests/offlineTest';
 import toast from 'react-hot-toast';
 import './OfflineTestPage.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const OfflineTestPage = () => {
     useSEO('Offline Test Page');
@@ -59,7 +60,7 @@ const OfflineTestPage = () => {
 
   if (testResults?.error) {
     return (
-      <div className="otp-page">
+      <PageContainer>
         <div className="otp-header">
           <h1>Offline Functionality Tests</h1>
           <p>Comprehensive test suite for offline features</p>
@@ -73,12 +74,12 @@ const OfflineTestPage = () => {
             Retry Tests
           </button>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="otp-page">
+    <PageContainer>
       {/* Header */}
       <div className="otp-header">
         <div>
@@ -214,7 +215,7 @@ const OfflineTestPage = () => {
           </div>
         </>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

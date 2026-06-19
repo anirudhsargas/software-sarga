@@ -13,6 +13,7 @@ import { toast } from 'react-hot-toast';
 import { Plus, TrendingUp, List } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import './Vendors.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const Vendors = () => {
     useSEO('Vendors');
@@ -113,7 +114,7 @@ const Vendors = () => {
   };
 
   return (
-    <div className="page-container">
+    <PageContainer>
       {/* Header section with glassmorphism */}
       <div className="vendor-header">
         <div className="vendor-header__title">
@@ -219,7 +220,7 @@ const Vendors = () => {
         />
       )}
 
-    </div>
+    </PageContainer>
   );
 };
 

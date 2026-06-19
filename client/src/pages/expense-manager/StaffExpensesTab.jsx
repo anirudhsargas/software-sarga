@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, thisMonth } from './constants';
+import PageContainer from '../components/ui/PageContainer';
 
 const DEFAULT_PAY_FORM = { amount: '', payment_date: today(), payment_method: 'Cash', reference_number: '', notes: '', bonus: '0', deduction: '0' };
 const DEFAULT_BULK_FORM = { payment_method: 'Cash', payment_date: today(), reference_number: '', notes: '', bonus: '0', deduction: '0' };
@@ -253,7 +254,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
 
   /* ── Staff List ── */
   return (
-    <div className="em-section">
+    <PageContainer>
       <div className="em-section-title"><Users size={18} /> Staff Expenses & Salary</div>
 
       {staffList.length > 0 && (
@@ -369,7 +370,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

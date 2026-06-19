@@ -13,6 +13,7 @@ import auth from '../services/auth';
 import { useConfirm } from '../contexts/ConfirmContext';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 const PaperManagement = () => {
     useSEO('Paper Management');
 
@@ -151,7 +152,7 @@ const PaperManagement = () => {
     const sizeOptions = ['A4', 'A3', 'SRA3', '12x18', '13x19', 'Legal', 'Custom'];
 
     return (
-        <div className="stack-lg p-md">
+        <PageContainer>
             <div className="panel stack-md">
                 <h1 className="section-title">`PaperManagement` — Deprecated</h1>
                 <p className="section-subtitle">This page is a legacy duplicate. Use the new Paper Inventory pages instead.</p>
@@ -501,7 +502,7 @@ const PaperManagement = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

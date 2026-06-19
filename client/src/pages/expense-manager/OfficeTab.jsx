@@ -3,6 +3,7 @@ import { Briefcase, Plus, Edit2, Trash2, Download, IndianRupee, Receipt, X, Chec
 import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, OFFICE_EXPENSE_TYPES } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import PageContainer from '../components/ui/PageContainer';
 
 const defaultForm = { expense_type: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '' };
 const PAGE_SIZE = 50;
@@ -124,7 +125,7 @@ const OfficeTab = ({ onError }) => {
 
 
   return (
-    <div className="em-section">
+    <PageContainer>
       <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
         <div className="em-section-title"><Briefcase size={18} /> Office & Admin Expenses</div>
         <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setForm(defaultForm); setFormDirty(false); setShowForm(true); }}><Plus size={15} /> Add Expense</button>
@@ -226,7 +227,7 @@ const OfficeTab = ({ onError }) => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

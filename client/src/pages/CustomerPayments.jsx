@@ -19,6 +19,7 @@ import { GST_RATE } from '../constants';
 import { useOnlineStatus } from '../hooks/useOffline';
 import { formatForDisplay } from '../utils/phone';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
+import PageContainer from '../components/ui/PageContainer';
 
 const ReceiptModal = React.lazy(() => import('../components/ReceiptModal'));
 
@@ -747,7 +748,7 @@ const CustomerPayments = () => {
   };
 
   const LoadingSkeleton = () => (
-    <div className="cp-page" style={{ padding: '24px' }}>
+    <PageContainer>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <div style={{ width: 200, height: 26, borderRadius: 6, background: 'var(--surface-2)' }} />
@@ -780,20 +781,20 @@ const CustomerPayments = () => {
           </div>
         ))}
       </div>
-    </div>
+    </PageContainer>
   );
 
   if (pageError && !loading) {
     return (
       <SectionErrorBoundary name="CustomerPaymentsPage">
-        <div className="cp-page" style={{ padding: '40px 24px', textAlign: 'center' }}>
+        <PageContainer style={{ padding: '40px 24px', textAlign: 'center' }}>
           <AlertTriangle size={40} style={{ opacity: 0.4, marginBottom: 12 }} />
           <h3>{pageError}</h3>
           <p className="muted" style={{ marginTop: 8, marginBottom: 16 }}>Please check your connection and try again.</p>
           <button className="btn btn-primary" onClick={() => { setPageError(null); fetchPayments(1); }}>
             <RefreshCw size={16} /> Retry
           </button>
-        </div>
+        </PageContainer>
       </SectionErrorBoundary>
     );
   }
@@ -804,7 +805,7 @@ const CustomerPayments = () => {
 
   return (
     <SectionErrorBoundary name="CustomerPaymentsPage">
-    <div className="cp-page">
+    <PageContainer>
       {/* ── HEADER ── */}
       <div className="cp-header">
         <div className="cp-header-left">
@@ -1638,7 +1639,7 @@ const CustomerPayments = () => {
           />
         </SectionErrorBoundary>
       </React.Suspense>
-    </div>
+    </PageContainer>
     </SectionErrorBoundary>
   );
 };

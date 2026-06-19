@@ -21,6 +21,10 @@ export const calculateProductPrice = ({
   let unit_price = 0;
   let total = 0;
 
+  // For Slab type: track the effective slab so the double-side add-on uses
+  // the correct row instead of always falling back to slabs[0].
+  let slabForDS = null;
+
   const resolveUnitRate = (slab) => {
     if (!slab) return 0;
     if (isDoubleSide && slab.double_side_unit_rate !== undefined && slab.double_side_unit_rate !== null) {
@@ -41,17 +45,22 @@ export const calculateProductPrice = ({
     const slabs = product.slabs || [];
     if (slabs.length > 0) {
       const sortedSlabs = [...slabs].sort((a, b) => a.min_qty - b.min_qty);
+      slabForDS = sortedSlabs[0]; // default to first; overridden below
+
       const exactMatch = sortedSlabs.find((s) => Number(s.min_qty) === qty);
       if (exactMatch) {
         total = Number(exactMatch.base_value);
+        slabForDS = exactMatch;
       } else if (qty < sortedSlabs[0].min_qty) {
         total = Number(sortedSlabs[0].base_value);
+        slabForDS = sortedSlabs[0];
       } else if (qty > sortedSlabs[sortedSlabs.length - 1].min_qty) {
         const lastSlab = sortedSlabs[sortedSlabs.length - 1];
-        const lastMin = Number(lastSlab.min_qty) || 0;
-        const lastBase = Number(lastSlab.base_value) || 0;
-        const lastUnit = lastMin > 0 ? lastBase / lastMin : 0;
+        // Use the slab's unit_rate directly for quantities beyond the last slab.
+        // Deriving from base_value/min_qty was wrong when qty >> min_qty.
+        const lastUnit = Number(lastSlab.unit_rate) || 0;
         total = lastUnit * qty;
+        slabForDS = lastSlab;
       } else {
         for (let i = 0; i < sortedSlabs.length - 1; i++) {
           const s1 = sortedSlabs[i];
@@ -59,6 +68,7 @@ export const calculateProductPrice = ({
           if (qty > s1.min_qty && qty < s2.min_qty) {
             const ratio = (qty - s1.min_qty) / (s2.min_qty - s1.min_qty);
             total = Number(s1.base_value) + ratio * (s2.base_value - s1.base_value);
+            slabForDS = s1; // use the lower bound slab for add-on rates
             break;
           }
         }
@@ -106,8 +116,9 @@ export const calculateProductPrice = ({
     unit_price = qty > 0 ? total / qty : 0;
   }
 
+  // Bug 1 fix: use the effective slab's double_side_unit_rate instead of slabs[0]
   if (product.calculation_type === 'Slab' && product.has_double_side_rate && isDoubleSide) {
-    const doubleSideRate = Number(product.slabs?.[0]?.double_side_unit_rate) || 0;
+    const doubleSideRate = Number(slabForDS?.double_side_unit_rate) || 0;
     if (doubleSideRate > 0) {
       total += doubleSideRate * qty;
       unit_price = qty > 0 ? total / qty : 0;

@@ -5,6 +5,7 @@ import { Lock, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
 import { useConfirm } from '../contexts/ConfirmContext';
+import PageContainer from '../components/ui/PageContainer';
 
 const ChangePassword = () => {
     useSEO('Change Password');
@@ -81,18 +82,18 @@ const ChangePassword = () => {
 
     if (success) {
         return (
-            <div className="auth-shell">
+        <PageContainer>
                 <div className="panel text-center container-sm">
                     <CheckCircle2 className="icon-success" size={64} />
                     <h2 className="section-title">Password Changed!</h2>
                     <p className="section-subtitle">Logging you out to refresh your session...</p>
                 </div>
-            </div>
+            </PageContainer>
         );
     }
 
     return (
-        <div className="auth-shell">
+        <PageContainer>
             <div className="auth-card">
                 <h1 className="section-title text-center">Change Password</h1>
                 <p className="section-subtitle text-center mb-20">
@@ -207,7 +208,7 @@ const ChangePassword = () => {
                     </button>
                 </form>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

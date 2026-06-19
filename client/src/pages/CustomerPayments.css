@@ -2,16 +2,6 @@
    CustomerPayments — Sarga Design System
    ═══════════════════════════════════════════════════════════ */
 
-/* ── PAGE WRAPPER ── */
-.cp-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 4px;
-}
-
 /* ── HEADER ── */
 .cp-header {
   display: flex;

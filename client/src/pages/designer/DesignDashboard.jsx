@@ -10,6 +10,7 @@ import api from '../../services/api';
 import { useSEO } from '../../hooks/useSEO';
 import auth from '../../services/auth';
 import '../../styles/designer-dashboard.css';
+import PageContainer from '../../components/ui/PageContainer';
 
 /* ── helpers ── */
 const now = new Date();
@@ -45,7 +46,7 @@ function getPriorityClass(p) {
 /* ── Skeleton ── */
 function DashboardSkeleton() {
   return (
-    <div className="designer-page">
+    <PageContainer className="designer-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div className="skeleton-block" style={{ width: 260, height: 28, borderRadius: 8, marginBottom: 8 }} />
@@ -64,7 +65,7 @@ function DashboardSkeleton() {
           </div>
         ))}
       </div>
-    </div>
+    </PageContainer>
   );
 }
 
@@ -147,7 +148,7 @@ const DesignDashboard = () => {
   if (bookingsLoading) return <DashboardSkeleton />;
 
   return (
-    <div className="designer-page">
+    <PageContainer>
 
       {/* ── Header ── */}
       <div className="designer-page-header">
@@ -531,7 +532,7 @@ const DesignDashboard = () => {
         </div>
       </div>
 
-    </div>
+    </PageContainer>
   );
 };
 

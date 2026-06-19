@@ -6,6 +6,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import { Save, CheckCircle, Search, Calendar, FileText, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './StockVerification.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const StockVerification = () => {
     useSEO('Stock Verification');
@@ -126,7 +127,7 @@ const StockVerification = () => {
     const isCompleted = verification?.status === 'Completed';
 
     return (
-        <div className="section sv-container">
+        <PageContainer>
             {/* ── Page Header ── */}
             <div className="sv-header">
                 <div>
@@ -342,7 +343,7 @@ const StockVerification = () => {
                     )}
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

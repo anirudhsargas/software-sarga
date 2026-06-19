@@ -5,6 +5,7 @@ import {
     Grid, ZoomIn, ZoomOut, Settings, FileDown
 } from 'lucide-react';
 import './AlbumDesigner.css';
+import PageContainer from '../../components/ui/PageContainer';
 
 const AlbumDesigner = () => {
     const [pages, setPages] = useState([
@@ -90,7 +91,7 @@ const AlbumDesigner = () => {
     const currentPageData = pages.find(p => p.id === currentPage) || pages[0];
 
     return (
-        <div className="albm-layout">
+        <PageContainer>
             <header className="albm-header">
                 <div className="albm-header-left">
                     <button className="dse-tb-btn" onClick={() => window.history.back()}><ArrowLeft size={18} /></button>
@@ -233,7 +234,7 @@ const AlbumDesigner = () => {
                     </div>
                 </aside>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

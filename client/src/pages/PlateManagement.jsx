@@ -5,6 +5,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import { optimizePlateLayout, findBestPlateSize, getFittingItems, MATERIAL_TYPES } from '../utils/nestingOptimizer';
 import { PAPER_SIZES } from '../utils/paperOptimizer';
+import PageContainer from '../components/ui/PageContainer';
 
 const DUMMY_SLOTS_A5_CAPACITY = 8;
 const SLOT_SIZES = {
@@ -196,7 +197,7 @@ const PlateManagement = () => {
     }, [search, jobs]);
 
     return (
-        <div className="page-container fade-in">
+        <PageContainer>
             <div className="page-header">
                 <div className="flex-1">
                     <h1 className="page-title"><Layers className="icon-lg text-primary" /> Plate Management (Ganging)</h1>
@@ -660,7 +661,7 @@ const PlateManagement = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

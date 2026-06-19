@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import './StockTransfer.css';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 const StockTransfer = () => {
     useSEO('Stock Transfer');
 
@@ -205,7 +206,7 @@ const StockTransfer = () => {
     };
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             <div className="stock-hub-header">
                 <div className="stock-hub-header__content">
                     <h1><Package size={32} /> Stock Hub</h1>
@@ -497,7 +498,7 @@ const StockTransfer = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

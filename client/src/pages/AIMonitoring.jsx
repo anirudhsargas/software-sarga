@@ -6,6 +6,7 @@ import {
     CheckCircle2, XCircle, Eye, RefreshCw, ChevronRight, Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import PageContainer from '../components/ui/PageContainer';
 
 const SEVERITY_STYLE = {
     HIGH: { bg: 'var(--destructive)', border: 'var(--destructive)', color: 'var(--error)', label: 'High' },
@@ -67,7 +68,7 @@ const AIMonitoring = () => {
     const riskyStaff = dashboard?.risky_staff || [];
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             {/* Header */}
             <div className="page-header">
                 <div>
@@ -238,7 +239,7 @@ const AIMonitoring = () => {
                     .ai-grid--sidebar { grid-template-columns: 1fr !important; }
                 }
             `}</style>
-        </div>
+        </PageContainer>
     );
 };
 

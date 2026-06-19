@@ -4,6 +4,7 @@ import {
     CheckCircle, AlertCircle, Edit3, RefreshCw
 } from 'lucide-react';
 import './InvitationScanner.css';
+import PageContainer from '../../components/ui/PageContainer';
 
 const InvitationScanner = () => {
     const [step, setStep] = useState('input');
@@ -35,7 +36,7 @@ const InvitationScanner = () => {
     };
 
     return (
-        <div className="isc-layout">
+        <PageContainer>
             <header className="isc-header">
                 <div className="isc-header-left">
                     <button className="dse-tb-btn" onClick={() => window.history.back()}><ArrowLeft size={18} /></button>
@@ -159,7 +160,7 @@ const InvitationScanner = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

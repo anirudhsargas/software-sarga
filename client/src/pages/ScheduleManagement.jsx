@@ -4,6 +4,7 @@ import { Clock, Calendar, AlertTriangle, Timer, Plus, Check, X, ChevronDown, Use
 import api from '../services/api';
 import auth from '../services/auth';
 import { serverThisMonth } from '../services/serverTime';
+import PageContainer from '../components/ui/PageContainer';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -226,7 +227,7 @@ const ScheduleManagement = () => {
     const badgeStyle = (bg, color) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 4, background: bg, color, fontSize: 11, fontWeight: 600 });
 
     return (
-        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+        <PageContainer>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
                 <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Schedule & Time Tracking</h1>
             </div>
@@ -632,7 +633,7 @@ const ScheduleManagement = () => {
                     )}
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

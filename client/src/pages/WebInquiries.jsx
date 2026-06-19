@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import usePolling from '../hooks/usePolling';
 import '../styles/WebInquiries.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const WebInquiries = React.memo(() => {
     const inquiriesRef = useRef([]);
@@ -93,7 +94,7 @@ const WebInquiries = React.memo(() => {
     }, []);
 
     return (
-        <div className="web-inquiries-container">
+        <PageContainer>
             <div className="page-header">
                 <div className="row gap-md items-center">
                     <div className="header-icon-wrapper">
@@ -279,7 +280,7 @@ const WebInquiries = React.memo(() => {
                     )}
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 });
 

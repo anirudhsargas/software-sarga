@@ -30,6 +30,7 @@ import ReportsTab from './expense-manager/ReportsTab';
 import OfficeTab from './expense-manager/OfficeTab';
 import PaymentModal from './expense-manager/PaymentModal';
 import { defaultPayForm } from './expense-manager/paymentDefaults';
+import PageContainer from '../components/ui/PageContainer';
 
 /* ══════════ Tab definitions ══════════ */
 const tabs = [
@@ -213,7 +214,7 @@ const ExpenseManager = () => {
 
   /* ══════════ RENDER ══════════ */
   return (
-    <div className="em-page">
+    <PageContainer>
       {/* Header */}
       <div className="em-header">
         <div className="em-header__left">
@@ -477,7 +478,7 @@ const ExpenseManager = () => {
       )}
 
 
-    </div>
+    </PageContainer>
   );
 };
 

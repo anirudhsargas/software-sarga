@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import './AccountantDashboard.css';
+import PageContainer from '../../components/ui/PageContainer';
 
 /* ─── Helpers ─── */
 const fmtCur = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
@@ -98,7 +99,7 @@ export default function AccountantDashboard() {
   }
 
   return (
-    <div className="acc-dash-container">
+    <PageContainer>
       {/* ─── Header ─── */}
       <header className="acc-dash-header">
         <div>
@@ -340,6 +341,6 @@ export default function AccountantDashboard() {
           </div>
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

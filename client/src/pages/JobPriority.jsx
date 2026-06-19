@@ -7,6 +7,7 @@ import {
     TrendingUp, BarChart3, CheckCircle2, XCircle
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import PageContainer from '../components/ui/PageContainer';
 
 const URGENCY_CONFIG = {
     critical: { label: 'Critical', color: 'var(--error)', bg: 'var(--destructive)', border: 'var(--destructive)', icon: '🔴' },
@@ -405,7 +406,7 @@ const JobPriority = () => {
     }
 
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <PageContainer>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
                 <div>
@@ -563,7 +564,7 @@ const JobPriority = () => {
                     <div style={{ fontSize: '13px', color: 'var(--muted)' }}>No active jobs in the queue right now.</div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

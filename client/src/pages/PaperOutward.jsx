@@ -9,6 +9,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 const PaperOutward = () => {
     useSEO('Paper Outward');
 
@@ -85,7 +86,7 @@ const PaperOutward = () => {
     const isInsufficient = requestedSheets > availableSheets;
 
     return (
-        <div className="stack-lg p-md" style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <PageContainer>
             {/* Header */}
             <div className="row items-center gap-md">
                 <button className="btn btn-ghost p-sm" onClick={() => navigate(-1)}>
@@ -241,7 +242,7 @@ const PaperOutward = () => {
                     </div>
                 </div>
             </form>
-        </div>
+        </PageContainer>
     );
 };
 

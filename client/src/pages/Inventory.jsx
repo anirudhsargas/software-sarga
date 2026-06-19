@@ -17,6 +17,7 @@ import './InventoryModern.css';
 
 const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 import ScannerErrorBoundary from '../components/ScannerErrorBoundary';
+import PageContainer from '../components/ui/PageContainer';
 
 const emptyItem = {
     name: '',
@@ -776,7 +777,7 @@ const Inventory = () => {
     };
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
 
             {/* ─── Header ─── */}
             <div className="inv-header">
@@ -2527,7 +2528,7 @@ const Inventory = () => {
                     </Suspense>
                 </ScannerErrorBoundary>
             </div>
-        </div >
+        </PageContainer>
     );
 };
 

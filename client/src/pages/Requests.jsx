@@ -6,6 +6,7 @@ import api from '../services/api';
 import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
+import PageContainer from '../components/ui/PageContainer';
 
 const Requests = () => {
     useSEO('Requests');
@@ -239,7 +240,7 @@ const Requests = () => {
     }
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             <div>
                 <h1 className="section-title">Requests</h1>
                 <p className="section-subtitle">
@@ -566,7 +567,7 @@ const Requests = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

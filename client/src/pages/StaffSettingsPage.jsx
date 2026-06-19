@@ -6,6 +6,7 @@ import useAuth from '../hooks/useAuth';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import AppearanceSettings from '../components/AppearanceSettings';
+import PageContainer from '../components/ui/PageContainer';
 
 const staffTabs = [
     { key: 'profile', label: 'Profile', icon: UserSquare, desc: 'Your staff profile' },
@@ -88,7 +89,7 @@ export default function StaffSettingsPage() {
     const [activeTab, setActiveTab] = useState('profile');
 
     return (
-        <div className="sp-container">
+        <PageContainer>
             <div className="sp-sidebar">
                 <div className="sp-sidebar-header">
                     <div className="sp-icon-box">
@@ -125,6 +126,6 @@ export default function StaffSettingsPage() {
                     {activeTab === 'sidebar' && <SidebarVisibilitySettings />}
                 </div>
             </main>
-        </div>
+        </PageContainer>
     );
 }

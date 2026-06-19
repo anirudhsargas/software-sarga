@@ -7,6 +7,7 @@ import {
 import api from '../../services/api';
 import { useSEO } from '../../hooks/useSEO';
 import '../../styles/designer-dashboard.css';
+import PageContainer from '../../components/ui/PageContainer';
 
 /* ── Helpers ── */
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -145,7 +146,7 @@ const DesignAnalytics = () => {
   /* ── Skeleton ── */
   if (isLoading) {
     return (
-      <div className="analytics-page">
+    <PageContainer className="analytics-page">
         <div className="analytics-grid">
           {[1,2,3,4].map(i => (
             <div key={i} className="skeleton-card">
@@ -155,12 +156,12 @@ const DesignAnalytics = () => {
             </div>
           ))}
         </div>
-      </div>
+    </PageContainer>
     );
   }
 
   return (
-    <div className="analytics-page">
+    <PageContainer className="analytics-page">
 
       {/* ── Header ── */}
       <div className="designer-page-header">
@@ -284,7 +285,7 @@ const DesignAnalytics = () => {
         </div>
       </div>
 
-    </div>
+    </PageContainer>
   );
 };
 

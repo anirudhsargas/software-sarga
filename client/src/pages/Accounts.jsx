@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import './Accounts.css';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 const TABS = [
     { key: 'gst', label: 'GST Summary', icon: PieChart },
     { key: 'sales', label: 'Sales Register', icon: TrendingUp },
@@ -38,7 +39,7 @@ const Accounts = () => {
     }, []);
 
     return (
-        <div className="page-container">
+        <PageContainer>
             <div className="acc-header">
                 <div className="acc-header__left">
                     <div className="acc-header__icon">
@@ -1242,7 +1243,7 @@ const UploadBillTab = ({ onUploaded }) => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

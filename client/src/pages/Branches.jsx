@@ -6,6 +6,7 @@ import api from '../services/api';
 import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
+import PageContainer from '../components/ui/PageContainer';
 
 const Branches = () => {
     useSEO('Branches');
@@ -90,7 +91,7 @@ const Branches = () => {
     };
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             <div className="page-header">
                 <div>
                     <h1 className="section-title">Branches Management</h1>
@@ -296,7 +297,7 @@ const Branches = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

@@ -22,6 +22,7 @@ import api, { devFallback } from '../services/api';
 import toast from 'react-hot-toast';
 import auth from '../services/auth';
 import './InventoryModern.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const CATEGORY_TABS = [
     { label: 'All', value: 'all' },
@@ -259,7 +260,7 @@ const ConsumablesManagement = () => {
     };
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             {/* ─── Header ─── */}
             <div className="inv-header">
                 <div className="inv-header-left">
@@ -647,7 +648,7 @@ const ConsumablesManagement = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

@@ -7,6 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import PageContainer from '../components/ui/PageContainer';
 
 const PaperAlerts = () => {
     useSEO('Paper Alerts');
@@ -39,7 +40,7 @@ const PaperAlerts = () => {
     }, []);
 
     return (
-        <div className="stack-lg p-md">
+        <PageContainer>
             {/* Header */}
             <div className="row items-center gap-md">
                 <button className="btn btn-ghost p-sm" onClick={() => navigate('/dashboard/paper/stock')}>
@@ -140,7 +141,7 @@ const PaperAlerts = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

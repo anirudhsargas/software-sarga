@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import './UploadBills.css';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 const ESTIMATED_TIME_PER_BILL = 15; // in seconds
 
 const UploadBills = () => {
@@ -585,7 +586,7 @@ const UploadBills = () => {
   const activeEditBill = extractedBillsData.find(b => b.id === isEditingId);
 
   return (
-    <div className="upload-bills-page" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+    <PageContainer>
       
       {/* ────────────────── DASHBOARD VIEW ────────────────── */}
       {uiState === 'dashboard' && (
@@ -1384,7 +1385,7 @@ const UploadBills = () => {
         </div>
       )}
 
-    </div>
+    </PageContainer>
   );
 };
 

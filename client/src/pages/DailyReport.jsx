@@ -18,6 +18,7 @@ import { formatCurrencyDecimal } from '../constants';
 import SkeletonLoader from '../components/SkeletonLoader';
 import BranchSelect from '../components/ui/BranchSelect';
 import './DailyReport.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const TABS = [
     { key: 'Offset', label: 'Offset', icon: BookOpen, color: 'var(--accent)', bg: 'var(--surface-2)' },
@@ -1451,7 +1452,7 @@ const DailyReport = () => {
     }, [fetchAttendanceData, fetchLiveCounts]);
 
     return (
-        <div className="stack-lg dr-root">
+        <PageContainer>
             {/* Opening Balance Prompt Modal */}
             {showOpeningPrompt && (
                 <div className="modal-backdrop">
@@ -1823,7 +1824,7 @@ const DailyReport = () => {
             <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--muted)', padding: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <RefreshCw size={10} /> Auto-refreshes every 30s
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

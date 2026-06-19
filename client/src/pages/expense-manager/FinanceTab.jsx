@@ -7,6 +7,7 @@ import {
 import api from '../../services/api';
 import auth from '../../services/auth';
 import { fmt, fmtDate, today } from './constants';
+import PageContainer from '../components/ui/PageContainer';
 
 const defaultEmiForm = { institution_name: '', emi_type: 'Loan', loan_amount: '', monthly_emi: '', tenure_months: '', start_date: today(), due_day: '1', branch_id: '', remarks: '' };
 const defaultKuriForm = { kuri_name: '', organizer_name: '', organizer_phone: '', total_amount: '', monthly_installment: '', duration_months: '', start_date: today(), due_day: '1', branch_id: '', description: '' };
@@ -354,7 +355,7 @@ const FinanceTab = ({ branches, onError }) => {
 
   /* ══════════ Main Finance View ══════════ */
   return (
-    <div className="em-section">
+    <PageContainer>
       <div className="em-finance-subtabs">
         <button className={`em-finance-subtab ${subTab === 'kuri' ? 'em-finance-subtab--active' : ''}`} onClick={() => setSubTab('kuri')}><Repeat size={16} /> Kuri / Chit Fund</button>
         <button className={`em-finance-subtab ${subTab === 'emi' ? 'em-finance-subtab--active' : ''}`} onClick={() => setSubTab('emi')}><Landmark size={16} /> EMI Commitments</button>
@@ -604,7 +605,7 @@ const FinanceTab = ({ branches, onError }) => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

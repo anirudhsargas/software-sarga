@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { Star, Trash2, Edit3, Plus, RefreshCw, ExternalLink, Star as StarIcon, Search } from 'lucide-react';
+import PageContainer from '../../components/ui/PageContainer';
 
 const STARS = [1, 2, 3, 4, 5];
 
@@ -108,7 +109,7 @@ function ReviewsManagement() {
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading reviews...</div>;
 
   return (
-    <div style={{ padding: '1.5rem' }}>
+    <PageContainer>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
         <h2 style={{ margin: 0 }}>Google Reviews Management</h2>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -220,7 +221,7 @@ function ReviewsManagement() {
           </tbody>
         </table>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 

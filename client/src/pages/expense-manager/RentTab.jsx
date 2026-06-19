@@ -4,6 +4,7 @@ import api from '../../services/api';
 import auth from '../../services/auth';
 import { fmt } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import PageContainer from '../components/ui/PageContainer';
 
 const defaultRentForm = { property_name: '', location: '', owner_name: '', owner_mobile: '', monthly_rent: '', due_day: '1', advance_deposit: '', branch_id: '' };
 
@@ -99,7 +100,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
   };
 
   return (
-    <div className="em-section">
+    <PageContainer>
       <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
         <div className="em-section-title"><Home size={18} /> Rent Locations</div>
         {isAdmin ? (
@@ -191,7 +192,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

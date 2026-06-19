@@ -5,6 +5,7 @@ import api from '../services/api';
 import auth from '../services/auth';
 import toast from 'react-hot-toast';
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 
 const BOOK_TYPES = [
   { key: 'Offset', label: 'Offset' },
@@ -82,7 +83,7 @@ const InternalTransfers = () => {
   };
 
   return (
-    <div className="panel" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+    <PageContainer>
       <div className="panel-header">
         <BookOpen size={18} />
         <h2>Internal Transfers</h2>
@@ -166,7 +167,7 @@ const InternalTransfers = () => {
           </table>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 };
 

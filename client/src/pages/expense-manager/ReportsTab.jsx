@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, REPORT_TYPES, exportRowsToCsv } from './constants';
+import PageContainer from '../components/ui/PageContainer';
 
 const REPORT_ICONS = {
   'monthly-expenses': TrendingUp, 'category-wise': PieChart, 'branch-wise': Building2,
@@ -41,7 +42,7 @@ const ReportsTab = ({ branches, onError }) => {
   const RIcon = REPORT_ICONS[reportType] || FileText;
 
   return (
-    <div className="em-section">
+    <PageContainer>
       <div className="em-section-title"><BarChart3 size={18} /> Reports & Analytics</div>
 
       {/* Report Type Cards */}
@@ -260,7 +261,7 @@ const ReportsTab = ({ branches, onError }) => {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

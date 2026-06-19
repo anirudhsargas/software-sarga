@@ -5,6 +5,7 @@ import api from '../../services/api';
 import { useSEO } from '../../hooks/useSEO';
 import { CalendarDays, AlertCircle, Plus, X } from 'lucide-react';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import PageContainer from '../components/ui/PageContainer';
 
 const LeaveManagement = () => {
     useSEO('Leave Management');
@@ -92,7 +93,7 @@ const LeaveManagement = () => {
     };
 
     return (
-        <div className="container-lg">
+        <PageContainer>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
                     <h1 className="section-title">Leave Management</h1>
@@ -257,7 +258,7 @@ const LeaveManagement = () => {
                     </table>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

@@ -16,6 +16,7 @@ import { formatForDisplay, telHref } from '../utils/phone';
 import { validatePhone, filterMobile } from '../utils/validators';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 // Memoized staff row
 const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword, handleMarkAttendance, todayAttendance, onOpenSettings }) => (
     <tr
@@ -467,7 +468,7 @@ const StaffManagement = () => {
     }, [staff, debouncedSearch]);
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             <div className="page-header">
                 <div>
                     <h1 className="section-title">Staff Management</h1>
@@ -805,7 +806,7 @@ const StaffSettingsModal = ({ staff, onClose, onUpdate }) => {
                     </div>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

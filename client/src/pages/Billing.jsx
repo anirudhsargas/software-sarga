@@ -1,19 +1,25 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback, Suspense } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
+import SecureImage from '../components/SecureImage';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Search, X, Plus, Minus, Trash2, Copy, Camera, QrCode, Clock, Star, FileText, Printer,
   ChevronDown, ChevronUp, ShoppingCart, User, CreditCard, Save, Eye, Check, AlertCircle,
   Loader2, Building2, Hash, Calendar, UserCheck, Phone, Mail, MapPin, Percent, IndianRupee,
-  RotateCcw, MessageSquare, Zap, ScanLine, Image, Package, Tag, Upload
+  RotateCcw, MessageSquare, Zap, ScanLine, Image, Package, Tag, Upload, ArrowLeft, Users
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import QRCode from 'qrcode';
 import api from '../services/api';
 import localDb from '../services/localDb';
 import auth from '../services/auth';
 import { formatCurrency } from '../constants';
 import { printInvoicePDF, downloadInvoicePDF } from '../utils/invoicePdf';
 import { useConfirm } from '../contexts/ConfirmContext';
+import { calculateProductPrice } from '../utils/pricing';
 import './Billing.css';
+import PageContainer from '../components/ui/PageContainer';
+import ScannerModal from '../components/ScannerModal';
 
 const serverToday = () => new Date().toISOString().split('T')[0];
 
@@ -22,6 +28,14 @@ const normalizeCode = (value) => {
   let code = String(value || '');
   code = code.replace(/^\uFEFF/, '').trim().replace(/\s+/g, '').replace(/[\r\n]+/g, '').toUpperCase();
   return code;
+};
+
+// Derive book_type from category name
+const bookTypeFromCategory = (catName) => {
+  const name = String(catName || '').trim().toLowerCase();
+  if (name === 'offset') return 'Offset';
+  if (name === 'laser') return 'Laser';
+  return 'Other';
 };
 
 const defaultPayment = () => ({
@@ -42,10 +56,23 @@ const defaultJobData = () => ({
   matter_text: '', matter_file: null, matter_preview: null
 });
 
-const STEPS = [
-  { id: 'customer', label: 'Customer', icon: User },
-  { id: 'products', label: 'Products', icon: ShoppingCart },
-  { id: 'payment', label: 'Payment', icon: CreditCard },
+// ─── Role-based discount limits ───
+const DISCOUNT_LIMITS = {
+  'Admin': 100,
+  'Accountant': 30,
+  'Front Office': 15,
+};
+const DEFAULT_DISCOUNT_LIMIT = 15;
+
+// Job type options
+const JOB_TYPE_OPTIONS = ['Offset', 'Laser', 'Digital', 'Flex', 'ID Card', 'Binding', 'Lamination', 'Other'];
+
+// Billing tabs definition
+const BILLING_TABS = [
+  { key: 'customer', label: 'Customer', icon: User },
+  { key: 'products', label: 'Add Products', icon: ShoppingCart },
+  { key: 'payment', label: 'Payment', icon: CreditCard },
+  { key: 'summary', label: 'Summary', icon: FileText },
 ];
 
 // ─── Billing Component ───
@@ -56,9 +83,16 @@ const Billing = () => {
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin';
   const isFrontOffice = user?.role === 'Front Office';
+  const isAccountant = user?.role === 'Accountant';
+
+  const maxDiscountPct = useMemo(() => {
+    if (isAdmin) return 100;
+    if (isAccountant && user?.has_discount_permission) return 30;
+    if (isFrontOffice) return 15;
+    return DEFAULT_DISCOUNT_LIMIT;
+  }, [isAdmin, isAccountant, isFrontOffice, user]);
 
   // Refs
-  const customerMobileRef = useRef(null);
   const customerNameRef = useRef(null);
   const customerGstRef = useRef(null);
   const customerEmailRef = useRef(null);
@@ -69,12 +103,13 @@ const Billing = () => {
   const saveTimerRef = useRef(null);
 
   // Core state
-  const [step, setStep] = useState('customer');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [branches, setBranches] = useState([]);
-  const [selectedBranchId, setSelectedBranchId] = useState(null);
+  const [selectedBranchId, setSelectedBranchId] = useState(user?.branch_id || null);
+  const [jobType, setJobType] = useState('');
+  const [activeTab, setActiveTab] = useState('customer');
   const [form, setForm] = useState(defaultForm());
   const [existingCustomer, setExistingCustomer] = useState(null);
   const [customerMatches, setCustomerMatches] = useState([]);
@@ -95,7 +130,7 @@ const Billing = () => {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountMode, setDiscountMode] = useState('amount');
   const [discountInputAmount, setDiscountInputAmount] = useState(0);
-  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [discountError, setDiscountError] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannedPreview, setScannedPreview] = useState(null);
   const [scannedQty, setScannedQty] = useState(1);
@@ -103,14 +138,17 @@ const Billing = () => {
   const [showPostBillOptions, setShowPostBillOptions] = useState(false);
   const [assignJobs, setAssignJobs] = useState([]);
   const [staffOptions, setStaffOptions] = useState([]);
-  const [assignRoles, setAssignRoles] = useState({});
   const [assignSelections, setAssignSelections] = useState({});
-  const [roleSuggestions, setRoleSuggestions] = useState({});
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
-  const [showAssignModal, setShowAssignModal] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const customerSearchDebounced = useDebounce(customerSearchQuery, 350);
+  const [highlightedCustomerIdx, setHighlightedCustomerIdx] = useState(-1);
+  const [customerNoResults, setCustomerNoResults] = useState(false);
+  const customerSearchRef = useRef(null);
+  const customerDropdownRef = useRef(null);
   const [productSuggestions, setProductSuggestions] = useState([]);
   const [productSearching, setProductSearching] = useState(false);
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
@@ -119,10 +157,6 @@ const Billing = () => {
   const [printAfterSave, setPrintAfterSave] = useState(true);
   const [sendWhatsApp, setSendWhatsApp] = useState(false);
   const [sendEmail, setSendEmail] = useState(false);
-  const [couponInput, setCouponInput] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const [couponLoading, setCouponLoading] = useState(false);
-  const [couponError, setCouponError] = useState('');
   const [recentProducts, setRecentProducts] = useState(
     () => JSON.parse(localStorage.getItem('recentProducts') || '[]')
   );
@@ -131,6 +165,12 @@ const Billing = () => {
   const [showRecentBills, setShowRecentBills] = useState(false);
   const [recentBills, setRecentBills] = useState([]);
   const [loadingRecentBills, setLoadingRecentBills] = useState(false);
+  const [catalogPage, setCatalogPage] = useState(1);
+  const CATALOG_PAGE_SIZE = 24;
+
+  // UPI QR state
+  const [upiQrUrl, setUpiQrUrl] = useState('');
+  const [upiQrLoading, setUpiQrLoading] = useState(false);
 
   const fetchRecentBills = useCallback(async () => {
     setLoadingRecentBills(true);
@@ -223,9 +263,31 @@ const Billing = () => {
 
   // Fetch branch UPI
   useEffect(() => {
-    if (!selectedBranchId) return;
+    if (!selectedBranchId) { setBranchUpiId(''); return; }
     api.get(`/branches/${selectedBranchId}`).then(r => setBranchUpiId(r.data?.upi_id || '')).catch(() => {});
   }, [selectedBranchId]);
+
+  // Fetch staff for assignment
+  useEffect(() => {
+    api.get('/staff?active=true').then(r => setStaffOptions(Array.isArray(r.data?.data) ? r.data.data : Array.isArray(r.data) ? r.data : [])).catch(() => {});
+  }, []);
+
+  // ── Auto UPI QR Generation ──
+  useEffect(() => {
+    const upiAmt = Number(payment.methodAmounts.UPI) || 0;
+    const hasUpi = payment.selectedMethods.includes('UPI');
+
+    if (!hasUpi || upiAmt <= 0 || !branchUpiId) {
+      setUpiQrUrl('');
+      return;
+    }
+
+    setUpiQrLoading(true);
+    const upiStr = `upi://pay?pa=${encodeURIComponent(branchUpiId)}&pn=${encodeURIComponent('SARGA')}&am=${upiAmt.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice Payment')}`;
+    QRCode.toDataURL(upiStr, { width: 200, margin: 1 })
+      .then(url => { setUpiQrUrl(url); setUpiQrLoading(false); })
+      .catch(() => { setUpiQrUrl(''); setUpiQrLoading(false); });
+  }, [payment.selectedMethods, payment.methodAmounts.UPI, branchUpiId]);
 
   // ── Computed totals ──
   const totals = useMemo(() => {
@@ -236,10 +298,8 @@ const Billing = () => {
       : (discountMode === 'amount' ? (Number(discountInputAmount) || 0) : 0);
     const discountAmount = Math.min(effectiveDiscount, subtotal);
     const afterDiscount = subtotal - discountAmount;
-    const sgst = afterDiscount * 0.045;
-    const cgst = afterDiscount * 0.045;
-    const gross = afterDiscount + sgst + cgst;
-    return { subtotal, activePct, effectiveDiscount, discountAmount, afterDiscount, sgst, cgst, gross };
+    const gross = afterDiscount;
+    return { subtotal, activePct, effectiveDiscount, discountAmount, afterDiscount, sgst: 0, cgst: 0, gross };
   }, [orderLines, discountPercent, discountMode, discountInputAmount]);
 
   const advancePaid = useMemo(() =>
@@ -247,7 +307,6 @@ const Billing = () => {
     [payment.selectedMethods, payment.methodAmounts]
   );
 
-  // ── Discount total helper ──
   const computeDiscTotal = useCallback((lines, discPct) => {
     const sub = lines.reduce((s, l) => s + (Number(l.total_amount) || 0), 0);
     return sub - Math.min(sub * Math.min(Math.max(Number(discPct) || 0, 0), 100) / 100, sub);
@@ -260,39 +319,73 @@ const Billing = () => {
     return form.mobile.length === 10 && form.name.trim().length > 0 && orderLines.length > 0;
   }, [form.mobile, form.name, form.gst, form.type, isWalkIn, orderLines.length]);
 
-  // ── Customer search (debounced) ──
+  // ── Customer search — only show results after typing ──
   useEffect(() => {
-    if (!form.mobile && form.name.length < 2) { setCustomerMatches([]); return; }
+    const q = customerSearchDebounced.trim();
+    if (!q) {
+      // Do NOT preload customers when empty — leave dropdown closed
+      setCustomerMatches([]);
+      setCustomerNoResults(false);
+      setHighlightedCustomerIdx(-1);
+      return;
+    }
+    setCustomerSearching(true);
     const t = setTimeout(async () => {
-      if (form.mobile.length === 10) {
+      try {
         const all = await localDb.getCustomers().catch(() => []);
-        const exact = all.find(c => c.mobile === form.mobile);
-        if (exact) {
-          setExistingCustomer(exact);
-          setForm(p => ({ ...p, name: exact.name, type: exact.client_type || p.type, email: exact.email || '', address: exact.address || '', gst: exact.gstin || '' }));
-          setCustomerMatches([]);
-          return;
-        }
-      }
-      if (form.name.length >= 2) {
-        const results = await localDb.getCustomers({ search: form.name }).catch(() => []);
-        setCustomerMatches(results.slice(0, 6));
+        const filtered = (all || []).filter(c => c.client_type !== 'internal');
+        const lower = q.toLowerCase();
+        const results = filtered.filter(c =>
+          (c.name && c.name.toLowerCase().includes(lower)) ||
+          (c.mobile && c.mobile.includes(q)) ||
+          (c.phone && c.phone.includes(q)) ||
+          (c.gstin && c.gstin.toLowerCase().includes(lower)) ||
+          (c.gst && c.gst.toLowerCase().includes(lower)) ||
+          (c.company_name && c.company_name.toLowerCase().includes(lower))
+        ).slice(0, 8);
+        setCustomerMatches(results);
+        setCustomerNoResults(results.length === 0);
+        setHighlightedCustomerIdx(-1);
+      } catch {
+        setCustomerMatches([]);
+        setCustomerNoResults(true);
+      } finally {
+        setCustomerSearching(false);
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [form.mobile, form.name]);
+  }, [customerSearchDebounced]);
 
   const handleSelectCustomer = useCallback((c) => {
     setExistingCustomer(c);
     setCustomerMatches([]);
+    setCustomerSearchQuery('');
     setForm(p => ({ ...p, mobile: c.mobile || '', name: c.name || '', type: c.client_type || p.type, email: c.email || '', address: c.address || '', gst: c.gstin || '' }));
   }, []);
 
   const handleChangeCustomer = useCallback(() => {
     setExistingCustomer(null);
     setCustomerMatches([]);
+    setCustomerSearchQuery('');
     setForm(p => ({ ...p, mobile: '', name: '', email: '', address: '', gst: '' }));
   }, []);
+
+  const handleCustomerKeyDown = useCallback((e) => {
+    if (!customerMatches.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedCustomerIdx(prev => Math.min(prev + 1, customerMatches.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedCustomerIdx(prev => Math.max(prev - 1, -1));
+    } else if (e.key === 'Enter' && highlightedCustomerIdx >= 0) {
+      e.preventDefault();
+      handleSelectCustomer(customerMatches[highlightedCustomerIdx]);
+    } else if (e.key === 'Escape') {
+      setCustomerMatches([]);
+      setCustomerSearchQuery('');
+    }
+  }, [customerMatches, highlightedCustomerIdx, handleSelectCustomer]);
 
   // ── Product search & select ──
   const qrLookupMap = useMemo(() => {
@@ -304,7 +397,22 @@ const Billing = () => {
     return map;
   }, [hierarchy]);
 
-  // ── Real-time product search ──
+  const filteredCatalogProducts = useMemo(() => {
+    const all = [];
+    (hierarchy || []).forEach(cat => {
+      if (selectedCategoryId && String(cat.id) !== String(selectedCategoryId)) return;
+      (cat.subcategories || []).forEach(sub => {
+        if (selectedSubcategoryId && String(sub.id) !== String(selectedSubcategoryId)) return;
+        (sub.products || []).forEach(prod => {
+          all.push({ product: prod, catId: cat.id, subId: sub.id, catName: cat.name, subName: sub.name });
+        });
+      });
+    });
+    return all;
+  }, [hierarchy, selectedCategoryId, selectedSubcategoryId]);
+
+  useEffect(() => { setCatalogPage(1); }, [selectedCategoryId, selectedSubcategoryId, productSearchQuery]);
+
   useEffect(() => {
     const q = productSearchQuery.trim();
     if (!q || q.length < 1) { setProductSuggestions([]); setSelectedSuggestionIdx(-1); setProductSearching(false); return; }
@@ -333,16 +441,31 @@ const Billing = () => {
     return () => clearTimeout(t);
   }, [productSearchQuery, hierarchy]);
 
-  // ── Add line item ──
-  const handleAddLineItem = useCallback(async (product, qty = 1, extras = [], catId, subId) => {
+  const resolveProductUnitPrice = useCallback((product, qty = 1) => {
+    if (product.mrp != null && Number(product.mrp) > 0) return Number(product.mrp);
+    if (product.sell_price != null && Number(product.sell_price) > 0) return Number(product.sell_price);
+    const result = calculateProductPrice({ product, quantity: qty, extras: [] });
+    if (result) return result.unit_price;
+    return 0;
+  }, []);
+
+  const handleAddLineItem = useCallback(async (product, qty = 1, extras = [], catId, subId, catName) => {
+    const quantity = Number(qty) || 1;
+    const derivedBookType = bookTypeFromCategory(catName);
+
+    const priceResult = calculateProductPrice({ product, quantity, extras });
+    const unitPrice = priceResult ? priceResult.unit_price : resolveProductUnitPrice(product, quantity);
+    const totalAmount = priceResult ? priceResult.total_amount : quantity * unitPrice;
+
     const line = {
       id: `${product.id || Date.now()}-${Date.now()}`,
       product_id: product.id,
       product_name: product.name || product.title || 'Product',
-      quantity: Number(qty) || 1,
-      unit_price: Number(product.mrp || product.sell_price || 0),
-      total_amount: (Number(qty) || 1) * Number(product.mrp || product.sell_price || 0),
-      calculation_type: 'flat',
+      _product: product,
+      quantity,
+      unit_price: unitPrice,
+      total_amount: totalAmount,
+      calculation_type: product.calculation_type || 'Normal',
       applied_extras: extras,
       customPaperRate: 0,
       is_double_side: false,
@@ -352,7 +475,7 @@ const Billing = () => {
       machine_id: null,
       waste_prints: 0,
       proof_prints: 0,
-      book_type: 'Offset',
+      book_type: derivedBookType,
       colour: '', numbering_from: '', numbering_to: '', special_instructions: '',
       matter_text: '', matter_file: null, matter_preview: null,
       is_inventory_item: false,
@@ -360,15 +483,13 @@ const Billing = () => {
     setOrderLines(prev => [...prev, line]);
     setSelectedProduct(null);
     setProductSearchQuery('');
-    // Update recent
     setRecentProducts(prev => {
-      const next = [{ id: product.id, name: product.name || product.title, mrp: product.mrp }, ...prev.filter(p => p.id !== product.id)].slice(0, 20);
+      const next = [{ id: product.id, name: product.name || product.title, mrp: unitPrice }, ...prev.filter(p => p.id !== product.id)].slice(0, 20);
       localStorage.setItem('recentProducts', JSON.stringify(next));
       return next;
     });
-  }, []);
+  }, [resolveProductUnitPrice]);
 
-  // Quick add
   const handleQuickAdd = useCallback(() => {
     if (!quickEntry.name.trim() || !Number(quickEntry.amount)) { toast.error('Enter name and amount'); return; }
     setOrderLines(prev => [...prev, {
@@ -389,23 +510,41 @@ const Billing = () => {
     setShowQuickEntry(false);
   }, [quickEntry]);
 
-  // Remove line
   const removeLine = useCallback((id) => {
     setOrderLines(prev => prev.filter(l => l.id !== id));
   }, []);
 
-  // Duplicate line
   const duplicateLine = useCallback((line) => {
     setOrderLines(prev => [...prev, { ...line, id: `${line.product_id || 'dup'}-${Date.now()}` }]);
   }, []);
 
-  // Update line qty/rate
   const updateLine = useCallback((id, field, value) => {
     setOrderLines(prev => prev.map(l => {
       if (l.id !== id) return l;
       const updated = { ...l, [field]: value };
-      if (field === 'quantity' || field === 'unit_price') {
-        updated.total_amount = (Number(field === 'quantity' ? value : l.quantity) || 0) * (Number(field === 'unit_price' ? value : l.unit_price) || 0);
+      if (field === 'quantity') {
+        const newQty = Math.max(1, Number(value) || 1);
+        updated.quantity = newQty;
+        const calcType = l._product?.calculation_type || l.calculation_type;
+        if (l._product && (calcType === 'Slab' || calcType === 'Range')) {
+          const priceResult = calculateProductPrice({
+            product: l._product,
+            quantity: newQty,
+            extras: l.applied_extras || [],
+            currentPaperRate: l.customPaperRate || 0,
+            isDoubleSide: l.is_double_side || false,
+          });
+          if (priceResult) {
+            updated.unit_price = priceResult.unit_price;
+            updated.total_amount = priceResult.total_amount;
+          } else {
+            updated.total_amount = newQty * (Number(l.unit_price) || 0);
+          }
+        } else {
+          updated.total_amount = newQty * (Number(l.unit_price) || 0);
+        }
+      } else if (field === 'unit_price') {
+        updated.total_amount = (Number(l.quantity) || 1) * (Number(value) || 0);
       }
       return updated;
     }));
@@ -415,18 +554,16 @@ const Billing = () => {
   const handleQrLookup = useCallback(async (code, autoAdd = true) => {
     const normalized = normalizeCode(code);
     if (!normalized) return;
-    // O(1) lookup in hierarchy map
     const match = qrLookupMap.get(normalized);
     if (match) {
       if (autoAdd) {
-        handleAddLineItem(match.product, 1, [], match.catId, match.subId);
+        handleAddLineItem(match.product, 1, [], match.catId, match.subId, match.catName);
       } else {
-        setScannedPreview({ product: match.product, catId: match.catId, subId: match.subId });
+        setScannedPreview({ product: match.product, catId: match.catId, subId: match.subId, catName: match.catName });
         setScannedQty(1);
       }
       return;
     }
-    // Fallback: inventory by SKU
     try {
       const { data } = await api.get(`/inventory/by-sku/${encodeURIComponent(normalized)}`);
       if (data) {
@@ -442,7 +579,7 @@ const Billing = () => {
             total_amount: Number(data.mrp || data.sell_price || 0),
             calculation_type: 'flat', applied_extras: [], customPaperRate: 0, is_double_side: false,
             description: '', category: '', subcategory: '', machine_id: null,
-            waste_prints: 0, proof_prints: 0, book_type: 'Offset',
+            waste_prints: 0, proof_prints: 0, book_type: 'Other',
             colour: '', numbering_from: '', numbering_to: '', special_instructions: '',
             matter_text: '', matter_file: null, matter_preview: null,
             is_inventory_item: true,
@@ -478,37 +615,42 @@ const Billing = () => {
 
   // ── Handle submit ──
   const handleAddOrder = useCallback(async () => {
+    // Branch validation
+    if (!selectedBranchId) {
+      setError('Please select a branch before creating invoice.');
+      toast.error('Branch is required.');
+      return;
+    }
+    // Job type is optional — save if selected, skip if not
     if (!canProceed) { setError('Complete customer details and add at least one product.'); return; }
     if (orderLines.length === 0) { setError('Add at least one product.'); return; }
     if (advancePaid < 0) { setError('Invalid payment amount.'); return; }
+    if (discountError) { setError(discountError); return; }
     if (isWalkIn && advancePaid < totals.gross * 0.99) { setError('Walk-in customers must pay in full.'); return; }
     setError('');
     setSaving(true);
     try {
-      // Ensure customer exists in local DB
       let customerId = existingCustomer?.id;
       if (!customerId && form.name) {
         const custPayload = { name: form.name, mobile: form.mobile || null, client_type: form.type, email: form.email || null, address: form.address || null, gstin: form.gst || null };
         const customer = await localDb.createCustomer(custPayload);
         customerId = customer.id;
       }
-      // Build payment details
       const cashAmt = Number(payment.methodAmounts.Cash) || 0;
       const upiAmt = Number(payment.methodAmounts.UPI) || 0;
       const chequeAmt = Number(payment.methodAmounts.Cheque) || 0;
       const transferAmt = Number(payment.methodAmounts['Account Transfer']) || 0;
       const payMethodLabel = payment.selectedMethods.length === 1 ? payment.selectedMethods[0] : 'Split';
-      // Build bill payload
       const billPayload = {
         customer_id: customerId || null,
         customer_name: form.name,
         customer_mobile: form.mobile || null,
         customer_type: form.type,
         total_amount: totals.gross,
-        net_amount: totals.afterDiscount,
-        sgst_amount: totals.sgst,
-        cgst_amount: totals.cgst,
-        discount_percent: discountPercent || null,
+        net_amount: totals.gross,
+        sgst_amount: 0,
+        cgst_amount: 0,
+        discount_percent: discountMode === 'percent' ? (discountPercent || null) : (totals.subtotal > 0 ? Number(((totals.discountAmount / totals.subtotal) * 100).toFixed(2)) : null),
         discount_amount: totals.discountAmount || null,
         advance_paid: advancePaid,
         payment_method: payMethodLabel,
@@ -519,15 +661,18 @@ const Billing = () => {
         reference_number: payment.referenceNumber || '',
         description: payment.description || '',
         payment_date: payment.paymentDate,
-        book_type: orderLines.reduce((acc, l) => l.book_type === 'Other' ? 'Other' : acc, orderLines[0]?.book_type || 'Offset'),
+        book_type: jobType || (() => {
+          if (orderLines.some(l => l.book_type === 'Offset')) return 'Offset';
+          if (orderLines.some(l => l.book_type === 'Laser')) return 'Laser';
+          return 'Other';
+        })(),
         is_internal: 0,
-        order_lines: orderLines.map(l => ({ ...l, matter_file: undefined, matter_preview: undefined, id: Number(l.product_id) || null })),
+        order_lines: orderLines.map(l => ({ ...l, matter_file: undefined, matter_preview: undefined, _product: undefined, id: Number(l.product_id) || null })),
         auto_deliver: isWalkIn,
+        branch_id: selectedBranchId,
       };
-      if (isAdmin && selectedBranchId) billPayload.branch_id = selectedBranchId;
       const matterFiles = orderLines.map(l => l.matter_file).filter(Boolean);
       const result = await localDb.createBill(billPayload, matterFiles);
-      // Build lastBillData for PDF
       const lastBill = {
         customer: { name: form.name, mobile: form.mobile, address: form.address, gst: form.gst },
         orderLines, totals, payment: { method: payMethodLabel, cash_amount: cashAmt, upi_amount: upiAmt, cheque_amount: chequeAmt, account_transfer_amount: transferAmt },
@@ -536,7 +681,19 @@ const Billing = () => {
       setLastBillData(lastBill);
       setLastOrderCustomerType(form.type);
       setLastOrderAutoDelivered(isWalkIn);
-      // Reset
+
+      // Prepare assign jobs from result
+      if (result.jobs && result.jobs.length > 0) {
+        setAssignJobs(result.jobs);
+        const init = {};
+        result.jobs.forEach(j => { init[j.id] = ''; });
+        setAssignSelections(init);
+      } else {
+        setAssignJobs([]);
+        setAssignSelections({});
+      }
+
+      // Reset form
       setForm(defaultForm());
       setExistingCustomer(null);
       setOrderLines([]);
@@ -544,7 +701,7 @@ const Billing = () => {
       setDiscountPercent(0);
       setDiscountInputAmount(0);
       setError('');
-      setStep('customer');
+      setJobType('');
       toast.success('Invoice created successfully!');
       if (result.payment?.id) {
         window.dispatchEvent(new CustomEvent('paymentRecorded'));
@@ -554,12 +711,31 @@ const Billing = () => {
       setError(err?.response?.data?.message || err.message || 'Failed to create invoice.');
       toast.error('Invoice creation failed.');
     } finally { setSaving(false); }
-  }, [canProceed, orderLines, advancePaid, totals, isWalkIn, existingCustomer, form, payment, discountPercent, totals.discountAmount, totals.afterDiscount, totals.sgst, totals.cgst, totals.gross, isAdmin, selectedBranchId, branchUpiId]);
+  }, [canProceed, orderLines, advancePaid, totals, isWalkIn, existingCustomer, form, payment, discountPercent, totals.discountAmount, totals.gross, selectedBranchId, jobType, branchUpiId, discountError]);
+
+  // ── Staff assignment submit ──
+  const handleAssignStaff = useCallback(async () => {
+    const assignments = Object.entries(assignSelections).filter(([, staffId]) => staffId);
+    if (assignments.length === 0) { toast.error('Select at least one staff member to assign.'); return; }
+    setAssignLoading(true);
+    setAssignError('');
+    try {
+      await Promise.all(assignments.map(([jobId, staffId]) =>
+        api.post(`/jobs/${jobId}/assign`, { staff_id: staffId })
+      ));
+      toast.success('Staff assigned successfully!');
+      setShowPostBillOptions(false);
+    } catch (err) {
+      setAssignError(err?.response?.data?.message || 'Failed to assign staff.');
+    } finally {
+      setAssignLoading(false);
+    }
+  }, [assignSelections]);
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === 'F2') { e.preventDefault(); customerMobileRef.current?.focus(); customerMobileRef.current?.select(); }
+      if (e.key === 'F2') { e.preventDefault(); customerSearchRef.current?.focus(); customerSearchRef.current?.select(); }
       if (e.key === 'F3') { e.preventDefault(); productSearchRef.current?.focus(); productSearchRef.current?.select(); }
       if (e.key === 'F4') { e.preventDefault(); paymentAmountRef.current?.focus(); paymentAmountRef.current?.select(); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); handleAddOrder(); }
@@ -574,7 +750,8 @@ const Billing = () => {
     if (saveTimerRef.current) clearInterval(saveTimerRef.current);
     saveTimerRef.current = setInterval(() => {
       if (orderLines.length > 0 || form.mobile || form.name) {
-        localStorage.setItem('billingDraft', JSON.stringify({ customer: form, orders: orderLines, totals }));
+        const draftLines = orderLines.map(({ _product, matter_file, matter_preview, ...rest }) => rest);
+        localStorage.setItem('billingDraft', JSON.stringify({ customer: form, orders: draftLines, totals }));
       }
     }, 10000);
     return () => clearInterval(saveTimerRef.current);
@@ -585,7 +762,7 @@ const Billing = () => {
     if (lastBillData) printInvoicePDF(lastBillData);
   }, [lastBillData]);
 
-  // ── Undo delete (5s) using simple toast ──
+  // ── Undo delete (5s) ──
   const handleRemoveWithUndo = useCallback((line) => {
     setOrderLines(prev => prev.filter(l => l.id !== line.id));
     toast((t) => (
@@ -596,26 +773,41 @@ const Billing = () => {
     ), { duration: 5000 });
   }, []);
 
+  // ── Back navigation with draft guard ──
+  const handleBack = useCallback(async () => {
+    if (orderLines.length > 0 || form.name) {
+      const yes = await confirm({
+        title: 'Leave Invoice?',
+        message: 'You have unsaved invoice data. Your draft will be auto-saved. Do you want to leave?',
+        confirmText: 'Leave',
+        cancelText: 'Stay',
+      });
+      if (!yes) return;
+      const draftLines = orderLines.map(({ _product, matter_file, matter_preview, ...rest }) => rest);
+      localStorage.setItem('billingDraft', JSON.stringify({ customer: form, orders: draftLines, totals }));
+    }
+    navigate('/invoices');
+  }, [orderLines, form, totals, confirm, navigate]);
+
   // ── Loading state ──
   if (loading) {
     return (
-      <div className="billing-page">
+    <PageContainer className="billing-page">
         <div className="billing-skeleton">
           {[1, 2, 3].map(i => <div key={i} className="skeleton-block" style={{ height: i === 1 ? 64 : 120, animationDelay: `${i * 0.1}s` }} />)}
         </div>
-      </div>
+    </PageContainer>
     );
   }
 
+  const branchRequiresAttention = !selectedBranchId;
+
   // ── Render ──
   return (
-    <div className="billing-page">
+    <PageContainer className="billing-page">
       {/* HEADER */}
       <header className="billing-header">
-        <div className="billing-header__left">
-          <h1 className="billing-header__title">New Invoice</h1>
-          <p className="billing-header__subtitle">Create invoice in under 30 seconds</p>
-        </div>
+        <div className="billing-header__left" />
         <div className="billing-header__right">
           <button className="btn btn-ghost btn-sm" onClick={() => { setShowRecentBills(true); fetchRecentBills(); }}><Clock size={15} aria-hidden="true" /> Recent</button>
           <button className="btn btn-ghost btn-sm" onClick={handleChangeCustomer}><User size={15} aria-hidden="true" /> New Customer</button>
@@ -625,18 +817,29 @@ const Billing = () => {
         </div>
       </header>
 
-      {/* STICKY SUMMARY BAR */}
+      {/* STICKY SUMMARY BAR — Branch + Stats */}
       <div className="billing-summary-bar">
-        <div className="billing-summary-bar__item">
-          <Building2 size={14} />
-          <select value={selectedBranchId || ''} onChange={e => setSelectedBranchId(e.target.value || null)}>
-            <option value="">Branch</option>
-            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        </div>
-        <div className="billing-summary-bar__item">
-          <Hash size={14} /><span>Auto</span>
-        </div>
+        {/* Branch selector / display */}
+        {user?.branch_id ? (
+          <div className="billing-summary-bar__item">
+            <Building2 size={14} />
+            <span>{branches.find(b => String(b.id) === String(user.branch_id))?.name || user.branch_short_name || 'Branch'}</span>
+          </div>
+        ) : (
+          <div className={`billing-summary-bar__item${branchRequiresAttention ? ' billing-summary-bar__item--branch-required' : ''}`}>
+            <Building2 size={14} />
+            <select
+              value={selectedBranchId || ''}
+              onChange={e => setSelectedBranchId(e.target.value || null)}
+              aria-label="Select branch"
+              title={branchRequiresAttention ? 'Branch is required' : ''}
+            >
+              <option value="">Branch *</option>
+              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+        )}
+
         <div className="billing-summary-bar__item">
           <Calendar size={14} /><span>{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
         </div>
@@ -650,458 +853,767 @@ const Billing = () => {
         </div>
       </div>
 
-      {/* STEP INDICATOR */}
-      <div className="billing-steps">
-        {STEPS.map((s, i) => {
-          const currentIdx = STEPS.findIndex(x => x.id === step);
-          const isActive = s.id === step;
-          const isDone = currentIdx > i;
+      {/* ERROR */}
+      {error && <div className="billing-error"><AlertCircle size={16} /> {error}</div>}
+
+      {/* TABS NAVIGATION */}
+      <div className="billing-tabs">
+        {BILLING_TABS.map(t => {
+          const Icon = t.icon;
           return (
-            <button key={s.id} className={`billing-step ${isActive ? 'active' : ''} ${isDone ? 'done' : ''}`} onClick={() => setStep(s.id)}>
-              <span className="billing-step__icon">{isDone ? <Check size={14} /> : <s.icon size={14} />}</span>
-              <span className="billing-step__label">{s.label}</span>
-              {i < STEPS.length - 1 && <span className="billing-step__connector" />}
+            <button
+              key={t.key}
+              type="button"
+              className={`billing-tab ${activeTab === t.key ? 'billing-tab--active' : ''}`}
+              onClick={() => setActiveTab(t.key)}
+            >
+              <Icon size={14} />
+              <span>{t.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* ERROR */}
-      {error && <div className="billing-error"><AlertCircle size={16} /> {error}</div>}
+      {/* CUSTOMER SECTION */}
+      <div className="billing-section billing-section--customer" style={{ display: activeTab === 'customer' ? 'flex' : 'none' }}>
+        <div className="billing-section__header"><User size={16} /> <h2>Customer</h2></div>
 
-      {/* STEP 1: CUSTOMER */}
-      {step === 'customer' && (
-        <div className="billing-section billing-section--customer">
-          <div className="billing-section__header"><User size={18} /> <h2>Customer</h2></div>
+        {/* Customer type chips */}
+        <div className="billing-chips">
+          {['Retail', 'Walk-in', 'Offset', 'Wholesale'].map(t => (
+            <button key={t} className={`chip ${form.type === t ? 'active' : ''}`} onClick={() => setForm(p => ({ ...p, type: t }))}>{t}</button>
+          ))}
+        </div>
 
-          {/* Customer type chips */}
-          <div className="billing-chips">
-            {['Retail', 'Walk-in', 'Offset', 'Wholesale'].map(t => (
-              <button key={t} className={`chip ${form.type === t ? 'active' : ''}`} onClick={() => setForm(p => ({ ...p, type: t }))}>{t}</button>
-            ))}
-          </div>
-
-          {/* Search existing */}
+        {/* Search existing customer */}
+        <div className="autocomplete-wrapper" style={{ position: 'relative' }}>
           <div className="billing-field">
             <Search size={14} className="billing-field__icon" aria-hidden="true" />
-            <label htmlFor="billing-customer-search" className="sr-only">Search customer by mobile or name</label>
-            <input id="billing-customer-search" name="billingCustomerSearch" ref={customerMobileRef} type="text" placeholder="Search by mobile / name / GST..." value={form.mobile || form.name}
-              onChange={e => { const v = e.target.value; setForm(p => ({ ...p, mobile: v.replace(/\D/g, '').slice(0, 10) })); setExistingCustomer(null); }}
-              onKeyDown={e => { if (e.key === 'Enter') { customerNameRef.current?.focus(); } }}
-              className="billing-field__input" autoComplete="off" />
-            <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowScanner(true)} title="Scan barcode" aria-label="Scan barcode"><Camera size={14} aria-hidden="true" /></button>
+            <label htmlFor="billing-customer-search" className="sr-only">Search customer by name or mobile</label>
+            <input
+              id="billing-customer-search"
+              name="billingCustomerSearch"
+              ref={customerSearchRef}
+              type="text"
+              placeholder="Search customer by name or mobile..."
+              value={customerSearchQuery}
+              onChange={e => { setCustomerSearchQuery(e.target.value); setExistingCustomer(null); setHighlightedCustomerIdx(-1); }}
+              onKeyDown={handleCustomerKeyDown}
+              onBlur={() => setTimeout(() => { setCustomerMatches([]); setCustomerNoResults(false); }, 200)}
+              className="billing-field__input"
+              autoComplete="off"
+            />
+            {customerSearching && <Loader2 size={14} className="animate-spin" style={{ color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true" />}
           </div>
 
-          {customerMatches.length > 0 && (
-            <div className="billing-dropdown">
-              {customerMatches.map(c => (
-                <div key={c.id} className="billing-dropdown__item" onClick={() => handleSelectCustomer(c)}>
-                  <span className="font-medium">{c.name}</span>
-                  <span className="muted text-xs">{c.mobile}</span>
+          {(customerMatches.length > 0 || (customerNoResults && customerSearchQuery.trim())) && (
+            <div className="billing-dropdown" ref={customerDropdownRef} style={{
+              position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+              marginTop: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+              overflowY: 'auto', maxHeight: 280
+            }}>
+              {customerMatches.length > 0 ? (
+                customerMatches.map((c, i) => (
+                  <div
+                    key={c.id}
+                    className={`billing-dropdown__item ${i === highlightedCustomerIdx ? 'billing-dropdown__item--highlighted' : ''}`}
+                    onClick={() => handleSelectCustomer(c)}
+                    onMouseEnter={() => setHighlightedCustomerIdx(i)}
+                    role="option"
+                    aria-selected={i === highlightedCustomerIdx}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span className="font-medium" style={{ fontSize: 13 }}>{c.name}</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>{c.mobile || c.phone || '—'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {c.type && <span className="badge badge--sm">{c.type}</span>}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="billing-dropdown__item" style={{ justifyContent: 'center', color: 'var(--muted)', fontSize: 12 }}>
+                  No customers found
                 </div>
-              ))}
-              <div className="billing-dropdown__item billing-dropdown__add" onClick={() => { setExistingCustomer(null); setCustomerMatches([]); customerNameRef.current?.focus(); }}>
-                <Plus size={14} /> <span>Add New Customer</span>
-              </div>
+              )}
+              {customerSearchQuery.trim().length > 0 && (
+                <div className="billing-dropdown__item billing-dropdown__add" onClick={() => { setCustomerMatches([]); setCustomerSearchQuery(''); customerNameRef.current?.focus(); }}>
+                  <Plus size={14} /> <span>Add New Customer</span>
+                </div>
+              )}
             </div>
           )}
+        </div>
 
-          {/* Existing customer card */}
-          {existingCustomer ? (
-            <div className="billing-customer-card">
-              <div className="billing-customer-card__header">
-                <div className="user-avatar user-avatar--sm">{form.name?.[0] || '?'}</div>
-                <div>
-                  <div className="font-semibold">{form.name}</div>
-                  <div className="text-xs muted">{form.mobile}</div>
-                </div>
-                <button className="btn btn-ghost btn-xs" onClick={handleChangeCustomer}><X size={14} /></button>
+        {/* Existing customer card */}
+        {existingCustomer ? (
+          <div className="billing-customer-card">
+            <div className="billing-customer-card__header">
+              <div className="user-avatar user-avatar--sm">{form.name?.[0] || '?'}</div>
+              <div>
+                <div className="font-semibold">{form.name}</div>
+                <div className="text-xs muted">{form.mobile}</div>
               </div>
-              <div className="billing-customer-card__details">
-                <span><Phone size={12} /> {form.mobile}</span>
-                {form.gst && <span><FileText size={12} /> {form.gst}</span>}
-                {form.address && <span><MapPin size={12} /> {form.address}</span>}
-              </div>
-              <button className="btn btn-primary btn-sm btn--full mt-8" onClick={() => setStep('products')}>
-                Continue <ChevronDown size={14} />
-              </button>
+              <button className="btn btn-ghost btn-xs" onClick={handleChangeCustomer} style={{ marginLeft: 'auto' }}><X size={14} /></button>
             </div>
-          ) : (
-            /* New customer form */
-            <div className="billing-customer-form">
-              <div className="billing-customer-form__grid">
-                <div className="billing-field">
-                  <User size={14} className="billing-field__icon" aria-hidden="true" />
-                  <label htmlFor="billing-name" className="sr-only">Customer Name</label>
-                  <input id="billing-name" name="billingName" ref={customerNameRef} type="text" placeholder={isWalkIn || form.type === 'Retail' ? 'Full Name' : 'Full Name *'} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                    onKeyDown={e => { if (e.key === 'Enter') { const next = needsGst ? customerGstRef : customerEmailRef; next.current?.focus(); } }}
-                    className="billing-field__input" autoComplete="name" />
-                </div>
-                <div className="billing-field billing-field--mobile">
-                  <Phone size={14} className="billing-field__icon" aria-hidden="true" />
-                  <label htmlFor="billing-mobile" className="sr-only">Mobile Number</label>
-                  <input id="billing-mobile" name="billingMobile" type="tel" placeholder={isWalkIn || form.type === 'Retail' ? 'Mobile' : 'Mobile *'} value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
-                    onKeyDown={e => { if (e.key === 'Enter') { customerNameRef.current?.focus(); } }}
-                    className="billing-field__input" autoComplete="tel" />
-                </div>
-                {needsGst && (
-                  <div className="billing-field">
-                    <FileText size={14} className="billing-field__icon" aria-hidden="true" />
-                    <label htmlFor="billing-gst" className="sr-only">GST Number</label>
-                    <input id="billing-gst" name="billingGst" ref={customerGstRef} type="text" placeholder={form.type === 'Wholesale' ? 'GST Number *' : 'GST Number'} value={form.gst} onChange={e => setForm(p => ({ ...p, gst: e.target.value }))}
-                      onKeyDown={e => { if (e.key === 'Enter') { customerEmailRef.current?.focus(); } }}
-                      className="billing-field__input" autoComplete="off" />
-                  </div>
-                )}
-                <div className="billing-field">
-                  <Mail size={14} className="billing-field__icon" aria-hidden="true" />
-                  <label htmlFor="billing-email" className="sr-only">Email</label>
-                  <input id="billing-email" name="billingEmail" ref={customerEmailRef} type="email" placeholder="Email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-                    onKeyDown={e => { if (e.key === 'Enter') { customerAddressRef.current?.focus(); } }}
-                    className="billing-field__input" autoComplete="email" />
-                </div>
-              </div>
+            <div className="billing-customer-card__details">
+              <span><Phone size={12} /> {form.mobile}</span>
+              {form.gst && <span><FileText size={12} /> {form.gst}</span>}
+              {form.address && <span><MapPin size={12} /> {form.address}</span>}
+            </div>
+          </div>
+        ) : (
+          /* New customer form */
+          <div className="billing-customer-form">
+            <div className="billing-customer-form__grid">
               <div className="billing-field">
-                <MapPin size={14} className="billing-field__icon" aria-hidden="true" />
-                <label htmlFor="billing-address" className="sr-only">Address</label>
-                <input id="billing-address" name="billingAddress" ref={customerAddressRef} type="text" placeholder="Address" value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
-                  onKeyDown={e => { if (e.key === 'Enter') { document.querySelector('.billing-section--customer .btn--full')?.click(); } }}
-                  className="billing-field__input" autoComplete="street-address" />
+                <User size={14} className="billing-field__icon" aria-hidden="true" />
+                <label htmlFor="billing-name" className="sr-only">Customer Name</label>
+                <input id="billing-name" name="billingName" ref={customerNameRef} type="text"
+                  placeholder={isWalkIn || form.type === 'Retail' ? 'Full Name' : 'Full Name *'}
+                  value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') { const next = needsGst ? customerGstRef : customerEmailRef; next.current?.focus(); } }}
+                  className="billing-field__input" autoComplete="name" />
               </div>
-              <button className="btn btn-primary btn-sm btn--full mt-8" onClick={() => setStep('products')} disabled={!canProceed && !isWalkIn}>
-                Continue <ChevronDown size={14} aria-hidden="true" />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* STEP 2: PRODUCTS */}
-      {step === 'products' && (
-        <div className="billing-section billing-section--products">
-          <div className="billing-section__header"><ShoppingCart size={18} /> <h2>Add Products</h2></div>
-
-          {/* Search + Quick Actions */}
-          <div className="billing-product-top">
-            <div className="billing-search-row" style={{ position: 'relative' }}>
-              <div className="billing-field billing-field--search">
-                <Search size={16} className="billing-field__icon" aria-hidden="true" />
-                <input ref={productSearchRef} id="billingProductSearch" name="billingProductSearch" type="text" placeholder="Scan barcode • Search product • Enter code" value={productSearchQuery}
-                  onChange={e => { setProductSearchQuery(e.target.value); setSelectedSuggestionIdx(-1); }}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      if (selectedSuggestionIdx >= 0 && productSuggestions[selectedSuggestionIdx]) {
-                        const s = productSuggestions[selectedSuggestionIdx];
-                        handleAddLineItem(s.product, 1, [], s.catId, s.subId);
-                        setProductSearchQuery('');
-                        setProductSuggestions([]);
-                      } else if (productSearchQuery.trim()) {
-                        handleQrLookup(productSearchQuery);
-                        setProductSearchQuery('');
-                        setProductSuggestions([]);
-                      }
-                    }
-                    if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedSuggestionIdx(i => Math.min(i + 1, productSuggestions.length - 1)); }
-                    if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedSuggestionIdx(i => Math.max(i - 1, 0)); }
-                    if (e.key === 'Escape') { setProductSuggestions([]); setProductSearchQuery(''); }
-                  }}
-                  className="billing-field__input" aria-label="Search products by name or barcode" autoComplete="off" />
-                {productSearching && <Loader2 size={14} className="animate-spin" style={{ color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true" />}
+              <div className="billing-field billing-field--mobile">
+                <Phone size={14} className="billing-field__icon" aria-hidden="true" />
+                <label htmlFor="billing-mobile" className="sr-only">Mobile Number</label>
+                <input id="billing-mobile" name="billingMobile" type="tel"
+                  placeholder={isWalkIn || form.type === 'Retail' ? 'Mobile' : 'Mobile *'}
+                  value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                  onKeyDown={e => { if (e.key === 'Enter') { customerNameRef.current?.focus(); } }}
+                  className="billing-field__input" autoComplete="tel" />
               </div>
-              <div className="billing-quick-actions">
-                <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowScanner(true)} title="Camera Scan" aria-label="Camera scan"><Camera size={16} aria-hidden="true" /></button>
-                <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowQuickEntry(true)} title="Quick Add" aria-label="Quick add product"><Zap size={16} aria-hidden="true" /></button>
-                {recentProducts.length > 0 && <button className="btn btn-ghost btn-icon btn-xs" onClick={() => { const r = recentProducts[0]; if (r) handleAddLineItem(r); }} title="Recent" aria-label="Add most recent product"><Clock size={16} aria-hidden="true" /></button>}
-              </div>
-              {/* Product suggestions dropdown */}
-              {productSuggestions.length > 0 && (
-                <div className="billing-product-suggestions">
-                  {productSuggestions.map((s, i) => (
-                    <div key={`${s.product.id}-${i}`} className={`billing-product-suggestions__item ${i === selectedSuggestionIdx ? 'selected' : ''}`}
-                      onClick={() => { handleAddLineItem(s.product, 1, [], s.catId, s.subId); setProductSearchQuery(''); setProductSuggestions([]); }}
-                      onMouseEnter={() => setSelectedSuggestionIdx(i)}>
-                      <div className="billing-product-suggestions__name">{s.product.name || s.product.title}</div>
-                      <div className="billing-product-suggestions__meta">
-                        <span>₹{Number(s.product.mrp || s.product.sell_price || 0).toLocaleString()}</span>
-                        {s.catName && <span className="muted">{s.catName}{s.subName ? ` / ${s.subName}` : ''}</span>}
-                      </div>
-                    </div>
-                  ))}
+              {needsGst && (
+                <div className="billing-field">
+                  <FileText size={14} className="billing-field__icon" aria-hidden="true" />
+                  <label htmlFor="billing-gst" className="sr-only">GST Number</label>
+                  <input id="billing-gst" name="billingGst" ref={customerGstRef} type="text"
+                    placeholder={form.type === 'Wholesale' ? 'GST Number *' : 'GST Number'}
+                    value={form.gst} onChange={e => setForm(p => ({ ...p, gst: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') { customerEmailRef.current?.focus(); } }}
+                    className="billing-field__input" autoComplete="off" />
                 </div>
               )}
-            </div>
-
-            {/* Category filters */}
-            <div className="billing-category-row">
-              <select value={selectedCategoryId} onChange={e => { setSelectedCategoryId(e.target.value); setSelectedSubcategoryId(''); }} className="billing-select">
-                <option value="">All Categories</option>
-                {(hierarchy || []).map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-              </select>
-              {selectedCategoryId && (
-                <select value={selectedSubcategoryId} onChange={e => setSelectedSubcategoryId(e.target.value)} className="billing-select">
-                  <option value="">All Subcategories</option>
-                  {(hierarchy.find(c => String(c.id) === String(selectedCategoryId))?.subcategories || []).map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
-                </select>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Entry popup */}
-          {showQuickEntry && (
-            <div className="billing-quick-entry">
-              <label htmlFor="billing-quick-name" className="sr-only">Product name</label>
-              <input id="billing-quick-name" name="billingQuickName" type="text" placeholder="Product name" value={quickEntry.name} onChange={e => setQuickEntry(p => ({ ...p, name: e.target.value }))} className="billing-field__input" autoComplete="off" />
-              <label htmlFor="billing-quick-amount" className="sr-only">Amount</label>
-              <input id="billing-quick-amount" name="billingQuickAmount" type="number" placeholder="Amount" value={quickEntry.amount} onChange={e => setQuickEntry(p => ({ ...p, amount: e.target.value }))} className="billing-field__input" />
-              <label htmlFor="billing-quick-type" className="sr-only">Book type</label>
-              <select id="billing-quick-type" name="billingQuickType" value={quickEntry.book_type} onChange={e => setQuickEntry(p => ({ ...p, book_type: e.target.value }))} className="billing-select">
-                <option value="Laser">Laser</option><option value="Offset">Offset</option><option value="Other">Other</option>
-              </select>
-              <button className="btn btn-primary btn-sm" onClick={handleQuickAdd}>Add</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowQuickEntry(false)}>Cancel</button>
-            </div>
-          )}
-
-          {/* Products from catalog */}
-          {selectedSubcategoryId && (
-            <div className="billing-catalog-grid">
-              {(hierarchy.find(c => String(c.id) === String(selectedCategoryId))?.subcategories.find(s => String(s.id) === String(selectedSubcategoryId))?.products || []).slice(0, 12).map(prod => (
-                <div key={prod.id} className="billing-catalog-item" onClick={() => handleAddLineItem(prod)}>
-                  <div className="billing-catalog-item__icon"><Package size={20} aria-hidden="true" /></div>
-                  <div className="billing-catalog-item__name">{prod.name || prod.title}</div>
-                  <div className="billing-catalog-item__price">₹{Number(prod.mrp || prod.sell_price || 0).toLocaleString()}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Selected Products Table */}
-          {orderLines.length > 0 ? (
-            <div className="billing-products-layout">
-              <div className="billing-table-wrapper">
-                  <table className="billing-table">
-                  <thead>
-                    <tr>
-                      <th scope="col" style={{ width: '30%' }}>Product</th>
-                      <th scope="col" style={{ width: '12%' }}>Qty</th>
-                      <th scope="col" style={{ width: '12%' }}>Rate</th>
-                      <th scope="col" style={{ width: '10%' }}>Disc%</th>
-                      <th scope="col" style={{ width: '12%' }}>Tax</th>
-                      <th scope="col" style={{ width: '14%' }}>Total</th>
-                      <th scope="col" style={{ width: '10%' }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orderLines.map((line) => (
-                      <tr key={line.id}>
-                        <td>
-                          <div className="billing-product-cell">
-                            <div className="billing-product-cell__name">{line.product_name}</div>
-                            {line.book_type && <span className="badge badge--sm">{line.book_type}</span>}
-                          </div>
-                        </td>
-                        <td>
-                          <div className="billing-qty-adjust">
-                            <button className="btn btn-ghost btn-icon btn-xs" onClick={() => updateLine(line.id, 'quantity', Math.max(1, (Number(line.quantity) || 1) - 1))}><Minus size={12} /></button>
-                            <input type="number" value={line.quantity} min="1" onChange={e => updateLine(line.id, 'quantity', Math.max(1, Number(e.target.value) || 1))} className="billing-qty-input" />
-                            <button className="btn btn-ghost btn-icon btn-xs" onClick={() => updateLine(line.id, 'quantity', (Number(line.quantity) || 1) + 1)}><Plus size={12} /></button>
-                          </div>
-                        </td>
-                        <td>
-                          <input type="number" value={line.unit_price} onChange={e => updateLine(line.id, 'unit_price', Number(e.target.value) || 0)} className="billing-input-num" />
-                        </td>
-                        <td className="text-center">—</td>
-                        <td className="text-center">—</td>
-                        <td className="font-bold">₹{Number(line.total_amount).toLocaleString()}</td>
-                        <td>
-                          <div className="row gap-xxs">
-                            <button className="btn btn-ghost btn-icon btn-xs" onClick={() => duplicateLine(line)} title="Duplicate"><Copy size={12} /></button>
-                            <button className="btn btn-ghost btn-icon btn-xs text-error" onClick={() => handleRemoveWithUndo(line)} title="Remove"><Trash2 size={12} /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="billing-field">
+                <Mail size={14} className="billing-field__icon" aria-hidden="true" />
+                <label htmlFor="billing-email" className="sr-only">Email</label>
+                <input id="billing-email" name="billingEmail" ref={customerEmailRef} type="email"
+                  placeholder="Email"
+                  value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') { customerAddressRef.current?.focus(); } }}
+                  className="billing-field__input" autoComplete="email" />
               </div>
-
-              {/* Right floating summary */}
-              <div className="billing-summary-side">
-                <div className="billing-summary-side__card">
-                  <div className="billing-summary-side__row"><span>Subtotal</span><span>₹{totals.subtotal.toFixed(2)}</span></div>
-                  {totals.discountAmount > 0 && <div className="billing-summary-side__row billing-summary-side__row--discount"><span>Discount</span><span>-₹{totals.discountAmount.toFixed(2)}</span></div>}
-                  <div className="billing-summary-side__row"><span>SGST (4.5%)</span><span>₹{totals.sgst.toFixed(2)}</span></div>
-                  <div className="billing-summary-side__row"><span>CGST (4.5%)</span><span>₹{totals.cgst.toFixed(2)}</span></div>
-                  <div className="billing-summary-side__divider" />
-                  <div className="billing-summary-side__row billing-summary-side__row--grand"><span>Grand Total</span><span>₹{totals.gross.toFixed(2)}</span></div>
-
-                  {/* Discount controls */}
-                  <div className="billing-discount-row">
-                    <span className="text-xs muted">Discount</span>
-                    <div className="row gap-xs">
-                      <input type="number" placeholder="%" value={discountPercent || ''} onChange={e => setDiscountPercent(Number(e.target.value) || 0)} className="billing-input-sm" min="0" max="100" />
-                      <button className={`btn btn-xs ${discountMode === 'percent' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setDiscountMode('percent'); setDiscountPercent(0); }}>%</button>
-                      <button className={`btn btn-xs ${discountMode === 'amount' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setDiscountMode('amount'); setDiscountInputAmount(0); }}>₹</button>
-                    </div>
-                  </div>
-                  {discountMode === 'amount' && (
-                    <input type="number" placeholder="Discount amount" value={discountInputAmount || ''} onChange={e => setDiscountInputAmount(Number(e.target.value) || 0)} className="billing-input-sm btn--full mt-4" />
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="billing-empty-products">
-              <Package size={32} className="muted" />
-              <p className="muted text-sm">No products added yet</p>
-              <p className="muted text-xs">Search above or scan a barcode to add items</p>
-            </div>
-          )}
-
-          <div className="billing-section-actions">
-            <button className="btn btn-primary btn-sm" onClick={() => setStep('payment')} disabled={orderLines.length === 0}>
-              Continue to Payment <ChevronDown size={14} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3: PAYMENT */}
-      {step === 'payment' && (
-        <div className="billing-section billing-section--payment">
-          <div className="billing-section__header"><CreditCard size={18} /> <h2>Payment</h2></div>
-
-          {/* Amount */}
-          <div className="billing-payment-amount">
-            <label className="text-xs muted">Amount Received</label>
-            <div className="billing-payment-amount__value">₹{advancePaid.toFixed(2)}</div>
-          </div>
-
-          {/* Payment methods — click to toggle, supports split */}
-          <div className="billing-chips billing-chips--payment">
-            {['Cash', 'UPI', 'Card', 'Cheque', 'Account Transfer'].map(m => (
-              <button key={m} className={`chip ${payment.selectedMethods.includes(m) ? 'active' : ''}`}
-                onClick={() => handlePaymentMethod(m)}>
-                {m}
-                {payment.selectedMethods.length > 1 && payment.selectedMethods.includes(m) && <span className="chip__check"><Check size={10} /></span>}
-              </button>
-            ))}
-          </div>
-
-          {/* Per-method amounts */}
-          <div className="billing-payment-inputs">
-            {payment.selectedMethods.map((m, i) => (
-              <div key={m} className="billing-field">
-                <IndianRupee size={14} className="billing-field__icon" aria-hidden="true" />
-                <input ref={m === 'Cash' ? paymentAmountRef : null} id={`paymentAmount-${m}`} name={`paymentAmount-${m}`} type="number" placeholder={`${m} amount`} value={payment.methodAmounts[m] || ''}
-                  onChange={e => updateMethodAmount(m, e.target.value)} className="billing-field__input" aria-label={`${m} amount`} autoComplete="off" />
-                <span className="text-xs muted">{m}</span>
-              </div>
-            ))}
-            {payment.selectedMethods.length > 1 && (
-              <div className="billing-payment-balance">
-                <span>Remaining</span>
-                <span className="font-bold">₹{Math.max(totals.gross - advancePaid, 0).toFixed(2)}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Reference + Notes */}
-          <div className="billing-payment-extras">
-            <div className="billing-field">
-              <Hash size={14} className="billing-field__icon" aria-hidden="true" />
-              <label htmlFor="billing-ref" className="sr-only">Reference number</label>
-              <input id="billing-ref" name="billingRef" ref={paymentRefNumberRef} type="text" placeholder="Reference number (required for non-cash)" value={payment.referenceNumber}
-                onChange={e => setPayment(p => ({ ...p, referenceNumber: e.target.value }))}
-                onKeyDown={e => { if (e.key === 'Enter') { document.querySelector('.billing-bottom-bar .btn-primary')?.click(); } }}
-                className="billing-field__input" autoComplete="off" />
             </div>
             <div className="billing-field">
-              <MessageSquare size={14} className="billing-field__icon" aria-hidden="true" />
-              <label htmlFor="billing-notes" className="sr-only">Notes</label>
-              <input id="billing-notes" name="billingNotes" type="text" placeholder="Notes (optional)" value={payment.description}
-                onChange={e => setPayment(p => ({ ...p, description: e.target.value }))}
-                onKeyDown={e => { if (e.key === 'Enter') { document.querySelector('.billing-bottom-bar .btn-primary')?.click(); } }}
-                className="billing-field__input" autoComplete="off" />
+              <MapPin size={14} className="billing-field__icon" aria-hidden="true" />
+              <label htmlFor="billing-address" className="sr-only">Address</label>
+              <input id="billing-address" name="billingAddress" ref={customerAddressRef} type="text"
+                placeholder="Address"
+                value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
+                className="billing-field__input" autoComplete="street-address" />
             </div>
           </div>
-
-          {/* Invoice options */}
-          <div className="billing-invoice-options">
-            <label className="checkbox-row text-xs">
-              <input type="checkbox" checked={printAfterSave} onChange={e => setPrintAfterSave(e.target.checked)} />
-              <span>Print after save</span>
-            </label>
-            <label className="checkbox-row text-xs">
-              <input type="checkbox" checked={sendWhatsApp} onChange={e => setSendWhatsApp(e.target.checked)} />
-              <span>Send WhatsApp</span>
-            </label>
-            <label className="checkbox-row text-xs">
-              <input type="checkbox" checked={sendEmail} onChange={e => setSendEmail(e.target.checked)} />
-              <span>Send Email</span>
-            </label>
-          </div>
-
-          {/* Payment summary */}
-          <div className="billing-payment-summary">
-            <div className="billing-payment-summary__row"><span>Total Bill</span><span className="font-bold">₹{totals.gross.toFixed(2)}</span></div>
-            <div className="billing-payment-summary__row"><span>Paid</span><span className="font-bold text-success">₹{advancePaid.toFixed(2)}</span></div>
-            <div className="billing-payment-summary__row billing-payment-summary__row--balance">
-              <span>Balance</span>
-              <span className="font-bold">{advancePaid >= totals.gross ? 'Paid in Full' : `₹${Math.max(totals.gross - advancePaid, 0).toFixed(2)}`}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* BOTTOM STICKY ACTION BAR */}
-      <div className="billing-bottom-bar">
-        <div className="billing-bottom-bar__left">
-          <button className="btn btn-ghost btn-sm" onClick={() => { localStorage.setItem('billingDraft', JSON.stringify({ customer: form, orders: orderLines, totals })); toast.success('Draft saved'); }}>
-            <Save size={15} aria-hidden="true" /> Save Draft
-          </button>
-          {lastBillData && <button className="btn btn-ghost btn-sm" onClick={handlePrintLast}><Eye size={15} aria-hidden="true" /> Preview</button>}
-        </div>
-        <div className="billing-bottom-bar__right">
-          <button className="btn btn-primary btn--full-mobile" onClick={handleAddOrder} disabled={saving || !canProceed}>
-            {saving ? <><Loader2 size={16} className="animate-spin" aria-hidden="true" /> Saving...</> : <><Zap size={16} aria-hidden="true" /> {step === 'payment' ? 'Generate Invoice' : 'Create Invoice'}</>}
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setActiveTab('products')}>
+            Next: Add Products →
           </button>
         </div>
       </div>
 
-      {/* Scanner Modal */}
-      {showScanner && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="scanner-title" onClick={() => setShowScanner(false)}>
-          <div className="modal modal--sm" onClick={e => e.stopPropagation()}>
-            <div className="modal__header">
-              <h3 id="scanner-title">Scan Barcode / QR</h3>
-              <button className="modal-close" onClick={() => setShowScanner(false)} aria-label="Close scanner"><X size={18} aria-hidden="true" /></button>
+      {/* PRODUCTS SECTION */}
+      <div className="billing-section billing-section--products" style={{ display: activeTab === 'products' ? 'flex' : 'none' }}>
+        <div className="billing-section__header"><ShoppingCart size={16} /> <h2>Add Products</h2></div>
+
+        {/* Search + Quick Actions */}
+        <div className="billing-product-top">
+          <div className="billing-search-row" style={{ position: 'relative' }}>
+            <div className="billing-field billing-field--search">
+              <Search size={16} className="billing-field__icon" aria-hidden="true" />
+              <input ref={productSearchRef} id="billingProductSearch" name="billingProductSearch" type="text"
+                placeholder="Scan barcode • Search product • Enter code"
+                value={productSearchQuery}
+                onChange={e => { setProductSearchQuery(e.target.value); setSelectedSuggestionIdx(-1); }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    if (selectedSuggestionIdx >= 0 && productSuggestions[selectedSuggestionIdx]) {
+                      const s = productSuggestions[selectedSuggestionIdx];
+                      handleAddLineItem(s.product, 1, [], s.catId, s.subId, s.catName);
+                      setProductSearchQuery('');
+                      setProductSuggestions([]);
+                    } else if (productSearchQuery.trim()) {
+                      handleQrLookup(productSearchQuery);
+                      setProductSearchQuery('');
+                      setProductSuggestions([]);
+                    }
+                  }
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedSuggestionIdx(i => Math.min(i + 1, productSuggestions.length - 1)); }
+                  if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedSuggestionIdx(i => Math.max(i - 1, 0)); }
+                  if (e.key === 'Escape') { setProductSuggestions([]); setProductSearchQuery(''); }
+                }}
+                className="billing-field__input" aria-label="Search products by name or barcode" autoComplete="off" />
+              {productSearching && <Loader2 size={14} className="animate-spin" style={{ color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true" />}
             </div>
-            <div className="modal__body">
-              <p className="text-xs muted mb-8">Enter code manually or use camera:</p>
-              <label htmlFor="scanner-code" className="sr-only">Barcode or QR code</label>
-              <input id="scanner-code" name="scannerCode" type="text" placeholder="Paste or type code..." className="billing-field__input"
-                onKeyDown={e => { if (e.key === 'Enter' && e.target.value) { handleQrLookup(e.target.value); setShowScanner(false); } }} autoComplete="off" autoFocus />
+            <div className="billing-quick-actions">
+              <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowScanner(true)} title="Camera Scan" aria-label="Camera scan"><Camera size={16} aria-hidden="true" /></button>
+              <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowQuickEntry(true)} title="Quick Add" aria-label="Quick add product"><Zap size={16} aria-hidden="true" /></button>
+              {recentProducts.length > 0 && <button className="btn btn-ghost btn-icon btn-xs" onClick={() => { const r = recentProducts[0]; if (r) handleAddLineItem(r); }} title="Recent" aria-label="Add most recent product"><Clock size={16} aria-hidden="true" /></button>}
             </div>
+            {/* Product suggestions dropdown */}
+            {productSuggestions.length > 0 && (
+              <div className="billing-product-suggestions">
+                {productSuggestions.map((s, i) => (
+                  <div key={`${s.product.id}-${i}`} className={`billing-product-suggestions__item ${i === selectedSuggestionIdx ? 'selected' : ''}`}
+                    onClick={() => { handleAddLineItem(s.product, 1, [], s.catId, s.subId, s.catName); setProductSearchQuery(''); setProductSuggestions([]); }}
+                    onMouseEnter={() => setSelectedSuggestionIdx(i)}>
+                    <div className="billing-product-suggestions__name">{s.product.name || s.product.title}</div>
+                    <div className="billing-product-suggestions__meta">
+                      {(() => { const p = resolveProductUnitPrice(s.product); return <span>{p > 0 ? `₹${p.toLocaleString()}` : 'Custom pricing'}</span>; })()}
+                      {s.catName && <span className="muted">{s.catName}{s.subName ? ` / ${s.subName}` : ''}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Category filters */}
+          <div className="billing-category-row">
+            <select value={selectedCategoryId} onChange={e => { setSelectedCategoryId(e.target.value); setSelectedSubcategoryId(''); }} className="billing-select">
+              <option value="">All Categories</option>
+              {(hierarchy || []).map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+            </select>
+            {selectedCategoryId && (
+              <select value={selectedSubcategoryId} onChange={e => setSelectedSubcategoryId(e.target.value)} className="billing-select">
+                <option value="">All Subcategories</option>
+                {(hierarchy.find(c => String(c.id) === String(selectedCategoryId))?.subcategories || []).map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
+              </select>
+            )}
           </div>
         </div>
-      )}
 
-      {/* Post-bill options */}
+        {/* Quick Entry popup */}
+        {showQuickEntry && (
+          <div className="billing-quick-entry">
+            <label htmlFor="billing-quick-name" className="sr-only">Product name</label>
+            <input id="billing-quick-name" name="billingQuickName" type="text" placeholder="Product name" value={quickEntry.name} onChange={e => setQuickEntry(p => ({ ...p, name: e.target.value }))} className="billing-field__input" autoComplete="off" />
+            <label htmlFor="billing-quick-amount" className="sr-only">Amount</label>
+            <input id="billing-quick-amount" name="billingQuickAmount" type="number" placeholder="Amount" value={quickEntry.amount} onChange={e => setQuickEntry(p => ({ ...p, amount: e.target.value }))} className="billing-field__input" />
+            <label htmlFor="billing-quick-type" className="sr-only">Book type</label>
+            <select id="billing-quick-type" name="billingQuickType" value={quickEntry.book_type} onChange={e => setQuickEntry(p => ({ ...p, book_type: e.target.value }))} className="billing-select">
+              <option value="Laser">Laser</option><option value="Offset">Offset</option><option value="Other">Other</option>
+            </select>
+            <button className="btn btn-primary btn-sm" onClick={handleQuickAdd}>Add</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowQuickEntry(false)}>Cancel</button>
+          </div>
+        )}
+
+        {/* Catalog Grid */}
+        {(() => {
+          const totalProducts = filteredCatalogProducts.length;
+          const totalPages = Math.ceil(totalProducts / CATALOG_PAGE_SIZE);
+          const safePage = Math.min(catalogPage, Math.max(1, totalPages));
+          const pageProducts = filteredCatalogProducts.slice(
+            (safePage - 1) * CATALOG_PAGE_SIZE,
+            safePage * CATALOG_PAGE_SIZE
+          );
+          return (
+            <>
+              {totalProducts === 0 ? (
+                <div style={{ padding: '12px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                  No products found for the selected filters.
+                </div>
+              ) : (
+                <>
+                  <div className="billing-catalog-grid">
+                    {pageProducts.map(({ product: prod, catId, subId, catName, subName }) => {
+                      const displayPrice = resolveProductUnitPrice(prod);
+                      return (
+                        <div
+                          key={prod.id}
+                          className="billing-catalog-item"
+                          onClick={() => handleAddLineItem(prod, 1, [], catId, subId, catName)}
+                          title={`${catName} › ${subName}`}
+                        >
+                          <div className="billing-catalog-item__icon">
+                            {prod.image_url ? (
+                              <SecureImage
+                                src={prod.image_url}
+                                alt={prod.name || prod.title}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }}
+                              />
+                            ) : (
+                              <Package size={18} aria-hidden="true" />
+                            )}
+                          </div>
+                          <div className="billing-catalog-item__name">{prod.name || prod.title}</div>
+                          <div className="billing-catalog-item__price">
+                            {displayPrice > 0 ? `₹${displayPrice.toLocaleString()}` : 'Custom'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '6px 4px', fontSize: 12, color: 'var(--muted)'
+                    }}>
+                      <span>
+                        {(safePage - 1) * CATALOG_PAGE_SIZE + 1}–{Math.min(safePage * CATALOG_PAGE_SIZE, totalProducts)} of {totalProducts} products
+                      </span>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn btn-ghost btn-xs" disabled={safePage <= 1} onClick={() => setCatalogPage(p => Math.max(1, p - 1))} aria-label="Previous page">‹ Prev</button>
+                        {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 7) { pageNum = i + 1; }
+                          else if (safePage <= 4) { pageNum = i + 1; }
+                          else if (safePage >= totalPages - 3) { pageNum = totalPages - 6 + i; }
+                          else { pageNum = safePage - 3 + i; }
+                          return (
+                            <button key={pageNum} className={`btn btn-xs ${pageNum === safePage ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setCatalogPage(pageNum)} aria-label={`Page ${pageNum}`} aria-current={pageNum === safePage ? 'page' : undefined}>
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                        <button className="btn btn-ghost btn-xs" disabled={safePage >= totalPages} onClick={() => setCatalogPage(p => Math.min(totalPages, p + 1))} aria-label="Next page">Next ›</button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          );
+        })()}
+
+        {/* Selected Products Table */}
+        {orderLines.length > 0 ? (
+          <div className="billing-products-layout">
+            <div className="billing-table-wrapper">
+              <table className="billing-table">
+                <thead>
+                  <tr>
+                    <th scope="col" style={{ width: '30%' }}>Product</th>
+                    <th scope="col" style={{ width: '15%' }}>Qty</th>
+                    <th scope="col" style={{ width: '15%' }}>Rate</th>
+                    <th scope="col" style={{ width: '16%' }}>Total</th>
+                    <th scope="col" style={{ width: '14%', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderLines.map((line) => (
+                    <tr key={line.id}>
+                      <td>
+                        <div className="billing-product-cell">
+                          <div className="billing-product-cell__name">{line.product_name}</div>
+                          {line.book_type && <span className="badge badge--sm">{line.book_type}</span>}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="billing-qty-adjust">
+                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => updateLine(line.id, 'quantity', Math.max(1, (Number(line.quantity) || 1) - 1))} aria-label="Decrease quantity"><Minus size={12} /></button>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={Number(line.quantity).toLocaleString('en-IN')}
+                            min="1"
+                            aria-label="Quantity"
+                            onChange={e => {
+                              const raw = e.target.value.replace(/[^0-9]/g, '');
+                              updateLine(line.id, 'quantity', Math.max(1, Number(raw) || 1));
+                            }}
+                            className="billing-qty-input"
+                          />
+                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => updateLine(line.id, 'quantity', (Number(line.quantity) || 1) + 1)} aria-label="Increase quantity"><Plus size={12} /></button>
+                        </div>
+                      </td>
+                      <td>
+                        <input type="number" value={line.unit_price} onChange={e => updateLine(line.id, 'unit_price', Number(e.target.value) || 0)} className="billing-input-num" aria-label="Unit price" />
+                      </td>
+                      <td className="font-bold">₹{Number(line.total_amount).toLocaleString()}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => duplicateLine(line)} title="Duplicate"><Copy size={12} /></button>
+                          <button className="btn btn-ghost btn-icon btn-xs text-error" onClick={() => handleRemoveWithUndo(line)} title="Remove"><Trash2 size={12} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Right floating summary */}
+            <div className="billing-summary-side">
+              <div className="billing-summary-side__card">
+                <div className="billing-summary-side__row"><span>Subtotal</span><span>₹{totals.subtotal.toFixed(2)}</span></div>
+                {totals.discountAmount > 0 && <div className="billing-summary-side__row billing-summary-side__row--discount"><span>Discount</span><span>-₹{totals.discountAmount.toFixed(2)}</span></div>}
+                <div className="billing-summary-side__row">
+                  <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic' }}>GST incl. in price</span>
+                </div>
+                <div className="billing-summary-side__divider" />
+                <div className="billing-summary-side__row billing-summary-side__row--grand"><span>Grand Total</span><span>₹{totals.gross.toFixed(2)}</span></div>
+
+                {/* Discount controls */}
+                <div className="billing-discount-row">
+                  <span className="text-xs muted">Discount <span style={{ fontSize: 10, color: 'var(--muted)' }}>(max {maxDiscountPct}%)</span></span>
+                  <div className="row gap-xs">
+                    {discountMode === 'percent' ? (
+                      <input
+                        type="number"
+                        placeholder="Discount %"
+                        value={discountPercent || ''}
+                        onChange={e => {
+                          const val = Number(e.target.value) || 0;
+                          setDiscountPercent(val);
+                          if (val > maxDiscountPct) {
+                            setDiscountError(`You are not allowed to give more than ${maxDiscountPct}% discount`);
+                          } else {
+                            setDiscountError('');
+                          }
+                        }}
+                        className="billing-input-sm"
+                        min="0"
+                        max={maxDiscountPct}
+                        style={{ flex: 1 }}
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        placeholder="Discount Amount (₹)"
+                        value={discountInputAmount || ''}
+                        onChange={e => {
+                          const val = Number(e.target.value) || 0;
+                          setDiscountInputAmount(val);
+                          const subtotal = totals.subtotal;
+                          if (subtotal > 0) {
+                            const pct = (val / subtotal) * 100;
+                            if (pct > maxDiscountPct) {
+                              setDiscountError(`You are not allowed to give more than ${maxDiscountPct}% discount`);
+                            } else {
+                              setDiscountError('');
+                            }
+                          } else {
+                            setDiscountError('');
+                          }
+                        }}
+                        className="billing-input-sm"
+                        min="0"
+                        style={{ flex: 1 }}
+                      />
+                    )}
+                    <button className={`btn btn-xs ${discountMode === 'percent' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setDiscountMode('percent'); setDiscountPercent(0); setDiscountInputAmount(0); setDiscountError(''); }}>%</button>
+                    <button className={`btn btn-xs ${discountMode === 'amount' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setDiscountMode('amount'); setDiscountPercent(0); setDiscountInputAmount(0); setDiscountError(''); }}>₹</button>
+                  </div>
+                </div>
+                {discountError && (
+                  <div className="billing-discount-error">
+                    <AlertCircle size={12} />
+                    <span>{discountError}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="billing-empty-products">
+            <Package size={28} className="muted" />
+            <p className="muted text-sm">No products added yet</p>
+            <p className="muted text-xs">Search above or scan a barcode to add items</p>
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, alignItems: 'center' }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setActiveTab('customer')}>
+            ← Back: Customer
+          </button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setActiveTab('payment')}>
+            Next: Payment →
+          </button>
+        </div>
+      </div>
+
+      {/* PAYMENT SECTION */}
+      <div className="billing-section billing-section--payment" style={{ display: activeTab === 'payment' ? 'flex' : 'none' }}>
+        <div className="billing-section__header"><CreditCard size={16} /> <h2>Payment</h2></div>
+
+        {/* Amount received display */}
+        <div className="billing-payment-amount">
+          <label className="text-xs muted">Amount Received</label>
+          <div className="billing-payment-amount__value">₹{advancePaid.toFixed(2)}</div>
+        </div>
+
+        {/* Payment method chips */}
+        <div className="billing-chips billing-chips--payment">
+          {['Cash', 'UPI', 'Card', 'Cheque', 'Account Transfer'].map(m => (
+            <button key={m} className={`chip ${payment.selectedMethods.includes(m) ? 'active' : ''}`}
+              onClick={() => handlePaymentMethod(m)}>
+              {m}
+              {payment.selectedMethods.length > 1 && payment.selectedMethods.includes(m) && <span className="chip__check"><Check size={10} /></span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Per-method amounts */}
+        <div className="billing-payment-inputs">
+          {payment.selectedMethods.map((m) => (
+            <div key={m} className="billing-field">
+              <IndianRupee size={14} className="billing-field__icon" aria-hidden="true" />
+              <input
+                ref={m === 'Cash' ? paymentAmountRef : null}
+                id={`paymentAmount-${m}`}
+                name={`paymentAmount-${m}`}
+                type="number"
+                placeholder={`${m} amount`}
+                value={payment.methodAmounts[m] || ''}
+                onChange={e => updateMethodAmount(m, e.target.value)}
+                className="billing-field__input"
+                aria-label={`${m} amount`}
+                autoComplete="off"
+              />
+              <span className="text-xs muted">{m}</span>
+            </div>
+          ))}
+          {payment.selectedMethods.length > 1 && (
+            <div className="billing-payment-balance">
+              <span>Remaining</span>
+              <span className="font-bold">₹{Math.max(totals.gross - advancePaid, 0).toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Auto UPI QR */}
+        {payment.selectedMethods.includes('UPI') && (
+          <div>
+            {!branchUpiId && (
+              <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertCircle size={13} style={{ color: 'var(--destructive)' }} />
+                Select a branch with a UPI ID to enable QR generation.
+              </div>
+            )}
+            {branchUpiId && Number(payment.methodAmounts.UPI) > 0 && (
+              <div className="billing-upi-qr">
+                <span className="billing-upi-qr__label">Scan to Pay via UPI</span>
+                {upiQrLoading ? (
+                  <Loader2 size={32} className="animate-spin" style={{ color: 'var(--muted)' }} />
+                ) : upiQrUrl ? (
+                  <img src={upiQrUrl} alt="UPI QR Code" className="billing-upi-qr__img" width={160} height={160} />
+                ) : null}
+                <span className="billing-upi-qr__amount">₹{Number(payment.methodAmounts.UPI).toFixed(2)}</span>
+                <span className="billing-upi-qr__id">{branchUpiId}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reference + Notes */}
+        <div className="billing-payment-extras">
+          <div className="billing-field">
+            <Hash size={14} className="billing-field__icon" aria-hidden="true" />
+            <label htmlFor="billing-ref" className="sr-only">Reference number</label>
+            <input id="billing-ref" name="billingRef" ref={paymentRefNumberRef} type="text"
+              placeholder="Reference number (required for non-cash)"
+              value={payment.referenceNumber}
+              onChange={e => setPayment(p => ({ ...p, referenceNumber: e.target.value }))}
+              className="billing-field__input" autoComplete="off" />
+          </div>
+          <div className="billing-field">
+            <MessageSquare size={14} className="billing-field__icon" aria-hidden="true" />
+            <label htmlFor="billing-notes" className="sr-only">Notes</label>
+            <input id="billing-notes" name="billingNotes" type="text"
+              placeholder="Notes (optional)"
+              value={payment.description}
+              onChange={e => setPayment(p => ({ ...p, description: e.target.value }))}
+              className="billing-field__input" autoComplete="off" />
+          </div>
+        </div>
+
+        {/* Invoice options */}
+        <div className="billing-invoice-options">
+          <label className="checkbox-row text-xs">
+            <input type="checkbox" checked={printAfterSave} onChange={e => setPrintAfterSave(e.target.checked)} />
+            <span>Print after save</span>
+          </label>
+          <label className="checkbox-row text-xs">
+            <input type="checkbox" checked={sendWhatsApp} onChange={e => setSendWhatsApp(e.target.checked)} />
+            <span>Send WhatsApp</span>
+          </label>
+          <label className="checkbox-row text-xs">
+            <input type="checkbox" checked={sendEmail} onChange={e => setSendEmail(e.target.checked)} />
+            <span>Send Email</span>
+          </label>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, alignItems: 'center' }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setActiveTab('products')}>
+            ← Back: Products
+          </button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setActiveTab('summary')}>
+            Next: Summary →
+          </button>
+        </div>
+      </div>
+
+      {/* SUMMARY SECTION */}
+      <div className="billing-section billing-section--summary" style={{ display: activeTab === 'summary' ? 'flex' : 'none' }}>
+        <div className="billing-section__header"><FileText size={16} /> <h2>Summary</h2></div>
+
+        {/* Totals breakdown */}
+        <div className="billing-summary-final">
+          <div className="billing-summary-final__row">
+            <span>Subtotal</span>
+            <span>₹{totals.subtotal.toFixed(2)}</span>
+          </div>
+          {totals.discountAmount > 0 && (
+            <div className="billing-summary-final__row billing-summary-final__row--discount">
+              <span>Discount</span>
+              <span>−₹{totals.discountAmount.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="billing-summary-final__row">
+            <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>GST included in price</span>
+            <span />
+          </div>
+          <div className="billing-summary-final__divider" />
+          <div className="billing-summary-final__row billing-summary-final__row--total">
+            <span>Final Amount</span>
+            <span>₹{totals.gross.toFixed(2)}</span>
+          </div>
+          <div className="billing-summary-final__row">
+            <span>Paid</span>
+            <span className="text-success font-bold">₹{advancePaid.toFixed(2)}</span>
+          </div>
+          <div className="billing-summary-final__row billing-summary-final__row--balance">
+            <span>Balance Due</span>
+            <span className={advancePaid >= totals.gross ? 'text-success font-bold' : 'font-bold'}>
+              {advancePaid >= totals.gross ? '✓ Paid in Full' : `₹${Math.max(totals.gross - advancePaid, 0).toFixed(2)}`}
+            </span>
+          </div>
+        </div>
+
+        {/* Draft + Preview actions */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setActiveTab('payment')}>
+            ← Back: Payment
+          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
+              const draftLines = orderLines.map(({ _product, matter_file, matter_preview, ...rest }) => rest);
+              localStorage.setItem('billingDraft', JSON.stringify({ customer: form, orders: draftLines, totals }));
+              toast.success('Draft saved');
+            }}>
+              <Save size={14} aria-hidden="true" /> Save Draft
+            </button>
+            {lastBillData && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={handlePrintLast}>
+                <Eye size={14} aria-hidden="true" /> Preview Last
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Primary Create Invoice CTA */}
+        <button
+          className="btn btn-primary billing-summary-final__cta"
+          onClick={handleAddOrder}
+          disabled={saving || !canProceed}
+          aria-label="Create Invoice"
+        >
+          {saving
+            ? <><Loader2 size={18} className="animate-spin" aria-hidden="true" /> Creating Invoice...</>
+            : <><Zap size={18} aria-hidden="true" /> Create Invoice</>}
+        </button>
+
+        {!canProceed && orderLines.length === 0 && (
+          <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', margin: 0 }}>
+            Add at least one product to create an invoice.
+          </p>
+        )}
+      </div>
+
+      {/* Scanner Modal */}
+      <ScannerModal
+        isOpen={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={handleQrLookup}
+      />
+
+      {/* Post-bill options with Staff Assignment */}
       {showPostBillOptions && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="post-bill-title" onClick={() => setShowPostBillOptions(false)}>
-          <div className="modal modal--sm" onClick={e => e.stopPropagation()}>
+          <div className="modal modal--lg" onClick={e => e.stopPropagation()}>
             <div className="modal__header">
-              <h3 id="post-bill-title">Invoice Created!</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Check size={20} style={{ color: 'var(--success)' }} />
+                <h3 id="post-bill-title">Invoice Created!</h3>
+              </div>
               <button className="modal-close" aria-label="Close" onClick={() => setShowPostBillOptions(false)}><X size={18} aria-hidden="true" /></button>
             </div>
             <div className="modal__body stack-sm">
-              <button className="btn btn-primary btn--full" onClick={() => { handlePrintLast(); setShowPostBillOptions(false); }}>
-                <Printer size={16} className="mr-8" aria-hidden="true" /> Print Invoice
-              </button>
-              <button className="btn btn-ghost btn--full" onClick={() => { setShowPostBillOptions(false); }}>
-                <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
-              </button>
+              {/* Print / New Invoice actions */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-primary flex-1" onClick={() => { handlePrintLast(); setShowPostBillOptions(false); }}>
+                  <Printer size={16} className="mr-8" aria-hidden="true" /> Print Invoice
+                </button>
+                <button className="btn btn-ghost flex-1" onClick={() => { setShowPostBillOptions(false); }}>
+                  <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
+                </button>
+              </div>
+
+              {/* Staff Assignment Panel */}
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <Users size={16} style={{ color: 'var(--accent)' }} />
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>Assign Work to Staff</span>
+                </div>
+
+                {assignJobs.length === 0 ? (
+                  <div style={{ fontSize: 13, color: 'var(--muted)', padding: '8px 0' }}>
+                    No job lines available for assignment.
+                  </div>
+                ) : (
+                  <div className="billing-assign-panel">
+                    {assignJobs.map(job => (
+                      <div key={job.id} className="billing-assign-row">
+                        <div className="billing-assign-row__name" title={job.job_number || job.id}>
+                          {job.job_number || `Job #${job.id}`}
+                          {job.product_name && <span style={{ color: 'var(--muted)', marginLeft: 6, fontSize: 11 }}>· {job.product_name}</span>}
+                        </div>
+                        <select
+                          className="billing-assign-row__select"
+                          value={assignSelections[job.id] || ''}
+                          onChange={e => setAssignSelections(prev => ({ ...prev, [job.id]: e.target.value }))}
+                          aria-label={`Assign staff for job ${job.job_number || job.id}`}
+                        >
+                          <option value="">— Assign Staff —</option>
+                          {Array.isArray(staffOptions) && staffOptions.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}{s.role ? ` (${s.role})` : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+
+                    {assignError && (
+                      <div className="billing-error" style={{ fontSize: 12 }}>
+                        <AlertCircle size={14} /> {assignError}
+                      </div>
+                    )}
+
+                    <div className="billing-assign-actions">
+                      <button
+                        className="btn btn-primary btn-sm flex-1"
+                        onClick={handleAssignStaff}
+                        disabled={assignLoading}
+                      >
+                        {assignLoading ? <><Loader2 size={14} className="animate-spin" /> Assigning...</> : <><Check size={14} /> Assign & Close</>}
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setShowPostBillOptions(false)}>
+                        Skip for now
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1121,7 +1633,7 @@ const Billing = () => {
               ) : recentBills.length === 0 ? (
                 <div className="text-center muted py-24">No recent invoices found</div>
               ) : (
-                <div className="recent-bills-list" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div className="recent-bills-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {recentBills.map((b) => (
                     <div key={b.id || b.localId} className="recent-bill-item" style={{
                       padding: 12,
@@ -1174,7 +1686,7 @@ const Billing = () => {
                 </div>
               </div>
               <div className="row gap-sm">
-                <button className="btn btn-primary btn-sm flex-1" onClick={() => { handleAddLineItem(scannedPreview.product, scannedQty); setScannedPreview(null); }}>
+                <button className="btn btn-primary btn-sm flex-1" onClick={() => { handleAddLineItem(scannedPreview.product, scannedQty, [], scannedPreview.catId, scannedPreview.subId, scannedPreview.catName); setScannedPreview(null); }}>
                   Add to Bill
                 </button>
                 <button className="btn btn-ghost btn-sm" onClick={() => setScannedPreview(null)}>Cancel</button>
@@ -1183,7 +1695,7 @@ const Billing = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

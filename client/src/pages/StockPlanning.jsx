@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Package, AlertTriangle, CheckCircle, ShoppingCart, Download, Loader2, RefreshCw, X, Plus, Search } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import PageContainer from '../components/ui/PageContainer';
 
 const STATUS_CONFIG = {
     critical: { color: 'var(--error)', bg: 'var(--error-bg)', label: 'Critical', icon: '🔴' },
@@ -200,7 +201,7 @@ const StockPlanning = () => {
     }
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             {/* Header */}
             <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
                 <div>
@@ -508,7 +509,7 @@ const StockPlanning = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

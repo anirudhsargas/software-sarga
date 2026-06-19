@@ -4,6 +4,7 @@ import {
     Languages, Copy, CheckCircle, FileText
 } from 'lucide-react';
 import './AIMatterBuilder.css';
+import PageContainer from '../../components/ui/PageContainer';
 
 const STYLES = ['Traditional', 'Modern', 'Luxury', 'Minimal', 'Kerala Style'];
 const LANGUAGES = ['English', 'Malayalam', 'Bilingual'];
@@ -81,7 +82,7 @@ const AIMatterBuilder = () => {
     };
 
     return (
-        <div className="aim-layout">
+        <PageContainer>
             <header className="aim-header">
                 <div className="aim-header-left">
                     <button className="dse-tb-btn" onClick={() => window.history.back()}><ArrowLeft size={18} /></button>
@@ -163,7 +164,7 @@ const AIMatterBuilder = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

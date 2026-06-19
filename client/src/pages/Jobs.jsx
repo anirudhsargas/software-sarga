@@ -14,6 +14,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import { formatForDisplay } from '../utils/phone';
 import { formatCurrency, formatCurrencyDecimal } from '../utils/formatters';
+import PageContainer from '../components/ui/PageContainer';
 
 // ── Priority helpers ──
 const URGENCY_CONFIG = {
@@ -407,7 +408,7 @@ const Jobs = () => {
     const tableColumnCount = useMemo(() => getTableColumnCount(sortByPriority, isFinancialsVisible), [sortByPriority, isFinancialsVisible]);
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             <header className="page-header flex justify-between items-center flex-wrap gap-md p-12 rounded-lg shadow-sm">
                 <div className="flex items-center gap-sm">
                     <h1 className="page-title">
@@ -863,7 +864,7 @@ const Jobs = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

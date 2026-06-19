@@ -6,6 +6,7 @@ import api from '../services/api';
 import { serverToday } from '../services/serverTime';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
+import PageContainer from '../components/ui/PageContainer';
 
 const DailyReportOffset = () => {
     useSEO('Daily Report Offset');
@@ -382,7 +383,7 @@ const DailyReportOffset = () => {
     const isFinalized = report?.status === 'Finalized';
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             <div className="page-header">
                 <div>
                     <h1 className="section-title">Daily Report - Offset Book</h1>
@@ -866,7 +867,7 @@ const DailyReportOffset = () => {
                     )}
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

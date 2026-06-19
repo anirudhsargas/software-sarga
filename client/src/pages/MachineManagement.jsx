@@ -15,6 +15,7 @@ import { syncManager } from '../services/syncWorkerManager';
 import MeterVerification from '../components/MeterVerification';
 import { formatCurrency, formatCurrencyDecimal } from '../utils/formatters';
 import './MachineManagement.css';
+import PageContainer from '../components/ui/PageContainer';
 
 import BranchSelect from '../components/ui/BranchSelect';
 const MachineManagement = () => {
@@ -1162,7 +1163,7 @@ const MachineManagement = () => {
 
     // ─── Card Grid View ──────────────────────────────────────────
     return (
-        <div className="stack-lg">
+        <PageContainer>
             <div className="page-header">
                 <div>
                     <h1 className="section-title">Machine Management</h1>
@@ -1533,7 +1534,7 @@ const MachineManagement = () => {
                     </div>
                 );
             })()}
-        </div>
+        </PageContainer>
     );
 };
 

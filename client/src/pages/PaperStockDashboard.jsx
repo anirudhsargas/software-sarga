@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import './InventoryModern.css';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 const PaperStockDashboard = () => {
     useSEO('Paper Stock Dashboard');
 
@@ -80,7 +81,7 @@ const PaperStockDashboard = () => {
     };
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             {/* ─── Header ─── */}
             <div className="inv-header">
                 <div className="inv-header-left">
@@ -321,7 +322,7 @@ const PaperStockDashboard = () => {
                     </table>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

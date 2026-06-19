@@ -3,6 +3,7 @@ import { HelpCircle, Plus, Edit2, Trash2, Download, IndianRupee, Receipt, Repeat
 import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, MISC_CATEGORIES } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import PageContainer from '../components/ui/PageContainer';
 
 const defaultForm = { expense_category: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', is_recurring: false };
 const PAGE_SIZE = 50;
@@ -114,7 +115,7 @@ const MiscTab = ({ onError }) => {
   const pagedExpenses = expenses;
 
   return (
-    <div className="em-section">
+    <PageContainer>
       <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
         <div className="em-section-title"><HelpCircle size={18} /> Miscellaneous Expenses</div>
         <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setForm(defaultForm); setFormDirty(false); setShowForm(true); }}><Plus size={15} /> Add Expense</button>
@@ -201,7 +202,7 @@ const MiscTab = ({ onError }) => {
         </div>
       )}
 
-    </div>
+    </PageContainer>
   );
 };
 

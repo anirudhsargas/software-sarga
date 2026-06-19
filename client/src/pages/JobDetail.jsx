@@ -14,6 +14,7 @@ import { whatsappUrl, workStatusMessage, paymentReminderMessage, orderReadyMessa
 import { formatCurrency } from '../utils/formatters';
 const fmt = formatCurrency;
 import './JobDetail.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const statusColors = {
     Pending: 'var(--warning)',
@@ -687,7 +688,7 @@ const JobDetail = () => {
         || assignments?.find(a => a.staff_id === null && a.role === auth.getUser()?.role);
 
     return (
-        <div className="job-detail-container">
+        <PageContainer>
             {/* Header / Dashboard Toolbar */}
             <div className="job-detail-header">
                 <div>
@@ -1822,7 +1823,7 @@ const JobDetail = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

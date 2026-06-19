@@ -2,6 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, RefreshCw, Building2, Hash, FileText, Calendar, Filter } from 'lucide-react';
 import api from '../services/api';
+import PageContainer from '../components/ui/PageContainer';
 
 const DEPARTMENTS = [
     { value: 'all', label: 'All Departments' },
@@ -77,7 +78,7 @@ const InternalUsageReport = () => {
     const maxPrintsInTrend = Math.max(1, ...trendByMonth.map(m => Object.values(m.depts).reduce((s, d) => s + d.prints, 0)));
 
     return (
-        <div className="page-container" style={{ maxWidth: 1100 }}>
+        <PageContainer>
             {/* Header */}
             <div className="page-header" style={{ marginBottom: 24 }}>
                 <div>
@@ -300,7 +301,7 @@ const InternalUsageReport = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

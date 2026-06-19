@@ -6,6 +6,7 @@ import {
 import api from '../../services/api';
 import { fmt, fmtDate, today, thisMonth, exportRowsToCsv } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import PageContainer from '../components/ui/PageContainer';
 
 const defaultForm = { transaction_date: today(), transaction_type: 'Cash Out', amount: '', description: '', reference_number: '', received_from: '', paid_to: '', category: '' };
 const PETTY_CATEGORIES = ['Tea / Snacks', 'Stationery', 'Cleaning', 'Travel', 'Courier', 'Tips', 'Parking', 'Photocopies', 'Misc Purchases', 'Other'];
@@ -132,7 +133,7 @@ const PettyCashTab = ({ onError }) => {
   const closingBalance = filteredLedger.length > 0 ? Number(filteredLedger[filteredLedger.length - 1]?.balance_after || 0) : openingBalance;
 
   return (
-    <div className="em-section">
+    <PageContainer>
       <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
         <div className="em-section-title"><Wallet size={18} /> Daily Cash</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -290,7 +291,7 @@ const PettyCashTab = ({ onError }) => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

@@ -13,6 +13,7 @@ import api from '../services/api';
 import { fmt, thisMonth, fmtDate } from './expense-manager/constants';
 import './AccountantDashboard.css';
 import useScrollAnimation from '../hooks/useScrollAnimation';
+import PageContainer from '../components/ui/PageContainer';
 
 /* ─── Helpers ─── */
 const fmtCur = (n) => `₹${fmt(n)}`;
@@ -216,7 +217,7 @@ const AccountantDashboard = () => {
   const CAT_COLORS = ['var(--accent)', 'var(--error)', 'var(--success)', 'var(--accent)', 'var(--warning)', 'var(--success)', 'var(--warning)', 'var(--accent)'];
 
   return (
-    <div className="acc-dash">
+    <PageContainer className="acc-dash">
       {/* ═══ Header ═══ */}
       <div className="acc-header">
         <div>
@@ -726,7 +727,7 @@ const AccountantDashboard = () => {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

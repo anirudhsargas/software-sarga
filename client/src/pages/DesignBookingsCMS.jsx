@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Calendar, Clock, Video, Phone, Users, Check, X, Tag, DollarSign, Award, AlertTriangle, Search, Filter } from 'lucide-react';
 import api from '../services/api';
 import './DesignBookingsCMS.css';
+import PageContainer from '../components/ui/PageContainer';
 
 function DesignBookingsCMS() {
   const [bookings, setBookings] = useState([]);
@@ -147,7 +148,7 @@ function DesignBookingsCMS() {
   }), [bookings, search, statusFilter, typeFilter]);
 
   return (
-    <div className="bookings-cms reveal revealed">
+    <PageContainer>
       
       {/* ──── CRM ANALYTICS WIDGET ──── */}
       <div className="crm-metrics-grid mb-24">
@@ -484,7 +485,7 @@ function DesignBookingsCMS() {
         </div>
       )}
 
-    </div>
+    </PageContainer>
   );
 }
 

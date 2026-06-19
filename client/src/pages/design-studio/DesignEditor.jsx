@@ -11,6 +11,7 @@ import {
     BookOpen, Sparkles, Scissors, Printer
 } from 'lucide-react';
 import './DesignEditor.css';
+import PageContainer from '../../components/ui/PageContainer';
 
 const LEFT_PANELS = [
     { id: 'templates', icon: Layout, label: 'Templates' },
@@ -83,7 +84,7 @@ const DesignEditor = () => {
     const panelContent = LEFT_PANELS.find(p => p.id === activePanel);
 
     return (
-        <div className="dse-layout">
+        <PageContainer>
             {/* ── Top Toolbar ─────────────────────────────── */}
             <header className="dse-topbar">
                 <div className="dse-topbar-left">
@@ -410,7 +411,7 @@ const DesignEditor = () => {
                     <span className="dse-bottombar-item">{creationParams?.width || 12} × {creationParams?.height || 18} {creationParams?.unit || 'inch'}</span>
                 </div>
             </footer>
-        </div>
+        </PageContainer>
     );
 };
 

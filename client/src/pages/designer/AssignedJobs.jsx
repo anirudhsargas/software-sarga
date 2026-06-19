@@ -9,6 +9,7 @@ import {
 import api from '../../services/api';
 import { useSEO } from '../../hooks/useSEO';
 import '../../styles/designer-dashboard.css';
+import PageContainer from '../../components/ui/PageContainer';
 
 /* ── Column definitions ── */
 const COLUMNS = [
@@ -309,7 +310,7 @@ const AssignedJobs = () => {
   const totalActive = (colMap['Assigned']?.length || 0) + (colMap['Designing']?.length || 0) + (colMap['Review']?.length || 0);
 
   return (
-    <div className="kanban-page">
+    <PageContainer>
 
       {/* Header */}
       <div className="designer-page-header">
@@ -370,7 +371,7 @@ const AssignedJobs = () => {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

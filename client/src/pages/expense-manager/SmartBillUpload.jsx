@@ -912,6 +912,8 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
       setLoading(false);
     }
   };
+    }
+  }
 
   return createPortal(
     <React.Fragment>      <div className="smart-bill-upload-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
@@ -935,8 +937,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                 </div>
               </div>
               <p className="subtitle">Upload bill images or PDFs to auto-extract details</p>
-              onClick={() => fileInputRef.current?.click()}
-            >
+              <div className="upload-area" onClick={() => fileInputRef.current?.click()}>
               <Upload size={48} />
               <h3>Drag & drop bills here</h3>
               <p>or click to select files (multiple)</p>

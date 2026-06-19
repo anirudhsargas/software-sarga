@@ -8,6 +8,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import SecureImage from '../components/SecureImage';
 import { formatCurrency } from '../utils/formatters';
+import PageContainer from '../components/ui/PageContainer';
 const fmt = formatCurrency;
 
 const statusConfig = {
@@ -141,7 +142,7 @@ const AttendanceSalary = () => {
   }
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto' }}>
+    <PageContainer>
       <div style={{ marginBottom: 24 }}>
         <div className="row items-center" style={{ justifyContent: 'space-between', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -348,7 +349,7 @@ const AttendanceSalary = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import localDb from '../../services/localDb';
+import PageContainer from '../components/ui/PageContainer';
 import auth from '../../services/auth';
 import { fmt, fmtDate } from './constants';
 import { serverToday } from '../../services/serverTime';
@@ -1031,7 +1032,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   /* ── Vendor List ── */
   return (
-    <div className="em-section">
+    <PageContainer>
       <div className="em-filter-row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div className="em-section-title"><Store size={18} /> Vendor Management</div>
         <div className="row gap-sm" style={{ flexWrap: 'wrap' }}>
@@ -1408,7 +1409,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

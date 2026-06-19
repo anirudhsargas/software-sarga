@@ -1,0 +1,27 @@
+/* ═══════════════════════════════════════════════════════════════
+   PageContainer — Responsive Overrides
+   Base layout defined in global-fixes.css (.page-content)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Tablet — proportional margins */
+@media (max-width: 1024px) {
+  .page-content {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+/* Mobile — reduced but aligned margins */
+@media (max-width: 640px) {
+  .page-content {
+    padding-left: 16px;
+    padding-right: 16px;
+    gap: 16px;
+  }
+}
+
+/* Sidebar collapse must not change page spacing */
+.dashboard-layout--collapsed .page-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}

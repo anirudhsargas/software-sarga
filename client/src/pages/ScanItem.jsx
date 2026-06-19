@@ -8,6 +8,7 @@ import SecureImage from '../components/SecureImage';
 import CameraPermissionModal from '../components/CameraPermissionModal';
 import toast from 'react-hot-toast';
 import './ScanItem.css';
+import PageContainer from '../components/ui/PageContainer';
 
 let html5QrcodeModule = null;
 let html5QrcodePromise = null;
@@ -418,7 +419,7 @@ const ScanItem = () => {
     const isLowStock = lookupResult && Number(lookupResult.quantity) <= Number(lookupResult.reorder_level || 0);
 
     return (
-        <div className="scan-page-container stack-lg">
+        <PageContainer>
             
             {/* Header */}
             <div className="scan-header row items-center gap-md">
@@ -817,7 +818,7 @@ const ScanItem = () => {
                 onClose={() => setShowPermissionModal(false)} 
                 onRetry={handleRetryPermission} 
             />
-        </div>
+        </PageContainer>
     );
 };
 

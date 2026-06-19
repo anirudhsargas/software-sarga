@@ -45,7 +45,7 @@ const StaffLayout = () => {
                 <header className="content-header" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 24px', backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
                     <h2 className="section-title" style={{ margin: 0 }}>Staff Portal</h2>
                 </header>
-                <main className="content-area" style={{ flex: 1, overflowY: 'auto' }}>
+                <main className="content-area" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
                     <Outlet />
                 </main>
             </div>

@@ -9,6 +9,7 @@ import { serverToday, serverThisMonth } from '../services/serverTime';
 import { useOptimistic } from '../hooks/useOptimistic';
 import SecureImage from '../components/SecureImage';
 import './EmployeeDetail.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const createIdempotencyKey = () => (typeof crypto !== 'undefined' && crypto.randomUUID
     ? `salary-${crypto.randomUUID()}`
@@ -409,7 +410,7 @@ const EmployeeDetail = () => {
     }
 
     return (
-        <div className="employee-detail">
+        <PageContainer>
             <div className="employee-detail__container">
                 <button onClick={() => navigate('/dashboard/staff')} className="employee-detail__back">
                     <ArrowLeft size={18} /> Back to Staff
@@ -1259,7 +1260,7 @@ const EmployeeDetail = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

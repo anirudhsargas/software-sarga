@@ -20,6 +20,7 @@ import { serverNow, serverToday } from '../services/serverTime';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import QuickActionsDashboard from '../components/quickbilling/QuickActionsDashboard';
+import PageContainer from '../components/ui/PageContainer';
 
 const OPENING_TABS = [
     { key: 'Offset', label: 'Offset', color: 'var(--accent)' },
@@ -604,7 +605,7 @@ const FrontOffice = () => {
 
     return (
         <>
-        <div className="fo-dashboard">
+        <PageContainer>
             {/* ──── Header Bar ──── */}
             <div className="fo-header">
                 <div className="fo-header__left">
@@ -1446,7 +1447,7 @@ const FrontOffice = () => {
                     })}
                 </div>
             </div>
-        </div>
+        </PageContainer>
 
             {/* ──── Opening Balance Prompt Modal ──── */}
             {showOpeningPrompt && (

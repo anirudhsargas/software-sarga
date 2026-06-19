@@ -12,6 +12,7 @@ import {
     ShoppingCart, Truck, ExternalLink, Info
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import PageContainer from '../components/ui/PageContainer';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -361,7 +362,7 @@ const SalesPrediction = () => {
     }
 
     return (
-        <div className="sp-container">
+        <PageContainer>
 
             {/* ─── Header ─── */}
             <div className="sp-header">
@@ -857,7 +858,7 @@ const SalesPrediction = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

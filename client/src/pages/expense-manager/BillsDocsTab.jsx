@@ -6,6 +6,7 @@ import { fmtDate, today, fmt, DOCUMENT_TYPES } from './constants';
 import { imgUrl } from '../../services/api';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import useAuth from '../../hooks/useAuth';
+import PageContainer from '../components/ui/PageContainer';
 import SmartBillUpload from './SmartBillUpload';
 import FullBillModal from './FullBillModal';
 
@@ -100,7 +101,7 @@ const BillsDocsTab = ({ onError }) => {
 
 
   return (
-    <div className="em-section">
+    <PageContainer>
       <div className="em-filter-row" style={{ justifyContent: 'space-between' }}>
         <div className="em-section-title"><FileText size={18} /> Bills & Documents</div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -216,7 +217,7 @@ const BillsDocsTab = ({ onError }) => {
         documentId={fullBillDocId}
         onClose={() => setFullBillDocId(null)}
       />
-    </div>
+    </PageContainer>
   );
 };
 

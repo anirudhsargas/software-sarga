@@ -6,6 +6,7 @@ import SecureImage from '../components/SecureImage';
 import toast from 'react-hot-toast';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 const BRANCHES = [
   { value: 'perambra', label: 'Perambra' },
   { value: 'meppayur_main', label: 'Meppayur Main' },
@@ -141,7 +142,7 @@ const CCTVAttendance = () => {
   };
 
   return (
-    <div>
+    <PageContainer>
       {/* Page Header */}
       <div className="page-header">
         <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -403,7 +404,7 @@ const CCTVAttendance = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import React, { useCallback } from 'react'
 import { Plus, Edit3, Trash2, Loader2, X } from 'lucide-react'
+import PageContainer from '../../components/ui/PageContainer'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 
@@ -60,7 +61,7 @@ function PromotionsManager() {
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>
 
   return (
-    <div className="portfolio-mgr">
+    <PageContainer>
       <div className="mgr-header">
         <h2>Seasonal Promotions</h2>
         <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ title: '', description: '', banner_image: '', banner_mobile_image: '', campaign_type: 'Custom', start_date: '', end_date: '', discount_percent: 0, discount_code: '', link_url: '', priority: 0, is_active: true }); setShowForm(true) }}>
@@ -117,7 +118,7 @@ function PromotionsManager() {
           </tbody>
         </table>
       </div>
-    </div>
+    </PageContainer>
   )
 }
 

@@ -20,6 +20,7 @@ import Skeleton, { SkeletonText, SkeletonAvatar, SkeletonTitle, SkeletonKpi } fr
 import SecureImage from '../components/SecureImage';
 
 import './CustomerDetails.css';
+import PageContainer from '../components/ui/PageContainer';
 
 /* ───── constants ───── */
 const STATUS_STEPS = ['Pending', 'Processing', 'Completed', 'Delivered'];
@@ -300,7 +301,7 @@ const CustomerDetails = () => {
 
   /* ═══════ RENDER ═══════ */
   return (
-    <div className="cd-page">
+    <PageContainer>
       {/* ── HEADER ── */}
       <div className="cd-header">
         <div className="cd-header-left">
@@ -970,7 +971,7 @@ const CustomerDetails = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

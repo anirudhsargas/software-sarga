@@ -10,6 +10,7 @@ import api from '../../services/api';
 import { useSEO } from '../../hooks/useSEO';
 import auth from '../../services/auth';
 import '../../styles/designer-dashboard.css';
+import PageContainer from '../../components/ui/PageContainer';
 
 /* ── Constants ── */
 const DESIGN_TYPES = [
@@ -180,7 +181,7 @@ const DesignBooking = () => {
     });
 
   return (
-    <div className="booking-page">
+    <PageContainer>
 
       {/* ── Header ── */}
       <div className="designer-page-header">
@@ -556,7 +557,7 @@ const DesignBooking = () => {
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 };
 

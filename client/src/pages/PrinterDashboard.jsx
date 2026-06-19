@@ -8,6 +8,8 @@ import localDb from '../services/localDb';
 import { useOfflineSync } from '../hooks/useOffline';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
+
 const PrinterDashboard = () => {
     useSEO('Printer Dashboard');
 
@@ -134,14 +136,14 @@ const PrinterDashboard = () => {
 
   if (loading && workHistory.length === 0) {
     return (
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 16px' }}>
+      <PageContainer>
         <div className="skeleton" style={{ width: 280, height: 28, marginBottom: 8, borderRadius: 6 }} />
         <div className="skeleton" style={{ width: 200, height: 14, marginBottom: 24, borderRadius: 6 }} />
         <div className="skeleton" style={{ width: '100%', height: 48, marginBottom: 16, borderRadius: 8 }} />
         {[1,2,3].map(i => (
           <div key={i} className="skeleton" style={{ width: '100%', height: 72, marginBottom: 8, borderRadius: 8 }} />
         ))}
-      </div>
+      </PageContainer>
     );
   }
 
@@ -160,7 +162,7 @@ const PrinterDashboard = () => {
   }
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 16px' }}>
+    <PageContainer>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -548,7 +550,7 @@ const PrinterDashboard = () => {
           )}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

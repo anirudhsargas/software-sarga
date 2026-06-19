@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../../services/api';
 import { useSEO } from '../../hooks/useSEO';
 import { CheckSquare, Clock, AlertTriangle, PlayCircle } from 'lucide-react';
+import PageContainer from '../components/ui/PageContainer';
 
 const MyTasks = () => {
     useSEO('My Tasks');
@@ -18,7 +19,7 @@ const MyTasks = () => {
     const getCount = (status) => tasks?.filter(t => t.status === status).length || 0;
 
     return (
-        <div className="container-lg">
+        <PageContainer>
             <h1 className="section-title">My Tasks</h1>
             <p className="section-subtitle mb-24">Manage your assigned duties and track progress.</p>
 
@@ -123,7 +124,7 @@ const MyTasks = () => {
                     </table>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

@@ -4,6 +4,7 @@ import { Loader2, Plus, Edit2, Search, Trash2, X, Globe, Check } from 'lucide-re
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import './TranslationsManager.css'
+import PageContainer from '../../components/ui/PageContainer'
 
 const LANGUAGES = [
   { value: 'ml', label: 'Malayalam' },
@@ -113,7 +114,7 @@ function TranslationsManager() {
   }
 
   return (
-    <div>
+    <PageContainer>
       <div className="page-header">
         <div>
           <h1 className="section-title">Translations</h1>
@@ -273,8 +274,8 @@ function TranslationsManager() {
           </div>
         </div>
       )}
-    </div>
-  )
+    </PageContainer>
+  );
 }
 
 export default React.memo(TranslationsManager)

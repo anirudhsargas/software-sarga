@@ -13,6 +13,7 @@ import usePolling from '../hooks/usePolling';
 
 import BranchSelect from '../components/ui/BranchSelect';
 import './ProductionTracker.css';
+import PageContainer from '../components/ui/PageContainer';
 const STAGE_CONFIG = {
     Pending:          { icon: Clock,        color: 'var(--text-muted)', bg: 'var(--surface-2)', label: 'Pending' },
     Designing:        { icon: Palette,      color: 'var(--accent)', bg: 'var(--surface-2)', label: 'Designing' },
@@ -75,7 +76,7 @@ const ProductionTracker = () => {
     const summary = data?.summary || {};
 
     return (
-        <div className="page-container">
+        <PageContainer>
             <div className="page-header">
                 <div>
                     <h1 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -196,7 +197,7 @@ const ProductionTracker = () => {
                     )}
                 </>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

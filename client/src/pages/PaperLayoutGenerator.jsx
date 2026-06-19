@@ -4,6 +4,7 @@ import { Layers, Calculator, Download, Loader2, RotateCcw, Maximize, AlertTriang
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { optimizePaperUsage, findBestSheetSize, PAPER_SIZES as PAPER_SIZES_CONST, SHEET_SIZES } from '../utils/paperOptimizer';
+import PageContainer from '../components/ui/PageContainer';
 
 const PAPER_SIZES = [
     { name: 'A4', w: 210, h: 297 },
@@ -197,7 +198,7 @@ const PaperLayoutGenerator = () => {
     };
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             <div className="page-header">
                 <div>
                     <h1 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -485,7 +486,7 @@ const PaperLayoutGenerator = () => {
                     .ai-grid--controls { grid-template-columns: 1fr !important; }
                 }
             `}</style>
-        </div>
+        </PageContainer>
     );
 };
 

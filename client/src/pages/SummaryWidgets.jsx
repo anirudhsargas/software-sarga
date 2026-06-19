@@ -4,6 +4,7 @@ import { useSEO } from '../hooks/useSEO';
 import { ArrowUpRight, ArrowDownRight, Brain, Sparkles, ShieldAlert, IndianRupee, TrendingUp, BarChart3, Activity, ClipboardList, Printer, Wallet, AlertTriangle, UserCheck, Users, Loader2 } from 'lucide-react';
 
 const OrderForecastWidget = React.lazy(() => import('../components/OrderForecastWidget'));
+import PageContainer from '../components/ui/PageContainer';
 
 const forecastSkeletonHeights = ['38%', '54%', '46%', '70%', '58%', '82%', '64%'];
 
@@ -36,7 +37,7 @@ const SummaryWidgets = React.memo(({ statsToday, statsOverall, navigate, fmt, fm
     const staffProd = statsOverall?.staff_productivity || [];
 
     return (
-        <>
+        <PageContainer>
             {/* ─── Section 1.5: AI Insights & Roadmap (New) ─── */}
                     <div className="summary-grid summary-grid--split mb-24">
                         <section className="summary-section ai-insights-card" style={{ border: '1px solid var(--border)' }}>
@@ -337,7 +338,7 @@ const SummaryWidgets = React.memo(({ statsToday, statsOverall, navigate, fmt, fm
 
                     {/* ─── Section 7: Order Forecast ─── */}
                     <OrderForecastWidget branchId={filters.branch_id} />
-        </>
+        </PageContainer>
     );
 });
 

@@ -18,6 +18,7 @@ import ServerError from '../components/ServerError';
 import toast from 'react-hot-toast';
 import BranchSelect from '../components/ui/BranchSelect';
 import './Customers.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const Customers = () => {
     useSEO('Customers');
@@ -128,13 +129,13 @@ const Customers = () => {
     const LIMIT = 20;
 
     // --- PAGINATED FETCH ---
-    const fetchCustomers = async (pageNum = 1) => {
+    const fetchCustomers = async (pageNum = 1, attempt = 1) => {
         if (fetchAbortRef.current) {
             fetchAbortRef.current.abort();
         }
         const controller = new AbortController();
         fetchAbortRef.current = controller;
-        setLoading(true);
+        if (attempt === 1) setLoading(true);
         setError('');
         try {
             const params = new URLSearchParams();
@@ -142,13 +143,15 @@ const Customers = () => {
             params.append('limit', LIMIT);
             if (searchQuery) params.append('search', searchQuery);
             if (typeFilter) params.append('type', typeFilter);
-            const res = await api.get(`/customers?${params.toString()}`, { signal: controller.signal });
+            const res = await api.get(`/customers?${params.toString()}`, {
+                signal: controller.signal,
+                timeout: attempt === 1 ? 10000 : 20000
+            });
             if (res.data?.data && res.data?.total !== undefined) {
                 setCustomers(res.data.data);
                 setTotal(res.data.total);
                 setTotalPages(res.data.totalPages);
             } else if (Array.isArray(res.data)) {
-                // Fallback for non-paginated response
                 const filtered = res.data.filter(c => c.client_type !== 'internal');
                 setCustomers(filtered);
                 setTotal(filtered.length);
@@ -160,9 +163,28 @@ const Customers = () => {
             }
             setPage(pageNum);
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        } catch {
+            return true;
+        } catch (err) {
+            if (err?.name === 'AbortError' || err?.code === 'ERR_CANCELED') return false;
+            if (attempt < 2) {
+                await new Promise(r => setTimeout(r, 1500));
+                return fetchCustomers(pageNum, attempt + 1);
+            }
+            // Fallback to localDb on failure
+            try {
+                const localCustomers = await localDb.getCustomers();
+                if (localCustomers && localCustomers.length > 0) {
+                    const filtered = localCustomers.filter(c => c.client_type !== 'internal');
+                    setCustomers(filtered);
+                    setTotal(filtered.length);
+                    setTotalPages(1);
+                    setError('Showing locally stored data — server unavailable');
+                    return true;
+                }
+            } catch {}
             setError('Failed to fetch customers from server');
             setCustomers([]);
+            return false;
         } finally {
             setLoading(false);
         }
@@ -519,7 +541,7 @@ const Customers = () => {
     };
 
     return (
-        <div className="customer-page">
+        <PageContainer>
             <header className="page-header flex justify-between items-center flex-wrap gap-md p-16 rounded-xl shadow-sm mb-24" style={{ background: 'var(--card)' }}>
                 <div className="flex items-center gap-sm">
                     <h1 className="page-title" style={{ fontSize: 20 }}>
@@ -579,9 +601,9 @@ const Customers = () => {
                         aria-label="Filter by customer type"
                     >
                         <option value="">All Types</option>
-                        <option value="Walk-in">Walk-in</option>
-                        <option value="Regular">Regular</option>
-                        <option value="Corporate">Corporate</option>
+                        {customerTypes.map(t => (
+                            <option key={t} value={t}>{t}</option>
+                        ))}
                     </select>
                 </div>
                 <button className="btn btn-ghost" style={{ height: 44, width: 44, padding: 0 }} onClick={() => { setSearchInput(''); setTypeFilter(''); setPage(1); }} aria-label="Clear filters">
@@ -1225,7 +1247,7 @@ const Customers = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

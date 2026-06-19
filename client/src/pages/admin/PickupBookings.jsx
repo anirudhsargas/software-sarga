@@ -5,6 +5,7 @@ import api from '../../services/api'
 import toast from 'react-hot-toast'
 
 import BranchSelect from '../../components/ui/BranchSelect';
+import PageContainer from '../../components/ui/PageContainer';
 function PickupBookings() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -42,7 +43,7 @@ function PickupBookings() {
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>
 
   return (
-    <div className="portfolio-mgr">
+    <PageContainer>
       <div className="mgr-header"><h2>Pickup Bookings</h2></div>
       <div className="mgr-filters">
         <div className="mgr-search"><Search size={16} /><input className="input" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} /></div>
@@ -84,7 +85,7 @@ function PickupBookings() {
           </tbody>
         </table>
       </div>
-    </div>
+    </PageContainer>
   )
 }
 

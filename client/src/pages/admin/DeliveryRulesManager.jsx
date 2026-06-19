@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Loader2, Plus, Edit2, Trash2 } from 'lucide-react'
+import PageContainer from '../../components/ui/PageContainer'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 
@@ -47,7 +48,7 @@ function DeliveryRulesManager() {
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>
 
   return (
-    <div className="portfolio-mgr">
+    <PageContainer>
       <div className="mgr-header"><h2>Delivery Rules</h2><button className="btn" onClick={openNew}><Plus size={16} /> New Rule</button></div>
       {showForm && (
         <div className="modal-backdrop" onClick={() => setShowForm(false)}>
@@ -80,7 +81,7 @@ function DeliveryRulesManager() {
           </tbody>
         </table>
       </div>
-    </div>
+    </PageContainer>
   )
 }
 

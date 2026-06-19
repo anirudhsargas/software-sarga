@@ -27,6 +27,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import toast from 'react-hot-toast';
 import ImageCropModal from '../components/ImageCropModal';
+import PageContainer from '../components/ui/PageContainer';
 
 const SortableItem = React.memo(({ id, children, className, disabled, index, ...props }) => {
     const {
@@ -1366,7 +1367,7 @@ const ProductLibrary = () => {
     );
 
     return (
-        <div className="stack-lg">
+        <PageContainer>
             <header className="stack-sm">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2572,7 +2573,15 @@ const ProductLibrary = () => {
                                             className="input-field"
                                             style={{ fontWeight: 600 }}
                                             value={newProduct.calculation_type}
-                                            onChange={e => setNewProduct({ ...newProduct, calculation_type: e.target.value })}
+                                            onChange={e => setNewProduct({
+                                                ...newProduct,
+                                                calculation_type: e.target.value,
+                                                // Bug 4 fix: reset slabs when switching type so stale slab
+                                                // data from a different calculation type is never saved.
+                                                slabs: e.target.value === 'Range'
+                                                    ? [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }]
+                                                    : [{ min_qty: 1, max_qty: null, base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }]
+                                            })}
                                         >
                                             <option value="Normal">Fixed Unit Rate (Qty × Rate)</option>
                                             <option value="Slab">Interpolated Slab (Gradual Transition)</option>
@@ -3097,9 +3106,8 @@ const ProductLibrary = () => {
                         </div>
                         </div>
                     </div>
-                </div>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Plus, Edit2, Trash2, Play, Pause, Loader2, Calendar, Clock, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import PageContainer from '../components/ui/PageContainer';
 
 export default function RecurringInvoices() {
     useSEO('Recurring Invoices');
@@ -105,7 +106,7 @@ export default function RecurringInvoices() {
     if (loading) return <div style={{ textAlign: 'center', padding: 60 }}><Loader2 size={28} className="animate-spin" /></div>;
 
     return (
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+        <PageContainer>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}><RefreshCw size={22} /> Recurring Invoices</h2>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -217,6 +218,6 @@ export default function RecurringInvoices() {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     );
 }

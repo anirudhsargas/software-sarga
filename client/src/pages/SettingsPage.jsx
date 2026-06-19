@@ -5,6 +5,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import AppearanceSettings from '../components/AppearanceSettings';
 import './SettingsPage.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const tabs = [
     { key: 'general', label: 'General', icon: Building2, desc: 'Company profile and branding' },
@@ -20,7 +21,7 @@ export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('general');
 
     return (
-        <div className="sp-container">
+        <PageContainer>
             <div className="sp-sidebar">
                 <div className="sp-sidebar-header">
                     <div className="sp-icon-box">
@@ -61,7 +62,7 @@ export default function SettingsPage() {
                     </Suspense>
                 </div>
             </main>
-        </div>
+        </PageContainer>
     );
 }
 

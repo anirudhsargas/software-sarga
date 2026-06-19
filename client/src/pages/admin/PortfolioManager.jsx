@@ -3,6 +3,7 @@ import { Plus, Edit3, Trash2, Eye, EyeOff, Star, Search, X, Loader2, Upload } fr
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import './PortfolioManager.css'
+import PageContainer from '../../components/ui/PageContainer'
 
 const CATEGORIES = ['Wedding Cards', 'Mementos', 'Photo Frames', 'Offset Books', 'Business Cards', 'Certificates', 'Custom Projects']
 
@@ -114,7 +115,7 @@ function PortfolioManager() {
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>
 
   return (
-    <div className="portfolio-mgr">
+    <PageContainer>
       <div className="mgr-header">
         <h2>Portfolio Management</h2>
         <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ title: '', description: '', category: 'Custom Projects', cover_image: '', gallery_images: [], featured: false, published: true, position: 0 }); setShowForm(true) }}>
@@ -179,7 +180,7 @@ function PortfolioManager() {
           </tbody>
         </table>
       </div>
-    </div>
+    </PageContainer>
   )
 }
 

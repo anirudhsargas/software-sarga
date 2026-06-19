@@ -10,6 +10,7 @@ import { serverToday, serverDateTimeLocal } from '../services/serverTime';
 import Pagination from '../components/Pagination';
 import { useConfirm } from '../contexts/ConfirmContext';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
+import PageContainer from '../components/ui/PageContainer';
 
 const Payments = () => {
     useSEO('Payments');
@@ -427,7 +428,7 @@ const Payments = () => {
 
     return (
         <SectionErrorBoundary name="PaymentsPage">
-        <div className="stack-lg">
+        <PageContainer>
             <div className="page-header">
                 <div>
                     <h1 className="section-title">Payments & Expenditure</h1>
@@ -1509,7 +1510,7 @@ const Payments = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </PageContainer>
     </SectionErrorBoundary>
     )
 }

@@ -10,6 +10,7 @@ import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
 import { formatCurrencyDecimal } from '../constants';
 import './PaymentVerification.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const STATUS_CONFIG = {
   Pending: { icon: ShieldAlert, color: 'var(--warning)', bg: 'var(--secondary)', label: 'Pending' },
@@ -98,7 +99,7 @@ const PaymentVerification = () => {
   ];
 
   return (
-    <div className="pv-page">
+    <PageContainer>
       {/* Header */}
       <div className="pv-header">
         <div>
@@ -316,7 +317,7 @@ const PaymentVerification = () => {
       </div>
 
       <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
-    </div>
+    </PageContainer>
   );
 };
 

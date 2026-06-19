@@ -4,6 +4,7 @@ import { File, FileText, Package, Inbox, AlertTriangle, Search, RefreshCcw } fro
 import api, { devFallback } from '../services/api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import PageContainer from '../components/ui/PageContainer';
 
 const InventoryOverview = () => {
     useSEO('Inventory Overview');
@@ -143,7 +144,7 @@ const InventoryOverview = () => {
     ]), [productsTotal, productsLowCount, paperTotal, paperLowCount, consumablesTotal, consumablesLowCount]);
 
     return (
-        <div className="stack-lg p-md">
+        <PageContainer>
             <div className="row space-between items-center">
                 <div>
                     <h1 className="section-title">Inventory Overview</h1>
@@ -216,7 +217,7 @@ const InventoryOverview = () => {
                     </table>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

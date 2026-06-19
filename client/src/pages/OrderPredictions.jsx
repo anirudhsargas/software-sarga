@@ -9,6 +9,7 @@ import api from '../services/api';
 import { formatCurrency as fmt } from '../constants';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 const CONFIDENCE_COLORS = {
     High: { bg: 'var(--color-ok, #16a34a)', light: 'var(--success-bg)', text: 'var(--success)' },
     Medium: { bg: 'var(--color-warning, #f59e0b)', light: 'var(--warning-bg)', text: 'var(--warning)' },
@@ -74,7 +75,7 @@ const OrderPredictions = () => {
     const summary = data?.summary || {};
 
     return (
-        <div className="page-container">
+        <PageContainer>
             {/* Header */}
             <div className="page-header" style={{ marginBottom: 10, paddingTop: 8, paddingBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -201,7 +202,7 @@ const OrderPredictions = () => {
                     )}
                 </>
             )}
-        </div>
+        </PageContainer>
     );
 };
 

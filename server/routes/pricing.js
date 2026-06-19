@@ -179,19 +179,24 @@ router.get('/pricing/calculate', asyncHandler(async (req, res) => {
         } else if (product.calculation_type === 'Slab') {
           const sorted = [...slabs].sort((a, b) => Number(a.min_qty) - Number(b.min_qty));
           let totalFromSlabs = 0;
+          // Track the effective slab for add-on rates (double-side, offset)
+          let effectiveSlabForAddons = sorted[0];
 
           if (sorted.length > 0) {
             const exactMatch = sorted.find(s => Number(s.min_qty) === qty);
             if (exactMatch) {
               totalFromSlabs = Number(exactMatch.base_value) || (resolveUnitRate(exactMatch) * qty);
+              effectiveSlabForAddons = exactMatch;
             } else if (qty < Number(sorted[0].min_qty)) {
               totalFromSlabs = Number(sorted[0].base_value) || (resolveUnitRate(sorted[0]) * qty);
+              effectiveSlabForAddons = sorted[0];
             } else if (qty > Number(sorted[sorted.length - 1].min_qty)) {
               const last = sorted[sorted.length - 1];
-              const lastMin = Number(last.min_qty) || 0;
-              const lastBase = Number(last.base_value) || 0;
-              const lastUnit = lastMin > 0 ? (lastBase / lastMin) : resolveUnitRate(last);
+              // Use the slab's unit_rate directly for quantities beyond the last slab.
+              // Deriving from base_value/min_qty was wrong when qty >> min_qty.
+              const lastUnit = resolveUnitRate(last);
               totalFromSlabs = lastUnit * qty;
+              effectiveSlabForAddons = last;
             } else {
               for (let i = 0; i < sorted.length - 1; i++) {
                 const s1 = sorted[i];
@@ -199,6 +204,7 @@ router.get('/pricing/calculate', asyncHandler(async (req, res) => {
                 if (qty > Number(s1.min_qty) && qty < Number(s2.min_qty)) {
                   const ratio = (qty - Number(s1.min_qty)) / (Number(s2.min_qty) - Number(s1.min_qty));
                   totalFromSlabs = Number(s1.base_value) + ratio * (Number(s2.base_value) - Number(s1.base_value));
+                  effectiveSlabForAddons = s1; // use lower-bound slab for add-on rates
                   break;
                 }
               }
@@ -215,11 +221,18 @@ router.get('/pricing/calculate', asyncHandler(async (req, res) => {
             unitPrice = qty > 0 ? totalFromSlabs / qty : 0;
           }
 
-          // Double-side add-on
+          // Bug 1 fix: use effective slab's double_side_unit_rate, not sorted[0]
+          // Bug 3 fix: apply offset_unit_rate as an add-on for Slab-type offset customers
           if (product.has_double_side_rate && isDoubleSide) {
-            const dsRate = Number(sorted[0]?.double_side_unit_rate) || 0;
+            const dsRate = Number(effectiveSlabForAddons?.double_side_unit_rate) || 0;
             if (dsRate > 0) {
               totalFromSlabs += dsRate * qty;
+              unitPrice = qty > 0 ? totalFromSlabs / qty : 0;
+            }
+          } else if (isOffset) {
+            const offsetRate = Number(effectiveSlabForAddons?.offset_unit_rate) || 0;
+            if (offsetRate > 0) {
+              totalFromSlabs += offsetRate * qty;
               unitPrice = qty > 0 ? totalFromSlabs / qty : 0;
             }
           }

@@ -4,6 +4,7 @@ import {
     RefreshCw, Eye, CheckCircle, Loader2, Wand2
 } from 'lucide-react';
 import './AIDesignGenerator.css';
+import PageContainer from '../../components/ui/PageContainer';
 
 const AIDesignGenerator = () => {
     const [uploadedImage, setUploadedImage] = useState(null);
@@ -46,7 +47,7 @@ const AIDesignGenerator = () => {
     };
 
     return (
-        <div className="aig-layout">
+        <PageContainer>
             <header className="aig-header">
                 <div className="aig-header-left">
                     <button className="dse-tb-btn" onClick={() => window.history.back()}><ArrowLeft size={18} /></button>
@@ -187,7 +188,7 @@ const AIDesignGenerator = () => {
                     )}
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

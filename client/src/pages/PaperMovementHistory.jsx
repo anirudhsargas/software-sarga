@@ -9,6 +9,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 
 import BranchSelect from '../components/ui/BranchSelect';
+import PageContainer from '../components/ui/PageContainer';
 const PaperMovementHistory = () => {
     useSEO('Paper Movement History');
 
@@ -55,7 +56,7 @@ const PaperMovementHistory = () => {
     };
 
     return (
-        <div className="stack-lg p-md">
+        <PageContainer>
             {/* Header */}
             <div className="row items-center gap-md">
                 <button className="btn btn-ghost p-sm" onClick={() => navigate('/dashboard/paper/stock')}>
@@ -169,7 +170,7 @@ const PaperMovementHistory = () => {
                     </table>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 

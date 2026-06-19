@@ -41,7 +41,25 @@
 
 /* ── Content Area Padding Fix ── */
 .content-container {
-  padding: 0 var(--page-padding) var(--page-padding);
+  padding: var(--page-padding) var(--page-padding) var(--page-padding);
+}
+
+/* ── Standard Page Content Wrapper ── */
+.page-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap, 24px);
+}
+
+/* Bootstrap container-lg fallback (used by staff/designer pages) */
+.container-lg {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0;
 }
 
 /* ── Card ── */

@@ -3,9 +3,9 @@
    ══════════════════════════════════════════════════════════════ */
 
 .ds-home {
-  max-width: 1440px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 28px 32px 60px;
+  width: 100%;
   animation: dsFadeIn 0.35s ease;
 }
 

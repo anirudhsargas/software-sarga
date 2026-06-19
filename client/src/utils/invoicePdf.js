@@ -65,7 +65,7 @@ export async function generateInvoicePDF(billData) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(255, 255, 255);
-  doc.text('TAX INVOICE', pageWidth - margin, 15, { align: 'right' });
+  doc.text('INVOICE', pageWidth - margin, 15, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.text(`#${invoiceNumber}`, pageWidth - margin, 22, { align: 'right' });

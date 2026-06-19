@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Package, Truck, Store, Check, X, Edit2, Plus, Clock, Search, AlertCircle, Eye, Mail } from 'lucide-react';
 import api from '../services/api';
 import './SampleRequestsCMS.css';
+import PageContainer from '../components/ui/PageContainer';
 
 const staggerEnter = (el, i) => {
   if (!el) return;
@@ -194,7 +195,7 @@ export default React.memo(function SampleRequestsCMS() {
   ), [samples, invSearch]);
 
   return (
-    <div className="sample-cms reveal revealed">
+    <PageContainer>
       <div className="page-header">
         <div>
           <h1 className="section-title">Sample Requests</h1>
@@ -602,6 +603,6 @@ export default React.memo(function SampleRequestsCMS() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 });
