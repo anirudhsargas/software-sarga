@@ -815,7 +815,7 @@ const StaffSettingsModal = ({ staff, onClose, onUpdate }) => {
                     </div>
                 </div>
             </div>
-        </PageContainer>
+        </div>
     );
 };
 
