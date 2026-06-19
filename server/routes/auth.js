@@ -60,8 +60,29 @@ module.exports = (upload) => {
             
             console.log(`[LOGIN] ✅ Authentication successful for user ${user.id}`);
 
+            const { normalizeRole } = require('../middleware/auth');
+            const userRoleNormalized = normalizeRole(user.role);
+            let permissions = [];
+            if (userRoleNormalized === 'Admin') {
+                permissions = ['view_dashboard', 'manage_orders', 'manage_customers', 'manage_inventory', 'manage_staff', 'manage_expenses', 'manage_vendors', 'view_reports', 'manage_designs', 'manage_blog'];
+            } else if (userRoleNormalized === 'Accountant') {
+                permissions = ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_expenses', 'manage_vendors', 'view_reports'];
+            } else if (userRoleNormalized === 'Front Office') {
+                permissions = ['view_dashboard', 'manage_orders', 'manage_customers', 'manage_inventory'];
+            } else if (userRoleNormalized === 'Designer') {
+                permissions = ['view_dashboard', 'manage_designs', 'manage_blog'];
+            }
+
             const token = jwt.sign(
-                { id: user.id, user_id: user.user_id, role: user.role, branch_id: user.branch_id },
+                { 
+                    id: user.id, 
+                    user_id: user.user_id, 
+                    role: userRoleNormalized, 
+                    branch_id: user.branch_id,
+                    sub: String(user.id),
+                    branch: user.branch_id,
+                    permissions: permissions
+                },
                 JWT_SECRET,
                 { expiresIn: '12h' } // Shortened from 8h, but wait let's keep 12h and rely on revocation
             );

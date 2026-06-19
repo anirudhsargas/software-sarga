@@ -3,8 +3,10 @@ import { Calendar, Clock, Video, Phone, Users, Check, X, Tag, DollarSign, Award,
 import api from '../services/api';
 import './DesignBookingsCMS.css';
 import PageContainer from '../components/ui/PageContainer';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 function DesignBookingsCMS() {
+  usePageTitle('Design Bookings');
   const [bookings, setBookings] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,8 +36,8 @@ function DesignBookingsCMS() {
         api.get('/admin/consultations'),
         api.get('/admin/designers')
       ]);
-      setBookings(bookingsRes.data.consultations || []);
-      setDesigners(designersRes.data.designers || []);
+      setBookings(bookingsRes?.data?.consultations || []);
+      setDesigners(designersRes?.data?.designers || []);
     } catch (err) {
       console.error('Failed to fetch CRM booking data:', err);
     } finally {
@@ -60,14 +62,16 @@ function DesignBookingsCMS() {
     
     // Convert current selected booking time to minutes
     const timeToMinutes = (t) => {
+      if (!t) return 0;
       const parts = t.split(':');
       return (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
     };
 
     const bStart = timeToMinutes(selectedBooking.start_time);
-    const bEnd = bStart + selectedBooking.duration;
+    const bEnd = bStart + (selectedBooking.duration || 0);
 
-    const hasConflict = bookings.some(b => {
+    const hasConflict = (bookings || []).some(b => {
+      if (!b) return false;
       // Must be a different booking, same designer, same date, and not cancelled
       if (b.id === selectedBooking.id) return false;
       if (b.assigned_staff_id !== designerId) return false;
@@ -75,7 +79,7 @@ function DesignBookingsCMS() {
       if (b.status === 'Cancelled') return false;
 
       const otherStart = timeToMinutes(b.start_time);
-      const otherEnd = otherStart + b.duration;
+      const otherEnd = otherStart + (b.duration || 0);
 
       // Overlap formula
       return bStart < otherEnd && bEnd > otherStart;
@@ -121,27 +125,29 @@ function DesignBookingsCMS() {
 
   // CRM Analytics Metrics
   const metrics = useMemo(() => {
-    const total = bookings.length;
-    const confirmed = bookings.filter(b => b.status === 'Confirmed').length;
-    const completedBookings = bookings.filter(b => b.status === 'Completed');
+    const list = bookings || [];
+    const total = list.length;
+    const confirmed = list.filter(b => b && b.status === 'Confirmed').length;
+    const completedBookings = list.filter(b => b && b.status === 'Completed');
 
     // Conversion Rate: % of completed consultations that generated a follow-up quote
     const completedCount = completedBookings.length;
-    const convertedCount = completedBookings.filter(b => b.quote_issued === 1 || b.quote_amount > 0).length;
+    const convertedCount = completedBookings.filter(b => b && (b.quote_issued === 1 || b.quote_amount > 0)).length;
     const conversionRate = completedCount > 0 ? ((convertedCount / completedCount) * 100).toFixed(1) : '0.0';
 
     // Sum of quote amounts representing conversion value
-    const pipelineValue = bookings.reduce((sum, b) => sum + (parseFloat(b.quote_amount) || 0), 0);
+    const pipelineValue = list.reduce((sum, b) => sum + (parseFloat(b?.quote_amount) || 0), 0);
 
     return { total, confirmed, conversionRate, pipelineValue };
   }, [bookings]);
 
   // Filter Bookings
-  const filteredBookings = useMemo(() => bookings.filter(b => {
+  const filteredBookings = useMemo(() => (bookings || []).filter(b => {
+    if (!b) return false;
     const matchesSearch = 
-      b.customer_name.toLowerCase().includes(search.toLowerCase()) ||
-      b.customer_phone.includes(search) ||
-      b.consultation_type.toLowerCase().includes(search.toLowerCase());
+      (b.customer_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (b.customer_phone || '').includes(search) ||
+      (b.consultation_type || '').toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'All' || b.status === statusFilter;
     const matchesType = typeFilter === 'All' || b.consultation_type === typeFilter;
     return matchesSearch && matchesStatus && matchesType;

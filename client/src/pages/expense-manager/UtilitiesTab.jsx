@@ -9,7 +9,7 @@ import auth from '../../services/auth';
 import { fmt, fmtDate } from './constants';
 import { serverToday } from '../../services/serverTime';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import PageContainer from '../components/ui/PageContainer';
+import PageContainer from '../../components/ui/PageContainer';
 import toast from 'react-hot-toast';
 
 const DEFAULT_UTILITY_TYPES = [

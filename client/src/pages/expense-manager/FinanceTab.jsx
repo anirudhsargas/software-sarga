@@ -7,7 +7,7 @@ import {
 import api from '../../services/api';
 import auth from '../../services/auth';
 import { fmt, fmtDate, today } from './constants';
-import PageContainer from '../components/ui/PageContainer';
+import PageContainer from '../../components/ui/PageContainer';
 
 const defaultEmiForm = { institution_name: '', emi_type: 'Loan', loan_amount: '', monthly_emi: '', tenure_months: '', start_date: today(), due_day: '1', branch_id: '', remarks: '' };
 const defaultKuriForm = { kuri_name: '', organizer_name: '', organizer_phone: '', total_amount: '', monthly_installment: '', duration_months: '', start_date: today(), due_day: '1', branch_id: '', description: '' };

@@ -3,6 +3,7 @@ import PageContainer from '../components/ui/PageContainer';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, TrendingUp, TrendingDown, Minus, Sun, CloudRain, RefreshCw, BarChart3 } from 'lucide-react';
 import api from '../services/api';
+import './Reports.css';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -81,21 +82,16 @@ export default function Reports() {
     return (
         <PageContainer>
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <div className="reports-header">
                 <Calendar size={22} color="var(--primary)" />
-                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>
+                <h2 className="reports-header-title">
                     Seasonal Analysis
                 </h2>
                 <div style={{ flex: 1 }} />
                 <button
                     onClick={() => fetchSeasonal(true)}
                     disabled={loading}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)',
-                        background: 'var(--card-bg, #fff)', cursor: 'pointer',
-                        fontSize: 13, color: 'var(--text-muted, var(--muted))',
-                    }}
+                    className="reports-refresh-btn"
                 >
                     <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                     Refresh
@@ -103,40 +99,29 @@ export default function Reports() {
             </div>
 
             {loading && !data ? (
-                <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted, var(--muted))' }}>
+                <div className="reports-loading">
                     Loading seasonal data…
                 </div>
             ) : !data || Object.keys(seasonalIndex).length === 0 ? (
-                <div className="empty-state-global" style={{ textAlign: 'center', padding: 60 }}>
+                <div className="empty-state-global reports-error">
                     <div className="empty-state-global__icon"><BarChart3 size={48} /></div>
                     <p className="empty-state-global__title">No data available</p>
                 </div>
             ) : (
                 <>
                     {/* Seasonal Heatmap */}
-                    <div style={{
-                        borderRadius: 12, border: '1px solid var(--border)',
-                        background: 'var(--card-bg, #fff)', overflow: 'hidden', marginBottom: 20,
-                    }}>
-                        <div style={{
-                            padding: '14px 16px', borderBottom: '1px solid var(--border)',
-                            fontWeight: 600, fontSize: 14, color: 'var(--text)',
-                            display: 'flex', alignItems: 'center', gap: 8,
-                        }}>
+                    <div className="heatmap-card">
+                        <div className="heatmap-header">
                             <BarChart3 size={16} />
                             Monthly Seasonal Index
                         </div>
 
-                        <div style={{ padding: 16, position: 'relative' }}>
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(3, 1fr)',
-                                gap: 8,
-                            }}>
+                        <div className="heatmap-body">
+                            <div className="heatmap-grid">
                                 {grid.flat().map((month) => {
                                     const val = seasonalIndex[month] || 0;
                                     const bg = indexToColor(val);
-                                    const textColor = val > 1.1 ? 'var(--card)' : val > 0.8 ? 'var(--muted-foreground)' : 'var(--muted-foreground)';
+                                    const textColor = val > 1.1 ? 'var(--card)' : 'var(--text-primary)';
                                     const fullName = MONTH_FULL[month];
                                     const tipText = indexLabel(val, peakMonths, slowMonths, fullName);
 
@@ -146,37 +131,24 @@ export default function Reports() {
                                             onMouseEnter={() => setTooltip(tipText)}
                                             onMouseLeave={() => setTooltip(null)}
                                             onMouseMove={(e) => setTooltipPos({ x: e.clientX, y: e.clientY })}
+                                            className="heatmap-cell"
                                             style={{
-                                                position: 'relative',
                                                 background: bg,
-                                                borderRadius: 10,
-                                                padding: '18px 12px',
-                                                textAlign: 'center',
-                                                cursor: 'default',
-                                                transition: 'transform 0.15s, box-shadow 0.15s',
-                                            }}
-                                            onMouseOver={(e) => {
-                                                e.currentTarget.style.transform = 'scale(1.04)';
-                                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
-                                            }}
-                                            onMouseOut={(e) => {
-                                                e.currentTarget.style.transform = 'scale(1)';
-                                                e.currentTarget.style.boxShadow = 'none';
                                             }}
                                         >
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: textColor }}>
+                                            <div className="heatmap-cell-month" style={{ color: textColor }}>
                                                 {month}
                                             </div>
-                                            <div style={{ fontSize: 20, fontWeight: 700, color: textColor, marginTop: 4 }}>
+                                            <div className="heatmap-cell-value" style={{ color: textColor }}>
                                                 {val > 0 ? `${val}×` : '—'}
                                             </div>
                                             {peakMonths.includes(fullName) && (
-                                                <div style={{ fontSize: 10, marginTop: 2, color: textColor, opacity: 0.85 }}>
+                                                <div className="heatmap-cell-badge" style={{ color: textColor }}>
                                                     ▲ Peak
                                                 </div>
                                             )}
                                             {slowMonths.includes(fullName) && (
-                                                <div style={{ fontSize: 10, marginTop: 2, color: textColor, opacity: 0.85 }}>
+                                                <div className="heatmap-cell-badge" style={{ color: textColor }}>
                                                     ▼ Slow
                                                 </div>
                                             )}
@@ -187,35 +159,22 @@ export default function Reports() {
 
                             {/* Tooltip */}
                             {tooltip && (
-                                <div style={{
-                                    position: 'fixed',
-                                    top: tooltipPos.y - 45,
-                                    left: tooltipPos.x,
-                                    transform: 'translateX(-50%)',
-                                    background: 'var(--accent)',
-                                    color: 'var(--on-accent)',
-                                    padding: '6px 14px',
-                                    borderRadius: 8,
-                                    fontSize: 12,
-                                    whiteSpace: 'nowrap',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                                    zIndex: 9999,
-                                    pointerEvents: 'none',
-                                    animation: 'fade-in 0.1s ease-out',
-                                }}>
+                                <div 
+                                    className="heatmap-tooltip"
+                                    style={{
+                                        top: tooltipPos.y - 45,
+                                        left: tooltipPos.x,
+                                    }}
+                                >
                                     {tooltip}
                                 </div>
                             )}
 
                             {/* Legend */}
-                            <div style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                gap: 6, marginTop: 16, fontSize: 11, color: 'var(--text-muted, var(--muted))',
-                            }}>
+                            <div className="heatmap-legend">
                                 <span>Low</span>
                                 {[0.5, 0.7, 0.9, 1.0, 1.1, 1.3, 1.5].map(v => (
-                                    <div key={v} style={{
-                                        width: 20, height: 12, borderRadius: 3,
+                                    <div key={v} className="heatmap-legend-color" style={{
                                         background: indexToColor(v),
                                     }} />
                                 ))}
@@ -225,64 +184,56 @@ export default function Reports() {
                     </div>
 
                     {/* Stat Cards */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                        gap: 12,
-                    }}>
+                    <div className="stats-grid">
                         {/* Best Day */}
-                        <div style={cardStyle}>
-                            <div style={cardLabelStyle}>
+                        <div className="reports-card">
+                            <div className="reports-card-label">
                                 <Sun size={14} color='var(--warning)' /> Best Day
                             </div>
-                            <div style={cardValueStyle}>{bestDay}</div>
-                            <div style={cardSubStyle}>Highest avg revenue</div>
+                            <div className="reports-card-value">{bestDay}</div>
+                            <div className="reports-card-sub">Highest avg revenue</div>
                         </div>
 
                         {/* Worst Day */}
-                        <div style={cardStyle}>
-                            <div style={cardLabelStyle}>
+                        <div className="reports-card">
+                            <div className="reports-card-label">
                                 <CloudRain size={14} color='var(--muted-foreground)' /> Worst Day
                             </div>
-                            <div style={cardValueStyle}>{worstDay}</div>
-                            <div style={cardSubStyle}>Lowest avg revenue</div>
+                            <div className="reports-card-value">{worstDay}</div>
+                            <div className="reports-card-sub">Lowest avg revenue</div>
                         </div>
 
                         {/* YoY Growth */}
-                        <div style={cardStyle}>
-                            <div style={cardLabelStyle}>
+                        <div className="reports-card">
+                            <div className="reports-card-label">
                                 {yoy >= 0
                                     ? <TrendingUp size={14} color='var(--success)' />
                                     : <TrendingDown size={14} color='var(--destructive)' />}
                                 YoY Growth
                             </div>
-                            <div style={{
-                                ...cardValueStyle,
-                                color: yoy > 0 ? 'var(--success)' : yoy < 0 ? 'var(--destructive)' : 'var(--text)',
+                            <div className="reports-card-value" style={{
+                                color: yoy > 0 ? 'var(--success)' : yoy < 0 ? 'var(--destructive)' : 'var(--text-primary)',
                             }}>
                                 {yoy > 0 ? '+' : ''}{yoy}%
                             </div>
-                            <div style={cardSubStyle}>vs previous year</div>
+                            <div className="reports-card-sub">vs previous year</div>
                         </div>
 
                         {/* Trend */}
-                        <div style={cardStyle}>
-                            <div style={cardLabelStyle}>
+                        <div className="reports-card">
+                            <div className="reports-card-label">
                                 <TrendIcon size={14} color={trendCfg.color} /> Trend
                             </div>
-                            <div style={{ ...cardValueStyle, color: trendCfg.color }}>
+                            <div className="reports-card-value" style={{ color: trendCfg.color }}>
                                 {trendCfg.label}
                             </div>
-                            <div style={cardSubStyle}>Last 90 days</div>
+                            <div className="reports-card-sub">Last 90 days</div>
                         </div>
                     </div>
 
                     {/* Generated timestamp */}
                     {data?.generated_at && (
-                        <div style={{
-                            textAlign: 'right', fontSize: 11, marginTop: 16,
-                            color: 'var(--text-muted, var(--muted))',
-                        }}>
+                        <div className="reports-timestamp">
                             Last computed: {new Date(data.generated_at).toLocaleString('en-IN', {
                                 day: 'numeric', month: 'short', year: 'numeric',
                                 hour: '2-digit', minute: '2-digit',
@@ -294,27 +245,3 @@ export default function Reports() {
         </PageContainer>
     );
 }
-
-// ── Shared card styles ───────────────────────────────────────────────────────
-
-const cardStyle = {
-    borderRadius: 12,
-    border: '1px solid var(--border)',
-    background: 'var(--card-bg, #fff)',
-    padding: '16px',
-};
-
-const cardLabelStyle = {
-    display: 'flex', alignItems: 'center', gap: 6,
-    fontSize: 12, fontWeight: 500,
-    color: 'var(--text-muted, var(--muted))',
-    marginBottom: 6,
-};
-
-const cardValueStyle = {
-    fontSize: 22, fontWeight: 700, color: 'var(--text)',
-};
-
-const cardSubStyle = {
-    fontSize: 11, color: 'var(--text-muted, var(--muted))', marginTop: 2,
-};

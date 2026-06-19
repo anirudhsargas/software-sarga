@@ -9,6 +9,7 @@ import {
 import CreateDesignModal from './CreateDesignModal';
 import './DesignStudioHome.css';
 import PageContainer from '../../components/ui/PageContainer';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const categories = [
     { id: 'wedding', name: 'Wedding Cards', icon: Heart, templates: 248, dims: '5×7 in', color: '#e87979', gradient: 'linear-gradient(135deg, #fce4ec, #f8bbd0)' },
@@ -41,6 +42,7 @@ function Mail(props) { return (
 ); }
 
 const DesignStudioHome = () => {
+    usePageTitle('Design Studio');
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [search, setSearch] = useState('');

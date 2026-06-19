@@ -4,6 +4,8 @@ import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import './BlogCMS.css';
 import PageContainer from '../components/ui/PageContainer';
+import { useConfirm } from '../contexts/ConfirmContext';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const CATEGORIES = [
   'Wedding Card Guides',
@@ -16,6 +18,8 @@ const CATEGORIES = [
 ];
 
 const BlogCMS = () => {
+  usePageTitle('Blog CMS');
+  const { confirm } = useConfirm();
   const postsRef = useRef([]);
   const authorsRef = useRef([]);
   const analyticsRef = useRef(null);
@@ -59,6 +63,7 @@ const BlogCMS = () => {
 
   const [saving, setSaving] = useState(false);
   const [editorTab, setEditorTab] = useState('edit'); // 'edit' | 'preview'
+  const [error, setError] = useState(false);
 
   const setPostsSmart = useCallback((data) => {
     const str = JSON.stringify(data);
@@ -84,30 +89,40 @@ const BlogCMS = () => {
     }
   }, []);
 
-  const fetchBlogData = useCallback(async () => {
+  const fetchBlogData = useCallback(async (signal) => {
     setLoading(true);
+    setError(false);
     try {
-      // 1. Fetch Posts
-      const postsRes = await api.get('/blog/admin/posts');
+      // Fetch Posts, Authors, Analytics with a 10s timeout via AbortController signal
+      const [postsRes, authorsRes, analyticsRes] = await Promise.all([
+        api.get('/blog/admin/posts', { signal, timeout: 10000 }),
+        api.get('/blog/admin/authors', { signal, timeout: 10000 }),
+        api.get('/blog/admin/analytics', { signal, timeout: 10000 })
+      ]);
       setPostsSmart(postsRes.data.posts || []);
-
-      // 2. Fetch Authors
-      const authorsRes = await api.get('/blog/admin/authors');
       setAuthorsSmart(authorsRes.data.authors || []);
-
-      // 3. Fetch Analytics
-      const analyticsRes = await api.get('/blog/admin/analytics');
       setAnalyticsSmart(analyticsRes.data);
-    } catch (error) {
-      console.error('Failed to fetch blog CMS data:', error);
-      toast.error('Could not load blog management data.');
+      setError(false);
+    } catch (err) {
+      if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
+        console.error('Failed to fetch blog CMS data:', err);
+        setError(true);
+        toast.error('Could not load blog management data.');
+      }
     } finally {
       setLoading(false);
     }
   }, [setPostsSmart, setAuthorsSmart, setAnalyticsSmart]);
 
   useEffect(() => {
-    fetchBlogData();
+    const controller = new AbortController();
+    fetchBlogData(controller.signal);
+    return () => controller.abort();
+  }, [fetchBlogData]);
+
+  const handleRetry = useCallback(() => {
+    const controller = new AbortController();
+    fetchBlogData(controller.signal);
   }, [fetchBlogData]);
 
   // Sync title to slug automatically when creating
@@ -197,7 +212,13 @@ const BlogCMS = () => {
   }, [postForm, editingPostId, fetchBlogData]);
 
   const handleDeletePost = useCallback(async (id, title) => {
-    if (!window.confirm(`Are you absolutely sure you want to delete the article: "${title}"?`)) return;
+    const isConfirmed = await confirm({
+      title: 'Delete Article',
+      message: `Are you absolutely sure you want to delete the article: "${title}"?`,
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!isConfirmed) return;
     try {
       await api.delete(`/blog/admin/posts/${id}`);
       toast.success('Article deleted successfully.');
@@ -205,7 +226,7 @@ const BlogCMS = () => {
     } catch {
       toast.error('Failed to delete article.');
     }
-  }, [fetchBlogData]);
+  }, [fetchBlogData, confirm]);
 
   const handleSaveAuthor = useCallback(async (e) => {
     e.preventDefault();
@@ -246,8 +267,8 @@ const BlogCMS = () => {
           </div>
         </div>
         <div className="row gap-sm">
-          <button className="btn btn-ghost" onClick={fetchBlogData}>
-            <RefreshCw size={18} className={loading ? "spin" : ""} /> Refresh
+          <button className="btn btn-ghost" onClick={handleRetry} disabled={loading}>
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} /> Refresh
           </button>
           <button className="btn btn-ghost" onClick={() => setShowAuthorModal(true)}>
             <Plus size={18} /> New Author
@@ -259,7 +280,18 @@ const BlogCMS = () => {
       </div>
 
       {/* Analytics widgets */}
-      {analytics && (
+      {loading ? (
+        <div className="blog-metrics-grid">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="metric-card card glass">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="skeleton-box" style={{ height: '14px', width: '120px' }}></div>
+                <div className="skeleton-box" style={{ height: '28px', width: '60px' }}></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : analytics ? (
         <div className="blog-metrics-grid">
           <div className="metric-card card glass">
             <div className="metric-header">
@@ -283,7 +315,7 @@ const BlogCMS = () => {
             <h3>{analytics.summary?.totalPosts || 0}</h3>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* CMS Table List */}
       <div className="card glass posts-table-card">
@@ -326,9 +358,41 @@ const BlogCMS = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="6" className="text-center py-24">Loading articles...</td></tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div className="skeleton-box" style={{ height: '14px', width: '200px' }}></div>
+                        <div className="skeleton-box" style={{ height: '10px', width: '120px' }}></div>
+                      </div>
+                    </td>
+                    <td><div className="skeleton-box" style={{ height: '18px', width: '100px', borderRadius: '12px' }}></div></td>
+                    <td><div className="skeleton-box" style={{ height: '18px', width: '80px', borderRadius: '12px' }}></div></td>
+                    <td><div className="skeleton-box" style={{ height: '14px', width: '40px' }}></div></td>
+                    <td><div className="skeleton-box" style={{ height: '14px', width: '80px' }}></div></td>
+                    <td><div className="skeleton-box" style={{ height: '28px', width: '80px' }}></div></td>
+                  </tr>
+                ))
+              ) : error ? (
+                <tr>
+                  <td colSpan="6" className="text-center py-24">
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                      <span className="text-danger" style={{ fontWeight: 600 }}>Failed to load: /blog/admin/posts</span>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={handleRetry} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <RefreshCw size={14} /> Retry
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ) : filteredPosts.length === 0 ? (
-                <tr><td colSpan="6" className="text-center py-24">No articles found.</td></tr>
+                <tr>
+                  <td colSpan="6" className="text-center py-24">
+                    <div className="empty-state-global">
+                      <p className="empty-state-global__title">No articles found</p>
+                      <p className="empty-state-global__message">Get started by creating your first article.</p>
+                    </div>
+                  </td>
+                </tr>
               ) : (
                 filteredPosts.map(post => (
                   <tr key={post.id}>

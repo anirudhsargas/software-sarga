@@ -53,8 +53,9 @@ router.get('/customers', authenticateToken, async (req, res) => {
             where += " AND COALESCE(client_type, '') != 'internal'";
         }
 
-        // cross_branch=1 allows all roles to search across branches (used by CustomerPayments page)
-        const crossBranch = req.query.cross_branch === '1';
+        // Customers are a global entity; we allow cross-branch lookup by default (cross_branch !== '0')
+        // to avoid duplicate mobile conflicts when customers visit different branches.
+        const crossBranch = req.query.cross_branch !== '0';
         if (!crossBranch) {
             const branchScope = await branchFilter(req, { column: 'branch_id', allowPrivilegedQuery: false });
             where += branchScope.clause;
@@ -138,11 +139,11 @@ router.put('/customers/:id', authenticateToken, attachNormalizedMobile('mobile',
     }
 
     try {
-        // Branch ownership check: non-admin/accountant users can only update customers in their own branch
+        // Branch ownership check: non-admin/accountant users can only update customers in their own branch or global ones
         const branchScope = await branchFilter(req, { allowPrivilegedQuery: false });
         if (!branchScope.isPrivileged) {
             const branchId = branchScope.branchId;
-            const [check] = await pool.query("SELECT id FROM sarga_customers WHERE id = ? AND branch_id = ?", [id, branchId]);
+            const [check] = await pool.query("SELECT id FROM sarga_customers WHERE id = ? AND (branch_id = ? OR branch_id IS NULL)", [id, branchId]);
             if (!check[0]) return res.status(403).json({ message: 'Access denied. Customer belongs to a different branch.' });
         }
 

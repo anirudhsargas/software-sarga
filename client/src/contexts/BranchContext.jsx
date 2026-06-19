@@ -15,6 +15,22 @@ export const BranchProvider = ({ children }) => {
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedBranchId, setSelectedBranchId] = useState(() => {
+    try {
+      return localStorage.getItem('sargaSelectedBranchId') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const selectBranch = useCallback((id) => {
+    setSelectedBranchId(id);
+    try {
+      localStorage.setItem('sargaSelectedBranchId', id);
+    } catch (e) {
+      console.error('Failed to save selected branch:', e);
+    }
+  }, []);
 
   const fetchBranches = useCallback(async () => {
     try {
@@ -49,7 +65,7 @@ export const BranchProvider = ({ children }) => {
   }, [branches]);
 
   return (
-    <BranchContext.Provider value={{ branches, loading, error, refetch: fetchBranches, getBranchName, getUserBranch }}>
+    <BranchContext.Provider value={{ branches, loading, error, refetch: fetchBranches, getBranchName, getUserBranch, selectedBranchId, selectBranch }}>
       {children}
     </BranchContext.Provider>
   );

@@ -1,4 +1,4 @@
-import { useSEO } from '../hooks/useSEO';
+import { usePageTitle } from '../hooks/usePageTitle';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings } from 'lucide-react';
@@ -52,6 +52,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                             handleMarkAttendance(s.id);
                         }}
                         title={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
+                        aria-label={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
                     >
                         {todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? <LogOut size={15} /> : <LogIn size={15} />}
                     </button>
@@ -72,6 +73,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                             });
                         }}
                         title="Pay Salary"
+                        aria-label="Pay Salary"
                     >
                         <Banknote size={15} />
                     </button>
@@ -80,6 +82,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
                         onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/employee/${s.id}`); }}
                         title="View Dashboard"
+                        aria-label="View Dashboard"
                     >
                         <BarChart3 size={15} />
                     </button>
@@ -94,6 +97,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                             setShowEditModal(true);
                         }}
                         title="Edit Staff Member"
+                        aria-label="Edit Staff Member"
                     >
                         <Edit2 size={15} />
                     </button>
@@ -102,6 +106,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
                         onClick={(e) => { e.stopPropagation(); handleResetPassword(s.id); }}
                         title="Reset Password to Default"
+                        aria-label="Reset Password to Default"
                     >
                         <Key size={15} />
                     </button>
@@ -110,6 +115,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
                         onClick={(e) => { e.stopPropagation(); onOpenSettings(s); }}
                         title="Staff Settings"
+                        aria-label="Staff Settings"
                     >
                         <Settings size={15} />
                     </button>
@@ -118,6 +124,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
                         onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
                         title="Delete Staff Member"
+                        aria-label="Delete Staff Member"
                     >
                         <Trash2 size={15} />
                     </button>
@@ -132,6 +139,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                             handleMarkAttendance(s.id);
                         }}
                         title={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
+                        aria-label={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
                     >
                         {todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? <LogOut size={15} /> : <LogIn size={15} />}
                     </button>
@@ -140,6 +148,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
                         onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/employee/${s.id}`); }}
                         title="View Dashboard"
+                        aria-label="View Dashboard"
                     >
                         <BarChart3 size={15} />
                     </button>
@@ -150,7 +159,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
 ));
 
 const StaffManagement = () => {
-    useSEO('Staff Management');
+    usePageTitle('Staff Management');
 
     const { confirm } = useConfirm();
     const navigate = useNavigate();
@@ -561,52 +570,52 @@ const StaffManagement = () => {
                         </div>
                         <form onSubmit={handleAddStaff} className="stack-md">
                             <div>
-                                <label className="label">Staff Photo</label>
-                                <input type="file" name="newStaffPhoto" accept="image/*" onChange={e => openCropper(e.target.files?.[0], 'newStaff')} />
+                                <label htmlFor="newStaffPhoto" className="label">Staff Photo</label>
+                                <input id="newStaffPhoto" type="file" name="newStaffPhoto" accept="image/*" onChange={e => openCropper(e.target.files?.[0], 'newStaff')} />
                                 {newStaffPreview && <img loading="lazy" src={newStaffPreview} className="thumb-img" alt="preview" style={{ marginTop: 8, borderRadius: 8, maxHeight: 80 }} />}
                             </div>
                             <div>
-                                <label className="label">Full Name</label>
-                                <input type="text" name="newStaffName" className="input-field" placeholder="Full Name" value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} required />
+                                <label htmlFor="newStaffName" className="label">Full Name</label>
+                                <input id="newStaffName" type="text" name="newStaffName" className="input-field" placeholder="Full Name" value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} required />
                             </div>
                             <div>
-                                <label className="label">Mobile Number</label>
+                                <label htmlFor="newStaffMobile" className="label">Mobile Number</label>
                                 <div className="row gap-sm">
                                     <CountryCodeSelect value={newStaff.countryCode} onChange={(val) => setNewStaff({...newStaff, countryCode: val})} />
-                                    <input type="tel" name="newStaffMobile" className="input-field" placeholder="10-digit mobile" value={newStaff.mobile} onChange={e => setNewStaff({...newStaff, mobile: filterMobile(e.target.value)})} required />
+                                    <input id="newStaffMobile" type="tel" name="newStaffMobile" className="input-field" placeholder="10-digit mobile" value={newStaff.mobile} onChange={e => setNewStaff({...newStaff, mobile: filterMobile(e.target.value)})} required />
                                 </div>
                             </div>
                             <div>
-                                <label className="label">Branch</label>
-                                <BranchSelect name="newStaffBranch" className="input-field" value={newStaff.branch_id} onChange={e => setNewStaff({...newStaff, branch_id: e.target.value})} required>
+                                <label htmlFor="newStaffBranch" className="label">Branch</label>
+                                <BranchSelect id="newStaffBranch" name="newStaffBranch" className="input-field" value={newStaff.branch_id} onChange={e => setNewStaff({...newStaff, branch_id: e.target.value})} required>
                                     <option value="">Select Branch</option>
                                     {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                 </BranchSelect>
                             </div>
                             <div>
-                                <label className="label">Role</label>
-                                <select name="newStaffRole" className="input-field" value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
+                                <label htmlFor="newStaffRole" className="label">Role</label>
+                                <select id="newStaffRole" name="newStaffRole" className="input-field" value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
                                     {roles.map(r => <option key={r} value={r}>{r}</option>)}
                                 </select>
                             </div>
                             {isAdmin && (
                                 <>
                                     <div>
-                                        <label className="label">Salary Type</label>
-                                        <select name="newStaffSalaryType" className="input-field" value={newStaff.salary_type} onChange={e => setNewStaff({...newStaff, salary_type: e.target.value})}>
+                                        <label htmlFor="newStaffSalaryType" className="label">Salary Type</label>
+                                        <select id="newStaffSalaryType" name="newStaffSalaryType" className="input-field" value={newStaff.salary_type} onChange={e => setNewStaff({...newStaff, salary_type: e.target.value})}>
                                             <option value="Monthly">Monthly</option>
                                             <option value="Daily">Daily</option>
                                         </select>
                                     </div>
                                     {newStaff.salary_type === 'Monthly' ? (
                                         <div>
-                                            <label className="label">Base Salary (₹)</label>
-                                            <input type="number" name="newStaffSalary" className="input-field" placeholder="0" min="0" value={newStaff.base_salary} onChange={e => setNewStaff({...newStaff, base_salary: e.target.value})} />
+                                            <label htmlFor="newStaffSalary" className="label">Base Salary (₹)</label>
+                                            <input id="newStaffSalary" type="number" name="newStaffSalary" className="input-field" placeholder="0" min="0" value={newStaff.base_salary} onChange={e => setNewStaff({...newStaff, base_salary: e.target.value})} />
                                         </div>
                                     ) : (
                                         <div>
-                                            <label className="label">Daily Rate (₹)</label>
-                                            <input type="number" name="newStaffDailyRate" className="input-field" placeholder="0" min="0" value={newStaff.daily_rate} onChange={e => setNewStaff({...newStaff, daily_rate: e.target.value})} />
+                                            <label htmlFor="newStaffDailyRate" className="label">Daily Rate (₹)</label>
+                                            <input id="newStaffDailyRate" type="number" name="newStaffDailyRate" className="input-field" placeholder="0" min="0" value={newStaff.daily_rate} onChange={e => setNewStaff({...newStaff, daily_rate: e.target.value})} />
                                         </div>
                                     )}
                                 </>
@@ -628,57 +637,57 @@ const StaffManagement = () => {
                         </div>
                         <form onSubmit={handleUpdateStaff} className="stack-md">
                             <div>
-                                <label className="label">Staff Photo</label>
+                                <label htmlFor="editStaffPhoto" className="label">Staff Photo</label>
                                 <div className="row gap-sm" style={{ alignItems: 'center' }}>
                                     {editStaffPreview && <img loading="lazy" src={editStaffPreview} alt="Preview" style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover' }} />}
-                                    <input type="file" name="editStaffPhoto" accept="image/*" onChange={e => openCropper(e.target.files?.[0], 'editStaff')} />
+                                    <input id="editStaffPhoto" type="file" name="editStaffPhoto" accept="image/*" onChange={e => openCropper(e.target.files?.[0], 'editStaff')} />
                                     {(editStaffImage || selectedStaff?.image_url) && (
                                         <button type="button" className="btn btn-ghost text-error" style={{ padding: '4px 8px', fontSize: 12 }} onClick={handleRemoveStaffImage}>Remove</button>
                                     )}
                                 </div>
                             </div>
                             <div>
-                                <label className="label">Full Name</label>
-                                <input type="text" name="editStaffName" className="input-field" value={selectedStaff.name} onChange={e => setSelectedStaff({...selectedStaff, name: e.target.value})} required />
+                                <label htmlFor="editStaffName" className="label">Full Name</label>
+                                <input id="editStaffName" type="text" name="editStaffName" className="input-field" value={selectedStaff.name} onChange={e => setSelectedStaff({...selectedStaff, name: e.target.value})} required />
                             </div>
                             <div>
-                                <label className="label">Mobile Number</label>
+                                <label htmlFor="editStaffMobile" className="label">Mobile Number</label>
                                 <div className="row gap-sm">
                                     <CountryCodeSelect value={selectedStaff?.countryCode || '+91'} onChange={(val) => setSelectedStaff({...selectedStaff, countryCode: val})} />
-                                    <input type="tel" name="editStaffMobile" className="input-field" value={selectedStaff.user_id} onChange={e => setSelectedStaff({...selectedStaff, user_id: filterMobile(e.target.value)})} required />
+                                    <input id="editStaffMobile" type="tel" name="editStaffMobile" className="input-field" value={selectedStaff.user_id} onChange={e => setSelectedStaff({...selectedStaff, user_id: filterMobile(e.target.value)})} required />
                                 </div>
                             </div>
                             <div>
-                                <label className="label">Branch</label>
-                                <BranchSelect name="editStaffBranch" className="input-field" value={selectedStaff.branch_id || ''} onChange={e => setSelectedStaff({...selectedStaff, branch_id: e.target.value})}>
+                                <label htmlFor="editStaffBranch" className="label">Branch</label>
+                                <BranchSelect id="editStaffBranch" name="editStaffBranch" className="input-field" value={selectedStaff.branch_id || ''} onChange={e => setSelectedStaff({...selectedStaff, branch_id: e.target.value})}>
                                     <option value="">Select Branch</option>
                                     {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                 </BranchSelect>
                             </div>
                             <div>
-                                <label className="label">Role</label>
-                                <select name="editStaffRole" className="input-field" value={selectedStaff.role} onChange={e => setSelectedStaff({...selectedStaff, role: e.target.value})}>
+                                <label htmlFor="editStaffRole" className="label">Role</label>
+                                <select id="editStaffRole" name="editStaffRole" className="input-field" value={selectedStaff.role} onChange={e => setSelectedStaff({...selectedStaff, role: e.target.value})}>
                                     {roles.map(r => <option key={r} value={r}>{r}</option>)}
                                 </select>
                             </div>
                             {isAdmin && (
                                 <>
                                     <div>
-                                        <label className="label">Salary Type</label>
-                                        <select name="editStaffSalaryType" className="input-field" value={selectedStaff.salary_type || 'Monthly'} onChange={e => setSelectedStaff({...selectedStaff, salary_type: e.target.value})}>
+                                        <label htmlFor="editStaffSalaryType" className="label">Salary Type</label>
+                                        <select id="editStaffSalaryType" name="editStaffSalaryType" className="input-field" value={selectedStaff.salary_type || 'Monthly'} onChange={e => setSelectedStaff({...selectedStaff, salary_type: e.target.value})}>
                                             <option value="Monthly">Monthly</option>
                                             <option value="Daily">Daily</option>
                                         </select>
                                     </div>
                                     {(selectedStaff.salary_type || 'Monthly') === 'Monthly' ? (
                                         <div>
-                                            <label className="label">Base Salary (₹)</label>
-                                            <input type="number" name="editStaffSalary" className="input-field" min="0" value={selectedStaff.base_salary || ''} onChange={e => setSelectedStaff({...selectedStaff, base_salary: e.target.value})} />
+                                            <label htmlFor="editStaffSalary" className="label">Base Salary (₹)</label>
+                                            <input id="editStaffSalary" type="number" name="editStaffSalary" className="input-field" min="0" value={selectedStaff.base_salary || ''} onChange={e => setSelectedStaff({...selectedStaff, base_salary: e.target.value})} />
                                         </div>
                                     ) : (
                                         <div>
-                                            <label className="label">Daily Rate (₹)</label>
-                                            <input type="number" name="editStaffDailyRate" className="input-field" min="0" value={selectedStaff.daily_rate || ''} onChange={e => setSelectedStaff({...selectedStaff, daily_rate: e.target.value})} />
+                                            <label htmlFor="editStaffDailyRate" className="label">Daily Rate (₹)</label>
+                                            <input id="editStaffDailyRate" type="number" name="editStaffDailyRate" className="input-field" min="0" value={selectedStaff.daily_rate || ''} onChange={e => setSelectedStaff({...selectedStaff, daily_rate: e.target.value})} />
                                         </div>
                                     )}
                                 </>

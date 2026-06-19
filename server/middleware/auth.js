@@ -36,6 +36,11 @@ const authenticateToken = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
+        console.log("AUTH DEBUG", {
+            tokenPresent: false,
+            role: null,
+            endpoint: req.originalUrl || req.path
+        });
         logger.warn('[Auth] 401 No token provided', { path: req.path, method: req.method, ip: req.ip });
         return res.status(401).json({ message: 'Access denied. No token provided.' });
     }
@@ -55,6 +60,11 @@ const authenticateToken = async (req, res, next) => {
         }
 
         req.user = user;
+        console.log("AUTH DEBUG", {
+            tokenPresent: true,
+            role: user.role,
+            endpoint: req.originalUrl || req.path
+        });
         next();
     } catch (error) {
         logger.warn('[Auth] 401 Invalid token', { path: req.path, method: req.method, ip: req.ip, error: error.message });
@@ -64,7 +74,9 @@ const authenticateToken = async (req, res, next) => {
 
 const authorizeRoles = (...allowedRoles) => {
     return (req, res, next) => {
-        if (!req.user || !allowedRoles.includes(req.user.role)) {
+        const userRoleNormalized = normalizeRole(req?.user?.role);
+        const normalizedAllowedRoles = allowedRoles.map(normalizeRole);
+        if (!req.user || !normalizedAllowedRoles.includes(userRoleNormalized)) {
             return res.status(403).json({ message: 'Access denied. Insufficient permissions.' });
         }
         next();
@@ -81,7 +93,13 @@ const authenticate = async (req, res, next) => {
 
     try {
         const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        const tokenPresent = !!(authHeader && authHeader.startsWith('Bearer '));
+        if (!tokenPresent) {
+            console.log("AUTH DEBUG", {
+                tokenPresent: false,
+                role: null,
+                endpoint: req.originalUrl || req.path
+            });
             return res.status(401).json({ error: 'No token provided' });
         }
 
@@ -109,6 +127,11 @@ const authenticate = async (req, res, next) => {
         }
 
         req.user = users[0];
+        console.log("AUTH DEBUG", {
+            tokenPresent: true,
+            role: req.user.role,
+            endpoint: req.originalUrl || req.path
+        });
         try {
             console.log(`[Auth] user loaded id=${req.user.id} role=${req.user.role} branch_id=${req.user.branch_id}`);
         } catch (e) { }
@@ -151,11 +174,14 @@ const requireRole = (allowedRoles) => {
             return res.status(401).json({ error: 'Authentication required' });
         }
 
-        if (!allowedRoles.includes(req.user.role)) {
+        const userRoleNormalized = normalizeRole(req.user.role);
+        const normalizedAllowedRoles = allowedRoles.map(normalizeRole);
+
+        if (!normalizedAllowedRoles.includes(userRoleNormalized)) {
             return res.status(403).json({
                 error: 'Access denied. Insufficient permissions.',
-                required: allowedRoles,
-                current: req.user.role
+                required: normalizedAllowedRoles,
+                current: userRoleNormalized
             });
         }
 

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import localDb from '../../services/localDb';
 import { fmt, fmtDate, thisMonth } from './constants';
-import PageContainer from '../components/ui/PageContainer';
+import PageContainer from '../../components/ui/PageContainer';
 
 const DashboardTab = ({ branches, onPayment }) => {
   const [loading, setLoading] = useState(false);

@@ -4,7 +4,7 @@ import { Routes, Route, NavLink, useNavigate, Navigate, useParams } from 'react-
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store,
     Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare, Star, Upload,
-    Image, Calendar, Truck, Globe, Layout
+    Image, Calendar, Truck, Globe, Layout, Menu
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
@@ -12,6 +12,7 @@ import RequiresConnection from '../components/RequiresConnection';
 import SecureImage from '../components/SecureImage';
 const ImageCropModal = lazy(() => import('../components/ImageCropModal'));
 import ScannerModal from '../components/ScannerModal';
+import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { useLocation } from 'react-router-dom';
@@ -24,6 +25,9 @@ import useTranslation from '../hooks/useTranslation';
 import SkeletonLoader from '../components/SkeletonLoader';
 import '../styles/dashboard-redesign.css';
 import '../styles/profile-edit.css';
+import SmartSearch from '../components/SmartSearch';
+import { useBranches } from '../contexts/BranchContext';
+import BranchSelect from '../components/ui/BranchSelect';
 
 // Lazy-loaded pages — each becomes a separate chunk
 const StaffManagement = React.lazy(() => import('./StaffManagement'));
@@ -297,9 +301,24 @@ const NavigateToCustomerDetails = () => {
 
 const Dashboard = () => {
     const { user, logout, updateUser } = useAuth();
+    const normalizedUserRole = useMemo(() => {
+        const role = user?.role;
+        if (!role) return '';
+        const map = {
+            'admin': 'Admin',
+            'front office': 'Front Office',
+            'designer': 'Designer',
+            'printer': 'Printer',
+            'accountant': 'Accountant',
+            'other staff': 'Other Staff'
+        };
+        return map[role.toLowerCase().trim()] || role;
+    }, [user?.role]);
+
     const { confirm } = useConfirm();
     const navigate = useNavigate();
     const location = useLocation();
+    const { branches, selectedBranchId, selectBranch } = useBranches();
     const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => {
         try {
             const saved = localStorage.getItem('sargaSidebarCollapsed');
@@ -357,6 +376,96 @@ const Dashboard = () => {
     const [anomalyCount, setAnomalyCount] = useState(0);
     const [companyInfo, setCompanyInfo] = useState({ name: 'SARGA', logo: null });
 
+    const sidebarRef = useRef(null);
+    const touchStartX = useRef(0);
+    const touchEndX = useRef(0);
+
+    // Toggle sidebar collapsed via "[" key shortcut
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === '[') {
+                const tag = document.activeElement?.tagName;
+                if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+                    e.preventDefault();
+                    toggleSidebarCollapsed();
+                }
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [toggleSidebarCollapsed]);
+
+    // Lock body background scroll on mobile/tablet when drawer is open
+    useEffect(() => {
+        if (sidebarOpen && window.innerWidth < 768) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [sidebarOpen]);
+
+    // Focus trap inside sidebar drawer on mobile when opened
+    useEffect(() => {
+        if (!sidebarOpen || window.innerWidth >= 768) return;
+        const sidebarEl = sidebarRef.current;
+        if (!sidebarEl) return;
+
+        const focusable = sidebarEl.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        const handleTab = (e) => {
+            if (e.key !== 'Tab') return;
+            if (e.shiftKey) {
+                if (document.activeElement === first) {
+                    last.focus();
+                    e.preventDefault();
+                }
+            } else {
+                if (document.activeElement === last) {
+                    first.focus();
+                    e.preventDefault();
+                }
+            }
+        };
+
+        sidebarEl.addEventListener('keydown', handleTab);
+        if (first) first.focus();
+
+        return () => {
+            sidebarEl.removeEventListener('keydown', handleTab);
+        };
+    }, [sidebarOpen]);
+
+    // Auto-close mobile drawer/sidebar on navigation/page changes when viewport width is mobile (< 768px)
+    useEffect(() => {
+        if (window.innerWidth < 768) {
+            setSidebarOpen(false);
+        }
+    }, [location.pathname]);
+
+    const handleTouchStart = useCallback((e) => {
+        touchStartX.current = e.targetTouches[0].clientX;
+    }, []);
+
+    const handleTouchMove = useCallback((e) => {
+        touchEndX.current = e.targetTouches[0].clientX;
+    }, []);
+
+    const handleTouchEnd = useCallback(() => {
+        if (touchStartX.current - touchEndX.current > 50) {
+            // Swiped left (close)
+            setSidebarOpen(false);
+        }
+    }, []);
+
     const fetchCompanyInfo = useCallback(async () => {
         try {
             const { data } = await api.get('/company-settings');
@@ -370,8 +479,55 @@ const Dashboard = () => {
         } catch {  }
     }, []);
 
-    const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
+     const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
     const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+    const handleHamburgerClick = useCallback(() => {
+        if (window.innerWidth >= 768) {
+            toggleSidebarCollapsed();
+        } else {
+            toggleSidebar();
+        }
+    }, [toggleSidebarCollapsed, toggleSidebar]);
+
+    const getBreadcrumbs = useCallback(() => {
+        const paths = location.pathname.split('/').filter(Boolean);
+        return paths.map((path, index) => {
+            const routeTo = '/' + paths.slice(0, index + 1).join('/');
+            let label = path.charAt(0).toUpperCase() + path.slice(1);
+            if (label === 'Sales') label = 'Sales';
+            if (label === 'Blog-cms') label = 'Blog CMS';
+            if (label === 'Cctv-attendance') label = 'CCTV Attendance';
+            if (label === 'Cctv-management') label = 'CCTV Management';
+            if (label === 'Order-predictions') label = 'Order Predictions';
+            if (label === 'Daily-report') label = 'Daily Cash Book';
+            if (label === 'Payment-verification') label = 'Payment Verification';
+            if (label === 'Paper-layout') label = 'Paper Layout';
+            if (label === 'Job-priority') label = 'Job Priority';
+            if (label === 'Sales-prediction') label = 'Sales Prediction';
+            if (label === 'Production-tracker') label = 'Production Tracker';
+            
+            const isLast = index === paths.length - 1;
+            return (
+                <span key={routeTo} className="breadcrumb-item">
+                    {index > 0 && <span className="breadcrumb-separator">/</span>}
+                    {isLast ? (
+                        <span className="breadcrumb-current">{label}</span>
+                    ) : (
+                        <span 
+                            className="breadcrumb-link" 
+                            onClick={() => navigate(routeTo)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => { if (e.key === 'Enter') navigate(routeTo); }}
+                        >
+                            {label}
+                        </span>
+                    )}
+                </span>
+            );
+        });
+    }, [location.pathname, navigate]);
     const handleNavAction = useCallback((action) => {
         if (action === 'scanner') setShowInventoryScan(true);
     }, []);
@@ -379,17 +535,14 @@ const Dashboard = () => {
     // Sync sidebar state for different viewports
     useEffect(() => {
         const syncSidebarForViewport = () => {
-            if (window.innerWidth >= 1024) {
-                // Restore desktop state from localStorage
+            if (window.innerWidth >= 768) {
+                // Desktop: Restore state from localStorage
                 try {
                     const saved = localStorage.getItem('sargaSidebarCollapsed');
                     setSidebarCollapsed(saved ? JSON.parse(saved) : false);
                 } catch {
                     setSidebarCollapsed(false);
                 }
-            } else if (window.innerWidth >= 768) {
-                // Tablet: Compact mode
-                setSidebarCollapsed(true);
             } else {
                 // Mobile: Expanded under overlay drawer
                 setSidebarCollapsed(false);
@@ -469,7 +622,10 @@ const Dashboard = () => {
     ], [t]);
 
     const filteredMenu = useMemo(() => {
-        let items = menuItems.filter(item => item.roles.includes(user?.role));
+        if (!normalizedUserRole) return [];
+        let items = menuItems.filter(item => 
+            item.roles.map(r => r.toLowerCase().trim()).includes(normalizedUserRole.toLowerCase().trim())
+        );
         
         if (user?.settings) {
             try {
@@ -486,7 +642,7 @@ const Dashboard = () => {
             }
         }
         return items;
-    }, [user, menuItems]);
+    }, [user, menuItems, normalizedUserRole]);
 
     const [collapsedGroups, setCollapsedGroups] = useState(() => {
         try {
@@ -506,12 +662,12 @@ const Dashboard = () => {
     }, []);
 
     const groupedMenu = useMemo(() => {
-        if (!['Admin', 'Front Office', 'Accountant'].includes(user?.role)) return null;
+        if (!['Admin', 'Front Office', 'Accountant'].map(r => r.toLowerCase()).includes(normalizedUserRole.toLowerCase())) return null;
         return sidebarGroupDefs.map(g => ({
             ...g,
             items: filteredMenu.filter(i => i.group === g.key)
         })).filter(g => g.items.length > 0);
-    }, [user?.role, filteredMenu]);
+    }, [normalizedUserRole, filteredMenu]);
 
     // Auto-expand group containing active route on path changes
     useEffect(() => {
@@ -610,10 +766,19 @@ const Dashboard = () => {
         }
     }, []);
 
-    const handleLogout = useCallback(() => {
-        logout();
-        navigate('/login', { replace: true });
-    }, [logout, navigate]);
+    const handleLogout = useCallback(async () => {
+        const isConfirmed = await confirm({
+            title: 'Sign out?',
+            message: 'Are you sure you want to sign out?',
+            confirmText: 'Logout',
+            cancelText: 'Cancel',
+            type: 'danger'
+        });
+        if (isConfirmed) {
+            logout();
+            navigate('/login', { replace: true });
+        }
+    }, [confirm, logout, navigate]);
 
     const fetchPendingCount = useCallback(async () => {
         if (user?.role !== 'Admin' && user?.role !== 'Accountant') return;
@@ -795,7 +960,15 @@ const Dashboard = () => {
             {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} aria-hidden="true"></div>}
 
             {/* Sidebar */}
-            <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''} ${sidebarOpen ? 'sidebar--open' : ''}`}>
+            <aside 
+                ref={sidebarRef}
+                className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''} ${sidebarOpen ? 'sidebar--open' : ''}`}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                role="navigation"
+                aria-label="Sidebar navigation"
+            >
                 <div className="sidebar-header">
                     <div className="logo-wrap">
                         {companyInfo.logo ? (
@@ -816,7 +989,7 @@ const Dashboard = () => {
                 </div>
 
                 <nav className="sidebar-nav">
-                    {['Admin', 'Front Office', 'Accountant'].includes(user?.role) && groupedMenu ? (
+                    {['Admin', 'Front Office', 'Accountant'].map(r => r.toLowerCase()).includes(normalizedUserRole.toLowerCase()) && groupedMenu ? (
                         groupedMenu.map(group => {
                             const showLabel = group.label && group.items.length > 1;
                             const isCollapsed = showLabel && collapsedGroups.has(group.key);
@@ -853,34 +1026,79 @@ const Dashboard = () => {
 
             {/* Main Content */}
             <main className="main-content">
-                {/* Mobile Topbar */}
-                <div className="topbar mobile-only">
-                    <button className="icon-button" aria-label="Open navigation menu" onClick={toggleSidebar}>
-                        <Grid size={20} />
-                    </button>
-                    <div className="logo-wrap" style={{ gap: 10 }}>
-                        {companyInfo.logo ? (
-                           <img src={companyInfo.logo} alt={companyInfo.name} className="logo-img" />
-                        ) : (
-                           <img src="/icons/icon-192.png" alt="Sarga" className="logo-img" />
-                        )}
-                        <span className="logo-text">{companyInfo.name}</span>
-                    </div>
-                    <div className="topbar-actions">
-                        {anomalyCount > 0 && ['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
-                            <span className="anomaly-badge" title={`${anomalyCount} anomalies detected`}>
-                                {anomalyCount > 99 ? '99+' : anomalyCount}
-                            </span>
-                        )}
-                        <div className="user-avatar avatar-sm" onClick={() => setShowProfilePanel(true)}>
-                            {user?.image_url ? (
-                                <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
-                            ) : (
-                                user?.name ? user.name[0] : 'U'
-                            )}
+                {/* Global App Bar */}
+                <header className="global-appbar">
+                    {/* LEFT: Hamburger & Breadcrumb */}
+                    <div className="appbar-left">
+                        <button
+                            className="appbar-hamburger"
+                            aria-label="Toggle navigation menu"
+                            onClick={handleHamburgerClick}
+                        >
+                            <Menu size={20} />
+                        </button>
+                        <div className="appbar-breadcrumb">
+                            {getBreadcrumbs()}
                         </div>
                     </div>
-                </div>
+
+                    {/* CENTER: Smart Search */}
+                    <div className="appbar-center">
+                        <div className="appbar-search" onClick={() => setSearchOpen(true)} role="button" tabIndex={0} aria-label="Search" onKeyDown={(e) => { if (e.key === 'Enter') setSearchOpen(true); }}>
+                            <Search size={16} />
+                            <span className="appbar-search-placeholder">Search... <kbd className="appbar-kbd">⌘K</kbd></span>
+                        </div>
+                    </div>
+
+                    {/* RIGHT: Branch switcher, Notifications, Profile */}
+                    <div className="appbar-right">
+                        {/* Branch switcher dropdown */}
+                        <div className="appbar-branch-switcher">
+                            <Building2 size={16} />
+                            <BranchSelect
+                                value={selectedBranchId}
+                                onChange={(e) => selectBranch(e.target.value)}
+                                className="appbar-select"
+                            >
+                                <option value="">All Branches</option>
+                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </BranchSelect>
+                        </div>
+
+                        {/* Notifications (Anomaly Alerts) */}
+                        <button 
+                            className="appbar-icon-btn" 
+                            onClick={() => navigate('/dashboard/ai-monitoring')}
+                            title="Notifications"
+                            aria-label={`${anomalyCount} notifications`}
+                        >
+                            <ShieldAlert size={20} />
+                            {anomalyCount > 0 && (
+                                <span className="appbar-badge">
+                                    {anomalyCount > 99 ? '99+' : anomalyCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {/* Profile Avatar */}
+                        <div 
+                            className="appbar-profile-trigger" 
+                            onClick={() => setShowProfilePanel(true)}
+                            role="button"
+                            tabIndex={0}
+                            aria-label="Open profile panel"
+                            onKeyDown={(e) => { if (e.key === 'Enter') setShowProfilePanel(true); }}
+                        >
+                            <div className="user-avatar avatar-sm">
+                                {user?.image_url ? (
+                                    <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
+                                ) : (
+                                    user?.name ? user.name[0] : 'U'
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </header>
 
 
 
@@ -978,7 +1196,11 @@ const Dashboard = () => {
                             <Route path="web-inquiries" element={<WebInquiries />} />
                             <Route path="blog-cms" element={<BlogCMS />} />
                             <Route path="sample-requests" element={<SampleRequestsCMS />} />
-                            <Route path="design-bookings" element={<DesignBookingsCMS />} />
+                            <Route path="design-bookings" element={
+                                <SectionErrorBoundary name="DesignBookings" title="Design Bookings" message="No bookings available">
+                                    <DesignBookingsCMS />
+                                </SectionErrorBoundary>
+                            } />
                             {/* Design Studio Routes */}
                             <Route path="design-studio" element={<DesignStudioHome />} />
                             <Route path="design-studio/editor/:id" element={<DesignEditor />} />
@@ -1334,6 +1556,7 @@ const Dashboard = () => {
                     </div>
                 </div>
             )}
+            <SmartSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
             {showPaperPanel && (
                 <PaperSidePanel open={showPaperPanel} onClose={() => setShowPaperPanel(false)} />
             )}

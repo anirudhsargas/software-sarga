@@ -1,4 +1,4 @@
-import { useSEO } from '../hooks/useSEO';
+import { usePageTitle } from '../hooks/usePageTitle';
 import React, { useState, useEffect, Suspense, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Building2, TrendingUp, Wallet, IndianRupee, AlertTriangle, Users, Package, ClipboardList, BarChart3, ArrowUpRight, ArrowDownRight, Brain, Sparkles, ShieldAlert, ShoppingCart, Activity, Printer, UserCheck, RefreshCw, Plus } from 'lucide-react';
@@ -6,12 +6,16 @@ import { Loader2, Building2, TrendingUp, Wallet, IndianRupee, AlertTriangle, Use
 import api from '../services/api';
 import { formatCurrency as formatCurrencyShared } from '../constants';
 import OrderForecastWidget from '../components/OrderForecastWidget';
-
+import { useBranches } from '../contexts/BranchContext';
 
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
 const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
+
+// Cache variables outside component for immediate render on revisit
+let cachedStatsToday = null;
+let cachedStatsOverall = null;
 
 const KpiCard = React.memo(({ title, value, subtitle, icon: Icon, color, trend }) => (
   <div className="kpi-card">
@@ -40,54 +44,75 @@ const EmptyState = React.memo(({ icon: Icon, title, message, actions }) => (
 ));
 
 const Summary = () => {
-  useSEO('Summary');
+  usePageTitle('Dashboard');
 
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
-  const [statsToday, setStatsToday] = useState(null);
-  const [statsOverall, setStatsOverall] = useState(null);
-  const [branches, setBranches] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ branch_id: '' });
+  const [statsToday, setStatsToday] = useState(cachedStatsToday);
+  const [statsOverall, setStatsOverall] = useState(cachedStatsOverall);
+  const { branches, selectedBranchId, selectBranch } = useBranches();
+  const [loading, setLoading] = useState(!cachedStatsToday || !cachedStatsOverall);
+  const [error, setError] = useState(false);
 
-  useEffect(() => { fetchBranches(); }, []);
-
-  useEffect(() => {
-    fetchStatsSplit();
-    const handler = () => fetchStatsSplit();
-    window.addEventListener('paymentRecorded', handler);
-    return () => window.removeEventListener('paymentRecorded', handler);
-  }, [filters.branch_id]);
-
-  const fetchBranches = async () => {
-    try { setBranches((await api.get('/branches')).data); } catch { /* ignore */ }
-  };
-
-  const fetchStatsSplit = useCallback(async () => {
-    setLoading(true);
+  const fetchStatsSplit = useCallback(async (signal, isRefresh = false) => {
+    if (isRefresh || (!cachedStatsToday && !cachedStatsOverall)) {
+      setLoading(true);
+    }
+    setError(false);
     try {
       const params = new URLSearchParams();
-      if (filters.branch_id) params.append('branch_id', filters.branch_id);
+      if (selectedBranchId) params.append('branch_id', selectedBranchId);
       const today = new Date().toISOString().split('T')[0];
       const todayParams = new URLSearchParams(params);
       todayParams.append('startDate', today);
       todayParams.append('endDate', today);
+
       const [todayRes, overallRes] = await Promise.all([
-        api.get(`/stats/dashboard?${todayParams}`),
-        api.get(`/stats/dashboard?${params}`)
+        api.get(`/stats/dashboard?${todayParams}`, { signal, timeout: 10000 }),
+        api.get(`/stats/dashboard?${params}`, { signal, timeout: 10000 })
       ]);
+
       setStatsToday(todayRes.data);
       setStatsOverall(overallRes.data);
-    } catch { /* ignore */ } finally { setLoading(false); }
-  }, [filters.branch_id]);
+      cachedStatsToday = todayRes.data;
+      cachedStatsOverall = overallRes.data;
+      setError(false);
+    } catch (err) {
+      if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
+        console.error('Failed to load dashboard stats:', err);
+        setError(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedBranchId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchStatsSplit(controller.signal);
+    const handler = () => {
+      const freshController = new AbortController();
+      fetchStatsSplit(freshController.signal, true);
+    };
+    window.addEventListener('paymentRecorded', handler);
+    return () => {
+      controller.abort();
+      window.removeEventListener('paymentRecorded', handler);
+    };
+  }, [selectedBranchId, fetchStatsSplit]);
+
+  const handleRetry = useCallback(() => {
+    const controller = new AbortController();
+    fetchStatsSplit(controller.signal, true);
+  }, [fetchStatsSplit]);
 
   const fmt = (v) => (typeof v === 'number' ? formatCurrencyShared(v, true) : '—');
   const fmtNum = (v) => (typeof v === 'number' ? v.toLocaleString() : '—');
 
   const branchName = useMemo(() => {
-    if (!filters.branch_id) return 'All Branches';
-    return branches.find(b => b.id.toString() === filters.branch_id.toString())?.name || 'Selected Branch';
-  }, [filters.branch_id, branches]);
+    if (!selectedBranchId) return 'All Branches';
+    return branches.find(b => b.id.toString() === selectedBranchId.toString())?.name || 'Selected Branch';
+  }, [selectedBranchId, branches]);
 
   const statusColor = useCallback((status) => {
     const map = { Completed: 'var(--success)', Delivered: 'var(--accent)', Processing: 'var(--warning)', Pending: 'var(--muted-foreground)', 'Approval Pending': 'var(--warning)', Cancelled: 'var(--destructive)' };
@@ -104,12 +129,110 @@ const Summary = () => {
     { id: 'order-predictions', label: 'Predictions', icon: Sparkles },
   ], []);
 
+  if (error && !statsToday && !statsOverall) {
+    return (
+      <PageContainer>
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: '80px 24px', textAlign: 'center', background: 'var(--card)',
+          borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', margin: '40px auto',
+          maxWidth: '500px', gap: '16px', boxShadow: 'var(--shadow-sm)'
+        }}>
+          <AlertTriangle size={48} style={{ color: 'var(--danger)' }} />
+          <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Dashboard failed to load
+          </h2>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '0 0 8px', lineHeight: '1.5' }}>
+            There was an error communicating with the server. Please check your connection and try again.
+          </p>
+          <button
+            onClick={handleRetry}
+            className="btn btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <RefreshCw size={16} /> Retry
+          </button>
+        </div>
+      </PageContainer>
+    );
+  }
+
   if (loading && !statsToday && !statsOverall) {
     return (
-    <PageContainer>
-        <div className="summary-loading">
-          <Loader2 size={24} className="animate-spin" />
-          <span>Loading dashboard...</span>
+      <PageContainer>
+        {/* Skeleton Topbar */}
+        <div className="summary-topbar">
+          <div className="skeleton-box" style={{ height: 32, width: 220, borderRadius: 8 }}></div>
+          <div className="summary-topbar__right">
+            <div className="skeleton-box" style={{ height: 36, width: 140, borderRadius: 8 }}></div>
+          </div>
+        </div>
+
+        {/* Skeleton Tabs */}
+        <div className="summary-tabs">
+          <div className="skeleton-box" style={{ height: 34, width: '100%', borderRadius: 10 }}></div>
+        </div>
+
+        {/* Skeleton KPI Grid */}
+        <div className="kpi-grid">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="kpi-card">
+              <div className="kpi-card__header" style={{ marginBottom: 12 }}>
+                <div className="skeleton-box" style={{ height: 14, width: '60%' }}></div>
+                <div className="skeleton-box" style={{ height: 18, width: 18, borderRadius: '50%' }}></div>
+              </div>
+              <div className="skeleton-box" style={{ height: 28, width: '80%', marginBottom: 12 }}></div>
+              <div className="skeleton-box" style={{ height: 12, width: '50%' }}></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Skeleton KPI Grid 2 */}
+        <div className="kpi-grid">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="kpi-card">
+              <div className="kpi-card__header" style={{ marginBottom: 12 }}>
+                <div className="skeleton-box" style={{ height: 14, width: '60%' }}></div>
+                <div className="skeleton-box" style={{ height: 18, width: 18, borderRadius: '50%' }}></div>
+              </div>
+              <div className="skeleton-box" style={{ height: 28, width: '80%', marginBottom: 12 }}></div>
+              <div className="skeleton-box" style={{ height: 12, width: '50%' }}></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Skeleton Charts/Lists */}
+        <div className="summary-grid-2col">
+          <div className="summary-section-card">
+            <div className="summary-section-card__header">
+              <div className="skeleton-box" style={{ height: 18, width: 120 }}></div>
+              <div className="skeleton-box" style={{ height: 16, width: 16 }}></div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
+                  <div className="skeleton-box" style={{ height: 14, width: 100 }}></div>
+                  <div className="skeleton-box" style={{ height: 14, width: 60 }}></div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="summary-section-card">
+            <div className="summary-section-card__header">
+              <div className="skeleton-box" style={{ height: 18, width: 120 }}></div>
+              <div className="skeleton-box" style={{ height: 16, width: 16 }}></div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0' }}>
+                  <div className="skeleton-box" style={{ height: 8, width: 8, borderRadius: '50%' }}></div>
+                  <div className="skeleton-box" style={{ height: 14, width: 120 }}></div>
+                  <div style={{ flex: 1 }}></div>
+                  <div className="skeleton-box" style={{ height: 14, width: 30 }}></div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </PageContainer>
     );
@@ -122,7 +245,7 @@ const Summary = () => {
         <div className="summary-topbar__right">
           <div className="branch-selector">
             <Building2 size={16} />
-            <BranchSelect value={filters.branch_id} onChange={(e) => setFilters(p => ({ ...p, branch_id: e.target.value }))}>
+            <BranchSelect value={selectedBranchId} onChange={(e) => selectBranch(e.target.value)}>
               <option value="">All Branches</option>
               {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </BranchSelect>
@@ -273,7 +396,7 @@ const Summary = () => {
           </div>
 
           {/* ROW 5: Order Forecast */}
-          <OrderForecastWidget branchId={filters.branch_id} />
+          <OrderForecastWidget branchId={selectedBranchId} />
         </>
       )}
 

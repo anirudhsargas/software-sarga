@@ -4,7 +4,7 @@ import api from '../../services/api';
 import auth from '../../services/auth';
 import { fmt } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import PageContainer from '../components/ui/PageContainer';
+import PageContainer from '../../components/ui/PageContainer';
 
 const defaultRentForm = { property_name: '', location: '', owner_name: '', owner_mobile: '', monthly_rent: '', due_day: '1', advance_deposit: '', branch_id: '' };
 

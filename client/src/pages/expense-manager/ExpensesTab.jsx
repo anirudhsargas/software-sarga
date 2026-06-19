@@ -1,7 +1,7 @@
 import React from 'react';
 import { Receipt } from 'lucide-react';
 import { EXPENSE_CATEGORIES } from './constants';
-import PageContainer from '../components/ui/PageContainer';
+import PageContainer from '../../components/ui/PageContainer';
 
 const ExpensesTab = ({ onPayment }) => {
   return (

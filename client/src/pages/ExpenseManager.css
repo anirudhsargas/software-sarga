@@ -269,7 +269,7 @@ a:focus-visible,
 
 .em-input:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--shadow-sm), 0.5);
+    box-shadow: 0 0 0 3px var(--shadow-sm);
 }
 
 .em-input--sm {
@@ -520,7 +520,7 @@ select.em-input {
 }
 
 .em-list__item:hover {
-    background: var(--shadow-sm), 0.5);
+    background: var(--shadow-sm);
 }
 
 .em-list__info {
@@ -574,7 +574,7 @@ select.em-input {
 }
 
 .em-recent-item:hover {
-    background: var(--shadow-sm), 0.5);
+    background: var(--shadow-sm);
 }
 
 .em-recent-item__info {
@@ -827,7 +827,7 @@ select.em-input {
 }
 
 .em-mini-table tr:hover {
-    background: var(--shadow-sm), 0.5);
+    background: var(--shadow-sm);
 }
 
 /* ─── Rent Cards ──────────────────────────────────────── */

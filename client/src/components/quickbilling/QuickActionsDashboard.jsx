@@ -125,8 +125,33 @@ const QuickActionsDashboard = () => {
         if (!isCartOpen) setIsCartOpen(true);
     };
 
+    const isEditable = ['admin', 'manager'].includes(user?.role?.toLowerCase());
+
     if (loading) {
         return <div className="qb-dashboard"><p>Loading quick shortcuts...</p></div>;
+    }
+
+    if (shortcuts.length === 0) {
+        if (!isEditable) return null;
+        return (
+            <div className="qb-dashboard" style={{ padding: '24px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '8px', margin: '0 0 16px' }}>
+                <div className="qb-header" style={{ justifyContent: 'center', border: 'none', padding: 0 }}>
+                    <h2 className="qb-title" style={{ gap: '8px', justifyContent: 'center' }}><Zap size={24} color="var(--primary)" /> Quick Actions</h2>
+                </div>
+                <p style={{ color: 'var(--text-secondary)', margin: '12px 0 16px', fontSize: '14px' }}>No quick actions/shortcuts have been configured yet.</p>
+                <button className="btn btn-secondary btn-sm" onClick={() => setIsManageOpen(true)} style={{ margin: '0 auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Settings size={16} /> Configure shortcuts
+                </button>
+                {isManageOpen && (
+                    <ManageShortcuts 
+                        onClose={() => {
+                            setIsManageOpen(false);
+                            fetchShortcuts();
+                        }} 
+                    />
+                )}
+            </div>
+        );
     }
 
     return (
@@ -141,7 +166,7 @@ const QuickActionsDashboard = () => {
                     >
                         {isListening ? <Mic size={16} className="spin-pulse" /> : <MicOff size={16} />}
                     </button>
-                    {['Admin', 'Manager'].includes(user?.role) && (
+                    {isEditable && (
                         <button className="btn btn-secondary btn-sm" onClick={() => setIsManageOpen(true)}>
                             <Settings size={16} /> Manage
                         </button>
@@ -164,9 +189,6 @@ const QuickActionsDashboard = () => {
                         <span className="qb-card-price">₹{s.default_price}</span>
                     </div>
                 ))}
-                {shortcuts.length === 0 && (
-                    <p style={{ gridColumn: '1 / -1', color: 'var(--muted)' }}>No shortcuts configured yet.</p>
-                )}
             </div>
 
             {selectedShortcut && (

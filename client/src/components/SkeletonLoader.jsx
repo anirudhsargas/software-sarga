@@ -179,4 +179,18 @@ const SkeletonLoader = ({ type = 'cards', count = 6, columns }) => {
   return null;
 };
 
+export const CardSkeleton = ({ count = 6 }) => <SkeletonLoader type="cards" count={count} />;
+export const TableSkeleton = ({ count = 6, columns }) => <SkeletonLoader type="table" count={count} columns={columns} />;
+export const DashboardSkeleton = ({ count = 6 }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="skeleton-box" style={{ height: '32px', width: '220px', borderRadius: '8px' }}></div>
+      <div className="skeleton-box" style={{ height: '36px', width: '140px', borderRadius: '8px' }}></div>
+    </div>
+    <div className="skeleton-box" style={{ height: '34px', width: '100%', borderRadius: '10px' }}></div>
+    <CardSkeleton count={count} />
+    <TableSkeleton count={5} />
+  </div>
+);
+
 export default SkeletonLoader;

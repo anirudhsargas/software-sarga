@@ -6,7 +6,7 @@ import { fmtDate, today, fmt, DOCUMENT_TYPES } from './constants';
 import { imgUrl } from '../../services/api';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import useAuth from '../../hooks/useAuth';
-import PageContainer from '../components/ui/PageContainer';
+import PageContainer from '../../components/ui/PageContainer';
 import SmartBillUpload from './SmartBillUpload';
 import FullBillModal from './FullBillModal';
 

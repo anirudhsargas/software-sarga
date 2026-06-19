@@ -205,6 +205,11 @@ function App() {
                 <Route path="assigned" element={<AssignedJobs />} />
                 <Route path="analytics" element={<DesignAnalytics />} />
               </Route>
+              <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/users" element={<Navigate to="/dashboard/staff" replace />} />
+              <Route path="/products" element={<Navigate to="/dashboard/products" replace />} />
+              <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
+              <Route path="/profile" element={<Navigate to="/dashboard" replace />} />
               <Route path="/error/server" element={<ServerError />} />
               <Route path="/error/network" element={<NetworkError />} />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -3,7 +3,7 @@ import { HelpCircle, Plus, Edit2, Trash2, Download, IndianRupee, Receipt, Repeat
 import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, MISC_CATEGORIES } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import PageContainer from '../components/ui/PageContainer';
+import PageContainer from '../../components/ui/PageContainer';
 
 const defaultForm = { expense_category: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', is_recurring: false };
 const PAGE_SIZE = 50;

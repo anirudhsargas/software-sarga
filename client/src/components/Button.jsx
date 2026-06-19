@@ -40,18 +40,19 @@ export const Button = React.memo(({
       className={classes}
       onClick={handleClick}
       disabled={loading || props.disabled}
+      aria-busy={loading ? 'true' : undefined}
       {...props}
     >
       {loading ? (
         <>
-          <Loader2 size={16} className="btn-icon-left" />
-          {loadingText || children}
+          <Loader2 size={16} className="btn-icon-left" aria-hidden="true" />
+          <span aria-live="polite">{loadingText || children}</span>
         </>
       ) : (
         <>
-          {icon && <span className="btn-icon-left">{icon}</span>}
+          {icon && <span className="btn-icon-left" aria-hidden="true">{icon}</span>}
           {children}
-          {iconRight && <span className="btn-icon-right">{iconRight}</span>}
+          {iconRight && <span className="btn-icon-right" aria-hidden="true">{iconRight}</span>}
         </>
       )}
     </button>

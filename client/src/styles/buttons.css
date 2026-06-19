@@ -7,14 +7,14 @@
   position: relative;
   overflow: hidden;
   cursor: pointer;
-  border: none;
+  border: 1px solid transparent;
   outline: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   font-family: inherit;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.01em;
   text-decoration: none;
   white-space: nowrap;
@@ -23,20 +23,20 @@
 
   /* Smooth transitions for everything */
   transition:
-    background 180ms cubic-bezier(0.4, 0, 0.2, 1),
-    color 180ms cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1),
-    transform 120ms cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 180ms cubic-bezier(0.4, 0, 0.2, 1);
+    background 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 100ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ── Sizes ── */
-.btn-xs  { padding: 4px 10px;  font-size: 11px; border-radius: 6px;  height: 26px; }
-.btn-sm  { padding: 6px 14px;  font-size: 13px; border-radius: 8px;  height: 32px; }
-.btn     { padding: 8px 18px;  font-size: 14px; border-radius: 10px; height: 38px; }
-.btn-lg  { padding: 12px 24px; font-size: 15px; border-radius: 12px; height: 46px; }
-.btn-xl  { padding: 14px 32px; font-size: 16px; border-radius: 14px; height: 54px; }
+.btn-xs  { padding: 4px 8px;   font-size: 11px; border-radius: var(--radius-sm); height: 28px; }
+.btn-sm  { padding: 6px 12px;  font-size: 13px; border-radius: var(--radius-sm); height: 34px; }
+.btn     { padding: 8px 16px;  font-size: 14px; border-radius: var(--radius);    height: 40px; }
+.btn-lg  { padding: 10px 22px; font-size: 15px; border-radius: var(--radius);    height: 46px; }
+.btn-xl  { padding: 12px 28px; font-size: 16px; border-radius: var(--radius-lg); height: 52px; }
 
 /* Touch target minimum size for accessibility */
 .touch-target {
@@ -64,17 +64,12 @@
 .btn-primary-blue {
   background: var(--accent);
   color: var(--on-accent);
-  box-shadow: 0 1px 2px var(--shadow-sm);
+  border: 1px solid transparent;
 }
 
 .btn-primary-blue:hover {
-  filter: brightness(0.85);
-  box-shadow: 0 4px 12px var(--shadow-md);
-  transform: translateY(-1px);
-}
-
-.dark .btn-primary-blue:hover {
-  filter: brightness(1.15);
+  opacity: 0.9;
+  transform: translateY(-0.5px);
 }
 
 .btn-primary-blue:active {
@@ -87,30 +82,17 @@
   outline-offset: 2px;
 }
 
-.dark .btn-primary-blue {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.dark .btn-primary-blue:hover {
-  filter: brightness(0.85);
-}
-
 /* ── Primary Button ── */
 .btn-primary {
   background: var(--btn-primary-bg);
   color: var(--btn-primary-text);
-  box-shadow: 0 1px 2px var(--shadow-sm);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
-  filter: brightness(0.85);
-  box-shadow: 0 4px 12px var(--shadow-md);
-  transform: translateY(-1px);
-}
-
-.dark .btn-primary:hover {
-  filter: brightness(1.15);
+  opacity: 0.9;
+  transform: translateY(-0.5px);
 }
 
 .btn-primary:active {
@@ -123,31 +105,15 @@
   outline-offset: 2px;
 }
 
-/* Dark mode primary */
-.dark .btn-primary {
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
-}
-.dark .btn-primary:hover {
-  filter: brightness(0.85);
-}
-
 /* ── Ghost Button ── */
 .btn-ghost {
   background: transparent;
   color: var(--text-heading);
-  border: 1.5px solid var(--border);
+  border: 1px solid transparent;
 }
 
 .btn-ghost:hover {
   background: var(--hover);
-  border-color: var(--text-muted);
-  transform: translateY(-1px);
-}
-
-.dark .btn-ghost:hover {
-  background: var(--surface-2);
-  border-color: var(--text-secondary);
 }
 
 .btn-ghost:active {
@@ -162,21 +128,13 @@
 
 /* ── Danger Button ── */
 .btn-danger {
-  background: var(--error);
-  color: #ffffff;
+  background: var(--danger);
+  color: var(--text-inverse);
+  border: 1px solid transparent;
 }
 
 .btn-danger:hover {
-  filter: brightness(0.85);
-  transform: translateY(-1px);
-}
-
-.dark .btn-danger {
-  color: #0a0a0a;
-}
-
-.dark .btn-danger:hover {
-  filter: brightness(1.15);
+  opacity: 0.9;
 }
 
 .btn-danger:active {
@@ -185,27 +143,19 @@
 }
 
 .btn-danger:focus-visible {
-  outline: 2px solid var(--error);
+  outline: 2px solid var(--danger);
   outline-offset: 2px;
 }
 
 /* ── Success Button ── */
 .btn-success {
   background: var(--success);
-  color: #ffffff;
+  color: var(--text-inverse);
+  border: 1px solid transparent;
 }
 
 .btn-success:hover {
-  filter: brightness(0.85);
-  transform: translateY(-1px);
-}
-
-.dark .btn-success {
-  color: #0a0a0a;
-}
-
-.dark .btn-success:hover {
-  filter: brightness(1.15);
+  opacity: 0.9;
 }
 
 .btn-success:active {
@@ -222,24 +172,25 @@
 .btn-secondary {
   background: var(--surface);
   color: var(--text-heading);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-secondary:hover:not(:disabled) {
   background: var(--hover);
-  border-color: var(--text-muted);
+  border-color: var(--border);
 }
 
 /* ── Outline Button ── */
 .btn-outline {
   background: transparent;
   color: var(--text-heading);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .btn-outline:hover:not(:disabled) {
   background: var(--hover);
-  border-color: var(--text-muted);
+  border-color: var(--border);
 }
 
 /* ── Icon Button ── */
