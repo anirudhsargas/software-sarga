@@ -1,421 +1,19 @@
 /* ═══════════════════════════════════════
-   SARGA GLOBAL FIXES — Spacing, A11y, Responsiveness
+   SARGA GLOBAL FIXES — Overrides & Utilities
    ═══════════════════════════════════════ */
 
-:root {
-  /* Spacing Scale (global-fixes overrides, uses shared vars from index.css) */
-  --space-xs: var(--space-4, 4px);
-  --space-sm: var(--space-8, 8px);
-  --space-md: var(--space-16, 16px);
-  --space-lg: var(--space-24, 24px);
-  --space-xl: var(--space-32, 32px);
-
-  --page-padding: var(--space-24, 24px);
-  --card-padding: var(--space-24, 24px);
-  --section-gap: var(--space-24, 24px);
-  --field-gap: var(--space-16, 16px);
-  --button-height: 44px;
-  --input-height: 44px;
-  --radius-sm: 10px;  /* Inputs, small elements */
-  --radius-md: 16px;  /* Cards */
-  --radius-lg: 20px;  /* Modals */
-  --focus-ring-color: 59, 130, 246;
-  --focus-ring: 0 0 0 3px rgba(var(--focus-ring-color), 0.35);
-  --skeleton-base: var(--surface-2);
-  --skeleton-shimmer: var(--surface);
-}
-
-.dark {
-  --skeleton-base: #222222;
-  --skeleton-shimmer: #333333;
-}
-
-/* ── Page Container ── */
-.page-container {
-  padding: var(--page-padding);
-  max-width: 1400px;
-  margin: 0 auto;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* ── Content Area Padding Fix ── */
-.content-container {
-  padding: var(--page-padding) var(--page-padding) var(--page-padding);
-}
-
-/* ── Standard Page Content Wrapper ── */
-.page-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--section-gap, 24px);
-}
-
-/* Bootstrap container-lg fallback (used by staff/designer pages) */
-.container-lg {
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-  padding: 0;
-}
-
-/* ── Card ── */
-.card-global {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--border-radius);
-  padding: var(--card-padding);
-  margin-bottom: var(--section-gap);
-}
-
-/* ── Section ── */
-.section-global {
-  margin-bottom: var(--section-gap);
-}
-
-/* ── Form Field ── */
-.field-global {
-  display: flex;
-  flex-direction: column;
-  gap: var(--input-helper-gap, 6px);
-  margin-bottom: var(--field-gap);
-}
-
-.field-global .label {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text);
-  display: block;
-  margin-bottom: 0;
-}
-
-/* ── Button Height Fix ── */
-.btn-fixed {
-  height: var(--button-height);
-  min-height: var(--button-height);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 20px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-/* ── Focus Ring (WCAG AA) ── */
-:focus-visible {
-  outline: 3px solid var(--ring);
-  outline-offset: 2px;
-}
-
-/* Remove default outline for non-keyboard focus */
-:focus:not(:focus-visible) {
-  outline: none;
-}
-
-/* ── Input Focus ── */
-.input-field:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-}
-
-/* ── Skip Link ── */
-.skip-link {
-  position: absolute;
-  top: -100%;
-  left: 8px;
-  padding: 8px 16px;
-  background: var(--accent);
-  color: var(--on-accent);
-  border-radius: 8px;
-  z-index: 9999;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.skip-link:focus {
-  top: 8px;
-}
-
-/* ── Empty State ── */
-.empty-state-global {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 24px;
-  text-align: center;
-  gap: 12px;
-}
-
-.empty-state-global__icon {
-  color: var(--muted);
-  opacity: 0.3;
-  width: 48px;
-  height: 48px;
-}
-
-.empty-state-global__title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--muted);
-  margin: 0;
-}
-
-.empty-state-global__message {
-  font-size: 13px;
-  color: var(--text-disabled);
-  margin: 0;
-  max-width: 300px;
-  line-height: 1.5;
-}
-
-/* ── Loading Skeleton ── */
-.skeleton-global {
-  background: linear-gradient(90deg, var(--skeleton-base, var(--surface-2)) 25%, var(--skeleton-shimmer, var(--surface)) 50%, var(--skeleton-base, var(--surface-2)) 75%);
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s infinite;
-  border-radius: 8px;
-}
-
-@keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* ── Scrollbar Styling ── */
-.content-container::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.content-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.content-container::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
-.content-container::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
-}
-
-/* ── Table Responsive ── */
-.table-responsive {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* ── Responsive Page Padding ── */
-@media (max-width: 768px) {
-  :root {
-    --page-padding: 16px;
-    --card-padding: 16px;
-    --section-gap: 16px;
-    --field-gap: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  :root {
-    --page-padding: 12px;
-    --card-padding: 12px;
-  }
-}
-
-/* ── 320px Support ── */
-@media (max-width: 320px) {
-  :root {
-    --page-padding: 8px;
-    --card-padding: 10px;
-    --section-gap: 12px;
-    --field-gap: 8px;
-  }
-
-  .btn-fixed {
-    padding: 0 12px;
-    font-size: 13px;
-    height: 38px;
-    min-height: 38px;
-  }
-}
-
-/* ── Ultrawide ── */
-@media (min-width: 1920px) {
-  .page-container {
-    max-width: 1600px;
-  }
-}
-
-/* ── Reduced Motion ── */
-@media (prefers-reduced-motion: reduce) {
-  .skeleton-global {
-    animation: none;
-  }
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* ── Status Button Text Visibility Fix ── */
-.sv-status-badge {
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 1.3;
-  color: inherit !important;
-}
-
-.sv-status-badge--completed {
-  background: var(--success, #16a34a) !important;
-  border: 1px solid var(--success, #16a34a) !important;
-  color: #ffffff !important;
-}
-
-.sv-status-badge--pending,
-.sv-status-badge--draft {
-  background: rgba(234, 179, 8, 0.15) !important;
-  border: 1px solid rgba(234, 179, 8, 0.3) !important;
-  color: rgb(202, 138, 4) !important;
-}
-
-.sv-status-badge--verified {
-  background: rgba(22, 163, 74, 0.15) !important;
-  border: 1px solid rgba(22, 163, 74, 0.3) !important;
-  color: rgb(22, 163, 74) !important;
-}
-
-.sv-status-badge--partial {
-  background: rgba(249, 115, 22, 0.15) !important;
-  border: 1px solid rgba(249, 115, 22, 0.3) !important;
-  color: rgb(234, 88, 12) !important;
-}
-
-/* ── Settings Page Toggle Alignment ── */
-.sp-field.sp-field--toggle {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.sp-field.sp-field--toggle .sp-label {
-  margin-bottom: 0;
-}
-
-/* ── Toggle Switch ── */
-.toggle-switch {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.toggle-switch input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-track {
-  width: 44px;
-  height: 24px;
-  background: var(--border);
-  border-radius: 12px;
-  transition: background 0.2s;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.toggle-switch input:checked + .toggle-track {
-  background: var(--accent);
-}
-
-.toggle-track::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  background: #fff;
-  border-radius: 50%;
-  transition: transform 0.2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
-
-.toggle-switch input:checked + .toggle-track::after {
-  transform: translateX(20px);
-}
-
-.toggle-switch input:focus-visible + .toggle-track {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.toggle-label {
-  font-size: 13px;
-  color: var(--text);
-}
-
-/* ── Password Input Toggle Button ── */
-.password-toggle {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 8px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s, background 0.2s;
-}
-.password-toggle:hover {
-  color: var(--accent);
-  background: var(--surface);
-}
-.password-toggle:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-.input-field--with-toggle {
-  padding-right: 44px;
-}
-.input-group--password .input-field {
-  padding-left: 40px;
-  padding-right: 44px;
-}
-
-/* ── Login text sizes ── */
+/* ── Auth Pages ── */
 .auth-shell .section-title {
   font-size: 22px;
   font-weight: 700;
   color: var(--text);
 }
+
 .auth-shell .section-subtitle {
   font-size: 14px;
   color: var(--muted);
 }
 
-/* ── Auth Pages: Theme-aware fix ── */
 .auth-container {
   min-height: 100vh;
   display: flex;
@@ -427,12 +25,12 @@
 
 .auth-card {
   background: var(--surface);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   padding: 40px;
   max-width: 420px;
   width: 100%;
   border: 1px solid var(--border);
-  box-shadow: 0 20px 60px var(--shadow-sm);
+  box-shadow: var(--shadow-xl);
 }
 
 .auth-card h2 {
@@ -453,9 +51,9 @@
 .auth-input {
   width: 100%;
   padding: 12px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  background: var(--input-bg, var(--surface));
+  background: var(--input-bg);
   color: var(--text);
   font-size: 15px;
   outline: none;
@@ -475,8 +73,8 @@
 
 .auth-btn {
   width: 100%;
-  height: var(--button-height);
-  border-radius: 10px;
+  height: var(--input-height, 44px);
+  border-radius: var(--radius-md);
   border: none;
   background: var(--accent);
   color: var(--on-accent);
@@ -548,10 +146,72 @@
   text-align: center;
   padding: 8px 12px;
   background: rgba(239, 68, 68, 0.1);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .auth-success-icon {
   color: var(--success);
   margin-bottom: 16px;
+}
+
+/* ── Status Button Text Visibility Fix ── */
+.sv-status-badge {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.3;
+  color: inherit !important;
+}
+
+.sv-status-badge--completed {
+  background: var(--success) !important;
+  border: 1px solid var(--success) !important;
+  color: #ffffff !important;
+}
+
+.sv-status-badge--pending,
+.sv-status-badge--draft {
+  background: rgba(234, 179, 8, 0.15) !important;
+  border: 1px solid rgba(234, 179, 8, 0.3) !important;
+  color: rgb(202, 138, 4) !important;
+}
+
+.sv-status-badge--verified {
+  background: rgba(22, 163, 74, 0.15) !important;
+  border: 1px solid rgba(22, 163, 74, 0.3) !important;
+  color: rgb(22, 163, 74) !important;
+}
+
+.sv-status-badge--partial {
+  background: rgba(249, 115, 22, 0.15) !important;
+  border: 1px solid rgba(249, 115, 22, 0.3) !important;
+  color: rgb(234, 88, 12) !important;
+}
+
+/* ── Settings Page Toggle Alignment ── */
+.sp-field.sp-field--toggle {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sp-field.sp-field--toggle .sp-label {
+  margin-bottom: 0;
+}
+
+/* Password input icon alignment */
+.input-group--password .input-field {
+  padding-left: 40px;
+  padding-right: 44px;
+}
+
+/* ── Auth text sizes ── */
+.auth-shell .section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+.auth-shell .section-subtitle {
+  font-size: 14px;
+  color: var(--muted);
 }

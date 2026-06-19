@@ -8,45 +8,72 @@ const StaffLayout = () => {
     };
 
     return (
-        <div className="app-layout">
-            <aside className="sidebar">
-                <div className="sidebar__header">
-                    <h2 className="sidebar__logo">Staff Portal</h2>
+        <div className="dashboard-layout">
+            <aside className="sidebar" role="navigation" aria-label="Staff Navigation">
+                <div className="sidebar-header">
+                    <div className="logo-wrap">
+                        <div className="logo-img" style={{ background: 'var(--surface-2)', display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 800 }}>
+                            S
+                        </div>
+                        <span className="logo-text">Staff Portal</span>
+                    </div>
                 </div>
                 
-                <nav className="sidebar__nav">
-                    <NavLink to="/staff" end className={({isActive}) => `sidebar__link ${isActive ? 'active' : ''}`}>
-                        <LayoutDashboard size={20} />
-                        <span>Overview</span>
+                <nav className="sidebar-nav">
+                    <div className="sidebar-group-toggle active">Navigation</div>
+                    <NavLink to="/staff" end className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <div className="nav-item-inner">
+                            <LayoutDashboard size={20} />
+                            <span className="nav-label">Overview</span>
+                        </div>
                     </NavLink>
-                    <NavLink to="/staff/leaves" className={({isActive}) => `sidebar__link ${isActive ? 'active' : ''}`}>
-                        <CalendarDays size={20} />
-                        <span>Leave Mgmt</span>
+                    <NavLink to="/staff/leaves" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <div className="nav-item-inner">
+                            <CalendarDays size={20} />
+                            <span className="nav-label">Leave Mgmt</span>
+                        </div>
                     </NavLink>
-                    <NavLink to="/staff/tasks" className={({isActive}) => `sidebar__link ${isActive ? 'active' : ''}`}>
-                        <CheckSquare size={20} />
-                        <span>My Tasks</span>
+                    <NavLink to="/staff/tasks" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <div className="nav-item-inner">
+                            <CheckSquare size={20} />
+                            <span className="nav-label">My Tasks</span>
+                        </div>
                     </NavLink>
                 </nav>
 
-                <div className="sidebar__footer">
-                    <NavLink to="/staff-settings" className={({isActive}) => `sidebar__link ${isActive ? 'active' : ''}`}>
-                        <Settings size={20} />
-                        <span>Settings</span>
+                <div className="sidebar-footer">
+                    <NavLink to="/staff-settings" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <div className="nav-item-inner">
+                            <Settings size={20} />
+                            <span className="nav-label">Settings</span>
+                        </div>
                     </NavLink>
-                    <button className="sidebar__link btn-text text-danger" onClick={handleLogout}>
-                        <LogOut size={20} />
-                        <span>Logout</span>
+                    <button className="nav-item" style={{ color: 'var(--danger)' }} onClick={handleLogout}>
+                        <div className="nav-item-inner">
+                            <LogOut size={20} />
+                            <span className="nav-label">Logout</span>
+                        </div>
                     </button>
                 </div>
             </aside>
             
-            <div className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-                <header className="content-header" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 24px', backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-                    <h2 className="section-title" style={{ margin: 0 }}>Staff Portal</h2>
+            <div className="main-content">
+                <header className="global-appbar">
+                    <div className="appbar-left">
+                        <div className="appbar-breadcrumb">
+                            <span className="breadcrumb-current">Staff Portal</span>
+                        </div>
+                    </div>
+                    <div className="appbar-right">
+                        <NavLink to="/staff-settings" className="appbar-icon-btn" title="Settings" aria-label="Settings">
+                            <Settings size={18} />
+                        </NavLink>
+                    </div>
                 </header>
-                <main className="content-area" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-                    <Outlet />
+                <main className="content-container">
+                    <div className="page-container">
+                        <Outlet />
+                    </div>
                 </main>
             </div>
         </div>

@@ -1,26 +1,33 @@
 /* Jobs page responsive styles */
+.jobs-filter-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-16);
+}
+
+.jobs-filter-group {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overflow-y: visible;
+  width: 100%;
+}
+
 @media (max-width: 768px) {
     .jobs-filter-row { flex-direction: column; width: 100%; align-items: stretch; }
     .jobs-filter-row > div { width: 100%; max-width: none !important; }
     .jobs-filter-group { flex-direction: row; width: 100%; flex-wrap: wrap; }
     .jobs-filter-group > div { flex: 1; min-width: 140px; }
-    .table-scroll {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        overflow-y: visible;
-        margin: 0;
-        padding: 0;
-        width: 100%;
-    }
     .table-scroll::-webkit-scrollbar { height: 6px; }
-    .table-scroll::-webkit-scrollbar-thumb { background: var(--accent-soft); border-radius: 999px; }
-    .table {
-        width: 100%;
-        min-width: 700px;
-    }
-    .table th,
-    .table td {
-        white-space: nowrap;
-        padding: 10px 10px;
-    }
+    .table-scroll::-webkit-scrollbar-thumb { background: var(--accent-soft); border-radius: var(--radius-full); }
+    .table { width: 100%; min-width: 700px; }
+    .table th, .table td { white-space: nowrap; padding: var(--space-10); }
 }

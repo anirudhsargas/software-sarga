@@ -2,22 +2,21 @@ import React from 'react';
 
 const ErrorPage = ({ icon: Icon, title, message, suggestion, actions }) => {
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      minHeight: '60vh', padding: 24, textAlign: 'center'
-    }}>
-      {Icon && <Icon size={48} style={{ marginBottom: 12 }} />}
-      <h1 style={{ fontSize: 28, margin: '0 0 8px', fontWeight: 700 }}>{title}</h1>
-      <p style={{ color: 'var(--text-muted)', maxWidth: 480, lineHeight: 1.6, margin: '0 0 4px' }}>
-        {message}
-      </p>
+    <div className="empty-state-global" role="alert">
+      {Icon && (
+        <div className="empty-state-global__icon" style={{ width: 48, height: 48 }}>
+          <Icon size={48} />
+        </div>
+      )}
+      <h2 className="empty-state-global__title">{title}</h2>
+      <p className="empty-state-global__message">{message}</p>
       {suggestion && (
         <p style={{ color: 'var(--text-secondary)', fontSize: 14, maxWidth: 440, margin: '4px 0 0', fontStyle: 'italic' }}>
           {suggestion}
         </p>
       )}
       {actions && actions.length > 0 && (
-        <div style={{ marginTop: 20, display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div className="empty-state__actions">
           {actions.map((action, i) => (
             <button
               key={i}
