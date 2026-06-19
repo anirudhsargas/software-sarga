@@ -26,6 +26,8 @@ const ValidatedSelect = React.memo(function ValidatedSelect({
   placeholder = 'Select...',
   disabled = false,
   className = '',
+  inputClassName = '',
+  helpText,
   ...rest
 }) {
   const [error, setError] = useState('');
@@ -69,8 +71,9 @@ const ValidatedSelect = React.memo(function ValidatedSelect({
         onBlur={handleBlur}
         required={required}
         disabled={disabled}
-        className={`input-field ${showError ? 'input-field--error' : ''}`}
+        className={`input-field ${showError ? 'input-field--error' : ''} ${inputClassName}`}
         aria-invalid={showError ? 'true' : undefined}
+        aria-describedby={showError ? `${name}-error` : helpText ? `${name}-help` : undefined}
         {...rest}
       >
         {placeholder && (
@@ -85,9 +88,12 @@ const ValidatedSelect = React.memo(function ValidatedSelect({
         ))}
       </select>
       {showError && (
-        <span className="validated-field__error" role="alert">
+        <span className="validated-field__error" id={`${name}-error`} role="alert">
           {error}
         </span>
+      )}
+      {!showError && helpText && (
+        <span className="validated-field__help" id={`${name}-help`}>{helpText}</span>
       )}
     </div>
   );

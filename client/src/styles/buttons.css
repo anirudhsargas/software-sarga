@@ -12,7 +12,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-8);
   font-family: inherit;
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -23,12 +23,18 @@
 
   /* Smooth transitions for everything */
   transition:
-    background 150ms cubic-bezier(0.4, 0, 0.2, 1),
-    color 150ms cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
     transform 100ms cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    opacity var(--transition-fast);
+}
+
+/* ── Press effect for primary button — defined once ── */
+.btn-press:active {
+  transform: scale(0.97);
+  transition-duration: 80ms;
 }
 
 /* ── Sizes ── */
@@ -80,6 +86,7 @@
 .btn-primary-blue:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+  box-shadow: var(--input-shadow-focus, 0 0 0 3px rgba(0,0,0,0.1));
 }
 
 /* ── Primary Button ── */
@@ -103,6 +110,7 @@
 .btn-primary:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+  box-shadow: var(--input-shadow-focus, 0 0 0 3px rgba(0,0,0,0.1));
 }
 
 /* ── Ghost Button ── */
@@ -124,6 +132,7 @@
 .btn-ghost:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+  box-shadow: var(--input-shadow-focus, 0 0 0 3px rgba(0,0,0,0.1));
 }
 
 /* ── Danger Button ── */
@@ -145,6 +154,7 @@
 .btn-danger:focus-visible {
   outline: 2px solid var(--danger);
   outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
 }
 
 /* ── Success Button ── */
@@ -166,6 +176,7 @@
 .btn-success:focus-visible {
   outline: 2px solid var(--success);
   outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
 
 /* ── Secondary Button ── */

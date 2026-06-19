@@ -721,7 +721,7 @@ const StaffManagement = () => {
                     }}
                 />
             )}
-        </div>
+        </PageContainer>
     );
 };
 

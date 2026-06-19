@@ -3,7 +3,7 @@
    ═══════════════════════════════════════ */
 
 :root {
-  /* Spacing Scale */
+  /* Spacing Scale (global-fixes overrides, uses shared vars from index.css) */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
@@ -80,22 +80,16 @@
 .field-global {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--input-helper-gap, 6px);
   margin-bottom: var(--field-gap);
 }
 
 .field-global .label {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--muted);
+  color: var(--text);
   display: block;
-}
-
-.field-global .input-field {
-  height: var(--input-height);
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 14px;
+  margin-bottom: 0;
 }
 
 /* ── Button Height Fix ── */

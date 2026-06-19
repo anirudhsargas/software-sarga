@@ -28,6 +28,8 @@ const ValidatedTextarea = React.memo(function ValidatedTextarea({
   rows = 4,
   maxLength,
   className = '',
+  inputClassName = '',
+  helpText,
   ...rest
 }) {
   const [error, setError] = useState('');
@@ -86,9 +88,9 @@ const ValidatedTextarea = React.memo(function ValidatedTextarea({
         disabled={disabled}
         rows={rows}
         maxLength={maxLength}
-        className={`input-field ${showError ? 'input-field--error' : ''}`}
+        className={`input-field ${showError ? 'input-field--error' : ''} ${inputClassName}`}
         aria-invalid={showError ? 'true' : undefined}
-        aria-describedby={showError ? `${name}-error` : undefined}
+        aria-describedby={showError ? `${name}-error` : helpText ? `${name}-help` : undefined}
         {...rest}
       />
       {showError && (
@@ -96,7 +98,10 @@ const ValidatedTextarea = React.memo(function ValidatedTextarea({
           {error}
         </span>
       )}
-      {!showError && maxLength && (
+      {!showError && helpText && (
+        <span className="validated-field__help" id={`${name}-help`}>{helpText}</span>
+      )}
+      {!showError && !helpText && maxLength && (
         <span className="validated-field__help">
           {(value?.length || 0)}/{maxLength}
         </span>

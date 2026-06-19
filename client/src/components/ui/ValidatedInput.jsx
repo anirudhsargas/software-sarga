@@ -120,7 +120,7 @@ const ValidatedInput = React.memo(function ValidatedInput({
         autoComplete={type === 'password' ? 'new-password' : 'off'}
         className={`input-field ${showError ? 'input-field--error' : ''} ${inputClassName}`}
         aria-invalid={showError ? 'true' : undefined}
-        aria-describedby={showError ? `${name}-error` : undefined}
+        aria-describedby={showError ? `${name}-error` : helpText ? `${name}-help` : undefined}
         {...rest}
       />
       {showError && (
@@ -129,7 +129,7 @@ const ValidatedInput = React.memo(function ValidatedInput({
         </span>
       )}
       {!showError && helpText && (
-        <span className="validated-field__help">{helpText}</span>
+        <span className="validated-field__help" id={helpText ? `${name}-help` : undefined}>{helpText}</span>
       )}
     </div>
   );

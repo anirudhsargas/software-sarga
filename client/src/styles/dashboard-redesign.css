@@ -1084,50 +1084,7 @@ body[data-theme="dark"] {
   margin-bottom: 20px;
 }
 
-/* ── Shared Input Field ── */
-.input-field {
-  background: var(--input-bg, var(--bg-2));
-  border: 1px solid var(--input-border, var(--border));
-  color: var(--input-text, var(--text));
-  border-radius: 8px;
-  padding: 9px 12px;
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-  width: 100%;
-  transition: border-color 0.15s;
-  box-sizing: border-box;
-}
-
-.input-field:focus {
-  border-color: var(--accent);
-}
-
-.input-field::placeholder {
-  color: var(--input-placeholder, var(--text-disabled));
-}
-
-.input-field[type="date"] {
-  min-height: 38px;
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-.input-field[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.4) grayscale(1) brightness(2);
-  cursor: pointer;
-}
-
-html[data-theme="dark"] .input-field[type="date"]::-webkit-calendar-picker-indicator,
-.dark .input-field[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.8) brightness(1.2);
-}
-
-select.input-field {
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-}
+/* ── Shared Input Field Removed ── */
 
 /* ── Shared Layout Utilities ── */
 .stack-lg { display: flex; flex-direction: column; gap: 16px; }
