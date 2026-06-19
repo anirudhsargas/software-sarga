@@ -270,7 +270,7 @@ const GSTSummaryTab = ({ branchId }) => {
                     <div className="acc-liability-card__item">Input: <strong>{fmt(t.input_gst)}</strong></div>
                 </div>
             </div>
-        </div>
+        </PageContainer>
     );
 };
 
@@ -1243,7 +1243,7 @@ const UploadBillTab = ({ onUploaded }) => {
                     </div>
                 </div>
             )}
-        </PageContainer>
+        </div>
     );
 };
 
