@@ -260,7 +260,7 @@ const InternalUsageReport = () => {
                                                 className="badge"
                                                 style={{
                                                     fontSize: 11,
-                                                    background: `rgba(${DEPT_COLOR[bill.department] ? hexToRgb(DEPT_COLOR[bill.department]) : '99,102,241'}, 0.12)`,
+                                                    background: bill.department === 'admin' ? 'var(--success-bg)' : 'rgba(var(--accent-rgb), 0.12)',
                                                     color: DEPT_COLOR[bill.department] || 'var(--accent)',
                                                 }}
                                             >
@@ -304,12 +304,5 @@ const InternalUsageReport = () => {
         </PageContainer>
     );
 };
-
-// Helper: convert hex (#6366f1) to "r,g,b" string for rgba()
-function hexToRgb(hex) {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (!result) return '99,102,241';
-    return `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`;
-}
 
 export default InternalUsageReport;

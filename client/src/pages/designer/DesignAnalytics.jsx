@@ -266,7 +266,7 @@ const DesignAnalytics = () => {
               { label: 'Waiting', key: 'Requested', color: 'var(--text-muted)' },
               { label: 'Assigned', key: 'Assigned', color: 'var(--info)' },
               { label: 'In Progress', key: 'Designing', color: 'var(--warning)' },
-              { label: 'In Review', key: 'Review', color: '#8b5cf6' },
+              { label: 'In Review', key: 'Review', color: 'var(--accent)' },
               { label: 'Approved', key: 'Approved', color: 'var(--success)' },
             ].map(({ label, key, color }) => {
               const count = bookings.filter(b => b.status === key).length;

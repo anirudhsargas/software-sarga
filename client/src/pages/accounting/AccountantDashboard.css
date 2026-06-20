@@ -1,7 +1,7 @@
 .acc-dash-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-24);
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
@@ -16,7 +16,7 @@
 .acc-dash-title {
   font-size: 1.5rem;
   font-weight: 700;
-  margin: 0 0 4px 0;
+  margin: 0 0 var(--space-4) 0;
 }
 
 .acc-dash-subtitle {
@@ -27,14 +27,14 @@
 
 .acc-dash-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--space-12);
   align-items: center;
 }
 
 .acc-month-input {
-  padding: 8px 12px;
+  padding: var(--space-8) var(--space-12);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text);
   font-family: inherit;
@@ -44,9 +44,9 @@
 .acc-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 8px;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-16);
+  border-radius: var(--radius-sm);
   font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
@@ -55,12 +55,12 @@
 }
 
 .acc-btn.icon-only {
-  padding: 8px;
+  padding: var(--space-8);
 }
 
 .acc-btn.primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .acc-btn.primary:hover {
@@ -99,14 +99,14 @@
 .acc-kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .acc-card {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-20);
   box-shadow: 0 4px 12px rgba(0,0,0,0.02);
 }
 
@@ -124,7 +124,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-12);
 }
 
 .acc-kpi-title {
@@ -136,22 +136,22 @@
 .acc-kpi-icon {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.acc-kpi-icon.green { background: rgba(34, 197, 94, 0.1); color: var(--success, #22c55e); }
-.acc-kpi-icon.red { background: rgba(239, 68, 68, 0.1); color: var(--error, #ef4444); }
-.acc-kpi-icon.blue { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.acc-kpi-icon.green { background: color-mix(in srgb, var(--success) 10%, transparent); color: var(--success); }
+.acc-kpi-icon.red { background: rgba(var(--error-rgb), 0.1); color: var(--error); }
+.acc-kpi-icon.blue { background: color-mix(in srgb, var(--info) 10%, transparent); color: var(--info); }
 .acc-kpi-icon.orange { background: rgba(249, 115, 22, 0.1); color: #f97316; }
 .acc-kpi-icon.purple { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
 
 .acc-kpi-value {
   font-size: 1.75rem;
   font-weight: 700;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-4);
 }
 
 .acc-kpi-growth {
@@ -159,13 +159,13 @@
   font-weight: 500;
 }
 
-.acc-kpi-growth.positive { color: var(--success, #22c55e); }
-.acc-kpi-growth.negative { color: var(--error, #ef4444); }
+.acc-kpi-growth.positive { color: var(--success); }
+.acc-kpi-growth.negative { color: var(--error); }
 
 .acc-main-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 24px;
+  gap: var(--space-24);
 }
 
 @media (max-width: 1024px) {
@@ -177,11 +177,11 @@
 .acc-grid-left, .acc-grid-right {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-24);
 }
 
 .acc-card-header {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-16);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -214,7 +214,7 @@
 }
 
 .acc-data-table th, .acc-data-table td {
-  padding: 12px;
+  padding: var(--space-12);
   text-align: left;
   border-bottom: 1px solid var(--border);
   font-size: 0.9rem;
@@ -228,7 +228,7 @@
 
 .acc-tag {
   display: inline-block;
-  padding: 4px 8px;
+  padding: var(--space-4) var(--space-8);
   border-radius: 4px;
   background: var(--bg-hover);
   font-size: 0.8rem;
@@ -243,15 +243,15 @@
 .text-right { text-align: right; }
 .text-muted { color: var(--muted); }
 .font-mono { font-family: monospace; }
-.text-success { color: var(--success, #22c55e); }
-.text-error { color: var(--error, #ef4444); }
+.text-success { color: var(--success); }
+.text-error { color: var(--error); }
 
 .acc-btn-text {
   background: none;
   border: none;
   font-weight: 600;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: var(--space-4) var(--space-8);
 }
 
 .acc-btn-text:hover {
@@ -260,31 +260,31 @@
 
 .acc-row-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .acc-alerts-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .acc-alert-item {
   display: flex;
-  gap: 12px;
-  padding: 16px;
+  gap: var(--space-12);
+  padding: var(--space-16);
   background: var(--bg-hover);
   border-left: 4px solid;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .acc-alert-icon {
-  margin-top: 2px;
+  margin-top: var(--space-2);
 }
 
 .acc-alert-title {
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-4);
   font-size: 0.95rem;
 }
 
@@ -298,21 +298,21 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 0;
+  padding: var(--space-32) 0;
   color: var(--muted);
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .acc-vendor-stats {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .acc-v-stat {
   display: flex;
   justify-content: space-between;
-  padding-bottom: 12px;
+  padding-bottom: var(--space-12);
   border-bottom: 1px solid var(--border);
 }
 
@@ -329,10 +329,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 64px 20px;
+  padding: var(--space-64) var(--space-20);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   text-align: center;
 }
 
@@ -340,26 +340,26 @@
   width: 120px;
   height: 120px;
   background: var(--bg-hover);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-24);
 }
 
 .acc-empty-state h2 {
-  margin: 0 0 8px 0;
+  margin: 0 0 var(--space-8) 0;
 }
 
 .acc-empty-state p {
   color: var(--muted);
-  margin: 0 0 24px 0;
+  margin: 0 0 var(--space-24) 0;
   max-width: 400px;
 }
 
 .acc-empty-actions {
   display: flex;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .acc-loading-state, .acc-error-state {
@@ -368,6 +368,6 @@
   align-items: center;
   justify-content: center;
   height: 60vh;
-  gap: 16px;
+  gap: var(--space-16);
   color: var(--muted);
 }

@@ -16,7 +16,7 @@
 }
 
 .mm-header-title {
-    font-size: 22px;
+    font-size: var(--text-xl);
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -24,7 +24,7 @@
 }
 
 .mm-header-subtitle {
-    font-size: 13px;
+    font-size: var(--text-sm);
     color: var(--muted);
     margin-top: 4px;
 }
@@ -40,11 +40,11 @@
 
 .mm-filter-select {
     padding: 7px 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
-    font-size: 13px;
+    font-size: var(--text-sm);
     min-width: 150px;
 }
 
@@ -54,11 +54,11 @@
     align-items: center;
     gap: 6px;
     padding: 7px 14px;
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     border: none;
     background: var(--accent);
     color: var(--text);
-    font-size: 13px;
+    font-size: var(--text-sm);
     font-weight: 500;
     cursor: pointer;
 }
@@ -98,14 +98,14 @@
 }
 
 .mm-card-name {
-    font-size: 15px;
+    font-size: var(--text-base);
     font-weight: 600;
 }
 
 .mm-card-type {
-    font-size: 11px;
+    font-size: var(--text-xs);
     padding: 2px 8px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: var(--bg-2);
     color: var(--muted);
     text-transform: uppercase;
@@ -150,7 +150,7 @@
 
 .mm-card-action-btn {
     padding: 6px;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     border: none;
     background: var(--bg-2);
     color: var(--muted);
@@ -171,7 +171,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    font-size: 12px;
+    font-size: var(--text-xs);
     color: var(--muted);
     margin-bottom: 12px;
 }
@@ -188,8 +188,8 @@
     align-items: center;
     gap: 6px;
     padding: 6px 10px;
-    border-radius: 8px;
-    font-size: 11px;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
     font-weight: 500;
 }
 
@@ -217,7 +217,7 @@
 .mm-modal-overlay {
     position: fixed;
     inset: 0;
-    background: var(--modal-overlay, rgba(0, 0, 0, 0.3));
+    background: var(--modal-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -248,13 +248,13 @@
 }
 
 .mm-modal-title {
-    font-size: 16px;
+    font-size: var(--text-base);
     font-weight: 600;
 }
 
 .mm-modal-close {
     padding: 6px;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     border: none;
     background: transparent;
     color: var(--muted);
@@ -290,18 +290,18 @@
 }
 
 .mm-form-label {
-    font-size: 12px;
+    font-size: var(--text-xs);
     font-weight: 500;
     color: var(--muted);
 }
 
 .mm-form-input {
     padding: 8px 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    font-size: 13px;
+    font-size: var(--text-sm);
 }
 
 .mm-form-input:focus {
@@ -311,11 +311,11 @@
 
 .mm-form-select {
     padding: 8px 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    font-size: 13px;
+    font-size: var(--text-sm);
 }
 
 /* Checkbox */
@@ -323,7 +323,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
+    font-size: var(--text-sm);
     color: var(--text);
 }
 
@@ -347,9 +347,9 @@
 
 .mm-btn {
     padding: 8px 16px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     border: none;
-    font-size: 13px;
+    font-size: var(--text-sm);
     font-weight: 500;
     cursor: pointer;
     display: flex;
@@ -385,13 +385,13 @@
 }
 
 .mm-stat-label {
-    font-size: 13px;
+    font-size: var(--text-sm);
     color: var(--muted);
     margin-bottom: 4px;
 }
 
 .mm-stat-value {
-    font-size: 22px;
+    font-size: var(--text-xl);
     font-weight: 700;
     font-family: 'Space Grotesk', monospace;
 }
@@ -426,14 +426,14 @@
 }
 
 .mm-live-count-label {
-    font-size: 13px;
+    font-size: var(--text-sm);
     color: var(--accent);
     font-weight: 600;
     margin-bottom: 4px;
 }
 
 .mm-live-count-value {
-    font-size: 22px;
+    font-size: var(--text-xl);
     font-weight: 700;
     font-family: 'Space Grotesk', monospace;
     color: var(--accent);
@@ -451,7 +451,7 @@
 }
 
 .mm-live-count-time {
-    font-size: 10px;
+    font-size: var(--text-2xs);
     color: var(--muted);
     margin-top: 2px;
 }
@@ -470,7 +470,7 @@
 }
 
 .mm-reading-input--large {
-    font-size: 16px;
+    font-size: var(--text-base);
     font-weight: 600;
 }
 
@@ -484,7 +484,7 @@
 
 .mm-reading-label {
     font-weight: 600;
-    font-size: 13px;
+    font-size: var(--text-sm);
 }
 
 .mm-reading-label--error {
@@ -500,7 +500,7 @@
 }
 
 .mm-reading-hint {
-    font-size: 11px;
+    font-size: var(--text-xs);
     margin-top: 4px;
     color: var(--muted);
 }
@@ -533,7 +533,7 @@
 }
 
 .mm-good-prints-item {
-    font-size: 12px;
+    font-size: var(--text-xs);
 }
 
 .mm-good-prints-item--good {
@@ -564,7 +564,7 @@
 
 .mm-tab-btn {
     border-radius: 8px 8px 0 0;
-    font-size: 13px;
+    font-size: var(--text-sm);
 }
 
 .mm-tab-btn--relative {
@@ -577,10 +577,10 @@
     right: 4px;
     background: var(--error);
     color: var(--on-accent);
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     width: 16px;
     height: 16px;
-    font-size: 10px;
+    font-size: var(--text-2xs);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -600,7 +600,7 @@
 
 .mm-panel-header-title {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--text-xs);
     font-weight: 600;
 }
 
@@ -622,7 +622,7 @@
 }
 
 .mm-table-percent {
-    font-size: 10px;
+    font-size: var(--text-2xs);
 }
 
 .mm-table-percent--error {
@@ -643,7 +643,7 @@
 }
 
 .mm-monthly-stat-label {
-    font-size: 13px;
+    font-size: var(--text-sm);
     color: var(--muted);
 }
 
@@ -681,7 +681,7 @@
 
 .mm-staff-title {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--text-xs);
     font-weight: 600;
 }
 
@@ -701,14 +701,14 @@
 .mm-staff-avatar {
     width: 36px;
     height: 36px;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     background: var(--accent);
     color: var(--on-accent);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 14px;
+    font-size: var(--text-sm);
     flex-shrink: 0;
 }
 
@@ -764,7 +764,7 @@
 
 .mm-assign-staff-item {
     padding: 10px 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     border: 1px solid var(--border);
     background: transparent;
@@ -778,13 +778,13 @@
 .mm-assign-avatar {
     width: 28px;
     height: 28px;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     background: var(--accent);
     color: var(--on-accent);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: var(--text-xs);
     font-weight: 600;
     flex-shrink: 0;
 }
@@ -799,12 +799,12 @@
     background: var(--success);
     color: var(--on-accent);
     padding: 4px 10px;
-    font-size: 12px;
+    font-size: var(--text-xs);
 }
 
 .mm-count-request-reject-btn {
     padding: 4px 10px;
-    font-size: 12px;
+    font-size: var(--text-xs);
 }
 
 .mm-count-request-hint {
@@ -836,6 +836,6 @@
 .mm-header-ip {
     margin-left: 8px;
     font-family: 'Space Grotesk', monospace;
-    font-size: 12px;
+    font-size: var(--text-xs);
     color: var(--muted);
 }

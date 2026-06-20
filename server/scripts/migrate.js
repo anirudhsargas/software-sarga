@@ -43,6 +43,14 @@ async function migrate() {
       await conn.query("ALTER TABLE sarga_customers ADD COLUMN gst VARCHAR(20)");
     } catch (e) { ignoreDup(e); }
 
+    try {
+      await conn.query("ALTER TABLE sarga_customers ADD COLUMN client_type VARCHAR(50) DEFAULT 'customer'");
+    } catch (e) { ignoreDup(e); }
+
+    try {
+      await conn.query("ALTER TABLE sarga_customers ADD COLUMN internal_branch VARCHAR(100) DEFAULT NULL");
+    } catch (e) { ignoreDup(e); }
+
     // --- sarga_product_categories ---
     try {
       await conn.query("ALTER TABLE sarga_product_categories ADD COLUMN position INT NOT NULL DEFAULT 0");

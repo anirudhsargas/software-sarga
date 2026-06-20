@@ -292,7 +292,7 @@ const CCTVManagement = () => {
       {/* ── Page Header ── */}
       <div className="page-header">
         <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1,#4f46e5)', boxShadow: '0 2px 8px rgba(99,102,241,0.35)' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.5))', boxShadow: '0 2px 8px rgba(var(--accent-rgb), 0.35)' }}>
             <Video size={18} color="var(--on-accent)" />
           </span>
           CCTV Management
@@ -327,7 +327,7 @@ const CCTVManagement = () => {
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 16px', borderRadius: 9, fontSize: 13, fontWeight: tab === t.key ? 600 : 400,
-              background: tab === t.key ? 'var(--primary, #6366f1)' : 'transparent',
+              background: tab === t.key ? 'var(--primary)' : 'transparent',
               color: tab === t.key ? 'var(--on-accent)' : 'var(--muted)',
               border: 'none', cursor: 'pointer', transition: 'all .15s',
             }}
@@ -438,7 +438,7 @@ const CCTVManagement = () => {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 7,
                   padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 500,
-                  background: liveCamera?.id === cam.id ? 'var(--primary,#6366f1)' : 'var(--surface-2)',
+                  background: liveCamera?.id === cam.id ? 'var(--primary)' : 'var(--surface-2)',
                   color: liveCamera?.id === cam.id ? 'var(--on-accent)' : 'var(--text)',
                   border: liveCamera?.id === cam.id ? 'none' : '1px solid var(--border)',
                   cursor: 'pointer', transition: 'all .15s',
@@ -674,7 +674,7 @@ const CCTVManagement = () => {
             {/* Modal Header */}
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.5))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Camera size={17} color="var(--on-accent)" />
                 </div>
                 <div>

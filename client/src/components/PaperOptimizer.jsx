@@ -16,17 +16,17 @@ const s = {
   body: { padding: '20px 24px' },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
   grid3: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 },
-  label: { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted, var(--muted))', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' },
+  label: { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' },
   select: { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border, #444)', background: 'var(--bg, #222)', color: 'var(--text, #eee)', fontSize: 14, outline: 'none' },
   input: { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border, #444)', background: 'var(--bg, #222)', color: 'var(--text, #eee)', fontSize: 14, outline: 'none', boxSizing: 'border-box' },
   section: { marginTop: 20 },
   resultCard: (color) => ({ padding: 16, borderRadius: 12, border: `1px solid ${color}33`, background: `${color}08`, marginBottom: 10 }),
   badge: (bg, color) => ({ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: bg, color, letterSpacing: '0.03em' }),
   metricRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', fontSize: 13 },
-  metricLabel: { color: 'var(--muted, var(--muted))' },
+  metricLabel: { color: 'var(--muted)' },
   metricValue: { fontWeight: 700 },
-  visualSheet: { position: 'relative', border: '2px solid var(--accent, var(--accent))', borderRadius: 4, overflow: 'hidden' },
-  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted, var(--muted))', padding: 4 },
+  visualSheet: { position: 'relative', border: '2px solid var(--accent)', borderRadius: 4, overflow: 'hidden' },
+  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 },
 };
 
 const WasteBar = ({ percent }) => {
@@ -73,9 +73,9 @@ const SheetVisual = ({ result }) => {
             top: r * ch,
             width: cw - 1,
             height: ch - 1,
-            background: 'var(--accent, var(--accent))',
+            background: 'var(--accent)',
             opacity: 0.25,
-            border: '1px solid var(--accent, var(--accent))',
+            border: '1px solid var(--accent)',
             borderRadius: 2,
           }}
         />
@@ -143,7 +143,7 @@ const PaperOptimizer = ({ isOpen, onClose, onApply }) => {
         {/* Header */}
         <div style={s.header}>
           <h2 style={s.title}>
-            <Scissors size={20} color="var(--accent, var(--accent))" />
+            <Scissors size={20} color="var(--accent)" />
             Paper Size Optimizer
           </h2>
           <button style={s.closeBtn} onClick={onClose}><X size={20} /></button>
@@ -286,7 +286,7 @@ const PaperOptimizer = ({ isOpen, onClose, onApply }) => {
                   <button
                     style={{
                       width: '100%', padding: '12px', borderRadius: 10, border: 'none',
-                      background: 'var(--accent, var(--accent))', color: 'var(--card)', fontWeight: 700,
+                      background: 'var(--accent)', color: 'var(--card)', fontWeight: 700,
                       fontSize: 14, cursor: 'pointer', marginTop: 16
                     }}
                     onClick={() => {

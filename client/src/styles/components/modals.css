@@ -79,7 +79,7 @@
   top: var(--space-16);
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   display: grid;
   place-items: center;
   background: var(--surface);

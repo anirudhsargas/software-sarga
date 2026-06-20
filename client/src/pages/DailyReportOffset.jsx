@@ -418,8 +418,8 @@ const DailyReportOffset = () => {
             </div>
 
             {syncSummary && (
-                <div className="panel" style={{ background: 'var(--success-bg, #dcfce7)', border: '1px solid var(--success, var(--success))', padding: '10px 16px', borderRadius: '8px' }}>
-                    <span style={{ color: 'var(--success, var(--success))', fontWeight: 500, fontSize: 14 }}>✓ {syncSummary}</span>
+                <div className="panel" style={{ background: 'var(--success-bg, #dcfce7)', border: '1px solid var(--success)', padding: '10px 16px', borderRadius: '8px' }}>
+                    <span style={{ color: 'var(--success)', fontWeight: 500, fontSize: 14 }}>✓ {syncSummary}</span>
                 </div>
             )}
 

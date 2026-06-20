@@ -9,7 +9,7 @@
 }
 
 .pagination__info {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -28,7 +28,7 @@
   border: 1.5px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   cursor: pointer;
   display: flex;
@@ -71,14 +71,14 @@
 .pagination__dots {
   padding: 0 var(--space-4);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .pagination__jump {
   display: flex;
   align-items: center;
   gap: var(--space-6, 6px);
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
@@ -90,7 +90,7 @@
   border: 1.5px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-sm);
   padding: 0 var(--space-8);
   transition:
     border-color var(--transition-fast),
@@ -101,7 +101,7 @@
 .pagination__jump-input:focus {
   border-color: var(--ring);
   outline: none;
-  box-shadow: var(--input-shadow-focus, 0 0 0 3px rgba(0,0,0,0.1));
+  box-shadow: var(--input-shadow-focus);
 }
 
 .pagination__size {
@@ -111,7 +111,7 @@
   border: 1.5px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-sm);
   cursor: pointer;
   outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
@@ -119,16 +119,16 @@
 
 .pagination__size:focus {
   border-color: var(--ring);
-  box-shadow: var(--input-shadow-focus, 0 0 0 3px rgba(0,0,0,0.1));
+  box-shadow: var(--input-shadow-focus);
 }
 
 /* Mobile */
 @media (max-width: 640px) {
   .pagination__jump { display: none; }
-  .pagination__info { font-size: 12px; }
+  .pagination__info { font-size: var(--text-xs); }
   .pagination {
     justify-content: center;
     flex-direction: column;
-    padding: 16px;
+    padding: var(--space-16);
   }
 }

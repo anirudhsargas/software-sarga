@@ -751,7 +751,7 @@ const CustomerDetails = () => {
                           loading="lazy"
                         />
                       ) : (
-                        <div style={{ textAlign: 'center', color: 'var(--muted, var(--muted))' }}>
+                        <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
                           <FileText size={40} style={{ opacity: 0.4 }} />
                           <div style={{ fontSize: 11, marginTop: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
                             {d.file_type || (d.original_name || '').split('.').pop()?.toUpperCase() || ''}
@@ -784,12 +784,12 @@ const CustomerDetails = () => {
                         title={d.title}>
                         {d.title}
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--muted, var(--muted))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>{fmtDate(d.created_at)}</span>
                         <span>{formatFileSize(d.file_size)}</span>
                       </div>
                       {d.job_number && (
-                        <div style={{ fontSize: 11, color: 'var(--accent, var(--accent))', marginTop: 4, fontWeight: 500 }}>
+                        <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 4, fontWeight: 500 }}>
                           Job #{d.job_number} — {d.job_name}
                         </div>
                       )}

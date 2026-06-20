@@ -1,7 +1,7 @@
 /* Design Bookings CRM CMS Styles */
 
 .bookings-cms {
-  padding: 16px;
+  padding: var(--space-16);
   background: var(--bg-main, var(--background));
   color: var(--text-main, var(--foreground));
 }
@@ -10,24 +10,24 @@
 .crm-metrics-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
+  gap: var(--space-20);
 }
 
 .metric-card {
   background: var(--bg-card, var(--card));
   border: 1px solid var(--border-color, var(--secondary));
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: var(--radius-md);
+  padding: var(--space-20);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-16);
   box-shadow: 0 4px 6px -2px var(--foreground);
 }
 
 .metric-icon {
   width: 48px;
   height: 48px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -62,8 +62,8 @@
   color: var(--primary);
   background: var(--secondary);
   border: 1px solid var(--secondary);
-  padding: 2px 8px;
-  border-radius: 99px;
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-full);
   font-size: 0.8rem;
 }
 
@@ -71,7 +71,7 @@
   font-weight: 600;
   color: var(--primary);
   background: var(--secondary);
-  padding: 2px 8px;
+  padding: var(--space-2) var(--space-8);
   border-radius: 4px;
   font-size: 0.82rem;
 }
@@ -79,8 +79,8 @@
 .quote-badge {
   font-size: 0.82rem;
   font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: var(--space-4) var(--space-10);
+  border-radius: var(--radius-xs);
   display: inline-block;
 }
 

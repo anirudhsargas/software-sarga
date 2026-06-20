@@ -139,7 +139,7 @@ const DesignDashboard = () => {
       time: 'Due today'
     })),
     ...awaitingApproval.slice(0, 1).map(b => ({
-      id: `review-${b.id}`, type: 'review', dot: '#8b5cf6',
+      id: `review-${b.id}`, type: 'review', dot: 'var(--accent)',
       text: `Awaiting approval from ${b.customer_name}`,
       time: 'Pending'
     })),

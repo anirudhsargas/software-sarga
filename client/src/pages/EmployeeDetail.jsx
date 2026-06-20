@@ -554,12 +554,12 @@ const EmployeeDetail = () => {
                             {showAttendanceModal && (
                                 <div className="employee-detail__modal">
                                     <div className="employee-detail__modal-card" style={{ background: 'var(--surface, #fff)', borderRadius: 12, boxShadow: '0 4px 24px #0001', padding: 24, minWidth: 320 }}>
-                                        <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent, var(--accent))', marginBottom: 16 }}>Attendance Change</h3>
+                                        <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)', marginBottom: 16 }}>Attendance Change</h3>
                                         {attendanceMarkedToday ? (
                                             auth.getUser()?.role === 'Admin' ? (
                                                 <form onSubmit={handleAttendanceSubmit}>
                                                     <div style={{ marginBottom: 16 }}>
-                                                        <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Status</label>
+                                                        <label style={{ fontWeight: 600, color: 'var(--muted)' }}>Status</label>
                                                         <select
                                                             value={attendanceForm.status}
                                                             onChange={e => setAttendanceForm(f => ({ ...f, status: e.target.value, time: '' }))}
@@ -574,7 +574,7 @@ const EmployeeDetail = () => {
                                                     {(attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day') && (
                                                         <>
                                                         <div style={{ marginBottom: 16 }}>
-                                                            <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>In Time</label>
+                                                            <label style={{ fontWeight: 600, color: 'var(--muted)' }}>In Time</label>
                                                             <input
                                                                 type="time"
                                                                 value={attendanceForm.time}
@@ -585,7 +585,7 @@ const EmployeeDetail = () => {
                                                             />
                                                         </div>
                                                         <div style={{ marginBottom: 16 }}>
-                                                            <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Out Time</label>
+                                                            <label style={{ fontWeight: 600, color: 'var(--muted)' }}>Out Time</label>
                                                             <input
                                                                 type="time"
                                                                 value={attendanceForm.gone_time}
@@ -598,7 +598,7 @@ const EmployeeDetail = () => {
                                                         </>
                                                     )}
                                                     <div style={{ marginBottom: 16 }}>
-                                                        <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Notes</label>
+                                                        <label style={{ fontWeight: 600, color: 'var(--muted)' }}>Notes</label>
                                                         <textarea
                                                             value={attendanceForm.notes}
                                                             onChange={e => setAttendanceForm(f => ({ ...f, notes: e.target.value }))}
@@ -609,7 +609,7 @@ const EmployeeDetail = () => {
                                                     {attendanceSubmitError && <div style={{ color: 'var(--error)', margin: '8px 0', fontSize: 13 }}>{attendanceSubmitError}</div>}
                                                     <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
                                                         <button type="button" className="employee-detail__btn is-ghost" onClick={() => setShowAttendanceModal(false)} style={{ minWidth: 80 }}>Cancel</button>
-                                                        <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: 'var(--on-accent)', minWidth: 80 }}>Save</button>
+                                                        <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent)', color: 'var(--on-accent)', minWidth: 80 }}>Save</button>
                                                     </div>
                                                 </form>
                                             ) : (
@@ -644,7 +644,7 @@ const EmployeeDetail = () => {
                                                     }
                                                 }}>
                                                     <div style={{ marginBottom: 16 }}>
-                                                        <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Requested Status</label>
+                                                        <label style={{ fontWeight: 600, color: 'var(--muted)' }}>Requested Status</label>
                                                         <select
                                                             value={attendanceForm.status}
                                                             onChange={e => setAttendanceForm(f => ({ ...f, status: e.target.value, time: '' }))}
@@ -659,7 +659,7 @@ const EmployeeDetail = () => {
                                                     {(attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day') && (
                                                         <>
                                                         <div style={{ marginBottom: 16 }}>
-                                                            <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Requested In Time</label>
+                                                            <label style={{ fontWeight: 600, color: 'var(--muted)' }}>Requested In Time</label>
                                                             <input
                                                                 type="time"
                                                                 value={attendanceForm.time}
@@ -670,7 +670,7 @@ const EmployeeDetail = () => {
                                                             />
                                                         </div>
                                                         <div style={{ marginBottom: 16 }}>
-                                                            <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Requested Out Time</label>
+                                                            <label style={{ fontWeight: 600, color: 'var(--muted)' }}>Requested Out Time</label>
                                                             <input
                                                                 type="time"
                                                                 value={attendanceForm.gone_time}
@@ -683,7 +683,7 @@ const EmployeeDetail = () => {
                                                         </>
                                                     )}
                                                     <div style={{ marginBottom: 16 }}>
-                                                        <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Notes</label>
+                                                        <label style={{ fontWeight: 600, color: 'var(--muted)' }}>Notes</label>
                                                         <textarea
                                                             value={attendanceForm.notes}
                                                             onChange={e => setAttendanceForm(f => ({ ...f, notes: e.target.value }))}
@@ -694,14 +694,14 @@ const EmployeeDetail = () => {
                                                     {attendanceSubmitError && <div style={{ color: 'var(--error)', margin: '8px 0', fontSize: 13 }}>{attendanceSubmitError}</div>}
                                                     <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
                                                         <button type="button" className="employee-detail__btn is-ghost" onClick={() => setShowAttendanceModal(false)} style={{ minWidth: 80 }}>Cancel</button>
-                                                        <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: 'var(--on-accent)', minWidth: 80 }}>Request Change</button>
+                                                        <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent)', color: 'var(--on-accent)', minWidth: 80 }}>Request Change</button>
                                                     </div>
                                                 </form>
                                             )
                                         ) : (
                                             <form onSubmit={handleAttendanceSubmit}>
                                                 <div style={{ marginBottom: 16 }}>
-                                                    <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Status</label>
+                                                    <label style={{ fontWeight: 600, color: 'var(--muted)' }}>Status</label>
                                                     <select
                                                         value={attendanceForm.status}
                                                         onChange={e => setAttendanceForm(f => ({ ...f, status: e.target.value, time: '' }))}
@@ -715,7 +715,7 @@ const EmployeeDetail = () => {
                                                 </div>
                                                 {(attendanceForm.status === 'Present' || attendanceForm.status === 'Half Day') && (
                                                     <div style={{ marginBottom: 16 }}>
-                                                        <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>In Time</label>
+                                                        <label style={{ fontWeight: 600, color: 'var(--muted)' }}>In Time</label>
                                                         <input
                                                             type="time"
                                                             value={attendanceForm.time}
@@ -727,7 +727,7 @@ const EmployeeDetail = () => {
                                                     </div>
                                                 )}
                                                 <div style={{ marginBottom: 16 }}>
-                                                    <label style={{ fontWeight: 600, color: 'var(--muted, var(--muted))' }}>Notes</label>
+                                                    <label style={{ fontWeight: 600, color: 'var(--muted)' }}>Notes</label>
                                                     <textarea
                                                         value={attendanceForm.notes}
                                                         onChange={e => setAttendanceForm(f => ({ ...f, notes: e.target.value }))}
@@ -738,7 +738,7 @@ const EmployeeDetail = () => {
                                                 {attendanceSubmitError && <div style={{ color: 'var(--error)', margin: '8px 0', fontSize: 13 }}>{attendanceSubmitError}</div>}
                                                 <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
                                                     <button type="button" className="employee-detail__btn is-ghost" onClick={() => setShowAttendanceModal(false)} style={{ minWidth: 80 }}>Cancel</button>
-                                                    <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent, var(--accent))', color: 'var(--on-accent)', minWidth: 80 }}>Save</button>
+                                                    <button type="submit" className="employee-detail__btn is-primary" style={{ background: 'var(--accent)', color: 'var(--on-accent)', minWidth: 80 }}>Save</button>
                                                 </div>
                                             </form>
                                         )}
@@ -848,7 +848,7 @@ const EmployeeDetail = () => {
                                                             <div key={cell.day} style={{
                                                                 aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                                                                 borderRadius: 6, fontSize: 12, fontWeight: cell.isToday ? 800 : 500,
-                                                                background: cell.isToday ? 'linear-gradient(135deg, var(--accent), #818cf8)' : (cell.optimistic ? 'var(--bg-2, #eeeeee80)' : cfg?.bg || (cell.isSunday ? 'var(--error)10' : 'var(--bg, #ffffff08)')),
+                                                                background: cell.isToday ? 'linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.4))' : (cell.optimistic ? 'var(--bg-2, #eeeeee80)' : cfg?.bg || (cell.isSunday ? 'var(--error)10' : 'var(--bg, #ffffff08)')),
                                                                 color: cell.isToday ? 'var(--on-accent)' : cell.isFuture ? 'var(--muted)' : (cell.optimistic ? 'var(--muted)' : cfg?.color || (cell.isSunday ? 'var(--error)' : 'inherit')),
                                                                 border: cell.isToday ? '2px solid var(--accent)' : (cell.optimistic ? '1px dashed var(--accent)' : '1px solid var(--border)'),
                                                                 opacity: cell.isFuture ? 0.4 : 1,

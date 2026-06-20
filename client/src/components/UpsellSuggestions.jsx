@@ -55,7 +55,7 @@ const UpsellSuggestions = ({ currentServices, branchId, onAdd }) => {
             display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8,
             alignItems: 'center',
         }}>
-            <Sparkles size={14} style={{ color: 'var(--primary, #6366f1)', flexShrink: 0 }} />
+            <Sparkles size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
             {visible.map((s, i) => (
                 <span
                     key={s.service}
@@ -78,7 +78,7 @@ const UpsellSuggestions = ({ currentServices, branchId, onAdd }) => {
                             display: 'inline-flex', alignItems: 'center', gap: 4,
                         }}
                     >
-                        <span style={{ color: 'var(--primary, #6366f1)', fontWeight: 600 }}>+</span>
+                        <span style={{ color: 'var(--primary)', fontWeight: 600 }}>+</span>
                         {` Add ${s.service} (${s.confidence_percent}% of similar orders)`}
                     </button>
                     <button

@@ -2054,7 +2054,7 @@ const ProductLibrary = () => {
                                         <label style={{
                                             display: 'inline-flex', alignItems: 'center', gap: '6px',
                                             padding: '6px 14px', borderRadius: '6px',
-                                            background: 'var(--primary, #6366f1)', color: 'var(--on-accent)',
+                                            background: 'var(--primary)', color: 'var(--on-accent)',
                                             fontSize: '12px', fontWeight: 600, cursor: 'pointer'
                                         }}>
                                             <Upload size={14} /> Choose Image
@@ -2089,7 +2089,7 @@ const ProductLibrary = () => {
                             }}>
                                 <div className="stack-sm">
                                     <div className="row items-center gap-sm mb-4">
-                                        <label className="label mb-0" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent, #6366f1)' }}>Placement</label>
+                                        <label className="label mb-0" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent)' }}>Placement</label>
                                         <ChevronRight size={12} className="muted" />
                                         <span className="text-xs font-bold">{availableSubcategories.find(s => String(s.id) === String(selectedSubId))?.name || 'New Item'}</span>
                                     </div>
@@ -2467,7 +2467,7 @@ const ProductLibrary = () => {
                                 gap: '12px',
                                 padding: '12px 16px',
                                 background: newProduct.isPhysicalProduct ? 'var(--accent)' : 'var(--surface-2, #1e293b)',
-                                border: `1.5px solid ${newProduct.isPhysicalProduct ? 'var(--primary, #6366f1)' : 'var(--border, #334155)'}`,
+                                border: `1.5px solid ${newProduct.isPhysicalProduct ? 'var(--primary)' : 'var(--border)'}`,
                                 borderRadius: '10px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
@@ -2477,7 +2477,7 @@ const ProductLibrary = () => {
                                     type="checkbox"
                                     checked={newProduct.isPhysicalProduct}
                                     onChange={e => setNewProduct({ ...newProduct, isPhysicalProduct: e.target.checked })}
-                                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary, #6366f1)', cursor: 'pointer', flexShrink: 0 }}
+                                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer', flexShrink: 0 }}
                                 />
                                 <div style={{ lineHeight: 1.4 }}>
                                     <span style={{ fontSize: '13px', fontWeight: 600 }}>Physical Product</span>
@@ -2542,7 +2542,7 @@ const ProductLibrary = () => {
                                                     placeholder="Auto-synced from Company/Brand Name" 
                                                     value={newProduct.extraInv.vendor_name} 
                                                     readOnly
-                                                    style={{ background: 'var(--surface-2, #1e293b)', cursor: 'not-allowed' }}
+                                                    style={{ background: 'var(--surface-2)', cursor: 'not-allowed' }}
                                                 />
                                                 <p style={{ fontSize: '11px', color: 'var(--text-muted, #64748b)', margin: '4px 0 0' }}>
                                                     Auto-synced with Company/Brand Name above

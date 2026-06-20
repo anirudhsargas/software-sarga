@@ -399,7 +399,7 @@ export default function Quotes() {
                 }
                 /* Accessible focus highlights */
                 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
-                    outline: 2px solid #4f46e5 !important;
+                    outline: 2px solid var(--accent) !important;
                     outline-offset: 2px !important;
                 }
                 @keyframes pulse-glow {
@@ -715,7 +715,7 @@ export default function Quotes() {
                                         style={{ ...inputStyle, resize: 'none' }} 
                                     />
                                 </div>
-                                <div style={{ background: 'var(--primary)', color: 'var(--on-accent)', borderRadius: 16, padding: 20, boxShadow: '0 8px 24px rgba(99, 102, 241, 0.2)' }}>
+                                <div style={{ background: 'var(--primary)', color: 'var(--on-accent)', borderRadius: 16, padding: 20, boxShadow: '0 8px 24px rgba(var(--primary-rgb), 0.2)' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, opacity: 0.9 }}>
                                         <span style={{ fontSize: 13 }}>Subtotal</span>
                                         <span style={{ fontWeight: 600 }}>₹{subtotal.toLocaleString('en-IN')}</span>
@@ -748,7 +748,7 @@ export default function Quotes() {
 
                         <div style={{ padding: '20px 24px', background: 'var(--surface-lowest)', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
                             <button onClick={() => setShowForm(false)} className="touch-target" aria-label="Cancel editing quote" style={{ ...btnStyle('#ffffff00'), color: 'var(--text)', fontWeight: 500, border: '1px solid var(--border)' }}>Cancel</button>
-                            <button onClick={handleSave} className="touch-target" aria-label={editing ? 'Update current quote' : 'Create quotation from form'} style={{ ...btnStyle('var(--primary)'), padding: '10px 24px', fontWeight: 600, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>{editing ? 'Update Quotation' : 'Create Quotation'}</button>
+                            <button onClick={handleSave} className="touch-target" aria-label={editing ? 'Update current quote' : 'Create quotation from form'} style={{ ...btnStyle('var(--primary)'), padding: '10px 24px', fontWeight: 600, boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.3)' }}>{editing ? 'Update Quotation' : 'Create Quotation'}</button>
                         </div>
                     </div>
                 </div>

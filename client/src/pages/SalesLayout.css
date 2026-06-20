@@ -4,17 +4,17 @@
 .sales-layout-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-20);
   width: 100%;
 }
 
 .sales-tabs {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   margin: 0;
   background: var(--surface-2, var(--foreground));
-  padding: 6px;
+  padding: var(--space-6);
   border-radius: calc(var(--radius, 12px) + 2px);
   border: 1px solid var(--border, var(--foreground));
   overflow-x: auto;
@@ -28,12 +28,12 @@
 .sales-tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-16);
   border-radius: var(--radius, 12px);
   color: var(--text-muted, var(--muted-foreground));
   text-decoration: none;
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 500;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
@@ -60,7 +60,7 @@
 }
 
 .sales-tab.active .sales-tab-icon {
-  color: var(--accent, var(--accent));
+  color: var(--accent);
   transform: scale(1.1);
 }
 

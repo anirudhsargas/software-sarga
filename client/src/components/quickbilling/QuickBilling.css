@@ -70,9 +70,9 @@
 .qb-card-icon {
   font-size: 1.5rem;
   color: var(--primary);
-  background: var(--primary-light, rgba(0, 122, 255, 0.1));
+  background: var(--info-bg);
   padding: 0.5rem;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
 }
 
 .qb-card-name {
@@ -158,7 +158,7 @@
 .qb-qty-btn {
   background: var(--surface-3);
   border: 1px solid var(--border);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   width: 40px;
   height: 40px;
   display: flex;
@@ -328,7 +328,7 @@
   right: 2rem;
   width: 60px;
   height: 60px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--primary);
   color: white;
   display: flex;
@@ -350,7 +350,7 @@
   right: 0;
   background: var(--error);
   color: white;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   width: 24px;
   height: 24px;
   display: flex;

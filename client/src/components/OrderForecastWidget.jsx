@@ -6,7 +6,7 @@ import api from '../services/api';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const BAR_COLOR = 'var(--primary, #6366f1)';
+const BAR_COLOR = 'var(--primary)';
 const PEAK_COLOR = 'var(--warning)';
 
 const OrderForecastWidget = ({ branchId }) => {

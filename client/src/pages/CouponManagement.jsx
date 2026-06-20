@@ -164,7 +164,7 @@ const CouponManagement = () => {
                   <div className="row gap-md items-center" style={{ flexWrap: 'wrap' }}>
                     <div style={{
                       background: c.discount_type === 'percent'
-                        ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                        ? 'linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.5))'
                         : 'linear-gradient(135deg, #f59e0b, #ef4444)',
                       color: 'var(--on-accent)', fontWeight: 700, fontSize: '13px',
                       padding: '6px 14px', borderRadius: '8px',

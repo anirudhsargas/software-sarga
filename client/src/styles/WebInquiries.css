@@ -1,15 +1,15 @@
 /* WebInquiries.css - Premium Modern Redesign */
 
 :root, .web-inquiries-container {
-    --space-xs: 6px;
-    --space-sm: 10px;
-    --space-md: 18px;
-    --space-lg: 26px;
-    --space-xl: 34px;
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 14px;
-    --radius-xl: 20px;
+    --wi-space-xs: 6px;
+    --wi-space-sm: 10px;
+    --wi-space-md: 18px;
+    --wi-space-lg: 26px;
+    --wi-space-xl: 34px;
+    --wi-radius-sm: 6px;
+    --wi-radius-md: 10px;
+    --wi-radius-lg: 14px;
+    --wi-radius-xl: 20px;
     
     /* Dedicated color tokens for dynamic feedback */
     --status-new-bg: var(--accent);
@@ -30,7 +30,7 @@
 }
 
 .web-inquiries-container {
-    padding: var(--space-lg);
+    padding: var(--wi-space-lg);
     max-width: 1400px;
     margin: 0 auto;
     height: calc(100vh - 100px);
@@ -49,8 +49,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-md);
-    padding-bottom: var(--space-xs);
+    margin-bottom: var(--wi-space-md);
+    padding-bottom: var(--wi-space-xs);
 }
 
 .web-inquiries-container .page-title {
@@ -74,7 +74,7 @@
     justify-content: center;
     width: 48px;
     height: 48px;
-    border-radius: var(--radius-md);
+    border-radius: var(--wi-radius-md);
     background: var(--shadow-sm), 0.08);
     border: 1px solid var(--shadow-sm), 0.12);
 }
@@ -83,10 +83,10 @@
 .inquiries-layout {
     display: grid;
     grid-template-columns: 380px 1fr;
-    gap: var(--space-md);
+    gap: var(--wi-space-md);
     flex: 1;
     min-height: 0; /* Ensures proper scroll behaviour */
-    margin-top: var(--space-xs);
+    margin-top: var(--wi-space-xs);
 }
 
 @media (max-width: 1100px) {
@@ -113,7 +113,7 @@
 .inquiries-list-pane {
     display: flex;
     flex-direction: column;
-    border-radius: var(--radius-lg);
+    border-radius: var(--wi-radius-lg);
     background: var(--surface);
     border: 1px solid var(--border);
     overflow: hidden;
@@ -128,11 +128,11 @@
 
 /* Toolbar & Filters styling */
 .inquiries-toolbar {
-    padding: var(--space-md);
+    padding: var(--wi-space-md);
     border-bottom: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm);
+    gap: var(--wi-space-sm);
     background: var(--shadow-sm), 0.5);
 }
 
@@ -141,9 +141,9 @@
     align-items: center;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 0 var(--space-sm);
-    gap: var(--space-xs);
+    border-radius: var(--wi-radius-md);
+    padding: 0 var(--wi-space-sm);
+    gap: var(--wi-space-xs);
     color: var(--text-muted);
     transition: all 0.2s ease;
 }
@@ -171,11 +171,11 @@
 .filter-group {
     display: flex;
     align-items: center;
-    gap: var(--space-xs);
+    gap: var(--wi-space-xs);
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 0 var(--space-sm);
+    border-radius: var(--wi-radius-md);
+    padding: 0 var(--wi-space-sm);
 }
 
 .status-select {
@@ -194,16 +194,16 @@
 .inquiries-list {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-sm);
+    padding: var(--wi-space-sm);
     display: flex;
     flex-direction: column;
-    gap: var(--space-xs);
+    gap: var(--wi-space-xs);
 }
 
 /* Inquiry Cards */
 .inquiry-card {
-    padding: var(--space-md);
-    border-radius: var(--radius-md);
+    padding: var(--wi-space-md);
+    border-radius: var(--wi-radius-md);
     background: var(--shadow-sm), 0.3);
     border: 1px solid transparent;
     cursor: pointer;
@@ -257,8 +257,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-xs);
-    gap: var(--space-xs);
+    margin-bottom: var(--wi-space-xs);
+    gap: var(--wi-space-xs);
 }
 
 .inquiry-name {
@@ -277,7 +277,7 @@
     align-items: center;
     font-size: 0.8rem;
     color: var(--text-muted);
-    margin-bottom: var(--space-xs);
+    margin-bottom: var(--wi-space-xs);
 }
 
 .inquiry-service {
@@ -342,11 +342,11 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    border-radius: var(--radius-lg);
+    border-radius: var(--wi-radius-lg);
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
-    padding: var(--space-lg);
+    padding: var(--wi-space-lg);
     overflow: hidden;
 }
 
@@ -354,9 +354,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: var(--space-md);
+    padding-bottom: var(--wi-space-md);
     border-bottom: 1px solid var(--border);
-    margin-bottom: var(--space-md);
+    margin-bottom: var(--wi-space-md);
 }
 
 .detail-header h2 {
@@ -371,7 +371,7 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: var(--space-md);
+    gap: var(--wi-space-md);
     padding-right: 4px;
 }
 
@@ -379,17 +379,17 @@
 .detail-contact-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: var(--space-sm);
+    gap: var(--wi-space-sm);
     background: var(--bg-secondary);
-    padding: var(--space-md);
-    border-radius: var(--radius-md);
+    padding: var(--wi-space-md);
+    border-radius: var(--wi-radius-md);
     border: 1px solid var(--border);
 }
 
 .contact-item {
     display: flex;
     align-items: center;
-    gap: var(--space-xs);
+    gap: var(--wi-space-xs);
     color: var(--text-secondary);
     font-size: 0.9rem;
 }
@@ -413,13 +413,13 @@
 .detail-message-box {
     background: var(--shadow-sm), 0.4);
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-md);
+    border-radius: var(--wi-radius-lg);
+    padding: var(--wi-space-md);
     position: relative;
 }
 
 .detail-message-box h4 {
-    margin: 0 0 var(--space-xs) 0;
+    margin: 0 0 var(--wi-space-xs) 0;
     color: var(--text-muted);
     font-size: 0.75rem;
     font-weight: 600;
@@ -439,12 +439,12 @@
 .detail-actions {
     background: var(--shadow-sm), 0.02);
     border: 1px dashed var(--border);
-    padding: var(--space-md);
-    border-radius: var(--radius-md);
+    padding: var(--wi-space-md);
+    border-radius: var(--wi-radius-md);
 }
 
 .detail-actions h4 {
-    margin: 0 0 var(--space-sm) 0;
+    margin: 0 0 var(--wi-space-sm) 0;
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--text);
@@ -477,14 +477,14 @@
 /* Notes / CRM Action Area */
 .detail-notes-section {
     background: var(--bg-secondary);
-    padding: var(--space-md);
-    border-radius: var(--radius-md);
+    padding: var(--wi-space-md);
+    border-radius: var(--wi-radius-md);
     border: 1px solid var(--border);
     margin-top: auto;
 }
 
 .detail-notes-section h4 {
-    margin: 0 0 var(--space-xs) 0;
+    margin: 0 0 var(--wi-space-xs) 0;
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--text);
@@ -494,13 +494,13 @@
     width: 100%;
     min-height: 80px;
     max-height: 150px;
-    padding: var(--space-sm);
+    padding: var(--wi-space-sm);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--wi-radius-md);
     background: var(--surface);
     color: var(--text);
     resize: vertical;
-    margin-bottom: var(--space-sm);
+    margin-bottom: var(--wi-space-sm);
     font-family: inherit;
     font-size: 0.9rem;
     transition: border-color 0.2s ease;
@@ -514,7 +514,7 @@
 .status-actions {
     display: flex;
     justify-content: flex-end;
-    gap: var(--space-sm);
+    gap: var(--wi-space-sm);
 }
 
 /* Empty State Styling */
@@ -526,9 +526,9 @@
     justify-content: center;
     background: var(--shadow-sm), 0.2);
     border: 1px dashed var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--wi-radius-lg);
     text-align: center;
-    padding: var(--space-xl);
+    padding: var(--wi-space-xl);
 }
 
 .detail-empty-state svg {
@@ -543,7 +543,7 @@
 }
 
 .detail-empty-state h3 {
-    margin: var(--space-xs) 0 4px 0;
+    margin: var(--wi-space-xs) 0 4px 0;
     font-size: 1.2rem;
     color: var(--text);
     font-weight: 600;
@@ -558,7 +558,7 @@
 
 .empty-state {
     text-align: center;
-    padding: var(--space-xl) var(--space-md);
+    padding: var(--wi-space-xl) var(--wi-space-md);
     color: var(--text-muted);
     font-size: 0.9rem;
 }

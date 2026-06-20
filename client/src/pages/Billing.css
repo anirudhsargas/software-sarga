@@ -3,13 +3,13 @@
 .billing-page {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-14);
   background: var(--bg);
   color: var(--text);
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
-  padding-bottom: 24px;
+  padding-bottom: var(--space-24);
 }
 
 /* ── Shared Utilities (scoped to billing-page) ── */
@@ -20,8 +20,8 @@
 .billing-page .gap-md { gap: 12px; }
 .billing-page .items-center { align-items: center; }
 .billing-page .flex-1 { flex: 1; min-width: 0; }
-.billing-page .text-xs { font-size: 12px; }
-.billing-page .text-sm { font-size: 13px; }
+.billing-page .text-xs { font-size: var(--text-xs); }
+.billing-page .text-sm { font-size: var(--text-sm); }
 .billing-page .text-center { text-align: center; }
 .billing-page .font-medium { font-weight: 500; }
 .billing-page .font-semibold { font-weight: 600; }
@@ -35,8 +35,8 @@
 .billing-page .muted { opacity: 0.7; }
 .billing-page .animate-spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.billing-page .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
-.billing-page .badge--sm { font-size: 9px; padding: 1px 6px; }
+.billing-page .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: var(--radius-xs); font-size: var(--text-2xs); font-weight: 600; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.billing-page .badge--sm { font-size: var(--text-3xs); padding: 1px 6px; }
 .billing-page .btn--full { width: 100%; }
 .billing-page .btn-icon { padding: 4px; min-width: auto; display: inline-flex; align-items: center; justify-content: center; }
 
@@ -44,15 +44,15 @@
 .billing-skeleton {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 24px;
+  gap: var(--space-12);
+  padding: var(--space-24);
 }
 
 .skeleton-block {
   background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 
 @keyframes skeleton-shimmer {
@@ -65,32 +65,32 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 0 2px;
+  padding: var(--space-6) 0 var(--space-2);
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .billing-header__left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .billing-header__title-group {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-1);
 }
 
 .billing-header__title {
-  font-size: 22px;
+  font-size: var(--text-xl);
   font-weight: 700;
   margin: 0;
   letter-spacing: -0.02em;
 }
 
 .billing-header__subtitle {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--muted);
   margin: 0;
   line-height: 1.3;
@@ -99,7 +99,7 @@
 .billing-header__right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   flex-wrap: wrap;
 }
 
@@ -107,12 +107,12 @@
 .billing-summary-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
+  gap: var(--space-10);
+  padding: var(--space-8) var(--space-14);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  font-size: 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
   color: var(--muted);
   position: sticky;
   top: 64px;
@@ -123,7 +123,7 @@
 .billing-summary-bar__item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
   white-space: nowrap;
 }
 
@@ -131,9 +131,9 @@
   background: var(--bg-2);
   border: 1px solid var(--border);
   color: var(--text);
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  font-size: var(--text-xs);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-xs);
   outline: none;
   cursor: pointer;
   min-width: 110px;
@@ -151,8 +151,8 @@
 
 /* Branch required highlight */
 .billing-summary-bar__item--branch-required select {
-  border-color: var(--destructive, #e53e3e);
-  background: rgba(229, 62, 62, 0.06);
+  border-color: var(--destructive);
+  background: rgba(var(--error-rgb), 0.06);
 }
 
 .billing-summary-bar__spacer {
@@ -160,71 +160,71 @@
 }
 
 .billing-summary-bar__item--total {
-  gap: 8px;
+  gap: var(--space-8);
   font-weight: 600;
   color: var(--text);
 }
 
 .billing-summary-bar__amount {
   color: var(--accent);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 /* ── Error ── */
 .billing-error {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: rgba(229, 62, 62, 0.12);
-  border: 1px solid var(--destructive, #e53e3e);
-  border-radius: 10px;
-  color: var(--destructive, #e53e3e);
-  font-size: 13px;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-16);
+  background: rgba(var(--error-rgb), 0.12);
+  border: 1px solid var(--destructive);
+  border-radius: var(--radius-md);
+  color: var(--destructive);
+  font-size: var(--text-sm);
 }
 
 /* ── Section ── */
 .billing-section {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-16);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .billing-section__header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: var(--space-8);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
-  padding-bottom: 10px;
+  padding-bottom: var(--space-10);
   border-bottom: 1px solid var(--border);
 }
 
 .billing-section__header h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
 /* ── Chips ── */
 .billing-chips {
   display: flex;
-  gap: 6px;
+  gap: var(--space-6);
   flex-wrap: wrap;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 8px;
-  font-size: 12px;
+  gap: var(--space-6);
+  padding: var(--space-5) var(--space-12);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
   font-weight: 600;
   border: 1px solid var(--border);
   background: transparent;
@@ -248,8 +248,8 @@
   display: inline-flex;
   background: var(--accent);
   color: var(--shadow-sm);
-  border-radius: 50%;
-  padding: 1px;
+  border-radius: var(--radius-full);
+  padding: var(--space-1);
 }
 
 /* ── Fields ── */
@@ -257,11 +257,11 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   background: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0 12px;
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-12);
   transition: border-color 0.15s;
 }
 
@@ -287,7 +287,7 @@
   background: transparent;
   border: none;
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-sm);
   padding: 9px 0;
   outline: none;
   min-width: 0;
@@ -301,7 +301,7 @@
 .billing-dropdown {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -309,10 +309,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 14px;
+  padding: 9px var(--space-14);
   cursor: pointer;
   transition: background 0.1s;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .billing-dropdown__item:hover,
@@ -322,10 +322,10 @@
 
 .billing-dropdown__add {
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-6);
   border-top: 1px solid var(--border);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .billing-dropdown__add:hover {
@@ -337,43 +337,43 @@
 .billing-customer-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
   background: var(--bg-2);
-  border-radius: 12px;
-  padding: 14px;
+  border-radius: var(--radius-md);
+  padding: var(--space-14);
 }
 
 .billing-customer-card__header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .billing-customer-card__details {
   display: flex;
-  gap: 14px;
+  gap: var(--space-14);
   flex-wrap: wrap;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
 .billing-customer-card__details span {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 /* ── Customer Form ── */
 .billing-customer-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .billing-customer-form__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 @media (max-width: 600px) {
@@ -386,12 +386,12 @@
 .billing-product-top {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .billing-search-row {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
   align-items: stretch;
 }
 
@@ -401,13 +401,13 @@
 
 .billing-quick-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--space-4);
   align-items: center;
 }
 
 .billing-category-row {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
   flex-wrap: wrap;
 }
 
@@ -415,9 +415,9 @@
   background: var(--bg-2);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
-  padding: 7px 12px;
-  font-size: 12px;
+  border-radius: var(--radius-sm);
+  padding: var(--space-7) var(--space-12);
+  font-size: var(--text-xs);
   outline: none;
   cursor: pointer;
   min-width: 130px;
@@ -438,10 +438,10 @@
 /* ── Quick Entry ── */
 .billing-quick-entry {
   display: flex;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-12);
   background: var(--bg-2);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   flex-wrap: wrap;
   align-items: center;
 }
@@ -451,26 +451,26 @@
   min-width: 120px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  padding: var(--space-7) var(--space-12);
 }
 
 /* ── Catalog Grid ── */
 .billing-catalog-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .billing-catalog-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 10px 6px;
+  gap: var(--space-5);
+  padding: var(--space-10) var(--space-6);
   background: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.15s;
   text-align: center;
@@ -487,13 +487,13 @@
 }
 
 .billing-catalog-item__name {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   line-height: 1.3;
 }
 
 .billing-catalog-item__price {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text);
   font-weight: 700;
 }
@@ -502,7 +502,7 @@
 .billing-products-layout {
   display: grid;
   grid-template-columns: 1fr 260px;
-  gap: 14px;
+  gap: var(--space-14);
   align-items: start;
 }
 
@@ -516,19 +516,19 @@
 .billing-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .billing-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .billing-table th {
   text-align: left;
-  padding: 8px 12px;
-  font-size: 11px;
+  padding: var(--space-8) var(--space-12);
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
@@ -538,7 +538,7 @@
 }
 
 .billing-table td {
-  padding: 7px 12px;
+  padding: var(--space-7) var(--space-12);
   border-bottom: 1px solid var(--card);
   vertical-align: middle;
 }
@@ -551,12 +551,12 @@
 .billing-product-cell {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
 }
 
 .billing-product-cell__name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.3;
 }
 
@@ -564,7 +564,7 @@
 .billing-qty-adjust {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 .billing-qty-input {
@@ -574,11 +574,11 @@
   text-align: right;
   background: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
-  padding: 4px 6px;
+  padding: var(--space-4) var(--space-6);
   outline: none;
   -moz-appearance: textfield;
 }
@@ -596,11 +596,11 @@
   width: 68px;
   background: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
-  padding: 5px 7px;
+  padding: var(--space-5) var(--space-7);
   text-align: center;
   outline: none;
 }
@@ -618,17 +618,17 @@
 .billing-summary-side__card {
   background: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px;
+  border-radius: var(--radius-md);
+  padding: var(--space-14);
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--space-7);
 }
 
 .billing-summary-side__row {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
@@ -639,11 +639,11 @@
 .billing-summary-side__divider {
   height: 1px;
   background: var(--border);
-  margin: 2px 0;
+  margin: var(--space-2) 0;
 }
 
 .billing-summary-side__row--grand {
-  font-size: 16px;
+  font-size: var(--text-base);
   font-weight: 800;
   color: var(--text);
 }
@@ -653,8 +653,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding-top: 8px;
+  gap: var(--space-8);
+  padding-top: var(--space-8);
   border-top: 1px solid var(--border);
 }
 
@@ -662,10 +662,10 @@
   width: 68px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   color: var(--text);
-  font-size: 12px;
-  padding: 4px 8px;
+  font-size: var(--text-xs);
+  padding: var(--space-4) var(--space-8);
   text-align: center;
   outline: none;
 }
@@ -678,15 +678,15 @@
 .billing-discount-error {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: rgba(229, 62, 62, 0.1);
-  border: 1px solid var(--destructive, #e53e3e);
-  border-radius: 6px;
-  color: var(--destructive, #e53e3e);
-  font-size: 11px;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-10);
+  background: rgba(var(--error-rgb), 0.1);
+  border: 1px solid var(--destructive);
+  border-radius: var(--radius-xs);
+  color: var(--destructive);
+  font-size: var(--text-xs);
   font-weight: 500;
-  margin-top: 4px;
+  margin-top: var(--space-4);
   line-height: 1.3;
 }
 
@@ -699,8 +699,8 @@
   z-index: 40;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  margin-top: 4px;
+  border-radius: var(--radius-md);
+  margin-top: var(--space-4);
   max-height: 280px;
   overflow-y: auto;
   box-shadow: var(--shadow-md);
@@ -709,8 +709,8 @@
 .billing-product-suggestions__item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 9px 14px;
+  gap: var(--space-2);
+  padding: 9px var(--space-14);
   cursor: pointer;
   border-bottom: 1px solid var(--card);
   transition: background 0.1s;
@@ -726,15 +726,15 @@
 }
 
 .billing-product-suggestions__name {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
 }
 
 .billing-product-suggestions__meta {
   display: flex;
-  gap: 12px;
-  font-size: 11px;
+  gap: var(--space-12);
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -744,30 +744,30 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 24px;
+  padding: var(--space-32) var(--space-24);
   text-align: center;
-  gap: 6px;
+  gap: var(--space-6);
   border: 1px dashed var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 
 /* ── Section Actions ── */
 .billing-section-actions {
   display: flex;
   justify-content: flex-end;
-  padding-top: 2px;
+  padding-top: var(--space-2);
 }
 
 /* ── Payment ── */
 .billing-payment-amount {
   text-align: center;
-  padding: 10px;
+  padding: var(--space-10);
   background: var(--bg-2);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 
 .billing-payment-amount__value {
-  font-size: 28px;
+  font-size: var(--text-2xl);
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.02em;
@@ -776,37 +776,37 @@
 .billing-payment-inputs {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .billing-payment-balance {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 7px 12px;
+  padding: var(--space-7) var(--space-12);
   background: var(--bg-2);
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
 .billing-payment-extras {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .billing-invoice-options {
   display: flex;
-  gap: 16px;
+  gap: var(--space-16);
   flex-wrap: wrap;
-  padding: 4px 0;
+  padding: var(--space-4) 0;
 }
 
 .checkbox-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
   cursor: pointer;
   color: var(--muted);
 }
@@ -817,29 +817,29 @@
 
 .billing-payment-summary {
   background: var(--bg-2);
-  border-radius: 12px;
-  padding: 14px;
+  border-radius: var(--radius-md);
+  padding: var(--space-14);
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--space-7);
 }
 
 .billing-payment-summary__row {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
 .billing-payment-summary__row--balance {
-  padding-top: 8px;
+  padding-top: var(--space-8);
   border-top: 1px solid var(--border);
-  font-size: 15px;
+  font-size: var(--text-base);
   color: var(--text);
 }
 .billing-payment-summary__row--balance span:first-child {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 /* ── UPI QR Code ── */
@@ -847,11 +847,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 14px;
+  gap: var(--space-8);
+  padding: var(--space-14);
   background: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   animation: fadeIn 0.25s ease;
 }
 
@@ -861,7 +861,7 @@
 }
 
 .billing-upi-qr__label {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
@@ -869,20 +869,20 @@
 }
 
 .billing-upi-qr__img {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 3px solid var(--surface);
   box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   display: block;
 }
 
 .billing-upi-qr__id {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
   font-family: monospace;
 }
 
 .billing-upi-qr__amount {
-  font-size: 18px;
+  font-size: var(--text-lg);
   font-weight: 800;
   color: var(--accent);
 }
@@ -891,14 +891,14 @@
 .billing-summary-final {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .billing-summary-final__row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
@@ -909,36 +909,36 @@
 .billing-summary-final__divider {
   height: 1px;
   background: var(--border);
-  margin: 4px 0;
+  margin: var(--space-4) 0;
 }
 
 .billing-summary-final__row--total {
-  font-size: 20px;
+  font-size: var(--text-lg);
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.02em;
 }
 
 .billing-summary-final__row--balance {
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
-  padding-top: 4px;
+  padding-top: var(--space-4);
   border-top: 1px solid var(--border);
-  margin-top: 4px;
+  margin-top: var(--space-4);
 }
 
 .billing-summary-final__cta {
   width: 100%;
-  padding: 14px 24px;
-  font-size: 16px;
+  padding: var(--space-14) var(--space-24);
+  font-size: var(--text-base);
   font-weight: 700;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-top: 4px;
+  gap: var(--space-10);
+  margin-top: var(--space-4);
   transition: opacity 0.15s, transform 0.1s;
 }
 
@@ -950,7 +950,7 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-.text-success { color: var(--success, var(--success)); }
+.text-success { color: var(--success); }
 .user-avatar--sm { width: 32px; height: 32px; min-width: 32px; }
 
 .btn--full-mobile { width: auto; }
@@ -969,11 +969,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 24px;
+  padding: var(--space-10) var(--space-24);
   background: var(--surface);
   border-top: 1px solid var(--border);
   backdrop-filter: blur(8px);
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .main-content .billing-bottom-bar {
@@ -994,7 +994,7 @@
 
 .billing-bottom-bar__left {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
   align-items: center;
 }
 
@@ -1007,18 +1007,18 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: var(--modal-overlay, rgba(0, 0, 0, 0.3));
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 16px;
+  padding: var(--space-16);
 }
 
 .modal {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   max-width: 480px;
   width: 100%;
   max-height: 90vh;
@@ -1037,13 +1037,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
+  padding: var(--space-14) var(--space-18);
   border-bottom: 1px solid var(--border);
 }
 
 .modal__header h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: 600;
 }
 
@@ -1052,8 +1052,8 @@
   border: none;
   color: var(--muted);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
+  padding: var(--space-4);
+  border-radius: var(--radius-xs);
   display: flex;
   transition: color 0.15s;
 }
@@ -1063,43 +1063,43 @@
 }
 
 .modal__body {
-  padding: 16px 18px;
+  padding: var(--space-16) var(--space-18);
 }
 
 /* ── Stack ── */
 .stack-sm {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 /* ── Staff Assignment Panel ── */
 .billing-assign-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .billing-assign-panel__title {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
-  padding-bottom: 8px;
+  padding-bottom: var(--space-8);
   border-bottom: 1px solid var(--border);
 }
 
 .billing-assign-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: var(--space-10);
+  padding: var(--space-8) var(--space-10);
   background: var(--bg-2);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .billing-assign-row__name {
   flex: 1;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   color: var(--text);
   min-width: 0;
@@ -1112,9 +1112,9 @@
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  font-size: var(--text-xs);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-xs);
   outline: none;
   cursor: pointer;
   min-width: 130px;
@@ -1126,8 +1126,8 @@
 
 .billing-assign-actions {
   display: flex;
-  gap: 8px;
-  padding-top: 4px;
+  gap: var(--space-8);
+  padding-top: var(--space-4);
 }
 
 /* ── Responsive ── */
@@ -1138,7 +1138,7 @@
   }
 
   .billing-header__title {
-    font-size: 18px;
+    font-size: var(--text-lg);
   }
 
   .billing-header__right {
@@ -1147,12 +1147,12 @@
 
   .billing-summary-bar {
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--space-8);
     top: 0;
   }
 
   .billing-section {
-    padding: 12px;
+    padding: var(--space-12);
   }
 
   .billing-products-layout {
@@ -1164,9 +1164,9 @@
   }
 
   .billing-bottom-bar {
-    padding: 10px 16px;
+    padding: var(--space-10) var(--space-16);
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-8);
   }
 
   .billing-bottom-bar__left,
@@ -1185,10 +1185,10 @@
   width: 100%;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 4px;
-  gap: 4px;
-  margin-bottom: 8px;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
 }
 
 .billing-tab {
@@ -1196,13 +1196,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 8px;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-16);
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--muted);
   transition: all 0.2s ease-in-out;

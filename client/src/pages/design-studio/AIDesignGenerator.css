@@ -13,7 +13,7 @@
 .aig-header {
   display: flex;
   align-items: center;
-  padding: 10px 16px;
+  padding: var(--space-10) var(--space-16);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -22,19 +22,19 @@
 .aig-header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
-.aig-header-left h2 { font-size: 16px; font-weight: 600; margin: 0; }
+.aig-header-left h2 { font-size: var(--text-base); font-weight: 600; margin: 0; }
 
-.aig-subtitle { font-size: 11px; color: var(--muted); }
+.aig-subtitle { font-size: var(--text-xs); color: var(--muted); }
 
 .aig-body {
   flex: 1;
   display: flex;
   justify-content: center;
   overflow-y: auto;
-  padding: 32px;
+  padding: var(--space-32);
 }
 
 .aig-content {
@@ -46,9 +46,9 @@
 
 .aig-upload-zone {
   text-align: center;
-  padding: 80px 40px;
+  padding: var(--space-80) var(--space-40);
   border: 2px dashed var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   background: var(--bg-secondary);
   transition: border-color 0.2s;
 }
@@ -57,35 +57,35 @@
 
 .aig-upload-icon {
   color: var(--muted);
-  margin-bottom: 16px;
+  margin-bottom: var(--space-16);
 }
 
-.aig-upload-zone h3 { font-size: 20px; font-weight: 700; margin: 0 0 8px; }
+.aig-upload-zone h3 { font-size: var(--text-lg); font-weight: 700; margin: 0 0 8px; }
 
-.aig-upload-zone p { font-size: 14px; color: var(--muted); margin: 0 0 24px; }
+.aig-upload-zone p { font-size: var(--text-sm); color: var(--muted); margin: 0 0 24px; }
 
 .aig-upload-btn { cursor: pointer; }
 
 .aig-supported {
   display: block;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
-  margin-top: 8px;
+  margin-top: var(--space-8);
 }
 
 /* ── Analysis Section ────────────────────────────────────── */
 
 .aig-preview-section {
   display: flex;
-  gap: 24px;
-  margin-bottom: 24px;
+  gap: var(--space-24);
+  margin-bottom: var(--space-24);
   align-items: flex-start;
 }
 
 .aig-preview {
   width: 240px;
   flex-shrink: 0;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--border);
   box-shadow: 0 4px 16px rgba(0,0,0,0.06);
@@ -103,7 +103,7 @@
   align-items: center;
   justify-content: center;
   color: var(--muted);
-  gap: 12px;
+  gap: var(--space-12);
   min-height: 200px;
 }
 
@@ -117,66 +117,66 @@
   flex: 1;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-20);
 }
 
 .aig-analysis-results h4 {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 14px;
+  gap: var(--space-6);
+  font-size: var(--text-sm);
   font-weight: 600;
-  margin: 0 0 14px;
+  margin: 0 0 var(--space-14);
 }
 
 .aig-analysis-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .aig-analysis-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .aig-analysis-label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
   color: var(--muted);
 }
 
 .aig-colors {
   display: flex;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 .aig-color-swatch {
   width: 20px;
   height: 20px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: 1px solid var(--border);
 }
 
 /* ── Generate Actions ────────────────────────────────────── */
 
 .aig-generate-actions {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-24);
 }
 
 .aig-generate-actions h4 {
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 600;
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-12);
 }
 
 .aig-action-btns {
   display: flex;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .aig-action-btn {
@@ -184,10 +184,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 24px 16px;
+  gap: var(--space-8);
+  padding: var(--space-24) var(--space-16);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--bg-secondary);
   color: var(--text);
   cursor: pointer;
@@ -201,7 +201,7 @@
 }
 
 .aig-action-label {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
@@ -209,61 +209,61 @@
 
 .aig-generating {
   text-align: center;
-  padding: 40px;
+  padding: var(--space-40);
   color: var(--muted);
 }
 
 .aig-sparkle {
   animation: iscPulse 1.5s infinite;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-12);
 }
 
 /* ── Done ────────────────────────────────────────────────── */
 
 .aig-done {
   text-align: center;
-  padding: 40px;
+  padding: var(--space-40);
 }
 
 .aig-success-icon {
   color: var(--success);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-12);
 }
 
-.aig-done h3 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+.aig-done h3 { font-size: var(--text-lg); font-weight: 700; margin: 0 0 4px; }
 
-.aig-done p { font-size: 14px; color: var(--muted); margin: 0 0 20px; }
+.aig-done p { font-size: var(--text-sm); color: var(--muted); margin: 0 0 20px; }
 
 .aig-done-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-10);
   justify-content: center;
 }
 
 /* ── Training Toggle ─────────────────────────────────────── */
 
 .aig-training-toggle {
-  margin-top: 24px;
-  padding: 16px;
+  margin-top: var(--space-24);
+  padding: var(--space-16);
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
 }
 
 .aig-training-toggle .ds-toggle { gap: 10px; }
 
 .aig-toggle-desc {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
-  margin: 2px 0 0;
+  margin: var(--space-2) 0 0;
 }
 
 .aig-privacy-note {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
-  margin-top: 10px;
+  margin-top: var(--space-10);
   line-height: 1.6;
-  padding: 8px;
+  padding: var(--space-8);
   background: var(--surface);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }

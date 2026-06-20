@@ -458,7 +458,7 @@ const AccountantDashboard = () => {
                           onClick={() => navigate(`/dashboard/jobs/${j.id}`)}>
                           <div className="acc-list-item__left">
                             <div className="acc-list-item__primary">
-                              <span style={{ color: 'var(--accent, var(--accent))', marginRight: 6 }}>#{j.job_number}</span>
+                              <span style={{ color: 'var(--accent)', marginRight: 6 }}>#{j.job_number}</span>
                               {j.job_name}
                             </div>
                             <div className="acc-list-item__secondary">{j.customer_name}</div>

@@ -59,7 +59,7 @@
 
 .search-box-modern input {
   width: 100%;
-  padding: 10px 12px 10px 38px;
+  padding: var(--space-10) var(--space-12) var(--space-10) 38px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -75,7 +75,7 @@
 }
 
 .status-select {
-  padding: 8px 12px;
+  padding: var(--space-8) var(--space-12);
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -115,7 +115,7 @@
 .post-title-main {
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 2px;
+  margin-bottom: var(--space-2);
 }
 
 .post-slug-sub {
@@ -123,7 +123,7 @@
 }
 
 .category-tag {
-  padding: 4px 10px;
+  padding: var(--space-4) var(--space-10);
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
@@ -189,7 +189,7 @@
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .form-group label {
@@ -213,7 +213,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-6);
 }
 
 .content-textarea {

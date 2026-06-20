@@ -15,7 +15,7 @@ import PageContainer from '../../components/ui/PageContainer';
 const COLUMNS = [
   { id: 'Assigned',    label: 'Assigned',    icon: Briefcase,    color: 'var(--info)' },
   { id: 'Designing',   label: 'In Progress', icon: Clock,        color: 'var(--warning)' },
-  { id: 'Review',      label: 'Review',      icon: Eye,          color: '#8b5cf6' },
+  { id: 'Review',      label: 'Review',      icon: Eye,          color: 'var(--accent)' },
   { id: 'Approved',    label: 'Ready',       icon: CheckCircle,  color: 'var(--success)' },
   { id: 'Delivered',   label: 'Delivered',   icon: Send,         color: 'var(--text-muted)' },
 ];

@@ -3,21 +3,21 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 20px;
+  padding: var(--space-20);
   background: linear-gradient(135deg, var(--surface) 0%, var(--bg-2) 100%);
 }
 
 .error-boundary__container {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  padding: 40px;
+  padding: var(--space-40);
   max-width: 500px;
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-20);
 }
 
 .error-boundary__icon {
@@ -26,7 +26,7 @@
   justify-content: center;
   width: 80px;
   height: 80px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: var(--error-bg);
   color: var(--error);
   margin: 0 auto;
@@ -34,14 +34,14 @@
 
 .error-boundary__title {
   margin: 0;
-  font-size: 24px;
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--text);
 }
 
 .error-boundary__message {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--text-base);
   color: var(--text-muted);
   line-height: 1.6;
 }
@@ -49,17 +49,17 @@
 .error-boundary__details {
   text-align: left;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px;
+  border-radius: var(--radius-xs);
+  padding: var(--space-12);
   background-color: var(--surface-2);
-  margin-top: 16px;
+  margin-top: var(--space-16);
 }
 
 .error-boundary__summary {
   cursor: pointer;
   font-weight: 500;
   color: var(--text-secondary);
-  padding: 8px;
+  padding: var(--space-8);
   user-select: none;
 }
 
@@ -68,12 +68,12 @@
 }
 
 .error-boundary__stack {
-  margin: 12px 0 0 0;
-  padding: 12px;
+  margin: var(--space-12) 0 0 0;
+  padding: var(--space-12);
   background-color: var(--foreground);
   color: var(--success);
   font-family: 'Courier New', monospace;
-  font-size: 12px;
+  font-size: var(--text-xs);
   border-radius: 4px;
   overflow-x: auto;
   max-height: 300px;
@@ -82,17 +82,17 @@
 
 .error-boundary__actions {
   display: flex;
-  gap: 12px;
+  gap: var(--space-12);
   justify-content: center;
-  margin-top: 12px;
+  margin-top: var(--space-12);
 }
 
 .error-boundary__retry-btn,
 .error-boundary__home-btn {
-  padding: 10px 20px;
+  padding: var(--space-10) var(--space-20);
   border: none;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;

@@ -6,17 +6,17 @@
 /* Tablet — proportional margins */
 @media (max-width: 1024px) {
   .page-content {
-    padding-left: 20px;
-    padding-right: 20px;
+    padding-left: var(--space-20);
+    padding-right: var(--space-20);
   }
 }
 
 /* Mobile — reduced but aligned margins */
 @media (max-width: 640px) {
   .page-content {
-    padding-left: 16px;
-    padding-right: 16px;
-    gap: 16px;
+    padding-left: var(--space-16);
+    padding-right: var(--space-16);
+    gap: var(--space-16);
   }
 }
 

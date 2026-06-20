@@ -265,7 +265,7 @@ function TaxSettings() {
             </div>
 
             {showForm && (
-                <div className="sp-card" style={{ border: '1px solid var(--accent)', background: 'var(--accent-light, rgba(99, 102, 241, 0.05))' }}>
+                <div className="sp-card" style={{ border: '1px solid var(--accent)', background: 'var(--accent-light)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                         <h4 style={{ margin: 0, fontWeight: 700 }}>{editingId ? 'Modify' : 'New'} Tax Configuration</h4>
                         <button onClick={() => setShowForm(false)} className="icon-button"><X size={18} /></button>
@@ -379,7 +379,7 @@ function PaymentModeSettings() {
             </div>
 
             {showForm && (
-                <div className="sp-card" style={{ border: '1px solid var(--accent)', background: 'var(--accent-light, rgba(99, 102, 241, 0.05))' }}>
+                <div className="sp-card" style={{ border: '1px solid var(--accent)', background: 'var(--accent-light)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                         <h4 style={{ margin: 0, fontWeight: 700 }}>{editingId ? 'Edit' : 'New'} Payment Option</h4>
                         <button onClick={() => setShowForm(false)} className="icon-button"><X size={18} /></button>
