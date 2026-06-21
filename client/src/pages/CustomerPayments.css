@@ -794,6 +794,11 @@
   background: var(--primary);
 }
 
+.dark .cp-amount-hero-value,
+.dark .cp-amount-hero-label {
+  color: var(--primary-foreground);
+}
+
 .dark .cp-discount-section {
   background: var(--bg-2);
   border-color: var(--border);

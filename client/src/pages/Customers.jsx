@@ -191,7 +191,6 @@ const Customers = () => {
     };
 
     // --- EFFECTS ---
-    useEffect(() => { fetchCustomers(1); }, []);
     useEffect(() => { fetchCustomers(1); }, [searchQuery, typeFilter]);
     useEffect(() => {
         const handleBeforeUnload = (event) => {

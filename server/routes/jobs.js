@@ -342,6 +342,7 @@ router.get('/jobs', authenticateToken, async (req, res) => {
         const status = String(req.query.status || '').trim();
         const qBranch = String(req.query.branch_id || '').trim();
         const category = String(req.query.category || '').trim();
+        const customerType = String(req.query.customer_type || '').trim();
         const tab = String(req.query.tab || 'active').trim().toLowerCase();
         const userRole = String(req.user.role || '').trim();
         const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
@@ -424,6 +425,10 @@ router.get('/jobs', authenticateToken, async (req, res) => {
                 params.push(cat);
             }
         }
+        if (customerType) {
+            where += ' AND c.type = ?';
+            params.push(customerType);
+        }
         if (search) {
             where += ' AND (LOWER(COALESCE(c.name, "Walk-in")) LIKE ? OR LOWER(c.mobile) LIKE ? OR LOWER(j.job_number) LIKE ? OR LOWER(j.job_name) LIKE ?)';
             const s = `%${search.trim().toLowerCase()}%`;
@@ -440,7 +445,7 @@ router.get('/jobs', authenticateToken, async (req, res) => {
         const [[{ total }]] = await pool.query(countQuery, params);
 
         const dataQuery = `
-            SELECT ${JOB_LIST_COL_MINIMAL}, COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile, b.name as branch_name${myStatusSelect}
+            SELECT ${JOB_LIST_COL_MINIMAL}, COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile, c.type as customer_type, b.name as branch_name${myStatusSelect}
             ${baseFrom} ORDER BY j.created_at DESC LIMIT ? OFFSET ?
         `;
         const [rows] = await pool.query(dataQuery, [...myStatusParams, ...params, limit, offset]);
@@ -1094,10 +1099,17 @@ router.post('/jobs/assignments/bulk', authenticateToken, async (req, res) => {
                 const isRoleAssignment = assignment.staff_id === 'role';
                 const staffId = isRoleAssignment ? null : Number(assignment.staff_id);
                 const role = assignment.role || (isRoleAssignment ? null : staffMap.get(staffId)?.role) || null;
-                await conn.query(
-                    `DELETE FROM sarga_job_staff_assignments WHERE job_id = ? AND role = ?`,
-                    [jobId, role]
-                );
+                if (staffId !== null) {
+                    await conn.query(
+                        `DELETE FROM sarga_job_staff_assignments WHERE job_id = ? AND staff_id = ?`,
+                        [jobId, staffId]
+                    );
+                } else {
+                    await conn.query(
+                        `DELETE FROM sarga_job_staff_assignments WHERE job_id = ? AND role = ? AND staff_id IS NULL`,
+                        [jobId, role]
+                    );
+                }
                 await conn.query(
                     `INSERT INTO sarga_job_staff_assignments (job_id, staff_id, role, status)
                  VALUES (?, ?, ?, 'Pending')`,
@@ -1116,6 +1128,34 @@ router.post('/jobs/assignments/bulk', authenticateToken, async (req, res) => {
         auditLog(req.user.id, 'JOB_ASSIGNMENT_BULK', `Assigned staff to ${assignments.length} jobs`, { entity_type: 'job_assignment' });
         res.json({ message: 'Assignments saved', count: assignments.length });
     } catch (err) {
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Remove an individual assignment
+router.delete('/jobs/assignments/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!['Admin', 'Front Office', 'front office'].includes(req.user.role)) {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
+
+        const [[assignment]] = await pool.query(
+            'SELECT job_id, staff_id, role FROM sarga_job_staff_assignments WHERE id = ?',
+            [id]
+        );
+
+        if (!assignment) {
+            return res.status(404).json({ message: 'Assignment not found' });
+        }
+
+        await pool.query('DELETE FROM sarga_job_staff_assignments WHERE id = ?', [id]);
+
+        auditLog(req.user.id, 'JOB_ASSIGNMENT_DELETE', `Deleted assignment #${id} on job ${assignment.job_id}`, { entity_type: 'job_assignment', entity_id: id });
+        res.json({ message: 'Assignment removed successfully' });
+    } catch (err) {
+        console.error('Delete assignment error:', err);
         res.status(500).json({ message: 'Database error' });
     }
 });

@@ -84,7 +84,8 @@
 }
 
 .autocomplete-item:hover,
-.autocomplete-item--active {
+.autocomplete-item--active,
+.autocomplete-item--highlighted {
   background: var(--hover);
 }
 
@@ -109,5 +110,30 @@
 @media (max-width: 768px) {
   .customer-page .modal form .responsive-form-row {
     grid-template-columns: 1fr;
+  }
+}
+
+.customer-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.customer-search-bar .search-input-wrapper {
+  flex: 1 1 320px;
+  max-width: 360px;
+  min-width: 220px;
+}
+
+@media (max-width: 768px) {
+  .customer-search-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .customer-search-bar .search-input-wrapper {
+    flex: 1 1 auto;
+    max-width: none;
   }
 }

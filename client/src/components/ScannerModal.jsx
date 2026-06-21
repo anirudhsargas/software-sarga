@@ -283,23 +283,15 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
     return (
         <div className="modal-backdrop animate-fade-in" style={{ zIndex: 1000 }}>
             <div className="modal animate-scale-in" style={{ maxWidth: '460px', width: '92%', position: 'relative' }}>
-                <div className="row gap-sm items-center mb-24">
-                    <Camera size={18} />
-                    <h2 className="section-title" style={{ margin: 0 }}>Scan QR / Barcode</h2>
+                <div className="modal-header">
+                    <div className="row gap-sm items-center">
+                        <Camera size={18} />
+                        <h2 className="modal-title" style={{ margin: 0 }}>Scan QR / Barcode</h2>
+                    </div>
+                    <button className="modal-close modal-close--static" onClick={onClose}>
+                        <X size={20} />
+                    </button>
                 </div>
-
-                <button
-                    className="icon-button"
-                    onClick={onClose}
-                    style={{
-                        position: 'absolute', top: '20px', right: '20px',
-                        background: 'var(--card)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        zIndex: 10
-                    }}
-                >
-                    <X size={20} />
-                </button>
 
                 <div className="row gap-sm mb-16">
                     <button

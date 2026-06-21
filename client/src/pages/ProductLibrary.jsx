@@ -1653,11 +1653,6 @@ const ProductLibrary = () => {
                                         <div className="product-card__meta">
                                             {cat.subcategories?.length || 0} Sub-categories
                                         </div>
-                                        {cat.image_url && (
-                                            <div style={{ marginTop: 6 }}>
-                                                <span className="muted text-xs" style={{ fontFamily: 'monospace' }}>{getImageId(cat.image_url)}</span>
-                                            </div>
-                                        )}
                                     </div>
                                 </SortableItem>
                             ))}

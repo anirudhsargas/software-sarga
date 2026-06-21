@@ -1,7 +1,7 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import usePolling from '../hooks/usePolling';
-import { Search, FileText, Loader2, Plus, Trash2, IndianRupee, RotateCcw, Zap, ChevronDown, Building2 } from 'lucide-react';
+import { Search, FileText, Loader2, Plus, Trash2, IndianRupee, RotateCcw, Zap, ChevronDown, Building2, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
 import api from '../services/api';
@@ -122,7 +122,7 @@ const Jobs = () => {
     const navigate = useNavigate();
     const { data: jobs, setData: setJobs, optimisticUpdate } = useOptimistic([]);
     const [loading, setLoading] = useState(true);
-    const [filterInput, setFilterInput] = useState({ search: '', branch: '', status: '', category: '' });
+    const [filterInput, setFilterInput] = useState({ search: '', branch: '', status: '', category: '', customerType: '' });
     const [debouncedFilterInput, setDebouncedFilterInput] = useState(filterInput);
     const [branches, setBranches] = useState([]);
     const [error, setError] = useState('');
@@ -166,6 +166,7 @@ const Jobs = () => {
             if (debouncedFilterInput.status && debouncedFilterInput.status !== 'all') params.append('status', debouncedFilterInput.status);
             if (debouncedFilterInput.branch) params.append('branch_id', debouncedFilterInput.branch);
             if (debouncedFilterInput.category) params.append('category', debouncedFilterInput.category);
+            if (debouncedFilterInput.customerType) params.append('customer_type', debouncedFilterInput.customerType);
 
             // Tab support (for backend server-side filtering)
             const isFrontOffice = isFinanceRole(userRole);
@@ -202,7 +203,7 @@ const Jobs = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeTab, debouncedFilterInput.branch, debouncedFilterInput.category, debouncedFilterInput.search, debouncedFilterInput.status, setJobs, userRole]);
+    }, [activeTab, debouncedFilterInput.branch, debouncedFilterInput.category, debouncedFilterInput.customerType, debouncedFilterInput.search, debouncedFilterInput.status, setJobs, userRole]);
 
     const goToPage = useCallback((pageNum) => {
         if (pageNum < 1 || pageNum > totalPages) return;
@@ -260,7 +261,7 @@ const Jobs = () => {
 
     useEffect(() => {
         fetchJobs(1);
-    }, [debouncedFilterInput.branch, debouncedFilterInput.category, debouncedFilterInput.search, debouncedFilterInput.status, activeTab, fetchJobs]);
+    }, [debouncedFilterInput.branch, debouncedFilterInput.category, debouncedFilterInput.customerType, debouncedFilterInput.search, debouncedFilterInput.status, activeTab, fetchJobs]);
 
     useEffect(() => {
         pageRef.current = page;
@@ -456,6 +457,23 @@ const Jobs = () => {
                     >
                         <option value="">All Branches</option>
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                </div>
+                <div className="relative flex-1" style={{ maxWidth: 180, minWidth: 155 }}>
+                    <Users size={16} aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+                    <label htmlFor="job-customer-type-filter" className="sr-only">Filter by customer type</label>
+                    <select
+                        id="job-customer-type-filter"
+                        value={filterInput.customerType}
+                        onChange={(e) => updateFilter('customerType', e.target.value)}
+                        className="input-field"
+                        style={{ paddingLeft: 32, width: '100%', height: 36, fontSize: 14, appearance: 'none' }}
+                        aria-label="Filter by customer type"
+                    >
+                        <option value="">All Customer Types</option>
+                        <option value="Walk-in">Walk-in</option>
+                        <option value="Retail">Retail</option>
+                        <option value="Offset">Offset</option>
                     </select>
                 </div>
             </div>
