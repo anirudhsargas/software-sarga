@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { pool } = require('../database');
-const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles, normalizeRole } = require('../middleware/auth');
 const { auditLog, auditFieldChanges, getUsageMap, sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser, generateJobNumber, getTodayDate } = require('../helpers');
 const { analyzeDesign } = require('../helpers/designAnalyzer');
 const { validate, addJobSchema } = require('../middleware/validate');
@@ -1306,7 +1306,7 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
 
     // Validated allowed status enums
     const VALID_JOB_STATUSES = ['Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production', 'Approval Pending', 'Completed', 'Delivered', 'Cancelled'];
-    const VALID_PAYMENT_STATUSES = ['Unpaid', 'Partial', 'Paid'];
+    const VALID_PAYMENT_STATUSES = ['Unpaid', 'Partial', 'Paid', 'Credit'];
 
     // Status transition matrix — defines which statuses can move to which (C-06)
     const VALID_TRANSITIONS = {
@@ -1344,13 +1344,45 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
             const total = updates.total_amount !== undefined ? Number(updates.total_amount) : Number(currentJob.total_amount);
             const paid = updates.advance_paid !== undefined ? Number(updates.advance_paid) : Number(currentJob.advance_paid);
             const remaining = Math.max(total - paid, 0);
+
             if (remaining > 0) {
-                return res.status(409).json({
-                    message: 'Cannot mark as Delivered until full payment is collected.',
-                    remaining_amount: Number(remaining.toFixed(2)),
-                    customer_id: currentJob.customer_id || null,
-                    job_id: Number(id)
-                });
+                const ALLOWED_CREDIT_ROLES = ['Admin', 'Accountant', 'Front Office'];
+                const userRole = normalizeRole(req.user.role);
+                const reason = (updates.credit_reason || '').trim();
+
+                if (!updates.credit_override || !ALLOWED_CREDIT_ROLES.includes(userRole) || reason.length < 5) {
+                    return res.status(409).json({
+                        message: 'Cannot mark as Delivered until full payment is collected.',
+                        remaining_amount: Number(remaining.toFixed(2)),
+                        customer_id: currentJob.customer_id || null,
+                        job_id: Number(id),
+                        credit_override_available: true,
+                        credit_override_roles: ALLOWED_CREDIT_ROLES
+                    });
+                }
+
+                // Credit override authorized — record it.
+                updates.payment_status = 'Credit';
+                
+                // Get the user's display name from the database.
+                let creditAuthorizedByName = null;
+                try {
+                    const [staffRows] = await pool.query('SELECT name FROM sarga_staff WHERE id = ?', [req.user.id]);
+                    if (staffRows.length > 0) {
+                        creditAuthorizedByName = staffRows[0].name;
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch staff name for credit delivery:', err);
+                    creditAuthorizedByName = req.user.user_id || 'Staff';
+                }
+
+                updates.credit_authorized_by = req.user.id;
+                updates.credit_authorized_by_name = creditAuthorizedByName;
+                updates.credit_authorized_at = new Date();
+                updates.credit_reason = reason;
+
+                auditLog(req.user.id, 'CREDIT_DELIVERY_OVERRIDE',
+                    `Job ${id} delivered with ₹${remaining.toFixed(2)} outstanding. Reason: ${reason}`);
             }
         }
 
@@ -1367,7 +1399,12 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
         const params = [];
 
         // Dynamic field builder
-        const allowedFields = ['status', 'payment_status', 'advance_paid', 'total_amount', 'delivery_date', 'branch_id', 'job_name', 'description', 'quantity', 'unit_price', 'required_sheets', 'used_sheets', 'paper_size', 'plate_count', 'plate_details'];
+        const allowedFields = [
+            'status', 'payment_status', 'advance_paid', 'total_amount', 'delivery_date', 
+            'branch_id', 'job_name', 'description', 'quantity', 'unit_price', 
+            'required_sheets', 'used_sheets', 'paper_size', 'plate_count', 'plate_details',
+            'credit_authorized_by', 'credit_authorized_by_name', 'credit_authorized_at', 'credit_reason'
+        ];
 
         for (const field of allowedFields) {
             if (updates[field] !== undefined) {

@@ -1,0 +1,11 @@
+process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = 'test_jwt_secret_key_for_testing_purposes_only_32chars';
+process.env.JWT_SECRET_PREVIOUS = '';
+process.env.DB_HOST = 'localhost';
+process.env.DB_PORT = '3306';
+process.env.DB_USER = 'test_user';
+process.env.DB_PASSWORD = 'test_pass';
+process.env.DB_NAME = 'test_sarga';
+process.env.PORT = '0';
+process.env.LOG_LEVEL = 'error';
+process.env.ML_SERVICE_URL = 'http://127.0.0.1:5001';

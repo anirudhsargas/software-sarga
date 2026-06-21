@@ -95,3 +95,23 @@
   font-size: 0.95rem;
   font-weight: 500;
 }
+
+/* ── Mobile/Tablet Drawer ── */
+@media (max-width: 1023px) {
+  .acc-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    transform: translateX(-100%);
+    z-index: 30;
+    box-shadow: var(--shadow-xl);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .acc-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .acc-sidebar.collapsed {
+    width: 260px;
+  }
+}

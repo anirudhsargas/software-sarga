@@ -26,7 +26,7 @@ const LINKS = [
   { to: '/accounting/settings', icon: Settings, label: 'Settings' }
 ];
 
-export default function AccountantSidebar() {
+export default function AccountantSidebar({ isOpen, onClose }) {
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('acc_sidebar_collapsed') === 'true';
   });
@@ -36,7 +36,7 @@ export default function AccountantSidebar() {
   }, [collapsed]);
 
   return (
-    <aside className={`acc-sidebar ${collapsed ? 'collapsed' : ''}`}>
+    <aside className={`acc-sidebar ${collapsed ? 'collapsed' : ''} ${isOpen ? 'open' : ''}`}>
       <div className="acc-sidebar-header">
         {!collapsed && <div className="acc-logo">Accounting</div>}
         <button className="acc-toggle-btn" onClick={() => setCollapsed(!collapsed)}>
@@ -51,6 +51,7 @@ export default function AccountantSidebar() {
             to={link.to} 
             className={({isActive}) => `acc-nav-link ${isActive ? 'active' : ''}`}
             title={collapsed ? link.label : ''}
+            onClick={() => onClose?.()}
           >
             <link.icon size={20} className="acc-nav-icon" />
             {!collapsed && <span className="acc-nav-label">{link.label}</span>}

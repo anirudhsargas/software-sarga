@@ -397,7 +397,7 @@ const Dashboard = () => {
 
     // Lock body background scroll on mobile/tablet when drawer is open
     useEffect(() => {
-        if (sidebarOpen && window.innerWidth < 768) {
+        if (sidebarOpen && window.innerWidth < 1024) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = '';
@@ -407,9 +407,9 @@ const Dashboard = () => {
         };
     }, [sidebarOpen]);
 
-    // Focus trap inside sidebar drawer on mobile when opened
+    // Focus trap inside sidebar drawer on mobile/tablet when opened
     useEffect(() => {
-        if (!sidebarOpen || window.innerWidth >= 768) return;
+        if (!sidebarOpen || window.innerWidth >= 1024) return;
         const sidebarEl = sidebarRef.current;
         if (!sidebarEl) return;
 
@@ -444,9 +444,9 @@ const Dashboard = () => {
         };
     }, [sidebarOpen]);
 
-    // Auto-close mobile drawer/sidebar on navigation/page changes when viewport width is mobile (< 768px)
+    // Auto-close mobile/tablet drawer on navigation when below desktop breakpoint
     useEffect(() => {
-        if (window.innerWidth < 768) {
+        if (window.innerWidth < 1024) {
             setSidebarOpen(false);
         }
     }, [location.pathname]);
@@ -483,7 +483,7 @@ const Dashboard = () => {
     const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
     const handleHamburgerClick = useCallback(() => {
-        if (window.innerWidth >= 768) {
+        if (window.innerWidth >= 1024) {
             toggleSidebarCollapsed();
         } else {
             toggleSidebar();
@@ -535,7 +535,7 @@ const Dashboard = () => {
     // Sync sidebar state for different viewports
     useEffect(() => {
         const syncSidebarForViewport = () => {
-            if (window.innerWidth >= 768) {
+            if (window.innerWidth >= 1024) {
                 // Desktop: Restore state from localStorage
                 try {
                     const saved = localStorage.getItem('sargaSidebarCollapsed');
@@ -544,7 +544,7 @@ const Dashboard = () => {
                     setSidebarCollapsed(false);
                 }
             } else {
-                // Mobile: Expanded under overlay drawer
+                // Mobile/Tablet: Expanded under overlay drawer
                 setSidebarCollapsed(false);
             }
         };
@@ -956,8 +956,8 @@ const Dashboard = () => {
     return (
         <div className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
             <ProgressBar active={isNavigating} />
-            {/* Mobile Sidebar Overlay */}
-            {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} aria-hidden="true"></div>}
+            {/* Mobile/Tablet Sidebar Overlay */}
+            {sidebarOpen && <div className="sidebar-overlay sidebar-overlay--visible" onClick={closeSidebar} aria-hidden="true"></div>}
 
             {/* Sidebar */}
             <aside 

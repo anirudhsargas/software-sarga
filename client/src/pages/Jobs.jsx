@@ -368,7 +368,7 @@ const Jobs = () => {
             const res = await api.post(`/jobs/${jobId}/repeat`);
             toast.success(res.data.message || 'Order repeated!');
             fetchJobs(1);
-            navigate(`/dashboard/jobs/${res.data.id}`);
+            navigate(`/dashboard/sales/orders/${res.data.id}`);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to repeat order');
         }
@@ -566,7 +566,7 @@ const Jobs = () => {
                                     return (
                                         <tr
                                             key={j.id}
-                                            onDoubleClick={() => !isSummaryRow && navigate(`/dashboard/jobs/${j.id}`)}
+                                            onDoubleClick={() => !isSummaryRow && navigate(`/dashboard/sales/orders/${j.id}`)}
                                             style={{
                                                 cursor: 'pointer',
                                                 ...(isSubRow ? { background: 'var(--surface2, rgba(255,255,255,0.03))' } : {}),

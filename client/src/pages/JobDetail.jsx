@@ -29,6 +29,7 @@ const paymentColors = {
     Paid: 'var(--success)',
     Partial: 'var(--warning)',
     Unpaid: 'var(--error)',
+    Credit: '#f97316',
 };
 
 const Badge = ({ label, color }) => {
@@ -162,6 +163,9 @@ const JobDetail = () => {
     const [refundMethod, setRefundMethod] = useState('Cash');
     const [refundNote, setRefundNote] = useState('');
     const [refunding, setRefunding] = useState(false);
+    const [creditModal, setCreditModal] = useState(false);
+    const [creditReason, setCreditReason] = useState('');
+    const [submittingCredit, setSubmittingCredit] = useState(false);
     const [branchUpiId, setBranchUpiId] = useState('');
     const [branchesData, setBranchesData] = useState([]);
 
@@ -821,6 +825,20 @@ const JobDetail = () => {
                             style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--error-bg)', color: 'var(--error)', border: '1px solid var(--error)', fontWeight: 600 }}
                         >
                             <XCircle size={18} /> Cancel Order
+                        </button>
+                    )}
+
+                    {/* Authorize Credit Delivery Button */}
+                    {Number(job.balance_amount || 0) > 0 && job.status === 'Completed' && ['admin', 'accountant', 'front office'].includes(String(userRole || '').toLowerCase()) && (
+                        <button
+                            className="btn"
+                            onClick={() => {
+                                setCreditReason('');
+                                setCreditModal(true);
+                            }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--warning-bg)', color: 'var(--warning)', border: '1px solid var(--warning)', fontWeight: 600 }}
+                        >
+                            <Shield size={18} /> Authorize Credit Delivery
                         </button>
                     )}
 
@@ -1567,6 +1585,69 @@ const JobDetail = () => {
                                 style={{ opacity: !cancelReason.trim() ? 0.5 : 1 }}
                             >
                                 Confirm Cancellation
+                            </LoadingButton>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Authorize Credit Delivery Modal */}
+            {creditModal && (
+                <div className="modal-overlay">
+                    <div className="modal modal--dark">
+                        <div className="modal-header-with-icon">
+                            <div className="modal-icon modal-icon--warning">
+                                <Shield size={20} color="var(--warning)" />
+                            </div>
+                            <h2 className="modal-title">Authorize Credit Delivery</h2>
+                        </div>
+                        <p className="modal-subtitle">
+                            This will authorize delivery of order <strong>{job.job_number}</strong> on credit.
+                        </p>
+                        
+                        <div className="alert alert--warning" style={{ margin: '12px 0', padding: '12px', borderLeft: '4px solid var(--warning)', background: 'rgba(249, 115, 22, 0.1)' }}>
+                            <strong style={{ color: '#f97316' }}>Outstanding Balance: {fmt(job.balance_amount)}</strong>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Reason for Credit Delivery (min 5 characters) *</label>
+                            <textarea
+                                className="form-input"
+                                placeholder="Enter reasoning/authorization details..."
+                                value={creditReason}
+                                onChange={(e) => setCreditReason(e.target.value)}
+                                autoFocus
+                                rows={3}
+                            />
+                        </div>
+                        <div className="modal-actions">
+                            <button className="btn btn-ghost flex-1" onClick={() => { setCreditModal(false); setCreditReason(''); }} disabled={submittingCredit}>Cancel</button>
+                            <LoadingButton
+                                onClick={async () => {
+                                    if (creditReason.trim().length < 5) return;
+                                    setSubmittingCredit(true);
+                                    try {
+                                        await api.put(`/jobs/${id}`, {
+                                            status: 'Delivered',
+                                            credit_override: true,
+                                            credit_reason: creditReason.trim()
+                                        });
+                                        toast.success('Job delivered on credit — recorded for follow-up.');
+                                        setCreditModal(false);
+                                        setCreditReason('');
+                                        await fetchJob();
+                                    } catch (err) {
+                                        toast.error(err?.response?.data?.message || 'Could not authorize credit delivery.');
+                                    } finally {
+                                        setSubmittingCredit(false);
+                                    }
+                                }}
+                                loading={submittingCredit}
+                                disabled={creditReason.trim().length < 5 || submittingCredit}
+                                className="btn btn-warning flex-1"
+                                style={{ opacity: (creditReason.trim().length < 5 || submittingCredit) ? 0.5 : 1 }}
+                            >
+                                Confirm Credit Delivery
                             </LoadingButton>
                         </div>
                     </div>

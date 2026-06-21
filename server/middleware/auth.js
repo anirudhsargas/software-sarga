@@ -36,11 +36,6 @@ const authenticateToken = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-        console.log("AUTH DEBUG", {
-            tokenPresent: false,
-            role: null,
-            endpoint: req.originalUrl || req.path
-        });
         logger.warn('[Auth] 401 No token provided', { path: req.path, method: req.method, ip: req.ip });
         return res.status(401).json({ message: 'Access denied. No token provided.' });
     }
@@ -60,11 +55,6 @@ const authenticateToken = async (req, res, next) => {
         }
 
         req.user = user;
-        console.log("AUTH DEBUG", {
-            tokenPresent: true,
-            role: user.role,
-            endpoint: req.originalUrl || req.path
-        });
         next();
     } catch (error) {
         logger.warn('[Auth] 401 Invalid token', { path: req.path, method: req.method, ip: req.ip, error: error.message });
@@ -95,11 +85,6 @@ const authenticate = async (req, res, next) => {
         const authHeader = req.headers.authorization;
         const tokenPresent = !!(authHeader && authHeader.startsWith('Bearer '));
         if (!tokenPresent) {
-            console.log("AUTH DEBUG", {
-                tokenPresent: false,
-                role: null,
-                endpoint: req.originalUrl || req.path
-            });
             return res.status(401).json({ error: 'No token provided' });
         }
 
@@ -127,14 +112,6 @@ const authenticate = async (req, res, next) => {
         }
 
         req.user = users[0];
-        console.log("AUTH DEBUG", {
-            tokenPresent: true,
-            role: req.user.role,
-            endpoint: req.originalUrl || req.path
-        });
-        try {
-            console.log(`[Auth] user loaded id=${req.user.id} role=${req.user.role} branch_id=${req.user.branch_id}`);
-        } catch (e) { }
 
         // --- ENFORCE FRONT OFFICE BRANCH RULES ---
         if (normalizeRole(req.user.role) === 'Front Office') {

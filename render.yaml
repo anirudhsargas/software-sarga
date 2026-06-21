@@ -36,25 +36,25 @@ services:
       - key: NODE_ENV
         value: production
       - key: VITE_FIREBASE_API_KEY
-        value: "AIzaSyAqsXy2h5rG0FQ0Cvreu1AIHC_-NRPxrpg"
+        fromSecret: VITE_FIREBASE_API_KEY
       - key: VITE_FIREBASE_AUTH_DOMAIN
-        value: "sarga-prints.firebaseapp.com"
+        fromSecret: VITE_FIREBASE_AUTH_DOMAIN
       - key: VITE_FIREBASE_PROJECT_ID
-        value: "sarga-prints"
+        fromSecret: VITE_FIREBASE_PROJECT_ID
       - key: VITE_FIREBASE_STORAGE_BUCKET
-        value: "sarga-prints.firebasestorage.app"
+        fromSecret: VITE_FIREBASE_STORAGE_BUCKET
       - key: VITE_FIREBASE_MESSAGING_SENDER_ID
-        value: "1033339625034"
+        fromSecret: VITE_FIREBASE_MESSAGING_SENDER_ID
       - key: VITE_FIREBASE_APP_ID
-        value: "1:1033339625034:web:cbb9d1065edbcb7ef490b3"
+        fromSecret: VITE_FIREBASE_APP_ID
       - key: VITE_FIREBASE_MEASUREMENT_ID
-        value: "G-5XD6YCERCC"
+        fromSecret: VITE_FIREBASE_MEASUREMENT_ID
       - key: VITE_API_URL
-        value: "https://software-sarga-2.onrender.com/api"
+        fromSecret: VITE_API_URL
       - key: CORS_ORIGIN
-        value: "https://software-sarga.vercel.app"
+        fromSecret: CORS_ORIGIN
       - key: ML_SERVICE_URL
-        value: "https://sarga-ml-service.onrender.com"
+        fromSecret: ML_SERVICE_URL
       - key: JWT_SECRET
         fromSecret: JWT_SECRET
       - key: CLOUDINARY_CLOUD_NAME

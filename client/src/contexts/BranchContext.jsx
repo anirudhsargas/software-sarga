@@ -64,8 +64,12 @@ export const BranchProvider = ({ children }) => {
     return branches.find(b => b.id === user.branch_id || b.id === Number(user.branch_id)) || null;
   }, [branches]);
 
+  const user = auth.getUser();
+  const isFrontOffice = user?.role === 'Front Office';
+  const assignedBranchName = getBranchName(user?.branch_id);
+
   return (
-    <BranchContext.Provider value={{ branches, loading, error, refetch: fetchBranches, getBranchName, getUserBranch, selectedBranchId, selectBranch }}>
+    <BranchContext.Provider value={{ branches, loading, error, refetch: fetchBranches, getBranchName, getUserBranch, selectedBranchId, selectBranch, isFrontOffice, assignedBranchName }}>
       {children}
     </BranchContext.Provider>
   );

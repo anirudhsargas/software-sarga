@@ -1,12 +1,46 @@
-$envVars = @{
-    "VITE_FIREBASE_API_KEY" = "AIzaSyAqsXy2h5rG0FQ0Cvreu1AIHC_-NRPxrpg"
-    "VITE_FIREBASE_AUTH_DOMAIN" = "sarga-prints.firebaseapp.com"
-    "VITE_FIREBASE_PROJECT_ID" = "sarga-prints"
-    "VITE_FIREBASE_STORAGE_BUCKET" = "sarga-prints.firebasestorage.app"
-    "VITE_FIREBASE_MESSAGING_SENDER_ID" = "1033339625034"
-    "VITE_FIREBASE_APP_ID" = "1:1033339625034:web:cbb9d1065edbcb7ef490b3"
-    "VITE_FIREBASE_MEASUREMENT_ID" = "G-5XD6YCERCC"
-    "VITE_API_URL" = "https://software-sarga-2.onrender.com/api"
+$expectedKeys = @(
+    "VITE_FIREBASE_API_KEY",
+    "VITE_FIREBASE_AUTH_DOMAIN",
+    "VITE_FIREBASE_PROJECT_ID",
+    "VITE_FIREBASE_STORAGE_BUCKET",
+    "VITE_FIREBASE_MESSAGING_SENDER_ID",
+    "VITE_FIREBASE_APP_ID",
+    "VITE_FIREBASE_MEASUREMENT_ID",
+    "VITE_API_URL"
+)
+
+$envVars = @{}
+
+function Load-EnvFile($filePath) {
+    if (Test-Path $filePath) {
+        Write-Host "Loading environment variables from $filePath..."
+        Get-Content $filePath | ForEach-Object {
+            $line = $_.Trim()
+            if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
+                $parts = $line -split "=", 2
+                $key = $parts[0].Trim()
+                $val = $parts[1].Trim().Trim('"').Trim("'")
+                if ($expectedKeys -contains $key) {
+                    $envVars[$key] = $val
+                }
+            }
+        }
+    }
+}
+
+# Try loading from local environment files
+Load-EnvFile "$PSScriptRoot\.env.local"
+Load-EnvFile "$PSScriptRoot\.env"
+
+# Fallback to system environment variables
+foreach ($key in $expectedKeys) {
+    if (-not $envVars.ContainsKey($key)) {
+        if (Test-Path "env:\$key") {
+            $envVars[$key] = Get-Content "env:\$key"
+        } else {
+            Write-Warning "Required environment variable '$key' not found in .env files or system environment."
+        }
+    }
 }
 
 foreach ($kv in $envVars.GetEnumerator()) {

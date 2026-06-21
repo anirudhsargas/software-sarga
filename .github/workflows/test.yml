@@ -1,0 +1,141 @@
+name: Sarga MIS Test Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: 20
+  SKIP_ML_TESTS: ${{ vars.RUN_ML_TESTS != 'true' && 'true' || 'false' }}
+  JWT_SECRET: "ci-test-secret-at-least-32-chars-long-for-github-actions"
+  NODE_ENV: test
+
+jobs:
+  backend-tests:
+    name: Backend API Integration Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Run backend tests
+        run: npm test
+        env:
+          CI: true
+
+  frontend-e2e:
+    name: Frontend E2E Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build client (for dev server)
+        run: npm run build
+
+      - name: Run Playwright tests
+        run: npx playwright test --config=e2e/playwright.config.js
+        env:
+          CI: true
+
+  website-e2e:
+    name: Website E2E Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build website (for dev server)
+        run: npm run build
+
+      - name: Run Playwright tests
+        run: npx playwright test --config=e2e/playwright.config.js
+        env:
+          CI: true
+
+  # ML tests are skipped by default. Set repository variable RUN_ML_TESTS=true to enable.
+  ml-tests:
+    name: ML Microservice Contract Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ml-service
+
+    if: ${{ vars.RUN_ML_TESTS == 'true' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: ml-service/requirements.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install pytest
+        run: pip install pytest requests
+
+      - name: Start ML service
+        run: |
+          python app.py &
+          sleep 5
+          curl -f http://127.0.0.1:5001/health || echo "ML service failed to start"
+
+      - name: Run ML tests
+        run: python -m pytest tests/ -v -x
+        env:
+          SKIP_ML_TESTS: false
+          ML_SERVICE_URL: http://127.0.0.1:5001
