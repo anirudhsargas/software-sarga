@@ -1370,7 +1370,7 @@ const ProductLibrary = () => {
         <PageContainer>
             <header className="stack-sm">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="mobile:stack" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                         {viewPath.length > 0 && (
                             <a 
                                 role="button"

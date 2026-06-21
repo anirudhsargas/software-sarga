@@ -107,10 +107,16 @@ const ScanItem = () => {
             navigator.permissions.query({ name: 'camera' }).then((status) => {
                 if (status.state === 'denied') {
                     setCameraError('Camera access is blocked in your browser settings. Please allow camera access for this site, then refresh the page.');
+                } else if (status.state === 'granted') {
+                    setIsCamActive(true);
                 }
                 status.addEventListener('change', () => {
                     if (status.state === 'granted' && mountedRef.current) {
                         setCameraError('');
+                        setIsCamActive(true);
+                    } else if (status.state === 'denied' && mountedRef.current) {
+                        setIsCamActive(false);
+                        setCameraError('Camera access is blocked in your browser settings. Please allow camera access for this site, then refresh the page.');
                     }
                 });
             }).catch(() => {});

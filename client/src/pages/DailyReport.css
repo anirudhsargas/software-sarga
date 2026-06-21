@@ -1061,6 +1061,7 @@ select:focus-visible,
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s;
+  flex-shrink: 0;
 }
 
 .dr-tab:hover {

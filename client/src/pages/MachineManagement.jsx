@@ -1192,14 +1192,15 @@ const MachineManagement = () => {
                     {/* Filter Bar */}
                     <div className="mm-filter-bar">
                         {/* Machine Type Filter */}
-                        <div className="row items-center gap-sm">
-                            <span className="text-sm font-medium muted">Type:</span>
-                            <div className="row gap-xs">
+                        <div className="mm-type-filter-container">
+                            <span className="text-sm font-medium muted" style={{ minWidth: 'fit-content', marginRight: '8px' }}>Type:</span>
+                            <div className="mm-filter-pills-row">
                                 {['All', 'Offset', 'Laser', 'Others'].map(type => (
                                     <button
                                         key={type}
                                         className={`btn btn-sm ${filterType === type ? 'btn-primary' : 'btn-ghost'} mm-filter-pill`}
                                         onClick={() => setFilterType(type)}
+                                        style={{ flexShrink: 0 }}
                                     >
                                         {type}
                                     </button>

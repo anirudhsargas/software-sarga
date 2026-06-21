@@ -579,12 +579,13 @@ const Customers = () => {
 
             <div className="customer-search-bar">
                 <div className="search-input-wrapper">
-                    <Search size={16} className="search-icon" aria-hidden="true" />
+                    <Search size={16} className="search-input-icon" aria-hidden="true" />
                     <label htmlFor="customer-search" className="sr-only">Search customers</label>
                     <input
                         id="customer-search"
                         name="customerSearch"
                         type="text"
+                        className="input-field"
                         placeholder="Search by name or mobile..."
                         value={searchInput}
                         onChange={e => setSearchInput(e.target.value)}

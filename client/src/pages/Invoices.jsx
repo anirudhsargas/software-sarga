@@ -367,7 +367,7 @@ const Invoices = () => {
           </div>
 
           {/* Invoices List Table */}
-          <div className="panel" style={{ overflowX: 'auto', padding: 0 }}>
+          <div className="panel table-responsive" style={{ padding: 0 }}>
             {loading ? (
               <InvoiceSkeleton />
             ) : invoices.length === 0 ? (
@@ -578,36 +578,38 @@ const Invoices = () => {
               {/* Order Items Table */}
               <div className="stack-xs">
                 <span className="font-semibold text-accent">Line Items</span>
-                <table className="table" style={{ width: '100%', fontSize: 13 }}>
-                  <caption className="sr-only">Invoice line items</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Item Description</th>
-                      <th scope="col" className="text-right">Quantity</th>
-                      <th scope="col" className="text-right">Unit Price</th>
-                      <th scope="col" className="text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parsedOrderLines.length === 0 ? (
+                <div className="table-responsive">
+                  <table className="table" style={{ width: '100%', fontSize: 13 }}>
+                    <caption className="sr-only">Invoice line items</caption>
+                    <thead>
                       <tr>
-                        <td colSpan="4" className="text-center muted">No detailed items recorded (Bulk Payment)</td>
+                        <th scope="col">Item Description</th>
+                        <th scope="col" className="text-right">Quantity</th>
+                        <th scope="col" className="text-right">Unit Price</th>
+                        <th scope="col" className="text-right">Total</th>
                       </tr>
-                    ) : (
-                      parsedOrderLines.map((line, idx) => (
-                        <tr key={idx}>
-                          <td>
-                            <div className="font-semibold">{line.product_name}</div>
-                            {line.description && <div className="text-xs muted">{line.description}</div>}
-                          </td>
-                          <td className="text-right">{line.quantity}</td>
-                          <td className="text-right">{formatCurrency(line.unit_price, true)}</td>
-                          <td className="text-right font-bold">{formatCurrency(line.total_amount, true)}</td>
+                    </thead>
+                    <tbody>
+                      {parsedOrderLines.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" className="text-center muted">No detailed items recorded (Bulk Payment)</td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        parsedOrderLines.map((line, idx) => (
+                          <tr key={idx}>
+                            <td>
+                              <div className="font-semibold">{line.product_name}</div>
+                              {line.description && <div className="text-xs muted">{line.description}</div>}
+                            </td>
+                            <td className="text-right">{line.quantity}</td>
+                            <td className="text-right">{formatCurrency(line.unit_price, true)}</td>
+                            <td className="text-right font-bold">{formatCurrency(line.total_amount, true)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* GST and Breakdown Summary */}

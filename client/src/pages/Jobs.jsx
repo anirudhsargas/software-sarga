@@ -443,7 +443,7 @@ const Jobs = () => {
                 >
                     <Zap size={14} /> Priority
                 </button>
-                <div className="relative flex-1" style={{ maxWidth: 180, minWidth: 140 }}>
+                <div className="relative flex-1" style={{ maxWidth: 180, minWidth: 155 }}>
                     <Building2 size={16} aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
                     <label htmlFor="job-branch-filter" className="sr-only">Filter by branch</label>
                     <select
