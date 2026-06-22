@@ -343,6 +343,7 @@ try {
 }
 app.use('/api', require('./routes/frontOffice'));
 app.use('/api/quick-billing', require('./routes/quickBilling'));
+app.use('/api/shortcuts', require('./routes/shortcuts'));
 app.use('/api', require('./routes/expenses'));
 app.use('/api', require('./routes/finance'));
 app.use('/api', require('./routes/expenses-extended'));

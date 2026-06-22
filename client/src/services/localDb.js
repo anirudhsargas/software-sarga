@@ -357,6 +357,7 @@ export async function saveVendor(vendor) {
             }
         } catch (err) {
             console.error('Failed to sync vendor save to server:', err);
+            throw err;
         }
     }
 

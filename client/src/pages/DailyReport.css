@@ -185,7 +185,7 @@
 .cashbook-add-row .form-select { flex: 0 0 120px; }
 .cashbook-add-row .form-input  { flex: 2; }
 
-.cash-amount-input-wrap.compact { height: 38px; }
+.cash-amount-input-wrap.compact { height: 38px; flex: 1; }
 .cash-amount-input.compact      { height: 38px; font-size: 15px; padding: 0 12px; }
 .currency-prefix.small          { height: 38px; font-size: 15px; padding: 0 10px; }
 

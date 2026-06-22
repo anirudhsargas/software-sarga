@@ -278,6 +278,56 @@ const Billing = () => {
     api.get('/staff?active=true').then(r => setStaffOptions(Array.isArray(r.data?.data) ? r.data.data : Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
 
+  // ── Shortcut Prefill ──
+  useEffect(() => {
+    const sc = location.state?.fromShortcut && location.state?.shortcut;
+    if (!sc) return;
+    // Prefill customer type
+    const typeMap = { walk_in: 'Walk-in', regular: 'Retail', credit: 'Wholesale' };
+    setForm(prev => ({ ...prev, type: typeMap[sc.customer_type] || 'Walk-in' }));
+    // Prefill order line
+    const line = {
+      id: `shortcut-${Date.now()}`,
+      product_id: sc.product_id || null,
+      product_name: sc.name,
+      quantity: 1,
+      unit_price: Number(sc.price) || 0,
+      total_amount: Number(sc.price) || 0,
+      calculation_type: 'flat',
+      applied_extras: [],
+      customPaperRate: 0,
+      is_double_side: false,
+      description: '',
+      category: '',
+      subcategory: '',
+      machine_id: null,
+      waste_prints: 0,
+      proof_prints: 0,
+      book_type: 'Laser',
+      colour: '',
+      numbering_from: '',
+      numbering_to: '',
+      special_instructions: '',
+      matter_text: '',
+      matter_file: null,
+      matter_preview: null,
+      is_inventory_item: false,
+    };
+    setOrderLines([line]);
+    // Prefill payment mode
+    const payMap = { cash: 'Cash', upi: 'UPI', card: 'Card', credit: 'Credit' };
+    const method = payMap[sc.payment_mode] || 'Cash';
+    setPayment(prev => ({
+      ...prev,
+      selectedMethods: [method],
+      methodAmounts: { Cash: method === 'Cash' ? Number(sc.price) || 0 : 0, UPI: method === 'UPI' ? Number(sc.price) || 0 : 0, Cheque: 0, 'Account Transfer': 0 },
+    }));
+    // Switch to summary tab for quick review
+    setActiveTab('summary');
+    // Clear state so re-render doesn't re-trigger
+    window.history.replaceState({}, document.title);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Auto UPI QR Generation ──
   useEffect(() => {
     const upiAmt = Number(payment.methodAmounts.UPI) || 0;
@@ -822,6 +872,7 @@ const Billing = () => {
       <header className="billing-header">
         <div className="billing-header__left" />
         <div className="billing-header__right">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/shortcuts')} title="Quick Bill Shortcuts"><Zap size={15} aria-hidden="true" /> Shortcuts</button>
           <button className="btn btn-ghost btn-sm" onClick={() => { setShowRecentBills(true); fetchRecentBills(); }}><Clock size={15} aria-hidden="true" /> Recent</button>
           <button className="btn btn-ghost btn-sm" onClick={handleChangeCustomer}><User size={15} aria-hidden="true" /> New Customer</button>
           <button className="btn btn-primary btn-sm" onClick={handleAddOrder} disabled={saving || !canProceed}>

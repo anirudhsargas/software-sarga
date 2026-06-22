@@ -1169,16 +1169,30 @@ const Customers = () => {
 
                                 <div>
                                     <label className="label">Branch</label>
-                                    <BranchSelect
-                                        className="input-field"
-                                        value={jobData.branch_id}
-                                        onChange={(e) => setJobData({ ...jobData, branch_id: e.target.value })}
-                                        required
-                                    >
-                                        {branches.map(b => (
-                                            <option key={b.id} value={b.id}>{b.name}</option>
-                                        ))}
-                                    </BranchSelect>
+                                    {isAdmin ? (
+                                        <BranchSelect
+                                            className="input-field"
+                                            value={jobData.branch_id}
+                                            onChange={(e) => setJobData({ ...jobData, branch_id: e.target.value })}
+                                            required
+                                        >
+                                            {branches.map(b => (
+                                                <option key={b.id} value={b.id}>{b.name}</option>
+                                            ))}
+                                        </BranchSelect>
+                                    ) : (
+                                        <div className="input-field" style={{
+                                            padding: '10px 14px',
+                                            background: 'var(--color-surface-disabled, #f4f5f7)',
+                                            border: '1px solid var(--color-border, #d0d7e3)',
+                                            borderRadius: '8px',
+                                            color: 'var(--color-text-muted, #5e6c84)',
+                                            cursor: 'not-allowed'
+                                        }}>
+                                            {branches.find(b => String(b.id) === String(user?.branch_id))?.name || 'Assigned Branch'}
+                                            <input type="hidden" name="branch_id" value={user?.branch_id || ''} />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

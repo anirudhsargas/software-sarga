@@ -231,8 +231,8 @@ router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant',
     }
 
     const [result] = await pool.query(`
-      INSERT INTO vendors (name, contact_person, phone, email, gstin, address, city, category, credit_days, credit_limit, notes, vendor_code, type, branch_id, order_link)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO vendors (name, contact_person, phone, email, gstin, address, city, category, credit_days, credit_limit, notes, vendor_code)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       vendorData.name,
       vendorData.contact_person || null,
@@ -245,10 +245,7 @@ router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant',
       vendorData.credit_days || 0,
       vendorData.credit_limit || 0,
       vendorData.notes || null,
-      vendorCode,
-      vendorData.type || 'Vendor',
-      vendorData.branch_id || null,
-      vendorData.order_link || null
+      vendorCode
     ]);
 
     auditLog(req.user.id, 'VENDOR_ADD', `Added vendor: ${vendorData.name} (${vendorCode})`, { entity_type: 'vendor', entity_id: result.insertId });
@@ -288,7 +285,7 @@ router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountan
 
     await pool.query(`
       UPDATE vendors
-      SET name = ?, contact_person = ?, phone = ?, email = ?, gstin = ?, address = ?, city = ?, category = ?, credit_days = ?, credit_limit = ?, notes = ?, vendor_code = ?, type = ?, branch_id = ?, order_link = ?
+      SET name = ?, contact_person = ?, phone = ?, email = ?, gstin = ?, address = ?, city = ?, category = ?, credit_days = ?, credit_limit = ?, notes = ?, vendor_code = ?
       WHERE id = ?
     `, [
       vendorData.name,
@@ -303,9 +300,6 @@ router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountan
       vendorData.credit_limit || 0,
       vendorData.notes || null,
       vendorData.vendor_code || null,
-      vendorData.type || 'Vendor',
-      vendorData.branch_id || null,
-      vendorData.order_link || null,
       id
     ]);
 

@@ -949,6 +949,110 @@ const DailyReport = () => {
         );
     };
 
+    const CashbookAddRow = ({ bookType }) => {
+        const [transactionType, setTransactionType] = useState('Credit In');
+        const [customerName, setCustomerName] = useState('');
+        const [customerPhone, setCustomerPhone] = useState('');
+        const [amount, setAmount] = useState('');
+        const [remarks, setRemarks] = useState('');
+        const [saving, setSaving] = useState(false);
+
+        const handleSubmit = async (e) => {
+            if (e) e.preventDefault();
+            if (!customerName || !amount || saving) return;
+            setSaving(true);
+            try {
+                await api.post('/daily-report/credits', {
+                    date: reportDate,
+                    book_type: bookType,
+                    transaction_type: transactionType,
+                    customer_name: customerName,
+                    customer_phone: customerPhone,
+                    amount: parseFloat(amount),
+                    remarks: remarks,
+                    branch_id: selectedBranch
+                });
+                toast.success('Entry added successfully');
+                setCustomerName('');
+                setCustomerPhone('');
+                setAmount('');
+                setRemarks('');
+                
+                if (bookType === 'Offset') fetchCreditTransactions();
+                else if (bookType === 'Laser') fetchLaserCredits();
+                else if (bookType === 'Other') fetchOtherCredits();
+                
+                fetchLiveCounts();
+            } catch (err) {
+                console.error('Error adding credit transaction:', err);
+                toast.error(err.response?.data?.error || 'Failed to add entry');
+            } finally {
+                setSaving(false);
+            }
+        };
+
+        return (
+            <form onSubmit={handleSubmit} className="cashbook-add-row">
+                <select
+                    className="input-field form-select"
+                    value={transactionType}
+                    onChange={e => setTransactionType(e.target.value)}
+                    disabled={saving}
+                >
+                    <option value="Credit In">Credit In</option>
+                    <option value="Credit Out">Credit Out</option>
+                </select>
+                <input
+                    type="text"
+                    className="input-field form-input"
+                    placeholder="Customer / Description *"
+                    value={customerName}
+                    onChange={e => setCustomerName(e.target.value)}
+                    disabled={saving}
+                    required
+                />
+                <input
+                    type="tel"
+                    className="input-field form-input"
+                    placeholder="Phone (Optional)"
+                    value={customerPhone}
+                    onChange={e => setCustomerPhone(e.target.value)}
+                    disabled={saving}
+                />
+                <input
+                    type="text"
+                    className="input-field form-input"
+                    placeholder="Remarks / Details (Optional)"
+                    value={remarks}
+                    onChange={e => setRemarks(e.target.value)}
+                    disabled={saving}
+                />
+                <div className="cash-amount-input-wrap compact">
+                    <span className="currency-prefix small">₹</span>
+                    <input
+                        type="number"
+                        className="cash-amount-input compact"
+                        placeholder="0.00 *"
+                        value={amount}
+                        onChange={e => setAmount(e.target.value)}
+                        min="0"
+                        step="0.01"
+                        disabled={saving}
+                        required
+                    />
+                </div>
+                <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={saving || !customerName || !amount}
+                    style={{ height: 38, padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                    {saving ? 'Adding...' : 'Add'}
+                </button>
+            </form>
+        );
+    };
+
     const EntryTable = ({ entries, type = 'offset' }) => {
         const PAGE_SIZE = 50;
         const [page, setPage] = useState(1);
@@ -1438,6 +1542,7 @@ const DailyReport = () => {
                     Transactions
                     <span className="badge panel-title-badge">{offsetData.entries?.length || 0}</span>
                 </h2>
+                <CashbookAddRow bookType="Offset" />
                 <EntryTable entries={offsetData.entries} type="offset" />
             </div>
             <CreditList bookKey="Offset" credits={creditTransactions} liveEntries={offsetData.entries} />
@@ -1463,6 +1568,7 @@ const DailyReport = () => {
                     Laser Work Details
                     <span className="badge panel-title-badge">{laserData.entries?.length || 0}</span>
                 </h2>
+                <CashbookAddRow bookType="Laser" />
                 <EntryTable entries={laserData.entries} type="laser" />
             </div>
             <CreditList bookKey="Laser" credits={laserCredits} liveEntries={laserData.entries} />
@@ -1488,6 +1594,7 @@ const DailyReport = () => {
                 <p className="other-panel-description">
                     Mementos, Photo Frames, Gifts & other non-printing products
                 </p>
+                <CashbookAddRow bookType="Other" />
                 <EntryTable entries={otherData.entries} type="other" />
             </div>
             <CreditList bookKey="Other" credits={otherCredits} liveEntries={otherData.entries} />

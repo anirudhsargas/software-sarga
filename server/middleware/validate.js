@@ -91,7 +91,7 @@ const addVendorSchema = z.object({
     credit_limit: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().min(0).optional().default(0)),
     notes: z.string().optional().nullable(),
     vendor_code: z.string().regex(/^[A-Z]{3}$/, 'Vendor code must be exactly 3 uppercase letters').optional().nullable().or(z.literal('')),
-    branch_id: z.preprocess(Number, z.number().int().positive()).optional().nullable(),
+    branch_id: z.preprocess((v) => (v === '' || v === null || v === undefined ? null : Number(v)), z.number().int().positive().nullable().optional()),
     order_link: z.string().optional().nullable()
 });
 
