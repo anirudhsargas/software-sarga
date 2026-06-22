@@ -1,7 +1,7 @@
 import { usePageTitle } from '../hooks/usePageTitle';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings } from 'lucide-react';
+import { User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings, Search } from 'lucide-react';
 import HolidayCalendar from '../components/HolidayCalendar';
 import SecureImage from '../components/SecureImage';
 import { useNavigate } from 'react-router-dom';
@@ -483,38 +483,33 @@ const StaffManagement = () => {
                     <h1 className="section-title">Staff Management</h1>
                     <p className="section-subtitle">Add and manage printing shop team members.</p>
                 </div>
-                {isAdmin && (
-                    <div className="row gap-sm">
-                        <button onClick={() => setShowHolidayModal(true)} className="btn btn-ghost" style={{ gap: 8 }}>
-                            <Calendar size={20} />
-                            <span>Mark Holiday</span>
-                        </button>
-                        <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
-                            <Plus size={20} />
-                            <span>Add Staff</span>
-                        </button>
-                    </div>
-                )}
             </div>
 
-            <div className="row gap-sm" style={{ marginBottom: 12 }}>
-                <input
-                    type="text"
-                    className="input-field"
-                    placeholder="Search staff..."
-                    style={{ minWidth: 180 }}
-                    value={searchInput}
-                    onChange={e => setSearchInput(e.target.value)}
-                />
-                <BranchSelect 
-                    className="input-field" 
-                    style={{ width: 180 }}
+            <div className="staff-toolbar">
+                <div className="staff-search-wrap">
+                    <Search className="staff-search-icon" size={16} />
+                    <input
+                        type="text"
+                        className="staff-search-input"
+                        placeholder="Search staff by name or role\u2026"
+                        value={searchInput}
+                        onChange={e => setSearchInput(e.target.value)}
+                    />
+                </div>
+                <select
+                    className="form-select branch-filter-select"
                     value={selectedBranchFilter}
                     onChange={e => setSelectedBranchFilter(e.target.value)}
                 >
                     <option value="">All Branches</option>
                     {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </BranchSelect>
+                </select>
+                {isAdmin && (
+                    <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
+                        <Plus size={18} />
+                        <span>Add Staff</span>
+                    </button>
+                )}
             </div>
 
             <div className="table-scroll">

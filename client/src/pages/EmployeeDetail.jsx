@@ -1,15 +1,27 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Briefcase, IndianRupee, User, Clock, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Briefcase, IndianRupee, User, Clock, AlertCircle, Loader2, CheckCircle, Phone, Mail, MapPin, Building, Edit3, UserX, ShieldCheck, X, Calendar } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
 import logger from '../utils/logger';
 import { serverToday, serverThisMonth } from '../services/serverTime';
 import { useOptimistic } from '../hooks/useOptimistic';
 import SecureImage from '../components/SecureImage';
+import toast from 'react-hot-toast';
 import './EmployeeDetail.css';
 import PageContainer from '../components/ui/PageContainer';
+
+const formatRole = (role) => {
+    if (!role) return '—';
+    return role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+};
 
 const createIdempotencyKey = () => (typeof crypto !== 'undefined' && crypto.randomUUID
     ? `salary-${crypto.randomUUID()}`
@@ -162,6 +174,14 @@ const EmployeeDetail = () => {
         payment_date: serverToday()
     });
     const [submitting, setSubmitting] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    const [editData, setEditData] = useState({});
+    const [saving, setSaving] = useState(false);
+    const [branches, setBranches] = useState([]);
+
+    const user = auth.getUser();
+    const canEdit = user && (user.role === 'Admin' || user.role === 'Accountant' || user.id === employee?.id);
+    const isAdmin = user?.role === 'Admin';
 
     const lastFetchedRef = useRef({ staffId: null, currentMonth: null });
 
@@ -173,7 +193,17 @@ const EmployeeDetail = () => {
         fetchEmployeeData();
         fetchAttendanceData();
         fetchSalaryCalculation();
+        fetchBranches();
     }, [staffId, currentMonth]);
+
+    const fetchBranches = async () => {
+        try {
+            const res = await api.get('/branches');
+            setBranches(res.data);
+        } catch (err) {
+            console.error('Failed to fetch branches');
+        }
+    };
 
     const fetchEmployeeData = async () => {
         try {
@@ -381,6 +411,36 @@ const EmployeeDetail = () => {
         });
     };
 
+    const handleSaveProfile = async () => {
+        setSaving(true);
+        try {
+            await api.put(`/users/${staffId}`, editData);
+            setEmployee(prev => ({ ...prev, ...editData }));
+            setEditMode(false);
+            toast.success('Profile updated');
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to save');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDeactivate = () => {
+        toast('Deactivation feature not yet implemented');
+    };
+
+    const enterEditMode = () => {
+        setEditData({
+            name: employee.name || '',
+            mobile: employee.user_id || '',
+            role: employee.role || '',
+            branch_id: employee.branch_id || '',
+            email: '',
+            address: ''
+        });
+        setEditMode(true);
+    };
+
     const salaryTotal = useMemo(() => (salaryInfo?.staff?.base_salary || 0), [salaryInfo]);
     const pendingPayment = useMemo(() => {
         return salaryTotal - (salaryInfo?.recentPayments?.reduce((sum, p) => sum + Number(p.payment_amount), 0) || 0);
@@ -423,25 +483,141 @@ const EmployeeDetail = () => {
                     </div>
                 )}
 
-                <div className="employee-detail__card">
-                    <div className="employee-detail__card-body">
-                        <div className="employee-detail__avatar">
-                            {employee.image_url
-                                ? <SecureImage src={employee.image_url} alt={employee.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                                : <User className="employee-detail__avatar-icon" />}
+                {editMode ? (
+                    <div className="staff-card identity-card edit-mode">
+                        <div className="edit-header">
+                            <h3>Edit Profile</h3>
+                            <button className="btn btn-ghost" style={{ padding: 6, minWidth: 'auto' }} onClick={() => setEditMode(false)}>
+                                <X size={18} />
+                            </button>
                         </div>
-                        <div>
-                            <h1 className="employee-detail__name">{employee.name}</h1>
-                            <p className="employee-detail__role">{employee.role}</p>
-                            <p className="employee-detail__meta">User ID: {employee.user_id}</p>
-                            <p className="employee-detail__meta">
-                                Today: {todayRecord?.status || 'Not marked'}
-                                {todayInTime ? ` | In ${todayInTime}` : ''}
-                                {todayOutTime ? ` | Out ${todayOutTime}` : ''}
-                            </p>
+                        <div className="edit-form-fields">
+                            <label>Name</label>
+                            <input className="form-input" value={editData.name} onChange={e => setEditData(p => ({ ...p, name: e.target.value }))} />
+
+                            <label>Phone</label>
+                            <input className="form-input" value={editData.mobile} onChange={e => setEditData(p => ({ ...p, mobile: e.target.value }))} />
+
+                            <label>Email</label>
+                            <input className="form-input" value={editData.email} onChange={e => setEditData(p => ({ ...p, email: e.target.value }))} disabled placeholder="N/A" />
+
+                            <label>Address</label>
+                            <textarea className="form-input" rows={3} value={editData.address} onChange={e => setEditData(p => ({ ...p, address: e.target.value }))} disabled placeholder="N/A" />
+
+                            {isAdmin && (
+                                <>
+                                    <label>Role</label>
+                                    <select className="form-select" value={editData.role} onChange={e => setEditData(p => ({ ...p, role: e.target.value }))}>
+                                        <option value="Front Office">Front Office</option>
+                                        <option value="Designer">Designer</option>
+                                        <option value="Printer">Printer</option>
+                                        <option value="Accountant">Accountant</option>
+                                        <option value="Other Staff">Other Staff</option>
+                                        <option value="Admin">Admin</option>
+                                    </select>
+
+                                    <label>Branch</label>
+                                    <select className="form-select" value={editData.branch_id} onChange={e => setEditData(p => ({ ...p, branch_id: e.target.value }))}>
+                                        <option value="">Select Branch</option>
+                                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                    </select>
+                                </>
+                            )}
+                        </div>
+                        <div className="edit-actions">
+                            <button className="btn btn-secondary" onClick={() => setEditMode(false)}>Cancel</button>
+                            <button className="btn btn-primary" onClick={handleSaveProfile} disabled={saving}>
+                                {saving ? 'Saving\u2026' : 'Save Changes'}
+                            </button>
                         </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="staff-profile-grid">
+                        {/* Left: Identity card */}
+                        <div className="staff-card identity-card">
+                            <div className="staff-avatar-wrap">
+                                <div className="staff-avatar">
+                                    {employee.image_url ? (
+                                        <SecureImage src={employee.image_url} alt={employee.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                    ) : (
+                                        employee.name?.charAt(0).toUpperCase()
+                                    )}
+                                </div>
+                                <div className="staff-avatar-info">
+                                    <h2 className="staff-name">{employee.name}</h2>
+                                    <span className={`role-badge role-${employee.role?.toLowerCase().replace(/\s+/g, '_')}`}>
+                                        {formatRole(employee.role)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="staff-meta-row">
+                                <Building size={15} />
+                                <span>{employee.branch_name || '\u2014'}</span>
+                            </div>
+
+                            <div className="staff-meta-row">
+                                <Calendar size={15} />
+                                <span>Joined {formatDate(employee.created_at)}</span>
+                            </div>
+
+                            <div className="identity-actions">
+                                {canEdit && (
+                                    <button className="btn btn-secondary btn-block" onClick={enterEditMode}>
+                                        <Edit3 size={15} /> Edit Profile
+                                    </button>
+                                )}
+                                {isAdmin && (
+                                    <button className="btn btn-ghost btn-block" style={{ color: 'var(--error)' }} onClick={handleDeactivate}>
+                                        <UserX size={15} />
+                                        {employee.is_active !== false ? 'Deactivate' : 'Reactivate'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Right: Detail cards */}
+                        <div className="staff-detail-column">
+                            <div className="staff-card">
+                                <h3 className="staff-card-title">Contact Info</h3>
+                                <div className="staff-detail-list">
+                                    <div className="detail-row">
+                                        <Phone size={16} />
+                                        <span>{employee.user_id || '\u2014'}</span>
+                                    </div>
+                                    <div className="detail-row">
+                                        <Mail size={16} />
+                                        <span>{'\u2014'}</span>
+                                    </div>
+                                    <div className="detail-row">
+                                        <MapPin size={16} />
+                                        <span>{'\u2014'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="staff-card">
+                                <h3 className="staff-card-title">Employment</h3>
+                                <div className="staff-detail-list">
+                                    <div className="detail-row">
+                                        <ShieldCheck size={16} />
+                                        <span>ID: EMP-{employee.id}</span>
+                                    </div>
+                                    <div className="detail-row">
+                                        <IndianRupee size={16} />
+                                        <span>{employee.salary_type === 'Monthly' ? 'Monthly Salary' : 'Daily Wage'}</span>
+                                    </div>
+                                    <div className="detail-row">
+                                        <ShieldCheck size={16} />
+                                        <span className={`status-badge ${employee.is_active !== false ? 'active' : 'inactive'}`}>
+                                            {employee.is_active !== false ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="employee-detail__tabs">
                     <button

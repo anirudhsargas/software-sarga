@@ -16,6 +16,7 @@ const PrinterDashboard = () => {
   const navigate = useNavigate();
   const user = auth.getUser();
   const staffId = React.useMemo(() => user?.id, [user?.id]);
+  const userRole = user?.role;
   const { isOnline } = useOfflineSync();
   const [loading, setLoading] = useState(true);
   const [workHistory, setWorkHistory] = useState([]);
@@ -34,7 +35,7 @@ const PrinterDashboard = () => {
     setFetchError(false);
     try {
       const [history, branchList] = await Promise.all([
-        localDb.getStaffWorkHistory(staffId),
+        localDb.getStaffWorkHistory(staffId, userRole),
         localDb.getBranches()
       ]);
       setWorkHistory(history || []);

@@ -416,7 +416,11 @@ const Customers = () => {
             const data = await localDb.getBranches();
             setBranches(data || []);
             if ((data || []).length > 0) {
-                setJobData(prev => ({ ...prev, branch_id: data[0].id }));
+                const userIsAdmin = ['admin', 'super_admin'].includes(user?.role?.toLowerCase());
+                setJobData(prev => ({ 
+                    ...prev, 
+                    branch_id: userIsAdmin ? data[0].id : (user?.branch_id || data[0].id) 
+                }));
             }
         } catch {
             console.error('Failed to fetch branches');
@@ -518,9 +522,11 @@ const Customers = () => {
     };
 
     const resetJobForm = () => {
+        const userIsAdmin = ['admin', 'super_admin'].includes(user?.role?.toLowerCase());
         setJobData({
             total_amount: 0, advance_paid: 0, delivery_date: '', applied_extras: [],
-            branch_id: branches[0]?.id || '', customPaperRate: 0, is_double_side: false
+            branch_id: userIsAdmin ? (branches[0]?.id || '') : (user?.branch_id || branches[0]?.id || ''),
+            customPaperRate: 0, is_double_side: false
         });
         setSelectedProduct(null);
         setExtraInputs([]);

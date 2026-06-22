@@ -159,7 +159,7 @@ const DailyReport = () => {
 
     const [openingBalances, setOpeningBalances] = useState({ Offset: 0, Laser: 0, Other: 0 });
     const [lockedBalances, setLockedBalances] = useState({ Offset: false, Laser: false, Other: false });
-    const [editingBalance, setEditingBalance] = useState(null);
+    const [, setEditingBalance] = useState(null);
     const [tempBalance, setTempBalance] = useState('');
 
     // Change request state
@@ -853,63 +853,96 @@ const DailyReport = () => {
 
     // ═══════════════════ SUB-COMPONENTS ═══════════════════
 
-    const OpeningBalanceCard = ({ bookType }) => {
-        const isEditing = editingBalance === bookType;
+    const CashOpeningCard = ({ bookType }) => {
         const currentValue = openingBalances[bookType] || 0;
         const isLocked = lockedBalances[bookType] && !isAdmin;
-        const tabMeta = TABS.find(t => t.key === bookType);
+        const isSet = currentValue > 0 && !isLocked;
+        const [localAmount, setLocalAmount] = useState('');
+        const [saving, setSaving] = useState(false);
+        const [showEdit, setShowEdit] = useState(false);
+        const todayStr = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+
+        const handleSet = async () => {
+            if (!localAmount || saving) return;
+            setSaving(true);
+            try {
+                await saveOpeningBalance(bookType, localAmount);
+                setShowEdit(false);
+                setLocalAmount('');
+            } finally {
+                setSaving(false);
+            }
+        };
 
         return (
-            <div className="dr-opening-card" style={{ background: tabMeta.bg, borderColor: `${tabMeta.color}22` }}>
-                <div>
-                    <div className="dr-opening-label">
-                        <Wallet size={13} />
-                        Cash Opening — {bookType}
-                        {isLocked && (
-                            <span className="dr-opening-locked">
-                                <Lock size={11} /> Locked
-                            </span>
-                        )}
+            <div className="cash-opening-card">
+                <div className="cash-opening-header">
+                    <div className="cash-opening-icon">
+                        <Wallet size={20} />
                     </div>
-                    {isEditing ? (
-                        <div className="row gap-sm dr-opening-edit-row">
-                            <input
-                                type="number" className="input-field dr-opening-input" value={tempBalance}
-                                onChange={(e) => setTempBalance(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') saveOpeningBalance(bookType, tempBalance);
-                                    if (e.key === 'Escape') setEditingBalance(null);
-                                }}
-                                autoFocus step="0.01"
-                            />
-                            <button className="btn btn-primary btn-sm" onClick={() => saveOpeningBalance(bookType, tempBalance)}>
-                                <Check size={14} /> Save
-                            </button>
-                            <button className="btn btn-ghost btn-sm" onClick={() => setEditingBalance(null)}>
-                                <X size={14} />
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="dr-opening-value" style={{ color: tabMeta.color }}>
-                            {formatCurrency(currentValue)}
-                        </div>
+                    <div>
+                        <h3 className="cash-opening-title">Opening Balance — {bookType}</h3>
+                        <p className="cash-opening-subtitle">{todayStr}</p>
+                    </div>
+                    {isSet && !showEdit && (
+                        <span className="cash-opening-badge done">
+                            <Check size={12} /> Set
+                        </span>
+                    )}
+                    {isLocked && (
+                        <span className="cash-opening-badge done" style={{ background: 'color-mix(in srgb, var(--warning), transparent 85%)', color: 'var(--warning)' }}>
+                            <Lock size={12} /> Locked
+                        </span>
                     )}
                 </div>
-                {!isEditing && (
-                    <div className="row gap-sm">
-                        {canEditBalance && !isLocked && (
-                            <button className="btn btn-ghost btn-sm" onClick={() => { setTempBalance(String(currentValue)); setEditingBalance(bookType); }}>
-                                <Edit3 size={14} /> {currentValue > 0 ? 'Edit' : 'Set'}
-                            </button>
-                        )}
-                        {isLocked && isFrontOffice && (
-                            <button className="btn btn-ghost btn-sm dr-opening-request-btn"
-                                onClick={() => { setShowChangeRequest({ type: 'balance', bookType, currentValue }); setChangeRequestValue(String(currentValue)); setChangeRequestNote(''); }}
-                                title="Request change from Admin"
+
+                {!isSet || showEdit ? (
+                    <div className="cash-opening-form">
+                        <div className="cash-amount-input-wrap">
+                            <span className="currency-prefix">₹</span>
+                            <input
+                                type="number"
+                                className="cash-amount-input"
+                                placeholder="0.00"
+                                value={showEdit ? tempBalance : localAmount}
+                                onChange={e => showEdit ? setTempBalance(e.target.value) : setLocalAmount(e.target.value)}
+                                autoFocus
+                                min="0"
+                                step="0.01"
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                                className="btn btn-primary cash-opening-submit"
+                                onClick={showEdit ? () => saveOpeningBalance(bookType, tempBalance) : handleSet}
+                                disabled={saving || (!showEdit && !localAmount)}
+                                style={{ flex: 1 }}
                             >
-                                <Send size={14} /> Request Change
+                                {saving ? 'Saving\u2026' : (showEdit ? 'Save' : 'Set Opening Balance')}
                             </button>
-                        )}
+                            {showEdit && (
+                                <button className="btn btn-ghost" onClick={() => { setShowEdit(false); setEditingBalance(null); }} style={{ height: 44 }}>
+                                    Cancel
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="cash-opening-set-display">
+                        <span className="opening-amount-display">₹ {formatCurrency(currentValue)}</span>
+                        <div className="row gap-sm">
+                            {canEditBalance && !isLocked && (
+                                <button className="btn btn-ghost btn-sm" onClick={() => { setTempBalance(String(currentValue)); setShowEdit(true); }}>
+                                    <Edit3 size={14} /> Edit
+                                </button>
+                            )}
+                            {isLocked && isFrontOffice && (
+                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--warning)' }}
+                                    onClick={() => { setShowChangeRequest({ type: 'balance', bookType, currentValue }); setChangeRequestValue(String(currentValue)); setChangeRequestNote(''); }}>
+                                    <Send size={14} /> Request Change
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
@@ -1362,9 +1395,34 @@ const DailyReport = () => {
     };
 
     // ─── Tab Content ────────────────────────────────────────────
+    const renderCashbookSummaryStrip = (summary) => {
+        const totalIn = (Number(summary.total_cash_in) || 0) + (Number(summary.total_upi_in) || 0);
+        const totalOut = Number(summary.total_cash_out) || 0;
+        const opening = Number(summary.cash_opening) || 0;
+        const closing = opening + totalIn - totalOut;
+        return (
+            <div className="cashbook-summary-strip">
+                <div className="summary-item income">
+                    <span className="summary-label">Total In</span>
+                    <span className="summary-value">₹ {formatCurrency(totalIn)}</span>
+                </div>
+                <div className="summary-divider" />
+                <div className="summary-item expense">
+                    <span className="summary-label">Total Out</span>
+                    <span className="summary-value">₹ {formatCurrency(totalOut)}</span>
+                </div>
+                <div className="summary-divider" />
+                <div className="summary-item balance">
+                    <span className="summary-label">Closing Balance</span>
+                    <span className="summary-value">₹ {formatCurrency(closing)}</span>
+                </div>
+            </div>
+        );
+    };
+
     const OffsetTab = () => (
         <div className="stack-md">
-            <OpeningBalanceCard bookType="Offset" />
+            <CashOpeningCard bookType="Offset" />
             {liveCounts?.offset && (
                 <StatRow items={[
                     { value: liveCounts.offset.income_count, label: 'Billings', icon: BarChart3, color: 'var(--accent)' },
@@ -1373,6 +1431,7 @@ const DailyReport = () => {
                     { value: formatCurrency(liveCounts.offset.total_expenses), label: 'Spent', icon: ArrowDownRight, color: 'var(--error)' }
                 ]} />
             )}
+            {renderCashbookSummaryStrip(offsetData.summary || {})}
             <div className="panel">
                 <h2 className="panel-title panel-title--badge">
                     <FileText size={16} />
@@ -1382,13 +1441,12 @@ const DailyReport = () => {
                 <EntryTable entries={offsetData.entries} type="offset" />
             </div>
             <CreditList bookKey="Offset" credits={creditTransactions} liveEntries={offsetData.entries} />
-            <SummaryPanel summary={offsetData.summary || {}} tabKey="Offset" />
         </div>
     );
 
     const LaserTab = () => (
         <div className="stack-md">
-            <OpeningBalanceCard bookType="Laser" />
+            <CashOpeningCard bookType="Laser" />
             <MachineSection />
             {liveCounts?.laser && (
                 <StatRow items={[
@@ -1398,6 +1456,7 @@ const DailyReport = () => {
                     { value: formatCurrency(liveCounts.laser.total_collected), label: 'Collected', icon: TrendingUp, color: 'var(--success)' }
                 ]} />
             )}
+            {renderCashbookSummaryStrip(laserData.summary || {})}
             <div className="panel">
                 <h2 className="panel-title panel-title--badge">
                     <FileText size={16} />
@@ -1407,19 +1466,19 @@ const DailyReport = () => {
                 <EntryTable entries={laserData.entries} type="laser" />
             </div>
             <CreditList bookKey="Laser" credits={laserCredits} liveEntries={laserData.entries} />
-            <SummaryPanel summary={laserData.summary || {}} tabKey="Laser" />
         </div>
     );
 
     const OtherTab = () => (
         <div className="stack-md">
-            <OpeningBalanceCard bookType="Other" />
+            <CashOpeningCard bookType="Other" />
             {liveCounts?.other && (
                 <StatRow items={[
                     { value: liveCounts.other.income_count, label: 'Billings', icon: BarChart3, color: 'var(--accent)' },
                     { value: formatCurrency(liveCounts.other.total_collected), label: 'Collected', icon: TrendingUp, color: 'var(--success)' }
                 ]} />
             )}
+            {renderCashbookSummaryStrip(otherData.summary || {})}
             <div className="panel">
                 <h2 className="panel-title panel-title--badge">
                     <Package size={16} />
@@ -1432,7 +1491,6 @@ const DailyReport = () => {
                 <EntryTable entries={otherData.entries} type="other" />
             </div>
             <CreditList bookKey="Other" credits={otherCredits} liveEntries={otherData.entries} />
-            <SummaryPanel summary={otherData.summary || {}} tabKey="Other" />
         </div>
     );
 

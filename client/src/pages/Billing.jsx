@@ -261,6 +261,12 @@ const Billing = () => {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (user?.branch_id && !['admin', 'super_admin'].includes(user?.role?.toLowerCase())) {
+      setSelectedBranchId(user.branch_id);
+    }
+  }, [user]);
+
   // Fetch branch UPI
   useEffect(() => {
     if (!selectedBranchId) { setBranchUpiId(''); return; }
@@ -313,6 +319,7 @@ const Billing = () => {
   }, []);
 
   const canProceed = useMemo(() => {
+    if (!form.type) return false;
     if (isWalkIn) return orderLines.length > 0;
     if (form.type === 'Retail') return orderLines.length > 0;
     if (form.type === 'Wholesale') return form.gst.trim().length > 0 && orderLines.length > 0;
@@ -621,6 +628,12 @@ const Billing = () => {
       toast.error('Branch is required.');
       return;
     }
+    // Customer type validation
+    if (!form.type) {
+      setError('Please select a customer type.');
+      toast.error('Customer type is required.');
+      return;
+    }
     // Job type is optional — save if selected, skip if not
     if (!canProceed) { setError('Complete customer details and add at least one product.'); return; }
     if (orderLines.length === 0) { setError('Add at least one product.'); return; }
@@ -820,10 +833,10 @@ const Billing = () => {
       {/* STICKY SUMMARY BAR — Branch + Stats */}
       <div className="billing-summary-bar">
         {/* Branch selector / display */}
-        {user?.branch_id ? (
+        {!['admin', 'super_admin'].includes(user?.role?.toLowerCase()) ? (
           <div className="billing-summary-bar__item">
             <Building2 size={14} />
-            <span>{branches.find(b => String(b.id) === String(user.branch_id))?.name || user.branch_short_name || 'Branch'}</span>
+            <span>{branches.find(b => String(b.id) === String(selectedBranchId || user?.branch_id))?.name || user?.branch_short_name || 'Branch'}</span>
           </div>
         ) : (
           <div className={`billing-summary-bar__item${branchRequiresAttention ? ' billing-summary-bar__item--branch-required' : ''}`}>
@@ -878,11 +891,35 @@ const Billing = () => {
       <div className="billing-section billing-section--customer" style={{ display: activeTab === 'customer' ? 'flex' : 'none' }}>
         <div className="billing-section__header"><User size={16} /> <h2>Customer</h2></div>
 
-        {/* Customer type chips */}
-        <div className="billing-chips">
-          {['Retail', 'Walk-in', 'Offset', 'Wholesale'].map(t => (
-            <button key={t} className={`chip ${form.type === t ? 'active' : ''}`} onClick={() => setForm(p => ({ ...p, type: t }))}>{t}</button>
-          ))}
+        {/* Customer Type Dropdown */}
+        <div className="billing-field" style={{ marginBottom: '16px', position: 'relative' }}>
+          <Users size={14} className="billing-field__icon" aria-hidden="true" />
+          <label htmlFor="billing-customer-type" className="sr-only">Customer Type</label>
+          <select
+            id="billing-customer-type"
+            name="customerType"
+            className="billing-field__input"
+            value={form.type || ''}
+            onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
+            required
+            style={{
+              appearance: 'none',
+              background: 'transparent',
+              border: 'none',
+              width: '100%',
+              outline: 'none',
+              cursor: 'pointer',
+              color: 'var(--text)',
+              paddingRight: '24px'
+            }}
+          >
+            <option value="" disabled style={{ background: 'var(--card)', color: 'var(--text-muted)' }}>Select Customer Type *</option>
+            <option value="Retail" style={{ background: 'var(--card)' }}>Retail</option>
+            <option value="Walk-in" style={{ background: 'var(--card)' }}>Walk-in</option>
+            <option value="Offset" style={{ background: 'var(--card)' }}>Offset</option>
+            <option value="Wholesale" style={{ background: 'var(--card)' }}>Wholesale</option>
+          </select>
+          <ChevronDown size={14} style={{ position: 'absolute', right: '12px', pointerEvents: 'none', color: 'var(--text-muted)' }} />
         </div>
 
         {/* Search existing customer */}

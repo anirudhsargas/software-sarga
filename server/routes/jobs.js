@@ -1224,6 +1224,119 @@ router.put('/jobs/assignments/:id/status', authenticateToken, async (req, res) =
     }
 });
 
+// ── Simplified single-job assignment endpoints ──
+
+// POST /jobs/:id/assign — Assign staff (individual or by role) to a specific job
+router.post('/jobs/:id/assign', authenticateToken, async (req, res) => {
+    try {
+        // RBAC: Only Admin, Front Office, and super_admin can assign
+        const normalized = String(req.user.role || '').toLowerCase().replace(/\s+/g, '_');
+        if (!['admin', 'super_admin', 'front_office'].includes(normalized)) {
+            return res.status(403).json({ message: 'You do not have permission to assign staff' });
+        }
+
+        const jobId = Number(req.params.id);
+        if (!Number.isFinite(jobId)) return res.status(400).json({ message: 'Invalid job ID' });
+
+        const { assign_type, staff_id, role } = req.body;
+
+        if (!assign_type || !['staff', 'role'].includes(assign_type)) {
+            return res.status(400).json({ message: 'assign_type must be "staff" or "role"' });
+        }
+
+        if (assign_type === 'staff') {
+            if (!staff_id) return res.status(400).json({ message: 'staff_id is required for staff assignment' });
+            await pool.query(
+                `INSERT IGNORE INTO sarga_job_staff_assignments (job_id, staff_id, role, status)
+                 VALUES (?, ?, (SELECT role FROM sarga_staff WHERE id = ?), 'Pending')`,
+                [jobId, staff_id, staff_id]
+            );
+        } else {
+            if (!role) return res.status(400).json({ message: 'role is required for role assignment' });
+            const [staffList] = await pool.query(
+                'SELECT id FROM sarga_staff WHERE role = ? AND role != "Admin"',
+                [role]
+            );
+            for (const s of staffList) {
+                await pool.query(
+                    `INSERT IGNORE INTO sarga_job_staff_assignments (job_id, staff_id, role, status)
+                     VALUES (?, ?, ?, 'Pending')`,
+                    [jobId, s.id, role]
+                );
+            }
+        }
+
+        const [assignments] = await pool.query(
+            `SELECT jsa.*, s.name AS staff_name, s.role AS staff_role
+             FROM sarga_job_staff_assignments jsa
+             LEFT JOIN sarga_staff s ON s.id = jsa.staff_id
+             WHERE jsa.job_id = ?`,
+            [jobId]
+        );
+
+        res.json({ success: true, assignments });
+    } catch (err) {
+        console.error('Error assigning staff:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// GET /jobs/:id/assign — Get current assignments for a job
+router.get('/jobs/:id/assign', authenticateToken, async (req, res) => {
+    try {
+        const jobId = Number(req.params.id);
+        if (!Number.isFinite(jobId)) return res.status(400).json({ message: 'Invalid job ID' });
+
+        const [assignments] = await pool.query(
+            `SELECT jsa.*, s.name AS staff_name, s.role AS staff_role
+             FROM sarga_job_staff_assignments jsa
+             LEFT JOIN sarga_staff s ON s.id = jsa.staff_id
+             WHERE jsa.job_id = ?`,
+            [jobId]
+        );
+
+        res.json({ success: true, assignments });
+    } catch (err) {
+        console.error('Error fetching assignments:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// DELETE /jobs/:id/assign/:userId — Remove a single assignment from a job
+router.delete('/jobs/:id/assign/:userId', authenticateToken, async (req, res) => {
+    try {
+        // RBAC: Only Admin, Front Office, and super_admin can unassign
+        const normalized = String(req.user.role || '').toLowerCase().replace(/\s+/g, '_');
+        if (!['admin', 'super_admin', 'front_office'].includes(normalized)) {
+            return res.status(403).json({ message: 'You do not have permission to unassign staff' });
+        }
+
+        const jobId = Number(req.params.id);
+        const userId = Number(req.params.userId);
+        if (!Number.isFinite(jobId) || !Number.isFinite(userId)) {
+            return res.status(400).json({ message: 'Invalid job ID or user ID' });
+        }
+
+        await pool.query(
+            'DELETE FROM sarga_job_staff_assignments WHERE job_id = ? AND staff_id = ?',
+            [jobId, userId]
+        );
+
+        const [assignments] = await pool.query(
+            `SELECT jsa.*, s.name AS staff_name, s.role AS staff_role
+             FROM sarga_job_staff_assignments jsa
+             LEFT JOIN sarga_staff s ON s.id = jsa.staff_id
+             WHERE jsa.job_id = ?`,
+            [jobId]
+        );
+
+        res.json({ success: true, assignments, message: 'Assignment removed' });
+    } catch (err) {
+        console.error('Error removing assignment:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
 // GET /jobs/offset-pending — Fetch jobs explicitly for Offset Print Ganging (Plate Management)
 router.get('/jobs/offset-pending', authenticateToken, async (req, res) => {
     try {

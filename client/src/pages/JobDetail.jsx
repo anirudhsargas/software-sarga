@@ -7,7 +7,7 @@ import LoadingButton from '../components/LoadingButton';
 import api, { imgUrl } from '../services/api';
 import localDb from '../services/localDb';
 import SecureImage from '../components/SecureImage';
-import auth from '../services/auth';
+
 import toast from 'react-hot-toast';
 import { downloadInvoicePDF } from '../utils/invoicePdf';
 import { whatsappUrl, workStatusMessage, paymentReminderMessage, orderReadyMessage } from '../utils/whatsapp';
@@ -15,6 +15,8 @@ import { formatCurrency } from '../utils/formatters';
 const fmt = formatCurrency;
 import './JobDetail.css';
 import PageContainer from '../components/ui/PageContainer';
+import useAuth from '../hooks/useAuth';
+import AssignStaff from '../components/AssignStaff';
 
 const statusColors = {
     Pending: 'var(--warning)',
@@ -152,7 +154,8 @@ const JobDetail = () => {
 
     const { id } = useParams();
     const navigate = useNavigate();
-    const userRole = auth.getUser()?.role;
+    const { user } = useAuth();
+    const userRole = user?.role;
     const { data, setData, optimisticUpdate } = useOptimistic(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -181,13 +184,7 @@ const JobDetail = () => {
     const [editingRequired, setEditingRequired] = useState(false);
     const [requiredInput, setRequiredInput] = useState('');
 
-    // Staff assignment states
-    const [staffList, setStaffList] = useState([]);
-    const [showAssignModal, setShowAssignModal] = useState(false);
-    const [assignRole, setAssignRole] = useState('');
-    const [assignStaffIds, setAssignStaffIds] = useState([]);
-    const [assignGeneric, setAssignGeneric] = useState(false);
-    const [savingAssignment, setSavingAssignment] = useState(false);
+
 
     // Job designs state
     const [jobDesigns, setJobDesigns] = useState([]);
@@ -215,6 +212,8 @@ const JobDetail = () => {
     const [plateInput, setPlateInput] = useState('');
 
     const isFrontOffice = userRole === 'Front Office';
+    const ROLES_CAN_ASSIGN = ['Admin', 'Front Office'];
+    const canAssign = ROLES_CAN_ASSIGN.includes(userRole);
 
     const fetchJob = async () => {
         try {
@@ -491,72 +490,12 @@ const JobDetail = () => {
         } catch { toast.error('Failed to update'); }
     };
 
-    const handleSaveAssignment = async () => {
-        if (!assignRole) {
-            toast.error('Please select a role');
-            return;
-        }
-        if (!assignGeneric && assignStaffIds.length === 0) {
-            toast.error('Please select at least one staff member or choose Any');
-            return;
-        }
-
-        setSavingAssignment(true);
-        try {
-            const payload = [];
-            if (assignGeneric) {
-                payload.push({
-                    job_id: Number(id),
-                    staff_id: 'role',
-                    role: assignRole
-                });
-            } else {
-                for (const staffId of assignStaffIds) {
-                    payload.push({
-                        job_id: Number(id),
-                        staff_id: staffId,
-                        role: assignRole
-                    });
-                }
-            }
-
-            await api.post('/jobs/assignments/bulk', { assignments: payload });
-            toast.success('Staff assigned successfully');
-            setShowAssignModal(false);
-            setAssignRole('');
-            setAssignStaffIds([]);
-            setAssignGeneric(false);
-            await fetchJob();
-        } catch (e) {
-            toast.error(e.response?.data?.error || e.response?.data?.message || 'Failed to assign staff');
-        } finally {
-            setSavingAssignment(false);
-        }
-    };
-
-    const handleRemoveAssignment = async (assignmentId) => {
-        if (!window.confirm('Are you sure you want to remove this assignment?')) return;
-        try {
-            await api.delete(`/jobs/assignments/${assignmentId}`);
-            toast.success('Assignment removed');
-            await fetchJob();
-        } catch (e) {
-            toast.error(e.response?.data?.error || e.response?.data?.message || 'Failed to remove assignment');
-        }
-    };
-
     useEffect(() => {
         fetchJob();
         fetchPaperLogs();
         fetchDesigns();
         fetchProofs();
         fetchMatter();
-
-        if (['Admin', 'Front Office', 'front office'].includes(userRole)) {
-            api.get('/staff').then(res => {
-                setStaffList(Array.isArray(res.data) ? res.data : res.data.data || []);
-            }).catch(e => console.error('Error fetching staff list:', e));
-        }
 
         // Fetch branch UPI for invoice QR code
         api.get('/branches').then(res => {
@@ -606,6 +545,10 @@ const JobDetail = () => {
             successMsg: `Assignment status: ${newStatus}`,
             errorMsg: 'Failed to update assignment'
         });
+    };
+
+    const handleAssignmentsUpdate = (newAssignments) => {
+        setData(prev => ({ ...prev, assignments: newAssignments }));
     };
 
     const handleUpdateStatus = async (newStatus) => {
@@ -1181,73 +1124,13 @@ const JobDetail = () => {
                     <Section
                         title="Workforce & Production Status"
                         icon={Users}
-                        action={['Admin', 'Front Office', 'front office'].includes(userRole) && (
-                            <button
-                                className="btn btn-outline btn-xs"
-                                onClick={() => {
-                                    setAssignRole('');
-                                    setAssignStaffIds([]);
-                                    setAssignGeneric(false);
-                                    setShowAssignModal(true);
-                                }}
-                                style={{ display: 'flex', alignItems: 'center', gap: 4, height: '28px', padding: '0 8px' }}
-                            >
-                                <Plus size={14} /> Assign Staff
-                            </button>
-                        )}
                     >
-                        {assignments?.length > 0 ? (
-                            <div className="job-workforce-grid">
-                                {assignments.map((a, i) => {
-                                     const isCompleted = a.status === 'Completed';
-                                     const isProcessing = a.status === 'Processing' || a.status === 'In Progress';
-                                     const statusColor = isCompleted ? 'var(--success)' : isProcessing ? 'var(--accent)' : 'var(--muted)';
-
-                                     return (
-                                         <div key={i} className={`workforce-card ${isProcessing ? 'workforce-card--processing' : ''}`}>
-                                             {isProcessing && (
-                                                 <div className="workforce-card-accent-bar" />
-                                             )}
-
-                                             <div className="workforce-card-avatar" style={{ background: statusColor + '15', color: statusColor, borderColor: statusColor + '33' }}>
-                                                 {a.staff_name?.[0] || (a.staff_id ? '?' : '👥')}
-                                             </div>
-
-                                             <div className="workforce-card-content">
-                                                 <div className="workforce-card-header">
-                                                     <div>
-                                                         <div className="workforce-card-name">{a.staff_name || `Unassigned — ${a.role || a.staff_role}`}</div>
-                                                         <div className="workforce-card-role">{a.staff_name ? (a.staff_role || a.role) : 'Generic Role Assignment'}</div>
-                                                     </div>
-                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                         <div className={`badge ${isCompleted ? 'badge--success' : isProcessing ? 'badge--info' : 'badge--neutral'}`} style={{ opacity: a._updating ? 0.6 : 1 }}>
-                                                             {isCompleted && <CheckCircle2 size={10} />}
-                                                             {isProcessing && !a._updating && <div className="pulse-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />}
-                                                             {a._updating ? <Loader2 size={10} className="animate-spin" /> : (a.status || 'Assigned')}
-                                                         </div>
-                                                         {['Admin', 'Front Office', 'front office'].includes(userRole) && (
-                                                             <button
-                                                                 className="btn btn-ghost btn-xs"
-                                                                 onClick={() => handleRemoveAssignment(a.id)}
-                                                                 title="Remove Assignment"
-                                                                 style={{ padding: 4, minWidth: 0, height: 'auto', display: 'flex', alignItems: 'center', color: 'var(--error)' }}
-                                                             >
-                                                                 <Trash2 size={14} />
-                                                             </button>
-                                                         )}
-                                                     </div>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                     );
-                                 })}
-                            </div>
-                        ) : (
-                            <div className="workforce-empty">
-                                <Users size={32} />
-                                <div>No production staff assigned to this job yet.</div>
-                            </div>
-                        )}
+                        <AssignStaff
+                            jobId={id}
+                            currentAssignments={assignments || []}
+                            onAssigned={handleAssignmentsUpdate}
+                            canAssign={canAssign}
+                        />
                     </Section>
 
                     {/* Applied Extras */}
@@ -2003,182 +1886,7 @@ const JobDetail = () => {
                 </div>
             )}
 
-            {/* Assign Staff Modal */}
-            {showAssignModal && (
-                <div className="modal-overlay" onClick={() => {
-                    setShowAssignModal(false);
-                    setAssignRole('');
-                    setAssignStaffIds([]);
-                    setAssignGeneric(false);
-                }}>
-                    <div className="modal modal--dark" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', width: '100%' }}>
-                        <h2 className="modal-title">Assign Staff to Job</h2>
-                        <p className="modal-subtitle" style={{ marginBottom: '16px' }}>Select a role and assign specific staff members or generically assign to the role.</p>
 
-                        <div className="form-group" style={{ marginBottom: '16px' }}>
-                            <label className="form-label" style={{ display: 'block', marginBottom: '6px', fontWeight: 500 }}>Role</label>
-                            <select
-                                className="form-input"
-                                value={assignRole}
-                                onChange={(e) => {
-                                    setAssignRole(e.target.value);
-                                    setAssignStaffIds([]);
-                                    setAssignGeneric(false);
-                                }}
-                                style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
-                            >
-                                <option value="">Select a role...</option>
-                                <option value="Designer">Designer</option>
-                                <option value="Printer">Printer</option>
-                                <option value="Front Office">Front Office</option>
-                                <option value="Accountant">Accountant</option>
-                                <option value="Other Staff">Other Staff</option>
-                            </select>
-                        </div>
-
-                        {assignRole && (
-                            <div className="form-group" style={{ marginTop: '16px' }}>
-                                <label className="form-label" style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Assignees</label>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
-                                    {/* Generic role option */}
-                                    <label
-                                        className="row items-center gap-sm"
-                                        style={{
-                                            padding: '10px 12px',
-                                            borderRadius: 8,
-                                            cursor: assignments?.some(a => a.staff_id === null && a.role === assignRole) ? 'not-allowed' : 'pointer',
-                                            border: '1px solid var(--border)',
-                                            background: assignGeneric ? 'var(--surface-2)' : 'transparent',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '12px',
-                                            opacity: assignments?.some(a => a.staff_id === null && a.role === assignRole) ? 0.5 : 1
-                                        }}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={assignGeneric}
-                                            disabled={assignments?.some(a => a.staff_id === null && a.role === assignRole)}
-                                            onChange={(e) => {
-                                                setAssignGeneric(e.target.checked);
-                                                if (e.target.checked) {
-                                                    setAssignStaffIds([]);
-                                                }
-                                            }}
-                                            style={{ width: '16px', height: '16px', cursor: assignments?.some(a => a.staff_id === null && a.role === assignRole) ? 'not-allowed' : 'pointer' }}
-                                        />
-                                        <div style={{
-                                            width: '32px',
-                                            height: '32px',
-                                            borderRadius: '50%',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontWeight: 'bold',
-                                            background: 'var(--surface-3)',
-                                            color: 'var(--text)',
-                                            border: '1px solid var(--border)',
-                                            fontSize: '16px',
-                                            flexShrink: 0
-                                        }}>
-                                            👥
-                                        </div>
-                                        <div className="flex-1" style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text)' }}>Any {assignRole}</span>
-                                            <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                                                {assignments?.some(a => a.staff_id === null && a.role === assignRole)
-                                                    ? 'Already generically assigned'
-                                                    : `Generically assign role (Unassigned)`}
-                                            </span>
-                                        </div>
-                                    </label>
-
-                                    {/* Specific staff list */}
-                                    {staffList.filter(s => s.role === assignRole && !assignments?.some(a => a.staff_id === s.id)).length === 0 ? (
-                                        <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '8px 0', textAlign: 'center', fontStyle: 'italic' }}>
-                                            No additional staff available for this role.
-                                        </p>
-                                    ) : (
-                                        staffList
-                                            .filter(s => s.role === assignRole && !assignments?.some(a => a.staff_id === s.id))
-                                            .map(s => (
-                                                <label
-                                                    key={s.id}
-                                                    className="row items-center gap-sm"
-                                                    style={{
-                                                        padding: '10px 12px',
-                                                        borderRadius: 8,
-                                                        cursor: assignGeneric ? 'not-allowed' : 'pointer',
-                                                        border: '1px solid var(--border)',
-                                                        background: assignStaffIds.includes(s.id) ? 'var(--surface-2)' : 'transparent',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '12px',
-                                                        opacity: assignGeneric ? 0.5 : 1
-                                                    }}
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={assignStaffIds.includes(s.id)}
-                                                        disabled={assignGeneric}
-                                                        onChange={() => {
-                                                            setAssignStaffIds(prev =>
-                                                                prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id]
-                                                            );
-                                                        }}
-                                                        style={{ width: '16px', height: '16px', cursor: assignGeneric ? 'not-allowed' : 'pointer' }}
-                                                    />
-                                                    <div style={{
-                                                        width: '32px',
-                                                        height: '32px',
-                                                        borderRadius: '50%',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        fontWeight: 'bold',
-                                                        fontSize: '14px',
-                                                        background: 'var(--accent)',
-                                                        color: 'var(--on-accent)',
-                                                        flexShrink: 0
-                                                    }}>
-                                                        {s.name?.charAt(0)?.toUpperCase()}
-                                                    </div>
-                                                    <div className="flex-1" style={{ display: 'flex', flexDirection: 'column' }}>
-                                                        <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text)' }}>{s.name}</span>
-                                                        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                                                            {s.role} {s.branch_name ? `• ${s.branch_name}` : ''}
-                                                        </span>
-                                                    </div>
-                                                </label>
-                                            ))
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="modal-actions" style={{ marginTop: '24px', display: 'flex', gap: '8px' }}>
-                            <button
-                                className="btn btn-ghost flex-1"
-                                onClick={() => {
-                                    setShowAssignModal(false);
-                                    setAssignRole('');
-                                    setAssignStaffIds([]);
-                                    setAssignGeneric(false);
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className="btn btn-primary flex-1"
-                                disabled={savingAssignment || !assignRole || (!assignGeneric && assignStaffIds.length === 0)}
-                                onClick={handleSaveAssignment}
-                            >
-                                {savingAssignment ? 'Saving...' : 'Assign Staff'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </PageContainer>
     );
 };

@@ -180,11 +180,17 @@ export async function getFrontOfficeDashboard() {
 /**
  * Get work history for a specific staff member
  */
-export async function getStaffWorkHistory(staffId) {
+export async function getStaffWorkHistory(staffId, userRole) {
     try {
         const sId = isNaN(staffId) ? staffId : Number(staffId);
-        // Get all assignments for this staff
-        const assignments = await offlineDb.getAllByIndex('assignments', 'staff_id', sId).catch(() => []);
+        // Get all assignments for this staff (direct + role-based)
+        const directAssignments = await offlineDb.getAllByIndex('assignments', 'staff_id', sId).catch(() => []);
+        let roleAssignments = [];
+        if (userRole) {
+            const allAssignments = await offlineDb.getAll('assignments').catch(() => []);
+            roleAssignments = allAssignments.filter(a => a.staff_id == null && a.role === userRole);
+        }
+        const assignments = [...directAssignments, ...roleAssignments];
         
         if (!assignments || assignments.length === 0) return [];
 
@@ -321,33 +327,32 @@ export async function saveVendor(vendor) {
     if (navigator.onLine) {
         try {
             const isTempId = String(id).startsWith('VEND');
+            const vendorPayload = {
+                name: vendor.name,
+                type: vendor.type || 'Vendor',
+                contact_person: vendor.contact_person || null,
+                phone: vendor.phone || null,
+                email: vendor.email || null,
+                gstin: vendor.gstin || null,
+                address: vendor.address || null,
+                city: vendor.city || null,
+                category: vendor.category || 'other',
+                credit_days: vendor.credit_days != null ? vendor.credit_days : 0,
+                credit_limit: vendor.credit_limit != null ? vendor.credit_limit : 0,
+                notes: vendor.notes || null,
+                vendor_code: vendor.vendor_code || null,
+                order_link: vendor.order_link || null,
+                branch_id: vendor.branch_id || null
+            };
             if (isNew || isTempId) {
-                const res = await api.post('vendors', {
-                    name: vendor.name,
-                    type: vendor.type || 'Vendor',
-                    contact_person: vendor.contact_person || null,
-                    phone: vendor.phone || null,
-                    address: vendor.address || null,
-                    gstin: vendor.gstin || null,
-                    order_link: vendor.order_link || null,
-                    branch_id: vendor.branch_id || null
-                });
+                const res = await api.post('vendors', vendorPayload);
                 if (res.data && res.data.id) {
                     await offlineDb.delete('vendors', id);
                     await offlineDb.save('vendors', { ...record, id: res.data.id, syncStatus: 'synced' });
                     return { id: res.data.id, isNew };
                 }
             } else {
-                await api.put(`vendors/${id}`, {
-                    name: vendor.name,
-                    type: vendor.type || 'Vendor',
-                    contact_person: vendor.contact_person || null,
-                    phone: vendor.phone || null,
-                    address: vendor.address || null,
-                    gstin: vendor.gstin || null,
-                    order_link: vendor.order_link || null,
-                    branch_id: vendor.branch_id || null
-                });
+                await api.put(`vendors/${id}`, vendorPayload);
                 await offlineDb.save('vendors', { ...record, syncStatus: 'synced' });
             }
         } catch (err) {

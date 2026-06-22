@@ -66,14 +66,16 @@ router.get('/:id/work-history', authenticateToken, async (req, res) => {
         const { id } = req.params;
         const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
 
+        // Include both direct assignments (staff_id = ?) and role-based assignments (staff_id IS NULL AND role = ?)
+        const userRole = req.user.role || '';
         const baseFrom = `
             FROM sarga_job_staff_assignments jsa
             INNER JOIN sarga_jobs j ON j.id = jsa.job_id
             LEFT JOIN sarga_customers c ON j.customer_id = c.id
-            WHERE jsa.staff_id = ?
+            WHERE jsa.staff_id = ? OR (jsa.staff_id IS NULL AND jsa.role = ?)
         `;
 
-        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, [id]);
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, [id, userRole]);
         const [jobs] = await pool.query(`
             SELECT 
                 j.id,
@@ -97,7 +99,7 @@ router.get('/:id/work-history', authenticateToken, async (req, res) => {
             ${baseFrom}
             ORDER BY j.created_at DESC
             LIMIT ? OFFSET ?
-        `, [id, limit, offset]);
+        `, [id, userRole, limit, offset]);
 
         res.json(response(jobs, total));
     } catch (err) {
@@ -121,8 +123,11 @@ router.get('/:id/salary-info', authenticateToken, async (req, res) => {
 
         // Get staff details and salary settings
         const [staff] = await pool.query(`
-            SELECT id, name, role, user_id, salary_type, base_salary, daily_rate, image_url
-            FROM sarga_staff WHERE id = ?
+            SELECT s.id, s.name, s.role, s.user_id, s.salary_type, s.base_salary, s.daily_rate, s.image_url,
+                   s.created_at, s.is_active, s.branch_id, b.name as branch_name
+            FROM sarga_staff s
+            LEFT JOIN sarga_branches b ON s.branch_id = b.id
+            WHERE s.id = ?
         `, [id]);
 
         console.log('Staff query result:', staff);

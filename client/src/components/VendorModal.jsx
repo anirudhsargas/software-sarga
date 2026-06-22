@@ -81,25 +81,40 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
     }
     setLoading(true);
     try {
+      // Save to offline cache first
       const toSave = {
         ...formData,
         id: vendor ? vendor.id : undefined,
         syncStatus: vendor ? vendor.syncStatus : undefined
       };
       await localDb.saveVendor(toSave);
+
+      // Also fire direct API call for server persistence (online only)
+      if (navigator.onLine && vendor?.id) {
+        await api.put(`/vendors/${vendor.id}`, {
+          name: formData.name,
+          contact_person: formData.contact_person || null,
+          phone: formData.phone || null,
+          email: formData.email || null,
+          gstin: formData.gstin || null,
+          address: formData.address || null,
+          city: formData.city || null,
+          category: formData.category || 'other',
+          credit_days: formData.credit_days != null ? formData.credit_days : 0,
+          credit_limit: formData.credit_limit != null ? formData.credit_limit : 0,
+          notes: formData.notes || null,
+          vendor_code: formData.vendor_code || null,
+          type: vendor.type || 'Vendor',
+          branch_id: vendor.branch_id || null,
+          order_link: vendor.order_link || null
+        });
+      }
+
       toast.success(vendor ? 'Vendor intelligence updated' : 'New partner onboarded');
       onSave();
     } catch (error) {
       console.error('Error saving vendor:', error);
       toast.error(error.response?.data?.message || error.message || 'Failed to sync partner data');
-      if (error.response?.data?.errors) {
-        const serverErrors = error.response.data.errors;
-        Object.entries(serverErrors).forEach(([field, msg]) => {
-          if (typeof msg === 'string') {
-            // set field-level errors from server
-          }
-        });
-      }
     } finally {
       setLoading(false);
     }
