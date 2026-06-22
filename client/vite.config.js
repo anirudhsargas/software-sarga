@@ -16,6 +16,7 @@ export default defineConfig({
       hostname: 'https://sargaoffset.vercel.app',
       outDir: 'dist',
       dynamicRoutes: publicRoutes,
+      generateRobotsTxt: false,
       exclude: [
         '/dashboard/**',
         '/login',
@@ -27,13 +28,6 @@ export default defineConfig({
         '/staff/**',
         '/designer/**',
         '/error/**',
-      ],
-      robots: [
-        {
-          userAgent: '*',
-          allow: '/',
-          disallow: ['/dashboard', '/login', '/forgot-password', '/reset-password', '/change-password', '/staff-settings', '/accounting', '/staff', '/designer'],
-        },
       ],
     }),
     VitePWA({
