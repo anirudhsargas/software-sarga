@@ -18,7 +18,9 @@ const ShortcutsPage = () => {
   const isFrontOffice = user?.role === 'Front Office';
   const canEdit = isAdmin || isFrontOffice;
 
-  const branchId = selectedBranchId || user?.branch_id;
+  // Sanitize to plain integer — guard against corrupted localStorage values like "4:1"
+  const rawBranchId = selectedBranchId || user?.branch_id;
+  const branchId = rawBranchId && /^\d+$/.test(String(rawBranchId)) ? String(rawBranchId) : '';
 
   const [shortcuts, setShortcuts] = useState([]);
   const [loading, setLoading] = useState(true);

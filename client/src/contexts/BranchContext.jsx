@@ -17,16 +17,24 @@ export const BranchProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [selectedBranchId, setSelectedBranchId] = useState(() => {
     try {
-      return localStorage.getItem('sargaSelectedBranchId') || '';
+      const stored = localStorage.getItem('sargaSelectedBranchId') || '';
+      // Only accept plain positive integers — discard anything else (e.g. "4:1", "all", etc.)
+      return /^\d+$/.test(stored) ? stored : '';
     } catch {
       return '';
     }
   });
 
   const selectBranch = useCallback((id) => {
-    setSelectedBranchId(id);
+    // Sanitize: only store if empty ("All Branches") or a valid integer string
+    const safe = (!id || /^\d+$/.test(String(id))) ? String(id || '') : '';
+    setSelectedBranchId(safe);
     try {
-      localStorage.setItem('sargaSelectedBranchId', id);
+      if (safe) {
+        localStorage.setItem('sargaSelectedBranchId', safe);
+      } else {
+        localStorage.removeItem('sargaSelectedBranchId');
+      }
     } catch (e) {
       console.error('Failed to save selected branch:', e);
     }

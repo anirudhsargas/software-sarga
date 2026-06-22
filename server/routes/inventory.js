@@ -938,6 +938,9 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             const dbItem = itemMap[reqItem.id];
             if (dbItem) {
                 const qty = Math.min(Number(reqItem.quantity_to_print) || 1, 5000); // Cap at 5000 per item to prevent extreme memory overload
+                if (Number(reqItem.quantity_to_print) > 5000) {
+                    console.warn(`[LabelGen] quantity_to_print ${reqItem.quantity_to_print} capped to 5000 for item ${reqItem.id}`);
+                }
                 for (let i = 0; i < qty; i++) {
                     labelData.push(dbItem);
                 }

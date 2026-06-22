@@ -16,9 +16,9 @@ const hasShortcutAccess = (user, branchId) => {
 // GET /api/shortcuts?branch_id=X
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    if (!branchId) {
-      return res.status(400).json({ message: 'branch_id is required' });
+    const branchId = parseInt(req.query.branch_id, 10);
+    if (!req.query.branch_id || isNaN(branchId) || branchId <= 0) {
+      return res.status(400).json({ message: 'branch_id must be a valid positive integer' });
     }
 
     const [rows] = await pool.query(
@@ -37,9 +37,10 @@ router.get('/', authenticateToken, async (req, res) => {
 // POST /api/shortcuts
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { branch_id, shortcuts } = req.body;
-    if (!branch_id || !shortcuts || !Array.isArray(shortcuts) || shortcuts.length === 0) {
-      return res.status(400).json({ message: 'branch_id and shortcuts array are required' });
+    const { shortcuts } = req.body;
+    const branch_id = parseInt(req.body.branch_id, 10);
+    if (!req.body.branch_id || isNaN(branch_id) || branch_id <= 0 || !shortcuts || !Array.isArray(shortcuts) || shortcuts.length === 0) {
+      return res.status(400).json({ message: 'branch_id (integer) and shortcuts array are required' });
     }
 
     if (!hasShortcutAccess(req.user, branch_id)) {
@@ -131,9 +132,9 @@ router.post('/suggest', authenticateToken, async (req, res) => {
 // GET /api/shortcuts/suggestions?branch_id=X  (before /:id)
 router.get('/suggestions', authenticateToken, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    if (!branchId) {
-      return res.status(400).json({ message: 'branch_id is required' });
+    const branchId = parseInt(req.query.branch_id, 10);
+    if (!req.query.branch_id || isNaN(branchId) || branchId <= 0) {
+      return res.status(400).json({ message: 'branch_id must be a valid positive integer' });
     }
 
     const role = normalizeRole(req.user.role);

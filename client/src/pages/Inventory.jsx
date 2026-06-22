@@ -1,7 +1,7 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, Trash2, Edit2, Plus, ArrowLeftRight, Minus, Package, Search, Bell, Camera, Filter, FileText, ChevronDown, CheckSquare, Layers, Download, Share2, Phone, ShoppingCart, List, Grid, X, Image as ImageIcon, Settings, IndianRupee, BarChart3, TrendingUp, RefreshCw, Loader2, Link, Clock, Check } from 'lucide-react';
+import { Printer, Trash2, Edit2, Plus, ArrowLeftRight, Minus, Package, Search, Bell, Camera, Filter, FileText, ChevronDown, CheckSquare, Layers, Download, Share2, Phone, ShoppingCart, List, Grid, X, Image as ImageIcon, Settings, IndianRupee, BarChart3, TrendingUp, RefreshCw, Loader2, Link, Clock, Check, QrCode } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
 import auth from '../services/auth';
@@ -84,6 +84,12 @@ const Inventory = () => {
     const [printQuantities, setPrintQuantities] = useState({}); // { id: qty }
     const [printingLabel, setPrintingLabel] = useState(false);
     const NEW_ITEM_WINDOW_DAYS = 7;
+
+    // Select & Print Labels modal state
+    const [showSelectPrintModal, setShowSelectPrintModal] = useState(false);
+    const [selectPrintSearch, setSelectPrintSearch] = useState('');
+    const [selectPrintSelectedId, setSelectPrintSelectedId] = useState(null);
+    const [selectPrintQty, setSelectPrintQty] = useState(1);
 
     // Consumables actions state
     const [showConsumeModal, setShowConsumeModal] = useState(false);
@@ -213,7 +219,8 @@ const Inventory = () => {
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') {
-                if (showAddModal) setShowAddModal(false);
+                if (showSelectPrintModal) setShowSelectPrintModal(false);
+                else if (showAddModal) setShowAddModal(false);
                 else if (showEditModal) setShowEditModal(false);
                 else if (showPrintModal) setShowPrintModal(false);
                 else if (showConsumeModal) setShowConsumeModal(false);
@@ -221,13 +228,13 @@ const Inventory = () => {
                 else if (showSmartUpload) setShowSmartUpload(false);
                 else if (showScanner) setShowScanner(false);
                 else if (showDetailModal) setShowDetailModal(false);
-            else if (showStockRequestModal) setShowStockRequestModal(false);
-            else if (showStockRequestsPanel) setShowStockRequestsPanel(false);
+                else if (showStockRequestModal) setShowStockRequestModal(false);
+                else if (showStockRequestsPanel) setShowStockRequestsPanel(false);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [showAddModal, showEditModal, showPrintModal, showConsumeModal, showRestockModal, showSmartUpload, showScanner, showDetailModal, showStockRequestModal, showStockRequestsPanel]);
+    }, [showSelectPrintModal, showAddModal, showEditModal, showPrintModal, showConsumeModal, showRestockModal, showSmartUpload, showScanner, showDetailModal, showStockRequestModal, showStockRequestsPanel]);
 
     const fetchInventory = async () => {
         setLoading(true);
@@ -507,9 +514,38 @@ const Inventory = () => {
                 setItems(prev => [...prev, response.data]);
                 setTotal(prev => prev + 1);
             }
+            toast.success('Inventory item added');
+
+            // Auto-open label print modal for non-paper items
+            const newId = response.data?.id;
+            const newSku = response.data?.sku;
+            const newName = newItem.name;
+            const newCategory = newItem.category;
+
+            if (newId && !isPaperCategory(newCategory)) {
+                const addedItem = {
+                    id: newId,
+                    sku: newSku || '',
+                    name: newName,
+                    quantity: Number(newItem.quantity) || 0,
+                    category: newCategory || ''
+                };
+                setItems(prev => {
+                    const exists = prev.find(i => i.id === newId);
+                    return exists ? prev : [...prev, addedItem];
+                });
+                setSelectedIds([newId]);
+                const autoQty = getStockBasedPrintQty(addedItem);
+                setPrintQuantities({ [newId]: autoQty });
+                setShowAddModal(false);
+                setNewItem(emptyItem);
+                setShowPrintModal(true);
+                // fetchInventory() will be called after modal closes via generatePDF()
+                return;
+            }
+
             setShowAddModal(false);
             setNewItem(emptyItem);
-            toast.success('Inventory item added');
             fetchInventory();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to add item');
@@ -704,6 +740,11 @@ const Inventory = () => {
 
             setShowPrintModal(false);
             setSelectedIds([]);
+            setShowSelectPrintModal(false);
+            setSelectPrintSearch('');
+            setSelectPrintSelectedId(null);
+            setSelectPrintQty(1);
+            fetchInventory();
         } catch (err) {
             // Try to read the real error from the blob response
             let msg = 'Failed to generate labels';
@@ -1020,6 +1061,17 @@ const Inventory = () => {
                                 <Printer size={16} />
                             </button>
                         )}
+
+                        {/* Select & Print Labels */}
+                        <button
+                            type="button"
+                            className="inv-action-btn"
+                            onClick={() => setShowSelectPrintModal(true)}
+                            title="Select a product and print labels"
+                        >
+                            <QrCode size={16} />
+                            <span>Print Labels</span>
+                        </button>
 
                         {/* Image Sync / Settings */}
                         {isAdmin && (
@@ -1929,6 +1981,132 @@ const Inventory = () => {
                         </div>
                     </div>
                 )}
+
+            {showSelectPrintModal && (
+                <div className="modal-backdrop">
+                    <div className="modal" style={{ maxWidth: '560px' }}>
+                        <button className="modal-close" onClick={() => setShowSelectPrintModal(false)}>
+                            <X size={22} />
+                        </button>
+                        <h2 className="section-title mb-8">Print Labels</h2>
+                        <p className="section-subtitle mb-16">Search and select a product, then set quantity to print.</p>
+
+                        {/* Search box */}
+                        <div className="row gap-sm mb-12" style={{ alignItems: 'center' }}>
+                            <Search size={16} style={{ color: 'var(--muted-foreground)', flexShrink: 0 }} />
+                            <input
+                                className="input-field"
+                                placeholder="Search by name or SKU…"
+                                value={selectPrintSearch}
+                                onChange={e => {
+                                    setSelectPrintSearch(e.target.value);
+                                    setSelectPrintSelectedId(null);
+                                }}
+                                style={{ flex: 1 }}
+                                autoFocus
+                            />
+                        </div>
+
+                        {/* Product list */}
+                        <div className="stack-sm mb-16" style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                            {items
+                                .filter(item => {
+                                    const q = selectPrintSearch.toLowerCase();
+                                    if (!q) return !isPaperCategory(item.category);
+                                    return !isPaperCategory(item.category) &&
+                                        ((item.name || '').toLowerCase().includes(q) ||
+                                         (item.sku || '').toLowerCase().includes(q));
+                                })
+                                .slice(0, 30)
+                                .map(item => (
+                                    <div
+                                        key={item.id}
+                                        className={`panel panel--tight pb-8 pt-8 ${selectPrintSelectedId === item.id ? 'panel--active' : ''}`}
+                                        style={{
+                                            cursor: 'pointer',
+                                            background: selectPrintSelectedId === item.id ? 'var(--accent)' : undefined,
+                                            borderColor: selectPrintSelectedId === item.id ? 'var(--primary)' : undefined
+                                        }}
+                                        onClick={() => {
+                                            setSelectPrintSelectedId(item.id);
+                                            setSelectPrintQty(getStockBasedPrintQty(item));
+                                        }}
+                                    >
+                                        <div className="row items-center justify-between">
+                                            <div>
+                                                <div className="user-name text-sm">{item.name}</div>
+                                                <div className="muted text-xs">SKU: {item.sku || 'N/A'} | Stock: {Number(item.quantity) || 0} {item.unit || ''}</div>
+                                            </div>
+                                            {selectPrintSelectedId === item.id && (
+                                                <Check size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            }
+                            {items.filter(i => !isPaperCategory(i.category)).length === 0 && (
+                                <p className="muted text-sm" style={{ textAlign: 'center', padding: '1rem 0' }}>No inventory items found</p>
+                            )}
+                        </div>
+
+                        {/* Quantity row — only shown when an item is selected */}
+                        {selectPrintSelectedId && (() => {
+                            const selItem = items.find(i => i.id === selectPrintSelectedId);
+                            return selItem ? (
+                                <div className="panel panel--tight mb-16 pt-12 pb-12">
+                                    <div className="user-name text-sm mb-4">{selItem.name}</div>
+                                    <div className="muted text-xs mb-12">SKU: {selItem.sku || 'N/A'}</div>
+                                    <label className="label mb-8">Number of labels to print</label>
+                                    <div className="row items-center gap-sm">
+                                        <button
+                                            className="icon-button icon-button--sm"
+                                            type="button"
+                                            onClick={() => setSelectPrintQty(q => Math.max(1, q - 1))}
+                                        >
+                                            <Minus size={14} />
+                                        </button>
+                                        <input
+                                            type="number"
+                                            className="input-field text-center"
+                                            style={{ width: '80px', padding: '4px' }}
+                                            min={1}
+                                            max={5000}
+                                            value={selectPrintQty}
+                                            onChange={e => setSelectPrintQty(Math.max(1, Number(e.target.value) || 1))}
+                                        />
+                                        <button
+                                            className="icon-button icon-button--sm"
+                                            type="button"
+                                            onClick={() => setSelectPrintQty(q => q + 1)}
+                                        >
+                                            <Plus size={14} />
+                                        </button>
+                                        <span className="muted text-xs ml-8">
+                                            = {Math.ceil(selectPrintQty / 48)} A4 page{Math.ceil(selectPrintQty / 48) !== 1 ? 's' : ''}
+                                            {selectPrintQty % 48 !== 0 ? `, ${48 - (selectPrintQty % 48)} slot${48 - (selectPrintQty % 48) !== 1 ? 's' : ''} unused` : ''}
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : null;
+                        })()}
+
+                        <button
+                            className="btn btn-primary btn--full"
+                            disabled={!selectPrintSelectedId || printingLabel}
+                            onClick={() => {
+                                if (!selectPrintSelectedId) return;
+                                setSelectedIds([selectPrintSelectedId]);
+                                setPrintQuantities({ [selectPrintSelectedId]: selectPrintQty });
+                                setShowSelectPrintModal(false);
+                                setShowPrintModal(true);
+                            }}
+                        >
+                            <Printer size={18} className="mr-8" />
+                            <span>Continue to Generate PDF</span>
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {showConsumeModal && consumeData.id && (
                 <div className="modal-backdrop">

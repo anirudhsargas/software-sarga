@@ -1,6 +1,7 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState } from 'react';
-import { Search, ScanLine, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, ScanLine, Loader2, CheckCircle2, XCircle, Printer } from 'lucide-react';
 import api from '../services/api';
 
 const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
@@ -8,6 +9,7 @@ const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 const QRDiagnostic = () => {
     useSEO('Q R Diagnostic');
 
+  const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -100,6 +102,19 @@ const QRDiagnostic = () => {
                 </>
               )}
             </div>
+
+            {result?.found && result?.item && (
+              <div style={{ marginTop: 12 }}>
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => navigate(`/inventory?highlight=${result.item.id}`)}
+                >
+                  <Printer size={16} />
+                  <span>Go to Inventory to Print Label</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
