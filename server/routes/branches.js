@@ -20,6 +20,49 @@ router.get('/branches', authenticateToken, redisCache(300, 'route'), async (req,
     }
 });
 
+// Get Branch by ID
+router.get('/branches/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [rows] = await pool.query(
+            "SELECT id, name, address, phone, email, upi_id, short_name FROM sarga_branches WHERE id = ?",
+            [id]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Branch not found' });
+        }
+        res.json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Temporary DB Debug route
+router.get('/branches/debug-db/show', async (req, res) => {
+    try {
+        const [tables] = await pool.query("SHOW TABLES");
+        let shortcutErr = null;
+        let suggestionsErr = null;
+        try {
+            await pool.query("SELECT * FROM bill_shortcuts LIMIT 1");
+        } catch (e) {
+            shortcutErr = { code: e.code, message: e.message, sqlMessage: e.sqlMessage };
+        }
+        try {
+            await pool.query("SELECT * FROM shortcut_suggestions LIMIT 1");
+        } catch (e) {
+            suggestionsErr = { code: e.code, message: e.message, sqlMessage: e.sqlMessage };
+        }
+        res.json({
+            tables: tables.map(r => Object.values(r)[0]),
+            shortcutErr,
+            suggestionsErr
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Add Branch
 router.post('/branches', authenticateToken, authorizeRoles('Admin'), validate(branchSchema), async (req, res) => {
     const { name, address, phone, upi_id, short_name } = req.body;
