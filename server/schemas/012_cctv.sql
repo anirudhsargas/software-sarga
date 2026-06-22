@@ -1,0 +1,37 @@
+-- CCTV and face recognition tables
+CREATE TABLE IF NOT EXISTS sarga_cctv_cameras (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  branch VARCHAR(50) NOT NULL,
+  ip_address VARCHAR(45) NOT NULL,
+  port INT NOT NULL DEFAULT 554,
+  username VARCHAR(100) NOT NULL DEFAULT 'admin',
+  password VARCHAR(255) NOT NULL,
+  rtsp_path VARCHAR(255) NOT NULL DEFAULT '/Streaming/Channels/101',
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sarga_cctv_face_data (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  staff_id INT NOT NULL,
+  image_url VARCHAR(500) NOT NULL,
+  label VARCHAR(100) DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS sarga_cctv_attendance (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  staff_id INT NOT NULL,
+  branch VARCHAR(50) NOT NULL,
+  event_type ENUM('entry', 'exit', 'manual') NOT NULL,
+  source ENUM('face_recognition', 'manual') NOT NULL DEFAULT 'manual',
+  timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  noted_by INT NULL,
+  date DATE GENERATED ALWAYS AS (DATE(timestamp)) STORED,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE,
+  FOREIGN KEY (noted_by) REFERENCES sarga_staff(id) ON DELETE SET NULL
+);

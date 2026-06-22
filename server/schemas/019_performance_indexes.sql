@@ -1,0 +1,20 @@
+-- Performance indexes for frequently queried tables
+CREATE INDEX idx_staff_user_id ON sarga_staff (user_id);
+CREATE INDEX idx_staff_branch_role ON sarga_staff (branch_id, role);
+CREATE INDEX idx_staff_is_active ON sarga_staff (is_active);
+CREATE INDEX idx_payments_date_branch ON sarga_payments (payment_date, branch_id);
+CREATE INDEX idx_payments_type_date ON sarga_payments (type, payment_date);
+CREATE INDEX idx_payments_vendor_date ON sarga_payments (vendor_id, payment_date);
+CREATE INDEX idx_jobs_created_status ON sarga_jobs (created_at, status);
+CREATE INDEX idx_jobs_customer_status ON sarga_jobs (customer_id, status);
+CREATE INDEX idx_jobs_branch_status ON sarga_jobs (branch_id, status);
+CREATE INDEX idx_jobs_created_branch ON sarga_jobs (created_at, branch_id);
+CREATE INDEX idx_customers_mobile ON sarga_customers (mobile);
+CREATE INDEX idx_customers_branch_type ON sarga_customers (branch_id, type);
+CREATE INDEX idx_products_subcategory ON sarga_products (subcategory_id);
+CREATE INDEX idx_products_is_active ON sarga_products (is_active);
+CREATE INDEX idx_inventory_category ON sarga_inventory (category);
+CREATE INDEX idx_paper_stock_branch ON paper_stock_summary (branch_id);
+CREATE INDEX idx_paper_type_active ON paper_types (is_active);
+CREATE INDEX idx_stock_requests_status ON sarga_stock_requests (status);
+CREATE INDEX idx_stock_requests_branch ON sarga_stock_requests (from_branch_id, to_branch_id);

@@ -39,6 +39,8 @@ uploads/
 
 # Database backups and sensitive data
 *.sql
+!server/schemas/*.sql
+!server/migrations/*.sql
 *.backup
 *.bak
 dev-scripts/
