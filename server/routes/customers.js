@@ -74,7 +74,14 @@ router.get('/customers', authenticateToken, async (req, res) => {
         const baseFrom = `FROM sarga_customers WHERE 1=1 ${where}`;
 
         const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
-        const [rows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} ${baseFrom} ORDER BY (client_type = 'internal') DESC, name ASC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+        const [rows] = await pool.query(`
+            SELECT id, mobile, name, type, email, gst, address, branch_id, client_type, internal_branch, created_at, updated_at,
+                   (SELECT COALESCE(SUM(GREATEST(total_amount - advance_paid, 0)), 0) FROM sarga_jobs WHERE customer_id = sarga_customers.id) AS outstanding_balance,
+                   (SELECT MAX(created_at) FROM sarga_jobs WHERE customer_id = sarga_customers.id) AS last_order_date
+            ${baseFrom}
+            ORDER BY (client_type = 'internal') DESC, name ASC
+            LIMIT ? OFFSET ?
+        `, [...params, limit, offset]);
         
         res.json(response(rows, total));
     } catch (err) {

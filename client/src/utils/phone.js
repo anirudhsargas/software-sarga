@@ -74,3 +74,33 @@ export function telHref(input, defaultRegion = 'IN') {
   if (e164.length === 10 && defaultRegion === 'IN') return `tel:+91${e164}`;
   return `tel:${e164}`;
 }
+
+/**
+ * Convenience utility to merge country code and number for formatting and display.
+ * @param {string} countryCode
+ * @param {string} number
+ * @returns {string} e.g. "+91 9876543210"
+ */
+export function formatPhoneNumber(countryCode, number) {
+  if (!number) return '';
+  const cc = (countryCode || '').trim();
+  const num = (number || '').trim().replace(/\D/g, '');
+  if (!cc) return formatForDisplay(num);
+  const combined = cc.startsWith('+') ? `${cc}${num}` : `+${cc}${num}`;
+  return formatForDisplay(combined);
+}
+
+/**
+ * Convenience utility to merge country code and number into normalized E.164.
+ * @param {string} countryCode
+ * @param {string} number
+ * @returns {string} e.g. "+919876543210"
+ */
+export function normalizePhone(countryCode, number) {
+  if (!number) return '';
+  const cc = (countryCode || '').trim();
+  const num = (number || '').trim().replace(/\D/g, '');
+  if (!cc) return normalizeToE164(num);
+  const combined = cc.startsWith('+') ? `${cc}${num}` : `+${cc}${num}`;
+  return normalizeToE164(combined);
+}

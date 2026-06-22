@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Search, Upload, Plus, Minus, Loader2, IndianRupee, Tag, ShieldAlert, Package, Check, X, ArrowLeft, RefreshCw } from 'lucide-react';
+import {
+    Camera, Search, Upload, Plus, Minus, Loader2,
+    Tag, ShieldAlert, Package, Check, X, ArrowLeft, RefreshCw,
+    ShoppingCart, Edit2, LayoutList, History, Scan, AlertCircle,
+    ChevronRight, Zap, Users, Hash
+} from 'lucide-react';
 import jsQR from 'jsqr';
 import api from '../services/api';
 import auth from '../services/auth';
@@ -10,18 +15,51 @@ import toast from 'react-hot-toast';
 import './ScanItem.css';
 import PageContainer from '../components/ui/PageContainer';
 
-let html5QrcodeModule = null;
+// ── Lazy-load html5-qrcode ──────────────────────────────────────────────────
 let html5QrcodePromise = null;
-
 const getHtml5QrcodeModule = () => {
     if (html5QrcodePromise) return html5QrcodePromise;
-    html5QrcodePromise = import('html5-qrcode').then(mod => {
-        html5QrcodeModule = mod;
-        return mod;
-    });
+    html5QrcodePromise = import('html5-qrcode').then(mod => mod);
     return html5QrcodePromise;
 };
 
+// ── MRP Resolution (Priority: customSellingPrice → sellingPrice → mrp) ─────
+const resolvePrice = (item) => {
+    if (!item) return null;
+    const candidates = [
+        item.custom_selling_price,
+        item.customSellingPrice,
+        item.sell_price,
+        item.selling_price,
+        item.sellingPrice,
+        item.mrp,
+        item.MRP,
+    ];
+    for (const v of candidates) {
+        const n = parseFloat(v);
+        if (!isNaN(n) && n > 0) return n;
+    }
+    return null;
+};
+
+// ── Stock Status Logic ───────────────────────────────────────────────────────
+const getStockStatus = (item) => {
+    if (!item) return { status: 'unknown', label: 'Unknown', color: 'muted', emoji: '⚪' };
+    const qty = Number(item.quantity ?? 0);
+    const threshold = Number(item.reorder_level ?? item.reorder_threshold ?? 0);
+    if (qty <= 0) return { status: 'out', label: 'Out of Stock', color: 'error', emoji: '🔴' };
+    if (qty <= threshold) return { status: 'low', label: 'Low Stock', color: 'warning', emoji: '🟡' };
+    return { status: 'in', label: 'In Stock', color: 'success', emoji: '🟢' };
+};
+
+// ── Format price display ─────────────────────────────────────────────────────
+const formatPrice = (val) => {
+    const n = parseFloat(val);
+    if (isNaN(n)) return null;
+    return n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+};
+
+// ── Component ────────────────────────────────────────────────────────────────
 const ScanItem = () => {
     const navigate = useNavigate();
     const userRole = auth.getUser()?.role;
@@ -29,7 +67,7 @@ const ScanItem = () => {
     const isFrontOffice = userRole === 'Front Office';
 
     // Scanner state
-    const [activeTab, setActiveTab] = useState('camera'); // 'camera' | 'file' | 'manual'
+    const [activeTab, setActiveTab] = useState('camera');
     const [manualCode, setManualCode] = useState('');
     const [isCamActive, setIsCamActive] = useState(false);
     const [cameraError, setCameraError] = useState('');
@@ -37,13 +75,18 @@ const ScanItem = () => {
     const [cameras, setCameras] = useState([]);
     const [selectedCamId, setSelectedCamId] = useState('');
     const [showPermissionModal, setShowPermissionModal] = useState(false);
+    const [scanState, setScanState] = useState('idle'); // idle | scanning | found
 
-    // Lookup / Result state
+    // Lookup state
     const [lookupLoading, setLookupLoading] = useState(false);
     const [lookupResult, setLookupResult] = useState(null);
     const [lookupError, setLookupError] = useState('');
 
-    // Inline forms state
+    // Scan history
+    const [scanHistory, setScanHistory] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
+
+    // Inline forms
     const [showRestock, setShowRestock] = useState(false);
     const [showConsume, setShowConsume] = useState(false);
     const [restockQty, setRestockQty] = useState('');
@@ -53,71 +96,48 @@ const ScanItem = () => {
     const [consumeNotes, setConsumeNotes] = useState('');
     const [submittingAction, setSubmittingAction] = useState(false);
 
-    // Scanner Refs
+    // Add to Bill modal state
+    const [showAddToBill, setShowAddToBill] = useState(false);
+    const [billCustomers, setBillCustomers] = useState([]);
+    const [billCustomerSearch, setBillCustomerSearch] = useState('');
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [billQty, setBillQty] = useState(1);
+    const [billDiscount, setBillDiscount] = useState(0);
+    const [billLoading, setBillLoading] = useState(false);
+    const [customersLoading, setCustomersLoading] = useState(false);
+
+    // Scanner refs
     const scannerRef = useRef(null);
     const isStartedRef = useRef(false);
     const isStoppingRef = useRef(false);
     const mountedRef = useRef(true);
     const fileInputRef = useRef(null);
+    const manualInputRef = useRef(null);
     const camDivId = useRef(`qr-cam-page-${Math.random().toString(36).slice(2)}`);
 
     const normalizeCode = (val) => String(val || '').replace(/\s+/g, '').toUpperCase();
 
-    // Request camera permission directly with a fresh user gesture
-    const requestCameraPermission = useCallback(async () => {
-        try {
-            const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            tempStream.getTracks().forEach(track => track.stop());
-            return true;
-        } catch (err) {
-            if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied')) {
-                setCameraError('Camera permission denied. Please allow camera access in your browser settings, then try again.');
-                setShowPermissionModal(true);
-            } else {
-                setCameraError('Unable to access camera. Please check your camera device or switch to file upload.');
-                return false;
-            }
-            return false;
-        }
-    }, []);
-
-    const handleRetryPermission = async () => {
-        setShowPermissionModal(false);
-        setCameraError('');
-        const ok = await requestCameraPermission();
-        if (ok) {
-            setIsCamActive(true);
-            setLookupResult(null);
-        }
-    };
-
-    // Check permissions
+    // ── Permission check ───────────────────────────────────────────────────────
     useEffect(() => {
         if (!['Admin', 'Front Office', 'Accountant'].includes(userRole)) {
-            toast.error('Access Denied: You do not have permissions to scan inventory items.');
+            toast.error('Access Denied: Insufficient permissions.');
             navigate('/dashboard');
         }
     }, [userRole, navigate]);
 
     useEffect(() => {
         mountedRef.current = true;
-        // Start pre-loading html5-qrcode module eagerly
         getHtml5QrcodeModule();
         if ('permissions' in navigator) {
             navigator.permissions.query({ name: 'camera' }).then((status) => {
-                if (status.state === 'denied') {
-                    setCameraError('Camera access is blocked in your browser settings. Please allow camera access for this site, then refresh the page.');
-                } else if (status.state === 'granted') {
-                    setIsCamActive(true);
+                if (status.state === 'granted') setIsCamActive(true);
+                else if (status.state === 'denied') {
+                    setCameraError('Camera access is blocked. Please allow camera in browser settings.');
                 }
                 status.addEventListener('change', () => {
-                    if (status.state === 'granted' && mountedRef.current) {
-                        setCameraError('');
-                        setIsCamActive(true);
-                    } else if (status.state === 'denied' && mountedRef.current) {
-                        setIsCamActive(false);
-                        setCameraError('Camera access is blocked in your browser settings. Please allow camera access for this site, then refresh the page.');
-                    }
+                    if (!mountedRef.current) return;
+                    if (status.state === 'granted') { setCameraError(''); setIsCamActive(true); }
+                    else if (status.state === 'denied') { setIsCamActive(false); setCameraError('Camera access blocked.'); }
                 });
             }).catch(() => {});
         }
@@ -127,148 +147,144 @@ const ScanItem = () => {
         };
     }, []);
 
-    // Load html5-qrcode (pre-loaded via module-level promise)
-    const loadHtml5Qrcode = useCallback(async () => {
-        return getHtml5QrcodeModule();
+    // Focus manual input when tab switches
+    useEffect(() => {
+        if (activeTab === 'manual' && manualInputRef.current) {
+            setTimeout(() => manualInputRef.current?.focus(), 100);
+        }
+    }, [activeTab]);
+
+    // ── Camera helpers ─────────────────────────────────────────────────────────
+    const requestCameraPermission = useCallback(async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            stream.getTracks().forEach(t => t.stop());
+            return true;
+        } catch (err) {
+            const isDenied = err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied');
+            setCameraError(isDenied
+                ? 'Camera permission denied. Allow camera in browser settings and try again.'
+                : 'Unable to access camera. Switch to file upload or manual entry.');
+            if (isDenied) setShowPermissionModal(true);
+            return false;
+        }
     }, []);
 
-    // Stop camera safely
     const safeStop = useCallback(async () => {
         const qr = scannerRef.current;
         if (!qr || !isStartedRef.current || isStoppingRef.current) return;
         isStoppingRef.current = true;
-        try {
-            await qr.stop();
-        } catch (err) {
-            console.warn('Failed to stop camera stream:', err);
-        } finally {
+        try { await qr.stop(); } catch (e) { console.warn('Camera stop error:', e); }
+        finally {
             isStartedRef.current = false;
             isStoppingRef.current = false;
             scannerRef.current = null;
         }
     }, []);
 
-    // Lookup Item from server
+    // ── Lookup ─────────────────────────────────────────────────────────────────
     const handleLookup = useCallback(async (code) => {
         const normalized = normalizeCode(code);
         if (!normalized) return;
 
+        setScanState('scanning');
         setLookupLoading(true);
         setLookupError('');
         try {
-            const { data } = await api.get(`/inventory/by-sku/${encodeURIComponent(normalized)}`);
+            const { data } = await api.get(`/inventory/by-sku/${encodeURIComponent(normalized)}`, { _noCache: true });
             setLookupResult(data);
-            // Pre-fill restock cost price if available
             setRestockCost(data.cost_price || '');
-            // Close inline forms if open
             setShowRestock(false);
             setShowConsume(false);
-            toast.success(`Loaded: ${data.name}`);
+            setScanState('found');
+            // Add to scan history
+            setScanHistory(prev => {
+                const filtered = prev.filter(h => h.sku !== data.sku);
+                return [{ ...data, scanned_at: new Date() }, ...filtered].slice(0, 10);
+            });
+            toast.success(`Found: ${data.name}`);
         } catch (err) {
             setLookupResult(null);
-            setLookupError(err.response?.data?.message || `No inventory item matches code: ${code}`);
-            toast.error(err.response?.data?.message || 'Item lookup failed.');
+            setScanState('idle');
+            setLookupError(err.response?.data?.message || `No item found for: ${code}`);
+            toast.error(err.response?.data?.message || 'Item not found.');
         } finally {
             setLookupLoading(false);
         }
     }, []);
 
-    // Start live camera
+    // ── Camera start ───────────────────────────────────────────────────────────
     const startCamera = useCallback(async () => {
         if (!mountedRef.current || activeTab !== 'camera' || !isCamActive) return;
-        
         await safeStop();
         setCameraError('');
+        setScanState('scanning');
 
         try {
-            const mod = await loadHtml5Qrcode();
+            const mod = await getHtml5QrcodeModule();
             if (!mod || !mountedRef.current) return;
             const { Html5Qrcode } = mod;
-
             const qr = new Html5Qrcode(camDivId.current, { verbose: false });
             scannerRef.current = qr;
 
-            // Get available cameras if not loaded
             if (cameras.length === 0) {
                 const devices = await Html5Qrcode.getCameras().catch(() => []);
                 if (mountedRef.current) {
                     setCameras(devices);
-                    if (devices.length > 0) {
-                        setSelectedCamId(devices[0].id);
-                    }
+                    if (devices.length > 0) setSelectedCamId(devices[0].id);
                 }
             }
 
-            const config = { fps: 12, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 };
-            
-            const onScanSuccess = (text) => {
-                const normalized = normalizeCode(text);
-                if (normalized) {
-                    handleLookup(normalized);
-                    // Pause camera briefly on successful scan to avoid duplicate scans
-                    setIsCamActive(false);
-                }
-            };
-
-            const cameraId = selectedCamId || { facingMode: 'environment' };
-
             await qr.start(
-                cameraId,
-                config,
-                onScanSuccess,
-                () => { /* frame mismatch - ignore */ }
+                selectedCamId || { facingMode: 'environment' },
+                { fps: 12, qrbox: { width: 200, height: 200 }, aspectRatio: 1.6 },
+                (text) => {
+                    const normalized = normalizeCode(text);
+                    if (normalized) {
+                        handleLookup(normalized);
+                        setIsCamActive(false);
+                    }
+                },
+                () => {}
             );
             isStartedRef.current = true;
         } catch (err) {
-            console.warn('Live camera start error:', err);
-            if (mountedRef.current) {
-                const isPermissionDenied = err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied');
-                setCameraError(isPermissionDenied
-                    ? 'Camera permission denied. Please allow camera access in your browser settings, then try again.'
-                    : 'Unable to start live camera feed. Please check permissions or switch to file upload.');
-                if (isPermissionDenied) {
-                    setShowPermissionModal(true);
-                }
-                setIsCamActive(false);
-                isStartedRef.current = false;
-                scannerRef.current = null;
-            }
+            if (!mountedRef.current) return;
+            const isDenied = err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied');
+            setCameraError(isDenied
+                ? 'Camera permission denied. Allow camera in browser settings and try again.'
+                : 'Unable to start camera. Check permissions or use manual entry.');
+            if (isDenied) setShowPermissionModal(true);
+            setIsCamActive(false);
+            setScanState('idle');
+            isStartedRef.current = false;
+            scannerRef.current = null;
         }
-    }, [activeTab, isCamActive, selectedCamId, cameras.length, loadHtml5Qrcode, safeStop, handleLookup]);
+    }, [activeTab, isCamActive, selectedCamId, cameras.length, safeStop, handleLookup]);
 
-    // Handle active camera start/stop
     useEffect(() => {
-        if (activeTab === 'camera' && isCamActive) {
-            startCamera();
-        } else {
-            safeStop();
-        }
-    }, [activeTab, isCamActive, selectedCamId, startCamera, safeStop]);
+        if (activeTab === 'camera' && isCamActive) startCamera();
+        else safeStop();
+    }, [activeTab, isCamActive, selectedCamId]);
 
-    // Cleanup camera when switching tabs
     useEffect(() => {
-        if (activeTab !== 'camera') {
-            safeStop();
-        }
-    }, [activeTab, safeStop]);
+        if (activeTab !== 'camera') { safeStop(); setScanState('idle'); }
+    }, [activeTab]);
 
-    // Upload Photo: jsQR Scan
+    // ── File scan ──────────────────────────────────────────────────────────────
     const scanFileWithJsQR = (file) => new Promise((resolve, reject) => {
         const img = new Image();
         const url = URL.createObjectURL(file);
         img.onload = () => {
             URL.revokeObjectURL(url);
-            const attempts = [1, 2, 3];
-            for (const scale of attempts) {
+            for (const scale of [1, 2, 3]) {
                 const canvas = document.createElement('canvas');
                 canvas.width = img.width * scale;
                 canvas.height = img.height * scale;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: 'attemptBoth',
-                });
+                const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
                 if (code) { resolve(code.data); return; }
             }
             resolve(null);
@@ -277,7 +293,6 @@ const ScanItem = () => {
         img.src = url;
     });
 
-    // Native Barcode Detector
     const tryBarcodeDetector = async (file) => {
         if (!('BarcodeDetector' in window)) return null;
         try {
@@ -288,86 +303,65 @@ const ScanItem = () => {
         } catch { return null; }
     };
 
-    // html5-qrcode file fallback
     const tryHtml5Qrcode = async (file) => {
-        const mod = await loadHtml5Qrcode();
+        const mod = await getHtml5QrcodeModule();
         if (!mod) return null;
-        const tmpId = `qr-tmp-page-${Date.now()}`;
-        const tmpDiv = document.createElement('div');
-        tmpDiv.id = tmpId;
-        tmpDiv.style.position = 'fixed';
-        tmpDiv.style.left = '-9999px';
-        tmpDiv.style.top = '0';
-        tmpDiv.style.width = '300px';
-        tmpDiv.style.height = '300px';
+        const tmpId = `qr-tmp-${Date.now()}`;
+        const tmpDiv = Object.assign(document.createElement('div'), {
+            id: tmpId,
+            style: 'position:fixed;left:-9999px;top:0;width:300px;height:300px'
+        });
         document.body.appendChild(tmpDiv);
         try {
             const { Html5Qrcode } = mod;
             const qr = new Html5Qrcode(tmpId, { verbose: false });
             const result = await qr.scanFile(file, true);
-            try { qr.clear(); } catch { /* ignore */ }
+            try { qr.clear(); } catch {}
             return result;
         } finally {
             if (document.body.contains(tmpDiv)) document.body.removeChild(tmpDiv);
         }
     };
 
-    // Handle Upload File selection
     const handleFileChange = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        if (!file.type.startsWith('image/')) {
-            toast.error('Please select a valid image file.');
-            return;
-        }
-
+        if (!file.type.startsWith('image/')) { toast.error('Select a valid image.'); return; }
         setScanningFile(true);
         setCameraError('');
-
         try {
             let result = await scanFileWithJsQR(file).catch(() => null);
             if (!result) result = await tryBarcodeDetector(file).catch(() => null);
             if (!result) result = await tryHtml5Qrcode(file).catch(() => null);
-
             if (result) {
                 const normalized = normalizeCode(result);
-                if (normalized) {
-                    handleLookup(normalized);
-                } else {
-                    setCameraError('Decoded code was empty. Please try a clearer picture.');
-                }
+                if (normalized) handleLookup(normalized);
+                else setCameraError('Decoded code was empty. Try a clearer image.');
             } else {
-                setCameraError('No QR code or barcode found in this photo. Make sure the code is well-lit and fits the frame.');
+                setCameraError('No QR / barcode found. Ensure code is well-lit and in frame.');
             }
-        } catch (error) {
-            console.error('File scan error:', error);
-            setCameraError('Error reading the image file. Try again with a clearer image.');
+        } catch {
+            setCameraError('Error reading image. Try again with a clearer photo.');
         } finally {
             setScanningFile(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
-    // Manual lookup form submit
     const handleManualSubmit = (e) => {
         e.preventDefault();
         const code = manualCode.trim();
-        if (!code) {
-            toast.error('Please enter a SKU or barcode code.');
-            return;
-        }
+        if (!code) { toast.error('Enter a SKU or barcode.'); return; }
         handleLookup(code);
     };
 
-    // Restock Submit Action
+    // ── Restock ────────────────────────────────────────────────────────────────
     const handleRestockSubmit = async (e) => {
         e.preventDefault();
-        if (!lookupResult) return;
-        if (!restockQty || Number(restockQty) <= 0) {
-            toast.error('Please enter a valid quantity.');
+        if (!lookupResult || !restockQty || Number(restockQty) <= 0) {
+            toast.error('Enter a valid quantity.');
             return;
         }
-
         setSubmittingAction(true);
         try {
             await api.post(`/inventory/${lookupResult.id}/restock`, {
@@ -376,453 +370,840 @@ const ScanItem = () => {
                 notes: restockNotes || undefined
             });
             toast.success('Restocked successfully!');
-            // Re-fetch item to show updated values
             await handleLookup(lookupResult.scanned_code || lookupResult.sku);
-            // Reset restock fields
-            setRestockQty('');
-            setRestockNotes('');
-            setShowRestock(false);
+            setRestockQty(''); setRestockNotes(''); setShowRestock(false);
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Restock transaction failed.');
+            toast.error(err.response?.data?.message || 'Restock failed.');
         } finally {
             setSubmittingAction(false);
         }
     };
 
-    // Consume Submit Action
+    // ── Consume ────────────────────────────────────────────────────────────────
     const handleConsumeSubmit = async (e) => {
         e.preventDefault();
-        if (!lookupResult) return;
-        if (!consumeQty || Number(consumeQty) <= 0) {
-            toast.error('Please enter a valid quantity.');
+        if (!lookupResult || !consumeQty || Number(consumeQty) <= 0) {
+            toast.error('Enter a valid quantity.');
             return;
         }
         if (Number(consumeQty) > Number(lookupResult.quantity)) {
             toast.error(`Insufficient stock! Available: ${lookupResult.quantity}`);
             return;
         }
-
         setSubmittingAction(true);
         try {
             await api.post(`/inventory/${lookupResult.id}/consume`, {
                 quantity_consumed: Number(consumeQty),
                 notes: consumeNotes || undefined
             });
-            toast.success('Stock consumed successfully!');
-            // Re-fetch item to show updated values
+            toast.success('Stock consumed!');
             await handleLookup(lookupResult.scanned_code || lookupResult.sku);
-            // Reset consume fields
-            setConsumeQty('');
-            setConsumeNotes('');
-            setShowConsume(false);
+            setConsumeQty(''); setConsumeNotes(''); setShowConsume(false);
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Consume transaction failed.');
+            toast.error(err.response?.data?.message || 'Consume failed.');
         } finally {
             setSubmittingAction(false);
         }
     };
 
-    const isLowStock = lookupResult && Number(lookupResult.quantity) <= Number(lookupResult.reorder_level || 0);
+    // ── Add to Bill ───────────────────────────────────────────────────────────
+    const openAddToBill = async () => {
+        setShowAddToBill(true);
+        setBillQty(1);
+        setBillDiscount(0);
+        setSelectedCustomer(null);
+        setBillCustomerSearch('');
+        setCustomersLoading(true);
+        try {
+            const { data } = await api.get('/customers', { params: { limit: 50 } });
+            const list = Array.isArray(data) ? data : (data?.data || []);
+            setBillCustomers(list);
+        } catch {
+            toast.error('Failed to load customers.');
+        } finally {
+            setCustomersLoading(false);
+        }
+    };
 
+    const handleAddToBillSubmit = async (e) => {
+        e.preventDefault();
+        if (!lookupResult) return;
+        if (!selectedCustomer) { toast.error('Select a customer.'); return; }
+        if (!billQty || Number(billQty) <= 0) { toast.error('Enter valid quantity.'); return; }
+
+        const qty = Number(lookupResult.quantity);
+        if (Number(billQty) > qty) {
+            toast.error(`Insufficient stock. Available: ${qty}`);
+            return;
+        }
+
+        setBillLoading(true);
+        try {
+            const price = resolvePrice(lookupResult) || 0;
+            // Navigate to billing with pre-filled cart data via state
+            navigate('/dashboard/billing', {
+                state: {
+                    prefillItem: {
+                        inventoryItemId: lookupResult.id,
+                        name: lookupResult.name,
+                        sku: lookupResult.sku,
+                        qty: Number(billQty),
+                        unitPrice: price,
+                        discount: Number(billDiscount) || 0,
+                    },
+                    prefillCustomer: selectedCustomer
+                }
+            });
+            toast.success('Opening billing with item pre-filled…');
+        } catch (err) {
+            toast.error('Failed to prepare bill.');
+        } finally {
+            setBillLoading(false);
+            setShowAddToBill(false);
+        }
+    };
+
+    const filteredCustomers = billCustomers.filter(c => {
+        const q = billCustomerSearch.toLowerCase();
+        return !q || (c.name || '').toLowerCase().includes(q) || (c.mobile || '').includes(q);
+    });
+
+    // ── Derived values ─────────────────────────────────────────────────────────
+    const stockStatus = getStockStatus(lookupResult);
+    const resolvedPrice = resolvePrice(lookupResult);
+    const displayPrice = resolvedPrice !== null ? `₹${formatPrice(resolvedPrice)}` : 'Price not configured';
+    const hasPriceIssue = resolvedPrice === null;
+
+    const handleRetryPermission = async () => {
+        setShowPermissionModal(false);
+        setCameraError('');
+        const ok = await requestCameraPermission();
+        if (ok) { setIsCamActive(true); setLookupResult(null); }
+    };
+
+    const clearResult = () => {
+        setLookupResult(null);
+        setLookupError('');
+        setScanState('idle');
+        setShowRestock(false);
+        setShowConsume(false);
+        if (activeTab === 'camera') setIsCamActive(true);
+        if (activeTab === 'manual') { setManualCode(''); manualInputRef.current?.focus(); }
+    };
+
+    // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <PageContainer>
-            
-            {/* Header */}
-            <div className="scan-header row items-center gap-md">
-                <button className="btn btn-ghost icon-button back-btn" onClick={() => navigate(-1)} title="Go Back">
-                    <ArrowLeft size={20} />
-                </button>
-                <div>
-                    <h1 className="scan-title">Scan Inventory Item</h1>
-                    <p className="scan-subtitle">Lookup, restock, or consume general inventory items in real-time.</p>
+            {/* ── Page Header ─────────────────────────────────────────────────── */}
+            <div className="si-header">
+                <div className="si-header__left">
+                    <button
+                        className="si-back-btn"
+                        onClick={() => navigate(-1)}
+                        title="Go Back"
+                        aria-label="Go back"
+                    >
+                        <ArrowLeft size={18} />
+                    </button>
+                    <div>
+                        <h1 className="si-title">Inventory Scan</h1>
+                        <p className="si-subtitle">Lookup · Restock · Consume · Add to Bill</p>
+                    </div>
+                </div>
+                <div className="si-header__right">
+                    {scanHistory.length > 0 && (
+                        <button
+                            className={`si-history-btn ${showHistory ? 'si-history-btn--active' : ''}`}
+                            onClick={() => setShowHistory(v => !v)}
+                        >
+                            <History size={16} />
+                            <span>History ({scanHistory.length})</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
-            <div className="scan-layout-grid">
-                
-                {/* Left side: Scanner card with Tabs */}
-                <div className="scanner-control-card border">
-                    <div className="tabs-header row">
-                        <button 
-                            className={`tab-btn row items-center gap-xs flex-1 ${activeTab === 'camera' ? 'active' : ''}`}
-                            onClick={() => { setActiveTab('camera'); setCameraError(''); }}
+            {/* ── Scan History Drawer ──────────────────────────────────────────── */}
+            {showHistory && scanHistory.length > 0 && (
+                <div className="si-history-bar">
+                    {scanHistory.map((item, i) => (
+                        <button
+                            key={i}
+                            className="si-history-chip"
+                            onClick={() => { handleLookup(item.sku); setShowHistory(false); }}
                         >
-                            <Camera size={16} /> Live Camera
+                            <span className="si-history-chip__sku">{item.sku}</span>
+                            <span className="si-history-chip__name">{item.name}</span>
                         </button>
-                        <button 
-                            className={`tab-btn row items-center gap-xs flex-1 ${activeTab === 'file' ? 'active' : ''}`}
-                            onClick={() => { setActiveTab('file'); setCameraError(''); }}
-                        >
-                            <Upload size={16} /> Upload Photo
-                        </button>
-                        <button 
-                            className={`tab-btn row items-center gap-xs flex-1 ${activeTab === 'manual' ? 'active' : ''}`}
-                            onClick={() => { setActiveTab('manual'); setCameraError(''); }}
-                        >
-                            <Search size={16} /> Manual Search
-                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* ── Main 2-Column Layout ─────────────────────────────────────────── */}
+            <div className="si-grid">
+                {/* ── LEFT: Scanner Panel ──────────────────────────────────────── */}
+                <div className="si-scanner-panel">
+                    {/* Tab selector */}
+                    <div className="si-tabs">
+                        {[
+                            { id: 'camera', label: 'Live Camera', icon: Camera },
+                            { id: 'file', label: 'Upload Image', icon: Upload },
+                            { id: 'manual', label: 'Manual Entry', icon: Search },
+                        ].map(({ id, label, icon: Icon }) => (
+                            <button
+                                key={id}
+                                className={`si-tab ${activeTab === id ? 'si-tab--active' : ''}`}
+                                onClick={() => { setActiveTab(id); setCameraError(''); }}
+                                aria-selected={activeTab === id}
+                            >
+                                <Icon size={15} />
+                                <span>{label}</span>
+                            </button>
+                        ))}
                     </div>
 
-                    <div className="tab-body">
-                        
-                        {/* Tab: Camera */}
+                    {/* Tab Body */}
+                    <div className="si-tab-body">
+
+                        {/* Camera Tab */}
                         {activeTab === 'camera' && (
-                            <div className="camera-tab-container stack-sm">
+                            <div className="si-camera-tab">
                                 {cameras.length > 1 && (
-                                    <div className="camera-select-wrapper row gap-sm items-center">
-                                        <span className="muted text-xs">Switch Camera:</span>
-                                        <select 
-                                            value={selectedCamId} 
-                                            onChange={(e) => setSelectedCamId(e.target.value)}
-                                            className="camera-select-field flex-1"
+                                    <div className="si-cam-select-row">
+                                        <Camera size={14} className="si-cam-select-icon" />
+                                        <select
+                                            value={selectedCamId}
+                                            onChange={e => setSelectedCamId(e.target.value)}
+                                            className="si-cam-select"
+                                            aria-label="Select camera"
                                         >
                                             {cameras.map((c, i) => (
-                                                <option key={c.id} value={c.id}>
-                                                    {c.label || `Camera ${i + 1}`}
-                                                </option>
+                                                <option key={c.id} value={c.id}>{c.label || `Camera ${i + 1}`}</option>
                                             ))}
                                         </select>
                                     </div>
                                 )}
-                                
-                                <div className="camera-viewport border">
-                                    <div id={camDivId.current} className="camera-video-container" />
+
+                                <div className="si-viewport">
+                                    <div id={camDivId.current} className="si-video-container" />
+
+                                    {/* Scan overlay when active */}
                                     {isCamActive && (
-                                        <div className="viewport-overlay">
-                                            <div className="scan-cutout">
-                                                <div className="scan-corner scan-corner--tl" />
-                                                <div className="scan-corner scan-corner--tr" />
-                                                <div className="scan-corner scan-corner--bl" />
-                                                <div className="scan-corner scan-corner--br" />
-                                                <div className="scan-pulse" />
+                                        <div className="si-viewport-overlay" aria-hidden="true">
+                                            <div className="si-scan-frame">
+                                                <div className="si-scan-corner si-scan-corner--tl" />
+                                                <div className="si-scan-corner si-scan-corner--tr" />
+                                                <div className="si-scan-corner si-scan-corner--bl" />
+                                                <div className="si-scan-corner si-scan-corner--br" />
+                                                <div className="si-scan-line" />
                                             </div>
+                                            <p className="si-scan-hint">Point camera at barcode or QR code</p>
                                         </div>
                                     )}
+
+                                    {/* Camera off state */}
                                     {!isCamActive && (
-                                        <div className="camera-paused row items-center justify-center">
-                                            <div className="stack-xs items-center text-center">
-                                                <p className="bold text-sm">{cameraError ? 'Camera Not Available' : 'Camera is off'}</p>
-                                                <button className="btn btn-primary btn-sm mt-8" onClick={async () => { setCameraError(''); const ok = await requestCameraPermission(); if (ok) { setIsCamActive(true); setLookupResult(null); } }}>
-                                                    <Camera size={14} className="mr-4" /> Start Camera
+                                        <div className="si-camera-off">
+                                            <div className="si-camera-off__inner">
+                                                <div className="si-camera-off__icon">
+                                                    <Camera size={28} />
+                                                </div>
+                                                <p className="si-camera-off__title">
+                                                    {cameraError ? 'Camera unavailable' : 'Camera off'}
+                                                </p>
+                                                <p className="si-camera-off__hint">
+                                                    {cameraError || 'Start camera to begin scanning'}
+                                                </p>
+                                                <button
+                                                    className="btn btn-primary btn-sm si-start-cam-btn"
+                                                    onClick={async () => {
+                                                        setCameraError('');
+                                                        const ok = await requestCameraPermission();
+                                                        if (ok) { setIsCamActive(true); setLookupResult(null); setScanState('idle'); }
+                                                    }}
+                                                >
+                                                    <Camera size={14} />
+                                                    Start Camera
                                                 </button>
                                             </div>
                                         </div>
                                     )}
-                                </div>
 
-                            </div>
-                        )}
-
-                        {/* Tab: File Upload */}
-                        {activeTab === 'file' && (
-                            <div className="file-tab-container">
-                                <div 
-                                    className="upload-dropzone border"
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    <Upload size={32} className="muted mb-8" />
-                                    <p className="bold text-sm">Click to upload barcode/QR photo</p>
-                                    <p className="muted text-xs mt-4">Accepts PNG, JPG, or WEBP images</p>
-                                    
-                                    {scanningFile && (
-                                        <div className="dropzone-loader row items-center justify-center gap-sm">
-                                            <Loader2 size={16} className="animate-spin text-primary" />
-                                            <span>Processing file image...</span>
+                                    {/* Status badge */}
+                                    {isCamActive && (
+                                        <div className={`si-status-badge si-status-badge--${scanState}`}>
+                                            {scanState === 'scanning' && <><Loader2 size={12} className="animate-spin" /> Scanning…</>}
+                                            {scanState === 'found' && <><Check size={12} /> Product Found</>}
+                                            {scanState === 'idle' && <><Scan size={12} /> Ready to Scan</>}
                                         </div>
                                     )}
                                 </div>
-                                <input 
+
+                                {isCamActive && lookupResult && (
+                                    <button
+                                        className="si-scan-again-btn"
+                                        onClick={clearResult}
+                                    >
+                                        <RefreshCw size={14} />
+                                        Scan Another Item
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Upload Tab */}
+                        {activeTab === 'file' && (
+                            <div className="si-file-tab">
+                                <div
+                                    className={`si-dropzone ${scanningFile ? 'si-dropzone--loading' : ''}`}
+                                    onClick={() => !scanningFile && fileInputRef.current?.click()}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label="Upload barcode or QR image"
+                                    onKeyDown={e => e.key === 'Enter' && fileInputRef.current?.click()}
+                                >
+                                    {scanningFile ? (
+                                        <>
+                                            <Loader2 size={36} className="animate-spin si-dropzone__spinner" />
+                                            <p className="si-dropzone__text">Processing image…</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="si-dropzone__icon">
+                                                <Upload size={28} />
+                                            </div>
+                                            <p className="si-dropzone__text">Click to upload barcode / QR photo</p>
+                                            <p className="si-dropzone__hint">PNG, JPG, WEBP accepted</p>
+                                        </>
+                                    )}
+                                </div>
+                                <input
                                     ref={fileInputRef}
                                     type="file"
                                     accept="image/*"
                                     onChange={handleFileChange}
                                     style={{ display: 'none' }}
                                     disabled={scanningFile}
+                                    aria-hidden="true"
                                 />
                             </div>
                         )}
 
-                        {/* Tab: Manual Search */}
+                        {/* Manual Tab */}
                         {activeTab === 'manual' && (
-                            <form onSubmit={handleManualSubmit} className="manual-tab-container stack-sm">
-                                <label className="label text-xs">SKU / Item Code / Barcode</label>
-                                <div className="row gap-sm">
+                            <form onSubmit={handleManualSubmit} className="si-manual-tab">
+                                <label htmlFor="si-manual-input" className="si-manual-label">
+                                    <Hash size={13} /> SKU / Item Code / Barcode
+                                </label>
+                                <div className="si-manual-row">
                                     <input
+                                        id="si-manual-input"
+                                        ref={manualInputRef}
                                         type="text"
-                                        placeholder="Type SKU or barcode number..."
+                                        placeholder="Type or paste SKU / barcode…"
                                         value={manualCode}
-                                        onChange={(e) => setManualCode(e.target.value)}
-                                        className="input-field flex-1"
+                                        onChange={e => setManualCode(e.target.value)}
+                                        className="input-field si-manual-input"
+                                        autoComplete="off"
+                                        spellCheck={false}
                                         required
                                     />
-                                    <button type="submit" className="btn btn-primary" disabled={lookupLoading}>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary si-manual-submit"
+                                        disabled={lookupLoading}
+                                        aria-label="Search item"
+                                    >
                                         {lookupLoading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
                                     </button>
                                 </div>
                             </form>
                         )}
 
+                        {/* Error bar */}
                         {cameraError && (
-                            <div className="scan-error-alert row gap-sm items-start border mt-16">
-                                <ShieldAlert size={18} className="text-error mt-2" />
-                                <div className="text-xs text-error">{cameraError}</div>
+                            <div className="si-error-bar" role="alert">
+                                <AlertCircle size={16} />
+                                <span>{cameraError}</span>
                             </div>
                         )}
                     </div>
+
+                    {/* Scan tip */}
+                    <div className="si-tip">
+                        <Zap size={12} />
+                        <span>Hardware scanners auto-detected — just scan anytime</span>
+                    </div>
                 </div>
 
-                {/* Right side: Result panel */}
-                <div className="result-display-panel">
-                    
+                {/* ── RIGHT: Product Preview Panel ─────────────────────────────── */}
+                <div className="si-result-panel">
+
+                    {/* Loading skeleton */}
                     {lookupLoading && (
-                        <div className="result-card border row items-center justify-center" style={{ minHeight: '360px' }}>
-                            <div className="stack-sm items-center text-center">
-                                <Loader2 size={36} className="animate-spin text-primary" />
-                                <p className="bold text-sm">Searching Database...</p>
-                                <p className="muted text-xs">Retrieving inventory item record</p>
-                            </div>
+                        <div className="si-result-card si-result-card--loading">
+                            <div className="si-skeleton si-skeleton--img" />
+                            <div className="si-skeleton si-skeleton--title" />
+                            <div className="si-skeleton si-skeleton--text" />
+                            <div className="si-skeleton si-skeleton--text si-skeleton--text-short" />
+                            <div className="si-skeleton si-skeleton--chip" />
                         </div>
                     )}
 
+                    {/* Error state */}
                     {!lookupLoading && lookupError && (
-                        <div className="result-card border row items-center justify-center text-center p-24" style={{ minHeight: '360px' }}>
-                            <div className="stack-sm items-center">
-                                <ShieldAlert size={48} className="text-error mb-8" />
-                                <h3 className="bold text-lg text-error">No Item Found</h3>
-                                <p className="muted text-sm max-w-xs">{lookupError}</p>
-                                <button 
-                                    className="btn btn-ghost btn-sm mt-12"
-                                    onClick={() => { setLookupError(''); setManualCode(''); setActiveTab('manual'); }}
-                                >
-                                    Try Search Again
-                                </button>
+                        <div className="si-result-card si-empty-state">
+                            <div className="si-empty-state__icon si-empty-state__icon--error">
+                                <ShieldAlert size={32} />
                             </div>
+                            <h3 className="si-empty-state__title">Item Not Found</h3>
+                            <p className="si-empty-state__text">{lookupError}</p>
+                            <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => { setLookupError(''); setManualCode(''); setActiveTab('manual'); }}
+                            >
+                                Try Again
+                            </button>
                         </div>
                     )}
 
+                    {/* Empty (ready) state */}
                     {!lookupLoading && !lookupError && !lookupResult && (
-                        <div className="result-card border row items-center justify-center text-center p-24" style={{ minHeight: '360px' }}>
-                            <div className="stack-sm items-center text-muted">
-                                <Package size={48} className="muted mb-8" />
-                                <h3 className="bold text-md">Scan Result Display</h3>
-                                <p className="muted text-xs max-w-xs">
-                                    When you scan a barcode or submit a lookup, the item details and inventory transaction forms will be presented here.
-                                </p>
+                        <div className="si-result-card si-empty-state">
+                            <div className="si-empty-state__icon">
+                                <Package size={32} />
+                            </div>
+                            <h3 className="si-empty-state__title">Ready to Scan</h3>
+                            <p className="si-empty-state__text">
+                                Product details appear here after scanning or searching.
+                            </p>
+                            <div className="si-empty-hints">
+                                <span><Camera size={12} /> Point at barcode</span>
+                                <span><Upload size={12} /> Upload image</span>
+                                <span><Search size={12} /> Type SKU</span>
                             </div>
                         </div>
                     )}
 
+                    {/* Product Found Card */}
                     {!lookupLoading && !lookupError && lookupResult && (
-                        <div className="result-card border stack-md">
-                            
-                            {/* Product Info Block */}
-                            <div className="result-card-header row gap-md items-start">
-                                {lookupResult.product_image_url || lookupResult.image_url ? (
-                                    <SecureImage 
-                                        src={lookupResult.product_image_url || lookupResult.image_url} 
-                                        alt={lookupResult.name}
-                                        className="product-detail-img border"
-                                    />
-                                ) : (
-                                    <div className="product-detail-img border no-img row items-center justify-center">
-                                        <Package size={28} className="muted" />
+                        <div className={`si-result-card si-result-card--found ${scanState === 'found' ? 'si-result-card--animate' : ''}`}>
+
+                            {/* Product Image + Identity */}
+                            <div className="si-product-header">
+                                <div className="si-product-image-wrap">
+                                    {lookupResult.product_image_url || lookupResult.image_url ? (
+                                        <SecureImage
+                                            src={lookupResult.product_image_url || lookupResult.image_url}
+                                            alt={lookupResult.name}
+                                            className="si-product-image"
+                                        />
+                                    ) : (
+                                        <div className="si-product-image si-product-image--placeholder">
+                                            <Package size={24} />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="si-product-identity">
+                                    <div className="si-sku-chip">
+                                        <Tag size={11} />
+                                        {lookupResult.sku}
                                     </div>
-                                )}
-                                <div className="flex-1 stack-xs">
-                                    <div className="sku-badge mb-4">
-                                        <Tag size={12} className="mr-4" /> SKU: {lookupResult.sku}
-                                    </div>
-                                    <h2 className="product-detail-title">{lookupResult.name}</h2>
-                                    <span className="product-category-text">{lookupResult.category || 'General'}</span>
+                                    <h2 className="si-product-name">{lookupResult.name}</h2>
+                                    {lookupResult.category && (
+                                        <span className="si-product-category">{lookupResult.category}</span>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Details Grid */}
-                            <div className="details-grid-layout">
-                                <div className="grid-cell">
-                                    <span className="cell-label">Selling Price (MRP)</span>
-                                    <span className="cell-value price-text row items-center">
-                                        <IndianRupee size={16} /> {lookupResult.mrp || lookupResult.sell_price || '0'}
+                            {/* Price Row */}
+                            <div className="si-price-row">
+                                <div className="si-price-block">
+                                    <span className="si-price-label">MRP</span>
+                                    <span className={`si-price-value ${hasPriceIssue ? 'si-price-value--unconfigured' : ''}`}>
+                                        {hasPriceIssue ? (
+                                            <>
+                                                <AlertCircle size={13} />
+                                                Price not configured
+                                            </>
+                                        ) : displayPrice}
                                     </span>
                                 </div>
-                                
-                                {isAdminOrAccountant && (
-                                    <div className="grid-cell border-left">
-                                        <span className="cell-label">Cost Price (Base)</span>
-                                        <span className="cell-value price-text cost row items-center">
-                                            <IndianRupee size={16} /> {lookupResult.cost_price || '0'}
+
+                                {lookupResult.sell_price && lookupResult.sell_price !== lookupResult.mrp && (
+                                    <div className="si-price-block">
+                                        <span className="si-price-label">Selling Price</span>
+                                        <span className="si-price-value si-price-value--selling">
+                                            ₹{formatPrice(lookupResult.sell_price)}
                                         </span>
                                     </div>
                                 )}
 
-                                <div className={`grid-cell border-left ${isLowStock ? 'alert-cell' : ''}`}>
-                                    <span className="cell-label">Stock Status</span>
-                                    <span className={`cell-value font-bold ${isLowStock ? 'text-error' : 'text-success'}`}>
-                                        {lookupResult.quantity} {lookupResult.unit || 'pcs'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Extra attributes */}
-                            <div className="result-attributes stack-xs">
-                                {lookupResult.hsn && (
-                                    <div className="row space-between text-xs">
-                                        <span className="muted">HSN Code:</span>
-                                        <span className="bold">{lookupResult.hsn}</span>
-                                    </div>
-                                )}
-                                {lookupResult.reorder_level !== undefined && (
-                                    <div className="row space-between text-xs">
-                                        <span className="muted">Reorder Threshold:</span>
-                                        <span className={`bold ${isLowStock ? 'text-error' : ''}`}>
-                                            {lookupResult.reorder_level} {lookupResult.unit || 'pcs'}
+                                {isAdminOrAccountant && lookupResult.cost_price > 0 && (
+                                    <div className="si-price-block">
+                                        <span className="si-price-label si-price-label--admin">
+                                            Cost Price <span className="si-admin-badge">Admin</span>
+                                        </span>
+                                        <span className="si-price-value si-price-value--cost">
+                                            ₹{formatPrice(lookupResult.cost_price)}
                                         </span>
                                     </div>
                                 )}
-                                {isLowStock && (
-                                    <div className="low-stock-alert-bar row gap-xs items-center mt-8">
-                                        <ShieldAlert size={14} className="text-error" />
-                                        <span className="text-xs text-error font-semibold">Low Stock: Current quantity is below reorder level.</span>
+                            </div>
+
+                            {/* Stock Status */}
+                            <div className="si-stock-section">
+                                <div className={`si-stock-badge si-stock-badge--${stockStatus.status}`}>
+                                    <span className="si-stock-dot" />
+                                    <span className="si-stock-label">{stockStatus.label}</span>
+                                    <span className="si-stock-qty">
+                                        {Number(lookupResult.quantity)} {lookupResult.unit || 'pcs'}
+                                    </span>
+                                </div>
+
+                                {(lookupResult.reorder_level !== undefined && lookupResult.reorder_level !== null) && (
+                                    <div className="si-reorder-info">
+                                        <span>Reorder at:</span>
+                                        <strong>{lookupResult.reorder_level} {lookupResult.unit || 'pcs'}</strong>
                                     </div>
                                 )}
                             </div>
 
-                            {/* Action Buttons */}
-                            <div className="result-action-buttons row gap-sm mt-16">
-                                {isAdminOrAccountant && (
-                                    <button 
-                                        className={`btn flex-1 ${showRestock ? 'btn-primary' : 'btn-ghost border'}`}
-                                        onClick={() => { setShowRestock(!showRestock); setShowConsume(false); }}
+                            {/* Extra Metadata */}
+                            {lookupResult.hsn && (
+                                <div className="si-meta-row">
+                                    <span className="si-meta-label">HSN</span>
+                                    <span className="si-meta-value">{lookupResult.hsn}</span>
+                                </div>
+                            )}
+                            {lookupResult.vendor_name && (
+                                <div className="si-meta-row">
+                                    <span className="si-meta-label">Vendor</span>
+                                    <span className="si-meta-value">{lookupResult.vendor_name}</span>
+                                </div>
+                            )}
+
+                            {/* ── Action Buttons ─────────────────────────────────── */}
+                            <div className="si-actions">
+                                {/* Add to Bill — Primary CTA */}
+                                {(isAdminOrAccountant || isFrontOffice) && (
+                                    <button
+                                        className="btn btn-primary si-action-primary"
+                                        onClick={openAddToBill}
+                                        disabled={Number(lookupResult.quantity) <= 0}
                                     >
-                                        <Plus size={16} className="mr-8" /> Restock
+                                        <ShoppingCart size={16} />
+                                        Add to Bill
                                     </button>
                                 )}
-                                <button 
-                                    className={`btn flex-1 ${showConsume ? 'btn-primary' : 'btn-ghost border'}`}
-                                    onClick={() => { setShowConsume(!showConsume); setShowRestock(false); }}
-                                >
-                                    <Minus size={16} className="mr-8" /> Consume Stock
-                                </button>
+
+                                {/* Secondary actions */}
+                                <div className="si-action-row">
+                                    {isAdminOrAccountant && (
+                                        <button
+                                            className={`btn si-action-btn ${showRestock ? 'si-action-btn--active' : 'btn-ghost'}`}
+                                            onClick={() => { setShowRestock(v => !v); setShowConsume(false); }}
+                                        >
+                                            <Plus size={15} />
+                                            Restock
+                                        </button>
+                                    )}
+                                    <button
+                                        className={`btn si-action-btn ${showConsume ? 'si-action-btn--active si-action-btn--danger' : 'btn-ghost'}`}
+                                        onClick={() => { setShowConsume(v => !v); setShowRestock(false); }}
+                                    >
+                                        <Minus size={15} />
+                                        Consume
+                                    </button>
+                                    <button
+                                        className="btn btn-ghost si-action-btn"
+                                        onClick={() => navigate('/dashboard/inventory', { state: { search: lookupResult.sku } })}
+                                    >
+                                        <LayoutList size={15} />
+                                        Inventory
+                                    </button>
+                                    {isAdminOrAccountant && (
+                                        <button
+                                            className="btn btn-ghost si-action-btn"
+                                            onClick={() => navigate('/dashboard/inventory', { state: { edit: lookupResult.id } })}
+                                        >
+                                            <Edit2 size={15} />
+                                            Edit
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
-                            {/* Restock Form */}
+                            {/* ── Restock Form ──────────────────────────────────── */}
                             {showRestock && isAdminOrAccountant && (
-                                <form onSubmit={handleRestockSubmit} className="action-form stack-sm border mt-16">
-                                    <h3 className="form-heading font-semibold text-sm">Restock Transaction</h3>
-                                    
-                                    <div className="form-fields row gap-md">
-                                        <div className="flex-1 stack-xs">
-                                            <label className="label text-xs">Quantity Received</label>
-                                            <input 
+                                <form onSubmit={handleRestockSubmit} className="si-action-form">
+                                    <div className="si-action-form__header">
+                                        <Plus size={14} />
+                                        <span>Restock Transaction</span>
+                                    </div>
+                                    <div className="si-form-grid">
+                                        <div className="si-form-field">
+                                            <label className="si-form-label">Quantity Received</label>
+                                            <input
                                                 type="number"
                                                 className="input-field"
                                                 value={restockQty}
-                                                onChange={(e) => setRestockQty(e.target.value)}
+                                                onChange={e => setRestockQty(e.target.value)}
                                                 placeholder="e.g. 50"
                                                 min="1"
                                                 required
                                             />
                                         </div>
-                                        <div className="flex-1 stack-xs">
-                                            <label className="label text-xs">Cost Price per Unit (₹)</label>
-                                            <input 
+                                        <div className="si-form-field">
+                                            <label className="si-form-label">Cost Price / Unit (₹)</label>
+                                            <input
                                                 type="number"
                                                 step="0.01"
                                                 className="input-field"
                                                 value={restockCost}
-                                                onChange={(e) => setRestockCost(e.target.value)}
-                                                placeholder={lookupResult.cost_price || '0'}
+                                                onChange={e => setRestockCost(e.target.value)}
+                                                placeholder={lookupResult.cost_price || '0.00'}
                                             />
                                         </div>
                                     </div>
-
-                                    <div className="stack-xs">
-                                        <label className="label text-xs">Transaction Notes</label>
-                                        <input 
-                                            type="text"
-                                            className="input-field"
-                                            value={restockNotes}
-                                            onChange={(e) => setRestockNotes(e.target.value)}
-                                            placeholder="Optional transaction remarks..."
-                                        />
-                                    </div>
-
-                                    <div className="form-submit-row row gap-sm justify-end">
-                                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowRestock(false)}>
-                                            Cancel
-                                        </button>
+                                    <input
+                                        type="text"
+                                        className="input-field"
+                                        value={restockNotes}
+                                        onChange={e => setRestockNotes(e.target.value)}
+                                        placeholder="Optional notes…"
+                                    />
+                                    <div className="si-form-actions">
+                                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowRestock(false)}>Cancel</button>
                                         <button type="submit" className="btn btn-primary btn-sm" disabled={submittingAction}>
-                                            {submittingAction ? <Loader2 size={14} className="animate-spin mr-8" /> : <Check size={14} className="mr-8" />}
+                                            {submittingAction ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                                             Complete Restock
                                         </button>
                                     </div>
                                 </form>
                             )}
 
-                            {/* Consume Form */}
+                            {/* ── Consume Form ──────────────────────────────────── */}
                             {showConsume && (
-                                <form onSubmit={handleConsumeSubmit} className="action-form stack-sm border mt-16">
-                                    <h3 className="form-heading font-semibold text-sm text-error">Consume Stock</h3>
-                                    
-                                    <div className="stack-xs">
-                                        <label className="label text-xs">Quantity to Consume</label>
-                                        <input 
+                                <form onSubmit={handleConsumeSubmit} className="si-action-form si-action-form--danger">
+                                    <div className="si-action-form__header si-action-form__header--danger">
+                                        <Minus size={14} />
+                                        <span>Consume Stock</span>
+                                    </div>
+                                    <div className="si-form-field">
+                                        <label className="si-form-label">Quantity to Consume</label>
+                                        <input
                                             type="number"
                                             className="input-field"
                                             value={consumeQty}
-                                            onChange={(e) => setConsumeQty(e.target.value)}
+                                            onChange={e => setConsumeQty(e.target.value)}
                                             placeholder={`Max: ${lookupResult.quantity}`}
                                             min="1"
                                             max={lookupResult.quantity}
                                             required
                                         />
                                     </div>
-
-                                    <div className="stack-xs">
-                                        <label className="label text-xs">Reason/Notes</label>
-                                        <input 
+                                    <div className="si-form-field">
+                                        <label className="si-form-label">Reason / Notes</label>
+                                        <input
                                             type="text"
                                             className="input-field"
                                             value={consumeNotes}
-                                            onChange={(e) => setConsumeNotes(e.target.value)}
-                                            placeholder="Purpose (e.g. damaged, production order)"
+                                            onChange={e => setConsumeNotes(e.target.value)}
+                                            placeholder="e.g. damaged, production use…"
                                             required
                                         />
                                     </div>
-
-                                    <div className="form-submit-row row gap-sm justify-end">
-                                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowConsume(false)}>
-                                            Cancel
-                                        </button>
-                                        <button type="submit" className="btn btn-primary btn-sm btn--danger" disabled={submittingAction}>
-                                            {submittingAction ? <Loader2 size={14} className="animate-spin mr-8" /> : <Check size={14} className="mr-8" />}
-                                            Confirm Consumption
+                                    <div className="si-form-actions">
+                                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowConsume(false)}>Cancel</button>
+                                        <button type="submit" className="btn btn-sm si-btn-danger" disabled={submittingAction}>
+                                            {submittingAction ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                            Confirm
                                         </button>
                                     </div>
                                 </form>
                             )}
-                            
-                            {/* Option to clear/view in inventory */}
-                            <div className="row space-between items-center mt-12 border-top pt-12">
-                                <button className="btn btn-ghost btn-xs text-primary font-semibold" onClick={() => navigate('/dashboard/inventory', { state: { search: lookupResult.sku } })}>
-                                    View in Inventory Sheet →
-                                </button>
-                                <button className="btn btn-ghost btn-xs text-muted" onClick={() => { setLookupResult(null); setIsCamActive(true); }}>
-                                    Clear / Scan New
-                                </button>
-                            </div>
 
+                            {/* Clear / scan new */}
+                            <button className="si-clear-btn" onClick={clearResult}>
+                                <RefreshCw size={13} /> Scan New Item
+                            </button>
                         </div>
                     )}
-
                 </div>
-
             </div>
 
-            <CameraPermissionModal 
-                isOpen={showPermissionModal} 
-                onClose={() => setShowPermissionModal(false)} 
-                onRetry={handleRetryPermission} 
+            {/* ── Add to Bill Modal ─────────────────────────────────────────────── */}
+            {showAddToBill && lookupResult && (
+                <div
+                    className="modal-backdrop si-bill-backdrop"
+                    onClick={e => { if (e.target === e.currentTarget) setShowAddToBill(false); }}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Add to Bill"
+                >
+                    <div className="si-bill-modal">
+                        <div className="si-bill-modal__header">
+                            <div className="si-bill-modal__title">
+                                <ShoppingCart size={18} />
+                                Add to Bill
+                            </div>
+                            <button
+                                className="si-bill-modal__close"
+                                onClick={() => setShowAddToBill(false)}
+                                aria-label="Close"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Item Preview */}
+                        <div className="si-bill-item-preview">
+                            <div className="si-bill-item-name">{lookupResult.name}</div>
+                            <div className="si-bill-item-meta">
+                                <span>SKU: {lookupResult.sku}</span>
+                                <span>Stock: {lookupResult.quantity} {lookupResult.unit || 'pcs'}</span>
+                                {resolvedPrice && <span>MRP: ₹{formatPrice(resolvedPrice)}</span>}
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleAddToBillSubmit} className="si-bill-form">
+                            {/* Customer Search */}
+                            <div className="si-form-field">
+                                <label className="si-form-label">
+                                    <Users size={12} /> Select Customer
+                                </label>
+                                <input
+                                    type="text"
+                                    className="input-field"
+                                    placeholder="Search customer by name or phone…"
+                                    value={billCustomerSearch}
+                                    onChange={e => { setBillCustomerSearch(e.target.value); setSelectedCustomer(null); }}
+                                    autoComplete="off"
+                                />
+                                {customersLoading && (
+                                    <div className="si-bill-cust-loading">
+                                        <Loader2 size={14} className="animate-spin" /> Loading customers…
+                                    </div>
+                                )}
+                                {!customersLoading && filteredCustomers.length > 0 && !selectedCustomer && (
+                                    <div className="si-bill-cust-list">
+                                        {filteredCustomers.slice(0, 8).map(c => (
+                                            <button
+                                                key={c.id}
+                                                type="button"
+                                                className="si-bill-cust-item"
+                                                onClick={() => { setSelectedCustomer(c); setBillCustomerSearch(c.name || ''); }}
+                                            >
+                                                <span className="si-bill-cust-name">{c.name || 'Unknown'}</span>
+                                                {c.mobile && <span className="si-bill-cust-phone">{c.mobile}</span>}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                {selectedCustomer && (
+                                    <div className="si-bill-cust-selected">
+                                        <Check size={13} />
+                                        <span>{selectedCustomer.name}</span>
+                                        <button
+                                            type="button"
+                                            className="si-bill-cust-clear"
+                                            onClick={() => { setSelectedCustomer(null); setBillCustomerSearch(''); }}
+                                            aria-label="Remove customer"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Quantity & Discount */}
+                            <div className="si-form-grid">
+                                <div className="si-form-field">
+                                    <label className="si-form-label">Quantity</label>
+                                    <div className="si-qty-ctrl">
+                                        <button
+                                            type="button"
+                                            className="si-qty-btn"
+                                            onClick={() => setBillQty(q => Math.max(1, Number(q) - 1))}
+                                            aria-label="Decrease quantity"
+                                        >
+                                            <Minus size={14} />
+                                        </button>
+                                        <input
+                                            type="number"
+                                            className="si-qty-input"
+                                            value={billQty}
+                                            onChange={e => setBillQty(Math.max(1, Number(e.target.value)))}
+                                            min="1"
+                                            max={lookupResult.quantity}
+                                            required
+                                            aria-label="Quantity"
+                                        />
+                                        <button
+                                            type="button"
+                                            className="si-qty-btn"
+                                            onClick={() => setBillQty(q => Math.min(Number(lookupResult.quantity), Number(q) + 1))}
+                                            aria-label="Increase quantity"
+                                        >
+                                            <Plus size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="si-form-field">
+                                    <label className="si-form-label">Discount (%)</label>
+                                    <input
+                                        type="number"
+                                        className="input-field"
+                                        value={billDiscount}
+                                        onChange={e => setBillDiscount(Math.min(100, Math.max(0, Number(e.target.value))))}
+                                        min="0"
+                                        max="100"
+                                        step="0.5"
+                                        placeholder="0"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Bill total preview */}
+                            {resolvedPrice && (
+                                <div className="si-bill-total">
+                                    <span>Estimated Total</span>
+                                    <strong>
+                                        ₹{formatPrice(
+                                            resolvedPrice * Number(billQty) * (1 - Number(billDiscount) / 100)
+                                        )}
+                                    </strong>
+                                </div>
+                            )}
+
+                            <div className="si-form-actions">
+                                <button
+                                    type="button"
+                                    className="btn btn-ghost"
+                                    onClick={() => setShowAddToBill(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={billLoading || !selectedCustomer}
+                                >
+                                    {billLoading ? <Loader2 size={15} className="animate-spin" /> : <ShoppingCart size={15} />}
+                                    Open in Billing
+                                    <ChevronRight size={15} />
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            <CameraPermissionModal
+                isOpen={showPermissionModal}
+                onClose={() => setShowPermissionModal(false)}
+                onRetry={handleRetryPermission}
             />
         </PageContainer>
     );

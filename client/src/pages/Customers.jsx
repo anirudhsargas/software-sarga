@@ -2,7 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
-import { Users, Search, Phone, User, Loader2, Plus, X, Edit2, Trash2, Filter, Mail, MapPin } from 'lucide-react';
+import { Users, Search, Phone, User, Loader2, Plus, X, Edit2, Trash2, Filter, Mail, MapPin, ChevronDown } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
 import localDb from '../services/localDb';
@@ -29,11 +29,26 @@ const Customers = () => {
     const isAdmin = user?.role === 'Admin';
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [density, setDensity] = useState(() => localStorage.getItem('sarga_customer_density') || 'comfortable');
+    const [expandedRows, setExpandedRows] = useState({});
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [addFormDirty, setAddFormDirty] = useState(false);
     const [editFormDirty, setEditFormDirty] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
+
+    const toggleDensity = (mode) => {
+        setDensity(mode);
+        localStorage.setItem('sarga_customer_density', mode);
+    };
+
+    const toggleRowExpanded = (id, e) => {
+        e.stopPropagation();
+        setExpandedRows(prev => ({
+            ...prev,
+            [id]: !prev[id]
+        }));
+    };
     const [newCustomer, setNewCustomer] = useState({
         mobile: '',
         countryCode: '+91',
@@ -310,7 +325,7 @@ const Customers = () => {
                 setTotal(prev => prev + 1);
             }
             closeAddModal(true);
-            setNewCustomer({ mobile: '', name: '', type: 'Walk-in', email: '', gst: '', address: '' });
+            setNewCustomer({ mobile: '', countryCode: '+91', name: '', type: 'Walk-in', email: '', gst: '', address: '' });
             toast.success('Customer added locally');
             fetchCustomers();
         } catch {
@@ -524,6 +539,7 @@ const Customers = () => {
     const resetJobForm = () => {
         const userIsAdmin = ['admin', 'super_admin'].includes(user?.role?.toLowerCase());
         setJobData({
+            job_name: '', description: '', quantity: 1, unit_price: 0,
             total_amount: 0, advance_paid: 0, delivery_date: '', applied_extras: [],
             branch_id: userIsAdmin ? (branches[0]?.id || '') : (user?.branch_id || branches[0]?.id || ''),
             customPaperRate: 0, is_double_side: false
@@ -615,9 +631,34 @@ const Customers = () => {
                 <button className="btn btn-ghost" style={{ height: 44, width: 44, padding: 0 }} onClick={() => { setSearchInput(''); setTypeFilter(''); setPage(1); }} aria-label="Clear filters">
                     <X size={14} />
                 </button>
+                <div className="density-toggle-container" style={{ height: 44, display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+                    <button
+                        className={`density-btn ${density === 'comfortable' ? 'density-btn--active' : ''}`}
+                        onClick={() => toggleDensity('comfortable')}
+                        title="Comfortable view"
+                    >
+                        Comfortable
+                    </button>
+                    <button
+                        className={`density-btn ${density === 'compact' ? 'density-btn--active' : ''}`}
+                        onClick={() => toggleDensity('compact')}
+                        title="Compact view"
+                    >
+                        Compact
+                    </button>
+                </div>
             </div>
 
             <div className="card p-0 overflow-hidden shadow-sm" style={{ contain: 'layout', minHeight: '600px' }}>
+                <div className="customer-table-header">
+                    <div></div> {/* Avatar */}
+                    <div>Customer</div>
+                    <div>Phone</div>
+                    <div>Outstanding</div>
+                    <div className="customer-col-lastorder">Last Order</div>
+                    <div>Actions</div>
+                    <div></div> {/* Expand */}
+                </div>
                 <div className="customer-list" style={{ display: 'flex', flexDirection: 'column' }}>
                 {loading && customers.length === 0 ? (
                     <SkeletonLoader type="customer-list" count={8} />
@@ -625,92 +666,147 @@ const Customers = () => {
                     <ServerError onRetry={fetchCustomers} message={error} />
                 ) : customers.length === 0 ? (
                     <div className="text-center p-40 muted">No customers found.</div>
-                ) : customers.map((c, idx) => (
-                    <div
-                        key={c.id}
-                        tabIndex={0}
-                        role="button"
-                        aria-label={`View details for ${c.name}`}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: 12,
-                            padding: '12px 14px',
-                            borderBottom: idx < customers.length - 1 ? '1px solid var(--border)' : 'none',
-                            cursor: 'pointer', transition: 'background 0.15s'
-                        }}
-                        onClick={() => navigate(`/dashboard/customers/${c.id}`)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/dashboard/customers/${c.id}`); }}
-                    >
-                        {/* Avatar */}
-                        <div style={{
-                            width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
-                            background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontWeight: 700, fontSize: 16, color: 'var(--accent)', textTransform: 'uppercase'
-                        }}>
-                            {c.name?.charAt(0) || '?'}
-                        </div>
-
-                        {/* Info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{c.name}</span>
-                                <span className={`badge badge--${c.type.toLowerCase().replace(' ', '')}`} style={{ fontSize: 11 }}>{c.type}</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2, color: 'var(--muted)', fontSize: 13 }}>
-                                <Phone size={12} aria-hidden="true" style={{ flexShrink: 0 }} />
-                                <span style={{ fontFamily: 'monospace' }}>{formatForDisplay(c.mobile)}</span>
-                                <a href={telHref(c.mobile)} title="Call" style={{ color: 'var(--success)', textDecoration: 'none', marginLeft: 4, display: 'flex', minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }} aria-label={`Call ${c.name}`}><Phone size={16} aria-hidden="true" /></a>
-                                <a href={whatsappUrl(c.mobile, `Dear ${c.name || 'Customer'},\n\nGreetings from Sarga! 🙏\n\nHow can we help you today?`)} target="_blank" rel="noopener noreferrer" title="WhatsApp" style={{ color: 'var(--success)', textDecoration: 'none', marginLeft: 2, display: 'flex', minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }} aria-label={`WhatsApp ${c.name}`}>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                                </a>
-                            </div>
-                            {c.email && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1, color: 'var(--muted)', fontSize: 12, overflow: 'hidden' }}>
-                                    <Mail size={11} aria-hidden="true" style={{ flexShrink: 0 }} />
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.email}</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Actions */}
-                        <div role="group" aria-label={`Actions for ${c.name}`} style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                            <button
-                                className="btn btn-ghost touch-target"
-                                style={{ fontSize: 12, background: 'var(--accent-soft)', color: 'var(--accent)', gap: 4 }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate('/dashboard/sales/invoices', {
-                                        state: {
-                                            action: 'create',
-                                            customer: { id: c.id, name: c.name, mobile: c.mobile, type: c.type, email: c.email || '', address: c.address || '', gst: c.gst || '' }
-                                        }
-                                    });
-                                }}
-                                title="Quick Add Job"
-                                aria-label={`Quick add job for ${c.name}`}
+                ) : customers.map((c, idx) => {
+                    const isExpanded = !!expandedRows[c.id];
+                    const outstanding = Number(c.outstanding_balance || 0);
+                    const formattedLastOrder = c.last_order_date
+                        ? new Date(c.last_order_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : 'Never ordered';
+                    
+                    return (
+                        <div key={c.id} className="customer-table-row-container">
+                            <div
+                                className={`customer-table-row customer-table-row--${density}`}
+                                onClick={() => navigate(`/dashboard/customers/${c.id}`)}
+                                style={{ cursor: 'pointer' }}
                             >
-                                <Plus size={13} aria-hidden="true" /> Job
-                            </button>
-                            <div style={{ display: 'flex', gap: 5 }}>
+                                {/* Avatar */}
+                                <div className="customer-col-avatar">
+                                    <div className="avatar-wrap" style={{
+                                        width: density === 'compact' ? 32 : 40,
+                                        height: density === 'compact' ? 32 : 40,
+                                        borderRadius: '50%',
+                                        background: 'var(--accent-soft)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontWeight: 700,
+                                        color: 'var(--accent)',
+                                        textTransform: 'uppercase',
+                                        fontSize: density === 'compact' ? 12 : 14
+                                    }}>
+                                        {c.name?.charAt(0) || '?'}
+                                    </div>
+                                </div>
+
+                                {/* Customer Info */}
+                                <div className="customer-col-info">
+                                    <span className="customer-col-name" title={c.name}>{c.name}</span>
+                                    <div className="customer-col-type">
+                                        <span className={`badge badge--${c.type.toLowerCase().replace(' ', '')}`} style={{ fontSize: 10, padding: '2px 6px' }}>
+                                            {c.type}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Phone */}
+                                <div className="customer-col-phone" onClick={e => e.stopPropagation()}>
+                                    <span>{formatForDisplay(c.mobile)}</span>
+                                    <a href={telHref(c.mobile)} title="Call" style={{ color: 'var(--success)', display: 'flex', alignItems: 'center' }}>
+                                        <Phone size={14} />
+                                    </a>
+                                    <a href={whatsappUrl(c.mobile, `Dear ${c.name || 'Customer'},\n\nGreetings from Sarga! 🙏`)} target="_blank" rel="noopener noreferrer" title="WhatsApp" style={{ color: 'var(--success)', display: 'flex', alignItems: 'center' }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                    </a>
+                                </div>
+
+                                {/* Outstanding */}
+                                <div className={`customer-col-outstanding ${outstanding > 0 ? 'customer-col-outstanding--due' : 'customer-col-outstanding--none'}`} onClick={e => e.stopPropagation()}>
+                                    {outstanding > 0 ? `₹${outstanding.toLocaleString('en-IN')}` : '—'}
+                                </div>
+
+                                {/* Last Order */}
+                                <div className="customer-col-lastorder">
+                                    {formattedLastOrder}
+                                </div>
+
+                                {/* Actions */}
+                                <div className="customer-col-actions" onClick={e => e.stopPropagation()}>
+                                    <button
+                                        className="btn btn-ghost touch-target"
+                                        style={{ fontSize: 11, background: 'var(--accent-soft)', color: 'var(--accent)', padding: '4px 8px', height: 'auto' }}
+                                        onClick={() => {
+                                            navigate('/dashboard/sales/invoices', {
+                                                state: {
+                                                    action: 'create',
+                                                    customer: { id: c.id, name: c.name, mobile: c.mobile, type: c.type, email: c.email || '', address: c.address || '', gst: c.gst || '' }
+                                                }
+                                            });
+                                        }}
+                                        title="Quick Add Job"
+                                    >
+                                        + Job
+                                    </button>
+                                    <button
+                                        className="btn btn-ghost touch-target"
+                                        style={{ padding: 4 }}
+                                        onClick={() => { setSelectedCustomer(c); setEditFormDirty(false); setShowEditModal(true); }}
+                                        title={isAdmin ? 'Edit Customer' : 'Request Edit'}
+                                    >
+                                        <Edit2 size={13} />
+                                    </button>
+                                    <button
+                                        className="btn btn-ghost text-error touch-target"
+                                        style={{ padding: 4 }}
+                                        onClick={() => handleDeleteCustomer(c.id)}
+                                        title={isAdmin ? 'Delete Customer' : 'Request Delete'}
+                                    >
+                                        <Trash2 size={13} />
+                                    </button>
+                                </div>
+
+                                {/* Expand Button */}
                                 <button
-                                    className="btn btn-ghost touch-target"
-                                    onClick={(e) => { e.stopPropagation(); setSelectedCustomer(c); setEditFormDirty(false); setShowEditModal(true); }}
-                                    title={isAdmin ? 'Edit Customer' : 'Request Edit'}
-                                    aria-label={`Edit ${c.name}`}
+                                    className={`customer-col-expand ${isExpanded ? 'customer-col-expand--rotated' : ''}`}
+                                    onClick={(e) => toggleRowExpanded(c.id, e)}
+                                    title="View Details"
                                 >
-                                    <Edit2 size={14} aria-hidden="true" />
-                                </button>
-                                <button
-                                    className="btn btn-ghost text-error touch-target"
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteCustomer(c.id); }}
-                                    title={isAdmin ? 'Delete Customer' : 'Request Delete'}
-                                    aria-label={`Delete ${c.name}`}
-                                >
-                                    <Trash2 size={14} aria-hidden="true" />
+                                    <ChevronDown size={16} />
                                 </button>
                             </div>
+
+                            {/* Detail Panel */}
+                            <div className={`customer-detail-panel ${isExpanded ? 'customer-detail-panel--expanded' : ''}`}>
+                                <div className="customer-detail-content">
+                                    {c.email && (
+                                        <div className="customer-detail-item">
+                                            <span className="customer-detail-label">Email Address</span>
+                                            <span className="customer-detail-value">{c.email}</span>
+                                        </div>
+                                    )}
+                                    {c.address && (
+                                        <div className="customer-detail-item">
+                                            <span className="customer-detail-label">Billing Address</span>
+                                            <span className="customer-detail-value">{c.address}</span>
+                                        </div>
+                                    )}
+                                    {c.gst && (
+                                        <div className="customer-detail-item">
+                                            <span className="customer-detail-label">GST Number</span>
+                                            <span className="customer-detail-value">{c.gst}</span>
+                                        </div>
+                                    )}
+                                    <div className="customer-detail-item">
+                                        <span className="customer-detail-label">Date Created</span>
+                                        <span className="customer-detail-value">
+                                            {new Date(c.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
                 </div>
             </div>
             <Pagination

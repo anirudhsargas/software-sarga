@@ -7,7 +7,7 @@ import {
     ShoppingBag, Clock, CheckCircle2, IndianRupee, TrendingUp, Truck,
     Search, Plus, UserPlus, Phone, ArrowRight, Calendar, AlertTriangle,
     Receipt, Printer, MessageSquare, RefreshCw, ChevronRight, ChevronLeft, Loader2,
-    Wallet, Users, Package, Eye, CreditCard, X, Edit3, Check, ChevronDown, ChevronUp, List, LayoutGrid, Monitor
+    Wallet, Users, Package, Eye, CreditCard, X, Edit3, Check, ChevronDown, ChevronUp, List, LayoutGrid
 } from 'lucide-react';
 import api from '../services/api';
 import { whatsappUrl, dueCollectionMessage, paymentReminderMessage } from '../utils/whatsapp';
@@ -20,6 +20,8 @@ import { serverNow, serverToday } from '../services/serverTime';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import QuickActionsDashboard from '../components/quickbilling/QuickActionsDashboard';
+import DashboardQuickActions from '../components/DashboardQuickActions';
+import OpeningSetupModal from '../components/OpeningSetupModal';
 import PageContainer from '../components/ui/PageContainer';
 
 const OPENING_TABS = [
@@ -92,7 +94,6 @@ const FrontOffice = () => {
     const [showOpeningPrompt, setShowOpeningPrompt] = useState(false);
     const [promptBalances, setPromptBalances] = useState({ Offset: '', Laser: '', Other: '' });
     const [promptMachines, setPromptMachines] = useState([]);
-    const [savingPrompt, setSavingPrompt] = useState(false);
     const [prevClosing, setPrevClosing] = useState({ Offset: 0, Laser: 0, Other: 0 });
 
     const [expandedCustomers, setExpandedCustomers] = useState(new Set());
@@ -227,65 +228,6 @@ const FrontOffice = () => {
             } catch (err) { console.error('Opening balance check error:', err); }
         })();
     }, []);
-
-    const handleSavePrompt = async () => {
-        setSavingPrompt(true);
-        const today = serverToday();
-        try {
-            // Save opening balances — ignore 403 (already locked from a previous attempt)
-            const books = Object.keys(promptBalances);
-            for (const bookType of books) {
-                try {
-                    await api.put('/daily-report/opening-balance', {
-                        date: today, book_type: bookType, cash_opening: parseFloat(promptBalances[bookType]) || 0
-                    });
-                } catch (err) {
-                    if (err.response?.status !== 403) throw err; // only ignore "already locked"
-                }
-            }
-
-            // Save machine readings — handle each individually, keep prompt open if any fail
-            let updatedMachines = [...promptMachines];
-            let hasErrors = false;
-            for (let i = 0; i < updatedMachines.length; i++) {
-                const m = updatedMachines[i];
-                const val = m.opening_count;
-                if (val === '' || val === null) {
-                    updatedMachines[i] = { ...m, error: 'Please enter a counter reading' };
-                    hasErrors = true;
-                    continue;
-                }
-                try {
-                    await api.post(`/machines/${m.id}/readings`, {
-                        reading_date: today, opening_count: parseInt(val) || 0
-                    });
-                    updatedMachines[i] = { ...m, error: null };
-                } catch (err) {
-                    if (err.response?.status === 403) {
-                        // Already locked — treat as saved, remove from prompt
-                        updatedMachines[i] = { ...m, error: null };
-                    } else {
-                        updatedMachines[i] = { ...m, error: err.response?.data?.error || `Failed to save ${m.machine_name}` };
-                        hasErrors = true;
-                    }
-                }
-            }
-
-            if (hasErrors) {
-                setPromptMachines(updatedMachines);
-                setSavingPrompt(false);
-                return; // keep prompt open so user can fix errors
-            }
-
-            toast.success('Opening values saved!');
-            setShowOpeningPrompt(false);
-        } catch (err) {
-            console.error('Save opening prompt error:', err);
-            toast.error(err.response?.data?.error || 'Failed to save opening values');
-        } finally {
-            setSavingPrompt(false);
-        }
-    };
 
     // Fetch completed jobs when tab is active
     const fetchCompleted = useCallback(async (pg) => {
@@ -636,6 +578,9 @@ const FrontOffice = () => {
                     </div>
                 </div>
             )}
+
+            {/* ──── Quick Actions ──── */}
+            <DashboardQuickActions />
 
             {/* ──── Toolbar: Search + Actions ──── */}
             <div className="fo-toolbar" ref={searchRef}>
@@ -1449,93 +1394,16 @@ const FrontOffice = () => {
             </div>
         </PageContainer>
 
-            {/* ──── Opening Balance Prompt Modal ──── */}
+            {/* ──── Opening Setup Modal ──── */}
             {showOpeningPrompt && (
-                <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: 560 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-                            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary)', display: 'grid', placeItems: 'center' }}>
-                                <IndianRupee size={20} style={{ color: 'var(--accent)' }} />
-                            </div>
-                            <div>
-                                <h2 className="section-title" style={{ marginBottom: 0 }}>Good Morning!</h2>
-                                <p style={{ fontSize: 13, color: 'var(--muted)' }}>Set opening values for today</p>
-                            </div>
-                        </div>
-
-                        <div className="stack-md" style={{ marginTop: 20 }}>
-                            {Object.keys(promptBalances).length > 0 && (
-                                <div className="panel panel--tight" style={{ background: 'var(--surface-2)' }}>
-                                    <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
-                                        <Wallet size={14} /> CASH OPENING BALANCES
-                                    </h3>
-                                    <div className="stack-sm">
-                                        {OPENING_TABS.filter(tab => Object.prototype.hasOwnProperty.call(promptBalances, tab.key)).map(tab => (
-                                            <div key={tab.key} className="row gap-md items-center" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                                                <div style={{ width: 80, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                                                    <div style={{ width: 8, height: 8, borderRadius: 3, background: tab.color }} />
-                                                    {tab.label}
-                                                </div>
-                                                <div style={{ flex: 1, minWidth: 180 }}>
-                                                    <input type="number" className="input-field"
-                                                        value={promptBalances[tab.key]}
-                                                        onChange={(e) => setPromptBalances(prev => ({ ...prev, [tab.key]: e.target.value }))}
-                                                        placeholder="₹ 0.00" step="0.01" style={{ width: '100%' }}
-                                                    />
-                                                    {prevClosing[tab.key] > 0 && (
-                                                        <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)', textAlign: 'right' }}>
-                                                            prev: ₹{Number(prevClosing[tab.key]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {promptMachines.length > 0 && (
-                                <div className="panel panel--tight" style={{ background: 'var(--surface-2)' }}>
-                                    <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
-                                        <Monitor size={14} /> MACHINE OPENING COUNTS
-                                    </h3>
-                                    <div className="stack-sm">
-                                        {promptMachines.map((m, idx) => (
-                                            <div key={m.id} className="stack-sm" style={{ marginBottom: 4 }}>
-                                                <div className="row gap-md items-center">
-                                                    <div style={{ flex: 1, minWidth: 120 }}>
-                                                        <div style={{ fontWeight: 600, fontSize: 14 }}>{m.machine_name}</div>
-                                                        {m.location && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{m.location}</div>}
-                                                    </div>
-                                                    <input type="number" className="input-field"
-                                                        value={m.opening_count}
-                                                        onChange={(e) => {
-                                                            const updated = [...promptMachines];
-                                                            updated[idx] = { ...updated[idx], opening_count: e.target.value, error: null };
-                                                            setPromptMachines(updated);
-                                                        }}
-                                                        placeholder="Counter reading"
-                                                        style={{ width: 160, minWidth: 160, borderColor: m.error ? 'var(--error, #dc2626)' : 'var(--border)', lineHeight: 1.4 }}
-                                                    />
-                                                </div>
-                                                {m.error && <div style={{ fontSize: 12, color: 'var(--error, #dc2626)', textAlign: 'right' }}>{m.error}</div>}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="row gap-sm justify-end" style={{ marginTop: 20 }}>
-                            <button className="btn btn-ghost" onClick={() => { setShowOpeningPrompt(false); }}>
-                                Skip for now
-                            </button>
-                            <button className="btn btn-primary" onClick={handleSavePrompt} disabled={savingPrompt}>
-                                <Check size={16} /> {savingPrompt ? 'Saving...' : 'Save & Continue'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <OpeningSetupModal
+                    balances={promptBalances}
+                    machines={promptMachines}
+                    prevClosing={prevClosing}
+                    branchName={user?.branch_name}
+                    onSave={() => { setShowOpeningPrompt(false); loadDashboard(); }}
+                    onSkip={() => setShowOpeningPrompt(false)}
+                />
             )}
         </>
     );

@@ -6,24 +6,43 @@ const { authenticateToken } = require('../middleware/auth');
  * GET /search?q=<query>
  * Universal smart search across customers, jobs, and products.
  * Returns categorised results (max 6 per category).
+ *
+ * Safe version: uses Promise.allSettled so a single DB failure
+ * never causes a 500. Always returns { success, customers, jobs, products }.
  */
 router.get('/search', authenticateToken, async (req, res) => {
   try {
-    const q = (req.query.q || '').trim();
-    if (!q || q.length < 2) {
-      return res.json({ customers: [], jobs: [], products: [] });
+    const rawQ = req.query.q;
+
+    // Guard: missing, empty, or whitespace-only query
+    if (!rawQ || typeof rawQ !== 'string') {
+      return res.json({ success: true, customers: [], jobs: [], products: [] });
     }
 
-    const like = `%${q}%`;
+    const q = rawQ.trim();
 
-    // Run all three queries in parallel
-    const [customers, jobs, products] = await Promise.all([
+    // Guard: too short or too long
+    if (q.length < 2 || q.length > 100) {
+      return res.json({ success: true, customers: [], jobs: [], products: [] });
+    }
+
+    // Sanitize: keep only printable characters, strip SQL-dangerous chars beyond what parameterization handles
+    const safeQ = q.replace(/[^\w\s@.+\-#]/g, '').trim();
+    if (!safeQ) {
+      return res.json({ success: true, customers: [], jobs: [], products: [] });
+    }
+
+    const like = `%${safeQ}%`;
+
+    // Run all three queries with Promise.allSettled — partial failures are safe
+    const [customersResult, jobsResult, productsResult] = await Promise.allSettled([
       // ── Customers: search by name, mobile, email ──
       pool.query(
-        `SELECT id, name, mobile, email, customer_type,
+        `SELECT id, name, mobile, email, type,
                 (SELECT COUNT(*) FROM sarga_jobs WHERE customer_id = c.id) AS job_count
          FROM sarga_customers c
-         WHERE name LIKE ? OR mobile LIKE ? OR email LIKE ?
+         WHERE (name LIKE ? OR mobile LIKE ? OR email LIKE ?)
+           AND COALESCE(client_type, '') != 'internal'
          ORDER BY name ASC
          LIMIT 6`,
         [like, like, like]
@@ -56,14 +75,33 @@ router.get('/search', authenticateToken, async (req, res) => {
       ),
     ]);
 
-    res.json({
-      customers: customers[0] || [],
-      jobs: jobs[0] || [],
-      products: products[0] || [],
-    });
+    // Extract results safely — failed queries return empty arrays
+    const customers = customersResult.status === 'fulfilled'
+      ? (customersResult.value[0] || [])
+      : [];
+    const jobs = jobsResult.status === 'fulfilled'
+      ? (jobsResult.value[0] || [])
+      : [];
+    const products = productsResult.status === 'fulfilled'
+      ? (productsResult.value[0] || [])
+      : [];
+
+    // Log any partial failures (but don't expose them to client)
+    if (customersResult.status === 'rejected') {
+      console.error('[Search] customers query failed:', customersResult.reason?.message);
+    }
+    if (jobsResult.status === 'rejected') {
+      console.error('[Search] jobs query failed:', jobsResult.reason?.message);
+    }
+    if (productsResult.status === 'rejected') {
+      console.error('[Search] products query failed:', productsResult.reason?.message);
+    }
+
+    return res.json({ success: true, customers, jobs, products });
   } catch (err) {
-    console.error('[Search] Error:', err.message);
-    res.status(500).json({ message: 'Search failed' });
+    // Top-level catch: always return safe empty result, never HTML/500
+    console.error('[Search] Unexpected error:', err?.message);
+    return res.json({ success: true, customers: [], jobs: [], products: [] });
   }
 });
 
