@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { pool } = require('../database');
-const { uploadToCloudinary } = require('../helpers/cloudinaryUpload');
+const { uploadBufferToCloudinary } = require('../helpers/cloudinaryUpload');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -17,14 +17,8 @@ if (!fs.existsSync(uploadsDir)) {
 const ALLOWED_EXTENSIONS = ['.pdf', '.ai', '.psd', '.cdr', '.jpg', '.jpeg', '.png', '.tiff', '.tif'];
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB per file
 
-const artworkStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${unique}${ext}`);
-  }
-});
+// Cloudinary-only upload: no local disk dependency
+const artworkStorage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
@@ -59,7 +53,6 @@ router.post('/website/artwork/upload', artworkUpload.array('files', 20), asyncHa
   } = req.body;
 
   if (!customer_name || !customer_name.trim()) {
-    if (req.files) req.files.forEach(f => { try { fs.unlinkSync(f.path); } catch (e) {} });
     return res.status(400).json({ error: 'Customer name is required' });
   }
   if (!req.files || req.files.length === 0) {
@@ -70,11 +63,11 @@ router.post('/website/artwork/upload', artworkUpload.array('files', 20), asyncHa
   const trackingToken = generateTrackingToken();
   const folder = `artwork-uploads/${orderNumber}`;
 
-  // Upload each file to Cloudinary
+  // Upload each file to Cloudinary directly from memory buffer
   const uploadedFiles = [];
   for (const file of req.files) {
     try {
-      const result = await uploadToCloudinary(file.path, folder);
+      const result = await uploadBufferToCloudinary(file.buffer, file.originalname, folder);
       uploadedFiles.push({
         public_id: result.public_id,
         secure_url: result.secure_url,
@@ -92,7 +85,6 @@ router.post('/website/artwork/upload', artworkUpload.array('files', 20), asyncHa
         error: 'cloudinary_failed',
         uploaded_at: new Date().toISOString()
       });
-      try { fs.unlinkSync(file.path); } catch (e) {}
     }
   }
 

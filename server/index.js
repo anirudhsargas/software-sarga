@@ -16,6 +16,7 @@ const { initDb, pool } = require('./database');
 const { getTodayDate } = require('./helpers');
 const logger = require('./helpers/logger');
 const { verifyWithAnySecret } = require('./middleware/auth');
+const { connectRedis, disconnectRedis, redisHealthCheck } = require('./config/redis');
 
 // Express app and basic config
 const app = express();
@@ -36,6 +37,13 @@ app.get('/api/health', async (req, res) => {
         service: 'sarga-mis',
         time: new Date().toISOString()
     });
+});
+
+// Redis health check endpoint
+app.get('/api/health/redis', async (req, res) => {
+    const health = await redisHealthCheck();
+    const statusCode = health.status === 'connected' ? 200 : 503;
+    res.status(statusCode).json(health);
 });
 
 // Configure allowed CORS origins (normalize and remove trailing slashes)
@@ -161,20 +169,14 @@ app.use('/api', (req, res, next) => {
     next();
 });
 
-// --------------- File Uploads ---------------
+// --------------- File Uploads (Cloudinary-direct) ---------------
+// Local uploads/ dir preserved only for backward-compat with existing files.
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadsDir),
-    filename: (req, file, cb) => {
-        const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `${unique}${ext}`);
-    }
-});
+const { uploadBufferToCloudinary, cloudinary, getCloudinaryUrl } = require('./helpers/cloudinaryUpload');
 
 const fileFilter = (req, file, cb) => {
     const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
@@ -183,10 +185,28 @@ const fileFilter = (req, file, cb) => {
     cb(new Error('Invalid file type. Only JPG, PNG, WEBP are allowed.'));
 };
 
-const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
+// Use memory storage — buffer is uploaded to Cloudinary immediately.
+// req.file.path / req.file.cloudinaryUrl will hold the Cloudinary secure URL.
+const upload = multer({ storage: multer.memoryStorage(), fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
 
-// Serve uploads — require valid JWT token via query param or Authorization header
-const { cloudinary, getCloudinaryUrl } = require('./helpers/cloudinaryUpload');
+// Middleware wrapper: after multer parses the buffer, push it to Cloudinary.
+const uploadToCloudinaryMiddleware = (fieldName, folder = 'uploads') => [
+    upload.single(fieldName),
+    async (req, res, next) => {
+        if (!req.file || !req.file.buffer) return next(); // no file uploaded — skip
+        try {
+            const result = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, folder);
+            req.file.path = result.secure_url;          // drop-in for existing code using req.file.path
+            req.file.cloudinaryUrl = result.secure_url;
+            req.file.cloudinaryPublicId = result.public_id;
+        } catch (err) {
+            logger.error('[Cloudinary] Upload error:', err.message);
+            return res.status(500).json({ message: 'File upload to Cloudinary failed.' });
+        }
+        next();
+    }
+];
+
 
 // Protected uploads route with Cloudinary fallback when local file missing
 app.use('/uploads', (req, res, next) => {
@@ -252,38 +272,16 @@ const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-// --------------- Response Caching ---------------
-const NodeCache = require('node-cache');
-const cache = new NodeCache({ stdTTL: 600, checkperiod: 620, useClones: false }); // 10 minute default TTL, no cloning for performance
+// --------------- Response Caching (Redis-backed) ---------------
+// node-cache removed — all caching now flows through Redis via cacheService / middleware/cache.
+// cacheMiddleware and invalidateCache are re-exported here so existing route imports continue to work.
+const { redisCache, routeCache } = require('./middleware/cache');
+const { invalidatePattern } = require('./services/cacheService');
 
-const cacheMiddleware = (duration = 300) => {
-    return (req, res, next) => {
-    const key = req.originalUrl || req.url;
-    const cached = cache.get(key);
-    if (cached) {
-        logger.debug(`[Cache HIT] ${key}`);
-        return res.json(cached);
-    }
-    
-    // Store original json method
-    const originalJson = res.json.bind(res);
-    
-    // Override json method to cache response
-    res.json = (data) => {
-        cache.set(key, data, duration);
-        logger.debug(`[Cache MISS] ${key} - cached for ${duration}s`);
-        return originalJson(data);
-    };
-    
-    next();
-    };
-};
-
+const cacheMiddleware = (duration = 300) => redisCache(duration, 'route');
 const invalidateCache = (pattern) => {
-    const keys = cache.keys();
-    const keysToDelete = keys.filter(key => key.includes(pattern));
-    keysToDelete.forEach(key => cache.del(key));
-    logger.info(`[Cache Invalidated] Pattern: ${pattern}, Deleted: ${keysToDelete.length} keys`);
+    invalidatePattern(pattern).catch(err => logger.error(`[Cache Invalidated] Pattern: ${pattern} error: ${err.message}`));
+    logger.info(`[Cache Invalidated] Pattern: ${pattern}`);
 };
 
 // Export cache utilities for use in routes
@@ -456,8 +454,16 @@ app.use(errorHandler);
 
 // --------------- Start Server ---------------
 if (process.env.NODE_ENV !== 'test') {
-    initDb().then(() => {
+    initDb().then(async () => {
         logger.info('[DB] Database initialized successfully');
+
+        // Connect to Redis (non-blocking: server starts even if Redis is down)
+        try {
+            await connectRedis();
+        } catch (err) {
+            logger.warn(`[Redis] Connection failed, using in-memory cache: ${err.message}`);
+        }
+
         const server = app.listen(PORT, '0.0.0.0', () => {
             const mode = process.env.NODE_ENV || 'development';
             const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');
@@ -526,6 +532,15 @@ if (process.env.NODE_ENV !== 'test') {
         logger.error("Initialization failed:", err);
         process.exit(1);
     });
+
+    // Graceful shutdown
+    const gracefulShutdown = async (signal) => {
+        logger.info(`[Server] ${signal} received. Shutting down gracefully...`);
+        await disconnectRedis();
+        process.exit(0);
+    };
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
 module.exports = app;

@@ -4,6 +4,7 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getUserBranchId, auditLog } = require('../helpers');
 const { validate, addPaymentSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
+const { invalidateDashboardCache, invalidateAnalyticsCache } = require('../services/cacheService');
 
 // --- PAYMENT ROUTES ---
 
@@ -161,6 +162,8 @@ router.post('/payments', authenticateToken, validate(addPaymentSchema), async (r
 
         auditLog(req.user.id, 'PAYMENT_ADD', `Added ${type} payment of ${amount} to ${payee_name}`);
         res.status(201).json({ id: result.insertId, message: 'Payment recorded successfully' });
+        invalidateDashboardCache().catch(() => {});
+        invalidateAnalyticsCache().catch(() => {});
     } catch (err) {
         if (err?.code === 'ER_DUP_ENTRY') {
             const [existingByKey] = await pool.query('SELECT id FROM sarga_payments WHERE idempotency_key = ? LIMIT 1', [idempotencyKey]);

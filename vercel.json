@@ -1,6 +1,9 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api|assets|images|fonts|robots\\.txt|sitemap\\.xml|favicon\\.ico|og-image\\.png).*)",
+      "destination": "/index.html"
+    }
   ],
   "cleanUrls": true
 }

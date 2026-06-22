@@ -7,6 +7,8 @@ const { validate, addJobSchema } = require('../middleware/validate');
 const { fileToBase64 } = require('../utils/base64');
 const { paginate } = require('../helpers/pagination');
 const { branchFilter } = require('../middleware/branchFilter');
+const { invalidateDashboardCache, invalidateCustomerCache, getCache, setCache, invalidatePattern } = require('../services/cacheService');
+const { isRedisConnected } = require('../config/redis');
 
 const normalizeBookTypeFromCategory = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
@@ -43,16 +45,25 @@ const SUBCATEGORY_COLUMNS = 'id, category_id, name, position, image_url, is_acti
 const PRODUCT_COLUMNS = 'id, subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product, is_active, created_at, updated_at';
 const PAYMENT_SUMMARY_COLUMNS = 'id, customer_id, customer_name, customer_mobile, total_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, created_at, verification_status';
 
-// --- IN-MEMORY CACHE for product hierarchy data ---
-const HIERARCHY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-let hierarchyCache = { data: null, timestamp: 0 };
+// --- REDIS-BACKED CACHE for product hierarchy data ---
+const HIERARCHY_CACHE_TTL = 300; // 5 minutes in seconds
+const HIERARCHY_REDIS_KEY = 'sarga:hierarchy:data';
 
 const getHierarchyData = async () => {
-    const now = Date.now();
-    if (hierarchyCache.data && (now - hierarchyCache.timestamp) < HIERARCHY_CACHE_TTL) {
-        const [inventory] = await pool.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id");
-        return { ...hierarchyCache.data, inventory };
+    // 1. Try Redis first (shared across all instances)
+    if (isRedisConnected()) {
+        try {
+            const cached = await getCache(HIERARCHY_REDIS_KEY, 'hierarchy');
+            if (cached) {
+                // Inventory is always fetched live (real-time stock levels)
+                const [inventory] = await pool.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id");
+                return { ...cached, inventory };
+            }
+        } catch (cacheErr) {
+            // Redis error — fall through to DB
+        }
     }
+    // 2. DB fetch (cache miss or Redis down)
     const [categories, subcategories, products, inventory, slabs, extras, links] = await Promise.all([
         pool.query(`SELECT ${CATEGORY_COLUMNS} FROM sarga_product_categories`).then(r => r[0]),
         pool.query(`SELECT ${SUBCATEGORY_COLUMNS} FROM sarga_product_subcategories`).then(r => r[0]),
@@ -85,12 +96,16 @@ const getHierarchyData = async () => {
         p.links = linksByProduct[p.id] || [];
     });
 
-    hierarchyCache = { data: { categories, subcategories, products }, timestamp: now };
+    const hierarchyData = { categories, subcategories, products };
+    // Store in Redis (without inventory — live data never cached)
+    setCache(HIERARCHY_REDIS_KEY, hierarchyData, HIERARCHY_CACHE_TTL).catch(() => {});
     return { categories, subcategories, products, inventory };
 };
 
 // Invalidate hierarchy cache (call after product/category CRUD)
-const invalidateHierarchyCache = () => { hierarchyCache = { data: null, timestamp: 0 }; };
+const invalidateHierarchyCache = () => {
+    invalidatePattern('hierarchy').catch(() => {});
+};
 
 // --- HELPER: PRICING ENGINE ---
 const calculateProductPrice = (product, quantity, slabs) => {
@@ -523,6 +538,7 @@ router.get('/customers/:id/jobs', authenticateToken, async (req, res) => {
     try {
         const customerId = req.params.id;
         const { search } = req.query;
+        const custLimit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
         console.log('Fetching jobs for customer:', customerId, 'search=', search);
 
         let sql = `SELECT ${JOB_LIST_COLUMNS} FROM sarga_jobs WHERE customer_id = ?`;
@@ -533,7 +549,7 @@ router.get('/customers/:id/jobs', authenticateToken, async (req, res) => {
             params.push(`%${search}%`);
         }
 
-        sql += " ORDER BY created_at DESC";
+        sql += ` ORDER BY created_at DESC LIMIT ${custLimit}`;
         const [rows] = await pool.query(sql, params);
         console.log('Found jobs:', rows.length);
         res.json(rows);
@@ -688,6 +704,8 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
         await connection.commit();
         auditLog(req.user.id, 'JOB_BULK_CREATE', `Created ${created.length} jobs in bulk for customer ${customer_id || 'walk-in'}`, { entity_type: 'job' });
         res.status(201).json({ jobs: created });
+        invalidateDashboardCache().catch(() => {});
+        invalidateCustomerCache().catch(() => {});
     } catch (err) {
         await connection.rollback();
         console.error('Bulk job creation error:', err);
@@ -819,6 +837,8 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
         }
 
         res.status(201).json({ id: result.insertId, job_number, message: 'Job created successfully' });
+        invalidateDashboardCache().catch(() => {});
+        invalidateCustomerCache().catch(() => {});
 
         // Trigger anomaly check asynchronously (non-blocking)
         try { require('./anomalies').checkAnomalies().catch(() => {}); } catch (_) {}
@@ -1638,6 +1658,8 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
         }
 
         res.json({ message: 'Job updated successfully' });
+        invalidateDashboardCache().catch(() => {});
+        invalidateCustomerCache().catch(() => {});
     } catch (err) {
         console.error('Update failure:', err);
         res.status(500).json({ message: 'Database error' });
@@ -1715,6 +1737,8 @@ router.delete('/jobs/:id', authenticateToken, authorizeRoles('Admin'), async (re
 
         auditLog(req.user.id, 'JOB_DELETE', `Deleted job ${jobId} with all associated payments and records`);
         res.json({ message: 'Job and all associated records deleted successfully' });
+        invalidateDashboardCache().catch(() => {});
+        invalidateCustomerCache().catch(() => {});
     } catch (err) {
         await connection.rollback().catch(() => {});
         connection.release();

@@ -6,7 +6,9 @@ const { attachNormalizedMobile } = require('../middleware/phone');
 const { branchFilter } = require('../middleware/branchFilter');
 const { validate, addCustomerSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
-const { cacheMiddleware, invalidateCache } = require('../index');
+// Redis caching via customerCache (middleware/cache.js) — node-cache removed
+const { customerCache } = require('../middleware/cache');
+const { invalidateCustomerCache, invalidateDashboardCache } = require('../services/cacheService');
 const logger = require('../helpers/logger');
 
 const CUSTOMER_COLUMNS = [
@@ -38,7 +40,7 @@ const CUSTOMER_PAYMENT_SUMMARY_COLUMNS = [
 // --- CUSTOMER ROUTES ---
 
 // List Customers
-router.get('/customers', authenticateToken, async (req, res) => {
+router.get('/customers', authenticateToken, customerCache(), async (req, res) => {
     try {
         const { search, type: typeFilter } = req.query;
         const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
@@ -127,6 +129,8 @@ router.post('/customers', authenticateToken, validate(addCustomerSchema), attach
         auditLog(req.user.id, 'CUSTOMER_ADD', `Added customer ${name} (${normalizedMobile})`);
         res.status(201).json({ id: result.insertId, message: 'Customer added successfully' });
         auditLog(req.user.id, 'CUSTOMER_ADD', `Added customer: ${name}`, { entity_type: 'customer', entity_id: result.insertId });
+        invalidateCustomerCache().catch(() => {});
+        invalidateDashboardCache().catch(() => {});
     } catch (err) {
         logger.error('Add Customer error:', err);
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Customer mobile number already exists' });
@@ -160,6 +164,8 @@ router.put('/customers/:id', authenticateToken, attachNormalizedMobile('mobile',
         );
         auditLog(req.user.id, 'CUSTOMER_UPDATE', `Updated customer ${id} (${name})`);
         res.json({ message: 'Customer details updated' });
+        invalidateCustomerCache().catch(() => {});
+        invalidateDashboardCache().catch(() => {});
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Mobile number already exists' });
         res.status(500).json({ message: 'Database error' });
@@ -180,6 +186,8 @@ router.delete('/customers/:id', authenticateToken, authorizeRoles('Admin', 'Acco
         await pool.query("DELETE FROM sarga_customers WHERE id = ?", [id]);
         auditLog(req.user.id, 'CUSTOMER_DELETE', `Deleted customer ${id}`);
         res.json({ message: 'Customer deleted successfully' });
+        invalidateCustomerCache().catch(() => {});
+        invalidateDashboardCache().catch(() => {});
     } catch (err) {
         if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
             return res.status(409).json({ message: 'Cannot delete customer: linked records exist.' });

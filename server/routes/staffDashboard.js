@@ -7,6 +7,10 @@ const { paginate } = require('../helpers/pagination');
 const { autoRecordLateAndOvertime } = require('./scheduleManagement');
 const PDFDocument = require('pdfkit');
 const rateLimit = require('express-rate-limit');
+const { routeCache } = require('../middleware/cache');
+const { invalidateStaffCache } = require('../services/cacheService');
+const STAFF_TTL = 300; // 5 minutes
+const invalidateStaff = (id) => invalidateStaffCache(id).catch(() => {});
 
 const salaryPaymentLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
@@ -110,7 +114,7 @@ router.get('/:id/work-history', authenticateToken, async (req, res) => {
 });
 
 // Get staff salary information
-router.get('/:id/salary-info', authenticateToken, async (req, res) => {
+router.get('/:id/salary-info', authenticateToken, routeCache(STAFF_TTL, (req) => `sarga:staff:${req.params.id}:salary-info`), async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -318,6 +322,8 @@ router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accou
                 paymentTransactionId: paymentInsert.insertId
             });
         }
+
+        await invalidateStaff(id);
 
         auditLog(req.user.id, 'SALARY_PAYMENT', `Paid salary to staff ${id} for ${payment_month}`);
         res.json({ message: 'Salary payment recorded successfully', salaryId: result[0].insertId || existing[0].id });
@@ -625,6 +631,7 @@ router.post('/:id/attendance', authenticateToken, validate(attendanceSchema), as
         }
 
         auditLog(req.user.id, 'ATTENDANCE_RECORD', `Recorded attendance for staff ${id} on ${attendance_date}: ${status}`);
+        await invalidateStaff(id);
 
         // Return the saved attendance row so client can see both selected time and server timestamp (created_at)
         const [[saved]] = await pool.query(`
@@ -709,7 +716,7 @@ router.post('/:id/attendance-change-request', authenticateToken, async (req, res
 });
 
 // Get Monthly Attendance for Staff
-router.get('/:id/attendance/:year_month', authenticateToken, async (req, res) => {
+router.get('/:id/attendance/:year_month', authenticateToken, routeCache(STAFF_TTL, (req) => `sarga:staff:${req.params.id}:attendance:${req.params.year_month}`), async (req, res) => {
     const { id, year_month } = req.params;
 
     try {

@@ -50,4 +50,20 @@ router.get('/token', (req, res) => {
     }
 });
 
+const { getCacheStats } = require('../services/cacheService');
+
+// Metrics endpoint for infrastructure monitoring
+router.get('/metrics', (req, res) => {
+    try {
+        const cacheStats = getCacheStats();
+        res.json({
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            cache: cacheStats
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to fetch metrics' });
+    }
+});
+
 module.exports = router;

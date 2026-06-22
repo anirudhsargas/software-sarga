@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import AppShellSkeleton from './components/ui/AppShellSkeleton';
 import './bones/registry';
+import './pages/public/public.css';
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
@@ -26,6 +27,17 @@ import { ThemeProvider } from './theme/ThemeProvider';
 import { syncManager } from './services/syncWorkerManager';
 import { SyncStatusBar } from './components/SyncStatusBar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const PublicLayout = lazy(() => import('./pages/public/PublicLayout'));
+const HomePage = lazy(() => import('./pages/public/HomePage'));
+const ServicesPage = lazy(() => import('./pages/public/ServicesPage'));
+const ProductsPage = lazy(() => import('./pages/public/ProductsPage'));
+const DesignPage = lazy(() => import('./pages/public/DesignPage'));
+const TrackPage = lazy(() => import('./pages/public/TrackPage'));
+const ContactPage = lazy(() => import('./pages/public/ContactPage'));
+const SignInPage = lazy(() => import('./pages/public/SignInPage'));
+const PrivacyPage = lazy(() => import('./pages/public/PrivacyPage'));
+const TermsPage = lazy(() => import('./pages/public/TermsPage'));
 
 const AccountantLayout = lazy(() => import('./layouts/AccountantLayout'));
 const StaffLayout = lazy(() => import('./layouts/StaffLayout'));
@@ -134,6 +146,20 @@ function App() {
           />
           <Suspense fallback={<AppShellSkeleton />}>
             <Routes>
+              {/* Public routes */}
+              <Route element={<PublicLayout />}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/services" element={<ServicesPage />} />
+                <Route path="/products" element={<ProductsPage />} />
+                <Route path="/design" element={<DesignPage />} />
+                <Route path="/track" element={<TrackPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/signin" element={<SignInPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+              </Route>
+
+              {/* Auth routes */}
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
@@ -149,7 +175,6 @@ function App() {
                 path="/inventory"
                 element={
                   <ProtectedRoute>
-                    {/* Redirect to dashboard inventory overview */}
                     <Navigate to="/dashboard/inventory/overview" replace />
                   </ProtectedRoute>
                 }
@@ -207,12 +232,10 @@ function App() {
               </Route>
               <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
               <Route path="/users" element={<Navigate to="/dashboard/staff" replace />} />
-              <Route path="/products" element={<Navigate to="/dashboard/products" replace />} />
               <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
               <Route path="/profile" element={<Navigate to="/dashboard" replace />} />
               <Route path="/error/server" element={<ServerError />} />
               <Route path="/error/network" element={<NetworkError />} />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

@@ -10,6 +10,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@sentry/react": "^10.59.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.1",
     "pdfkit": "^0.17.2"

@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
+const { searchCache } = require('../middleware/cache');
 
 /**
  * GET /search?q=<query>
@@ -10,7 +11,7 @@ const { authenticateToken } = require('../middleware/auth');
  * Safe version: uses Promise.allSettled so a single DB failure
  * never causes a 500. Always returns { success, customers, jobs, products }.
  */
-router.get('/search', authenticateToken, async (req, res) => {
+router.get('/search', authenticateToken, searchCache(), async (req, res) => {
   try {
     const rawQ = req.query.q;
 

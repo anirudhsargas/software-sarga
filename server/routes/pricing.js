@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const logger = require('../helpers/logger');
-const { cacheMiddleware, invalidateCache } = require('../index');
+const { invalidatePattern } = require('../services/cacheService');
+
+const invalidateCache = (pattern) => invalidatePattern(pattern).catch(() => {});
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 

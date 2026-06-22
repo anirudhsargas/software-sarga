@@ -274,6 +274,29 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
     return 'Bill Products';
   };
 
+  // --- BATCH PRE-FETCH EXISTING INVENTORY ITEMS ---
+  const itemNames = lineItems.map(item => item.item_name).filter(Boolean);
+  const lowerNames = itemNames.map(name => String(name).toLowerCase());
+  const existingMap = new Map();
+
+  if (lowerNames.length > 0) {
+    const [existingRows] = await pool.query(
+      `SELECT id, name, hsn, quantity, cost_price, vendor_name, sku
+       FROM sarga_inventory
+       WHERE LOWER(name) IN (?)
+         AND LOWER(COALESCE(vendor_name, '')) = LOWER(COALESCE(?, ''))`,
+      [lowerNames, vendorName || '']
+    );
+    for (const row of existingRows) {
+      const key = String(row.name).toLowerCase();
+      if (!existingMap.has(key)) {
+        existingMap.set(key, []);
+      }
+      existingMap.get(key).push(row);
+    }
+  }
+  // ------------------------------------------------
+
   for (const item of lineItems) {
     const {
       item_name,
@@ -303,18 +326,9 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
       || 'INV';
     const modelName = String(item_name || '').trim().slice(0, 100);
 
-    // Match on name + same vendor: same model from the same supplier → update stock/price.
-    // If the same model name exists but from a different vendor, create a separate inventory item
-    // so each vendor's pricing is tracked independently.
-    const [[existing]] = await pool.query(
-      `SELECT id, quantity, cost_price
-       FROM sarga_inventory
-       WHERE LOWER(name) = LOWER(?)
-         AND (hsn = ? OR (? IS NULL AND hsn IS NULL))
-         AND LOWER(COALESCE(vendor_name, '')) = LOWER(COALESCE(?, ''))
-       LIMIT 1`,
-      [item_name, hsn_sac, hsn_sac, vendorName || '']
-    );
+    // Match on name + same vendor from the pre-fetched Map
+    const potentials = existingMap.get(String(item_name).toLowerCase()) || [];
+    const existing = potentials.find(r => r.hsn === hsn_sac || (!hsn_sac && !r.hsn));
 
     if (existing?.id) {
       const baseSku = buildSkuBase({ vendor: vendorName, category: inferredCategory, itemName: item_name, sizeCode });
@@ -357,7 +371,7 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
           custom_sku || null,
           custom_sku || null,
           custom_sku || null,
-          custom_sku || nextSku,
+          custom_sku || existing.sku || nextSku,
           existing.id
         ]
       );

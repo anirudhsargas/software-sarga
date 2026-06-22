@@ -4,6 +4,7 @@ const { pool } = require('../database');
 const logger = require('../helpers/logger');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const { invalidateDashboardCache, invalidateAnalyticsCache } = require('../services/cacheService');
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -395,6 +396,8 @@ router.post('/checkout/verify-payment', asyncHandler(async (req, res) => {
 
     logger.info(`[Checkout] Payment verified for order ${razorpay_order_id}`);
     res.json({ verified: true, message: 'Payment verified successfully' });
+    invalidateDashboardCache().catch(() => {});
+    invalidateAnalyticsCache().catch(() => {});
   } else {
     logger.warn(`[Checkout] Payment verification FAILED for ${razorpay_order_id}`);
     res.status(400).json({ verified: false, message: 'Payment verification failed' });

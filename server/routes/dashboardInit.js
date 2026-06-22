@@ -2,8 +2,9 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const { checkAnomalies } = require('./anomalies');
+const { dashboardCache } = require('../middleware/cache');
 
-router.get('/dashboard-init', authenticateToken, async (req, res) => {
+router.get('/dashboard-init', authenticateToken, dashboardCache(), async (req, res) => {
     try {
         const isAdmin = req.user.role === 'Admin';
         const isAccountant = req.user.role === 'Accountant';

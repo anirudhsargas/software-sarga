@@ -5,8 +5,8 @@ import usePolling from '../hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
 import {
     ShoppingBag, Clock, CheckCircle2, IndianRupee, TrendingUp, Truck,
-    Search, Plus, UserPlus, Phone, ArrowRight, Calendar, AlertTriangle,
-    Receipt, Printer, MessageSquare, RefreshCw, ChevronRight, ChevronLeft, Loader2,
+    Search, Plus, UserPlus, Phone, Calendar, AlertTriangle,
+    Receipt, RefreshCw, ChevronRight, ChevronLeft, Loader2,
     Wallet, Users, Package, Eye, CreditCard, X, Edit3, Check, ChevronDown, ChevronUp, List, LayoutGrid
 } from 'lucide-react';
 import api from '../services/api';
@@ -19,16 +19,9 @@ import { formatCurrency } from '../utils/formatters';
 import { serverNow, serverToday } from '../services/serverTime';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
-import QuickActionsDashboard from '../components/quickbilling/QuickActionsDashboard';
 import DashboardQuickActions from '../components/DashboardQuickActions';
 import OpeningSetupModal from '../components/OpeningSetupModal';
 import PageContainer from '../components/ui/PageContainer';
-
-const OPENING_TABS = [
-    { key: 'Offset', label: 'Offset', color: 'var(--accent)' },
-    { key: 'Laser',  label: 'Laser',  color: 'var(--accent)' },
-    { key: 'Other',  label: 'Other',  color: 'var(--success)' },
-];
 
 const FrontOffice = () => {
     useSEO('Front Office');
@@ -591,7 +584,7 @@ const FrontOffice = () => {
                             id="fo-search"
                             type="text"
                             className="fo-search-input"
-                            placeholder="Search customers, orders, jobs..."
+                            placeholder="Search orders..."
                             value={search}
                             onChange={(e) => handleSearch(e.target.value)}
                             autoComplete="off"
@@ -647,11 +640,7 @@ const FrontOffice = () => {
                     </button>
                     <button className="fo-toolbar-btn fo-toolbar-btn--secondary" onClick={() => navigate('/dashboard/sales/payments')}>
                         <Wallet size={16} />
-                        <span>Take Payment</span>
-                    </button>
-                    <button className="fo-toolbar-btn fo-toolbar-btn--secondary" onClick={() => navigate('/dashboard/staff')}>
-                        <Calendar size={16} />
-                        <span>Attendance</span>
+                        <span>Payment</span>
                     </button>
                     <button className="fo-toolbar-btn fo-toolbar-btn--secondary" onClick={() => navigate('/dashboard/customers')}>
                         <Users size={16} />
@@ -660,11 +649,7 @@ const FrontOffice = () => {
                 </div>
             </div>
 
-            {/* ──── Quick Actions Dashboard ──── */}
-            <QuickActionsDashboard />
-
             {/* ──── Stats Cards ──── */}
-            <h2 className="sr-only">Dashboard Summary</h2>
             <div className="fo-stats-grid">
                 {loading ? (
                     <SkeletonLoader type="cards" count={6} />
@@ -717,7 +702,6 @@ const FrontOffice = () => {
             </div>
 
             {/* ──── Tab Switcher ──── */}
-            <h2 className="sr-only">Recent Activity</h2>
             <div className="fo-tabs">
                 <button className={`fo-tab ${activeTab === 'queue' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('queue')}>
                     <Package size={16} /> Active Jobs{activeTotal > 0 && <span className="fo-tab-count">{activeTotal}</span>}
@@ -739,32 +723,32 @@ const FrontOffice = () => {
                 </button>
             </div>
 
-            {/* ──── Category Filter Row ──── */}
-            <div className="fo-category-filter">
-                <div className="fo-category-filter__chips">
-                    <button onClick={() => setCategoryFilter('')} className={`fo-category-chip ${categoryFilter === '' ? 'fo-category-chip--active' : ''}`}>All</button>
-                    <button onClick={() => setCategoryFilter('OFFSET')} className={`fo-category-chip ${categoryFilter === 'OFFSET' ? 'fo-category-chip--active' : ''}`}>Offset</button>
-                    <button onClick={() => setCategoryFilter('LASER')} className={`fo-category-chip ${categoryFilter === 'LASER' ? 'fo-category-chip--active' : ''}`}>Laser</button>
-                    <button onClick={() => setCategoryFilter('OTHER')} className={`fo-category-chip ${categoryFilter === 'OTHER' ? 'fo-category-chip--active' : ''}`}>Others</button>
-                </div>
-            </div>
-
             {/* ──── Tab Content ──── */}
             <div className="fo-tab-content">
                 {/* Active Jobs Queue */}
                 {activeTab === 'queue' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
-                            {activeTotal > 0 && (
-                                <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
-                                    {((activePage - 1) * PAGE_SIZE) + 1}–{Math.min(activePage * PAGE_SIZE, activeTotal)} of {activeTotal.toLocaleString()}
-                                </span>
-                            )}
+                        <div className="fo-panel__header">
+                            <div className="fo-panel__title-row">
+                                <Package size={16} />
+                                <span>Active Jobs</span>
+                                <div className="fo-category-filter__chips">
+                                    <button onClick={() => setCategoryFilter('')} className={`fo-category-chip ${categoryFilter === '' ? 'fo-category-chip--active' : ''}`}>All</button>
+                                    <button onClick={() => setCategoryFilter('OFFSET')} className={`fo-category-chip ${categoryFilter === 'OFFSET' ? 'fo-category-chip--active' : ''}`}>Offset</button>
+                                    <button onClick={() => setCategoryFilter('LASER')} className={`fo-category-chip ${categoryFilter === 'LASER' ? 'fo-category-chip--active' : ''}`}>Laser</button>
+                                    <button onClick={() => setCategoryFilter('OTHER')} className={`fo-category-chip ${categoryFilter === 'OTHER' ? 'fo-category-chip--active' : ''}`}>Others</button>
+                                </div>
+                            </div>
                             <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
+                                {activeTotal > 0 && (
+                                    <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                                        {((activePage - 1) * PAGE_SIZE) + 1}–{Math.min(activePage * PAGE_SIZE, activeTotal)} of {activeTotal.toLocaleString()}
+                                    </span>
+                                )}
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setActivePage(p => Math.max(1, p - 1))} disabled={activePage <= 1 || activeLoading} title="Previous page"><ChevronLeft size={16} /></button>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setActivePage(p => Math.min(activeTotalPages, p + 1))} disabled={activePage >= activeTotalPages || activeLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchActiveJobs(activePage)} disabled={activeLoading}>
-                                    {activeLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                    {activeLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
                                 </button>
                             </div>
                         </div>
@@ -870,17 +854,21 @@ const FrontOffice = () => {
                 {/* Due Collection */}
                 {activeTab === 'dues' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
-                            {dueTotal > 0 && (
-                                <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
-                                    {((duePage - 1) * PAGE_SIZE) + 1}–{Math.min(duePage * PAGE_SIZE, dueTotal)} of {dueTotal.toLocaleString()}
-                                </span>
-                            )}
+                        <div className="fo-panel__header">
+                            <div className="fo-panel__title-row">
+                                <IndianRupee size={16} />
+                                <span>Due Collection</span>
+                            </div>
                             <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
+                                {dueTotal > 0 && (
+                                    <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                                        {((duePage - 1) * PAGE_SIZE) + 1}–{Math.min(duePage * PAGE_SIZE, dueTotal)} of {dueTotal.toLocaleString()}
+                                    </span>
+                                )}
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setDuePage(p => Math.max(1, p - 1))} disabled={duePage <= 1 || dueLoading} title="Previous page"><ChevronLeft size={16} /></button>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setDuePage(p => Math.min(dueTotalPages, p + 1))} disabled={duePage >= dueTotalPages || dueLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchDueCustomers(duePage)} disabled={dueLoading}>
-                                    {dueLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                    {dueLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
                                 </button>
                             </div>
                         </div>
@@ -971,17 +959,21 @@ const FrontOffice = () => {
                 {/* Overdue Jobs */}
                 {activeTab === 'overdue' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
-                            {overdueTotal > 0 && (
-                                <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
-                                    {((overduePage - 1) * PAGE_SIZE) + 1}–{Math.min(overduePage * PAGE_SIZE, overdueTotal)} of {overdueTotal.toLocaleString()}
-                                </span>
-                            )}
+                        <div className="fo-panel__header">
+                            <div className="fo-panel__title-row">
+                                <AlertTriangle size={16} />
+                                <span>Overdue</span>
+                            </div>
                             <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
+                                {overdueTotal > 0 && (
+                                    <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                                        {((overduePage - 1) * PAGE_SIZE) + 1}–{Math.min(overduePage * PAGE_SIZE, overdueTotal)} of {overdueTotal.toLocaleString()}
+                                    </span>
+                                )}
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setOverduePage(p => Math.max(1, p - 1))} disabled={overduePage <= 1 || overdueLoading} title="Previous page"><ChevronLeft size={16} /></button>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setOverduePage(p => Math.min(overdueTotalPages, p + 1))} disabled={overduePage >= overdueTotalPages || overdueLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchOverdueJobs(overduePage)} disabled={overdueLoading}>
-                                    {overdueLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                    {overdueLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
                                 </button>
                             </div>
                         </div>
@@ -1071,51 +1063,36 @@ const FrontOffice = () => {
                 {/* Completed Jobs */}
                 {activeTab === 'completed' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
-                            <div className="row gap-sm items-center">
-                                <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>View</span>
-                                <button
-                                    className={`btn btn-sm ${completedView === 'grouped' ? 'btn-primary' : 'btn-ghost'}`}
-                                    onClick={() => setCompletedView('grouped')}
-                                >
-                                    <LayoutGrid size={14} /> Grouped
-                                </button>
-                                <button
-                                    className={`btn btn-sm ${completedView === 'list' ? 'btn-primary' : 'btn-ghost'}`}
-                                    onClick={() => setCompletedView('list')}
-                                >
-                                    <List size={14} /> List
-                                </button>
+                        <div className="fo-panel__header">
+                            <div className="fo-panel__title-row">
+                                <CheckCircle2 size={16} />
+                                <span>Completed Jobs</span>
+                                <div className="fo-category-filter__chips">
+                                    <button onClick={() => setCategoryFilter('')} className={`fo-category-chip ${categoryFilter === '' ? 'fo-category-chip--active' : ''}`}>All</button>
+                                    <button onClick={() => setCategoryFilter('OFFSET')} className={`fo-category-chip ${categoryFilter === 'OFFSET' ? 'fo-category-chip--active' : ''}`}>Offset</button>
+                                    <button onClick={() => setCategoryFilter('LASER')} className={`fo-category-chip ${categoryFilter === 'LASER' ? 'fo-category-chip--active' : ''}`}>Laser</button>
+                                    <button onClick={() => setCategoryFilter('OTHER')} className={`fo-category-chip ${categoryFilter === 'OTHER' ? 'fo-category-chip--active' : ''}`}>Others</button>
+                                </div>
                             </div>
                             <div className="row gap-sm items-center" style={{ flexWrap: 'wrap' }}>
+                                <div className="row gap-sm items-center">
+                                    <button className={`btn btn-sm ${completedView === 'grouped' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setCompletedView('grouped')}>
+                                        <LayoutGrid size={14} />
+                                    </button>
+                                    <button className={`btn btn-sm ${completedView === 'list' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setCompletedView('list')}>
+                                        <List size={14} />
+                                    </button>
+                                </div>
                                 {completedTotal > 0 && (
                                     <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
                                         {((completedPage - 1) * PAGE_SIZE) + 1}–{Math.min(completedPage * PAGE_SIZE, completedTotal)} of {completedTotal.toLocaleString()}
                                     </span>
                                 )}
-                                <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
-                                    <button
-                                        className="btn btn-ghost btn-icon btn-sm"
-                                        aria-label="Previous page"
-                                        onClick={() => setCompletedPage(p => Math.max(1, p - 1))}
-                                        disabled={completedPage <= 1 || completedLoading}
-                                        title="Previous page"
-                                    >
-                                        <ChevronLeft size={16} />
-                                    </button>
-                                    <button
-                                        className="btn btn-ghost btn-icon btn-sm"
-                                        aria-label="Next page"
-                                        onClick={() => setCompletedPage(p => Math.min(completedTotalPages, p + 1))}
-                                        disabled={completedPage >= completedTotalPages || completedLoading}
-                                        title="Next page"
-                                    >
-                                        <ChevronRight size={16} />
-                                    </button>
-                                    <button className="btn btn-ghost btn-sm" onClick={() => fetchCompleted(completedPage)} disabled={completedLoading}>
-                                        {completedLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
-                                    </button>
-                                </div>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setCompletedPage(p => Math.max(1, p - 1))} disabled={completedPage <= 1 || completedLoading} title="Previous page"><ChevronLeft size={16} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setCompletedPage(p => Math.min(completedTotalPages, p + 1))} disabled={completedPage >= completedTotalPages || completedLoading} title="Next page"><ChevronRight size={16} /></button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => fetchCompleted(completedPage)} disabled={completedLoading}>
+                                    {completedLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+                                </button>
                             </div>
                         </div>
 
@@ -1259,17 +1236,21 @@ const FrontOffice = () => {
                 {/* Recent Payments */}
                 {activeTab === 'payments' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
-                            {paymentsTotal > 0 && (
-                                <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
-                                    {((paymentsPage - 1) * PAGE_SIZE) + 1}–{Math.min(paymentsPage * PAGE_SIZE, paymentsTotal)} of {paymentsTotal.toLocaleString()}
-                                </span>
-                            )}
+                        <div className="fo-panel__header">
+                            <div className="fo-panel__title-row">
+                                <Receipt size={16} />
+                                <span>Recent Payments</span>
+                            </div>
                             <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
+                                {paymentsTotal > 0 && (
+                                    <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                                        {((paymentsPage - 1) * PAGE_SIZE) + 1}–{Math.min(paymentsPage * PAGE_SIZE, paymentsTotal)} of {paymentsTotal.toLocaleString()}
+                                    </span>
+                                )}
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage <= 1 || paymentsLoading} title="Previous page"><ChevronLeft size={16} /></button>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))} disabled={paymentsPage >= paymentsTotalPages || paymentsLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchRecentPayments(paymentsPage)} disabled={paymentsLoading}>
-                                    {paymentsLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                    {paymentsLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
                                 </button>
                             </div>
                         </div>
@@ -1303,17 +1284,21 @@ const FrontOffice = () => {
                 {/* Delivered Jobs */}
                 {activeTab === 'delivered' && (
                     <div className="fo-panel">
-                        <div className="row gap-sm items-center" style={{ justifyContent: 'space-between', marginBottom: 18, paddingTop: 16, paddingBottom: 14, paddingLeft: 16, paddingRight: 16, borderBottom: '1px solid var(--border)' }}>
-                            {deliveredTotal > 0 && (
-                                <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
-                                    {((deliveredPage - 1) * PAGE_SIZE) + 1}–{Math.min(deliveredPage * PAGE_SIZE, deliveredTotal)} of {deliveredTotal.toLocaleString()}
-                                </span>
-                            )}
+                        <div className="fo-panel__header">
+                            <div className="fo-panel__title-row">
+                                <Truck size={16} />
+                                <span>Delivered</span>
+                            </div>
                             <div className="row gap-sm items-center" style={{ flexWrap: 'nowrap' }}>
+                                {deliveredTotal > 0 && (
+                                    <span className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                                        {((deliveredPage - 1) * PAGE_SIZE) + 1}–{Math.min(deliveredPage * PAGE_SIZE, deliveredTotal)} of {deliveredTotal.toLocaleString()}
+                                    </span>
+                                )}
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setDeliveredPage(p => Math.max(1, p - 1))} disabled={deliveredPage <= 1 || deliveredLoading} title="Previous page"><ChevronLeft size={16} /></button>
                                 <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setDeliveredPage(p => Math.min(deliveredTotalPages, p + 1))} disabled={deliveredPage >= deliveredTotalPages || deliveredLoading} title="Next page"><ChevronRight size={16} /></button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => fetchDeliveredJobs(deliveredPage)} disabled={deliveredLoading}>
-                                    {deliveredLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Refresh
+                                    {deliveredLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
                                 </button>
                             </div>
                         </div>
@@ -1375,22 +1360,6 @@ const FrontOffice = () => {
                         })()}
                     </div>
                 )}
-            </div>
-
-            {/* ──── Status Pipeline ──── */}
-            <div className="fo-pipeline">
-                <h2 className="fo-section-title">Job Pipeline</h2>
-                <div className="fo-pipeline-bar">
-                    {['Pending', 'Processing', 'Completed', 'Delivered'].map(status => {
-                        const count = status_counts?.[status] || 0;
-                        return (
-                            <div key={status} className={`fo-pipeline-stage fo-pipeline-stage--${status.toLowerCase()}${count > 0 ? ' fo-pipeline-stage--active' : ''}`}>
-                                <span className="fo-pipeline-stage__count">{count}</span>
-                                <span className="fo-pipeline-stage__label">{status}</span>
-                            </div>
-                        );
-                    })}
-                </div>
             </div>
         </PageContainer>
 

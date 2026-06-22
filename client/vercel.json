@@ -4,7 +4,7 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api|assets|images|fonts|robots\\.txt|sitemap\\.xml|favicon\\.ico|og-image\\.png|_next).*)",
       "destination": "/index.html"
     }
   ],
@@ -28,6 +28,14 @@
         {
           "key": "X-Content-Type-Options",
           "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
         }
       ]
     }

@@ -16,11 +16,10 @@ const CashOpeningSection = ({ balances, onChange, prevClosing, bookTabs }) => {
         <div className="os-section">
             <div className="os-section__header">
                 <div className="os-section__icon" style={{ background: 'var(--success-bg)', color: 'var(--success)' }}>
-                    <Wallet size={18} />
+                    <Wallet size={16} />
                 </div>
                 <div>
-                    <h3 className="os-section__title">Cash Opening Balance</h3>
-                    <p className="os-section__subtitle">Set opening cash for each book</p>
+                    <h3 className="os-section__title">Cash Opening</h3>
                 </div>
             </div>
 

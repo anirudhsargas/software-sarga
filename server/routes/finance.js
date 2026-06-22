@@ -6,6 +6,10 @@ const { auditLog } = require('../helpers');
 const { branchFilter } = require('../middleware/branchFilter');
 const { validate, emiMasterSchema, emiPaymentSchema, kuriMasterSchema, kuriPaymentSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
+const { routeCache } = require('../middleware/cache');
+const { invalidateFinanceCache } = require('../services/cacheService');
+const FINANCE_TTL = 300; // 5 minutes
+const invalidateFinance = () => invalidateFinanceCache().catch(() => {});
 
 // ==================== EMI MASTER ROUTES ====================
 
@@ -62,7 +66,7 @@ router.get('/emi-master', authenticateToken, async (req, res) => {
 });
 
 // Get EMI dashboard KPIs
-router.get('/emi-dashboard', authenticateToken, async (req, res) => {
+router.get('/emi-dashboard', authenticateToken, routeCache(FINANCE_TTL, (req) => `sarga:finance:emi-dashboard:${req.query.branch_id || 'all'}`), async (req, res) => {
   try {
     const { branchId } = await branchFilter(req);
 
@@ -220,6 +224,7 @@ router.post('/emi-master', authenticateToken, validate(emiMasterSchema), async (
     ]);
 
     auditLog(req.user.id, 'EMI_CREATE', `Created EMI: ${institution_name} ₹${monthly_emi}/month`, { entity_type: 'emi', entity_id: result.insertId });
+    await invalidateFinance();
     res.status(201).json({
       id: result.insertId,
       message: 'EMI commitment created successfully'
@@ -281,6 +286,7 @@ router.put('/emi-master/:id', authenticateToken, validate(emiMasterSchema), asyn
     ]);
 
     auditLog(req.user.id, 'EMI_UPDATE', `Updated EMI #${req.params.id}: ${institution_name}`, { entity_type: 'emi', entity_id: req.params.id });
+    await invalidateFinance();
     res.json({ message: 'EMI commitment updated successfully' });
   } catch (error) {
     console.error('Error updating EMI:', error);
@@ -433,7 +439,7 @@ router.get('/kuri-master', authenticateToken, async (req, res) => {
 });
 
 // Get Kuri dashboard KPIs
-router.get('/kuri-dashboard', authenticateToken, async (req, res) => {
+router.get('/kuri-dashboard', authenticateToken, routeCache(FINANCE_TTL, (req) => `sarga:finance:kuri-dashboard:${req.query.branch_id || 'all'}`), async (req, res) => {
   try {
     const { branchId } = await branchFilter(req);
 
@@ -593,6 +599,7 @@ router.post('/kuri-master', authenticateToken, validate(kuriMasterSchema), async
     ]);
 
     auditLog(req.user.id, 'KURI_CREATE', `Created Kuri: ${kuri_name} ₹${monthly_installment}/month`, { entity_type: 'kuri', entity_id: result.insertId });
+    await invalidateFinance();
     res.status(201).json({
       id: result.insertId,
       message: 'Kuri commitment created successfully'
@@ -663,6 +670,7 @@ router.put('/kuri-master/:id', authenticateToken, validate(kuriMasterSchema), as
     ]);
 
     auditLog(req.user.id, 'KURI_UPDATE', `Updated Kuri #${req.params.id}: ${kuri_name}`, { entity_type: 'kuri', entity_id: req.params.id });
+    await invalidateFinance();
     res.json({ message: 'Kuri commitment updated successfully' });
   } catch (error) {
     console.error('Error updating Kuri:', error);

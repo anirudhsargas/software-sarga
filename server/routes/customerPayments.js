@@ -7,6 +7,7 @@ const { branchFilter } = require('../middleware/branchFilter');
 const { paginate } = require('../helpers/pagination');
 const { validate } = require('../middleware/validate');
 const { customerPaymentSchema } = require('../schemas/paymentSchemas');
+const { invalidateDashboardCache, invalidateAnalyticsCache, invalidateCustomerCache } = require('../services/cacheService');
 
 const normalizeBookType = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
@@ -573,6 +574,9 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
 
         await connection.commit();
         res.status(201).json({ id: paymentId, invoice_number: invoiceNumber, balance_amount: balance, message: 'Customer payment recorded' });
+        invalidateDashboardCache().catch(() => {});
+        invalidateAnalyticsCache().catch(() => {});
+        invalidateCustomerCache().catch(() => {});
     } catch (err) {
         await connection.rollback();
         if (err?.code === 'ER_DUP_ENTRY') {
@@ -1208,6 +1212,8 @@ router.patch('/customer-payments/:id/verify', authenticateToken, authorizeRoles(
     });
 
     res.json({ message: `Payment ${status.toLowerCase()} successfully`, id, status });
+    invalidateDashboardCache().catch(() => {});
+    invalidateAnalyticsCache().catch(() => {});
 }));
 
 // Verification summary stats

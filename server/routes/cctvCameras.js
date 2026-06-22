@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
-const { uploadToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
+const { uploadBufferToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 
 const VALID_BRANCHES = ['perambra', 'meppayur_main', 'meppayur_room'];
 
@@ -250,8 +250,8 @@ module.exports = (upload, removeUploadFile) => {
         return res.status(404).json({ message: 'Staff member not found' });
       }
 
-      // Upload to Cloudinary
-      const cloudinaryResult = await uploadToCloudinary(req.file.path, 'cctv-faces');
+      // Upload to Cloudinary from memory buffer
+      const cloudinaryResult = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'cctv-faces');
       const imageUrl = cloudinaryResult.secure_url;
 
       const [result] = await pool.query(

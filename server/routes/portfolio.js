@@ -3,7 +3,9 @@ const router = express.Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
-const { cacheMiddleware, invalidateCache } = require('../index');
+const { redisCache } = require('../middleware/cache');
+const { invalidatePattern } = require('../services/cacheService');
+const invalidateCache = (pattern) => invalidatePattern(pattern).catch(() => {});
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -15,7 +17,7 @@ function generateSlug(title) {
 }
 
 // ─── PUBLIC: Get portfolio projects ───
-router.get('/website/portfolio', cacheMiddleware(600), asyncHandler(async (req, res) => {
+router.get('/website/portfolio', redisCache(600, 'portfolio'), asyncHandler(async (req, res) => {
   const { category, featured, search, page = 1, limit = 24 } = req.query;
   const offset = (Math.max(1, Number(page)) - 1) * Number(limit);
   let where = 'WHERE p.published = 1';

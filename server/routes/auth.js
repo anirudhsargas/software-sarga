@@ -1,12 +1,13 @@
 const router = require('express').Router();
 const { pool } = require('../database');
-const { authenticateToken, authorizeRoles, JWT_SECRET } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles, JWT_SECRET, revokeSessionInCache } = require('../middleware/auth');
 const { normalizeMobileWithCountry, auditLog } = require('../helpers');
 const { validate, loginSchema, changePasswordSchema } = require('../middleware/validate');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { fileToBase64 } = require('../utils/base64');
+const { uploadBufferToCloudinary } = require('../helpers/cloudinaryUpload');
 
 // Rate limiting for auth endpoints
 const authLimiter = rateLimit({
@@ -190,7 +191,19 @@ module.exports = (upload) => {
     // Update Current Staff Profile
     router.put('/staff/me', authenticateToken, upload.single('image'), async (req, res) => {
         const { name } = req.body;
-        const imageUrl = req.file ? await fileToBase64(req.file.path) : null;
+        // Cloudinary upload from buffer (memory storage)
+        let imageUrl = null;
+        if (req.file && req.file.buffer) {
+            try {
+                const result = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'staff-profiles');
+                imageUrl = result.secure_url;
+            } catch (err) {
+                return res.status(500).json({ message: 'Profile image upload failed' });
+            }
+        } else if (req.file && req.file.path) {
+            // Fallback: local path (e.g. if old disk storage is still in use during transition)
+            imageUrl = await fileToBase64(req.file.path).catch(() => null);
+        }
 
         if (name !== undefined && !String(name).trim()) {
             return res.status(400).json({ message: 'Name is required' });
@@ -258,6 +271,8 @@ module.exports = (upload) => {
             const authHeader = req.headers['authorization'];
             const token = authHeader && authHeader.split(' ')[1];
             if (token) {
+                // Immediately mark revoked in Redis (fast path for future requests)
+                await revokeSessionInCache(token);
                 try {
                     await pool.query("UPDATE sarga_user_sessions SET is_revoked = 1 WHERE session_token = ?", [token]);
                 } catch (sessionErr) {

@@ -3,12 +3,39 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { boneyardPlugin } from 'boneyard-js/vite'
+import sitemap from 'vite-plugin-sitemap'
+
+const publicRoutes = ['/', '/services', '/products', '/design', '/track', '/contact', '/signin', '/privacy', '/terms'];
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     boneyardPlugin(),
+    sitemap({
+      hostname: 'https://sargaoffset.vercel.app',
+      outDir: 'dist',
+      dynamicRoutes: publicRoutes,
+      exclude: [
+        '/dashboard/**',
+        '/login',
+        '/forgot-password',
+        '/reset-password',
+        '/change-password',
+        '/staff-settings',
+        '/accounting/**',
+        '/staff/**',
+        '/designer/**',
+        '/error/**',
+      ],
+      robots: [
+        {
+          userAgent: '*',
+          allow: '/',
+          disallow: ['/dashboard', '/login', '/forgot-password', '/reset-password', '/change-password', '/staff-settings', '/accounting', '/staff', '/designer'],
+        },
+      ],
+    }),
     VitePWA({
       registerType: 'autoUpdate', // Automatically update and reload when a new version is available
       includeAssets: ['favicon.png', 'icons/*.png', 'icons/*.webp', 'icons/*.avif', 'assets/**/*'],

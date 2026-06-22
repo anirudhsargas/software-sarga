@@ -4,6 +4,10 @@ const { pool } = require('../database');
 const auth = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
+const { routeCache } = require('../middleware/cache');
+const { invalidateReportsCache } = require('../services/cacheService');
+
+const REPORTS_TTL = 600; // 10 minutes — date-bound data changes infrequently
 
 // ==================== HELPER: Get Branch ID ====================
 const getBranchId = (user, queryBranchId) => {
@@ -13,7 +17,8 @@ const getBranchId = (user, queryBranchId) => {
     return user.branch_id;
 };
 
-// ==================== GET/SET OPENING BALANCE ====================
+// On write: invalidate reports cache
+async function invalidateReports() { await invalidateReportsCache().catch(() => {}); }
 router.get('/opening-balance', auth.authenticate, async (req, res) => {
     try {
         const { date, book_type } = req.query;
@@ -83,6 +88,7 @@ router.put('/opening-balance', auth.authenticate, async (req, res) => {
             [date, branchId, book_type, cash_opening || 0, req.user.id, isAdmin ? 0 : 1]
         );
 
+        await invalidateReports();
         auditLog(req.user.id, 'OPENING_BALANCE_SET', `Set ${book_type} opening balance ₹${cash_opening} for ${date}`, { entity_type: 'opening_balance' });
         res.json({ message: 'Opening balance saved', book_type, cash_opening, is_locked: !isAdmin });
     } catch (error) {
@@ -233,7 +239,7 @@ router.post('/change-requests/:id/review', auth.authenticate, async (req, res) =
 });
 
 // ==================== GET PREVIOUS DAY CLOSING BALANCE ====================
-router.get('/previous-closing', auth.authenticate, async (req, res) => {
+router.get('/previous-closing', auth.authenticate, routeCache(REPORTS_TTL, (req) => `sarga:reports:prev-closing:${req.query.branch_id || req.user.branch_id}:${req.query.date}`), async (req, res) => {
     try {
         const { date } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);
@@ -387,7 +393,7 @@ router.get('/previous-closing', auth.authenticate, async (req, res) => {
 });
 
 // ==================== OFFSET TAB: LIVE DATA ====================
-router.get('/offset-live', auth.authenticate, async (req, res) => {
+router.get('/offset-live', auth.authenticate, routeCache(REPORTS_TTL, (req) => `sarga:reports:offset-live:${req.query.branch_id || req.user.branch_id}:${req.query.date}`), async (req, res) => {
     try {
         const { date } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);

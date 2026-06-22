@@ -5,7 +5,7 @@ const { attachNormalizedMobile } = require('../middleware/phone');
 const bcrypt = require('bcryptjs');
 const { validate, addStaffSchema, staffSalaryUpdateSchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
-const { uploadToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
+const { uploadBufferToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
@@ -20,7 +20,7 @@ module.exports = (upload, removeUploadFile) => {
         // Upload to Cloudinary if file is present
         if (req.file) {
             try {
-                const cloudinaryResult = await uploadToCloudinary(req.file.path, 'staff');
+                const cloudinaryResult = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'staff');
                 imageUrl = cloudinaryResult.secure_url;
             } catch (uploadError) {
                 console.error('Cloudinary upload error:', uploadError);
@@ -95,7 +95,7 @@ module.exports = (upload, removeUploadFile) => {
         // Upload to Cloudinary if file is present
         if (req.file) {
             try {
-                const cloudinaryResult = await uploadToCloudinary(req.file.path, 'staff');
+                const cloudinaryResult = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'staff');
                 imageUrl = cloudinaryResult.secure_url;
             } catch (uploadError) {
                 console.error('Cloudinary upload error:', uploadError);

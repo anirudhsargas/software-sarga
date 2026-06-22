@@ -1,15 +1,13 @@
 import { memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Receipt, ArrowLeftRight, FileText, ScanLine, Users, IndianRupee } from 'lucide-react';
+import { IndianRupee, ArrowLeftRight, FileText, ScanLine } from 'lucide-react';
 import auth from '../services/auth';
 
 const DEFAULT_SHORTCUTS = [
-    { id: 'new-order', label: 'New Order', icon: Plus, route: '/dashboard/sales/invoices', state: { action: 'create' }, color: 'var(--info)' },
-    { id: 'expense', label: 'Expense Manager', icon: IndianRupee, route: '/dashboard/expenses', color: 'var(--warning)' },
-    { id: 'transfer', label: 'Internal Transfer', icon: ArrowLeftRight, route: '/dashboard/stock-transfer', color: 'var(--success)' },
-    { id: 'bill', label: 'Create Bill', icon: FileText, route: '/dashboard/sales/invoices', state: { action: 'create' }, color: 'var(--danger)' },
-    { id: 'inventory', label: 'Inventory Scan', icon: ScanLine, route: '/dashboard/inventory/scan', color: '#8b5cf6' },
-    { id: 'customer', label: 'Customer', icon: Users, route: '/dashboard/customers', color: '#06b6d4' },
+    { id: 'expense', label: 'Expense', icon: IndianRupee, route: '/dashboard/expenses', color: 'var(--warning)' },
+    { id: 'transfer', label: 'Transfer', icon: ArrowLeftRight, route: '/dashboard/stock-transfer', color: 'var(--success)' },
+    { id: 'bill', label: 'Bill', icon: FileText, route: '/dashboard/sales/invoices', state: { action: 'create' }, color: 'var(--danger)' },
+    { id: 'inventory', label: 'Scan', icon: ScanLine, route: '/dashboard/inventory/scan', color: '#8b5cf6' },
 ];
 
 const ADMIN_ONLY = new Set(['transfer', 'inventory']);

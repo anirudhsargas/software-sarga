@@ -3,11 +3,12 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getUserBranchId, auditLog, getTodayDate } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
+const { analyticsCache } = require('../middleware/cache');
 
 // ═══════════════════════════════════════════════════════════════════════
 //  EXPENSE DASHBOARD — Aggregated stats
 // ═══════════════════════════════════════════════════════════════════════
-router.get('/expense-dashboard', authenticateToken, async (req, res) => {
+router.get('/expense-dashboard', authenticateToken, analyticsCache(), async (req, res) => {
     try {
         const { month } = req.query; // YYYY-MM
         let branchIds = null;

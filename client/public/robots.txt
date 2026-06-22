@@ -1,4 +1,13 @@
 User-agent: *
 Allow: /
+Disallow: /dashboard
+Disallow: /login
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /change-password
+Disallow: /staff-settings
+Disallow: /accounting
+Disallow: /staff
+Disallow: /designer
 
-Sitemap: https://software-sarga-2.onrender.com/sitemap.xml
+Sitemap: https://sargaoffset.vercel.app/sitemap.xml

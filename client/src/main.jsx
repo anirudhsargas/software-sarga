@@ -1,60 +1,99 @@
+import * as Sentry from "@sentry/react";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+
+import "./index.css";
+import "./styles/global-fixes.css";
+import App from "./App.jsx";
+
+// ── Sentry ─────────────────────────────
+
+Sentry.init({
+  dsn: "https://ed80e78984db726985d5baaa8aaab8d7@o4511491000041472.ingest.us.sentry.io/4511609262112769",
+
+  tracesSampleRate: 0.2,
+});
+
+// Optional: disable logs in production
+
 if (import.meta.env.PROD) {
   console.log = () => {};
   console.debug = () => {};
   console.info = () => {};
 }
 
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import './styles/global-fixes.css'
-import App from './App.jsx'
+// ── Stale chunk recovery ──────────────
 
-// ── Stale chunk recovery ──────────────────────────────────────────────────────
-// When the PWA service worker is updated, old dynamic-import URLs (hashed chunk
-// filenames) no longer exist in the new build. The browser gets a "Failed to
-// fetch dynamically imported module" error. Catch it here and do a hard reload
-// so the browser picks up the new files. A flag prevents infinite reload loops.
-window.addEventListener('unhandledrejection', (event) => {
-  const msg = event?.reason?.message || '';
+window.addEventListener("unhandledrejection", (event) => {
+  const msg = event?.reason?.message || "";
+
   const isChunkError =
-    msg.includes('Failed to fetch dynamically imported module') ||
-    msg.includes('Importing a module script failed') ||
-    msg.includes('Unable to preload CSS') ||
-    (event?.reason?.name === 'ChunkLoadError');
+    msg.includes(
+      "Failed to fetch dynamically imported module"
+    ) ||
+    msg.includes(
+      "Importing a module script failed"
+    ) ||
+    msg.includes(
+      "Unable to preload CSS"
+    ) ||
+    event?.reason?.name === "ChunkLoadError";
+
   if (isChunkError) {
-    const reloadKey = 'sarga_chunk_reload';
-    const count = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
+    const reloadKey =
+      "sarga_chunk_reload";
+
+    const count =
+      parseInt(
+        sessionStorage.getItem(reloadKey) || "0",
+        10
+      );
+
     if (count < 2) {
-      sessionStorage.setItem(reloadKey, (count + 1).toString());
-      console.warn(`[PWA] Stale chunk (attempt ${count + 1}) — reloading.`);
-      if (count === 1 && 'serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(registrations => {
-            for (let registration of registrations) registration.unregister();
-          }).finally(() => { window.location.reload(); });
-      } else {
-          window.location.reload();
-      }
+      sessionStorage.setItem(
+        reloadKey,
+        String(count + 1)
+      );
+
+      window.location.reload();
     }
   }
 });
 
-// Clear reload flag on successful load
-sessionStorage.removeItem('sarga_chunk_reload');
+sessionStorage.removeItem(
+  "sarga_chunk_reload"
+);
 
-createRoot(document.getElementById('root')).render(
+// ── React Render ─────────────────────
+
+createRoot(
+  document.getElementById("root")
+).render(
   <StrictMode>
     <App />
-  </StrictMode>,
-)
+  </StrictMode>
+);
 
-// Global ripple effect for all .btn elements
-document.addEventListener('click', async (e) => {
-  const btn = e.target.closest('.btn');
-  if (!btn || btn.disabled) return;
-  
-  const { addRipple } = await import('./utils/ripple');
-  addRipple({ currentTarget: btn, clientX: e.clientX, clientY: e.clientY });
-});
+// Ripple
 
-// Service worker registration is handled automatically by vite-plugin-pwa (registerType: 'autoUpdate')
+document.addEventListener(
+  "click",
+  async (e) => {
+    const btn =
+      e.target.closest(".btn");
+
+    if (!btn || btn.disabled)
+      return;
+
+    const { addRipple } =
+      await import(
+        "./utils/ripple"
+      );
+
+    addRipple({
+      currentTarget: btn,
+      clientX: e.clientX,
+      clientY: e.clientY,
+    });
+  }
+);
