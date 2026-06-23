@@ -422,13 +422,11 @@ CREATE TABLE IF NOT EXISTS sarga_credit_ledger (
     INDEX idx_customer_date (credit_customer_id, transaction_date)
 );
 
-ALTER TABLE sarga_staff_attendance 
-ADD COLUMN IF NOT EXISTS in_time TIME,
-ADD COLUMN IF NOT EXISTS out_time TIME,
-ADD COLUMN IF NOT EXISTS work_hours DECIMAL(4, 2);
-
-ALTER TABLE sarga_jobs
-ADD COLUMN IF NOT EXISTS entry_date DATE,
-ADD COLUMN IF NOT EXISTS due_date_original DATE,
-ADD COLUMN IF NOT EXISTS workbook_remarks TEXT,
-ADD COLUMN IF NOT EXISTS priority ENUM('Low', 'Medium', 'High', 'Urgent') DEFAULT 'Medium';
+-- 9. Safe column additions (individual statements; database.js ignores ER_DUP_FIELDNAME)
+ALTER TABLE sarga_staff_attendance ADD COLUMN in_time TIME;
+ALTER TABLE sarga_staff_attendance ADD COLUMN out_time TIME;
+ALTER TABLE sarga_staff_attendance ADD COLUMN work_hours DECIMAL(4,2);
+ALTER TABLE sarga_jobs ADD COLUMN entry_date DATE;
+ALTER TABLE sarga_jobs ADD COLUMN due_date_original DATE;
+ALTER TABLE sarga_jobs ADD COLUMN workbook_remarks TEXT;
+ALTER TABLE sarga_jobs ADD COLUMN priority ENUM('Low','Medium','High','Urgent') DEFAULT 'Medium';

@@ -14,7 +14,14 @@ const loadSchemaFiles = async (connection) => {
       try {
         await connection.query(stmt);
       } catch (e) {
-        if (e.code !== 'ER_TABLE_EXISTS_ERROR' && e.code !== 'ER_DUP_KEYNAME' && e.code !== 'ER_DUP_FIELDNAME') throw e;
+        const ignoredCodes = [
+          'ER_TABLE_EXISTS_ERROR',  // CREATE TABLE IF NOT EXISTS (safety)
+          'ER_DUP_KEYNAME',         // duplicate index name
+          'ER_DUP_FIELDNAME',       // ADD COLUMN for existing column
+          'ER_CANT_DROP_FIELD_OR_KEY', // DROP COLUMN/KEY that doesn't exist
+          'ER_BAD_FIELD_ERROR',     // column doesn't exist (safe to skip)
+        ];
+        if (!ignoredCodes.includes(e.code)) throw e;
       }
     }
   }
