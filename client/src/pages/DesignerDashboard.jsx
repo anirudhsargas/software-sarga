@@ -9,6 +9,11 @@ import LoadingButton from '../components/LoadingButton';
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
 
+const JOB_TYPES = ['All', 'Offset', 'Laser', 'Other'];
+const PRIORITIES = ['All', 'High', 'Medium', 'Low'];
+const ACTIVE_STATUSES = ['Pending', 'In Progress'];
+const DONE_STATUSES = ['Completed', 'Cancelled'];
+
 const DesignerDashboard = () => {
     useSEO('Designer Dashboard');
 
@@ -91,16 +96,14 @@ const DesignerDashboard = () => {
     return statusMap[status] || { bg: 'var(--muted-foreground)', text: 'var(--card)' };
   };
 
-  // Job types and priorities
-  const jobTypes = ['All', 'Offset', 'Laser', 'Other'];
-  const priorities = ['All', 'High', 'Medium', 'Low'];
+  // Job types and priorities - defined at module scope
 
   // Filter jobs based on tab, search, branch, type, and priority
   const filteredJobs = useMemo(() => {
     return workHistory.filter(job => {
       // Tab filter - active vs completed/cancelled based on ASSIGNMENT status
-      const isActive = ['Pending', 'In Progress'].includes(job.assignment_status);
-      const isCompleted = ['Completed', 'Cancelled'].includes(job.assignment_status);
+      const isActive = ACTIVE_STATUSES.includes(job.assignment_status);
+      const isCompleted = DONE_STATUSES.includes(job.assignment_status);
       
       const matchesTab = activeTab === 'active' ? isActive : isCompleted;
 
@@ -127,11 +130,11 @@ const DesignerDashboard = () => {
   }, [workHistory, activeTab, search, selectedBranch, selectedType, selectedPriority]);
 
   const activeCount = useMemo(() => {
-    return workHistory.filter(j => ['Pending', 'In Progress'].includes(j.assignment_status)).length;
+    return workHistory.filter(j => ACTIVE_STATUSES.includes(j.assignment_status)).length;
   }, [workHistory]);
 
   const completedCount = useMemo(() => {
-    return workHistory.filter(j => ['Completed', 'Cancelled'].includes(j.assignment_status)).length;
+    return workHistory.filter(j => DONE_STATUSES.includes(j.assignment_status)).length;
   }, [workHistory]);
 
   if (loading && workHistory.length === 0) {
@@ -304,7 +307,7 @@ const DesignerDashboard = () => {
         {/* Type Pills */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>Type:</span>
-          {jobTypes.map(type => (
+          {JOB_TYPES.map(type => (
             <button
               key={type}
               onClick={() => setSelectedType(type)}
@@ -341,7 +344,7 @@ const DesignerDashboard = () => {
         {/* Priority Pills */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>Priority:</span>
-          {priorities.map(priority => (
+          {PRIORITIES.map(priority => (
             <button
               key={priority}
               onClick={() => setSelectedPriority(priority)}

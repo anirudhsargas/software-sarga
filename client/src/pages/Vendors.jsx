@@ -15,6 +15,9 @@ import { formatCurrency } from '../utils/formatters';
 import './Vendors.css';
 import PageContainer from '../components/ui/PageContainer';
 
+const CAN_EDIT_ROLES = ['Admin', 'Accountant'];
+const CAN_ADD_ROLES = ['Admin', 'Accountant', 'Front Office'];
+
 const Vendors = () => {
     useSEO('Vendors');
 
@@ -29,9 +32,9 @@ const Vendors = () => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const userRole = auth.getRole();
-  const canEdit = ['Admin', 'Accountant'].includes(userRole);
+  const canEdit = CAN_EDIT_ROLES.includes(userRole);
   const canDelete = userRole === 'Admin';
-  const canAdd = ['Admin', 'Accountant', 'Front Office'].includes(userRole);
+  const canAdd = CAN_ADD_ROLES.includes(userRole);
 
   const currentView = searchParams.get('view') || 'dashboard';
 

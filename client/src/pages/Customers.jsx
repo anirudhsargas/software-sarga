@@ -20,6 +20,9 @@ import BranchSelect from '../components/ui/BranchSelect';
 import './Customers.css';
 import PageContainer from '../components/ui/PageContainer';
 
+const CUSTOMER_TYPES = ['Walk-in', 'Retail', 'Offset'];
+const ADMIN_ROLES = ['admin', 'super_admin'];
+
 const Customers = () => {
     useSEO('Customers');
 
@@ -161,7 +164,6 @@ const Customers = () => {
         setEditFormDirty(false);
     };
 
-    const customerTypes = ['Walk-in', 'Retail', 'Offset'];
 
 
     // --- PAGINATION STATE ---
@@ -456,7 +458,7 @@ const Customers = () => {
             const data = await localDb.getBranches();
             setBranches(data || []);
             if ((data || []).length > 0) {
-                const userIsAdmin = ['admin', 'super_admin'].includes(user?.role?.toLowerCase());
+                const userIsAdmin = ADMIN_ROLES.includes(user?.role?.toLowerCase());
                 setJobData(prev => ({ 
                     ...prev, 
                     branch_id: userIsAdmin ? data[0].id : (user?.branch_id || data[0].id) 
@@ -562,7 +564,7 @@ const Customers = () => {
     };
 
     const resetJobForm = () => {
-        const userIsAdmin = ['admin', 'super_admin'].includes(user?.role?.toLowerCase());
+        const userIsAdmin = ADMIN_ROLES.includes(user?.role?.toLowerCase());
         setJobData({
             job_name: '', description: '', quantity: 1, unit_price: 0,
             total_amount: 0, advance_paid: 0, delivery_date: '', applied_extras: [],
@@ -648,7 +650,7 @@ const Customers = () => {
                         aria-label="Filter by customer type"
                     >
                         <option value="">All Types</option>
-                        {customerTypes.map(t => (
+                        {CUSTOMER_TYPES.map(t => (
                             <option key={t} value={t}>{t}</option>
                         ))}
                     </select>

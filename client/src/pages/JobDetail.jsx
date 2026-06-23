@@ -150,6 +150,7 @@ const StatCard = ({ label, value, icon: Icon, color, subValue }) => (
 import { useOptimistic } from '../hooks/useOptimistic';
 
 const ROLES_CAN_ASSIGN = ['Admin', 'Front Office'];
+const FINANCIALS_ROLES = ['Admin', 'Accountant', 'Front Office', 'front office'];
 
 const JobDetail = () => {
     useSEO('Job Detail');
@@ -514,7 +515,7 @@ const JobDetail = () => {
         };
     }, [id]);
 
-    const isFinancialsVisible = ['Admin', 'Accountant', 'Front Office', 'front office'].includes(userRole);
+    const isFinancialsVisible = FINANCIALS_ROLES.includes(userRole);
 
     const handleRepeatOrder = async () => {
         try {

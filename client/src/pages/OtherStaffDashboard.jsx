@@ -9,9 +9,10 @@ import LoadingButton from '../components/LoadingButton';
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
 
-// Job types and priorities
 const JOB_TYPES = ['All', 'Offset', 'Laser', 'Other'];
 const PRIORITIES = ['All', 'High', 'Medium', 'Low'];
+const ACTIVE_STATUSES = ['Pending', 'In Progress'];
+const DONE_STATUSES = ['Completed', 'Cancelled'];
 
 const OtherStaffDashboard = () => {
     useSEO('Other Staff Dashboard');
@@ -99,8 +100,8 @@ const OtherStaffDashboard = () => {
   const filteredJobs = useMemo(() => {
     return workHistory.filter(job => {
       // Tab filter - active vs completed/cancelled based on ASSIGNMENT status
-      const isActive = ['Pending', 'In Progress'].includes(job.assignment_status);
-      const isCompleted = ['Completed', 'Cancelled'].includes(job.assignment_status);
+      const isActive = ACTIVE_STATUSES.includes(job.assignment_status);
+      const isCompleted = DONE_STATUSES.includes(job.assignment_status);
       
       const matchesTab = activeTab === 'active' ? isActive : isCompleted;
 
@@ -127,11 +128,11 @@ const OtherStaffDashboard = () => {
   }, [workHistory, activeTab, search, selectedBranch, selectedType, selectedPriority]);
 
   const activeCount = useMemo(() => {
-    return workHistory.filter(j => ['Pending', 'In Progress'].includes(j.assignment_status)).length;
+    return workHistory.filter(j => ACTIVE_STATUSES.includes(j.assignment_status)).length;
   }, [workHistory]);
 
   const completedCount = useMemo(() => {
-    return workHistory.filter(j => ['Completed', 'Cancelled'].includes(j.assignment_status)).length;
+    return workHistory.filter(j => DONE_STATUSES.includes(j.assignment_status)).length;
   }, [workHistory]);
 
   if (loading && workHistory.length === 0) {

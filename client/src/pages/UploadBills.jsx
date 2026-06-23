@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import auth from '../services/auth';
+
+const ALLOWED_BILL_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'application/pdf'];
 import localDb from '../services/localDb';
 import toast from 'react-hot-toast';
 import './UploadBills.css';
@@ -221,8 +223,7 @@ const UploadBills = () => {
   };
 
   const addFiles = (files) => {
-    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'application/pdf'];
-    const validFiles = files.filter(f => allowedTypes.includes(f.type) && f.size <= 10 * 1024 * 1024);
+    const validFiles = files.filter(f => ALLOWED_BILL_TYPES.includes(f.type) && f.size <= 10 * 1024 * 1024);
     
     if (validFiles.length !== files.length) {
       toast.error('Some files were ignored. Only PDF, JPG, PNG under 10MB are supported.');
