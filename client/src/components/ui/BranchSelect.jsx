@@ -3,10 +3,12 @@ import { useBranches } from '../../contexts/BranchContext';
 import { toast } from 'react-hot-toast';
 import auth from '../../services/auth';
 
+const ADMIN_ROLES = ['admin', 'super_admin'];
+
 const BranchSelect = ({ children, className, style, ...props }) => {
     const { getBranchName } = useBranches();
     const user = auth.getUser();
-    const isAdmin = ['admin', 'super_admin'].includes(user?.role?.toLowerCase());
+    const isAdmin = ADMIN_ROLES.includes(user?.role?.toLowerCase());
 
     if (!isAdmin) {
         const assignedBranchId = user?.branch_id;

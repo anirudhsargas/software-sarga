@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Minus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const QUICK_VALUES = [1, 2, 5, 10, 50, 100];
+
 const ShortcutModal = ({ shortcut, onClose, onAdd }) => {
     const [quantity, setQuantity] = useState(1);
     const [price, setPrice] = useState(Number(shortcut.default_price));
@@ -58,8 +60,6 @@ const ShortcutModal = ({ shortcut, onClose, onAdd }) => {
         if (e.key === 'Enter') handleSubmit();
     };
 
-    const quickValues = [1, 2, 5, 10, 50, 100];
-
     return (
         <div className="qb-modal-overlay" onClick={onClose} onKeyDown={handleKeyDown} role="dialog" aria-modal="true" aria-labelledby="shortcut-title">
             <div className="qb-modal" onClick={e => e.stopPropagation()}>
@@ -83,7 +83,7 @@ const ShortcutModal = ({ shortcut, onClose, onAdd }) => {
                     </div>
 
                     <div className="qb-quick-values">
-                        {quickValues.map(v => (
+                        {QUICK_VALUES.map(v => (
                             <button 
                                 key={v} 
                                 className="qb-quick-val-btn"

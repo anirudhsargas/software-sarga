@@ -6,6 +6,8 @@ import CameraPermissionModal from './CameraPermissionModal';
 let html5QrcodeModule = null;
 let html5QrcodePromise = null;
 
+const SCAN_ATTEMPTS = [1, 2, 3];
+
 const getHtml5QrcodeModule = () => {
     if (html5QrcodePromise) return html5QrcodePromise;
     html5QrcodePromise = import('html5-qrcode').then(mod => {
@@ -204,8 +206,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
         const url = URL.createObjectURL(file);
         img.onload = () => {
             URL.revokeObjectURL(url);
-            const attempts = [1, 2, 3];
-            for (const scale of attempts) {
+            for (const scale of SCAN_ATTEMPTS) {
                 const canvas = document.createElement('canvas');
                 canvas.width = img.width * scale;
                 canvas.height = img.height * scale;

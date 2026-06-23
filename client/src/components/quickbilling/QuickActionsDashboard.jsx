@@ -8,6 +8,8 @@ import ManageShortcuts from './ManageShortcuts';
 import toast from 'react-hot-toast';
 import './QuickBilling.css';
 
+const ADMIN_ROLES = ['admin', 'manager'];
+
 const QuickActionsDashboard = () => {
     const [shortcuts, setShortcuts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -19,6 +21,8 @@ const QuickActionsDashboard = () => {
     const { user } = useAuth();
     
     const recognitionRef = useRef(null);
+
+    const isEditable = ADMIN_ROLES.includes(user?.role?.toLowerCase());
 
     const fetchShortcuts = useCallback(async () => {
         try {
@@ -124,8 +128,6 @@ const QuickActionsDashboard = () => {
         setSelectedShortcut(null);
         if (!isCartOpen) setIsCartOpen(true);
     };
-
-    const isEditable = ['admin', 'manager'].includes(user?.role?.toLowerCase());
 
     if (loading) {
         return <div className="qb-dashboard"><p>Loading quick shortcuts...</p></div>;
