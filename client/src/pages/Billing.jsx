@@ -267,10 +267,12 @@ const Billing = () => {
     }
   }, [user]);
 
-  // Fetch branch UPI
   useEffect(() => {
     if (!selectedBranchId) { setBranchUpiId(''); return; }
-    api.get(`/branches/${selectedBranchId}`).then(r => setBranchUpiId(r.data?.upi_id || '')).catch(() => {});
+    api.get('/branches').then(r => {
+      const branch = (r.data || []).find(b => String(b.id) === String(selectedBranchId));
+      setBranchUpiId(branch?.upi_id || '');
+    }).catch(() => {});
   }, [selectedBranchId]);
 
   // Fetch staff for assignment

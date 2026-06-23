@@ -18,6 +18,14 @@ import './MachineManagement.css';
 import PageContainer from '../components/ui/PageContainer';
 
 import BranchSelect from '../components/ui/BranchSelect';
+
+const machineTypes = ['Offset', 'Digital', 'Binding', 'Lamination', 'Cutting', 'Other'];
+const BOOK_TYPES = [
+    { key: 'Offset', color: 'var(--accent)', label: 'Offset' },
+    { key: 'Laser',  color: 'var(--accent)', label: 'Laser'  },
+    { key: 'Other',  color: 'var(--text-muted)', label: 'Other'  },
+];
+
 const MachineManagement = () => {
     useSEO('Machine Management');
 
@@ -119,14 +127,7 @@ const MachineManagement = () => {
     const [bookAssignStaffIds, setBookAssignStaffIds] = useState([]);
     const [savingBookAssign, setSavingBookAssign] = useState(false);
 
-    const machineTypes = ['Offset', 'Digital', 'Binding', 'Lamination', 'Cutting', 'Other'];
-    const BOOK_TYPES = [
-        { key: 'Offset', color: 'var(--accent)', label: 'Offset' },
-        { key: 'Laser',  color: 'var(--accent)', label: 'Laser'  },
-        { key: 'Other',  color: 'var(--text-muted)', label: 'Other'  },
-    ];
-
-    // ─── Data Fetch ──────────────────────────────────────────────
+    // Data Fetch ──────────────────────────────────────────────
     useEffect(() => {
         fetchMachines();
         if (isAdmin) {
