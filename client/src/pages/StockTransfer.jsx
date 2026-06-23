@@ -46,7 +46,7 @@ const StockTransfer = () => {
         fetchInitialData();
     }, []);
 
-    const fetchInitialData = async () => {
+    async function fetchInitialData() {
         try {
             setLoading(true);
             const [branchRes, invRes] = await Promise.all([
@@ -60,7 +60,7 @@ const StockTransfer = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     const fetchAllData = async () => {
         try {
@@ -86,7 +86,7 @@ const StockTransfer = () => {
         }
     }, [selectedItem]);
 
-    const fetchBranchAvailability = async (itemId) => {
+    async function fetchBranchAvailability(itemId) {
         try {
             const res = await api.get(`/branch-stock/${itemId}`);
             const map = res.data.reduce((acc, curr) => {
@@ -97,7 +97,7 @@ const StockTransfer = () => {
         } catch (err) {
             console.error('Failed to fetch branch stock', err);
         }
-    };
+    }
 
     const filteredInventory = useMemo(() => {
         if (!searchQuery) return [];

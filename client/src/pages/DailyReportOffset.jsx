@@ -37,16 +37,16 @@ const DailyReportOffset = () => {
         }
     }, [reportDate]);
 
-    const fetchStaff = async () => {
+    async function fetchStaff() {
         try {
             const response = await api.get('/staff');
             setStaff(response.data);
         } catch (error) {
             console.error('Error fetching staff:', error);
         }
-    };
+    }
 
-    const loadReport = async () => {
+    async function loadReport() {
         try {
             setLoading(true);
             const response = await api.get('/daily-reports/offset', {

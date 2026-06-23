@@ -38,7 +38,7 @@ const PlateManagement = () => {
         fetchJobs();
     }, []);
 
-    const fetchJobs = async () => {
+    async function fetchJobs() {
         try {
             const res = await api.get('/jobs/offset-pending');
             setJobs(res.data);
@@ -48,7 +48,7 @@ const PlateManagement = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     const totalAllocatedSlots = useMemo(() => {
         return selectedJobs.reduce((sum, item) => sum + (item.allocatedSlots * SLOT_SIZES[item.selectedSize]), 0);

@@ -323,9 +323,9 @@ const Jobs = () => {
         fetchJobs(page);
     };
 
-    const closeDeliveryDueModal = () => {
+    function closeDeliveryDueModal() {
         setDeliveryDueModal({ isOpen: false, job: null, remaining: 0, message: '' });
-    };
+    }
 
     const handlePayRemainingDue = () => {
         const job = deliveryDueModal.job;

@@ -34,7 +34,7 @@ const Requests = () => {
         }
     }, []);
 
-    const fetchDiscountRequestsForAccountant = async () => {
+    async function fetchDiscountRequestsForAccountant() {
         setFetching(true);
         try {
             const res = await api.get('/requests/discount');
@@ -46,9 +46,9 @@ const Requests = () => {
         } finally {
             setFetching(false);
         }
-    };
+    }
 
-    const fetchAllRequests = async () => {
+    async function fetchAllRequests() {
         setFetching(true);
         try {
             const fallbackResponse = { data: { data: [] } };
@@ -88,7 +88,7 @@ const Requests = () => {
         } finally {
             setFetching(false);
         }
-    };
+    }
 
     const handleSubmitRequest = async (e) => {
         e.preventDefault();

@@ -56,6 +56,7 @@ const ExpenseManager = () => {
   const triggerReqRef = useRef(null);
   const triggerReqListRef = useRef(null);
 
+  const [showBillsPanel, setShowBillsPanel] = useState(false);
   useEffect(() => {
     if (showBillsPanel) {
       triggerBillsRef.current = document.activeElement;
@@ -65,6 +66,7 @@ const ExpenseManager = () => {
     }
   }, [showBillsPanel]);
 
+  const [showRequestModal, setShowRequestModal] = useState(false);
   useEffect(() => {
     if (showRequestModal) {
       triggerReqRef.current = document.activeElement;
@@ -74,6 +76,7 @@ const ExpenseManager = () => {
     }
   }, [showRequestModal]);
 
+  const [showRequestsListModal, setShowRequestsListModal] = useState(false);
   useEffect(() => {
     if (showRequestsListModal) {
       triggerReqListRef.current = document.activeElement;
@@ -101,7 +104,6 @@ const ExpenseManager = () => {
   const [branches, setBranches] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [fabOpen, setFabOpen] = useState(false);
-  const [showBillsPanel, setShowBillsPanel] = useState(false);
 
   // Shared dashboard data for Utilities tab
   const [dashboard, setDashboard] = useState(null);
@@ -114,7 +116,6 @@ const ExpenseManager = () => {
   // Vendor/Utility Requests State
   const [requests, setRequests] = useState([]);
   const [requestCount, setRequestCount] = useState(0);
-  const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestForm, setRequestForm] = useState({
     request_type: 'Vendor',
     name: '',
@@ -125,7 +126,6 @@ const ExpenseManager = () => {
     branch_id: '',
     request_reason: ''
   });
-  const [showRequestsListModal, setShowRequestsListModal] = useState(false);
 
   // Other Payments State removed
 

@@ -38,6 +38,7 @@ const MachineManagement = () => {
     const triggerAssignRef = useRef(null);
     const triggerBookAssignRef = useRef(null);
 
+    const [showModal, setShowModal] = useState(false);
     useEffect(() => {
         if (showModal) {
             triggerRef.current = document.activeElement;
@@ -47,6 +48,7 @@ const MachineManagement = () => {
         }
     }, [showModal]);
 
+    const [showWorkModal, setShowWorkModal] = useState(false);
     useEffect(() => {
         if (showWorkModal) {
             triggerWorkRef.current = document.activeElement;
@@ -56,6 +58,7 @@ const MachineManagement = () => {
         }
     }, [showWorkModal]);
 
+    const [showAssignModal, setShowAssignModal] = useState(false);
     useEffect(() => {
         if (showAssignModal) {
             triggerAssignRef.current = document.activeElement;
@@ -65,6 +68,7 @@ const MachineManagement = () => {
         }
     }, [showAssignModal]);
 
+    const [showBookAssignModal, setShowBookAssignModal] = useState(false);
     useEffect(() => {
         if (showBookAssignModal) {
             triggerBookAssignRef.current = document.activeElement;
@@ -87,16 +91,13 @@ const MachineManagement = () => {
     const [branches, setBranches] = useState([]);
     const [staffList, setStaffList] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
     const [editingMachine, setEditingMachine] = useState(null);
     const [selectedMachine, setSelectedMachine] = useState(null);
     const [machineDetails, setMachineDetails] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailTab, setDetailTab] = useState('work');
-    const [showAssignModal, setShowAssignModal] = useState(false);
     const [assignMachineId, setAssignMachineId] = useState(null);
     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
-    const [showWorkModal, setShowWorkModal] = useState(false);
     const [workSaving, setWorkSaving] = useState(false);
     const [formData, setFormData] = useState({
         machine_name: '', machine_type: 'Offset', counter_type: 'Manual',
@@ -121,7 +122,6 @@ const MachineManagement = () => {
 
     // Book assignments (Offset / Laser / Other)
     const [bookAssignments, setBookAssignments] = useState({ Offset: [], Laser: [], Other: [] });
-    const [showBookAssignModal, setShowBookAssignModal] = useState(false);
     const [bookAssignType, setBookAssignType] = useState(null);   // 'Offset' | 'Laser' | 'Other'
     const [bookAssignBranchId, setBookAssignBranchId] = useState('');
     const [bookAssignStaffIds, setBookAssignStaffIds] = useState([]);
@@ -137,21 +137,21 @@ const MachineManagement = () => {
         }
     }, [selectedBranch]);
 
-    const fetchBranches = async () => {
+    async function fetchBranches() {
         try {
             const res = await api.get('/branches');
             setBranches(res.data);
         } catch (e) { console.error('Error fetching branches:', e); }
-    };
+    }
 
-    const fetchStaff = async () => {
+    async function fetchStaff() {
         try {
             const res = await api.get('/staff');
             setStaffList(Array.isArray(res.data) ? res.data : res.data.data || []);
         } catch (e) { console.error('Error fetching staff:', e); }
-    };
+    }
 
-    const fetchMachines = async () => {
+    async function fetchMachines() {
         try {
             setLoading(true);
             const user = auth.getUser();
@@ -170,14 +170,14 @@ const MachineManagement = () => {
             setMachines(res.data);
         } catch (e) { console.error('Error fetching machines:', e); }
         finally { setLoading(false); }
-    };
+    }
 
-    const fetchBookAssignments = async () => {
+    async function fetchBookAssignments() {
         try {
             const res = await api.get('/machines/book-assignments');
             setBookAssignments(res.data || { Offset: [], Laser: [], Other: [] });
         } catch (e) { console.error('Error fetching book assignments:', e); }
-    };
+    }
 
     const fetchLiveCount = async (machineId, ipAddress) => {
         if (!ipAddress) { setLiveCount(null); return; }

@@ -235,7 +235,7 @@ const Inventory = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [showSelectPrintModal, showAddModal, showEditModal, showPrintModal, showConsumeModal, showRestockModal, showSmartUpload, showScanner, showDetailModal, showStockRequestModal, showStockRequestsPanel]);
 
-    const fetchInventory = async () => {
+    async function fetchInventory() {
         setLoading(true);
         setError('');
         try {
@@ -280,9 +280,9 @@ const Inventory = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
-    const fetchHierarchy = async () => {
+    async function fetchHierarchy() {
         try {
             const [products, hierarchyData] = await Promise.all([
                 localDb.getProductList(),
@@ -293,7 +293,7 @@ const Inventory = () => {
         } catch (err) {
             console.error("Fetch hierarchy error:", err);
         }
-    };
+    }
 
     const fetchStockRequests = async () => {
         setStockRequestsLoading(true);

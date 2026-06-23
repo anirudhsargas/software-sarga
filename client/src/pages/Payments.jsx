@@ -88,19 +88,19 @@ const Payments = () => {
         fetchPayments();
     }, [page, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const fetchStaff = async () => {
+    async function fetchStaff() {
         try {
             const data = await localDb.getStaff();
             setStaffList(data || []);
         } catch (err) { console.error('Failed to fetch staff', err); }
-    };
+    }
 
-    const fetchInventory = async () => {
+    async function fetchInventory() {
         try {
             const data = await localDb.getInventory();
             setInventory(data || []);
         } catch (err) { console.error('Failed to fetch inventory', err); }
-    };
+    }
 
     useEffect(() => {
         if (!location.state?.paymentPrefill) return;
@@ -117,7 +117,7 @@ const Payments = () => {
         }));
     }, [location.state]);
 
-    const fetchBranches = async () => {
+    async function fetchBranches() {
         try {
             const data = await localDb.getBranches();
             setBranches(data || []);
@@ -127,25 +127,25 @@ const Payments = () => {
         } catch (err) {
             console.error('Failed to fetch branches', err);
         }
-    };
+    }
 
-    const fetchPaymentMethods = async () => {
+    async function fetchPaymentMethods() {
         try {
             const data = await localDb.getPaymentMethods();
             setPaymentMethods(data || []);
         } catch (err) {
             console.error('Failed to fetch payment methods', err);
         }
-    };
+    }
 
-    const fetchVendors = async (type = '') => {
+    async function fetchVendors(type = '') {
         try {
             const data = await localDb.getVendors({ type });
             setVendors(data || []);
         } catch (err) {
             console.error('Failed to fetch vendors', err);
         }
-    };
+    }
 
     const fetchPayeeStatement = async (payeeId) => {
         setLoading(true);
@@ -161,7 +161,7 @@ const Payments = () => {
         }
     };
 
-    const fetchPayments = async () => {
+    async function fetchPayments() {
         setLoading(true);
         try {
             const data = await localDb.getPayments(filters);
@@ -174,7 +174,7 @@ const Payments = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     const handleSubmit = async (e) => {
         e.preventDefault();

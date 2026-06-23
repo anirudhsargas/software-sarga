@@ -184,14 +184,14 @@ const ProductLibrary = () => {
         fetchVendors();
     }, []);
 
-    const fetchVendors = async () => {
+    async function fetchVendors() {
         try {
             const res = await api.get('/vendors?limit=1000'); // Get more for autocomplete
             setVendors(res.data?.data || []);
         } catch (err) {
             console.error('Failed to fetch vendors for autocomplete:', err);
         }
-    };
+    }
 
     useEffect(() => {
         if (!isPrivileged) return;
@@ -209,7 +209,7 @@ const ProductLibrary = () => {
         return () => URL.revokeObjectURL(url);
     }, [productImage]);
 
-    const fetchHierarchy = async (forceRefresh) => {
+    async function fetchHierarchy(forceRefresh) {
         try {
             if (forceRefresh) {
                 await api.post('/product-hierarchy/refresh').catch(() => {});
@@ -230,9 +230,9 @@ const ProductLibrary = () => {
             }
             setLoading(false);
         }
-    };
+    }
 
-    const fetchPendingImageRequests = async () => {
+    async function fetchPendingImageRequests() {
         if (!isPrivileged) return;
         setLoadingPendingImageRequests(true);
         try {
@@ -243,9 +243,9 @@ const ProductLibrary = () => {
         } finally {
             setLoadingPendingImageRequests(false);
         }
-    };
+    }
 
-    const fetchPendingUpdateRequests = async () => {
+    async function fetchPendingUpdateRequests() {
         if (!isPrivileged) return;
         setLoadingPendingUpdateRequests(true);
         try {
@@ -256,7 +256,7 @@ const ProductLibrary = () => {
         } finally {
             setLoadingPendingUpdateRequests(false);
         }
-    };
+    }
 
     // Debounce search input to avoid re-rendering on every keystroke
     useEffect(() => {

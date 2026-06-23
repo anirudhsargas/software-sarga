@@ -16,14 +16,14 @@ export default function PaperSidePanel({ open, onClose }) {
 
     const triggerRef = useRef(null);
 
-    const fetchPaperTypes = async () => {
+    async function fetchPaperTypes() {
         try {
             const res = await api.get('/inventory/paper-types');
             setPaperTypes(res.data?.types || res.data || []);
         } catch {
             setPaperTypes([]);
         }
-    };
+    }
 
     const fetchCutMaps = async () => {
         try {
@@ -35,7 +35,7 @@ export default function PaperSidePanel({ open, onClose }) {
         }
     };
 
-    const fetchPapers = async () => {
+    async function fetchPapers() {
         setLoading(true);
         try {
             // Fetch a reasonable slice of inventory and derive paper categories from it
@@ -78,7 +78,7 @@ export default function PaperSidePanel({ open, onClose }) {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     useEffect(() => {
         if (open) {

@@ -196,16 +196,16 @@ const EmployeeDetail = () => {
         fetchBranches();
     }, [staffId, currentMonth]);
 
-    const fetchBranches = async () => {
+    async function fetchBranches() {
         try {
             const res = await api.get('/branches');
             setBranches(res.data);
         } catch (err) {
             console.error('Failed to fetch branches');
         }
-    };
+    }
 
-    const fetchEmployeeData = async () => {
+    async function fetchEmployeeData() {
         try {
             setLoading(true);
             const [workRes, salaryRes] = await Promise.all([
@@ -226,9 +226,9 @@ const EmployeeDetail = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
-    const fetchAttendanceData = async () => {
+    async function fetchAttendanceData() {
         try {
             setAttendanceError('');
             const response = await api.get(`/staff/${staffId}/attendance/${currentMonth}`);
@@ -247,7 +247,7 @@ const EmployeeDetail = () => {
             setAttendanceError(`Failed to load attendance: ${err.response?.data?.message || err.message}`);
             setAttendance([]);
         }
-    };
+    }
 
     // Helper: today's attendance record (if any)
     const todayRecord = attendance.find(a => {
@@ -317,7 +317,7 @@ const EmployeeDetail = () => {
         setTodayStatus(todayRecord.status || 'Present');
     };
 
-    const fetchSalaryCalculation = async () => {
+    async function fetchSalaryCalculation() {
         try {
             setSalaryCalculationError('');
             const response = await api.get(`/staff/${staffId}/salary-calculation/${currentMonth}`);
@@ -328,7 +328,7 @@ const EmployeeDetail = () => {
             setSalaryCalculationError(`Failed to calculate salary: ${err.response?.data?.message || err.message}`);
             setSalaryCalculation(null);
         }
-    };
+    }
 
     const handlePaySalary = async (e) => {
         e.preventDefault();

@@ -38,7 +38,7 @@ const StockVerification = () => {
         fetchHistory();
     }, [month]);
 
-    const fetchVerification = async () => {
+    async function fetchVerification() {
         if (!month) return;
         setLoading(true);
         try {
@@ -51,16 +51,16 @@ const StockVerification = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
-    const fetchHistory = async () => {
+    async function fetchHistory() {
         try {
             const res = await api.get('/stock-verification/history/list');
             setHistory(res.data);
         } catch (err) {
             console.error(err);
         }
-    };
+    }
 
     const handleQtyChange = (inventoryItemId, value) => {
         if (verification?.status === 'Completed') return;

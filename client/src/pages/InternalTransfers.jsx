@@ -62,23 +62,23 @@ const InternalTransfers = () => {
     fetchTransfers(branchFilter);
   }, [branchFilter]);
 
-  const fetchBranches = async () => {
+  async function fetchBranches() {
     try {
       const res = await api.get('/branches');
       setBranches(res.data || []);
     } catch (e) {
       console.error('Failed to load branches', e);
     }
-  };
+  }
 
-  const fetchTransfers = async (bId) => {
+  async function fetchTransfers(bId) {
     try {
       const res = await api.get('/internal-transfers', { params: { branch_id: bId || undefined } });
       setTransfers(res.data || []);
     } catch (e) {
       console.error('Failed to load transfers', e);
     }
-  };
+  }
 
   const onSubmit = async (data) => {
     setLoading(true);

@@ -228,16 +228,16 @@ const StaffManagement = () => {
         }
     }, [editStaffImage, selectedStaff]);
 
-    const fetchBranches = async () => {
+    async function fetchBranches() {
         try {
             const response = await api.get('/branches');
             setBranches(response.data);
         } catch {
             console.error('Failed to fetch branches');
         }
-    };
+    }
 
-    const fetchStaff = async () => {
+    async function fetchStaff() {
         try {
             setLoading(true);
             let url = `/staff?page=${page}&limit=20`;
@@ -257,7 +257,7 @@ const StaffManagement = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     // validateMobile now imported from ../utils/validators
 
@@ -419,7 +419,7 @@ const StaffManagement = () => {
         }
     };
 
-    const fetchTodayAttendance = async () => {
+    async function fetchTodayAttendance() {
         try {
             const today = new Date().toISOString().split('T')[0];
             const response = await api.get(`/cctv/attendance/summary?date=${today}`);
@@ -435,7 +435,7 @@ const StaffManagement = () => {
         } catch (err) {
             console.error('Failed to fetch today\'s attendance:', err);
         }
-    };
+    }
 
     const handleMarkAttendance = async (staffId) => {
         const existing = todayAttendance[staffId];
