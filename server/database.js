@@ -8,8 +8,18 @@ const loadSchemaFiles = async (connection) => {
   if (!fs.existsSync(schemaDir)) return;
   const files = fs.readdirSync(schemaDir).filter(f => f.endsWith('.sql')).sort();
   for (const file of files) {
-    const sql = fs.readFileSync(path.join(schemaDir, file), 'utf8');
-    const statements = sql.split(';').filter(s => s.trim());
+    const rawSql = fs.readFileSync(path.join(schemaDir, file), 'utf8');
+    // Remove multi-line comments
+    const noMultiLineComments = rawSql.replace(/\/\*[\s\S]*?\*\//g, '');
+    // Filter out single-line comment lines starting with -- or #
+    const cleanSql = noMultiLineComments
+      .split('\n')
+      .filter(line => {
+        const trimmed = line.trim();
+        return !trimmed.startsWith('--') && !trimmed.startsWith('#');
+      })
+      .join('\n');
+    const statements = cleanSql.split(';').filter(s => s.trim());
     for (const stmt of statements) {
       try {
         await connection.query(stmt);
