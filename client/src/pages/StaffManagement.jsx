@@ -158,6 +158,8 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
     </tr>
 ));
 
+const STAFF_ROLES = ['Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'];
+
 const StaffManagement = () => {
     usePageTitle('Staff Management');
 
@@ -188,8 +190,6 @@ const StaffManagement = () => {
     const [searchInput, setSearchInput] = useState('');
     const debouncedSearch = useDebounce(searchInput, 300);
     const [todayAttendance, setTodayAttendance] = useState({});
-
-    const roles = ['Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'];
 
     useEffect(() => {
         fetchStaff();
@@ -590,7 +590,7 @@ const StaffManagement = () => {
                             <div>
                                 <label htmlFor="newStaffRole" className="label">Role</label>
                                 <select id="newStaffRole" name="newStaffRole" className="input-field" value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
-                                    {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                                    {STAFF_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                                 </select>
                             </div>
                             {isAdmin && (
@@ -662,7 +662,7 @@ const StaffManagement = () => {
                             <div>
                                 <label htmlFor="editStaffRole" className="label">Role</label>
                                 <select id="editStaffRole" name="editStaffRole" className="input-field" value={selectedStaff.role} onChange={e => setSelectedStaff({...selectedStaff, role: e.target.value})}>
-                                    {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                                    {STAFF_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                                 </select>
                             </div>
                             {isAdmin && (

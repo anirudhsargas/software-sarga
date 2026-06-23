@@ -149,6 +149,8 @@ const StatCard = ({ label, value, icon: Icon, color, subValue }) => (
 
 import { useOptimistic } from '../hooks/useOptimistic';
 
+const ROLES_CAN_ASSIGN = ['Admin', 'Front Office'];
+
 const JobDetail = () => {
     useSEO('Job Detail');
 
@@ -212,7 +214,6 @@ const JobDetail = () => {
     const [plateInput, setPlateInput] = useState('');
 
     const isFrontOffice = userRole === 'Front Office';
-    const ROLES_CAN_ASSIGN = ['Admin', 'Front Office'];
     const canAssign = ROLES_CAN_ASSIGN.includes(userRole);
 
     const fetchJob = async () => {

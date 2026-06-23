@@ -10,6 +10,10 @@ import { useOfflineSync } from '../hooks/useOffline';
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
 
+// Job types and priorities
+const JOB_TYPES = ['All', 'Offset', 'Laser', 'Other'];
+const PRIORITIES = ['All', 'High', 'Medium', 'Low'];
+
 const PrinterDashboard = () => {
     useSEO('Printer Dashboard');
 
@@ -91,10 +95,6 @@ const PrinterDashboard = () => {
     };
     return statusMap[status] || { bg: 'var(--muted-foreground)', text: 'var(--card)' };
   };
-
-  // Job types and priorities
-  const jobTypes = ['All', 'Offset', 'Laser', 'Other'];
-  const priorities = ['All', 'High', 'Medium', 'Low'];
 
   // Filter jobs based on tab, search, branch, type, and priority
   const filteredJobs = useMemo(() => {
@@ -305,7 +305,7 @@ const PrinterDashboard = () => {
         {/* Type Pills */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>Type:</span>
-          {jobTypes.map(type => (
+          {JOB_TYPES.map(type => (
             <button
               key={type}
               onClick={() => setSelectedType(type)}
@@ -342,7 +342,7 @@ const PrinterDashboard = () => {
         {/* Priority Pills */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>Priority:</span>
-          {priorities.map(priority => (
+          {PRIORITIES.map(priority => (
             <button
               key={priority}
               onClick={() => setSelectedPriority(priority)}

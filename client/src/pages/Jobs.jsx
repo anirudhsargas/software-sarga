@@ -116,6 +116,8 @@ const getRenderItems = (displayJobs) => {
     return renderList;
 };
 
+const JOB_STATUSES = ['Pending', 'Processing', 'Approval Pending', 'Completed', 'Delivered', 'Cancelled'];
+
 const Jobs = () => {
     useSEO('Jobs');
 
@@ -147,7 +149,6 @@ const Jobs = () => {
 
     const userRole = auth.getUser()?.role;
     const isFinancialsVisible = isFinanceRole(userRole);
-    const statuses = ['Pending', 'Processing', 'Approval Pending', 'Completed', 'Delivered', 'Cancelled'];
     const searchQuery = debouncedFilterInput.search;
     const statusFilter = debouncedFilterInput.status;
     const branchFilter = debouncedFilterInput.branch;
@@ -698,7 +699,7 @@ const Jobs = () => {
                                                                 onChange={(e) => handleUpdateStatus(j, e.target.value)}
                                                                 aria-label={`Change order status for ${j.job_number}`}
                                                             >
-                                                                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                                                {JOB_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                                                             </select>
                                                         ) : (
                                                             <span className={`badge ${getStatusColor(j.status)}`}>{j.status}</span>

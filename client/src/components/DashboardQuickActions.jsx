@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IndianRupee, ArrowLeftRight, FileText, ScanLine, Camera, Printer } from 'lucide-react';
+import { IndianRupee, ArrowLeftRight, FileText, ScanLine, Camera, Printer, Settings } from 'lucide-react';
 import auth from '../services/auth';
 
 const DEFAULT_SHORTCUTS = [
@@ -10,6 +10,7 @@ const DEFAULT_SHORTCUTS = [
     { id: 'inventory', label: 'Scan', icon: ScanLine, route: '/dashboard/inventory/scan', color: '#8b5cf6' },
     { id: 'screenshot', label: 'Screenshot', icon: Camera, route: '/dashboard/screenshot', color: 'var(--info)' },
     { id: 'print_label', label: 'Print Label', icon: Printer, route: '/dashboard/inventory', color: 'var(--primary)' },
+    { id: 'machines', label: 'Machines', icon: Settings, route: '/dashboard/machines', color: 'var(--accent)' },
 ];
 
 const ADMIN_ONLY = new Set(['transfer', 'inventory']);

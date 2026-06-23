@@ -24,6 +24,8 @@ const FIELDS = [
     { key: 'cost_price', label: 'Cost Price' },
 ];
 
+const FILTER_TABS = ['all', 'Draft', 'Pending', 'Approved', 'Rejected'];
+
 const ProductRequests = () => {
     useSEO('Product Requests');
 
@@ -166,7 +168,6 @@ const ProductRequests = () => {
         return FIELDS.filter(f => String(proposedChanges[f.key] || '') !== String(selectedProduct[f.key] || ''));
     }, [selectedProduct, proposedChanges]);
 
-    const filterTabs = ['all', 'Draft', 'Pending', 'Approved', 'Rejected'];
     const [filterStatus, setFilterStatus] = useState('all');
 
     return (
@@ -186,7 +187,7 @@ const ProductRequests = () => {
 
             {/* Status filter tabs */}
             <div className="row gap-xs mb-16" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
-                {filterTabs.map(st => (
+                {FILTER_TABS.map(st => (
                     <button
                         key={st}
                         className={`btn btn-sm ${filterStatus === st ? 'btn-primary' : 'btn-ghost'}`}

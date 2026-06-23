@@ -12,6 +12,8 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import PageContainer from '../components/ui/PageContainer';
 
+const PAYMENT_TYPES = ['Vendor', 'Utility', 'Salary', 'Rent', 'Other'];
+
 const Payments = () => {
     useSEO('Payments');
 
@@ -72,8 +74,6 @@ const Payments = () => {
     const [billSearch, setBillSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const debouncedSearch = useDebounce(searchInput, 300);
-
-    const types = ['Vendor', 'Utility', 'Salary', 'Rent', 'Other'];
 
     useEffect(() => {
         fetchPayments();
@@ -493,7 +493,7 @@ const Payments = () => {
                             onChange={(e) => setFilters({ ...filters, type: e.target.value })}
                         >
                             <option value="">All Types</option>
-                            {types.map(t => <option key={t} value={t}>{t}</option>)}
+                            {PAYMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                     </div>
                     <div className="flex-1" style={{ minWidth: '150px' }}>
@@ -664,7 +664,7 @@ const Payments = () => {
                                             onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                                             required
                                         >
-                                            {types.map(t => <option key={t} value={t}>{t}</option>)}
+                                            {PAYMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </div>
                                 </div>
