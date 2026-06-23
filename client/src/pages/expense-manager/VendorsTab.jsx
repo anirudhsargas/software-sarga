@@ -798,7 +798,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
         w.document.close();
         w.focus();
         // give time for resources to load then call print
-        setTimeout(() => { try { w.print(); } catch { console.error(e); } }, 500);
+        setTimeout(() => { try { w.print(); } catch (e) { console.error(e); } }, 500);
         container.remove();
         toast.success('Opened print dialog (save as PDF)');
         return;

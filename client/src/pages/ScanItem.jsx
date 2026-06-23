@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Camera, Search, Upload, Plus, Minus, Loader2,
@@ -113,7 +113,7 @@ const ScanItem = () => {
     const mountedRef = useRef(true);
     const fileInputRef = useRef(null);
     const manualInputRef = useRef(null);
-    const camDivId = useMemo(() => `qr-cam-page-${Math.random().toString(36).slice(2)}`, []);
+    const camDivId = `qr-cam-page-${useId()}`;
 
     const normalizeCode = (val) => String(val || '').replace(/\s+/g, '').toUpperCase();
 
@@ -174,7 +174,7 @@ const ScanItem = () => {
         const qr = scannerRef.current;
         if (!qr || !isStartedRef.current || isStoppingRef.current) return;
         isStoppingRef.current = true;
-        try { await qr.stop(); } catch { console.warn('Camera stop error:', e); }
+        try { await qr.stop(); } catch (e) { console.warn('Camera stop error:', e); }
         finally {
             isStartedRef.current = false;
             isStoppingRef.current = false;
@@ -556,7 +556,7 @@ const ScanItem = () => {
                                 onClick={() => { setActiveTab(id); setCameraError(''); }}
                                 aria-selected={activeTab === id}
                             >
-                                <Icon size={15} />
+                                <_Icon size={15} />
                                 <span>{label}</span>
                             </button>
                         ))}

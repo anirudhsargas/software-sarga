@@ -77,7 +77,7 @@ const ShortcutCard = ({ shortcut, onTap, onEdit, onDelete, editable }) => {
           <button
             className="shortcut-card__action"
             style={{
-              background: 'rgba(255,255,255,0.8)',
+              background: 'var(--surface-blur)',
               border: 'none',
               borderRadius: 'var(--radius-xs)',
               padding: 4,
@@ -95,12 +95,12 @@ const ShortcutCard = ({ shortcut, onTap, onEdit, onDelete, editable }) => {
           <button
             className="shortcut-card__action"
             style={{
-              background: 'rgba(255,255,255,0.8)',
+              background: 'var(--surface-blur)',
               border: 'none',
               borderRadius: 'var(--radius-xs)',
               padding: 4,
               cursor: 'pointer',
-              color: '#b91c1c',
+              color: 'var(--danger)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -122,7 +122,7 @@ const ShortcutCard = ({ shortcut, onTap, onEdit, onDelete, editable }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#fff',
+          color: 'var(--text-inverse)',
           flexShrink: 0,
         }}
       >

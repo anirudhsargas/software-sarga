@@ -1736,7 +1736,7 @@ const Billing = () => {
                     }}>
                       <div>
                         <div className="font-semibold">{b.customer_name || b.customerName || 'Walk-in Customer'}</div>
-                        <div className="text-xs muted">{b.customer_mobile || b.customerMobile || 'No mobile'} • {new Date(b.payment_date || b.paymentDate || b.created_at || Date.now()).toLocaleDateString()}</div>
+                        <div className="text-xs muted">{b.customer_mobile || b.customerMobile || 'No mobile'} • {b.payment_date || b.paymentDate || b.created_at ? new Date(b.payment_date || b.paymentDate || b.created_at).toLocaleDateString() : '—'}</div>
                         <div className="text-xs" style={{ marginTop: 4 }}>
                           {b.isOffline ? (
                             <span style={{ color: 'var(--warning)' }}>Unsynced (Offline)</span>

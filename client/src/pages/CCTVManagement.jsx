@@ -13,6 +13,23 @@ const BRANCHES = [
   { value: 'meppayur_room', label: 'Meppayur Room' },
 ];
 
+const BRANCH_COLORS = {
+  perambra: { bg: 'var(--accent)', color: 'var(--muted-foreground)', dot: 'var(--accent)' },
+  meppayur_main: { bg: 'var(--success)', color: 'var(--success)', dot: 'var(--success)' },
+  meppayur_room: { bg: 'var(--warning)', color: 'var(--warning)', dot: 'var(--warning)' },
+};
+
+const BranchPill = ({ branch }) => {
+  const label = BRANCHES.find(b => b.value === branch)?.label || branch;
+  const c = BRANCH_COLORS[branch] || { bg: 'var(--muted-foreground)', color: 'var(--muted)', dot: 'var(--muted)' };
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: c.bg, color: c.color }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot, display: 'inline-block' }} />
+      {label}
+    </span>
+  );
+};
+
 const CCTVManagement = () => {
     useSEO('C C T V Management');
 
@@ -94,7 +111,7 @@ const CCTVManagement = () => {
         rtsp_path: data.rtsp_path
       });
       setShowCameraModal(true);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load camera details');
     }
   };
@@ -269,23 +286,6 @@ const CCTVManagement = () => {
   };
 
   const togglePassword = (camId) => setShowPassword(prev => ({ ...prev, [camId]: !prev[camId] }));
-
-  const BRANCH_COLORS = {
-    perambra: { bg: 'var(--accent)', color: 'var(--muted-foreground)', dot: 'var(--accent)' },
-    meppayur_main: { bg: 'var(--success)', color: 'var(--success)', dot: 'var(--success)' },
-    meppayur_room: { bg: 'var(--warning)', color: 'var(--warning)', dot: 'var(--warning)' },
-  };
-
-  const BranchPill = ({ branch }) => {
-    const label = BRANCHES.find(b => b.value === branch)?.label || branch;
-    const c = BRANCH_COLORS[branch] || { bg: 'var(--muted-foreground)', color: 'var(--muted)', dot: 'var(--muted)' };
-    return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: c.bg, color: c.color }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot, display: 'inline-block' }} />
-        {label}
-      </span>
-    );
-  };
 
   return (
     <PageContainer>

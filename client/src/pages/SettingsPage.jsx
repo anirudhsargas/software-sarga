@@ -222,7 +222,7 @@ function TaxSettings() {
 
     useEffect(() => {
         (async () => {
-            try { const { data } = await api.get('/tax-settings'); setTaxes(data); } catch (err) { /* ignore */ }
+            try { const { data } = await api.get('/tax-settings'); setTaxes(data); } catch { /* ignore */ }
             setLoading(false);
         })();
     }, []);
@@ -323,7 +323,7 @@ function PaymentModeSettings() {
 
     useEffect(() => {
         (async () => {
-            try { const { data } = await api.get('/payment-modes'); setModes(data); } catch (err) { /* ignore */ }
+            try { const { data } = await api.get('/payment-modes'); setModes(data); } catch { /* ignore */ }
             setLoading(false);
         })();
     }, []);

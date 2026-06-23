@@ -285,6 +285,12 @@ const ProductLibrary = () => {
         setSelectedProductIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     };
 
+    const exportTimestampRef = useRef(0);
+
+    useEffect(() => {
+        exportTimestampRef.current = Date.now();
+    }, []);
+
     const exportSelectedCSV = () => {
         const fields = ['id', 'name', 'product_code', 'company_name', 'size', 'calculation_type', 'description'];
         const selected = (filteredProducts || []).filter(p => selectedProductIds.includes(p.id));
@@ -294,7 +300,7 @@ const ProductLibrary = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `products_export_${Date.now()}.csv`;
+        a.download = `products_export_${exportTimestampRef.current}.csv`;
         a.click();
         URL.revokeObjectURL(url);
     };

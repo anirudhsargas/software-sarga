@@ -21,7 +21,7 @@ const KpiCard = React.memo(({ title, value, subtitle, icon: _Icon, color, trend 
   <div className="kpi-card">
     <div className="kpi-card__header">
       <span className="kpi-card__title">{title}</span>
-      <Icon size={18} className={`kpi-card__icon ${color ? `kpi-card__icon--${color.replace('var(--', '').replace(')', '')}` : ''}`} />
+      {_Icon && <_Icon size={18} className={`kpi-card__icon ${color ? `kpi-card__icon--${color.replace('var(--', '').replace(')', '')}` : ''}`} />}
     </div>
     <div className="kpi-card__value">{value}</div>
     {subtitle && <div className="kpi-card__subtitle">{subtitle}</div>}
@@ -36,7 +36,7 @@ const KpiCard = React.memo(({ title, value, subtitle, icon: _Icon, color, trend 
 
 const EmptyState = React.memo(({ icon: _Icon, title, message, actions }) => (
   <div className="empty-state">
-    <Icon size={32} className="empty-state__icon" />
+    {_Icon && <_Icon size={32} className="empty-state__icon" />}
     <h3 className="empty-state__title">{title}</h3>
     <p className="empty-state__message">{message}</p>
     {actions && <div className="empty-state__actions">{actions}</div>}

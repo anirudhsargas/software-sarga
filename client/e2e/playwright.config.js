@@ -10,7 +10,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['html', { outputFolder: 'e2e-report' }]],
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://localhost:5173',
+    baseURL: globalThis.process.env.E2E_BASE_URL || 'http://localhost:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -24,7 +24,7 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev',
     port: 5173,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !globalThis.process.env.CI,
     timeout: 60000,
   },
 });

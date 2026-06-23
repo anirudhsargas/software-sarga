@@ -757,7 +757,7 @@ const Inventory = () => {
                 } else if (err.message) {
                     msg = err.message;
                 }
-            } catch (err) { /* ignore parse error */ }
+            } catch { /* ignore parse error */ }
             console.error('Label generation error:', err);
             toast.error(msg);
         } finally {

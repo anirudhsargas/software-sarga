@@ -244,21 +244,7 @@ const Customers = () => {
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [hasUnsavedChanges]);
 
-    // Close modals on ESC
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                if (showAddModal) closeAddModal();
-                if (showEditModal) closeEditModal();
-                if (showJobModal) { setShowJobModal(false); resetJobForm(); }
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [showAddModal, showEditModal, showJobModal]);
-
-    // --- AUTOCOMPLETE SUGGESTIONS ---
-    const fetchSuggestions = useCallback(async (searchTerm, _isMobile = false) => {
+    const fetchSuggestions = useCallback(async (searchTerm, isMobile) => {
         if (!searchTerm || searchTerm.length < 2) {
             setSuggestions([]);
             setShowSuggestions(false);
@@ -422,16 +408,6 @@ const Customers = () => {
         }
     };
 
-    useEffect(() => {
-        if (showJobModal) {
-            fetchHierarchy();
-            fetchBranches();
-        } else {
-            setTurnaroundEstimate(null);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [showJobModal]);
-
     // Fetch turnaround estimate when product + quantity + branch change
     useEffect(() => {
         if (!selectedProduct || !jobData.quantity || !jobData.branch_id) {
@@ -574,6 +550,19 @@ const Customers = () => {
         setSelectedProduct(null);
         setExtraInputs([]);
     };
+
+    // Close modals on ESC
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                if (showAddModal) closeAddModal();
+                if (showEditModal) closeEditModal();
+                if (showJobModal) { setShowJobModal(false); resetJobForm(); }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showAddModal, showEditModal, showJobModal]);
 
     const addExtraInput = () => setExtraInputs([...extraInputs, { purpose: '', amount: 0 }]);
     const removeExtraInput = (idx) => {
@@ -968,7 +957,7 @@ const Customers = () => {
                                     value={newCustomer.type}
                                     onChange={(e) => updateNewCustomer({ type: e.target.value })}
                                 >
-                                    {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                    {CUSTOMER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
                             <div style={{ marginBottom: 16 }}>
@@ -1113,7 +1102,7 @@ const Customers = () => {
                                     value={selectedCustomer.type}
                                     onChange={(e) => updateSelectedCustomer({ type: e.target.value })}
                                 >
-                                    {customerTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                    {CUSTOMER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
                             <div style={{ marginBottom: 16 }}>

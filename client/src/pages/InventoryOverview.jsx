@@ -205,7 +205,7 @@ const InventoryOverview = () => {
                                 </tr>
                             ) : (
                                 lowStockRows.map((r) => (
-                                    <tr key={r.id} style={{ borderLeft: '4px solid var(--danger)', backgroundColor: 'rgba(var(--error-rgb), 0.04)' }}>
+                                    <tr key={r.id} style={{ borderLeft: '4px solid var(--danger)', backgroundColor: 'var(--error-bg)' }}>
                                         <td>{r.name}</td>
                                         <td>{r.type}</td>
                                         <td className="font-bold text-danger">{r.stockLeft}</td>

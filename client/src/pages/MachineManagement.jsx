@@ -141,14 +141,14 @@ const MachineManagement = () => {
         try {
             const res = await api.get('/branches');
             setBranches(res.data);
-        } catch { console.error('Error fetching branches:', e); }
+        } catch (e) { console.error('Error fetching branches:', e); }
     };
 
     const fetchStaff = async () => {
         try {
             const res = await api.get('/staff');
             setStaffList(Array.isArray(res.data) ? res.data : res.data.data || []);
-        } catch { console.error('Error fetching staff:', e); }
+        } catch (e) { console.error('Error fetching staff:', e); }
     };
 
     const fetchMachines = async () => {
@@ -168,7 +168,7 @@ const MachineManagement = () => {
 
             const res = await api.get('/machines', { params });
             setMachines(res.data);
-        } catch { console.error('Error fetching machines:', e); }
+        } catch (e) { console.error('Error fetching machines:', e); }
         finally { setLoading(false); }
     };
 
@@ -176,7 +176,7 @@ const MachineManagement = () => {
         try {
             const res = await api.get('/machines/book-assignments');
             setBookAssignments(res.data || { Offset: [], Laser: [], Other: [] });
-        } catch { console.error('Error fetching book assignments:', e); }
+        } catch (e) { console.error('Error fetching book assignments:', e); }
     };
 
     const fetchLiveCount = async (machineId, ipAddress) => {

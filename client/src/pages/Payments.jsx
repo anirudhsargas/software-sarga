@@ -1031,7 +1031,7 @@ const Payments = () => {
                                         onChange={(e) => setNewVendor({ ...newVendor, type: e.target.value })}
                                         required
                                     >
-                                        {types.map(t => <option key={t} value={t}>{t}</option>)}
+                                        {PAYMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -1367,7 +1367,7 @@ const Payments = () => {
                                         onChange={(e) => setPayeeFilter(e.target.value)}
                                     >
                                         <option value="">All Types</option>
-                                        {types.map(t => <option key={t} value={t}>{t}</option>)}
+                                        {PAYMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
                                 </div>
                             </div>

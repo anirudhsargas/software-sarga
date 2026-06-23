@@ -61,7 +61,7 @@ const PaymentVerification = () => {
       setPayments(data.data || []);
       setTotal(data.total || 0);
       setTotalPages(data.totalPages || 1);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load payments');
     } finally {
       setLoading(false);

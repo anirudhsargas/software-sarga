@@ -128,7 +128,7 @@ const InventoryImage = ({ item, onUpdate, size = 40, isAdmin = false }) => {
                 <div style={{
                     position: 'absolute',
                     top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.6)',
+                    background: 'var(--glass-bg)',
                     display: 'flex',
                     flexDirection: size > 60 ? 'row' : 'column',
                     alignItems: 'center',
@@ -140,7 +140,7 @@ const InventoryImage = ({ item, onUpdate, size = 40, isAdmin = false }) => {
                         type="button"
                         onClick={handleUploadClick}
                         title="Upload/Change Image"
-                        style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 4 }}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-inverse)', cursor: 'pointer', padding: 4 }}
                     >
                         <Upload size={size > 60 ? 16 : 12} />
                     </button>
@@ -149,7 +149,7 @@ const InventoryImage = ({ item, onUpdate, size = 40, isAdmin = false }) => {
                         type="button"
                         onClick={handleRegenerate}
                         title="Auto-Regenerate"
-                        style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 4 }}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-inverse)', cursor: 'pointer', padding: 4 }}
                     >
                         <RefreshCw size={size > 60 ? 16 : 12} />
                     </button>

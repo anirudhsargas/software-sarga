@@ -15,8 +15,6 @@ const OrderForecastWidget = ({ branchId }) => {
     const [error, setError] = useState(false);
     const [mounted, setMounted] = useState(false);
 
-    const barHeights = useMemo(() => Array.from({ length: 7 }, () => 30 + Math.random() * 60), []);
-
     useEffect(() => {
         requestAnimationFrame(() => setMounted(true));
     }, []);
@@ -190,7 +188,9 @@ const OrderForecastWidget = ({ branchId }) => {
     );
 };
 
-const SkeletonLoader = () => (
+const SkeletonLoader = () => {
+    const barHeights = useMemo(() => Array.from({ length: 7 }, (_, i) => 30 + ((i * 7 + 3) % 60)), []);
+    return (
     <section className="summary-section animate-fade-up" style={{ marginTop: 24 }}>
         <div className="summary-section__header">
             <div>
@@ -219,6 +219,7 @@ const SkeletonLoader = () => (
             ))}
         </div>
     </section>
-);
+    );
+};
 
 export default React.memo(OrderForecastWidget);

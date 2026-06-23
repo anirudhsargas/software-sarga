@@ -2,7 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { 
     Plus, ArrowLeft, Package, MapPin, Layers, 
-    Calendar, User, FileText, ShoppingCart, Info
+    Calendar, User, FileText, ShoppingCart, Info, RefreshCcw
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -38,7 +38,7 @@ const PaperInward = () => {
                 ]);
                 setPaperTypes(typesRes.data);
                 setBranches(branchesRes.data);
-            } catch (err) {
+            } catch {
                 toast.error('Failed to load initial data');
             }
         };

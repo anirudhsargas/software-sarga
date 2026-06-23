@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, Clock, Calendar, Search, RefreshCw, FileText, FileDown, Copy, AlertCircle, IndianRupee, Layers, Package, Phone, User, Building2, Shield, CheckCircle2, ChevronDown, Trash2, Upload, Eye, ThumbsUp, ThumbsDown, RotateCcw, MessageSquare, CreditCard, XCircle, Activity, Loader2, Users, Plus, Image } from 'lucide-react';
 import LoadingButton from '../components/LoadingButton';
 import api, { imgUrl } from '../services/api';
+import auth from '../services/auth';
 import localDb from '../services/localDb';
 import SecureImage from '../components/SecureImage';
 
@@ -53,7 +54,7 @@ const Badge = ({ label, color }) => {
 
 const InfoRow = ({ icon: _Icon, label, value, isPhone, whatsappOptions }) => (
     <div className="job-info-row">
-        <Icon size={16} />
+        {_Icon && <_Icon size={16} />}
         <span className="job-info-label">{label}</span>
         <div className="job-info-value">
             <span>
@@ -328,7 +329,7 @@ const JobDetail = () => {
             toast.success('Required sheets updated locally');
             setEditingRequired(false);
             fetchJob();
-        } catch (err) {
+        } catch {
             toast.error('Failed to update');
         }
     };
@@ -1587,8 +1588,8 @@ const JobDetail = () => {
                             This will authorize delivery of order <strong>{job.job_number}</strong> on credit.
                         </p>
                         
-                        <div className="alert alert--warning" style={{ margin: '12px 0', padding: '12px', borderLeft: '4px solid var(--warning)', background: 'rgba(249, 115, 22, 0.1)' }}>
-                            <strong style={{ color: '#f97316' }}>Outstanding Balance: {fmt(job.balance_amount)}</strong>
+                        <div className="alert alert--warning" style={{ margin: '12px 0', padding: '12px', borderLeft: '4px solid var(--warning)', background: 'var(--warning-bg)' }}>
+                            <strong style={{ color: 'var(--warning)' }}>Outstanding Balance: {fmt(job.balance_amount)}</strong>
                         </div>
 
                         <div className="form-group">

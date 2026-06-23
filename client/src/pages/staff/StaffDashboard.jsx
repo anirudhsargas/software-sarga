@@ -43,7 +43,7 @@ const StaffDashboard = () => {
 
             <div className="grid grid-3 mb-24">
                 <div className="card stat-card" style={{ padding: '24px' }}>
-                    <div className="stat-card__icon" style={{ backgroundColor: 'rgba(0,192,163,0.1)', color: 'var(--success)' }}>
+                    <div className="stat-card__icon" style={{ backgroundColor: 'var(--success-bg)', color: 'var(--success)' }}>
                         <CheckCircle size={28} />
                     </div>
                     <div>
@@ -53,7 +53,7 @@ const StaffDashboard = () => {
                 </div>
 
                 <div className="card stat-card" style={{ padding: '24px' }}>
-                    <div className="stat-card__icon" style={{ backgroundColor: 'rgba(255,170,0,0.1)', color: 'var(--warning)' }}>
+                    <div className="stat-card__icon" style={{ backgroundColor: 'var(--warning-bg)', color: 'var(--warning)' }}>
                         <CalendarX size={28} />
                     </div>
                     <div>
@@ -63,7 +63,7 @@ const StaffDashboard = () => {
                 </div>
 
                 <div className="card stat-card" style={{ padding: '24px' }}>
-                    <div className="stat-card__icon" style={{ backgroundColor: 'rgba(240,68,56,0.1)', color: 'var(--error)' }}>
+                    <div className="stat-card__icon" style={{ backgroundColor: 'var(--error-bg)', color: 'var(--error)' }}>
                         <Clock size={28} />
                     </div>
                     <div>

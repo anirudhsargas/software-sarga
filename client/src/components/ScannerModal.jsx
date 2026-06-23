@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import { X, Camera, Upload } from 'lucide-react';
 import CameraPermissionModal from './CameraPermissionModal';
@@ -23,7 +23,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
     const isStoppingRef = useRef(false);
     const mountedRef = useRef(false);
     const fileInputRef = useRef(null);
-    const camDivId = useMemo(() => `qr-cam-${Math.random().toString(36).slice(2)}`, []);
+    const camDivId = `qr-cam-${useId()}`;
     const _prevIsOpenRef = useRef(isOpen);
     const triggerRef = useRef(null);
 

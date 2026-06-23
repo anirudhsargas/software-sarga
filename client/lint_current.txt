@@ -1,0 +1,1562 @@
+
+> client@0.0.0 lint
+> eslint .
+
+(node:68096) ESLintEnvWarning: /* eslint-env */ comments are no longer recognized when linting with flat config and will be reported as errors as of v10.0.0. Replace them with /* global */ comments or define globals in your config file. See https://eslint.org/docs/latest/use/configure/migration-guide#eslint-env-configuration-comments for details. Found in D:\software sarga\client\e2e\playwright.config.js at line 1.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+D:\software sarga\client\src\components\MeterVerification.jsx
+  71:8  warning  React Hook useEffect has missing dependencies: 'handleFetchComparisonHistory' and 'handleFetchMeterData'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  83:8  warning  React Hook useEffect has a missing dependency: 'manualOpeningCount'. Either include it or remove the dependency array                                         react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\components\PaperSidePanel.jsx
+  100:8  warning  React Hook useEffect has a missing dependency: 'fetchPapers'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\components\ProgressBar.jsx
+  57:6  warning  React Hook useEffect has missing dependencies: 'onComplete' and 'progress'. Either include them or remove the dependency array. If 'onComplete' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\components\VendorDetail.jsx
+  160:6  warning  React Hook useEffect has missing dependencies: 'loadSpendTrend' and 'loadVendorDetails'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\components\Vendors.jsx
+  52:6  warning  React Hook useEffect has a missing dependency: 'loadVendors'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\layouts\StaffLayout.jsx
+  63:13  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+
+D:\software sarga\client\src\pages\AIMonitoring.jsx
+  57:39  warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\AttendanceSalary.jsx
+  86:6  warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\Billing.jsx
+  779:6  warning  React Hook useCallback has a missing dependency: 'discountMode'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\CCTVManagement.jsx
+  160:14  error  'err' is defined but never used  no-unused-vars
+
+D:\software sarga\client\src\pages\ConsumablesManagement.jsx
+  140:8  warning  React Hook useEffect has a missing dependency: 'fetchConsumables'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\CustomerDetails.jsx
+  157:42  warning  React Hook useEffect has a missing dependency: 'fetchDashboard'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  160:6   warning  React Hook useEffect has a missing dependency: 'fetchDashboard'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  197:6   warning  React Hook useEffect has a missing dependency: 'fetchDesigns'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\CustomerPayments.jsx
+  296:16  error    'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       no-unused-vars
+  803:13  warning  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+  801 |
+  802 |   if (loading && payments.length === 0) {
+> 803 |     return <LoadingSkeleton />;
+      |             ^^^^^^^^^^^^^^^ This component is created during render
+  804 |   }
+  805 |
+  806 |   return (
+
+  748 |   };
+  749 |
+> 750 |   const LoadingSkeleton = () => (
+      |                           ^^^^^^^
+> 751 |     <PageContainer>
+      | ^^^^^^^^^^^^^^^^^^^
+> 752 |       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      …
+      | ^^^^^^^^^^^^^^^^^^^
+> 784 |     </PageContainer>
+      | ^^^^^^^^^^^^^^^^^^^
+> 785 |   );
+      | ^^^^ The component is created during render here
+  786 |
+  787 |   if (pageError && !loading) {
+  788 |     return (  react-hooks/static-components
+
+D:\software sarga\client\src\pages\Customers.jsx
+  236:45  warning  React Hook useEffect has a missing dependency: 'fetchCustomers'. Either include it or remove the dependency array                                         react-hooks/exhaustive-deps
+  247:61  error    'isMobile' is defined but never used. Allowed unused args must match /^_/u                                                                                no-unused-vars
+  272:8   warning  React Hook useEffect has a missing dependency: 'fetchSuggestions'. Either include it or remove the dependency array                                       react-hooks/exhaustive-deps
+  278:8   warning  React Hook useEffect has a missing dependency: 'fetchSuggestions'. Either include it or remove the dependency array                                       react-hooks/exhaustive-deps
+  367:18  error    'e' is defined but never used                                                                                                                             no-unused-vars
+  430:8   warning  React Hook useEffect has a missing dependency: 'selectedProduct'. Either include it or remove the dependency array                                        react-hooks/exhaustive-deps
+  432:11  error    'fetchBranches' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                             no-unused-vars
+  448:11  error    'fetchHierarchy' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                            no-unused-vars
+  565:8   warning  React Hook useEffect has missing dependencies: 'closeAddModal', 'closeEditModal', and 'resetJobForm'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\DailyReport.jsx
+  261:8  warning  React Hook useEffect has missing dependencies: 'canViewAllBranches' and 'selectedBranch'. Either include them or remove the dependency array                                    react-hooks/exhaustive-deps
+  329:8  warning  React Hook useEffect has missing dependencies: 'branchParam', 'isFrontOffice', and 'promptDone'. Either include them or remove the dependency array                             react-hooks/exhaustive-deps
+  378:8  warning  React Hook useCallback has a missing dependency: 'branchParam'. Either include it or remove the dependency array                                                                react-hooks/exhaustive-deps
+  504:8  warning  React Hook useCallback has an unnecessary dependency: 'selectedBranch'. Either exclude it or remove the dependency array                                                        react-hooks/exhaustive-deps
+  522:8  warning  React Hook useCallback has an unnecessary dependency: 'selectedBranch'. Either exclude it or remove the dependency array                                                        react-hooks/exhaustive-deps
+  540:8  warning  React Hook useCallback has a missing dependency: 'branchParam'. Either include it or remove the dependency array                                                                react-hooks/exhaustive-deps
+  579:8  warning  React Hook useCallback has a missing dependency: 'fetchAttendanceData'. Either include it or remove the dependency array                                                        react-hooks/exhaustive-deps
+  584:8  warning  React Hook useEffect has missing dependencies: 'canViewAllBranches' and 'loadAllData'. Either include them or remove the dependency array                                       react-hooks/exhaustive-deps
+  592:8  warning  React Hook useEffect has missing dependencies: 'canViewAllBranches', 'initialLoading', 'loadTabData', and 'selectedBranch'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\DailyReportOffset.jsx
+  31:9   error    Error: Cannot access variable before it is declared
+
+`fetchStaff` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  29 |
+  30 |     useEffect(() => {
+> 31 |         fetchStaff();
+     |         ^^^^^^^^^^ `fetchStaff` accessed before it is declared
+  32 |     }, []);
+  33 |
+  34 |     useEffect(() => {
+
+  38 |     }, [reportDate]);
+  39 |
+> 40 |     const fetchStaff = async () => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 41 |         try {
+     | ^^^^^^^^^^^^^
+> 42 |             const response = await api.get('/staff');
+     | ^^^^^^^^^^^^^
+> 43 |             setStaff(response.data);
+     | ^^^^^^^^^^^^^
+> 44 |         } catch (error) {
+     | ^^^^^^^^^^^^^
+> 45 |             console.error('Error fetching staff:', error);
+     | ^^^^^^^^^^^^^
+> 46 |         }
+     | ^^^^^^^^^^^^^
+> 47 |     };
+     | ^^^^^^^ `fetchStaff` is declared here
+  48 |
+  49 |     const loadReport = async () => {
+  50 |         try {  react-hooks/immutability
+  36:13  error    Error: Cannot access variable before it is declared
+
+`loadReport` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  34 |     useEffect(() => {
+  35 |         if (reportDate) {
+> 36 |             loadReport();
+     |             ^^^^^^^^^^ `loadReport` accessed before it is declared
+  37 |         }
+  38 |     }, [reportDate]);
+  39 |
+
+  47 |     };
+  48 |
+> 49 |     const loadReport = async () => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 50 |         try {
+     | ^^^^^^^^^^^^^
+> 51 |             setLoading(true);
+     …
+     | ^^^^^^^^^^^^^
+> 91 |         }
+     | ^^^^^^^^^^^^^
+> 92 |     };
+     | ^^^^^^^ `loadReport` is declared here
+  93 |
+  94 |     const addWorkEntry = () => {
+  95 |         setWorkEntries([...workEntries, {                                                                                                                                                                                        react-hooks/immutability
+  38:8   warning  React Hook useEffect has a missing dependency: 'loadReport'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\Dashboard.jsx
+  625:8  warning  React Hook useMemo has an unnecessary dependency: 't'. Either exclude it or remove the dependency array                                                                react-hooks/exhaustive-deps
+  874:8  warning  React Hook useEffect has missing dependencies: 'fetchCompanyInfo', 'fetchPendingCount', and 'isAdminOrAccountant'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\DesignerDashboard.jsx
+  53:6  warning  React Hook useCallback has a missing dependency: 'userRole'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\EmployeeDetail.jsx
+  151:17  error    Error: Cannot access variable before it is declared
+
+`fetchAttendanceData` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  149 |                 setShowAttendanceModal(false);
+  150 |                 setAttendanceForm({ status: 'Present', time: '09:00', gone_time: '', notes: '' });
+> 151 |                 fetchAttendanceData(); // Refresh to get real ID and update salary calc
+      |                 ^^^^^^^^^^^^^^^^^^^ `fetchAttendanceData` accessed before it is declared
+  152 |                 return (prev) => prev.map(a => a.id === newRecord.id ? { ...a, _optimistic: false } : a);
+  153 |             },
+  154 |             rollbackFn: (prev) => prev.filter(a => a.id !== newRecord.id),
+
+  229 |     };
+  230 |
+> 231 |     const fetchAttendanceData = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 232 |         try {
+      | ^^^^^^^^^^^^^
+> 233 |             setAttendanceError('');
+      …
+      | ^^^^^^^^^^^^^
+> 249 |         }
+      | ^^^^^^^^^^^^^
+> 250 |     };
+      | ^^^^^^^ `fetchAttendanceData` is declared here
+  251 |
+  252 |     // Helper: today's attendance record (if any)
+  253 |     const todayRecord = attendance.find(a => {  react-hooks/immutability
+  193:9   error    Error: Cannot access variable before it is declared
+
+`fetchEmployeeData` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  191 |         }
+  192 |         lastFetchedRef.current = { staffId, currentMonth };
+> 193 |         fetchEmployeeData();
+      |         ^^^^^^^^^^^^^^^^^ `fetchEmployeeData` accessed before it is declared
+  194 |         fetchAttendanceData();
+  195 |         fetchSalaryCalculation();
+  196 |         fetchBranches();
+
+  206 |     };
+  207 |
+> 208 |     const fetchEmployeeData = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 209 |         try {
+      | ^^^^^^^^^^^^^
+> 210 |             setLoading(true);
+      …
+      | ^^^^^^^^^^^^^
+> 228 |         }
+      | ^^^^^^^^^^^^^
+> 229 |     };
+      | ^^^^^^^ `fetchEmployeeData` is declared here
+  230 |
+  231 |     const fetchAttendanceData = async () => {
+  232 |         try {                                                                                                                                                                                                                                                                                                                  react-hooks/immutability
+  195:9   error    Error: Cannot access variable before it is declared
+
+`fetchSalaryCalculation` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  193 |         fetchEmployeeData();
+  194 |         fetchAttendanceData();
+> 195 |         fetchSalaryCalculation();
+      |         ^^^^^^^^^^^^^^^^^^^^^^ `fetchSalaryCalculation` accessed before it is declared
+  196 |         fetchBranches();
+  197 |     }, [staffId, currentMonth]);
+  198 |
+
+  318 |     };
+  319 |
+> 320 |     const fetchSalaryCalculation = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 321 |         try {
+      | ^^^^^^^^^^^^^
+> 322 |             setSalaryCalculationError('');
+      …
+      | ^^^^^^^^^^^^^
+> 330 |         }
+      | ^^^^^^^^^^^^^
+> 331 |     };
+      | ^^^^^^^ `fetchSalaryCalculation` is declared here
+  332 |
+  333 |     const handlePaySalary = async (e) => {
+  334 |         e.preventDefault();                                                                                                                                                                                                                                                                                                 react-hooks/immutability
+  196:9   error    Error: Cannot access variable before it is declared
+
+`fetchBranches` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  194 |         fetchAttendanceData();
+  195 |         fetchSalaryCalculation();
+> 196 |         fetchBranches();
+      |         ^^^^^^^^^^^^^ `fetchBranches` accessed before it is declared
+  197 |     }, [staffId, currentMonth]);
+  198 |
+  199 |     const fetchBranches = async () => {
+
+  197 |     }, [staffId, currentMonth]);
+  198 |
+> 199 |     const fetchBranches = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 200 |         try {
+      | ^^^^^^^^^^^^^
+> 201 |             const res = await api.get('/branches');
+      | ^^^^^^^^^^^^^
+> 202 |             setBranches(res.data);
+      | ^^^^^^^^^^^^^
+> 203 |         } catch (err) {
+      | ^^^^^^^^^^^^^
+> 204 |             console.error('Failed to fetch branches');
+      | ^^^^^^^^^^^^^
+> 205 |         }
+      | ^^^^^^^^^^^^^
+> 206 |     };
+      | ^^^^^^^ `fetchBranches` is declared here
+  207 |
+  208 |     const fetchEmployeeData = async () => {
+  209 |         try {                                                                                                                  react-hooks/immutability
+  197:8   warning  React Hook useEffect has missing dependencies: 'fetchAttendanceData', 'fetchEmployeeData', and 'fetchSalaryCalculation'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+  203:18  error    'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    no-unused-vars
+
+D:\software sarga\client\src\pages\ExpenseManager.jsx
+  60:9  error  Error: Cannot access variable before it is declared
+
+`showBillsPanel` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  58 |
+  59 |   useEffect(() => {
+> 60 |     if (showBillsPanel) {
+     |         ^^^^^^^^^^^^^^ `showBillsPanel` accessed before it is declared
+  61 |       triggerBillsRef.current = document.activeElement;
+  62 |     } else if (triggerBillsRef.current) {
+  63 |       triggerBillsRef.current.focus();
+
+  102 |   const [vendors, setVendors] = useState([]);
+  103 |   const [fabOpen, setFabOpen] = useState(false);
+> 104 |   const [showBillsPanel, setShowBillsPanel] = useState(false);
+      |          ^^^^^^^^^^^^^^ `showBillsPanel` is declared here
+  105 |
+  106 |   // Shared dashboard data for Utilities tab
+  107 |   const [dashboard, setDashboard] = useState(null);                react-hooks/immutability
+  69:9  error  Error: Cannot access variable before it is declared
+
+`showRequestModal` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  67 |
+  68 |   useEffect(() => {
+> 69 |     if (showRequestModal) {
+     |         ^^^^^^^^^^^^^^^^ `showRequestModal` accessed before it is declared
+  70 |       triggerReqRef.current = document.activeElement;
+  71 |     } else if (triggerReqRef.current) {
+  72 |       triggerReqRef.current.focus();
+
+  115 |   const [requests, setRequests] = useState([]);
+  116 |   const [requestCount, setRequestCount] = useState(0);
+> 117 |   const [showRequestModal, setShowRequestModal] = useState(false);
+      |          ^^^^^^^^^^^^^^^^ `showRequestModal` is declared here
+  118 |   const [requestForm, setRequestForm] = useState({
+  119 |     request_type: 'Vendor',
+  120 |     name: '',  react-hooks/immutability
+  78:9  error  Error: Cannot access variable before it is declared
+
+`showRequestsListModal` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  76 |
+  77 |   useEffect(() => {
+> 78 |     if (showRequestsListModal) {
+     |         ^^^^^^^^^^^^^^^^^^^^^ `showRequestsListModal` accessed before it is declared
+  79 |       triggerReqListRef.current = document.activeElement;
+  80 |     } else if (triggerReqListRef.current) {
+  81 |       triggerReqListRef.current.focus();
+
+  126 |     request_reason: ''
+  127 |   });
+> 128 |   const [showRequestsListModal, setShowRequestsListModal] = useState(false);
+      |          ^^^^^^^^^^^^^^^^^^^^^ `showRequestsListModal` is declared here
+  129 |
+  130 |   // Other Payments State removed
+  131 |                                                                                   react-hooks/immutability
+
+D:\software sarga\client\src\pages\InternalTransfers.jsx
+  57:18  error  Error: Cannot access variable before it is declared
+
+`fetchBranches` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  55 |
+  56 |   useEffect(() => {
+> 57 |     if (isAdmin) fetchBranches();
+     |                  ^^^^^^^^^^^^^ `fetchBranches` accessed before it is declared
+  58 |     // eslint-disable-next-line react-hooks/exhaustive-deps
+  59 |   }, []);
+  60 |
+
+  63 |   }, [branchFilter]);
+  64 |
+> 65 |   const fetchBranches = async () => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 66 |     try {
+     | ^^^^^^^^^
+> 67 |       const res = await api.get('/branches');
+     | ^^^^^^^^^
+> 68 |       setBranches(res.data || []);
+     | ^^^^^^^^^
+> 69 |     } catch (e) {
+     | ^^^^^^^^^
+> 70 |       console.error('Failed to load branches', e);
+     | ^^^^^^^^^
+> 71 |     }
+     | ^^^^^^^^^
+> 72 |   };
+     | ^^^^^ `fetchBranches` is declared here
+  73 |
+  74 |   const fetchTransfers = async (bId) => {
+  75 |     try {                                      react-hooks/immutability
+  62:5   error  Error: Cannot access variable before it is declared
+
+`fetchTransfers` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  60 |
+  61 |   useEffect(() => {
+> 62 |     fetchTransfers(branchFilter);
+     |     ^^^^^^^^^^^^^^ `fetchTransfers` accessed before it is declared
+  63 |   }, [branchFilter]);
+  64 |
+  65 |   const fetchBranches = async () => {
+
+  72 |   };
+  73 |
+> 74 |   const fetchTransfers = async (bId) => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |     try {
+     | ^^^^^^^^^
+> 76 |       const res = await api.get('/internal-transfers', { params: { branch_id: bId || undefined } });
+     | ^^^^^^^^^
+> 77 |       setTransfers(res.data || []);
+     | ^^^^^^^^^
+> 78 |     } catch (e) {
+     | ^^^^^^^^^
+> 79 |       console.error('Failed to load transfers', e);
+     | ^^^^^^^^^
+> 80 |     }
+     | ^^^^^^^^^
+> 81 |   };
+     | ^^^^^ `fetchTransfers` is declared here
+  82 |
+  83 |   const onSubmit = async (data) => {
+  84 |     setLoading(true);  react-hooks/immutability
+
+D:\software sarga\client\src\pages\Inventory.jsx
+   73:9  error    Error: Cannot access variable before it is declared
+
+`fetchInventory` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  71 |
+  72 |     const handleImageUpdate = useCallback(() => {
+> 73 |         fetchInventory();
+     |         ^^^^^^^^^^^^^^ `fetchInventory` accessed before it is declared
+  74 |     }, []);
+  75 |     const [filterCategory, setFilterCategory] = useState('');
+  76 |     const [filterStatus, setFilterStatus] = useState('');
+
+  236 |     }, [showSelectPrintModal, showAddModal, showEditModal, showPrintModal, showConsumeModal, showRestockModal, showSmartUpload, showScanner, showDetailModal, showStockRequestModal, showStockRequestsPanel]);
+  237 |
+> 238 |     const fetchInventory = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 239 |         setLoading(true);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 240 |         setError('');
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 282 |         }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 283 |     };
+      | ^^^^^^^ `fetchInventory` is declared here
+  284 |
+  285 |     const fetchHierarchy = async () => {
+  286 |         try {  react-hooks/immutability
+   74:8  warning  React Hook useCallback has a missing dependency: 'fetchInventory'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     react-hooks/exhaustive-deps
+  178:8  warning  React Hook useEffect has a missing dependency: 'fetchInventory'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       react-hooks/exhaustive-deps
+  181:9  error    Error: Cannot access variable before it is declared
+
+`fetchHierarchy` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  179 |
+  180 |     useEffect(() => {
+> 181 |         fetchHierarchy();
+      |         ^^^^^^^^^^^^^^ `fetchHierarchy` accessed before it is declared
+  182 |     }, []);
+  183 |
+  184 |     useEffect(() => {
+
+  283 |     };
+  284 |
+> 285 |     const fetchHierarchy = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 286 |         try {
+      | ^^^^^^^^^^^^^
+> 287 |             const [products, hierarchyData] = await Promise.all([
+      …
+      | ^^^^^^^^^^^^^
+> 295 |         }
+      | ^^^^^^^^^^^^^
+> 296 |     };
+      | ^^^^^^^ `fetchHierarchy` is declared here
+  297 |
+  298 |     const fetchStockRequests = async () => {
+  299 |         setStockRequestsLoading(true);                                                                                                                                                                                                                                                                                                        react-hooks/immutability
+
+D:\software sarga\client\src\pages\Invoices.jsx
+  372:16  warning  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+  370 |           <div className="panel table-responsive" style={{ padding: 0 }}>
+  371 |             {loading ? (
+> 372 |               <InvoiceSkeleton />
+      |                ^^^^^^^^^^^^^^^ This component is created during render
+  373 |             ) : invoices.length === 0 ? (
+  374 |               <div className="p-40 text-center muted stack-xs flex-center">
+  375 |                 <Receipt size={48} className="mb-md" />
+
+  231 |   }, [selectedInvoice]);
+  232 |
+> 233 |   const InvoiceSkeleton = () => (
+      |                           ^^^^^^^
+> 234 |     <div className="stack-lg">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 235 |       <div className="flex-center-y justify-between">
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 268 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 269 |   );
+      | ^^^^ The component is created during render here
+  270 |
+  271 |   if (pageError && !loading && invoices.length === 0) {
+  272 |     return (  react-hooks/static-components
+
+D:\software sarga\client\src\pages\JobDetail.jsx
+  516:8  warning  React Hook useEffect has missing dependencies: 'fetchDesigns', 'fetchJob', 'fetchMatter', 'fetchPaperLogs', and 'fetchProofs'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\Jobs.jsx
+  291:17  error  Error: Cannot access variable before it is declared
+
+`closeDeliveryDueModal` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  289 |         const handleKeyDown = (e) => {
+  290 |             if (e.key === 'Escape' && deliveryDueModal.isOpen) {
+> 291 |                 closeDeliveryDueModal();
+      |                 ^^^^^^^^^^^^^^^^^^^^^ `closeDeliveryDueModal` accessed before it is declared
+  292 |             }
+  293 |         };
+  294 |         window.addEventListener('keydown', handleKeyDown);
+
+  324 |     };
+  325 |
+> 326 |     const closeDeliveryDueModal = () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 327 |         setDeliveryDueModal({ isOpen: false, job: null, remaining: 0, message: '' });
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 328 |     };
+      | ^^^^^^^ `closeDeliveryDueModal` is declared here
+  329 |
+  330 |     const handlePayRemainingDue = () => {
+  331 |         const job = deliveryDueModal.job;  react-hooks/immutability
+
+D:\software sarga\client\src\pages\MachineManagement.jsx
+   42:13  error    Error: Cannot access variable before it is declared
+
+`showModal` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  40 |
+  41 |     useEffect(() => {
+> 42 |         if (showModal) {
+     |             ^^^^^^^^^ `showModal` accessed before it is declared
+  43 |             triggerRef.current = document.activeElement;
+  44 |         } else if (triggerRef.current) {
+  45 |             triggerRef.current.focus();
+
+  88 |     const [staffList, setStaffList] = useState([]);
+  89 |     const [loading, setLoading] = useState(true);
+> 90 |     const [showModal, setShowModal] = useState(false);
+     |            ^^^^^^^^^ `showModal` is declared here
+  91 |     const [editingMachine, setEditingMachine] = useState(null);
+  92 |     const [selectedMachine, setSelectedMachine] = useState(null);
+  93 |     const [machineDetails, setMachineDetails] = useState(null);                                                                                                                                                                                                                                                  react-hooks/immutability
+   51:13  error    Error: Cannot access variable before it is declared
+
+`showWorkModal` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  49 |
+  50 |     useEffect(() => {
+> 51 |         if (showWorkModal) {
+     |             ^^^^^^^^^^^^^ `showWorkModal` accessed before it is declared
+  52 |             triggerWorkRef.current = document.activeElement;
+  53 |         } else if (triggerWorkRef.current) {
+  54 |             triggerWorkRef.current.focus();
+
+   97 |     const [assignMachineId, setAssignMachineId] = useState(null);
+   98 |     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
+>  99 |     const [showWorkModal, setShowWorkModal] = useState(false);
+      |            ^^^^^^^^^^^^^ `showWorkModal` is declared here
+  100 |     const [workSaving, setWorkSaving] = useState(false);
+  101 |     const [formData, setFormData] = useState({
+  102 |         machine_name: '', machine_type: 'Offset', counter_type: 'Manual',                                                                                                                                                                                 react-hooks/immutability
+   60:13  error    Error: Cannot access variable before it is declared
+
+`showAssignModal` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  58 |
+  59 |     useEffect(() => {
+> 60 |         if (showAssignModal) {
+     |             ^^^^^^^^^^^^^^^ `showAssignModal` accessed before it is declared
+  61 |             triggerAssignRef.current = document.activeElement;
+  62 |         } else if (triggerAssignRef.current) {
+  63 |             triggerAssignRef.current.focus();
+
+  94 |     const [detailLoading, setDetailLoading] = useState(false);
+  95 |     const [detailTab, setDetailTab] = useState('work');
+> 96 |     const [showAssignModal, setShowAssignModal] = useState(false);
+     |            ^^^^^^^^^^^^^^^ `showAssignModal` is declared here
+  97 |     const [assignMachineId, setAssignMachineId] = useState(null);
+  98 |     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
+  99 |     const [showWorkModal, setShowWorkModal] = useState(false);                                                                                                                                                              react-hooks/immutability
+   69:13  error    Error: Cannot access variable before it is declared
+
+`showBookAssignModal` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  67 |
+  68 |     useEffect(() => {
+> 69 |         if (showBookAssignModal) {
+     |             ^^^^^^^^^^^^^^^^^^^ `showBookAssignModal` accessed before it is declared
+  70 |             triggerBookAssignRef.current = document.activeElement;
+  71 |         } else if (triggerBookAssignRef.current) {
+  72 |             triggerBookAssignRef.current.focus();
+
+  122 |     // Book assignments (Offset / Laser / Other)
+  123 |     const [bookAssignments, setBookAssignments] = useState({ Offset: [], Laser: [], Other: [] });
+> 124 |     const [showBookAssignModal, setShowBookAssignModal] = useState(false);
+      |            ^^^^^^^^^^^^^^^^^^^ `showBookAssignModal` is declared here
+  125 |     const [bookAssignType, setBookAssignType] = useState(null);   // 'Offset' | 'Laser' | 'Other'
+  126 |     const [bookAssignBranchId, setBookAssignBranchId] = useState('');
+  127 |     const [bookAssignStaffIds, setBookAssignStaffIds] = useState([]);                                    react-hooks/immutability
+  132:9   error    Error: Cannot access variable before it is declared
+
+`fetchMachines` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  130 |     // Data Fetch ──────────────────────────────────────────────
+  131 |     useEffect(() => {
+> 132 |         fetchMachines();
+      |         ^^^^^^^^^^^^^ `fetchMachines` accessed before it is declared
+  133 |         if (isAdmin) {
+  134 |             fetchBranches();
+  135 |             fetchStaff();
+
+  152 |     };
+  153 |
+> 154 |     const fetchMachines = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |         try {
+      | ^^^^^^^^^^^^^
+> 156 |             setLoading(true);
+      …
+      | ^^^^^^^^^^^^^
+> 172 |         finally { setLoading(false); }
+      | ^^^^^^^^^^^^^
+> 173 |     };
+      | ^^^^^^^ `fetchMachines` is declared here
+  174 |
+  175 |     const fetchBookAssignments = async () => {
+  176 |         try {                                                                                                                                                                                                                               react-hooks/immutability
+  134:13  error    Error: Cannot access variable before it is declared
+
+`fetchBranches` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  132 |         fetchMachines();
+  133 |         if (isAdmin) {
+> 134 |             fetchBranches();
+      |             ^^^^^^^^^^^^^ `fetchBranches` accessed before it is declared
+  135 |             fetchStaff();
+  136 |             fetchBookAssignments();
+  137 |         }
+
+  138 |     }, [selectedBranch]);
+  139 |
+> 140 |     const fetchBranches = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 141 |         try {
+      | ^^^^^^^^^^^^^
+> 142 |             const res = await api.get('/branches');
+      | ^^^^^^^^^^^^^
+> 143 |             setBranches(res.data);
+      | ^^^^^^^^^^^^^
+> 144 |         } catch (e) { console.error('Error fetching branches:', e); }
+      | ^^^^^^^^^^^^^
+> 145 |     };
+      | ^^^^^^^ `fetchBranches` is declared here
+  146 |
+  147 |     const fetchStaff = async () => {
+  148 |         try {                                                                                                                                             react-hooks/immutability
+  135:13  error    Error: Cannot access variable before it is declared
+
+`fetchStaff` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  133 |         if (isAdmin) {
+  134 |             fetchBranches();
+> 135 |             fetchStaff();
+      |             ^^^^^^^^^^ `fetchStaff` accessed before it is declared
+  136 |             fetchBookAssignments();
+  137 |         }
+  138 |     }, [selectedBranch]);
+
+  145 |     };
+  146 |
+> 147 |     const fetchStaff = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 148 |         try {
+      | ^^^^^^^^^^^^^
+> 149 |             const res = await api.get('/staff');
+      | ^^^^^^^^^^^^^
+> 150 |             setStaffList(Array.isArray(res.data) ? res.data : res.data.data || []);
+      | ^^^^^^^^^^^^^
+> 151 |         } catch (e) { console.error('Error fetching staff:', e); }
+      | ^^^^^^^^^^^^^
+> 152 |     };
+      | ^^^^^^^ `fetchStaff` is declared here
+  153 |
+  154 |     const fetchMachines = async () => {
+  155 |         try {                                                                                                                                   react-hooks/immutability
+  136:13  error    Error: Cannot access variable before it is declared
+
+`fetchBookAssignments` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  134 |             fetchBranches();
+  135 |             fetchStaff();
+> 136 |             fetchBookAssignments();
+      |             ^^^^^^^^^^^^^^^^^^^^ `fetchBookAssignments` accessed before it is declared
+  137 |         }
+  138 |     }, [selectedBranch]);
+  139 |
+
+  173 |     };
+  174 |
+> 175 |     const fetchBookAssignments = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 176 |         try {
+      | ^^^^^^^^^^^^^
+> 177 |             const res = await api.get('/machines/book-assignments');
+      | ^^^^^^^^^^^^^
+> 178 |             setBookAssignments(res.data || { Offset: [], Laser: [], Other: [] });
+      | ^^^^^^^^^^^^^
+> 179 |         } catch (e) { console.error('Error fetching book assignments:', e); }
+      | ^^^^^^^^^^^^^
+> 180 |     };
+      | ^^^^^^^ `fetchBookAssignments` is declared here
+  181 |
+  182 |     const fetchLiveCount = async (machineId, ipAddress) => {
+  183 |         if (!ipAddress) { setLiveCount(null); return; }  react-hooks/immutability
+  138:8   warning  React Hook useEffect has missing dependencies: 'fetchMachines' and 'isAdmin'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\OtherStaffDashboard.jsx
+  53:6  warning  React Hook useCallback has a missing dependency: 'userRole'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\PaperMovementHistory.jsx
+  45:8  warning  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\PaperStockDashboard.jsx
+  75:8  warning  React Hook useEffect has a missing dependency: 'fetchStock'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\Payments.jsx
+   79:9   error    Error: Cannot access variable before it is declared
+
+`fetchPayments` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  77 |
+  78 |     useEffect(() => {
+> 79 |         fetchPayments();
+     |         ^^^^^^^^^^^^^ `fetchPayments` accessed before it is declared
+  80 |         fetchBranches();
+  81 |         fetchPaymentMethods();
+  82 |         fetchVendors();
+
+  162 |     };
+  163 |
+> 164 |     const fetchPayments = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 165 |         setLoading(true);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 166 |         try {
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 176 |         }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 177 |     };
+      | ^^^^^^^ `fetchPayments` is declared here
+  178 |
+  179 |     const handleSubmit = async (e) => {
+  180 |         e.preventDefault();                                                                                                                                                                                                                                                                                                 react-hooks/immutability
+   80:9   error    Error: Cannot access variable before it is declared
+
+`fetchBranches` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  78 |     useEffect(() => {
+  79 |         fetchPayments();
+> 80 |         fetchBranches();
+     |         ^^^^^^^^^^^^^ `fetchBranches` accessed before it is declared
+  81 |         fetchPaymentMethods();
+  82 |         fetchVendors();
+  83 |         fetchInventory();
+
+  118 |     }, [location.state]);
+  119 |
+> 120 |     const fetchBranches = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 121 |         try {
+      | ^^^^^^^^^^^^^
+> 122 |             const data = await localDb.getBranches();
+      …
+      | ^^^^^^^^^^^^^
+> 129 |         }
+      | ^^^^^^^^^^^^^
+> 130 |     };
+      | ^^^^^^^ `fetchBranches` is declared here
+  131 |
+  132 |     const fetchPaymentMethods = async () => {
+  133 |         try {                                                                                                                                                                                                                                                                    react-hooks/immutability
+   81:9   error    Error: Cannot access variable before it is declared
+
+`fetchPaymentMethods` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  79 |         fetchPayments();
+  80 |         fetchBranches();
+> 81 |         fetchPaymentMethods();
+     |         ^^^^^^^^^^^^^^^^^^^ `fetchPaymentMethods` accessed before it is declared
+  82 |         fetchVendors();
+  83 |         fetchInventory();
+  84 |         fetchStaff();
+
+  130 |     };
+  131 |
+> 132 |     const fetchPaymentMethods = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 133 |         try {
+      | ^^^^^^^^^^^^^
+> 134 |             const data = await localDb.getPaymentMethods();
+      | ^^^^^^^^^^^^^
+> 135 |             setPaymentMethods(data || []);
+      | ^^^^^^^^^^^^^
+> 136 |         } catch (err) {
+      | ^^^^^^^^^^^^^
+> 137 |             console.error('Failed to fetch payment methods', err);
+      | ^^^^^^^^^^^^^
+> 138 |         }
+      | ^^^^^^^^^^^^^
+> 139 |     };
+      | ^^^^^^^ `fetchPaymentMethods` is declared here
+  140 |
+  141 |     const fetchVendors = async (type = '') => {
+  142 |         try {                   react-hooks/immutability
+   82:9   error    Error: Cannot access variable before it is declared
+
+`fetchVendors` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  80 |         fetchBranches();
+  81 |         fetchPaymentMethods();
+> 82 |         fetchVendors();
+     |         ^^^^^^^^^^^^ `fetchVendors` accessed before it is declared
+  83 |         fetchInventory();
+  84 |         fetchStaff();
+  85 |     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  139 |     };
+  140 |
+> 141 |     const fetchVendors = async (type = '') => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 142 |         try {
+      | ^^^^^^^^^^^^^
+> 143 |             const data = await localDb.getVendors({ type });
+      | ^^^^^^^^^^^^^
+> 144 |             setVendors(data || []);
+      | ^^^^^^^^^^^^^
+> 145 |         } catch (err) {
+      | ^^^^^^^^^^^^^
+> 146 |             console.error('Failed to fetch vendors', err);
+      | ^^^^^^^^^^^^^
+> 147 |         }
+      | ^^^^^^^^^^^^^
+> 148 |     };
+      | ^^^^^^^ `fetchVendors` is declared here
+  149 |
+  150 |     const fetchPayeeStatement = async (payeeId) => {
+  151 |         setLoading(true);  react-hooks/immutability
+   83:9   error    Error: Cannot access variable before it is declared
+
+`fetchInventory` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  81 |         fetchPaymentMethods();
+  82 |         fetchVendors();
+> 83 |         fetchInventory();
+     |         ^^^^^^^^^^^^^^ `fetchInventory` accessed before it is declared
+  84 |         fetchStaff();
+  85 |     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  86 |
+
+   96 |     };
+   97 |
+>  98 |     const fetchInventory = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  99 |         try {
+      | ^^^^^^^^^^^^^
+> 100 |             const data = await localDb.getInventory();
+      | ^^^^^^^^^^^^^
+> 101 |             setInventory(data || []);
+      | ^^^^^^^^^^^^^
+> 102 |         } catch (err) { console.error('Failed to fetch inventory', err); }
+      | ^^^^^^^^^^^^^
+> 103 |     };
+      | ^^^^^^^ `fetchInventory` is declared here
+  104 |
+  105 |     useEffect(() => {
+  106 |         if (!location.state?.paymentPrefill) return;                                                                                                                       react-hooks/immutability
+   84:9   error    Error: Cannot access variable before it is declared
+
+`fetchStaff` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  82 |         fetchVendors();
+  83 |         fetchInventory();
+> 84 |         fetchStaff();
+     |         ^^^^^^^^^^ `fetchStaff` accessed before it is declared
+  85 |     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  86 |
+  87 |     useEffect(() => {
+
+  89 |     }, [page, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+  90 |
+> 91 |     const fetchStaff = async () => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 92 |         try {
+     | ^^^^^^^^^^^^^
+> 93 |             const data = await localDb.getStaff();
+     | ^^^^^^^^^^^^^
+> 94 |             setStaffList(data || []);
+     | ^^^^^^^^^^^^^
+> 95 |         } catch (err) { console.error('Failed to fetch staff', err); }
+     | ^^^^^^^^^^^^^
+> 96 |     };
+     | ^^^^^^^ `fetchStaff` is declared here
+  97 |
+  98 |     const fetchInventory = async () => {
+  99 |         try {                                                                                                                        react-hooks/immutability
+  426:17  warning  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+  424 |
+  425 |     if (loading && payments.length === 0) {
+> 426 |         return <LoadingSkeleton />;
+      |                 ^^^^^^^^^^^^^^^ This component is created during render
+  427 |     }
+  428 |
+  429 |     return (
+
+  388 |     }, [payments, debouncedSearch]);
+  389 |
+> 390 |     const LoadingSkeleton = () => (
+      |                             ^^^^^^^
+> 391 |         <div className="stack-lg">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 392 |             <div className="page-header">
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 422 |         </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 423 |     );
+      | ^^^^^^ The component is created during render here
+  424 |
+  425 |     if (loading && payments.length === 0) {
+  426 |         return <LoadingSkeleton />;                                                                                                                                                                                                                    react-hooks/static-components
+
+D:\software sarga\client\src\pages\PlateManagement.jsx
+  38:9  error  Error: Cannot access variable before it is declared
+
+`fetchJobs` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  36 |
+  37 |     useEffect(() => {
+> 38 |         fetchJobs();
+     |         ^^^^^^^^^ `fetchJobs` accessed before it is declared
+  39 |     }, []);
+  40 |
+  41 |     const fetchJobs = async () => {
+
+  39 |     }, []);
+  40 |
+> 41 |     const fetchJobs = async () => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 42 |         try {
+     | ^^^^^^^^^^^^^
+> 43 |             const res = await api.get('/jobs/offset-pending');
+     …
+     | ^^^^^^^^^^^^^
+> 50 |         }
+     | ^^^^^^^^^^^^^
+> 51 |     };
+     | ^^^^^^^ `fetchJobs` is declared here
+  52 |
+  53 |     const totalAllocatedSlots = useMemo(() => {
+  54 |         return selectedJobs.reduce((sum, item) => sum + (item.allocatedSlots * SLOT_SIZES[item.selectedSize]), 0);  react-hooks/immutability
+
+D:\software sarga\client\src\pages\PrinterDashboard.jsx
+  53:6  warning  React Hook useCallback has a missing dependency: 'userRole'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\ProductLibrary.jsx
+   176:13  error    Error: Cannot access variable before it is declared
+
+`fetchHierarchy` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  174 |         const handleVisibility = () => {
+  175 |             if (document.hidden) return;
+> 176 |             fetchHierarchy();
+      |             ^^^^^^^^^^^^^^ `fetchHierarchy` accessed before it is declared
+  177 |         };
+  178 |         document.addEventListener('visibilitychange', handleVisibility);
+  179 |         return () => document.removeEventListener('visibilitychange', handleVisibility);
+
+  210 |     }, [productImage]);
+  211 |
+> 212 |     const fetchHierarchy = async (forceRefresh) => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 213 |         try {
+      | ^^^^^^^^^^^^^
+> 214 |             if (forceRefresh) {
+      …
+      | ^^^^^^^^^^^^^
+> 232 |         }
+      | ^^^^^^^^^^^^^
+> 233 |     };
+      | ^^^^^^^ `fetchHierarchy` is declared here
+  234 |
+  235 |     const fetchPendingImageRequests = async () => {
+  236 |         if (!isPrivileged) return;                                              react-hooks/immutability
+   184:9   error    Error: Cannot access variable before it is declared
+
+`fetchVendors` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  182 |     useEffect(() => {
+  183 |         fetchHierarchy();
+> 184 |         fetchVendors();
+      |         ^^^^^^^^^^^^ `fetchVendors` accessed before it is declared
+  185 |     }, []);
+  186 |
+  187 |     const fetchVendors = async () => {
+
+  185 |     }, []);
+  186 |
+> 187 |     const fetchVendors = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 188 |         try {
+      | ^^^^^^^^^^^^^
+> 189 |             const res = await api.get('/vendors?limit=1000'); // Get more for autocomplete
+      | ^^^^^^^^^^^^^
+> 190 |             setVendors(res.data?.data || []);
+      | ^^^^^^^^^^^^^
+> 191 |         } catch (err) {
+      | ^^^^^^^^^^^^^
+> 192 |             console.error('Failed to fetch vendors for autocomplete:', err);
+      | ^^^^^^^^^^^^^
+> 193 |         }
+      | ^^^^^^^^^^^^^
+> 194 |     };
+      | ^^^^^^^ `fetchVendors` is declared here
+  195 |
+  196 |     useEffect(() => {
+  197 |         if (!isPrivileged) return;  react-hooks/immutability
+   198:9   error    Error: Cannot access variable before it is declared
+
+`fetchPendingImageRequests` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  196 |     useEffect(() => {
+  197 |         if (!isPrivileged) return;
+> 198 |         fetchPendingImageRequests();
+      |         ^^^^^^^^^^^^^^^^^^^^^^^^^ `fetchPendingImageRequests` accessed before it is declared
+  199 |         fetchPendingUpdateRequests();
+  200 |     }, [isPrivileged]);
+  201 |
+
+  233 |     };
+  234 |
+> 235 |     const fetchPendingImageRequests = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 236 |         if (!isPrivileged) return;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 237 |         setLoadingPendingImageRequests(true);
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 245 |         }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 246 |     };
+      | ^^^^^^^ `fetchPendingImageRequests` is declared here
+  247 |
+  248 |     const fetchPendingUpdateRequests = async () => {
+  249 |         if (!isPrivileged) return;                                                       react-hooks/immutability
+   199:9   error    Error: Cannot access variable before it is declared
+
+`fetchPendingUpdateRequests` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  197 |         if (!isPrivileged) return;
+  198 |         fetchPendingImageRequests();
+> 199 |         fetchPendingUpdateRequests();
+      |         ^^^^^^^^^^^^^^^^^^^^^^^^^^ `fetchPendingUpdateRequests` accessed before it is declared
+  200 |     }, [isPrivileged]);
+  201 |
+  202 |     useEffect(() => {
+
+  246 |     };
+  247 |
+> 248 |     const fetchPendingUpdateRequests = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 249 |         if (!isPrivileged) return;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 250 |         setLoadingPendingUpdateRequests(true);
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 258 |         }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 259 |     };
+      | ^^^^^^^ `fetchPendingUpdateRequests` is declared here
+  260 |
+  261 |     // Debounce search input to avoid re-rendering on every keystroke
+  262 |     useEffect(() => {                                            react-hooks/immutability
+   200:8   warning  React Hook useEffect has missing dependencies: 'fetchPendingImageRequests' and 'fetchPendingUpdateRequests'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+   210:8   warning  React Hook useEffect has a missing dependency: 'isEditing'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           react-hooks/exhaustive-deps
+   282:9   warning  React Hook useEffect has a complex expression in the dependency array. Extract it to a separate variable so it can be statically checked                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react-hooks/exhaustive-deps
+   422:11  warning  The 'allProducts' conditional could make the dependencies of useMemo Hook (at line 427) change on every render. To fix this, wrap the initialization of 'allProducts' in its own useMemo() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+   422:11  warning  The 'allProducts' conditional could make the dependencies of useMemo Hook (at line 431) change on every render. To fix this, wrap the initialization of 'allProducts' in its own useMemo() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+   422:11  warning  The 'allProducts' conditional could make the dependencies of useMemo Hook (at line 456) change on every render. To fix this, wrap the initialization of 'allProducts' in its own useMemo() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+   433:30  warning  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+  431 |         : [], [viewInfo.type, allProducts]);
+  432 |
+> 433 |     const filteredProducts = useMemo(() => {
+      |                              ^^^^^^^^^^^^^^^
+> 434 |         let result = allProducts.filter(p => {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 435 |             const q = debouncedSearch.trim().toLowerCase();
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 455 |         return result;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 456 |     }, [debouncedSearch, allProducts, filterVendor, filterCalcType, sortBy]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Could not preserve existing memoization
+  457 |
+  458 |     const totalProducts = filteredProducts.length;
+  459 |     const totalProductPages = Math.max(1, Math.ceil(totalProducts / PRODUCTS_PER_PAGE));                         react-hooks/preserve-manual-memoization
+  1051:8   warning  React Hook useEffect has missing dependencies: 'location.pathname' and 'startEditProduct'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react-hooks/exhaustive-deps
+  1094:8   warning  React Hook useEffect has a missing dependency: 'location.pathname'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\ProductRequests.jsx
+  52:9   error    Error: Cannot access variable before it is declared
+
+`fetchRequests` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  50 |
+  51 |     useEffect(() => {
+> 52 |         fetchRequests();
+     |         ^^^^^^^^^^^^^ `fetchRequests` accessed before it is declared
+  53 |     }, [page, limit]);
+  54 |
+  55 |     useEffect(() => {
+
+  79 |     }, [productSearch, showNewRequest]);
+  80 |
+> 81 |     const fetchRequests = async (status) => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 82 |         setLoading(true);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 83 |         try {
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 92 |         }
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 93 |     };
+     | ^^^^^^^ `fetchRequests` is declared here
+  94 |
+  95 |     const open = (r) => setSelected(r);
+  96 |     const close = () => setSelected(null);  react-hooks/immutability
+  53:8   warning  React Hook useEffect has a missing dependency: 'fetchRequests'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+  75:22  error    'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         no-unused-vars
+
+D:\software sarga\client\src\pages\Requests.jsx
+  29:13  error    Error: Cannot access variable before it is declared
+
+`fetchAllRequests` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  27 |     useEffect(() => {
+  28 |         if (user.role === 'Admin') {
+> 29 |             fetchAllRequests();
+     |             ^^^^^^^^^^^^^^^^ `fetchAllRequests` accessed before it is declared
+  30 |         } else if (user.role === 'Accountant') {
+  31 |             fetchDiscountRequestsForAccountant();
+  32 |         } else {
+
+  49 |     };
+  50 |
+> 51 |     const fetchAllRequests = async () => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 52 |         setFetching(true);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 53 |         try {
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 90 |         }
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 91 |     };
+     | ^^^^^^^ `fetchAllRequests` is declared here
+  92 |
+  93 |     const handleSubmitRequest = async (e) => {
+  94 |         e.preventDefault();                                                                                             react-hooks/immutability
+  31:13  error    Error: Cannot access variable before it is declared
+
+`fetchDiscountRequestsForAccountant` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  29 |             fetchAllRequests();
+  30 |         } else if (user.role === 'Accountant') {
+> 31 |             fetchDiscountRequestsForAccountant();
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `fetchDiscountRequestsForAccountant` accessed before it is declared
+  32 |         } else {
+  33 |             setFetching(false);
+  34 |         }
+
+  35 |     }, []);
+  36 |
+> 37 |     const fetchDiscountRequestsForAccountant = async () => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 38 |         setFetching(true);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 39 |         try {
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 48 |         }
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 49 |     };
+     | ^^^^^^^ `fetchDiscountRequestsForAccountant` is declared here
+  50 |
+  51 |     const fetchAllRequests = async () => {
+  52 |         setFetching(true);  react-hooks/immutability
+  35:8   warning  React Hook useEffect has a missing dependency: 'user.role'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\SalesPrediction.jsx
+  325:11  warning  The 'stockRecommendations' logical expression could make the dependencies of useMemo Hook (at line 331) change on every render. To fix this, wrap the initialization of 'stockRecommendations' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  347:11  warning  The 'allSuggestions' logical expression could make the dependencies of useMemo Hook (at line 354) change on every render. To fix this, wrap the initialization of 'allSuggestions' in its own useMemo() Hook              react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\SampleRequestsCMS.jsx
+  129:6  warning  React Hook useCallback has a missing dependency: 'resetSampleForm'. Either include it or remove the dependency array                       react-hooks/exhaustive-deps
+  152:6  warning  React Hook useCallback has missing dependencies: 'resetSampleForm' and 'sampleActive'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\ScanItem.jsx
+    1:59  error    'useMemo' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          no-unused-vars
+  146:13  error    Error: Cannot access variable before it is declared
+
+`safeStop` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  144 |         return () => {
+  145 |             mountedRef.current = false;
+> 146 |             safeStop();
+      |             ^^^^^^^^ `safeStop` accessed before it is declared
+  147 |         };
+  148 |     }, []);
+  149 |
+
+  171 |     }, []);
+  172 |
+> 173 |     const safeStop = useCallback(async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 174 |         const qr = scannerRef.current;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 175 |         if (!qr || !isStartedRef.current || isStoppingRef.current) return;
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 182 |         }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 183 |     }, []);
+      | ^^^^^^^^^^^^ `safeStop` is declared here
+  184 |
+  185 |     // ── Lookup ─────────────────────────────────────────────────────────────────
+  186 |     const handleLookup = useCallback(async (code) => {  react-hooks/immutability
+  148:8   warning  React Hook useEffect has a missing dependency: 'safeStop'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react-hooks/exhaustive-deps
+  173:34  warning  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+  171 |     }, []);
+  172 |
+> 173 |     const safeStop = useCallback(async () => {
+      |                                  ^^^^^^^^^^^^^
+> 174 |         const qr = scannerRef.current;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 175 |         if (!qr || !isStartedRef.current || isStoppingRef.current) return;
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 182 |         }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 183 |     }, []);
+      | ^^^^^^ Could not preserve existing memoization
+  184 |
+  185 |     // ── Lookup ─────────────────────────────────────────────────────────────────
+  186 |     const handleLookup = useCallback(async (code) => {                                                                                                                                                                react-hooks/preserve-manual-memoization
+  263:8   warning  React Hook useCallback has a missing dependency: 'camDivId'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           react-hooks/exhaustive-deps
+  268:8   warning  React Hook useEffect has missing dependencies: 'safeStop' and 'startCamera'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react-hooks/exhaustive-deps
+  272:8   warning  React Hook useEffect has a missing dependency: 'safeStop'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\ShortcutsPage.jsx
+  62:6  warning  React Hook useEffect has a missing dependency: 'canEdit'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\StaffManagement.jsx
+  195:9  error    Error: Cannot access variable before it is declared
+
+`fetchStaff` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  193 |
+  194 |     useEffect(() => {
+> 195 |         fetchStaff();
+      |         ^^^^^^^^^^ `fetchStaff` accessed before it is declared
+  196 |         fetchBranches();
+  197 |         fetchTodayAttendance();
+  198 |     }, []);
+
+  238 |     };
+  239 |
+> 240 |     const fetchStaff = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 241 |         try {
+      | ^^^^^^^^^^^^^
+> 242 |             setLoading(true);
+      …
+      | ^^^^^^^^^^^^^
+> 259 |         }
+      | ^^^^^^^^^^^^^
+> 260 |     };
+      | ^^^^^^^ `fetchStaff` is declared here
+  261 |
+  262 |     // validateMobile now imported from ../utils/validators
+  263 |                                                                                                                                                                                                                                                                           react-hooks/immutability
+  196:9  error    Error: Cannot access variable before it is declared
+
+`fetchBranches` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  194 |     useEffect(() => {
+  195 |         fetchStaff();
+> 196 |         fetchBranches();
+      |         ^^^^^^^^^^^^^ `fetchBranches` accessed before it is declared
+  197 |         fetchTodayAttendance();
+  198 |     }, []);
+  199 |
+
+  229 |     }, [editStaffImage, selectedStaff]);
+  230 |
+> 231 |     const fetchBranches = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 232 |         try {
+      | ^^^^^^^^^^^^^
+> 233 |             const response = await api.get('/branches');
+      | ^^^^^^^^^^^^^
+> 234 |             setBranches(response.data);
+      | ^^^^^^^^^^^^^
+> 235 |         } catch {
+      | ^^^^^^^^^^^^^
+> 236 |             console.error('Failed to fetch branches');
+      | ^^^^^^^^^^^^^
+> 237 |         }
+      | ^^^^^^^^^^^^^
+> 238 |     };
+      | ^^^^^^^ `fetchBranches` is declared here
+  239 |
+  240 |     const fetchStaff = async () => {
+  241 |         try {  react-hooks/immutability
+  197:9  error    Error: Cannot access variable before it is declared
+
+`fetchTodayAttendance` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  195 |         fetchStaff();
+  196 |         fetchBranches();
+> 197 |         fetchTodayAttendance();
+      |         ^^^^^^^^^^^^^^^^^^^^ `fetchTodayAttendance` accessed before it is declared
+  198 |     }, []);
+  199 |
+  200 |     useEffect(() => {
+
+  420 |     };
+  421 |
+> 422 |     const fetchTodayAttendance = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 423 |         try {
+      | ^^^^^^^^^^^^^
+> 424 |             const today = new Date().toISOString().split('T')[0];
+      …
+      | ^^^^^^^^^^^^^
+> 437 |         }
+      | ^^^^^^^^^^^^^
+> 438 |     };
+      | ^^^^^^^ `fetchTodayAttendance` is declared here
+  439 |
+  440 |     const handleMarkAttendance = async (staffId) => {
+  441 |         const existing = todayAttendance[staffId];                                                                                                                              react-hooks/immutability
+  198:8  warning  React Hook useEffect has a missing dependency: 'fetchStaff'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react-hooks/exhaustive-deps
+  202:8  warning  React Hook useEffect has a missing dependency: 'fetchStaff'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\StockTransfer.jsx
+  46:9   error  Error: Cannot access variable before it is declared
+
+`fetchInitialData` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  44 |
+  45 |     useEffect(() => {
+> 46 |         fetchInitialData();
+     |         ^^^^^^^^^^^^^^^^ `fetchInitialData` accessed before it is declared
+  47 |     }, []);
+  48 |
+  49 |     const fetchInitialData = async () => {
+
+  47 |     }, []);
+  48 |
+> 49 |     const fetchInitialData = async () => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 50 |         try {
+     | ^^^^^^^^^^^^^
+> 51 |             setLoading(true);
+     …
+     | ^^^^^^^^^^^^^
+> 62 |         }
+     | ^^^^^^^^^^^^^
+> 63 |     };
+     | ^^^^^^^ `fetchInitialData` is declared here
+  64 |
+  65 |     const fetchAllData = async () => {
+  66 |         try {                                                                                                                                                                                                                       react-hooks/immutability
+  83:13  error  Error: Cannot access variable before it is declared
+
+`fetchBranchAvailability` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  81 |     useEffect(() => {
+  82 |         if (selectedItem) {
+> 83 |             fetchBranchAvailability(selectedItem.id);
+     |             ^^^^^^^^^^^^^^^^^^^^^^^ `fetchBranchAvailability` accessed before it is declared
+  84 |         } else {
+  85 |             setBranchStockMap({});
+  86 |         }
+
+   87 |     }, [selectedItem]);
+   88 |
+>  89 |     const fetchBranchAvailability = async (itemId) => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  90 |         try {
+      | ^^^^^^^^^^^^^
+>  91 |             const res = await api.get(`/branch-stock/${itemId}`);
+      …
+      | ^^^^^^^^^^^^^
+>  99 |         }
+      | ^^^^^^^^^^^^^
+> 100 |     };
+      | ^^^^^^^ `fetchBranchAvailability` is declared here
+  101 |
+  102 |     const filteredInventory = useMemo(() => {
+  103 |         if (!searchQuery) return [];  react-hooks/immutability
+
+D:\software sarga\client\src\pages\StockVerification.jsx
+  37:9  error    Error: Cannot access variable before it is declared
+
+`fetchVerification` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  35 |
+  36 |     useEffect(() => {
+> 37 |         fetchVerification();
+     |         ^^^^^^^^^^^^^^^^^ `fetchVerification` accessed before it is declared
+  38 |         fetchHistory();
+  39 |     }, [month]);
+  40 |
+
+  39 |     }, [month]);
+  40 |
+> 41 |     const fetchVerification = async () => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 42 |         if (!month) return;
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 43 |         setLoading(true);
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 53 |         }
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 54 |     };
+     | ^^^^^^^ `fetchVerification` is declared here
+  55 |
+  56 |     const fetchHistory = async () => {
+  57 |         try {                                                                                                                                                                                                                                     react-hooks/immutability
+  38:9  error    Error: Cannot access variable before it is declared
+
+`fetchHistory` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  36 |     useEffect(() => {
+  37 |         fetchVerification();
+> 38 |         fetchHistory();
+     |         ^^^^^^^^^^^^ `fetchHistory` accessed before it is declared
+  39 |     }, [month]);
+  40 |
+  41 |     const fetchVerification = async () => {
+
+  54 |     };
+  55 |
+> 56 |     const fetchHistory = async () => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 57 |         try {
+     | ^^^^^^^^^^^^^
+> 58 |             const res = await api.get('/stock-verification/history/list');
+     | ^^^^^^^^^^^^^
+> 59 |             setHistory(res.data);
+     | ^^^^^^^^^^^^^
+> 60 |         } catch (err) {
+     | ^^^^^^^^^^^^^
+> 61 |             console.error(err);
+     | ^^^^^^^^^^^^^
+> 62 |         }
+     | ^^^^^^^^^^^^^
+> 63 |     };
+     | ^^^^^^^ `fetchHistory` is declared here
+  64 |
+  65 |     const handleQtyChange = (inventoryItemId, value) => {
+  66 |         if (verification?.status === 'Completed') return;  react-hooks/immutability
+  39:8  warning  React Hook useEffect has a missing dependency: 'fetchVerification'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\admin\ChatbotTraining.jsx
+  106:6  warning  React Hook useEffect has missing dependencies: 'fetchTrainingExamples', 'trainingLimit', 'trainingPage', and 'trainingQuery'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\admin\DeliveryRulesManager.jsx
+  40:6  warning  React Hook useCallback has missing dependencies: 'editRule', 'form', and 'loadRules'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  46:6  warning  React Hook useCallback has a missing dependency: 'loadRules'. Either include it or remove the dependency array                            react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\admin\PickupBookings.jsx
+  31:6  warning  React Hook useCallback has missing dependencies: 'filter.branch_id', 'filter.date', and 'filter.status'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  41:6  warning  React Hook useCallback has a missing dependency: 'loadBookings'. Either include it or remove the dependency array                                            react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\admin\PortfolioManager.jsx
+   97:6  warning  React Hook useCallback has a missing dependency: 'loadProjects'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  115:6  warning  React Hook useCallback has a missing dependency: 'loadProjects'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  122:6  warning  React Hook useCallback has a missing dependency: 'loadProjects'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  129:6  warning  React Hook useCallback has a missing dependency: 'loadProjects'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\admin\PromotionsManager.jsx
+  47:6  warning  React Hook useCallback has a missing dependency: 'loadPromotions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  59:6  warning  React Hook useCallback has a missing dependency: 'loadPromotions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\admin\TranslationsManager.jsx
+  86:6  warning  React Hook useCallback has a missing dependency: 'loadEntries'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  97:6  warning  React Hook useCallback has a missing dependency: 'loadEntries'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\expense-manager\FullBillModal.jsx
+  67:6  warning  React Hook useMemo has unnecessary dependencies: 'document.file_blob' and 'document.file_path'. Either exclude them or remove the dependency array  react-hooks/exhaustive-deps
+  76:6  warning  React Hook useEffect has a missing dependency: 'document?.file_blob'. Either include it or remove the dependency array                              react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\expense-manager\PaymentModal.jsx
+  42:6  warning  React Hook useEffect has missing dependencies: 'form.book_type' and 'setForm'. Either include them or remove the dependency array. If 'setForm' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+
+D:\software sarga\client\src\pages\expense-manager\TransportTab.jsx
+  137:26  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+  135 |   // Virtualizer setup
+  136 |   const parentRef = React.useRef();
+> 137 |   const rowVirtualizer = useVirtualizer({
+      |                          ^^^^^^^^^^^^^^ TanStack Virtual's `useVirtualizer()` API returns functions that cannot be memoized safely
+  138 |     count: pagedExpenses.length,
+  139 |     getScrollElement: () => parentRef.current,
+  140 |     estimateSize: () => 48,  react-hooks/incompatible-library
+
+D:\software sarga\client\src\pages\expense-manager\VendorsTab.jsx
+  53:26  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+  51 | const VirtualTransactionTable = ({ rows, openFullBillFromTransaction }) => {
+  52 |   const parentRef = useRef(null);
+> 53 |   const rowVirtualizer = useVirtualizer({
+     |                          ^^^^^^^^^^^^^^ TanStack Virtual's `useVirtualizer()` API returns functions that cannot be memoized safely
+  54 |     count: rows.length,
+  55 |     getScrollElement: () => parentRef.current,
+  56 |     estimateSize: () => 44,  react-hooks/incompatible-library
+
+✖ 139 problems (53 errors, 86 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

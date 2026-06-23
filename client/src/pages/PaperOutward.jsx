@@ -53,7 +53,7 @@ const PaperOutward = () => {
         try {
             const res = await api.get('/jobs', { params: { search, limit: 10 } });
             setJobs(res.data.data || []);
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch jobs');
         }
     };

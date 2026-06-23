@@ -79,7 +79,7 @@ function ReviewsManagement() {
       await api.delete(`/reviews/${id}`);
       toast.success('Review deleted');
       fetchReviews();
-    } catch (e) {
+    } catch {
       toast.error('Failed to delete');
     }
   }, [fetchReviews]);
@@ -89,7 +89,7 @@ function ReviewsManagement() {
       const res = await api.put(`/reviews/${id}/feature`);
       toast.success(res.data.message);
       fetchReviews();
-    } catch (e) {
+    } catch {
       toast.error('Failed to toggle feature');
     }
   }, [fetchReviews]);

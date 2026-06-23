@@ -95,7 +95,7 @@ const FinanceTab = ({ branches, onError }) => {
       setKuriTotal(r.data.total || 0);
       setKuriTotalPages(r.data.totalPages || 1);
       setKuriPage(r.data.page || 1);
-    } catch (err) {
+    } catch {
       setKuris([]);
       setKuriTotal(0);
       setKuriTotalPages(1);
@@ -140,7 +140,7 @@ const FinanceTab = ({ branches, onError }) => {
 
   const openKuriDetail = useCallback(async (kuri) => {
     setSelectedKuri(kuri); setLoadingDetail(true);
-    try { const r = await api.get(`/kuri-master/${kuri.id}`); setKuriDetail(r.data); } catch (err) { setKuriDetail(null); }
+    try { const r = await api.get(`/kuri-master/${kuri.id}`); setKuriDetail(r.data); } catch { setKuriDetail(null); }
     finally { setLoadingDetail(false); }
   }, []);
 

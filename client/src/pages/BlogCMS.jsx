@@ -223,7 +223,7 @@ const BlogCMS = () => {
       await api.delete(`/blog/admin/posts/${id}`);
       toast.success('Article deleted successfully.');
       fetchBlogData();
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete article.');
     }
   }, [fetchBlogData, confirm]);

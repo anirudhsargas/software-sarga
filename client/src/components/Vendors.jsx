@@ -29,10 +29,6 @@ const Vendors = ({
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
   const [vendorRefreshKey, setVendorRefreshKey] = useState(0);
 
-  useEffect(() => {
-    loadVendors();
-  }, [searchTerm, categoryFilter, refreshKey]);
-
   const loadVendors = async () => {
     try {
       setLoading(true);
@@ -50,6 +46,10 @@ const Vendors = ({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadVendors();
+  }, [searchTerm, categoryFilter, refreshKey]);
 
   const handleAddVendor = () => {
     setSelectedVendor(null);

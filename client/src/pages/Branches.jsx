@@ -20,10 +20,6 @@ const Branches = () => {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        fetchBranches();
-    }, []);
-
-    useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape' && showModal) {
                 setShowModal(false);
@@ -43,6 +39,10 @@ const Branches = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchBranches();
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

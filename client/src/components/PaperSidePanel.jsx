@@ -16,25 +16,24 @@ export default function PaperSidePanel({ open, onClose }) {
 
     const triggerRef = useRef(null);
 
-    useEffect(() => {
-        if (open) {
-            triggerRef.current = document.activeElement;
+    const fetchPaperTypes = async () => {
+        try {
+            const res = await api.get('/inventory/paper-types');
+            setPaperTypes(res.data?.types || res.data || []);
+        } catch {
+            setPaperTypes([]);
         }
-        return () => {
-            if (open) {
-                setTimeout(() => {
-                    triggerRef.current?.focus();
-                }, 0);
-            }
-        };
-    }, [open]);
+    };
 
-    useEffect(() => {
-        if (!open) return;
-        fetchPapers();
-        fetchPaperTypes();
-        // eslint-disable-next-line
-    }, [open, filter]);
+    const fetchCutMaps = async () => {
+        try {
+            const res = await api.get('/inventory/paper-cut-maps');
+            setMappings(res.data || []);
+        } catch {
+            // ignore if table/endpoint missing
+            setMappings([]);
+        }
+    };
 
     const fetchPapers = async () => {
         setLoading(true);
@@ -81,24 +80,24 @@ export default function PaperSidePanel({ open, onClose }) {
         }
     };
 
-    const fetchPaperTypes = async () => {
-        try {
-            const res = await api.get('/inventory/paper-types');
-            setPaperTypes(res.data?.types || res.data || []);
-        } catch {
-            setPaperTypes([]);
+    useEffect(() => {
+        if (open) {
+            triggerRef.current = document.activeElement;
         }
-    };
+        return () => {
+            if (open) {
+                setTimeout(() => {
+                    triggerRef.current?.focus();
+                }, 0);
+            }
+        };
+    }, [open]);
 
-    const fetchCutMaps = async () => {
-        try {
-            const res = await api.get('/inventory/paper-cut-maps');
-            setMappings(res.data || []);
-        } catch (err) {
-            // ignore if table/endpoint missing
-            setMappings([]);
-        }
-    };
+    useEffect(() => {
+        if (!open) return;
+        fetchPapers();
+        fetchPaperTypes();
+    }, [open, filter]);
 
     const saveMapping = async () => {
         const body = {

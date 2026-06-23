@@ -334,7 +334,7 @@ export default function Quotes() {
             const { data } = await api.get(`/quotes/${id}`);
             setForm({ ...data, items: data.items || [] });
             setEditing(id); setShowForm(true);
-        } catch (err) { toast.error('Failed to load quote'); }
+        } catch { toast.error('Failed to load quote'); }
     }, []);
 
     const handleDelete = useCallback(async (id) => {
@@ -345,10 +345,7 @@ export default function Quotes() {
             await api.delete(`/quotes/${id}`);
             toast.success('Deleted');
             fetchQuotes();
-        } catch (err) {
-            toast.error('Failed to delete');
-            fetchQuotes();
-        }
+        } catch { toast.error('Failed to delete'); fetchQuotes(); }
     }, [fetchQuotes]);
 
     const handleConvert = useCallback(async (id) => {

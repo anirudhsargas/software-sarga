@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, {useEffect, useState, useMemo} from 'react';
+import React, {useEffect, useState, useMemo, useRef} from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Phone, Mail, MapPin, Building2, Hash, Star,

@@ -170,7 +170,7 @@ const StockTransfer = () => {
             await api.put(`/stock-requests/${id}/approve`, { action: 'reject' });
             toast.success('Request rejected');
             fetchAllData();
-        } catch (e) { toast.error('Failed to reject'); }
+        } catch { toast.error('Failed to reject'); }
     }
 
     const sendStock = async (id) => {
