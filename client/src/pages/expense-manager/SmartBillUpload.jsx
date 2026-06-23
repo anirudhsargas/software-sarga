@@ -8,6 +8,8 @@ import localDb from '../../services/localDb';
 import BranchSelect from '../../components/ui/BranchSelect';
 import './SmartBillUpload.css';
 
+const VALID_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+
 const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, defaultRelatedTab }) => {
   const [step, setStep] = useState('upload'); // upload | queue | extracting | suggestions | pricing | linking | confirming
   const [files, setFiles] = useState([]);
@@ -291,8 +293,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     const droppedFiles = e.dataTransfer?.files || e.target.files;
     if (!droppedFiles?.length) return;
     const validFiles = Array.from(droppedFiles).filter(f => {
-      const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
-      if (!validTypes.includes(f.type)) {
+      if (!VALID_TYPES.includes(f.type)) {
         setError(`Unsupported file type: ${f.name}. Use PDF, PNG, JPG, or WebP.`);
         return false;
       }
@@ -321,8 +322,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
 
   const validateFileForBill = async (file) => {
     // Basic type check
-    const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
+    if (!VALID_TYPES.includes(file.type)) {
       return { valid: false, reason: 'Unsupported file type. Use PDF, PNG, JPG, or WebP.' };
     }
     if (file.size > 10 * 1024 * 1024) {
