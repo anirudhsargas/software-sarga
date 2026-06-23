@@ -31,7 +31,7 @@ const OtherStaffDashboard = () => {
   const [selectedPriority, setSelectedPriority] = useState('All');
   const [activeTab, setActiveTab] = useState('active');
   const [fetchError, setFetchError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  const [_retryCount, setRetryCount] = useState(0);
 
   const fetchDashboard = useCallback(async () => {
     if (!staffId) return;

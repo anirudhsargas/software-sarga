@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import useScrollAnimation from '../hooks/useScrollAnimation';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { TrendingUp, Calendar } from 'lucide-react';
@@ -14,6 +14,8 @@ const OrderForecastWidget = ({ branchId }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [mounted, setMounted] = useState(false);
+
+    const barHeights = useMemo(() => Array.from({ length: 7 }, () => 30 + Math.random() * 60), []);
 
     useEffect(() => {
         requestAnimationFrame(() => setMounted(true));
@@ -201,7 +203,7 @@ const SkeletonLoader = () => (
                 <div key={i} className="skeleton" style={{
                     flex: 1, borderRadius: 4,
                     background: 'var(--border, #e5e7eb)',
-                    height: `${30 + Math.random() * 60}%`,
+                    height: `${barHeights[i]}%`,
                     animation: 'pulse 1.5s ease-in-out infinite',
                     animationDelay: `${i * 0.1}s`,
                 }} />

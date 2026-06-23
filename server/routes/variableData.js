@@ -4,8 +4,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
-const { pool } = require('../database');
-const logger = require('../helpers/logger');
+const { pool: _pool } = require('../database');
+const logger = require('../helpers/logger'); // eslint-disable-line no-unused-vars
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -59,7 +59,7 @@ function buildVDPPDF(rows, fields, designConfig, outputPath) {
     const stream = fs.createWriteStream(outputPath);
     doc.pipe(stream);
 
-    const { page_width = 595.28, page_height = 841.89, font_size = 12, font_family = 'Helvetica', x_offset = 50, y_offset = 50, line_height = 20 } = designConfig;
+    const { page_width = 595.28, _page_height = 841.89, font_size = 12, font_family = 'Helvetica', x_offset = 50, y_offset = 50, _line_height = 20 } = designConfig;
 
     rows.forEach((row, idx) => {
       if (idx > 0) doc.addPage();

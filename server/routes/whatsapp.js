@@ -7,7 +7,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
 router.post('/log', async (req, res) => {
   try{
-    const { event, type, productName, quantity, size, variant, orderRef, artworkUrl, options, timestamp } = req.body || {}
+    const { event, type, productName, quantity, size, variant, orderRef, artworkUrl, options, timestamp: _timestamp } = req.body || {}
     const q = `INSERT INTO whatsapp_clicks (event_type, type, product_name, quantity, size, variant, order_ref, artwork_url, options, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now()) RETURNING id`
     await pool.query(q, [event || 'whatsapp_click', type, productName, quantity, size, variant, orderRef, artworkUrl, options ? JSON.stringify(options) : null])
     res.json({ ok: true })

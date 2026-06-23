@@ -13,7 +13,7 @@ const path = require('path');
 let libphonenumber;
 try {
   libphonenumber = require('google-libphonenumber');
-} catch (err) {
+} catch (_err) {
   console.error('Missing dependency: google-libphonenumber');
   console.error('Install with: npm install google-libphonenumber --save');
   process.exit(1);
@@ -114,15 +114,12 @@ main().catch((err) => {
   console.error('Backfill failed:', err && err.stack);
   process.exit(1);
 });
+
+/* DUPLICATE SCRIPT SECTION - removed to fix duplicate 'main' declaration.
 // Backfill script: normalize phone numbers and populate phone_numbers.number_e164
 // Usage:
 //   npm install google-libphonenumber mysql2
 //   DB_HOST=localhost DB_USER=root DB_PASS=xxx DB_NAME=sarga node server/scripts/backfill_phone_numbers.js
-
-const mysql = require('mysql2/promise');
-const libph = require('google-libphonenumber');
-const phoneUtil = libph.PhoneNumberUtil.getInstance();
-const PNF = libph.PhoneNumberFormat;
 
 const CONFLICTS_OUT = 'server/migrations/phone_conflicts_2026_04_17.json';
 
@@ -150,10 +147,8 @@ async function main() {
       if (raw.startsWith('+')) {
         parsed = phoneUtil.parse(raw);
       } else if (/^\d{10}$/.test(raw)) {
-        // common case: 10-digit Indian mobile — guess IN
         parsed = phoneUtil.parse(raw, 'IN');
       } else {
-        // fallback try without region
         parsed = phoneUtil.parse(raw, 'IN');
       }
 
@@ -162,14 +157,10 @@ async function main() {
         country = phoneUtil.getRegionCodeForNumber(parsed) || null;
       }
     } catch (err) {
-      // parsing failed — leave e164 null
       console.warn('parse failed for', raw, err && err.message);
     }
 
-    if (!e164) {
-      // nothing to update for normalized number
-      continue;
-    }
+    if (!e164) continue;
 
     try {
       await conn.execute(
@@ -198,3 +189,4 @@ async function main() {
 }
 
 main().catch(err => { console.error(err); process.exit(1); });
+*/

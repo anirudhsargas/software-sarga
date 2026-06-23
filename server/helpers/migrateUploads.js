@@ -54,7 +54,7 @@ async function migrateUploadsToCloudinary() {
             const resource = await cloudinary.api.resource(pubId, { resource_type: 'image' });
             cloudinaryUrl = resource.secure_url;
             break;
-          } catch (e) {
+          } catch (_e) {
             // Try next public ID
           }
           // Also try raw resource type (for PDFs, docs)
@@ -62,7 +62,7 @@ async function migrateUploadsToCloudinary() {
             const resource = await cloudinary.api.resource(pubId, { resource_type: 'raw' });
             cloudinaryUrl = resource.secure_url;
             break;
-          } catch (e) {
+          } catch (_e) {
             // Not found
           }
         }

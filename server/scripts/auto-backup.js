@@ -16,7 +16,7 @@ if (!fs.existsSync(BACKUP_DIR)) {
 
 const dumpCmd = `mysqldump -u ${DB_USER} ${DB_PASS ? '-p' + DB_PASS : ''} ${DB_NAME} > "${BACKUP_FILE}"`;
 
-exec(dumpCmd, (error, stdout, stderr) => {
+exec(dumpCmd, (error, _stdout, _stderr) => {
     if (error) {
         console.error('Backup failed:', error);
     } else {

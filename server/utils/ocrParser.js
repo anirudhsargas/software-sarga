@@ -1,7 +1,7 @@
 const { createWorker } = require('tesseract.js');
 const { fromPath } = require('pdf2pic');
 let PDFParse;
-try { PDFParse = require('pdf-parse'); } catch (e) { PDFParse = null; }
+try { PDFParse = require('pdf-parse'); } catch (_e) { PDFParse = null; }
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -140,6 +140,7 @@ function toIsoDate(raw) {
         jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
     };
 
+    // eslint-disable-next-line no-useless-escape
     let m = value.match(/^(\d{1,2})[\/-]([A-Za-z]{3})[\/-](\d{2,4})$/);
     if (m) {
         const dd = String(m[1]).padStart(2, '0');
@@ -149,6 +150,7 @@ function toIsoDate(raw) {
         return `${yy}-${mm}-${dd}`;
     }
 
+    // eslint-disable-next-line no-useless-escape
     m = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
     if (m) {
         const dd = String(m[1]).padStart(2, '0');
@@ -257,7 +259,7 @@ function extractTotalAmount(lines) {
     return null;
 }
 
-function findSalesTableHeaderIndex(lines) {
+function _findSalesTableHeaderIndex(lines) {
     const starts = findSalesTableHeaderStarts(lines);
     return starts.length > 0 ? starts[0] : -1;
 }
@@ -365,6 +367,7 @@ function parseSalesOrderStackedRow(lines, startIndex) {
             break;
         }
 
+        // eslint-disable-next-line no-useless-escape
         const nosMatch = line.match(/(?:[()/+\-]*)(\d+(?:\.\d+)?)\s*Nos\b/i);
         if (nosMatch) {
             const n = parseNumber(nosMatch[1]);
@@ -561,6 +564,7 @@ function parseItemLine(line, layout) {
         const amount = parseNumber(salesOrderRow[5]);
 
         const nosValues = [];
+        // eslint-disable-next-line no-useless-escape
         const nosRegex = /(?:[()/+\-]*)(\d+(?:\.\d+)?)\s*Nos\b/gi;
         let nm;
         while ((nm = nosRegex.exec(middle)) !== null) {
@@ -788,7 +792,7 @@ async function extractBillData(filePath, mimeType) {
         for (const imgPath of tempImages) {
             try {
                 await fs.unlink(imgPath);
-            } catch (e) { }
+            } catch (_e) { /* ignored */ }
         }
     }
 }

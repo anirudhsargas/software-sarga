@@ -136,7 +136,7 @@ async function ensureVendorExistsFromBill({ vendorName, documentType, branchId }
       'INSERT IGNORE INTO sarga_vendors (name, type, branch_id) VALUES (?, ?, ?)',
       [canonicalName, vendorType, branchId || null]
     );
-  } catch (_) {}
+  } catch (_ignored) { /* ignored */ }
 
   return insertRes.insertId;
 }
@@ -148,7 +148,7 @@ function normalizeLineItemsInput(lineItemsRaw) {
   if (typeof lineItemsRaw === 'string') {
     try {
       parsed = JSON.parse(lineItemsRaw);
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -701,7 +701,7 @@ router.get('/office-expenses', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { expense_type, start_date, end_date } = req.query;
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
     let whereClauses = [];
     const params = [];
@@ -783,7 +783,7 @@ router.post('/office-expenses', authenticateToken, authorizeRoles('Admin', 'Acco
     res.json({ success: true, id: result.insertId });
 
     // Trigger anomaly check asynchronously (non-blocking)
-    try { require('./anomalies').checkAnomalies().catch(() => {}); } catch (_) {}
+    try { require('./anomalies').checkAnomalies().catch(() => {}); } catch (_ignored) { /* ignored */ }
   } catch (error) {
     console.error('Add office expense error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -910,7 +910,7 @@ router.get('/transport-expenses', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { transport_type, start_date, end_date } = req.query;
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
     let whereClauses = [];
     const params = [];
@@ -1131,7 +1131,7 @@ router.get('/misc-expenses', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { expense_category, start_date, end_date } = req.query;
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
     let whereClauses = [];
     const params = [];
@@ -1347,7 +1347,7 @@ router.get('/petty-cash-ledger', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { transaction_type, start_date, end_date } = req.query;
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
     let whereClauses = [];
     const params = [];
@@ -1398,7 +1398,7 @@ router.get('/petty-cash-ledger', authenticateToken, async (req, res) => {
 // Add petty cash transaction
 router.post('/petty-cash', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
-    const { branch_id, id: created_by, role } = req.user;
+    const { branch_id, id: created_by, role: _role } = req.user;
     const {
       transaction_date, transaction_type, amount, description, reference_number,
       received_from, paid_to, category
@@ -1599,7 +1599,7 @@ router.get('/bills-documents', authenticateToken, async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { document_type, vendor_name, start_date, end_date, related_tab } = req.query;
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
     let whereClauses = [];
     const params = [];
@@ -2579,7 +2579,7 @@ router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accoun
 router.get('/utility-bills', authenticateToken, async (req, res) => {
   try {
     const { utility_type, branch_id } = req.query;
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
     let whereClauses = [];
     const params = [];

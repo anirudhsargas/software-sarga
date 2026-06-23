@@ -62,7 +62,7 @@ const AttendanceSalary = () => {
       try {
         const resp = await api.get(`/staff/${staffId}/salary-info`);
         setSalaryInfo(resp.data);
-      } catch (err) {
+      } catch {
         // fallback to stored user info if available
         const stored = auth.getUser();
         if (stored) setSalaryInfo({ staff: stored });

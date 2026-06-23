@@ -19,7 +19,7 @@ const InventoryImageSettings = ({ onClose }) => {
             try {
                 const res = await api.get('/inventory/settings/image');
                 if (res.data) setSettings(res.data);
-            } catch (err) {
+            } catch {
                 toast.error('Failed to load settings');
             }
         };
@@ -37,7 +37,7 @@ const InventoryImageSettings = ({ onClose }) => {
             await api.put('/inventory/settings/image', settings);
             toast.success('Settings saved');
             onClose();
-        } catch (err) {
+        } catch {
             toast.error('Failed to save settings');
         } finally {
             setLoading(false);

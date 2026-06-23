@@ -28,7 +28,7 @@ const ShortcutsPage = () => {
   const [editingShortcut, setEditingShortcut] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [_loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const fetchShortcuts = useCallback(async () => {
     if (!branchId) { setLoading(false); return; }
@@ -36,7 +36,7 @@ const ShortcutsPage = () => {
       setLoading(true);
       const { data } = await api.get(`/shortcuts?branch_id=${branchId}`);
       setShortcuts(data || []);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load shortcuts');
     } finally {
       setLoading(false);

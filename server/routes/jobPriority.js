@@ -145,7 +145,7 @@ router.get('/queue', authenticateToken, async (req, res) => {
             params.push(branch_id);
         }
 
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit, 100);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit, 100);
 
         const baseFrom = `
             FROM sarga_jobs j
@@ -271,7 +271,7 @@ router.get('/machine/:id', authenticateToken, async (req, res) => {
 
         const machine = machines[0];
 
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit, 50);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit, 50);
         const baseFrom = `
             FROM sarga_jobs j
             LEFT JOIN sarga_customers c ON j.customer_id = c.id

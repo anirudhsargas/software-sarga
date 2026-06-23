@@ -199,7 +199,7 @@ router.get('/', auth.authenticate, async (req, res) => {
         const [machines] = await pool.query(query, params);
         try {
             console.log(`[Machines] requested by user id=${user.id} role=${user.role} branch=${user.branch_id} params=${JSON.stringify(req.query)} -> returned ${machines.length} machines`);
-        } catch (e) { }
+        } catch (_e) { /* ignored */ }
 
         // Parse assigned_staff_ids to array
         machines.forEach(m => {
@@ -219,7 +219,7 @@ router.get('/', auth.authenticate, async (req, res) => {
 router.get('/count-requests', auth.authenticate, auth.requireRole(['Admin', 'Accountant']), async (req, res) => {
     try {
         const { status = 'Pending' } = req.query;
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         const baseFrom = `
              FROM sarga_machine_count_requests mcr
@@ -618,7 +618,7 @@ router.get('/:id/readings', auth.authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const { start_date, end_date } = req.query;
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit, 30);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit, 30);
 
         let whereClauses = ['mr.machine_id = ?'];
         const params = [id];

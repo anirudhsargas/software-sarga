@@ -29,7 +29,7 @@ const realPool = (() => {
         queueLimit: 0,
       });
     }
-  } catch (_) { /* fall through to mock */ }
+  } catch (_e) { /* fall through to mock */ }
   return null;
 })();
 

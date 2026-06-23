@@ -20,7 +20,7 @@ function generateDailyBookPdf(data, reportDate, branchName) {
         const RED = '#dc2626';
 
         const fmt = (n) => `Rs. ${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const fmtInt = (n) => Number(n || 0).toLocaleString('en-IN');
+        const _fmtInt = (n) => Number(n || 0).toLocaleString('en-IN');
 
         const renderHeader = () => {
             doc.rect(0, 0, pageW, 70).fill(DARK);

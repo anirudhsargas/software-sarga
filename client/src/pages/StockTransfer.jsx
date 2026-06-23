@@ -55,7 +55,7 @@ const StockTransfer = () => {
             ]);
             setBranches(branchRes.data || []);
             setInventory(invRes.data?.data || invRes.data || []);
-        } catch (err) {
+        } catch {
             toast.error('Failed to load initial data');
         } finally {
             setLoading(false);

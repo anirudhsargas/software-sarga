@@ -375,7 +375,7 @@ const DailyReportOffset = () => {
         }
     };
 
-    const importCompletedJobs = async () => {
+    const _importCompletedJobs = async () => {
         await syncFromBilling();
     };
 

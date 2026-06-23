@@ -14,7 +14,7 @@ const ChatWidget = () => {
       try {
         const res = await api.get('chatbot/model-status', { skipGlobalErrorHandling: true });
         setIsOffline(res.data.healthy === false);
-      } catch (e) {
+      } catch {
         setIsOffline(true);
       }
     };
@@ -30,7 +30,7 @@ const ChatWidget = () => {
       const res = await api.post('chatbot/message', { message: input, session_id: 'admin-test', branch: 'perambra' }, { skipGlobalErrorHandling: true });
       const data = res.data;
       setMessages(m => [...m, { id: Date.now()+1, from: 'bot', text: data.reply || '', meta: { intent: data.intent, confidence: data.confidence } }]);
-    } catch (e) {
+    } catch {
       toast.error('Chat failed');
     }
   };

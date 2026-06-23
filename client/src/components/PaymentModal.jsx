@@ -17,7 +17,7 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
     notes: ''
   });
   const [loading, setLoading] = useState(false);
-  const { errors, validate, focusFirstError, formRef } = useFormValidation();
+  const { errors, validate, focusFirstError, formRef: _formRef } = useFormValidation();
   const [invoiceDetails, setInvoiceDetails] = useState(null);
 
   useEffect(() => {
@@ -75,7 +75,7 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
 
       if (error.response?.data?.errors) {
         const serverErrors = error.response.data.errors;
-        Object.entries(serverErrors).forEach(([field, msg]) => {
+        Object.entries(serverErrors).forEach(([_field, msg]) => {
           if (typeof msg === 'string') {
             // Server validation errors handled
           }

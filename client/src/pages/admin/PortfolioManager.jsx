@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, {useState, useEffect, useCallback, useRef} from 'react'
 import { Plus, Edit3, Trash2, Eye, EyeOff, Star, Search, X, Loader2, Upload } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
@@ -38,7 +38,7 @@ function PortfolioManager() {
     try {
       const res = await api.get('/portfolio')
       setProjects(res.data.projects || [])
-    } catch (e) {
+    } catch {
       toast.error('Failed to load projects')
     } finally {
       setLoading(false)
@@ -56,7 +56,7 @@ function PortfolioManager() {
     try {
       const res = await api.post('/portfolio/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       return res.data.url
-    } catch (e) {
+    } catch {
       toast.error('Upload failed')
     } finally {
       setUploading(false)
@@ -84,14 +84,14 @@ function PortfolioManager() {
         await api.put(`/portfolio/${editing}`, form)
         toast.success('Project updated')
       } else {
-        const res = await api.post('/portfolio', form)
+        const _res = await api.post('/portfolio', form)
         toast.success('Project created')
       }
       setShowForm(false)
       setEditing(null)
       setForm({ title: '', description: '', category: 'Custom Projects', cover_image: '', gallery_images: [], featured: false, published: true, position: 0 })
       loadProjects()
-    } catch (e) {
+    } catch {
       toast.error('Failed to save')
     }
   }, [editing, form])
@@ -102,7 +102,7 @@ function PortfolioManager() {
       setForm(res.data.project)
       setEditing(id)
       setShowForm(true)
-    } catch (e) { toast.error('Failed to load project') }
+    } catch { toast.error('Failed to load project') }
   }, [])
 
   const deleteProject = useCallback(async (id) => {
@@ -111,21 +111,21 @@ function PortfolioManager() {
       await api.delete(`/portfolio/${id}`)
       toast.success('Project deleted')
       loadProjects()
-    } catch (e) { toast.error('Failed to delete') }
+    } catch { toast.error('Failed to delete') }
   }, [])
 
   const toggleFeature = useCallback(async (id, current) => {
     try {
       await api.put(`/portfolio/${id}`, { featured: !current })
       loadProjects()
-    } catch (e) { toast.error('Failed') }
+    } catch { toast.error('Failed') }
   }, [])
 
   const togglePublish = useCallback(async (id, current) => {
     try {
       await api.put(`/portfolio/${id}`, { published: !current })
       loadProjects()
-    } catch (e) { toast.error('Failed') }
+    } catch { toast.error('Failed') }
   }, [])
 
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>

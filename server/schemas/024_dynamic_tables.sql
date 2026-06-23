@@ -422,7 +422,25 @@ CREATE TABLE IF NOT EXISTS sarga_credit_ledger (
     INDEX idx_customer_date (credit_customer_id, transaction_date)
 );
 
--- 9. Safe column additions (individual statements; database.js ignores ER_DUP_FIELDNAME)
+-- 9. Refunds Table
+CREATE TABLE IF NOT EXISTS sarga_refunds (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    job_id INT NOT NULL,
+    customer_id INT,
+    idempotency_key VARCHAR(100) UNIQUE,
+    refund_amount DECIMAL(12,2) NOT NULL,
+    refund_method ENUM('Cash','UPI','Cheque','Account Transfer') DEFAULT 'Cash',
+    reason TEXT,
+    processed_by INT,
+    branch_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (job_id) REFERENCES sarga_jobs(id) ON DELETE CASCADE,
+    FOREIGN KEY (customer_id) REFERENCES sarga_customers(id) ON DELETE SET NULL,
+    FOREIGN KEY (processed_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
+    FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE SET NULL
+);
+
+-- 10. Safe column additions (individual statements; database.js ignores ER_DUP_FIELDNAME)
 ALTER TABLE sarga_staff_attendance ADD COLUMN in_time TIME;
 ALTER TABLE sarga_staff_attendance ADD COLUMN out_time TIME;
 ALTER TABLE sarga_staff_attendance ADD COLUMN work_hours DECIMAL(4,2);

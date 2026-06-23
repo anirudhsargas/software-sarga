@@ -27,7 +27,7 @@ const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosi
                     toast.error('SNMP unreachable — check printer network');
                 }
             }
-        } catch (error) {
+        } catch {
             if (!silent) toast.error('Failed to reach machine');
         } finally {
             setMeterLoading(false);
@@ -51,7 +51,7 @@ const MeterVerification = ({ machineId, machineName, machineIpAddress, lastClosi
                 toast.success('Count matches machine meter');
             }
             await handleFetchComparisonHistory();
-        } catch (error) {
+        } catch {
             toast.error('Failed to verify count');
         } finally {
             setVerifyLoading(false);

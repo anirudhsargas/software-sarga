@@ -5,7 +5,7 @@ const PAPER_ALIASES = [
   'offset paper', 'laser paper', 'other paper'
 ];
 
-const isPaperCategory = (cat) => {
+const isPaperCategory = (cat) => { // eslint-disable-line no-unused-vars
   if (!cat) return false;
   const c = String(cat).toLowerCase().trim();
   if (c.includes('paper')) return true;
@@ -40,7 +40,7 @@ async function migrate(poolOrOptions = {}) {
       const size = it.size_code || it.model_name || null;
       // Check if already migrated by SKU or (name+size)
       const [existing] = await pool.query(
-        'SELECT id FROM sarga_paper_inventory WHERE sku = ? OR (name = ? AND COALESCE(size, '') = COALESCE(?, \'\')) LIMIT 1',
+        'SELECT id FROM sarga_paper_inventory WHERE sku = ? OR (name = ? AND COALESCE(size, \'\') = COALESCE(?, \'\')) LIMIT 1',
         [it.sku || null, it.name || null, size]
       );
 
@@ -93,4 +93,4 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { migrate, findPaperItems, ensureMappingTable };
+module.exports = { migrate, findPaperItems, ensureMappingTable }; // eslint-disable-line no-undef

@@ -40,7 +40,7 @@ jest.mock('../../middleware/auth', () => {
       req.user = { id: 1, user_id: 'admin', role: 'Admin', name: 'Admin', branch_id: 1 };
       next();
     },
-    authorizeRoles: (...roles) => (req, res, next) => next(),
+    authorizeRoles: (..._roles) => (req, res, next) => next(),
     requireRole: () => (req, res, next) => next(),
   };
 });

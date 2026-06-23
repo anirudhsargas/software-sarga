@@ -22,7 +22,7 @@ async function nextQuoteNumber() {
 router.get('/quotes', authenticateToken, async (req, res) => {
     try {
         const { search, status } = req.query;
-        const { limit, offset, page, response } = paginate(req.query);
+        const { limit, offset, _page, response } = paginate(req.query);
         let where = '1=1';
         const params = [];
         if (status) { where += ' AND q.status = ?'; params.push(status); }
@@ -156,7 +156,7 @@ router.post('/quotes/:id/convert', authenticateToken, async (req, res) => {
         const [[quote]] = await conn.query('SELECT * FROM sarga_quotes WHERE id = ?', [req.params.id]);
         if (!quote) { await conn.rollback(); return res.status(404).json({ message: 'Quote not found' }); }
         if (quote.status === 'converted') { await conn.rollback(); return res.status(400).json({ message: 'Quote already converted' }); }
-        const [items] = await conn.query('SELECT * FROM sarga_quote_items WHERE quote_id = ?', [req.params.id]);
+        const [_items] = await conn.query('SELECT * FROM sarga_quote_items WHERE quote_id = ?', [req.params.id]);
 
         // Find or create customer
         let customerId = quote.customer_id;

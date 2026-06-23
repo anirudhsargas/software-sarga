@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { validate, addPaperTypeSchema, paperInwardSchema, paperOutwardSchema, paperAdjustmentSchema, paperTransferSchema } = require('../middleware/validate');
+const { validate, addPaperTypeSchema, paperInwardSchema, paperOutwardSchema, _paperAdjustmentSchema, paperTransferSchema } = require('../middleware/validate');
 
 // --- HELPERS ---
 
@@ -45,7 +45,7 @@ async function updateStockAndCheckAlerts(connection, paper_type_id, branch_id, q
 /**
  * Convert units to sheets based on category and unit type.
  */
-function convertToSheets(quantity, unit, category) {
+function convertToSheets(quantity, unit, _category) {
     const q = Number(quantity);
     if (unit === 'Sheets') return q;
     if (unit === 'Reams') return q * 500;

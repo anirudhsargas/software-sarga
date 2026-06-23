@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, {useEffect, useState, useRef, useMemo} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, IndianRupee, User, Clock, AlertCircle, Loader2, CheckCircle, Phone, Mail, MapPin, Building, Edit3, UserX, ShieldCheck, X, Calendar } from 'lucide-react';
 import auth from '../services/auth';
@@ -256,8 +256,8 @@ const EmployeeDetail = () => {
     });
 
     // Today's displayed in/out times (normalized)
-    const todayInTime = getInTime(todayRecord);
-    const todayOutTime = getOutTime(todayRecord);
+    const _todayInTime = getInTime(todayRecord);
+    const _todayOutTime = getOutTime(todayRecord);
 
     // Quick mark gone time now (optimistic)
     const markGoneNow = async () => {
@@ -285,8 +285,8 @@ const EmployeeDetail = () => {
                     const attDate = toLocalDateKey(a.attendance_date);
                     return attDate !== serverToday();
                 });
-                const todayInTime = getInTime(todayRecord);
-                const todayOutTime = getOutTime(todayRecord);
+                const _todayInTime = getInTime(todayRecord);
+                const _todayOutTime = getOutTime(todayRecord);
                 return [newRecord, ...filtered];
             },
             serverFn: async () => {

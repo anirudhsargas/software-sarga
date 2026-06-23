@@ -28,7 +28,7 @@ const PaperAlerts = () => {
             // Filter stock items that are below reorder level
             const lowStock = stockRes.data.filter(item => Number(item.current_sheets) < Number(item.reorder_level));
             setStock(lowStock);
-        } catch (err) {
+        } catch {
             toast.error('Failed to load alerts');
         } finally {
             setLoading(false);

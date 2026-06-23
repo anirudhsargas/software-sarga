@@ -1,8 +1,8 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog } = require('../helpers');
-const { uploadBufferToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
+const { auditLog: _auditLog } = require('../helpers');
+const { uploadBufferToCloudinary, deleteFromCloudinary: _deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 
 const VALID_BRANCHES = ['perambra', 'meppayur_main', 'meppayur_room'];
 
@@ -236,7 +236,7 @@ router.delete('/face-data/:id', authenticateToken, authorizeRoles('Admin'), asyn
   }
 });
 
-module.exports = (upload, removeUploadFile) => {
+module.exports = (upload, _removeUploadFile) => {
   // ─── POST /face-data — upload face image for a staff member ──────────────
   router.post('/face-data', authenticateToken, authorizeRoles('Admin'), upload.single('face_image'), async (req, res) => {
     const { staff_id, label } = req.body;

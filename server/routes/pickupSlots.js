@@ -40,7 +40,7 @@ router.post('/pickup/slots/generate', authenticateToken, authorizeRoles('Admin')
           'INSERT IGNORE INTO sarga_pickup_slots (branch_id, slot_date, start_time, end_time, capacity, booked, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
           s
         );
-      } catch (e) { /* ignore duplicates */ }
+      } catch (_e) { /* ignore duplicates */ }
     }
   }
   res.json({ message: `Generated ${slots.length} slots`, count: slots.length });

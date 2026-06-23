@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import api, { API_URL, imgUrl, getAuthHeader, deduplicatedGet } from '../../services/api';
-import axios from 'axios';
-import toast from 'react-hot-toast';
 
 vi.mock('react-hot-toast', () => ({
   default: { error: vi.fn(), success: vi.fn() },

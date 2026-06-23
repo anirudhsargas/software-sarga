@@ -54,7 +54,7 @@ function SparklineChart({ data, label }) {
 }
 
 /* ── Metric Card ── */
-function MetricCard({ icon: Icon, value, label, trend, trendLabel, color }) {
+function MetricCard({ icon: Icon, value, label, trend, trendLabel, color }) { // eslint-disable-line no-unused-vars
   return (
     <div className="analytics-card">
       <div className="analytics-card__icon" style={color ? { color, borderColor: color, background: `${color}15` } : {}}>

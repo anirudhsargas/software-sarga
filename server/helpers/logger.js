@@ -1,6 +1,6 @@
 // Fallback logger using console as winston is missing
 const logLevel = process.env.LOG_LEVEL || 'info';
-const isDevelopment = process.env.NODE_ENV !== 'production';
+const isDevelopment = process.env.NODE_ENV !== 'production'; // eslint-disable-line no-unused-vars
 
 const logger = {
   info: (msg, ...args) => console.log(`[INFO] ${msg}`, ...args),

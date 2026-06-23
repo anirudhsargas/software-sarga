@@ -17,7 +17,7 @@ const authMiddleware = [authenticateToken, authorizeRoles('Admin', 'Accountant')
 // ─── GET /alerts — List all fraud alerts ──────────────────────
 router.get('/alerts', ...authMiddleware, asyncHandler(async (req, res) => {
     const { status, severity, staff_id, start_date, end_date } = req.query;
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit, 50);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit, 50);
 
     let whereClauses = ['1=1'];
     const params = [];

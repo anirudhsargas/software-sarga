@@ -25,7 +25,7 @@ const MyTasks = () => {
 
             <div className="grid grid-4 mb-24">
                 <div className="card stat-card" style={{ padding: '20px' }}>
-                    <div className="stat-card__icon" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
+                    <div className="stat-card__icon" style={{ backgroundColor: 'var(--info-bg)', color: 'var(--info)' }}>
                         <CheckSquare size={24} />
                     </div>
                     <div>
@@ -35,7 +35,7 @@ const MyTasks = () => {
                 </div>
 
                 <div className="card stat-card" style={{ padding: '20px' }}>
-                    <div className="stat-card__icon" style={{ backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>
+                    <div className="stat-card__icon" style={{ backgroundColor: 'var(--warning-light)', color: 'var(--warning)' }}>
                         <PlayCircle size={24} />
                     </div>
                     <div>
@@ -45,7 +45,7 @@ const MyTasks = () => {
                 </div>
 
                 <div className="card stat-card" style={{ padding: '20px' }}>
-                    <div className="stat-card__icon" style={{ backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
+                    <div className="stat-card__icon" style={{ backgroundColor: 'var(--success-light)', color: 'var(--success)' }}>
                         <CheckSquare size={24} />
                     </div>
                     <div>
@@ -55,7 +55,7 @@ const MyTasks = () => {
                 </div>
 
                 <div className="card stat-card" style={{ padding: '20px' }}>
-                    <div className="stat-card__icon" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                    <div className="stat-card__icon" style={{ backgroundColor: 'var(--danger-light)', color: 'var(--danger)' }}>
                         <AlertTriangle size={24} />
                     </div>
                     <div>
@@ -108,8 +108,8 @@ const MyTasks = () => {
                                         <td>
                                             <span style={{ 
                                                 padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold',
-                                                backgroundColor: task.status === 'Completed' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
-                                                color: task.status === 'Completed' ? '#10b981' : '#3b82f6'
+                                                backgroundColor: task.status === 'Completed' ? 'var(--success-light)' : 'var(--info-bg)',
+                                                color: task.status === 'Completed' ? 'var(--success)' : 'var(--info)'
                                             }}>
                                                 {task.status}
                                             </span>

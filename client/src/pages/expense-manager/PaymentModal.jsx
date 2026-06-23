@@ -33,7 +33,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
         if ((!form.book_type || form.book_type === '') && books.length > 0) {
           setForm(p => ({ ...p, book_type: books[0] }));
         }
-      } catch (err) {
+      } catch {
         if (!mounted) return;
         setAssignedBooks([]);
       }
@@ -61,7 +61,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
         const lasBal = las.data?.summary?.cash_closing ?? null;
         const othBal = oth.data?.summary?.cash_closing ?? null;
         setBookBalances({ Offset: offBal, Laser: lasBal, Other: othBal });
-      } catch (err) {
+      } catch {
         if (!mounted) return;
         setBookBalances({ Offset: null, Laser: null, Other: null });
       } finally {

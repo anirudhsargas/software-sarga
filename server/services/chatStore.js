@@ -22,7 +22,7 @@ async function saveChat({ uuid, user_message, bot_response, rule_id }) {
     );
 
     return { savedTo: 'db' };
-  } catch (err) {
+  } catch (_err) {
     // Write to local file as fallback
     try {
       ensureDataDir();
@@ -52,7 +52,7 @@ async function getHistory({ uuid, limit = 50 } = {}) {
       [...params, Number(limit)]
     );
     return rows.map(r => ({ id: r.id, uuid: r.uuid, user_message: r.user_message, bot_response: r.bot_response, rule_id: r.rule_id, created_at: r.created_at }));
-  } catch (err) {
+  } catch (_err) {
     // Read from file
     try {
       ensureDataDir();

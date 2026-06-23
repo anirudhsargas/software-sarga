@@ -17,7 +17,7 @@ const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 let cachedStatsToday = null;
 let cachedStatsOverall = null;
 
-const KpiCard = React.memo(({ title, value, subtitle, icon: Icon, color, trend }) => (
+const KpiCard = React.memo(({ title, value, subtitle, icon: _Icon, color, trend }) => (
   <div className="kpi-card">
     <div className="kpi-card__header">
       <span className="kpi-card__title">{title}</span>
@@ -34,7 +34,7 @@ const KpiCard = React.memo(({ title, value, subtitle, icon: Icon, color, trend }
   </div>
 ));
 
-const EmptyState = React.memo(({ icon: Icon, title, message, actions }) => (
+const EmptyState = React.memo(({ icon: _Icon, title, message, actions }) => (
   <div className="empty-state">
     <Icon size={32} className="empty-state__icon" />
     <h3 className="empty-state__title">{title}</h3>
@@ -120,8 +120,8 @@ const Summary = () => {
   }, []);
 
   const lowStockItems = useMemo(() => statsOverall?.low_stock || [], [statsOverall]);
-  const topCustomers = useMemo(() => statsOverall?.top_customers || [], [statsOverall]);
-  const staffProd = useMemo(() => statsOverall?.staff_productivity || [], [statsOverall]);
+  const _topCustomers = useMemo(() => statsOverall?.top_customers || [], [statsOverall]);
+  const _staffProd = useMemo(() => statsOverall?.staff_productivity || [], [statsOverall]);
 
   const tabs = useMemo(() => [
     { id: 'overview', label: 'Overview', icon: BarChart3 },

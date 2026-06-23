@@ -68,7 +68,7 @@ async function calculateSalaryForMonth(staffId, staff, yearMonth) {
 router.get('/:id/work-history', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         // Include both direct assignments (staff_id = ?) and role-based assignments (staff_id IS NULL AND role = ?)
         const userRole = req.user.role || '';
@@ -163,7 +163,7 @@ router.get('/:id/salary-info', authenticateToken, routeCache(STAFF_TTL, (req) =>
 
         // Calculate current month salary
         const now = new Date();
-        const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const _currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const [currentSalary] = await pool.query(`
             SELECT id, base_salary, net_salary, payment_month, bonus, deduction, status 
             FROM sarga_staff_salary
@@ -521,7 +521,7 @@ router.get('/:id/salary-slip/:year_month', authenticateToken, async (req, res) =
             doc.font('Helvetica-Bold').text(String(val), x + 180, y, { width: 150, align: 'right' });
         };
 
-        const startY = doc.y;
+        const _startY = doc.y;
         doc.font('Helvetica-Bold').fontSize(12).text('Salary Summary');
         doc.moveDown(0.3);
         label(40, doc.y, 'Calculated Salary', `Rs. ${Number(calc.calculatedSalary || 0).toFixed(2)}`);
@@ -837,9 +837,9 @@ router.get('/:id/salary-calculation/:year_month', authenticateToken, async (req,
         if (staff.salary_type === 'Monthly') {
             // Monthly staff calculation
             // Assuming 26 working days per month (excluding Sundays and holidays)
-            const totalHolidays = attendance.filter(a => a.status === 'Holiday').length;
+            const _totalHolidays = attendance.filter(a => a.status === 'Holiday').length;
             const monthDays = 30; // Average
-            const workingDaysInMonth = monthDays - Math.ceil(monthDays / 7); // Rough calculation of Sundays
+            const _workingDaysInMonth = monthDays - Math.ceil(monthDays / 7); // Rough calculation of Sundays
 
             const paid_leave = leaves.paid_leaves_used || 0;
             const unpaid_leave = leaves.unpaid_leaves_used || 0;

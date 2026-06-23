@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -18,7 +18,7 @@ const VendorDetail = ({
   onEditVendor,
   onDeleteVendor,
   formatCurrency,
-  getStatusBadge,
+  _getStatusBadge,
   refreshKey = 0,
   canEdit = true,
   canDelete = true,
@@ -31,14 +31,9 @@ const VendorDetail = ({
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [spendTrend, setSpendTrend] = useState([]);
+  const [_spendTrend, setSpendTrend] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const transactionsPerPage = 10;
-
-  useEffect(() => {
-    loadVendorDetails();
-    loadSpendTrend();
-  }, [vendorId, refreshKey]);
 
   const getLatestRecordDate = (items, dateKey) => {
     if (!items?.length) return null;
@@ -47,7 +42,7 @@ const VendorDetail = ({
   };
 
   const latestInvoiceDate = getLatestRecordDate(vendorDetails?.invoices || vendor?.invoices, 'invoice_date');
-  const latestPaymentDate = getLatestRecordDate(vendorDetails?.payments || vendor?.payments, 'payment_date');
+  const _latestPaymentDate = getLatestRecordDate(vendorDetails?.payments || vendor?.payments, 'payment_date');
 
   const rawTransactions = [
     ...(vendorDetails?.invoices || vendor?.invoices || []).map((inv) => ({
@@ -74,16 +69,20 @@ const VendorDetail = ({
     }))
   ].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  let runningBalance = 0;
-  const transactions = rawTransactions.map((txn) => {
-    runningBalance += txn.type === 'Debit' ? txn.amount : -txn.amount;
-    return {
-      ...txn,
-      debit: txn.type === 'Debit' ? txn.amount : 0,
-      credit: txn.type === 'Credit' ? txn.amount : 0,
-      balance: runningBalance,
-    };
-  }).reverse();
+  const transactions = useMemo(() => {
+    const withBalance = rawTransactions.reduce((acc, txn) => {
+      const prevBalance = acc.length > 0 ? acc[acc.length - 1].balance : 0;
+      const newBalance = prevBalance + (txn.type === 'Debit' ? txn.amount : -txn.amount);
+      acc.push({
+        ...txn,
+        debit: txn.type === 'Debit' ? txn.amount : 0,
+        credit: txn.type === 'Credit' ? txn.amount : 0,
+        balance: newBalance,
+      });
+      return acc;
+    }, []);
+    return withBalance.reverse();
+  }, [rawTransactions]);
 
   const pageCount = Math.max(1, Math.ceil(transactions.length / transactionsPerPage));
   const displayedTransactions = transactions.slice((currentPage - 1) * transactionsPerPage, currentPage * transactionsPerPage);
@@ -154,6 +153,11 @@ const VendorDetail = ({
       console.error('Error loading spend trend:', error);
     }
   };
+
+  useEffect(() => {
+    loadVendorDetails();
+    loadSpendTrend();
+  }, [vendorId, refreshKey]);
 
   const handleAddInvoice = () => {
     setShowInvoiceModal(true);

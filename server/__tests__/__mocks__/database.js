@@ -1,4 +1,4 @@
-const { mockPool, mockConnection } = require('../helpers/mockDb');
+const { mockPool } = require('../helpers/mockDb');
 
 const pool = mockPool;
 

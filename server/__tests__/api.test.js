@@ -51,10 +51,10 @@ const mp = require('./helpers/mock-pool');
 let app;
 let adminToken;
 let foToken;
-let testVendorId;
+let _testVendorId;
 let testCustomerId;
-let testJobId;
-let testInvoiceId;
+let _testJobId;
+let _testInvoiceId;
 
 const ADMIN_USER = { id: 1, user_id: 'admin1', role: 'Admin', name: 'Test Admin', branch_id: 1 };
 const FO_USER = { id: 2, user_id: 'fo1', role: 'Front Office', name: 'Test FO', branch_id: 2 };
@@ -214,7 +214,7 @@ describe('Vendor Management', () => {
     expect(res.body.data).toHaveProperty('vendor_code');
     expect(res.body.data.vendor_code).toBe('SUP');
     expect(res.body.data.id).toBe(42);
-    testVendorId = res.body.data.id;
+    _testVendorId = res.body.data.id;
   });
 
   test('Create vendor fails for duplicate name', async () => {
@@ -374,7 +374,7 @@ describe('Jobs', () => {
     expect(res.status).toBe(201);
     expect(res.body).toHaveProperty('id', 10);
     expect(res.body).toHaveProperty('job_number');
-    testJobId = res.body.id;
+    _testJobId = res.body.id;
   });
 
   test('Create job with ₹0 cost (internal departmental billing)', async () => {
@@ -413,7 +413,7 @@ describe('Jobs', () => {
   test('Job status transitions', async () => {
     // Simulate updating job status
     const transitions = ['Processing', 'Completed', 'Delivered'];
-    for (const status of transitions) {
+    for (const _status of transitions) {
       mockQuery('UPDATE sarga_jobs', [{ affectedRows: 1 }]);
       mockQuery('INSERT INTO sarga_audit_logs', [{ insertId: 1 }]);
     }

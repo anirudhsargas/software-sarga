@@ -46,7 +46,7 @@ if (process.env.REDIS_URL) {
         logger.warn('[WebsiteCache] Error processing invalidation message:', e.message);
       }
     });
-  } catch (e) {
+  } catch (_e) {
     logger.warn('[WebsiteCache] ioredis not available or failed to initialize, using in-memory cache');
     redis = null;
   }
@@ -95,7 +95,7 @@ async function getProducts() {
       const key = 'website:products';
       const raw = await redis.get(key);
       if (raw) {
-        try { return JSON.parse(raw); } catch (e) { /* fallthrough */ }
+        try { return JSON.parse(raw); } catch (_e) { /* fallthrough */ }
       }
       const rows = await loadProducts();
       try { await redis.set(key, JSON.stringify(rows), 'PX', TTL); } catch (e) { logger.warn('[WebsiteCache] Failed to write products to redis:', e.message); }
@@ -120,7 +120,7 @@ async function getCategories() {
       const key = 'website:categories';
       const raw = await redis.get(key);
       if (raw) {
-        try { return JSON.parse(raw); } catch (e) { /* fallthrough */ }
+        try { return JSON.parse(raw); } catch (_e) { /* fallthrough */ }
       }
       const rows = await loadCategories();
       try { await redis.set(key, JSON.stringify(rows), 'PX', TTL); } catch (e) { logger.warn('[WebsiteCache] Failed to write categories to redis:', e.message); }

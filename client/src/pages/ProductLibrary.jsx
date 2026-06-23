@@ -20,7 +20,6 @@ import {
     arrayMove,
     SortableContext,
     sortableKeyboardCoordinates,
-    verticalListSortingStrategy,
     rectSortingStrategy,
     useSortable,
 } from '@dnd-kit/sortable';
@@ -29,7 +28,7 @@ import toast from 'react-hot-toast';
 import ImageCropModal from '../components/ImageCropModal';
 import PageContainer from '../components/ui/PageContainer';
 
-const SortableItem = React.memo(({ id, children, className, disabled, index, ...props }) => {
+const SortableItem = React.memo(({ id, children, className, disabled, _index, ...props }) => {
     const {
         attributes,
         listeners,
@@ -86,8 +85,8 @@ const ProductLibrary = () => {
     const [productSearch, setProductSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const searchTimer = useRef(null);
-    const filterVendorRef = useRef('all');
-    const filterCalcTypeRef = useRef('all');
+    const _filterVendorRef = useRef('all');
+    const _filterCalcTypeRef = useRef('all');
     const [filterVendor, setFilterVendor] = useState('all');
     const [filterCalcType, setFilterCalcType] = useState('all');
     const [sortBy, setSortBy] = useState('name-asc');
@@ -116,7 +115,7 @@ const ProductLibrary = () => {
     const [productImage, setProductImage] = useState(null);
     const [productImagePreview, setProductImagePreview] = useState('');
     const [cropState, setCropState] = useState(null);
-    const [savingOrder, setSavingOrder] = useState(false);
+    const [_savingOrder, setSavingOrder] = useState(false);
     const [catImage, setCatImage] = useState(null);
     const [catImagePreview, setCatImagePreview] = useState('');
     const [catImageUrl, setCatImageUrl] = useState('');
@@ -326,7 +325,7 @@ const ProductLibrary = () => {
             else toast.success(`Deleted ${selectedProductIds.length - failed} products. ${failed} failed.`);
             setSelectedProductIds([]);
             fetchHierarchy();
-        } catch (err) {
+        } catch {
             toast.error('Error deleting selected products');
         }
     };
@@ -362,7 +361,7 @@ const ProductLibrary = () => {
             toast.success(`${anyActive ? 'Disabled' : 'Enabled'} selected products`);
             setSelectedProductIds([]);
             fetchHierarchy();
-        } catch (err) {
+        } catch {
             toast.error('Error updating products');
         }
     };
@@ -372,7 +371,7 @@ const ProductLibrary = () => {
         resetProductFilters();
     };
 
-    const toggleSub = (subId) => {
+    const _toggleSub = (subId) => {
         // Find category for this sub
         const cat = hierarchy.find(c => c.subcategories.some(s => s.id === subId));
         if (cat) setViewPath([cat.id, subId]);
@@ -506,14 +505,14 @@ const ProductLibrary = () => {
             const parts = String(url).split('/');
             const last = parts[parts.length - 1] || url;
             return String(last).split('?')[0];
-        } catch (e) {
+        } catch {
             return url;
         }
     };
 
     // Debounced unique company code fetcher
     const codeTimerRef = useRef(null);
-    const fetchUniqueCode = useCallback((companyName, currentProduct) => {
+    const fetchUniqueCode = useCallback((companyName, _currentProduct) => {
         if (codeTimerRef.current) clearTimeout(codeTimerRef.current);
         const cleaned = (companyName || '').replace(/[^A-Z0-9]/gi, '');
         if (cleaned.length < 2) return;
@@ -529,7 +528,7 @@ const ProductLibrary = () => {
                         product_code: buildAutoSku(uniqueCode, prev.name, prev.size)
                     };
                 });
-            } catch (err) {
+            } catch {
                 // Fallback: just use first 3 letters
                 const fallback = cleaned.substring(0, 3).toUpperCase();
                 setNewProduct(prev => {
@@ -1029,7 +1028,7 @@ const ProductLibrary = () => {
             setProductImage(null);
             setProductImagePreview(prod.image_url ? imgUrl(prod.image_url) : '');
             setShowProdModal(true);
-        } catch (err) {
+        } catch {
             toast.error('Error fetching product details');
         } finally {
             setEditLoading(null);
@@ -1109,7 +1108,7 @@ const ProductLibrary = () => {
             await api.patch(`/products/${prod.id}/toggle-active`);
             toast.success(isActive ? `"${prod.name}" disabled` : `"${prod.name}" enabled`);
             fetchHierarchy();
-        } catch (err) {
+        } catch {
             toast.error('Error updating product status');
             fetchHierarchy(); // Revert on error
         }
@@ -1125,7 +1124,7 @@ const ProductLibrary = () => {
             await api.patch(`/product-categories/${cat.id}/toggle-active`);
             toast.success(isActive ? `"${cat.name}" disabled` : `"${cat.name}" enabled`);
             fetchHierarchy();
-        } catch (err) {
+        } catch {
             toast.error('Error updating category status');
             fetchHierarchy(); // Revert on error
         }
@@ -1149,7 +1148,7 @@ const ProductLibrary = () => {
             await api.patch(`/product-subcategories/${sub.id}/toggle-active`);
             toast.success(isActive ? `"${sub.name}" disabled` : `"${sub.name}" enabled`);
             fetchHierarchy();
-        } catch (err) {
+        } catch {
             toast.error('Error updating subcategory status');
             fetchHierarchy(); // Revert on error
         }

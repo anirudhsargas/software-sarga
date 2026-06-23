@@ -72,7 +72,7 @@ const ProductRequests = () => {
             try {
                 const res = await api.get('/products', { params: { search: productSearch, limit: 10 } });
                 setProductResults(res.data?.data || res.data || []);
-            } catch { setProductResults([]); }
+            } catch (err) { setProductResults([]); }
             finally { setSearching(false); }
         }, 300);
         return () => clearTimeout(timer);

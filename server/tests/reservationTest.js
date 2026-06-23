@@ -39,9 +39,9 @@ async function run() {
         await conn.commit();
         console.log(`${label}: Reserved successfully`);
         return true;
-      } catch (e) {
-        console.error(`${label}: Error`, e.message || e);
-        try { await conn.rollback(); } catch (_) {}
+      } catch (_e) {
+        console.error(`${label}: Error`, _e.message || _e);
+        try { await conn.rollback(); } catch (_ignored) { /* ignored */ }
         return false;
       } finally {
         conn.release();
@@ -69,7 +69,7 @@ async function run() {
     process.exit(successCount === 1 ? 0 : 2);
   } catch (err) {
     console.error('Test failure:', err.message || err);
-    try { await connection.rollback(); } catch (_) {}
+    try { await connection.rollback(); } catch (_ignored) { /* ignored */ }
     await pool.end();
     process.exit(3);
   }

@@ -58,7 +58,6 @@ const RULES = [
       /number|mobile|cell|landline/i,
     ],
     response: "📞 **Contact Sarga Prints**\n\n**📧 Email:**\n→ **sargapba@gmail.com** (Perambra)\n→ **sargaoffsetmpr@gmail.com** (Meppayur)\n\n**💬 WhatsApp:**\n→ **wa.me/+919496XXXXXX** (Perambra)\n\n**⏰ Hours:**\nMonday–Saturday, 9:00 AM – 7:00 PM IST\n(Closed Sundays & public holidays)\n\nWe respond within 24 hours! 😊",
-    response: "📞 **Contact Sarga Prints**\n\n**📧 Email:**\n→ **sargapba@gmail.com** (Perambra)\n→ **sargaoffsetmpr@gmail.com** (Meppayur)\n\n**📱 Call:**\n→ +91-9496XXXXX (tap to call)\n\n**💬 WhatsApp:**\n→ **wa.me/+919496XXXXXX** (Perambra)\n\n**⏰ Hours:**\nMonday–Saturday, 9:00 AM – 7:00 PM IST\n(Closed Sundays & public holidays)\n\nWe respond within 24 hours! 😊",
     confidence: 0.95
   },
 
@@ -293,7 +292,7 @@ async function processMessage(message) {
         const text = `📂 **${cat.name}**\n\nSubcategories:\n${subs.length ? subs.join('\n') : 'No subcategories available.'}\n\nReply with the subcategory name or number to see products.`;
         return { text, confidence: 0.9, source: 'rule', ruleId: 'category_select', subcategories: cat.subcategories || [], category: cat };
       }
-    } catch (e) {
+    } catch (_e) {
       // fallthrough to normal rules
     }
   }
@@ -307,7 +306,7 @@ async function processMessage(message) {
       const text = `📂 **${foundCat.name}**\n\nSubcategories:\n${subs.length ? subs.join('\n') : 'No subcategories available.'}\n\nReply with the subcategory name or number to see products.`;
       return { text, confidence: 0.9, source: 'rule', ruleId: 'category_select', subcategories: foundCat.subcategories || [], category: foundCat };
     }
-  } catch (e) {
+  } catch (_e) {
     // ignore
   }
   for (const rule of RULES) {
@@ -320,7 +319,7 @@ async function processMessage(message) {
             const lines = cats.map((c, i) => `${i+1}. ${c.name}`);
             const text = `📚 **Our Services / Categories**\n\n${lines.join('\n')}\n\nReply with the category name or number to explore subcategories.`;
             return { text, confidence: rule.confidence, source: 'rule', ruleId: rule.id, categories: cats };
-          } catch (e) {
+          } catch (_e) {
             return { text: 'Sorry, I could not load services right now. Please try again later.', confidence: 0.6, source: 'error', ruleId: rule.id };
           }
         }

@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import { X, Camera, Upload } from 'lucide-react';
 import CameraPermissionModal from './CameraPermissionModal';
 
-let html5QrcodeModule = null;
+let _html5QrcodeModule = null;
 let html5QrcodePromise = null;
 
 const SCAN_ATTEMPTS = [1, 2, 3];
@@ -11,7 +11,7 @@ const SCAN_ATTEMPTS = [1, 2, 3];
 const getHtml5QrcodeModule = () => {
     if (html5QrcodePromise) return html5QrcodePromise;
     html5QrcodePromise = import('html5-qrcode').then(mod => {
-        html5QrcodeModule = mod;
+        _html5QrcodeModule = mod;
         return mod;
     });
     return html5QrcodePromise;
@@ -23,8 +23,8 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
     const isStoppingRef = useRef(false);
     const mountedRef = useRef(false);
     const fileInputRef = useRef(null);
-    const camDivId = useRef(`qr-cam-${Math.random().toString(36).slice(2)}`);
-    const prevIsOpenRef = useRef(isOpen);
+    const camDivId = useMemo(() => `qr-cam-${Math.random().toString(36).slice(2)}`, []);
+    const _prevIsOpenRef = useRef(isOpen);
     const triggerRef = useRef(null);
 
     useEffect(() => {
@@ -89,7 +89,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
             if (!mod || cancelled || !mountedRef.current) return;
             const { Html5Qrcode } = mod;
 
-            qr = new Html5Qrcode(camDivId.current, { verbose: false });
+            qr = new Html5Qrcode(camDivId, { verbose: false });
             scannerRef.current = qr;
             isStartedRef.current = false;
             isStoppingRef.current = false;
@@ -352,7 +352,7 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
 
                 {mode === 'camera' && (
                     <div
-                        id={camDivId.current}
+                        id={camDivId}
                         style={{ width: '100%', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-2)', minHeight: '240px' }}
                     />
                 )}

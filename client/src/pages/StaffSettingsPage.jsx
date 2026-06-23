@@ -34,7 +34,7 @@ function SidebarVisibilitySettings() {
         try {
             const settings = user?.settings ? (typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings) : {};
             return settings.sidebar || Object.fromEntries(sidebarOptions.map(opt => [opt.key, true]));
-        } catch (e) {
+        } catch {
             return Object.fromEntries(sidebarOptions.map(opt => [opt.key, true]));
         }
     });
@@ -49,7 +49,7 @@ function SidebarVisibilitySettings() {
             const { data } = await api.patch('/staff/settings', { settings: { sidebar: newVisible } });
             updateUser({ ...user, settings: data.settings });
             toast.success('Sidebar preferences updated');
-        } catch (err) {
+        } catch {
             toast.error('Failed to save preferences');
             setVisibleItems(oldItems);
         } finally {

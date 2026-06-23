@@ -61,7 +61,7 @@ router.get('/metrics', (req, res) => {
             memory: process.memoryUsage(),
             cache: cacheStats
         });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Failed to fetch metrics' });
     }
 });

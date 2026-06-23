@@ -241,7 +241,7 @@ router.post('/preflight/check-url', asyncHandler(async (req, res) => {
     });
 
     // Clean up temp file
-    try { fs.unlinkSync(tempPath); } catch {}
+    try { fs.unlinkSync(tempPath); } catch (_ignored) { /* ignored */ }
   } catch (err) {
     res.status(400).json({ error: `Failed to check file: ${err.message}` });
   }

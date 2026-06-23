@@ -119,7 +119,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
                 totalAmount += subtotal;
 
                 // Create the job immediately as Completed/Delivered
-                const [jobResult] = await connection.query(`
+                const [_jobResult] = await connection.query(`
                     INSERT INTO sarga_jobs (
                         branch_id, customer_id, job_name, description, quantity, 
                         total_amount, advance_paid, balance_amount, status, payment_status, 

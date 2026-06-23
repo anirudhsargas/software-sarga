@@ -105,7 +105,7 @@ router.get('/design-check/:id', authenticateToken, asyncHandler(async (req, res)
     if (!rows[0]) return res.status(404).json({ message: 'Design check not found' });
 
     const check = rows[0];
-    try { check.result_json = JSON.parse(check.result_json); } catch { }
+    try { check.result_json = JSON.parse(check.result_json); } catch (_ignored) { /* ignored */ }
 
     res.json(check);
 }));

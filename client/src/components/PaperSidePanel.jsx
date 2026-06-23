@@ -10,9 +10,9 @@ export default function PaperSidePanel({ open, onClose }) {
     const [categories, setCategories] = useState([]);
     const [mappings, setMappings] = useState([]);
     const [mapForm, setMapForm] = useState({ parent_inventory_item_id: '', child_size_code: '', pieces_per_parent: 2, loss_pct: 0, min_waste: 0 });
-    const [paperTypes, setPaperTypes] = useState([]);
+    const [_paperTypes, setPaperTypes] = useState([]);
     const [selectedIds, setSelectedIds] = useState([]);
-    const [selectedPaperType, setSelectedPaperType] = useState('');
+    const [selectedPaperType, _setSelectedPaperType] = useState('');
 
     const triggerRef = useRef(null);
 
@@ -85,7 +85,7 @@ export default function PaperSidePanel({ open, onClose }) {
         try {
             const res = await api.get('/inventory/paper-types');
             setPaperTypes(res.data?.types || res.data || []);
-        } catch (e) {
+        } catch {
             setPaperTypes([]);
         }
     };
@@ -126,7 +126,7 @@ export default function PaperSidePanel({ open, onClose }) {
             await api.delete(`/inventory/paper-cut-maps/${id}`);
             toast.success('Deleted');
             fetchCutMaps();
-        } catch (err) {
+        } catch {
             toast.error('Failed to delete mapping');
         }
     };
@@ -182,7 +182,7 @@ export default function PaperSidePanel({ open, onClose }) {
         });
     };
 
-    const mapSelectedToType = async () => {
+    const _mapSelectedToType = async () => {
         if (!selectedIds || selectedIds.length === 0) return toast.error('Select at least one item');
         if (!selectedPaperType) return toast.error('Select a paper type');
         try {

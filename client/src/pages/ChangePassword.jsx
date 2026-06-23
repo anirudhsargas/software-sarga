@@ -17,7 +17,7 @@ const ChangePassword = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
-    const navigate = useNavigate();
+    const _navigate = useNavigate();
 
     // Password complexity requirements
     const requirements = {

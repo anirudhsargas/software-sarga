@@ -12,7 +12,7 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs');
 const { extractBillData } = require('../utils/ocrParser');
-const { resolveInventoryImage, getInventoryImageSettings } = require('../services/imageService');
+const { _resolveInventoryImage, getInventoryImageSettings } = require('../services/imageService');
 
 // Configure Multer for file uploads (temporary storage)
 const upload = multer({ dest: os.tmpdir() });
@@ -59,7 +59,7 @@ async function findInventoryByScannedCode(rawCode) {
             await pool.query('ALTER TABLE sarga_inventory ADD COLUMN reserved_quantity INT NOT NULL DEFAULT 0');
             try {
                 await pool.query('ALTER TABLE sarga_inventory ADD CONSTRAINT chk_inventory_reserved_quantity CHECK (reserved_quantity >= 0)');
-            } catch (e) {
+            } catch (_e) {
                 // Some MySQL versions / engines ignore CHECK; non-fatal
             }
             console.log('[InventoryMigration] Added reserved_quantity column to sarga_inventory');
@@ -74,7 +74,7 @@ async function findInventoryByScannedCode(rawCode) {
 // List Inventory with enhanced filtering
 router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
     try {
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
         
         // Input validation and sanitization
         const search = req.query.search ? `%${String(req.query.search).trim().substring(0, 100)}%` : null;
@@ -397,7 +397,7 @@ router.get('/inventory/:id/branch-availability', authenticateToken, async (req, 
             // Bulk update category on inventory items (serves as paper-type mapping)
             await pool.query('UPDATE sarga_inventory SET category = ? WHERE id IN (?)', [paper_type || null, inventory_ids]);
 
-            try { auditLog(req.user.id, 'INVENTORY_PAPER_MAP', `Mapped ${inventory_ids.length} item(s) to ${paper_type}`, { entity_type: 'inventory', entity_ids: inventory_ids }); } catch (e) { }
+            try { auditLog(req.user.id, 'INVENTORY_PAPER_MAP', `Mapped ${inventory_ids.length} item(s) to ${paper_type}`, { entity_type: 'inventory', entity_ids: inventory_ids }); } catch (_e) { /* ignored */ }
 
             res.json({ message: 'Mapped successfully' });
         } catch (err) {
@@ -421,7 +421,7 @@ router.get('/inventory/by-sku/:sku', authenticateToken, async (req, res) => {
         const finalMrp = Number(item.mrp) || calculatedMrp || 0;
 
         res.json({ ...item, scanned_code: normalized, mrp: finalMrp % 1 === 0 ? finalMrp.toFixed(0) : finalMrp.toFixed(2) });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -465,7 +465,7 @@ router.get('/inventory/qr-diagnostic/:code', authenticateToken, authorizeRoles('
                 image_url: item.image_url
             }
         });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -825,7 +825,7 @@ router.post('/inventory/:id/consume', authenticateToken, authorizeRoles('Admin',
 
         auditLog(req.user.id, 'INVENTORY_CONSUME', `Consumed ${qtyToConsume} of item ${id} (${rows[0].name})`);
         res.json({ message: 'Stock consumed successfully' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -833,7 +833,7 @@ router.post('/inventory/:id/consume', authenticateToken, authorizeRoles('Admin',
 // Restock Inventory Item
 router.post('/inventory/:id/restock', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { id } = req.params;
-    const { quantity_received, cost_price, notes } = req.body;
+    const { quantity_received, cost_price, notes: _notes } = req.body;
 
     if (!quantity_received || Number(quantity_received) <= 0) {
         return res.status(400).json({ message: 'Invalid restock quantity' });
@@ -871,7 +871,7 @@ router.post('/inventory/:id/restock', authenticateToken, authorizeRoles('Admin',
 
         auditLog(req.user.id, 'INVENTORY_RESTOCK', `Restocked ${received} of item ${id} (${item.name}). Days gap: ${daysSince}`);
         res.json({ message: 'Restocked successfully', days_since_last_reorder: daysSince });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -922,7 +922,7 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             if (invalidPaperIds.length > 0) {
                 return res.status(400).json({ message: 'Label printing is disabled for paper inventory items', invalid_item_ids: invalidPaperIds });
             }
-        } catch (e) {
+        } catch (_e) {
             // If paper-mapping table doesn't exist or query fails, fall back to category-only detection
             const invalidPaperIds = dbItems
                 .filter(it => isPaperCategory(it.category))
@@ -953,8 +953,8 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
 
         // PDF Generation Parameters (4x12 layout)
         const doc = new PDFDocument({ size: 'A4', margin: 0 });
-        const pageWidth = 595.28; // A4 point width (approx 210mm)
-        const pageHeight = 841.89; // A4 point height (approx 297mm)
+        const _pageWidth = 595.28; // A4 point width (approx 210mm)
+        const _pageHeight = 841.89; // A4 point height (approx 297mm)
 
         // Converts mm to points (1mm = 2.83465 points)
         const mmToPt = (mm) => mm * 2.83465;
@@ -1105,7 +1105,7 @@ router.delete('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Acco
         await pool.query("DELETE FROM sarga_inventory WHERE id = ?", [id]);
         auditLog(req.user.id, 'INVENTORY_DELETE', `Deleted item ${id} (${rows[0].name}), had qty=${rows[0].quantity}`);
         res.json({ message: 'Inventory item deleted' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -1185,7 +1185,7 @@ router.get('/inventory/settings/image', authenticateToken, async (req, res) => {
     try {
         const settings = await getInventoryImageSettings();
         res.json(settings);
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Failed to fetch settings' });
     }
 });
@@ -1200,7 +1200,7 @@ router.put('/inventory/settings/image', authenticateToken, authorizeRoles('Admin
             [auto_assign_images ? 1 : 0, cache_images ? 1 : 0, generate_missing ? 1 : 0, category_placeholders ? 1 : 0, ask_before_saving ? 1 : 0, image_quality || 'Medium']
         );
         res.json({ message: 'Settings updated' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Failed to update settings' });
     }
 });
@@ -1243,7 +1243,7 @@ router.delete('/inventory/:id/image', authenticateToken, authorizeRoles('Admin',
         const id = req.params.id;
         await pool.query('DELETE FROM sarga_product_images WHERE inventory_item_id = ?', [id]);
         res.json({ message: 'Image removed successfully' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Failed to remove image' });
     }
 });
@@ -1279,7 +1279,7 @@ router.post('/inventory/:id/regenerate-image', authenticateToken, authorizeRoles
         }
         
         res.status(404).json({ message: 'No match found' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Regeneration failed' });
     }
 });
@@ -1287,7 +1287,7 @@ router.post('/inventory/:id/regenerate-image', authenticateToken, authorizeRoles
 router.post('/inventory/bulk-generate-images', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
     // In a real system, queue this. For now, we process asynchronously in background.
     try {
-        const { force } = req.body;
+        const { force: _force } = req.body;
         
         const [items] = await pool.query(
             `SELECT i.id, i.name, i.category, ps.name as product_subcategory_name 
@@ -1324,7 +1324,7 @@ router.post('/inventory/bulk-generate-images', authenticateToken, authorizeRoles
             console.log('Bulk generation complete');
         }, 1000);
         
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Failed to start bulk generation' });
     }
 });

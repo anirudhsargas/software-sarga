@@ -94,7 +94,7 @@ const starterArticles = [
     seo_title: '7 Common Visiting Card Design Mistakes | Sarga Prints',
     seo_description: 'Avoid crucial business card errors. Learn why resolution, typography, paper selection, and layout size matter from Sarga Prints Kozhikode.',
     content: `
-      <p>A visiting card is often a potential client\'s first physical point of contact with your brand. A poorly designed card gets thrown into the trash immediately. To ensure your business card works as a powerful marketing asset, avoid these 7 common design pitfalls.</p>
+      <p>A visiting card is often a potential client's first physical point of contact with your brand. A poorly designed card gets thrown into the trash immediately. To ensure your business card works as a powerful marketing asset, avoid these 7 common design pitfalls.</p>
 
       <h2>1. Overcrowding Information</h2>
       <p>Do not try to list every single product or service you offer. Keep it clean: your name, designation, company logo, phone number, email, website, and a single address line are all you need.</p>

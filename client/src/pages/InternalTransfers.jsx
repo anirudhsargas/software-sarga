@@ -42,7 +42,7 @@ const InternalTransfers = () => {
   const [transfers, setTransfers] = useState([]);
   const [branchFilter, setBranchFilter] = useState(isAdmin ? '' : String(user?.branch_id || ''));
 
-  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset, _watch } = useForm({
     resolver: zodResolver(transferSchema),
     defaultValues: {
       branchId: isAdmin ? '' : String(user?.branch_id || ''),

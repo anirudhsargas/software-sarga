@@ -12,7 +12,7 @@ const { invalidateDashboardCache, invalidateAnalyticsCache } = require('../servi
 router.get('/payments', authenticateToken, async (req, res) => {
     const { branch_id, type, startDate, endDate } = req.query;
     try {
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         let where = '';
         const params = [];
@@ -184,7 +184,7 @@ router.delete('/payments/:id', authenticateToken, authorizeRoles('Admin', 'Accou
         await pool.query("DELETE FROM sarga_payments WHERE id = ?", [req.params.id]);
         auditLog(req.user.id, 'PAYMENT_DELETE', `Deleted payment record ${req.params.id}`);
         res.json({ message: 'Payment record deleted successfully' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -196,7 +196,7 @@ router.get('/payment-methods', authenticateToken, async (req, res) => {
     try {
         const [rows] = await pool.query("SELECT * FROM sarga_payment_methods WHERE is_active = 1 ORDER BY name ASC");
         res.json(rows);
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -247,7 +247,7 @@ router.delete('/payment-methods/:id', authenticateToken, authorizeRoles('Admin',
         await pool.query("UPDATE sarga_payment_methods SET is_active = 0 WHERE id = ?", [id]);
         auditLog(req.user.id, 'PAYMENT_METHOD_DELETE', `Deleted payment method ${id}`);
         res.json({ message: 'Payment method deleted successfully' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });

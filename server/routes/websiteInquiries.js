@@ -16,7 +16,7 @@ const requireAdmin = (req, res, next) => {
 router.get('/website-inquiries', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { status } = req.query;
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         let whereClause = '';
         let queryParams = [];
@@ -60,7 +60,7 @@ router.patch('/website-inquiries/:id/status', authenticateToken, requireAdmin, a
         // Create internal_notes column if it doesn't exist (migration)
         try {
             await pool.query('ALTER TABLE sarga_website_inquiries ADD COLUMN internal_notes TEXT NULL');
-        } catch (e) {
+        } catch (_e) {
             // Column might already exist, ignore error
         }
 

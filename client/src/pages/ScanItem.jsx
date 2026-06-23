@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Camera, Search, Upload, Plus, Minus, Loader2,
@@ -113,7 +113,7 @@ const ScanItem = () => {
     const mountedRef = useRef(true);
     const fileInputRef = useRef(null);
     const manualInputRef = useRef(null);
-    const camDivId = useRef(`qr-cam-page-${Math.random().toString(36).slice(2)}`);
+    const camDivId = useMemo(() => `qr-cam-page-${Math.random().toString(36).slice(2)}`, []);
 
     const normalizeCode = (val) => String(val || '').replace(/\s+/g, '').toUpperCase();
 
@@ -174,7 +174,7 @@ const ScanItem = () => {
         const qr = scannerRef.current;
         if (!qr || !isStartedRef.current || isStoppingRef.current) return;
         isStoppingRef.current = true;
-        try { await qr.stop(); } catch (e) { console.warn('Camera stop error:', e); }
+        try { await qr.stop(); } catch { console.warn('Camera stop error:', e); }
         finally {
             isStartedRef.current = false;
             isStoppingRef.current = false;
@@ -224,7 +224,7 @@ const ScanItem = () => {
             const mod = await getHtml5QrcodeModule();
             if (!mod || !mountedRef.current) return;
             const { Html5Qrcode } = mod;
-            const qr = new Html5Qrcode(camDivId.current, { verbose: false });
+            const qr = new Html5Qrcode(camDivId, { verbose: false });
             scannerRef.current = qr;
 
             if (cameras.length === 0) {
@@ -455,7 +455,7 @@ const ScanItem = () => {
                 }
             });
             toast.success('Opening billing with item pre-filled…');
-        } catch (err) {
+        } catch {
             toast.error('Failed to prepare bill.');
         } finally {
             setBillLoading(false);
@@ -549,7 +549,7 @@ const ScanItem = () => {
                             { id: 'camera', label: 'Live Camera', icon: Camera },
                             { id: 'file', label: 'Upload Image', icon: Upload },
                             { id: 'manual', label: 'Manual Entry', icon: Search },
-                        ].map(({ id, label, icon: Icon }) => (
+                        ].map(({ id, label, icon: _Icon }) => (
                             <button
                                 key={id}
                                 className={`si-tab ${activeTab === id ? 'si-tab--active' : ''}`}
@@ -585,7 +585,7 @@ const ScanItem = () => {
                                 )}
 
                                 <div className="si-viewport">
-                                    <div id={camDivId.current} className="si-video-container" />
+                                    <div id={camDivId} className="si-video-container" />
 
                                     {/* Scan overlay when active */}
                                     {isCamActive && (

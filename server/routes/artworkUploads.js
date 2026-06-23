@@ -166,7 +166,7 @@ router.get('/website/artwork/my-uploads', asyncHandler(async (req, res) => {
   try {
     const jwt = require('jsonwebtoken');
     decoded = jwt.verify(token, process.env.JWT_SECRET);
-  } catch (e) {
+  } catch (_e) {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
@@ -273,7 +273,7 @@ router.delete('/artwork/:id', authenticateToken, authorizeRoles('Admin'), asyncH
   const { deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
   for (const f of files) {
     if (f.public_id) {
-      try { await deleteFromCloudinary(f.public_id); } catch (e) { /* ignore */ }
+      try { await deleteFromCloudinary(f.public_id); } catch (_e) { /* ignore */ }
     }
   }
 

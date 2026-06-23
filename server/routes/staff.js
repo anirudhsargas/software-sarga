@@ -52,7 +52,7 @@ module.exports = (upload, removeUploadFile) => {
     // List Staff
     router.get('/', authenticateToken, async (req, res) => {
         try {
-            const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+            const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
             let where = "WHERE s.role != 'Admin'";
             const params = [];
@@ -126,7 +126,7 @@ module.exports = (upload, removeUploadFile) => {
                 // Return updated info
                 const [rows] = await pool.query("SELECT id, user_id, name, role, branch_id, image_url FROM sarga_staff WHERE id = ?", [id]);
                 return res.json(rows[0]);
-            } catch (err) {
+            } catch (_err) {
                 return res.status(500).json({ message: 'Database error' });
             }
         }
@@ -183,7 +183,7 @@ module.exports = (upload, removeUploadFile) => {
 
                 const [rows] = await pool.query("SELECT id, user_id, name, role, branch_id, image_url, salary_type, base_salary, daily_rate, settings FROM sarga_staff WHERE id = ?", [id]);
                 return res.json(rows[0]);
-            } catch (err) {
+            } catch (_err) {
                 return res.status(500).json({ message: 'Database error' });
             }
         }

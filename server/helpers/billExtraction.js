@@ -329,7 +329,7 @@ async function processBillDocument(filePath) {
         const ocrData = { ...await extractBillData(filePath, mimeType), raw_text: paddleText };
         const fallbackSuggestions = buildSuggestionsFromOcr(ocrData);
         return { success: true, suggestions: fallbackSuggestions };
-      } catch (paddleError) {
+      } catch (_paddleError) {
         console.warn('[PaddleOCR] Failed. Falling back to Tesseract OCR.');
         const mimeType = getMimeType(filePath);
         const ocrData = await extractBillData(filePath, mimeType);

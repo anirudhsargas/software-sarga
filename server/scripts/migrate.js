@@ -66,7 +66,7 @@ async function migrate() {
     // --- sarga_products ---
     try {
       await conn.query("ALTER TABLE sarga_products MODIFY COLUMN calculation_type ENUM('Normal','Slab','Range') DEFAULT 'Normal'");
-    } catch (e) { /* safe */ }
+    } catch (_e) { /* safe */ }
 
     try { await conn.query("ALTER TABLE sarga_products ADD COLUMN product_code VARCHAR(80)"); } catch (e) { ignoreDup(e); }
     try { await conn.query("ALTER TABLE sarga_products ADD COLUMN image_url VARCHAR(255)"); } catch (e) { ignoreDup(e); }
@@ -105,7 +105,7 @@ async function migrate() {
     // --- sarga_payments ---
     try {
       await conn.query("ALTER TABLE sarga_payments MODIFY COLUMN payment_method ENUM('Cash','UPI','Both','Cheque','Account Transfer','Bank Transfer') DEFAULT 'Cash'");
-    } catch (e) { /* safe */ }
+    } catch (_e) { /* safe */ }
     try {
       await conn.query("ALTER TABLE sarga_payments ADD COLUMN vendor_id INT DEFAULT NULL");
       await conn.query("ALTER TABLE sarga_payments ADD FOREIGN KEY (vendor_id) REFERENCES sarga_vendors(id) ON DELETE SET NULL");
@@ -120,10 +120,10 @@ async function migrate() {
     } catch (e) { ignoreDup(e); }
     try {
       await conn.query("ALTER TABLE sarga_payments MODIFY COLUMN payment_method VARCHAR(100) DEFAULT 'Cash'");
-    } catch (e) { /* safe */ }
+    } catch (_e) { /* safe */ }
     try {
       await conn.query("ALTER TABLE sarga_payments MODIFY COLUMN payment_date DATETIME NOT NULL");
-    } catch (e) { /* safe */ }
+    } catch (_e) { /* safe */ }
     try { await conn.query("ALTER TABLE sarga_payments ADD COLUMN cash_amount DECIMAL(12, 2) DEFAULT 0"); } catch (e) { ignoreDup(e); }
     try { await conn.query("ALTER TABLE sarga_payments ADD COLUMN upi_amount DECIMAL(12, 2) DEFAULT 0"); } catch (e) { ignoreDup(e); }
 
@@ -155,7 +155,7 @@ async function migrate() {
       }
       await conn.query("ALTER TABLE sarga_jobs MODIFY COLUMN customer_id INT NULL");
       await conn.query("ALTER TABLE sarga_jobs ADD FOREIGN KEY (customer_id) REFERENCES sarga_customers(id) ON DELETE SET NULL");
-    } catch (e) { /* safe */ }
+    } catch (_e) { /* safe */ }
 
     console.log('All migrations applied successfully.');
   } finally {

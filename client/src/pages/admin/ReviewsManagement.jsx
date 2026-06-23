@@ -41,7 +41,7 @@ function ReviewsManagement() {
     try {
       const res = await api.get('/reviews');
       setReviews(res.data?.reviews || []);
-    } catch (e) {
+    } catch {
       toast.error('Failed to load reviews');
     } finally {
       setLoading(false);
@@ -63,7 +63,7 @@ function ReviewsManagement() {
       setEditing(null);
       setForm({ reviewer_name: '', rating: 5, review_text: '', source: 'manual', is_featured: false, is_active: true, sort_order: 0, review_date: '' });
       fetchReviews();
-    } catch (e) {
+    } catch {
       toast.error('Failed to save review');
     }
   }, [editing, form, fetchReviews]);

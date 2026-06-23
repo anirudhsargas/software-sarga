@@ -32,7 +32,7 @@ export default function SignInPage() {
                 placeholder="User ID / Mobile Number"
                 autoComplete="tel"
                 readOnly
-                onFocus={(e) => { window.location.href = '/login'; }}
+                onFocus={(_e) => { window.location.href = '/login'; }}
               />
             </div>
             <button type="button" className="btn btn-primary btn--full" onClick={() => { window.location.href = '/login'; }}>

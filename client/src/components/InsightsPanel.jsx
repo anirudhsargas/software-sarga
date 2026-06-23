@@ -37,7 +37,7 @@ export default function InsightsPanel() {
             setData(responseData);
             setError(false);
             localStorage.setItem(CACHE_KEY, JSON.stringify(responseData));
-        } catch (err) {
+        } catch {
             setError(true);
         } finally {
             setLoading(false);

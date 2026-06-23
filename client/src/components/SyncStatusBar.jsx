@@ -4,7 +4,7 @@ import { RefreshCw, Wifi, WifiOff, CheckCircle, AlertCircle, Loader2, ArrowUpCir
 import './SyncStatusBar.css';
 
 export const SyncStatusBar = () => {
-  const { status, lastSyncText, pendingCount, syncNow } = useSyncStatus();
+  const { status, lastSyncText: _lastSyncText, pendingCount, syncNow } = useSyncStatus();
   const [visible, setVisible] = useState(false);
   const isOnline = navigator.onLine;
 

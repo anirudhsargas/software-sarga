@@ -20,7 +20,7 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
   const [scanning, setScanning] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
   const [showExtractedItems, setShowExtractedItems] = useState(false);
-  const { errors, validate, focusFirstError, formRef } = useFormValidation();
+  const { errors, validate, focusFirstError, formRef: _formRef } = useFormValidation();
   const fileInputRef = useRef(null);
   const triggerRef = useRef(null);
 
@@ -124,7 +124,7 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
 
       if (error.response?.data?.errors) {
         const serverErrors = error.response.data.errors;
-        Object.entries(serverErrors).forEach(([field, msg]) => {
+        Object.entries(serverErrors).forEach(([_field, msg]) => {
           if (typeof msg === 'string') {
             // Server validation errors handled
           }

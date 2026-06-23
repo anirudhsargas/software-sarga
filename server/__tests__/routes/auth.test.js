@@ -1,6 +1,6 @@
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken'); // eslint-disable-line no-unused-vars
 
 const mockQuery = jest.fn();
 jest.mock('../../database', () => {

@@ -71,7 +71,7 @@ router.get('/', auth.authenticate, async (req, res) => {
 
         const mappedBillings = billings.map(b => {
             let order_lines = [];
-            try { order_lines = JSON.parse(b.order_lines || '[]'); } catch (_) {}
+            try { order_lines = JSON.parse(b.order_lines || '[]'); } catch (_ignored) { /* ignored */ }
             const totalPrints = order_lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
             const totalSheets = order_lines.reduce((s, l) => s + (Number(l.sheets) || 0), 0);
             return {

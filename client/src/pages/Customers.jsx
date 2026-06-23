@@ -378,7 +378,7 @@ const Customers = () => {
             setSelectedCustomer(null);
             toast.success('Customer updated locally');
             fetchCustomers();
-        } catch {
+        } catch (e) {
             setError('Failed to update customer');
             setCustomers(prevCustomers);
         } finally {
@@ -693,7 +693,7 @@ const Customers = () => {
                     <ServerError onRetry={fetchCustomers} message={error} />
                 ) : customers.length === 0 ? (
                     <div className="text-center p-40 muted">No customers found.</div>
-                ) : customers.map((c, idx) => {
+                ) : customers.map((c, _idx) => {
                     const isExpanded = !!expandedRows[c.id];
                     const outstanding = Number(c.outstanding_balance || 0);
                     const formattedLastOrder = c.last_order_date

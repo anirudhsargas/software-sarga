@@ -2,7 +2,6 @@ import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Printer, Trash2, Edit2, Plus, ArrowLeftRight, Minus, Package, Search, Bell, Camera, Filter, FileText, ChevronDown, CheckSquare, Layers, Download, Share2, Phone, ShoppingCart, List, Grid, X, Image as ImageIcon, Settings, IndianRupee, BarChart3, TrendingUp, RefreshCw, Loader2, Link, Clock, Check, QrCode } from 'lucide-react';
-import useAuth from '../hooks/useAuth';
 import api, { imgUrl } from '../services/api';
 import auth from '../services/auth';
 import localDb from '../services/localDb';
@@ -429,7 +428,7 @@ const Inventory = () => {
             const parts = String(url).split('/');
             const last = parts[parts.length - 1] || url;
             return String(last).split('?')[0];
-        } catch (e) {
+        } catch {
             return url;
         }
     };
@@ -758,7 +757,7 @@ const Inventory = () => {
                 } else if (err.message) {
                     msg = err.message;
                 }
-            } catch { /* ignore parse error */ }
+            } catch (err) { /* ignore parse error */ }
             console.error('Label generation error:', err);
             toast.error(msg);
         } finally {
@@ -1083,7 +1082,7 @@ const Inventory = () => {
                                     try {
                                         const res = await api.post('/inventory/bulk-generate-images');
                                         toast.success(res.data.message);
-                                    } catch (e) {
+                                    } catch {
                                         toast.error('Failed to trigger bulk generation');
                                     }
                                 }}>

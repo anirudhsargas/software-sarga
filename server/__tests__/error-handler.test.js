@@ -4,7 +4,7 @@ jest.mock('../helpers/logger', () => ({
 
 const httpMocks = require('node-mocks-http');
 const errorHandler = require('../middleware/errorHandler');
-const { AppError, BadRequestError, NotFoundError, ValidationError } = require('../utils/AppError');
+const { AppError: _AppError, BadRequestError: _BadRequestError, NotFoundError, ValidationError } = require('../utils/AppError');
 
 function buildReqRes(url) {
   const req = httpMocks.createRequest({ url: url || '/api/test' });

@@ -22,7 +22,7 @@ router.post('/requests/id-change', authenticateToken, asyncHandler(async (req, r
 // Admin Review Requests
 router.get('/requests/id-change', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
     try {
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
         const baseFrom = `
              FROM sarga_id_requests r 
              JOIN sarga_staff u ON r.user_id_internal = u.id 
@@ -37,7 +37,7 @@ router.get('/requests/id-change', authenticateToken, authorizeRoles('Admin'), as
             LIMIT ? OFFSET ?
         `, [limit, offset]);
         res.json(response(rows, total));
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -111,7 +111,7 @@ router.post('/requests/customer-change', authenticateToken, asyncHandler(async (
 
 // List customer change requests (Admin)
 router.get('/requests/customer-change', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
     const baseFrom = `
         FROM sarga_customer_requests r
         JOIN sarga_staff s ON r.requester_id = s.id
@@ -199,7 +199,7 @@ router.post('/requests/customer-change/:id/review', authenticateToken, authorize
 
 // List attendance change requests (Admin)
 router.get('/requests/attendance', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
     const baseFrom = `
         FROM sarga_attendance_requests r
         JOIN sarga_staff s ON r.staff_id = s.id
@@ -340,7 +340,7 @@ router.get('/requests/discount/my', authenticateToken, asyncHandler(async (req, 
 // List all pending discount requests (Admin sees all; Accountant sees only accountant_or_admin)
 router.get('/requests/discount', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
     const isAdmin = req.user.role === 'Admin';
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
     const baseFrom = `
         FROM sarga_discount_requests r

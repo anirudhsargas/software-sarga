@@ -715,7 +715,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to upload bill');
     } finally {
-  const handleSubcategorySelect = (subcategoryName) => {
+  const _handleSubcategorySelect = (subcategoryName) => {
     if (!globalCategoryId) return;
     const category = hierarchyOptions.find(c => String(c.id) === String(globalCategoryId));
     const matched = category?.subcategories?.find(s => String(s.name || '').includes(subcategoryName));
@@ -724,7 +724,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     }
   };
 
-  const handleProductLink = (product) => {
+  const _handleProductLink = (product) => {
     setLinkedProduct(product);
     setStep('linking');
   };
@@ -772,7 +772,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     });
   };
 
-  const submitForm = async () => {
+  const _submitForm = async () => {
     if (!finalForm.amount) {
       setError('Amount is required');
       return;

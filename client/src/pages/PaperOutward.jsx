@@ -41,7 +41,7 @@ const PaperOutward = () => {
                 setPaperTypes(typesRes.data);
                 setBranches(branchesRes.data);
                 setStockSummary(stockRes.data);
-            } catch (err) {
+            } catch {
                 toast.error('Failed to load initial data');
             }
         };

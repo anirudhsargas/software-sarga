@@ -5,12 +5,12 @@ test.describe('Dark Mode Toggle', () => {
     await page.goto('/login');
     const toggleBtn = page.locator('button:has(svg), [aria-label*="theme"], [aria-label*="dark"], [class*="theme"]').first();
     if (await toggleBtn.isVisible().catch(() => false)) {
-      const initialBg = await page.evaluate(() =>
+      const _initialBg = await page.evaluate(() =>
         getComputedStyle(document.documentElement).getPropertyValue('--bg-primary')
       );
       await toggleBtn.click();
       await page.waitForTimeout(500);
-      const afterBg = await page.evaluate(() =>
+      const _afterBg = await page.evaluate(() =>
         getComputedStyle(document.documentElement).getPropertyValue('--bg-primary')
       );
       const htmlClass = await page.evaluate(() => document.documentElement.className);

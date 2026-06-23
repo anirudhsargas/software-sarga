@@ -3,7 +3,7 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { validate, addVendorSchema, addInvoiceSchema, addVendorPaymentSchema } = require('../middleware/validate');
-const { paginate } = require('../helpers/pagination');
+const { paginate: _paginate } = require('../helpers/pagination');
 const multer = require('multer');
 const csv = require('csv-parse');
 const fs = require('fs');
@@ -84,7 +84,7 @@ async function updateOverdueStatuses() {
 // GET /api/vendors - List all vendors with spend summary
 router.get('/vendors', authenticateToken, async (req, res) => {
   try {
-    const { page = 1, limit = 20, search = '', category = '' } = req.query;
+    const { page: _page, limit: _limit, search = '', category = '' } = req.query;
 
     let whereClause = 'WHERE v.is_active = TRUE';
     const params = [];
@@ -328,7 +328,7 @@ router.delete('/vendors/:id', authenticateToken, authorizeRoles('Admin'), async 
     try {
       const [invoices] = await pool.query('SELECT COUNT(*) as count FROM vendor_invoices WHERE vendor_id = ? AND paid_amount < amount', [id]);
       unpaidCount = invoices[0].count;
-    } catch (err) {
+    } catch (_err) {
       // If vendor_invoices doesn't exist or fails, try sarga_vendor_bills
       try {
         const [bills] = await pool.query('SELECT COUNT(*) as count FROM sarga_vendor_bills WHERE vendor_id = ?', [id]);
@@ -1126,7 +1126,7 @@ function parseDate(dateStr) {
       if (date && !isNaN(date.getTime())) {
         return date.toISOString().split('T')[0];
       }
-    } catch (e) {
+    } catch (_e) {
       continue;
     }
   }

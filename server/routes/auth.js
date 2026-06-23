@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { pool } = require('../database');
-const { authenticateToken, authorizeRoles, JWT_SECRET, revokeSessionInCache } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles: _authorizeRoles, JWT_SECRET, revokeSessionInCache } = require('../middleware/auth');
 const { normalizeMobileWithCountry, auditLog } = require('../helpers');
 const { validate, loginSchema, changePasswordSchema } = require('../middleware/validate');
 const bcrypt = require('bcryptjs');
@@ -152,6 +152,7 @@ module.exports = (upload) => {
             if (!/[0-9]/.test(newPassword)) {
                 return res.status(400).json({ message: 'Password must contain at least one number (0-9)' });
             }
+            // eslint-disable-next-line no-useless-escape
             if (!/[@$!%*?&^#()_+\-=\[\]{};':",./<>?\|`~]/.test(newPassword)) {
                 return res.status(400).json({ message: 'Password must contain at least one special character' });
             }
@@ -183,7 +184,7 @@ module.exports = (upload) => {
             );
             if (!rows[0]) return res.status(404).json({ message: 'User not found' });
             res.json(rows[0]);
-        } catch (err) {
+        } catch (_err) {
             res.status(500).json({ message: 'Database error' });
         }
     });
@@ -197,7 +198,7 @@ module.exports = (upload) => {
             try {
                 const result = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'staff-profiles');
                 imageUrl = result.secure_url;
-            } catch (err) {
+            } catch (_err) {
                 return res.status(500).json({ message: 'Profile image upload failed' });
             }
         } else if (req.file && req.file.path) {

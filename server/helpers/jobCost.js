@@ -15,13 +15,13 @@ async function getPaperCost(product_id, quantity) {
 
 // Fetch machine cost per unit — returns 0 until a machine cost config table is implemented
 // TODO: implement machine_cost_per_unit config and replace this stub
-async function getMachineCost(product_id, quantity) {
+async function getMachineCost(_product_id, _quantity) {
     return 0;
 }
 
 // Fetch labour cost for a job — returns 0 until time-tracking is implemented
 // TODO: implement time-tracking table and replace this stub
-async function getLabourCost(job_id) {
+async function getLabourCost(_job_id) {
     return 0;
 }
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
-const logger = require('../helpers/logger');
+const logger = require('../helpers/logger'); // eslint-disable-line no-unused-vars
 const { invalidatePattern } = require('../services/cacheService');
 
 const invalidateCache = (pattern) => invalidatePattern(pattern).catch(() => {});
@@ -91,7 +91,7 @@ router.get('/pricing/products', asyncHandler(async (req, res) => {
 router.get('/pricing/calculate', asyncHandler(async (req, res) => {
   const {
     product_id, quantity, size, gsm, paper_type,
-    color_count, finish_ids, branch_id
+    color_count, finish_ids, branch_id: _branch_id
   } = req.query;
 
   if (!product_id || !quantity) {

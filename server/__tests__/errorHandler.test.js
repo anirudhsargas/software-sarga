@@ -1,4 +1,4 @@
-const { AppError, BadRequestError, NotFoundError } = require('../utils/AppError');
+const { AppError: _AppError, BadRequestError, NotFoundError } = require('../utils/AppError');
 
 describe('Error Handler', () => {
   let errorHandler;

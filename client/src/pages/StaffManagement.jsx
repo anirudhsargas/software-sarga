@@ -12,8 +12,8 @@ import Pagination from '../components/Pagination';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import CountryCodeSelect from '../components/CountryCodeSelect';
-import { formatForDisplay, telHref } from '../utils/phone';
-import { validatePhone, filterMobile } from '../utils/validators';
+import { formatForDisplay, _telHref } from '../utils/phone';
+import { _validatePhone, filterMobile } from '../utils/validators';
 
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
@@ -177,7 +177,7 @@ const StaffManagement = () => {
     const [settingsStaff, setSettingsStaff] = useState(null);
     const [newStaff, setNewStaff] = useState({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: '', salary_type: 'Monthly', base_salary: '', daily_rate: '' });
     const [branches, setBranches] = useState([]);
-    const [error, setError] = useState('');
+    const [_error, setError] = useState('');
     const [newStaffImage, setNewStaffImage] = useState(null);
     const [newStaffPreview, setNewStaffPreview] = useState('');
     const [editStaffImage, setEditStaffImage] = useState(null);
@@ -232,7 +232,7 @@ const StaffManagement = () => {
         try {
             const response = await api.get('/branches');
             setBranches(response.data);
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch branches');
         }
     };
@@ -252,7 +252,7 @@ const StaffManagement = () => {
             setStaff(sortedStaff);
             setTotal(res.total);
             setTotalPages(res.totalPages);
-        } catch (err) {
+        } catch {
             setError('Failed to fetch staff list');
         } finally {
             setLoading(false);
@@ -397,7 +397,7 @@ const StaffManagement = () => {
         try {
             await api.delete(`/staff/${id}`);
             fetchStaff();
-        } catch (err) {
+        } catch {
             setError('Failed to delete staff member');
             fetchStaff();
         }
@@ -414,7 +414,7 @@ const StaffManagement = () => {
         try {
             await api.put(`/staff/${id}/reset-password`, {});
             toast.success('Password reset successfully!');
-        } catch (err) {
+        } catch {
             setError('Failed to reset password');
         }
     };
@@ -735,7 +735,7 @@ const StaffSettingsModal = ({ staff, onClose, onUpdate }) => {
                     reports: true
                 }
             };
-        } catch (e) {
+        } catch {
             return { sidebar: { dashboard: true, customers: true, billing: true, jobs: true, inventory: true, expenses: true, reports: true } };
         }
     });
@@ -760,7 +760,7 @@ const StaffSettingsModal = ({ staff, onClose, onUpdate }) => {
             toast.success('Staff settings updated');
             onUpdate(response.data);
             onClose();
-        } catch (err) {
+        } catch {
             toast.error('Failed to update settings');
         } finally {
             setLoading(false);

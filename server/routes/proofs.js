@@ -95,7 +95,7 @@ router.post('/website/proofs/:id/review', asyncHandler(async (req, res) => {
       [proofs[0].job_id, status === 'approved' ? 'Processing' : 'Designing',
        `Customer ${status} proof #${req.params.id}${customer_feedback ? ': ' + customer_feedback : ''}`]
     );
-  } catch {}
+  } catch (_ignored) { /* ignored */ }
 
   res.json({
     message: `Proof ${status}`,
@@ -150,7 +150,7 @@ router.post('/proofs/:jobId/upload', authenticateToken, asyncHandler(async (req,
         version, url: result.secure_url, expires_at: expiresAt,
         message: 'Proof uploaded. Customer has 7 days to approve.'
       });
-    } catch (e) {
+    } catch (_e) {
       res.status(500).json({ error: 'Upload failed' });
     }
   });

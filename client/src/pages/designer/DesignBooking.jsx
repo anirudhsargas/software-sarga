@@ -81,7 +81,7 @@ const EMPTY_FORM = {
 const DesignBooking = () => {
   useSEO('Design Queue');
   const queryClient = useQueryClient();
-  const user = auth.getUser();
+  const _user = auth.getUser();
 
   const [statusFilter, setStatusFilter] = useState('All');
   const [search, setSearch] = useState('');

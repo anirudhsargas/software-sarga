@@ -1,6 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState } from 'react';
-import usePolling from '../hooks/usePolling';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, Clock, Calendar, Search, RefreshCw, FileText, FileDown, Copy, AlertCircle, IndianRupee, Layers, Package, Phone, User, Building2, Shield, CheckCircle2, ChevronDown, Trash2, Upload, Eye, ThumbsUp, ThumbsDown, RotateCcw, MessageSquare, CreditCard, XCircle, Activity, Loader2, Users, Plus, Image } from 'lucide-react';
 import LoadingButton from '../components/LoadingButton';
@@ -52,7 +51,7 @@ const Badge = ({ label, color }) => {
     );
 };
 
-const InfoRow = ({ icon: Icon, label, value, isPhone, whatsappOptions }) => (
+const InfoRow = ({ icon: _Icon, label, value, isPhone, whatsappOptions }) => (
     <div className="job-info-row">
         <Icon size={16} />
         <span className="job-info-label">{label}</span>
@@ -121,7 +120,7 @@ const WhatsAppDropdown = ({ mobile, options }) => {
     );
 };
 
-const Section = ({ title, icon: Icon, action, children }) => (
+const Section = ({ title, icon: _Icon, action, children }) => (
     <div className="job-section">
         <div className="job-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -134,7 +133,7 @@ const Section = ({ title, icon: Icon, action, children }) => (
     </div>
 );
 
-const StatCard = ({ label, value, icon: Icon, color, subValue }) => (
+const StatCard = ({ label, value, icon: _Icon, color, subValue }) => (
     <div className="job-stat-card-inner">
         <div className="job-stat-card-header">
             <span className="job-stat-card-label">{label}</span>
@@ -175,7 +174,7 @@ const JobDetail = () => {
     const [creditModal, setCreditModal] = useState(false);
     const [creditReason, setCreditReason] = useState('');
     const [submittingCredit, setSubmittingCredit] = useState(false);
-    const [branchUpiId, setBranchUpiId] = useState('');
+    const [_branchUpiId, _setBranchUpiId] = useState('');
     const [branchesData, setBranchesData] = useState([]);
 
     // Paper tracking state
@@ -258,7 +257,7 @@ const JobDetail = () => {
                                     try { await localDb.cacheJobDetails(srv.job.id, { assignments: srv.assignments, paper_logs: srv.paper_logs, designs: srv.designs, proofs: srv.proofs }); } catch {}
                                 }
                             }
-                        } catch (e) {
+                        } catch {
                             // caching failure shouldn't block UI
                         }
                         setPaperLogs(srv.paper_logs || []);
@@ -301,7 +300,7 @@ const JobDetail = () => {
             setPaperLogModal(false);
             setPaperForm({ stage: '', paper_size: '', sheets_used: '', sheets_wasted: '', notes: '' });
             fetchJob();
-        } catch (err) {
+        } catch {
             toast.error('Failed to log paper usage');
         } finally {
             setLoggingPaper(false);
@@ -316,7 +315,7 @@ const JobDetail = () => {
             await api.delete(`/jobs/${id}/paper-logs/${logId}`);
             toast.success('Log removed');
             fetchPaperLogs();
-        } catch (err) {
+        } catch {
             toast.error('Failed to delete log');
             fetchPaperLogs();
         }
@@ -624,7 +623,7 @@ const JobDetail = () => {
             setCancelModal(false);
             setCancelReason('');
             fetchJob();
-        } catch (err) {
+        } catch {
             toast.error('Failed to cancel order');
         } finally {
             setCancelling(false);
@@ -666,7 +665,7 @@ const JobDetail = () => {
             } else {
                 navigate('/dashboard/jobs');
             }
-        } catch (e) {
+        } catch {
             navigate('/dashboard/jobs');
         }
     };
@@ -700,7 +699,7 @@ const JobDetail = () => {
 
     const balance = Number(job.balance_amount || 0);
     const statusColor = statusColors[job.status] || 'var(--muted)';
-    const payColor = paymentColors[job.payment_status] || 'var(--muted)';
+    const _payColor = paymentColors[job.payment_status] || 'var(--muted)';
 
     const currentUserAssignment = assignments?.find(a => a.staff_id === auth.getUser()?.id)
         || assignments?.find(a => a.staff_id === null && a.role === auth.getUser()?.role);

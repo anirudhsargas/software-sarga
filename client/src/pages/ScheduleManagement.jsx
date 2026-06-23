@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useEffect, useState, useMemo } from 'react';
+import React, {useEffect, useState} from 'react';
 import { Clock, Calendar, AlertTriangle, Timer, Plus, Check, X, ChevronDown, Users, Edit2, Trash2 } from 'lucide-react';
 import api from '../services/api';
 import auth from '../services/auth';

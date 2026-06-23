@@ -42,7 +42,7 @@ router.post('/backups', authenticateToken, authorizeRoles('Admin'), asyncHandler
 
     const dumpCmd = `mysqldump -u ${DB_USER} ${DB_PASS ? '-p' + DB_PASS : ''} ${DB_NAME} > "${BACKUP_FILE}"`;
 
-    exec(dumpCmd, (error, stdout, stderr) => {
+    exec(dumpCmd, (error, _stdout, _stderr) => {
         if (error) {
             console.error('Backup failed:', error);
             return res.status(500).json({ message: 'Backup failed' });
@@ -77,7 +77,7 @@ router.post('/backups/restore', authenticateToken, authorizeRoles('Admin'), asyn
 
     const restoreCmd = `mysql -u ${DB_USER} ${DB_PASS ? '-p' + DB_PASS : ''} ${DB_NAME} < "${backupFile}"`;
 
-    exec(restoreCmd, (error, stdout, stderr) => {
+    exec(restoreCmd, (error, _stdout, _stderr) => {
         if (error) {
             console.error('Restore failed:', error);
             return res.status(500).json({ message: 'Restore failed' });

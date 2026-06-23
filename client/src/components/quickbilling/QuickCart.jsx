@@ -30,7 +30,7 @@ const QuickCart = ({ isOpen, setIsOpen, items, setItems }) => {
                 setItems([]);
                 setIsOpen(false);
             }, 1500);
-        } catch (err) {
+        } catch {
             toast.error('Checkout failed');
         } finally {
             setLoading(false);

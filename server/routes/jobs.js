@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles, normalizeRole } = require('../middleware/auth');
-const { auditLog, auditFieldChanges, getUsageMap, sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser, generateJobNumber, getTodayDate } = require('../helpers');
+const { auditLog, auditFieldChanges, getUsageMap, _sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser, generateJobNumber, getTodayDate } = require('../helpers');
 const { analyzeDesign } = require('../helpers/designAnalyzer');
 const { validate, addJobSchema } = require('../middleware/validate');
 const { fileToBase64 } = require('../utils/base64');
@@ -59,7 +59,7 @@ const getHierarchyData = async () => {
                 const [inventory] = await pool.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id");
                 return { ...cached, inventory };
             }
-        } catch (cacheErr) {
+        } catch (_cacheErr) {
             // Redis error — fall through to DB
         }
     }
@@ -108,7 +108,7 @@ const invalidateHierarchyCache = () => {
 };
 
 // --- HELPER: PRICING ENGINE ---
-const calculateProductPrice = (product, quantity, slabs) => {
+const _calculateProductPrice = (product, quantity, slabs) => {
     let result = { unit_price: 0, total: 0 };
     const qty = Number(quantity) || 0;
 
@@ -360,7 +360,7 @@ router.get('/jobs', authenticateToken, async (req, res) => {
         const customerType = String(req.query.customer_type || '').trim();
         const tab = String(req.query.tab || 'active').trim().toLowerCase();
         const userRole = String(req.user.role || '').trim();
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
         const { branchId } = await branchFilter(req);
 
         let where = '';
@@ -841,7 +841,7 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
         invalidateCustomerCache().catch(() => {});
 
         // Trigger anomaly check asynchronously (non-blocking)
-        try { require('./anomalies').checkAnomalies().catch(() => {}); } catch (_) {}
+        try { require('./anomalies').checkAnomalies().catch(() => {}); } catch (_ignored) { /* ignored */ }
     } catch (err) {
         await connection.rollback();
         console.error("Job create error:", err);
@@ -1014,7 +1014,7 @@ router.get('/jobs/assignments/suggestions', authenticateToken, async (req, res) 
         }
 
         res.json({ suggestions });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -1086,9 +1086,9 @@ router.post('/jobs/assignments/bulk', authenticateToken, async (req, res) => {
         const jobMap = new Map(jobs.map((j) => [j.id, j]));
         const staffMap = new Map(staff.map((s) => [s.id, s]));
 
-        let branchId = null;
+        let _branchId = null;
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
-            ({ branchId } = await branchFilter(req, { allowPrivilegedQuery: false }));
+            ({ branchId: _branchId } = await branchFilter(req, { allowPrivilegedQuery: false }));
         }
 
         for (const assignment of assignments) {
@@ -1147,7 +1147,7 @@ router.post('/jobs/assignments/bulk', authenticateToken, async (req, res) => {
 
         auditLog(req.user.id, 'JOB_ASSIGNMENT_BULK', `Assigned staff to ${assignments.length} jobs`, { entity_type: 'job_assignment' });
         res.json({ message: 'Assignments saved', count: assignments.length });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -1442,7 +1442,7 @@ router.get('/jobs/:id', authenticateToken, async (req, res) => {
                 );
                 payments = rows;
             }
-        } catch (e) { /* ignore if column not yet migrated */ }
+        } catch (_e) { /* ignore if column not yet migrated */ }
 
         // Status history
         let statusHistory = [];
@@ -1455,7 +1455,7 @@ router.get('/jobs/:id', authenticateToken, async (req, res) => {
                 ORDER BY ssh.changed_at DESC
             `, [id]);
             statusHistory = history;
-        } catch (e) { /* table may not exist */ }
+        } catch (_e) { /* table may not exist */ }
 
         // Fetch analytics
         const { calculateAndUpdateJobCost } = require('../helpers/jobCost');
@@ -1789,7 +1789,7 @@ router.post('/jobs/:id/repeat', authenticateToken, async (req, res) => {
         try {
             const { calculateAndUpdateJobCost } = require('../helpers/jobCost');
             await calculateAndUpdateJobCost({ id: result.insertId, product_id: orig.product_id, quantity, total_amount });
-        } catch (e) { /* non-critical */ }
+        } catch (_e) { /* non-critical */ }
 
         await connection.commit();
 
@@ -1953,7 +1953,7 @@ router.delete('/jobs/:jobId/paper-logs/:logId', authenticateToken, async (req, r
         await pool.query('UPDATE sarga_jobs SET used_sheets = ? WHERE id = ?', [Number(agg.total_used) || 0, req.params.jobId]);
         auditLog(req.user.id, 'PAPER_LOG_DELETE', `Deleted paper log #${req.params.logId} from job ${req.params.jobId}`, { entity_type: 'paper_log', entity_id: req.params.logId });
         res.json({ message: 'Paper log deleted' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -2033,7 +2033,7 @@ router.post('/jobs/:id/consume-paper', authenticateToken, async (req, res) => {
                     try {
                         const [maps] = await conn.query('SELECT * FROM sarga_paper_cut_map WHERE parent_inventory_item_id = ? AND child_size_code = ? LIMIT 1', [parentId, childSize]);
                         mapping = maps && maps.length ? maps[0] : null;
-                    } catch (e) {
+                    } catch (_e) {
                         // ignore missing table
                     }
                 }
@@ -2042,12 +2042,12 @@ router.post('/jobs/:id/consume-paper', authenticateToken, async (req, res) => {
                 const lossPct = it.loss_pct !== undefined ? Number(it.loss_pct) : (mapping ? Number(mapping.loss_pct) : null);
                 const minWaste = it.min_waste !== undefined ? Number(it.min_waste) : (mapping ? Number(mapping.min_waste) : 0);
 
-                const { waste_child, total_child, parent_needed } = calculateParentNeeded(required, pieces, lossPct, minWaste);
+                const { waste_child, total_child: _total_child, parent_needed } = calculateParentNeeded(required, pieces, lossPct, minWaste);
 
                 // Attempt to deduct parent_needed (branch first, then global)
                 let consumedFromBranch = 0;
                 let consumedFromGlobal = 0;
-                let shortage = 0;
+                let _shortage = 0;
 
                 if (branchId) {
                     const [bs] = await conn.query('SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ? FOR UPDATE', [parentId, branchId]);
@@ -2429,7 +2429,7 @@ router.delete('/jobs/:id/proofs/:proofId', authenticateToken, async (req, res) =
         await pool.query('DELETE FROM sarga_job_proofs WHERE id = ?', [req.params.proofId]);
         auditLog(req.user.id, 'PROOF_DELETE', `Deleted proof from job ${req.params.id}`);
         res.json({ message: 'Proof deleted' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -2522,10 +2522,10 @@ router.delete('/jobs/:id/matter/:matterId', authenticateToken, async (req, res) 
         if (!matter) return res.status(404).json({ message: 'Not found' });
 
         const filePath = path.join(__dirname, '..', matter.file_url.replace(/^\//, ''));
-        try { fs.unlinkSync(filePath); } catch {}
+        try { fs.unlinkSync(filePath); } catch (_ignored) { /* ignored */ }
         await pool.query('DELETE FROM sarga_job_matter WHERE id = ?', [matter.id]);
         res.json({ message: 'Deleted' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });

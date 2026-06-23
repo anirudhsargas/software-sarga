@@ -1,5 +1,5 @@
 const request = require('supertest');
-const { app, generateTestToken, insertTestBranch, insertTestStaff, cleanTestData, testPool } = require('./setup');
+const { app, generateTestToken, insertTestBranch, insertTestStaff, cleanTestData, testPool: _testPool } = require('./setup');
 
 describe('Stock Planning', () => {
   let adminToken;

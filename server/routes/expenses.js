@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getUserBranchId, auditLog, getTodayDate } = require('../helpers');
+const { _getUserBranchId, auditLog, getTodayDate } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
 const { analyticsCache } = require('../middleware/cache');
 
@@ -147,7 +147,7 @@ router.get('/rent-locations', authenticateToken, async (req, res) => {
         query += ' ORDER BY property_name';
         const [rows] = await pool.query(query, params);
         res.json(rows);
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -163,7 +163,7 @@ router.post('/rent-locations', authenticateToken, authorizeRoles('Admin', 'Accou
         );
         auditLog(req.user.id, 'RENT_LOCATION_ADD', `Added rent location: ${property_name}`);
         res.status(201).json({ id: result.insertId, message: 'Rent location added' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -176,7 +176,7 @@ router.put('/rent-locations/:id', authenticateToken, authorizeRoles('Admin', 'Ac
             [property_name, location, owner_name, owner_mobile, monthly_rent || 0, due_day || 1, advance_deposit || 0, branch_id || null, req.params.id]
         );
         res.json({ message: 'Rent location updated' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -185,7 +185,7 @@ router.delete('/rent-locations/:id', authenticateToken, authorizeRoles('Admin', 
     try {
         await pool.query('UPDATE sarga_rent_locations SET is_active = 0 WHERE id = ?', [req.params.id]);
         res.json({ message: 'Rent location removed' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -218,7 +218,7 @@ router.get('/vendor-requests', authenticateToken, async (req, res) => {
     try {
         const { status } = req.query; // 'Pending', 'Approved', 'Rejected', or undefined (all)
         const isAdmin = ['Admin', 'Accountant'].includes(req.user.role);
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         let whereClauses = [];
         const params = [];
@@ -342,7 +342,7 @@ router.put('/vendor-requests/:id/review', authenticateToken, authorizeRoles('Adm
                             [request.name, request.request_type, request.contact_person, request.phone,
                             request.address, request.gstin, request.branch_id]
                         );
-                    } catch (_) {}
+                    } catch (_ignored) { /* ignored */ }
 
                     await auditLog(req.user.id, 'INSERT', `Approved vendor request #${id} and created ${request.request_type}: ${request.name} (Vendor ID: ${vendorResult.insertId})`);
                 } else {
@@ -496,7 +496,7 @@ router.post('/expense-vendors', authenticateToken, authorizeRoles('Admin', 'Acco
                 [name, type || 'Vendor', contact_person || null, phone || null,
                  address || null, gstin || null, order_link || null, branch_id || null]
             );
-        } catch (_) {}
+        } catch (_ignored) { /* ignored */ }
 
         res.status(201).json({ id: result.insertId, name });
     } catch (err) {
@@ -541,7 +541,7 @@ router.put('/expense-vendors/:id', authenticateToken, authorizeRoles('Admin', 'A
                 [name, type || 'Vendor', contact_person || null, phone || null,
                  address || null, gstin || null, order_link || null, branch_id || null, id]
             );
-        } catch (_) {}
+        } catch (_ignored) { /* ignored */ }
 
         res.json({ message: 'Vendor updated successfully' });
     } catch (err) {
@@ -560,7 +560,7 @@ router.delete('/expense-vendors/:id', authenticateToken, authorizeRoles('Admin')
         await pool.query("UPDATE vendors SET is_active = FALSE WHERE id = ?", [id]);
         try {
             await pool.query('DELETE FROM sarga_vendors WHERE id = ?', [id]);
-        } catch (_) {}
+        } catch (_ignored) { /* ignored */ }
         res.json({ message: 'Vendor deleted successfully' });
     } catch (err) {
         console.error('DELETE /expense-vendors/:id error:', err);

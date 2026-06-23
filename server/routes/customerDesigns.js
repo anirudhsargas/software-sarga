@@ -76,7 +76,7 @@ const removeFile = async (fileUrl) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/customers/:id/designs', authenticateToken, async (req, res) => {
     try {
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
         const baseFrom = `
              FROM sarga_customer_designs d
              LEFT JOIN sarga_staff s ON d.uploaded_by = s.id
@@ -203,7 +203,7 @@ router.put('/customers/:customerId/designs/:designId', authenticateToken, async 
             [title || null, notes || null, tags || null, job_id || null, req.params.designId, req.params.customerId]
         );
         res.json({ message: 'Design updated' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -223,7 +223,7 @@ router.delete('/customers/:customerId/designs/:designId', authenticateToken, asy
         await pool.query('DELETE FROM sarga_customer_designs WHERE id = ?', [req.params.designId]);
         auditLog(req.user.id, 'DESIGN_DELETE', `Deleted design ${req.params.designId} for customer ${req.params.customerId}`);
         res.json({ message: 'Design deleted' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -233,7 +233,7 @@ router.delete('/customers/:customerId/designs/:designId', authenticateToken, asy
 // ═══════════════════════════════════════════════════════════════
 router.get('/jobs/:jobId/designs', authenticateToken, async (req, res) => {
     try {
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
         const baseFrom = `
              FROM sarga_customer_designs d
              LEFT JOIN sarga_staff s ON d.uploaded_by = s.id
@@ -352,7 +352,7 @@ router.delete('/jobs/:jobId/designs/:designId', authenticateToken, async (req, r
         await pool.query('DELETE FROM sarga_customer_designs WHERE id = ?', [req.params.designId]);
         auditLog(req.user.id, 'JOB_DESIGN_DELETE', `Deleted design ${req.params.designId} from job ${req.params.jobId}`);
         res.json({ message: 'Design deleted' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });

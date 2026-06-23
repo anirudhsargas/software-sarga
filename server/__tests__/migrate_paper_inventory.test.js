@@ -1,4 +1,4 @@
-const { migrate, findPaperItems } = require('../migrations/migrate_paper_inventory');
+const { migrate, findPaperItems: _findPaperItems } = require('../migrations/migrate_paper_inventory');
 
 describe('migrate_paper_inventory', () => {
   test('migrates paper-like inventory rows', async () => {

@@ -199,7 +199,7 @@ router.post('/', authenticateToken, authorizeRoles(...allowedRoles), async (req,
 // Fetch list of past verifications
 router.get('/history/list', authenticateToken, authorizeRoles(...allowedRoles), async (req, res) => {
     try {
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         const baseFrom = `
             FROM sarga_stock_verifications v 

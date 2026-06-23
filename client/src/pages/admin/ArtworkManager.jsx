@@ -35,7 +35,7 @@ function ArtworkManager() {
       const res = await api.get('/artwork/list', { params });
       setUploads(res.data.reviews || []);
       setTotal(res.data.total || 0);
-    } catch (e) {
+    } catch {
       toast.error('Failed to load artwork uploads');
     } finally {
       setLoading(false);
@@ -46,7 +46,7 @@ function ArtworkManager() {
     try {
       const res = await api.get(`/artwork/${id}`);
       setDetail(res.data.artwork);
-    } catch (e) {
+    } catch {
       toast.error('Failed to load details');
     }
   }, []);
@@ -71,7 +71,7 @@ function ArtworkManager() {
       toast.success('Status updated');
       if (detail && detail.id === id) setDetail(d => ({ ...d, status }));
       fetchList();
-    } catch (e) {
+    } catch {
       toast.error('Failed to update status');
     }
   }, [detail, fetchList]);
@@ -85,7 +85,7 @@ function ArtworkManager() {
         setDetail(dd => ({ ...dd, assigned_designer_id: Number(designer_id) || null, assigned_designer_name: d?.name || null }));
       }
       fetchList();
-    } catch (e) {
+    } catch {
       toast.error('Failed to assign designer');
     }
   }, [detail, designers, fetchList]);
@@ -95,7 +95,7 @@ function ArtworkManager() {
     try {
       await api.put(`/artwork/${detail.id}/notes`, { notes: detail.notes || '' });
       toast.success('Notes saved');
-    } catch (e) {
+    } catch {
       toast.error('Failed to save notes');
     }
   }, [detail]);
@@ -107,7 +107,7 @@ function ArtworkManager() {
       toast.success('Artwork deleted');
       if (selected === id) { setSelected(null); setDetail(null); }
       fetchList();
-    } catch (e) {
+    } catch {
       toast.error('Failed to delete');
     }
   }, [selected, fetchList]);

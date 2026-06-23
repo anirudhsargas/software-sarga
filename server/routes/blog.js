@@ -4,7 +4,7 @@ const { pool } = require('../database');
 const { authenticate, requireRole } = require('../middleware/auth');
 const logger = require('../helpers/logger');
 
-module.exports = (upload) => {
+module.exports = (_upload) => {
   const router = express.Router();
 
   // Simple async error handler wrapper

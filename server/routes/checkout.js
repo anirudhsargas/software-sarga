@@ -230,7 +230,7 @@ router.post('/checkout/coupon/apply', asyncHandler(async (req, res) => {
 // POST /api/checkout/create-order - Create order from cart (before payment)
 router.post('/checkout/create-order', asyncHandler(async (req, res) => {
   const customerId = getCustomerId(req);
-  const sessionId = req.headers['x-sarga-uuid'] || uuidv4();
+  const _sessionId = req.headers['x-sarga-uuid'] || uuidv4();
   const { cart_id, payment_method, delivery_method, pickup_slot_id, gst_number, billing_address, delivery_address, customer_name, customer_phone, customer_email, notes } = req.body;
 
   if (!cart_id) return res.status(400).json({ error: 'cart_id required' });
@@ -426,7 +426,7 @@ router.get('/checkout/order/:orderNumber', asyncHandler(async (req, res) => {
 // GET /api/checkout/orders - List customer orders
 router.get('/checkout/orders', asyncHandler(async (req, res) => {
   const customerId = getCustomerId(req);
-  const sessionId = req.headers['x-sarga-uuid'] || uuidv4();
+  const _sessionId = req.headers['x-sarga-uuid'] || uuidv4();
 
   let where = 'o.customer_id = ?';
   let params = [customerId];
@@ -497,7 +497,7 @@ router.get('/checkout/order/:orderNumber/invoice', asyncHandler(async (req, res)
 
   // Table header
   const tableTop = doc.y;
-  const col1 = 50, col2 = 180, col3 = 300, col4 = 370, col5 = 440, col6 = 510;
+  const col1 = 50, col2 = 180, col3 = 300, col4 = 370, col5 = 440, _col6 = 510;
   doc.fontSize(9).font('Helvetica-Bold');
   doc.text('Item', col1, tableTop);
   doc.text('Qty', col2, tableTop);

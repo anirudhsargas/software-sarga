@@ -63,7 +63,7 @@ async function getMockStockPlanningData() {
         
         const [items] = await pool.query(`SELECT id, name, category, unit, quantity FROM sarga_inventory LIMIT 20 OFFSET ?`, [randomOffset]);
         
-        const stock_status = items.map((item, idx) => {
+        const stock_status = items.map((item, _idx) => {
             const currentStock = parseInt(item.quantity) || 0;
             const avgConsumption = 2 + Math.random() * 5;
             const daysToStockout = currentStock > 0 ? Math.floor(currentStock / avgConsumption) : 0;

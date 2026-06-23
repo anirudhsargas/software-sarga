@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, {useState, useEffect, useCallback, useMemo} from 'react';
 import { FileText, Plus, Edit2, Trash2, Send, ArrowRight, Search, X, Loader2, UserSquare, Package, Clock, Camera } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -189,7 +189,7 @@ export default function Quotes() {
                     const subs = serverHierarchy[0].subcategories || [];
                     if (subs.length > 0) setSelectedSubcategoryId(subs[0].id);
                 }
-            } catch (err) {
+            } catch {
                 // ignore silently — product picker is optional for quotes
             }
         };
@@ -334,7 +334,7 @@ export default function Quotes() {
             const { data } = await api.get(`/quotes/${id}`);
             setForm({ ...data, items: data.items || [] });
             setEditing(id); setShowForm(true);
-        } catch { toast.error('Failed to load quote'); }
+        } catch (err) { toast.error('Failed to load quote'); }
     }, []);
 
     const handleDelete = useCallback(async (id) => {
@@ -345,7 +345,7 @@ export default function Quotes() {
             await api.delete(`/quotes/${id}`);
             toast.success('Deleted');
             fetchQuotes();
-        } catch {
+        } catch (err) {
             toast.error('Failed to delete');
             fetchQuotes();
         }

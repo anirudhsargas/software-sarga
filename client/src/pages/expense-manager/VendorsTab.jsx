@@ -206,7 +206,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
         try {
           const r = await api.get(`/vendors/${vendor.id}/statement${params.toString() ? `?${params.toString()}` : ''}`);
           ledgerData = r.data || null;
-        } catch (err) {
+        } catch {
           ledgerData = null;
         }
       }
@@ -215,7 +215,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
         // fallback to local DB
         try {
           ledgerData = await localDb.getVendorLedger(vendor.id);
-        } catch (err) {
+        } catch {
           ledgerData = { rows: [], payments: [], purchases: [] };
         }
       }
@@ -256,7 +256,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
     try {
       const ir = await api.get(`/vendors/${v.id}/items`);
       setVendorItems(ir.data.items || []);
-    } catch (e) {
+    } catch {
       setVendorItems([]);
     }
   }, [fetchVendorLedger, statementFrom, statementTo]);
@@ -516,7 +516,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
     toast.success('Download started');
   };
 
-  const downloadVendorStatement = async () => {
+  const _downloadVendorStatement = async () => {
     if (!selectedVendor) { toast.error('No vendor selected'); return; }
     try {
       let ledgerData = vendorLedger;
@@ -524,7 +524,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
       try {
         const r = await api.get(`/vendors/${selectedVendor.id}/statement`);
         ledgerData = r.data || ledgerData;
-      } catch (err) {
+      } catch {
         // swallow — we'll fallback to local ledger/purchases/payments
       }
 
@@ -610,11 +610,11 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
         try {
           const r = await api.get(`/vendors/${selectedVendor.id}/statement${params.toString() ? `?${params.toString()}` : ''}`);
           ledgerData = r.data || ledgerData;
-        } catch (err) {
-          try { ledgerData = await localDb.getVendorLedger(selectedVendor.id); } catch (e) { ledgerData = { rows: [], payments: [], purchases: [] }; }
+        } catch {
+          try { ledgerData = await localDb.getVendorLedger(selectedVendor.id); } catch { ledgerData = { rows: [], payments: [], purchases: [] }; }
         }
       } else {
-        try { ledgerData = await localDb.getVendorLedger(selectedVendor.id); } catch (e) { ledgerData = { rows: [], payments: [], purchases: [] }; }
+        try { ledgerData = await localDb.getVendorLedger(selectedVendor.id); } catch { ledgerData = { rows: [], payments: [], purchases: [] }; }
       }
 
       // apply client-side date filtering if needed
@@ -798,7 +798,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
         w.document.close();
         w.focus();
         // give time for resources to load then call print
-        setTimeout(() => { try { w.print(); } catch (e) { console.error(e); } }, 500);
+        setTimeout(() => { try { w.print(); } catch { console.error(e); } }, 500);
         container.remove();
         toast.success('Opened print dialog (save as PDF)');
         return;
@@ -833,7 +833,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
     try {
       const inv = await localDb.getInventory();
       setInventoryOptions(inv.data || []);
-    } catch (e) {
+    } catch {
       setInventoryOptions([]);
     }
     setBillForm({ vendor_id: selectedVendor.id, bill_number: '', bill_date: serverToday() });

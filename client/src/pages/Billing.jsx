@@ -13,8 +13,8 @@ import QRCode from 'qrcode';
 import api from '../services/api';
 import localDb from '../services/localDb';
 import auth from '../services/auth';
-import { formatCurrency } from '../constants';
-import { printInvoicePDF, downloadInvoicePDF } from '../utils/invoicePdf';
+import {} from '../constants';
+import { printInvoicePDF } from '../utils/invoicePdf';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { calculateProductPrice } from '../utils/pricing';
 import './Billing.css';
@@ -115,15 +115,15 @@ const Billing = () => {
   const [customerMatches, setCustomerMatches] = useState([]);
   const [customerSearching, setCustomerSearching] = useState(false);
   const [hierarchy, setHierarchy] = useState([]);
-  const [machines, setMachines] = useState([]);
+  const [_machines, setMachines] = useState([]);
   const [orderLines, setOrderLines] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [_selectedProduct, setSelectedProduct] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState('');
-  const [extraInputs, setExtraInputs] = useState([]);
-  const [jobData, setJobData] = useState(defaultJobData());
-  const [showJobDetails, setShowJobDetails] = useState(false);
-  const [showMachineDetails, setShowMachineDetails] = useState(false);
+  const [_extraInputs, _setExtraInputs] = useState([]);
+  const [_jobData, _setJobData] = useState(defaultJobData());
+  const [_showJobDetails, _setShowJobDetails] = useState(false);
+  const [_showMachineDetails, _setShowMachineDetails] = useState(false);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
   const [quickEntry, setQuickEntry] = useState({ name: '', amount: '', book_type: 'Laser' });
   const [payment, setPayment] = useState(defaultPayment());
@@ -131,7 +131,7 @@ const Billing = () => {
   const [discountMode, setDiscountMode] = useState('amount');
   const [discountInputAmount, setDiscountInputAmount] = useState(0);
   const [discountError, setDiscountError] = useState('');
-  const [scannerOpen, setScannerOpen] = useState(false);
+  const [_scannerOpen, _setScannerOpen] = useState(false);
   const [scannedPreview, setScannedPreview] = useState(null);
   const [scannedQty, setScannedQty] = useState(1);
   const [lastBillData, setLastBillData] = useState(null);
@@ -152,7 +152,7 @@ const Billing = () => {
   const [productSuggestions, setProductSuggestions] = useState([]);
   const [productSearching, setProductSearching] = useState(false);
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
-  const [fieldErrors, setFieldErrors] = useState({});
+  const [_fieldErrors, _setFieldErrors] = useState({});
   const [branchUpiId, setBranchUpiId] = useState('');
   const [printAfterSave, setPrintAfterSave] = useState(true);
   const [sendWhatsApp, setSendWhatsApp] = useState(false);
@@ -160,8 +160,8 @@ const Billing = () => {
   const [recentProducts, setRecentProducts] = useState(
     () => JSON.parse(localStorage.getItem('recentProducts') || '[]')
   );
-  const [lastOrderCustomerType, setLastOrderCustomerType] = useState('');
-  const [lastOrderAutoDelivered, setLastOrderAutoDelivered] = useState(false);
+  const [_lastOrderCustomerType, setLastOrderCustomerType] = useState('');
+  const [_lastOrderAutoDelivered, setLastOrderAutoDelivered] = useState(false);
   const [showRecentBills, setShowRecentBills] = useState(false);
   const [recentBills, setRecentBills] = useState([]);
   const [loadingRecentBills, setLoadingRecentBills] = useState(false);
@@ -203,7 +203,7 @@ const Billing = () => {
       });
 
       setRecentBills(merged);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load recent bills');
     } finally {
       setLoadingRecentBills(false);
@@ -226,7 +226,7 @@ const Billing = () => {
         order_lines: b.orderLines || b.order_lines || []
       };
       printInvoicePDF(printData);
-    } catch (err) {
+    } catch {
       toast.error('Failed to print invoice');
     }
   }, []);
@@ -234,7 +234,7 @@ const Billing = () => {
   // Derived
   const isWalkIn = form.type === 'Walk-in';
   const needsGst = form.type === 'Offset' || form.type === 'Retail' || form.type === 'Wholesale';
-  const isInternalBill = location.state?.internal || form.type === 'Internal' || form.type === 'Stock Transfer';
+  const _isInternalBill = location.state?.internal || form.type === 'Internal' || form.type === 'Stock Transfer';
 
   // ── Data loading ──
   useEffect(() => {
@@ -365,7 +365,7 @@ const Billing = () => {
     [payment.selectedMethods, payment.methodAmounts]
   );
 
-  const computeDiscTotal = useCallback((lines, discPct) => {
+  const _computeDiscTotal = useCallback((lines, discPct) => {
     const sub = lines.reduce((s, l) => s + (Number(l.total_amount) || 0), 0);
     return sub - Math.min(sub * Math.min(Math.max(Number(discPct) || 0, 0), 100) / 100, sub);
   }, []);
@@ -569,7 +569,7 @@ const Billing = () => {
     setShowQuickEntry(false);
   }, [quickEntry]);
 
-  const removeLine = useCallback((id) => {
+  const _removeLine = useCallback((id) => {
     setOrderLines(prev => prev.filter(l => l.id !== id));
   }, []);
 
@@ -815,7 +815,7 @@ const Billing = () => {
     if (saveTimerRef.current) clearInterval(saveTimerRef.current);
     saveTimerRef.current = setInterval(() => {
       if (orderLines.length > 0 || form.mobile || form.name) {
-        const draftLines = orderLines.map(({ _product, matter_file, matter_preview, ...rest }) => rest);
+        const draftLines = orderLines.map(({ _product, _matter_file, _matter_preview, ...rest }) => rest);
         localStorage.setItem('billingDraft', JSON.stringify({ customer: form, orders: draftLines, totals }));
       }
     }, 10000);
@@ -839,7 +839,7 @@ const Billing = () => {
   }, []);
 
   // ── Back navigation with draft guard ──
-  const handleBack = useCallback(async () => {
+  const _handleBack = useCallback(async () => {
     if (orderLines.length > 0 || form.name) {
       const yes = await confirm({
         title: 'Leave Invoice?',
@@ -848,7 +848,7 @@ const Billing = () => {
         cancelText: 'Stay',
       });
       if (!yes) return;
-      const draftLines = orderLines.map(({ _product, matter_file, matter_preview, ...rest }) => rest);
+      const draftLines = orderLines.map(({ _product, _matter_file, _matter_preview, ...rest }) => rest);
       localStorage.setItem('billingDraft', JSON.stringify({ customer: form, orders: draftLines, totals }));
     }
     navigate('/invoices');
@@ -1588,7 +1588,7 @@ const Billing = () => {
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
-              const draftLines = orderLines.map(({ _product, matter_file, matter_preview, ...rest }) => rest);
+              const draftLines = orderLines.map(({ _product, _matter_file, _matter_preview, ...rest }) => rest);
               localStorage.setItem('billingDraft', JSON.stringify({ customer: form, orders: draftLines, totals }));
               toast.success('Draft saved');
             }}>

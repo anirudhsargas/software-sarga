@@ -19,7 +19,7 @@ const TICKETS_FILE = path.join(__dirname, 'tickets.json');
 function readJson(file, fallback) {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch (e) {
+  } catch (_e) {
     return fallback;
   }
 }
@@ -127,7 +127,7 @@ app.post('/chat', (req, res) => {
       const cats = Array.from(new Set(products.map(p => p.category))).filter(Boolean);
       const lines = cats.map((c, i) => `${i+1}. ${c}`);
       return res.json({ reply: `📚 Available categories:\n\n${lines.join('\n')}\n\nReply with the category name or number to continue.` });
-    } catch (e) {
+    } catch (_e) {
       return res.json({ reply: 'Sorry, could not load categories right now.' });
     }
   }

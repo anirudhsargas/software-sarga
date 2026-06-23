@@ -144,7 +144,7 @@ export default React.memo(function SampleRequestsCMS() {
       setEditingSample(null);
       resetSampleForm();
       fetchData();
-    } catch (err) {
+    } catch {
       alert('Failed to save material adjustments.');
     } finally {
       setSavingSample(false);

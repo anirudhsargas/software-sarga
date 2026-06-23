@@ -11,6 +11,17 @@ import PageContainer from '../../components/ui/PageContainer';
 
 const CHART_COLORS = ['var(--error)', 'var(--warning)', 'var(--accent-2)', 'var(--success)', 'var(--accent)', 'var(--destructive)', 'var(--accent)', 'var(--warning)'];
 
+const TrendBadge = ({ current, previous }) => {
+  if (!previous || !current) return null;
+  const pct = ((current - previous) / (previous || 1) * 100).toFixed(1);
+  const up = pct > 0;
+  return (
+    <span className={`em-trend-badge ${up ? 'em-trend-badge--up' : 'em-trend-badge--down'}`}>
+      {up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />} {Math.abs(pct)}%
+    </span>
+  );
+};
+
 const DashboardTab = ({ branches, onPayment }) => {
   const [loading, setLoading] = useState(false);
   const [dashboard, setDashboard] = useState(null);
@@ -36,18 +47,6 @@ const DashboardTab = ({ branches, onPayment }) => {
   }, [month, branchFilter]);
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
-
-  /* ── Helper: percentage change indicator ── */
-  const TrendBadge = ({ current, previous }) => {
-    if (!previous || !current) return null;
-    const pct = ((current - previous) / (previous || 1) * 100).toFixed(1);
-    const up = pct > 0;
-    return (
-      <span className={`em-trend-badge ${up ? 'em-trend-badge--up' : 'em-trend-badge--down'}`}>
-        {up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />} {Math.abs(pct)}%
-      </span>
-    );
-  };
 
   /* ── Empty State ── */
   if (!loading && !dashboard) {

@@ -11,7 +11,7 @@ import PageContainer from '../components/ui/PageContainer';
 const StockVerification = () => {
     useSEO('Stock Verification');
 
-    const { user } = useAuth();
+    const { _user } = useAuth();
     const { confirm } = useConfirm();
     const [month, setMonth] = useState(() => {
         const now = new Date();

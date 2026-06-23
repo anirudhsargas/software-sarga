@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getUserBranchId, hasPendingCustomerBalance, bumpUsageForUser, auditLog, auditFieldChanges, getNextInvoiceNumber, normalizeMobileWithCountry, asyncHandler, getTodayDate } = require('../helpers');
+const { getUserBranchId, _hasPendingCustomerBalance, _bumpUsageForUser, auditLog, _auditFieldChanges, getNextInvoiceNumber, normalizeMobileWithCountry, asyncHandler, getTodayDate } = require('../helpers');
 const { attachNormalizedMobile } = require('../middleware/phone');
 const { branchFilter } = require('../middleware/branchFilter');
 const { paginate } = require('../helpers/pagination');
@@ -52,7 +52,7 @@ const CUSTOMER_PAYMENT_LIST_COLUMNS = [
 router.get('/customer-payments', authenticateToken, async (req, res) => {
     try {
         const { customer_id, startDate, endDate } = req.query;
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         let whereClauses = [];
         const params = [];
@@ -151,7 +151,7 @@ router.post('/customer-payments', authenticateToken, validate(customerPaymentSch
     const upi = Number(upi_amount) || 0;
     const cheque = Number(cheque_amount) || 0;
     const transfer = Number(account_transfer_amount) || 0;
-    const method = String(payment_method || 'Cash');
+    const _method = String(payment_method || 'Cash');
     const balance = total - advance;
 
     // C-03: advance cannot exceed total (and values cannot be negative)
@@ -642,22 +642,6 @@ router.post('/customer-payments/refund', authenticateToken, authorizeRoles('Admi
             return res.status(400).json({ message: `Refund amount exceeds advance paid (₹${currentAdvance})` });
         }
 
-        // Create refunds table if it doesn't exist
-        await connection.query(`
-            CREATE TABLE IF NOT EXISTS sarga_refunds (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                job_id INT NOT NULL,
-                customer_id INT,
-                refund_amount DECIMAL(12,2) NOT NULL,
-                refund_method ENUM('Cash','UPI','Cheque','Account Transfer') DEFAULT 'Cash',
-                reason TEXT,
-                processed_by INT,
-                branch_id INT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (job_id) REFERENCES sarga_jobs(id) ON DELETE CASCADE
-            )
-        `);
-
         // Get branch ID
         const branchScope = await branchFilter(req, { allowPrivilegedQuery: false });
         const branchId = branchScope.isPrivileged ? job.branch_id : branchScope.branchId;
@@ -1062,7 +1046,7 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
             financial_roadmap.emi_total = Number(emiStats.total) || 0;
             financial_roadmap.kuri_total = Number(kuriStats.total) || 0;
             financial_roadmap.total_monthly_commitment = financial_roadmap.emi_total + financial_roadmap.kuri_total;
-        } catch (err) { /* ignore if tables missing */ }
+        } catch (_err) { /* ignore if tables missing */ }
 
         // 15. Monitoring Stats (Fraud Alerts)
         let monitoring_stats = { active_alerts: 0 };
@@ -1075,7 +1059,7 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
                 ${branchIds ? 'AND s.branch_id IN (?)' : ''}
             `, branchIds ? [branchIds] : []);
             monitoring_stats.active_alerts = alertStats.count || 0;
-        } catch (err) { /* ignore */ }
+        } catch (_err) { /* ignore */ }
 
         res.json({
             jobs: {
@@ -1142,7 +1126,7 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
 // List payments pending verification (UPI, Cheque, Account Transfer only)
 router.get('/customer-payments/pending-verification', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     try {
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
         const { status: filterStatus, startDate, endDate, search } = req.query;
 
         let whereClauses = [];

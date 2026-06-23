@@ -23,7 +23,7 @@ function PromotionsManager() {
     try {
       const res = await api.get('/promotions')
       setPromotions(res.data.promotions || [])
-    } catch (e) { toast.error('Failed to load') }
+    } catch { toast.error('Failed to load') }
     finally { setLoading(false) }
   }, [])
 
@@ -43,7 +43,7 @@ function PromotionsManager() {
       setShowForm(false); setEditing(null)
       setForm({ title: '', description: '', banner_image: '', banner_mobile_image: '', campaign_type: 'Custom', start_date: '', end_date: '', discount_percent: 0, discount_code: '', link_url: '', priority: 0, is_active: true })
       loadPromotions()
-    } catch (e) { toast.error('Failed to save') }
+    } catch { toast.error('Failed to save') }
   }, [editing, form])
 
   const editPromotion = useCallback((p) => {
@@ -55,7 +55,7 @@ function PromotionsManager() {
   const deletePromotion = useCallback(async (id) => {
     if (!confirm('Delete?')) return
     try { await api.delete(`/promotions/${id}`); toast.success('Deleted'); loadPromotions() }
-    catch (e) { toast.error('Failed') }
+    catch { toast.error('Failed') }
   }, [])
 
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>

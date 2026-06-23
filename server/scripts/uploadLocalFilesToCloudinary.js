@@ -58,7 +58,7 @@ async function uploadAll() {
       console.log(`  [EXISTS] ${file} — already on Cloudinary`);
       skipped++;
       continue;
-    } catch (e) {
+    } catch (_e) {
       // Not found — proceed to upload
     }
 

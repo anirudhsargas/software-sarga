@@ -11,7 +11,6 @@
  */
 
 const express = require('express');
-const path = require('path');
 
 function createTestApp() {
   const app = express();
@@ -33,7 +32,7 @@ function createTestApp() {
     try {
       const [rows] = await pool.query('SELECT 1 AS ok');
       dbStatus = rows?.[0]?.ok === 1 ? 'connected' : 'error';
-    } catch (e) {
+    } catch (_e) {
       dbStatus = 'error';
     }
     res.status(dbStatus === 'connected' ? 200 : 503).json({
@@ -141,7 +140,7 @@ function createTestApp() {
       const { pool } = require('../../database');
       await pool.query('SELECT 1');
       res.json({ status: 'ok', db: 'connected', time: new Date().toISOString() });
-    } catch (err) {
+    } catch (_err) {
       res.status(503).json({ status: 'error', db: 'disconnected', time: new Date().toISOString() });
     }
   });

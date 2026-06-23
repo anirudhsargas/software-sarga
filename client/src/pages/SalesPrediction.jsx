@@ -167,7 +167,7 @@ const urgencyConfig = {
     ok:       { label: 'OK',         color: 'var(--success)', bg: 'var(--muted-foreground)',  border: 'var(--border)' }
 };
 
-const PurchaseCard = ({ item, index }) => {
+const PurchaseCard = ({ item, _index }) => {
     const cardClass = item.urgency === 'critical' ? 'sp-purchase-card--critical' : item.urgency === 'low_stock' ? 'sp-purchase-card--low-stock' : item.urgency === 'reorder' ? 'sp-purchase-card--reorder' : item.urgency === 'plan' ? 'sp-purchase-card--plan' : '';
     const badgeClass = item.urgency === 'critical' ? 'sp-purchase-urgency-badge--critical' : item.urgency === 'low_stock' ? 'sp-purchase-urgency-badge--low-stock' : item.urgency === 'reorder' ? 'sp-purchase-urgency-badge--reorder' : item.urgency === 'plan' ? 'sp-purchase-urgency-badge--plan' : 'sp-purchase-urgency-badge--ok';
     const stockValueClass = item.current_stock === 0 ? 'sp-purchase-metric-value--error' : item.current_stock <= item.reorder_level ? 'sp-purchase-metric-value--warning' : '';
@@ -325,7 +325,7 @@ const SalesPrediction = () => {
     const stockRecommendations = stock?.recommendations || [];
     const stockTotalPages = Math.max(1, Math.ceil(stockRecommendations.length / stockLimit));
 
-    const paginatedStockRecommendations = useMemo(() => {
+    const _paginatedStockRecommendations = useMemo(() => {
         const start = (stockPage - 1) * stockLimit;
         return stockRecommendations.slice(start, start + stockLimit);
     }, [stockRecommendations, stockPage, stockLimit]);
@@ -803,7 +803,7 @@ const SalesPrediction = () => {
                                 </div>
                                 {filteredSuggestions
                                     .filter(s => s.suggested_buy_qty > 0)
-                                    .map((item, i, arr) => {
+                                    .map((item, i, _arr) => {
                                     const uc = urgencyConfig[item.urgency] || urgencyConfig.ok;
                                     return (
                                     <div key={i} className="sp-summary-table-row" style={{ borderLeft: `3px solid ${uc.color}` }}>

@@ -14,8 +14,8 @@ const { pool } = require('../database');
 const S_VENDORS = 'sarga_vendors';
 const VENDORS = 'vendors';
 
-const S_COLS = ['id', 'name', 'type', 'contact_person', 'phone', 'address', 'branch_id', 'order_link', 'gstin', 'created_at'];
-const V_COLS = ['id', 'name', 'contact_person', 'phone', 'email', 'gstin', 'address', 'city', 'vendor_code', 'category', 'credit_days', 'credit_limit', 'is_active', 'notes', 'created_at'];
+const S_COLS = ['id', 'name', 'type', 'contact_person', 'phone', 'address', 'branch_id', 'order_link', 'gstin', 'created_at']; // eslint-disable-line no-unused-vars
+const V_COLS = ['id', 'name', 'contact_person', 'phone', 'email', 'gstin', 'address', 'city', 'vendor_code', 'category', 'credit_days', 'credit_limit', 'is_active', 'notes', 'created_at']; // eslint-disable-line no-unused-vars
 
 /**
  * Normalize a vendor row from either table into a consistent shape.

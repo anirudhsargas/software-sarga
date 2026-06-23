@@ -9,7 +9,7 @@ const { paginate } = require('../helpers/pagination');
 router.get('/offset', auth.authenticate, async (req, res) => {
     try {
         const { branch_id, start_date, end_date, status } = req.query;
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
         const user = req.user;
 
         let query = `

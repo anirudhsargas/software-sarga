@@ -59,7 +59,7 @@ const ProductLibrary = () => {
         uploadMutation.mutate(formData);
     };
 
-    const copyToClipboard = (text) => {
+    const _copyToClipboard = (text) => {
         navigator.clipboard.writeText(text);
         toast.success('Link copied to clipboard');
     };
@@ -190,7 +190,7 @@ const ProductLibrary = () => {
                                 ) : (
                                     <ImageIcon size={40} color="var(--text-muted)" />
                                 )}
-                                <div style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: 'rgba(0,0,0,0.6)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
+                                <div style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: 'rgba(0,0,0,0.6)', color: 'var(--on-dark, white)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
                                     v{asset.version}
                                 </div>
                             </div>

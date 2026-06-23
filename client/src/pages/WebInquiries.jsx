@@ -1,4 +1,4 @@
-import { useSEO } from '../hooks/useSEO';
+import {} from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Mail, MessageCircle, Phone, Search, Filter, MessageSquare, ExternalLink, Calendar, User, Save, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -59,7 +59,7 @@ const WebInquiries = React.memo(() => {
             if (selectedInquiry?.id === id) {
                 setSelectedInquiry(prev => ({ ...prev, status: newStatus, internal_notes: internalNotes }));
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to update inquiry status');
         } finally {
             setUpdating(false);
@@ -73,7 +73,7 @@ const WebInquiries = React.memo(() => {
         window.open(`https://wa.me/${cleanPhone}`, '_blank');
     }, []);
 
-    const handleEmail = useCallback((email, subject) => {
+    const handleEmail = useCallback((email, _subject) => {
         if (!email) return toast.error("No email provided");
         window.open(`mailto:${email}?subject=Re: Your Inquiry with SARGA Offset`, '_blank');
     }, []);

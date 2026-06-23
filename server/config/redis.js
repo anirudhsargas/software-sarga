@@ -4,7 +4,7 @@ const logger = require('../helpers/logger');
 let client = null;
 let isConnected = false;
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 50;
+const MAX_RECONNECT_ATTEMPTS = 50; // eslint-disable-line no-unused-vars
 const RECONNECT_BASE_DELAY = 1000;
 
 function getRedisConfig() {
@@ -75,7 +75,7 @@ async function disconnectRedis() {
         try {
             await client.quit();
         } catch {
-            try { await client.disconnect(); } catch {}
+            try { await client.disconnect(); } catch (_ignored) { /* ignored */ }
         }
         client = null;
         isConnected = false;

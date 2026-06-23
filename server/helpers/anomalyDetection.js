@@ -197,7 +197,7 @@ async function checkLoginAnomaly(staffId, loginHour, deviceInfo) {
     // Check unknown device
     if (deviceInfo) {
         let knownDevices = [];
-        try { knownDevices = JSON.parse(profile.known_devices || '[]'); } catch (e) { }
+        try { knownDevices = JSON.parse(profile.known_devices || '[]'); } catch (_e) { /* ignored */ }
         if (knownDevices.length > 0 && !knownDevices.includes(deviceInfo)) {
             alerts.push({
                 staff_id: staffId,

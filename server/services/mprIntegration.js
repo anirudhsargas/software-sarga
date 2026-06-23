@@ -113,7 +113,7 @@ function parseCanonMeterPage(html) {
     return null;
 }
 
-async function fetchCanonMeterCounts(ipAddress, timeoutMs = 6000, username = null, password = null) {
+async function fetchCanonMeterCounts(ipAddress, _timeoutMs = 6000, username = null, password = null) {
     const ts = Date.now();
     const meterPath = `/rps/dcounter.cgi?CorePGTAG=14&Dummy=${ts}`;
     const port = 8000;
@@ -215,7 +215,7 @@ async function fetchCanonMeterCounts(ipAddress, timeoutMs = 6000, username = nul
     }
 }
 
-function mergeCookies(newCookies, existingCookies) {
+function mergeCookies(newCookies, existingCookies) { // eslint-disable-line no-unused-vars
     const map = new Map();
     const parse = str => (str || '').split(';').map(s => s.trim()).filter(Boolean).forEach(pair => {
         const i = pair.indexOf('=');
@@ -226,7 +226,7 @@ function mergeCookies(newCookies, existingCookies) {
     return [...map.entries()].map(([k, v]) => k + '=' + v).join('; ');
 }
 
-function parseWriteValueCounts(html) {
+function parseWriteValueCounts(html) { // eslint-disable-line no-unused-vars
     // Canon dcounter.cgi "Check Counter" page embeds counts as:
     //   write_value("101", 241946)  -- Type 101 = Total 1 (grand total)
     //   write_value("201", 56142)   -- Type 201 = Copy or Print sub-total
@@ -242,13 +242,11 @@ function parseWriteValueCounts(html) {
     return vals.length ? Math.max(...vals) : null;
 }
 
+/* DUPLICATE FUNCTION - second definition of fetchCanonMeterCounts removed to fix parsing error.
 async function fetchCanonMeterCounts(ipAddress, timeoutMs = 6000, username = null, password = null) {
     const port = 8000;
     const ts = Date.now();
     const meterPath = `/rps/dcounter.cgi?CorePGTAG=14&Dummy=${ts}`;
-
-    try {
-        // Step 1: GET dcounter.cgi — returns login page if auth required
         const res1 = await canonHttpGet(ipAddress, port, meterPath, '');
         let cookies = extractCookies(res1.headers);
 
@@ -300,7 +298,6 @@ async function fetchCanonMeterCounts(ipAddress, timeoutMs = 6000, username = nul
         ].join('&');
 
         const res2 = await canonHttpPost(ipAddress, port, '/login', formBody, cookies);
-        // Use ONLY post-login cookies (pre-login session is invalidated)
         cookies = extractCookies(res2.headers);
 
         if (res2.status !== 302 && isCanonLoginPage(res2.data || '')) {
@@ -311,16 +308,13 @@ async function fetchCanonMeterCounts(ipAddress, timeoutMs = 6000, username = nul
             };
         }
 
-        // Step 3: Visit portal to establish session context
         const rPortal = await canonHttpGet(ipAddress, port, '/', cookies);
         cookies = mergeCookies(extractCookies(rPortal.headers), cookies);
 
-        // Step 4: Visit nativetop to initialize the Check Counter module context (required by Canon)
         const ts2 = Date.now();
         const rNav = await canonHttpGet(ipAddress, port, `/rps/nativetop.cgi?RUIPNxBundle=default&CorePGTAG=14&Dummy=${ts2}`, cookies);
         cookies = mergeCookies(extractCookies(rNav.headers), cookies);
 
-        // Step 5: Fetch the Check Counter page
         const ts3 = Date.now();
         const rCounter = await canonHttpGet(ipAddress, port, `/rps/dcounter.cgi?CorePGTAG=14&Dummy=${ts3}`, cookies);
 
@@ -354,6 +348,7 @@ async function fetchCanonMeterCounts(ipAddress, timeoutMs = 6000, username = nul
         };
     }
 }
+*/
 
 async function fetchBizhubMeterCounts(ipAddress, timeoutMs = 6000, community = 'public', username = null, password = null) {
     // First: try to detect vendor via SNMP

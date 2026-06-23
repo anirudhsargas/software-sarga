@@ -29,7 +29,7 @@ const openDB = () => new Promise((resolve, reject) => {
   req.onupgradeneeded = () => {}; // no-op: schema managed by offlineDb.js
 });
 
-const getAllFromStore = (db, storeName) => new Promise((resolve, reject) => {
+const getAllFromStore = (db, storeName) => new Promise((resolve, _reject) => {
   try {
     const tx = db.transaction(storeName, 'readonly');
     const store = tx.objectStore(storeName);
@@ -41,7 +41,7 @@ const getAllFromStore = (db, storeName) => new Promise((resolve, reject) => {
   }
 });
 
-const putToStore = (db, storeName, data) => new Promise((resolve, reject) => {
+const putToStore = (db, storeName, data) => new Promise((resolve, _reject) => {
   try {
     const tx = db.transaction(storeName, 'readwrite');
     const store = tx.objectStore(storeName);
@@ -129,7 +129,7 @@ const workerFetch = async (url, options = {}) => {
 
   try {
     return JSON.parse(text);
-  } catch (err) {
+  } catch {
     // Fallback: return raw text if it's not JSON
     return text;
   }
@@ -325,7 +325,7 @@ const downloadMasterData = async (db) => {
       // Wait between downloads to not hammer server
       await new Promise(r => setTimeout(r, 800));
 
-    } catch (err) {
+    } catch {
       results[item.key] = 'failed';
     }
   }

@@ -47,14 +47,14 @@ const UploadBills = () => {
   
   // Session State
   const [capturedBills, setCapturedBills] = useState([]); // Array of { id, src, file, label, status: 'pending'|'processing'|'completed'|'failed' }
-  const [currentPreviewIndex, setCurrentPreviewIndex] = useState(null);
+  const [_currentPreviewIndex, _setCurrentPreviewIndex] = useState(null);
   
   // Camera State
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const fileInputRef = useRef(null);
-  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [_isCameraActive, setIsCameraActive] = useState(false);
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' | 'user'
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
@@ -71,7 +71,7 @@ const UploadBills = () => {
   const [selectedReviewIds, setSelectedReviewIds] = useState([]);
   const [isEditingId, setIsEditingId] = useState(null); // ID of bill currently being detailed in modal
   const [branches, setBranches] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [_categories, setCategories] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(auth.getUser()?.branch_id || '');
   const [savingBills, setSavingBills] = useState(new Set());
 
@@ -428,14 +428,14 @@ const UploadBills = () => {
       nextItems[itemIdx] = { ...nextItems[itemIdx], [field]: value };
       
       // Update totals if rate/qty changes
-      let amount = bill.amount;
+      let _amount = bill._amount;
       if (field === 'rate' || field === 'quantity') {
         const qty = Number(nextItems[itemIdx].quantity || 0);
         const rate = Number(nextItems[itemIdx].rate || 0);
         nextItems[itemIdx].mrp = (qty * rate * 1.18).toFixed(2); // Inferred MRP
         
         // Sum total amount
-        const total = nextItems[itemIdx].mrp;
+        const _total = nextItems[itemIdx].mrp;
         // Optional total update
       }
 

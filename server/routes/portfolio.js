@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { uploadToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
+const { uploadToCloudinary, deleteFromCloudinary: _deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 const { redisCache } = require('../middleware/cache');
 const { invalidatePattern } = require('../services/cacheService');
 const invalidateCache = (pattern) => invalidatePattern(pattern).catch(() => {});
@@ -172,7 +172,7 @@ router.post('/portfolio/upload', authenticateToken, authorizeRoles('Admin'), asy
     try {
       const result = await uploadToCloudinary(req.file.path, 'portfolio');
       res.json({ url: result.secure_url, public_id: result.public_id });
-    } catch (e) {
+    } catch (_e) {
       res.status(500).json({ error: 'Upload failed' });
     }
   });

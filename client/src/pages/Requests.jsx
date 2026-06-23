@@ -13,9 +13,9 @@ const Requests = () => {
 
     const { confirm } = useConfirm();
     const user = auth.getUser();
-    const [idRequests, setIdRequests] = useState([]);
-    const [customerRequests, setCustomerRequests] = useState([]);
-    const [vendorRequests, setVendorRequests] = useState([]);
+    const [_idRequests, setIdRequests] = useState([]);
+    const [_customerRequests, setCustomerRequests] = useState([]);
+    const [_vendorRequests, setVendorRequests] = useState([]);
     const [allRequests, setAllRequests] = useState([]);
     const [newId, setNewId] = useState('');
     const [loading, setLoading] = useState(false);
@@ -107,7 +107,7 @@ const Requests = () => {
             );
             setMessage('Request submitted successfully. Waiting for Admin approval.');
             setNewId('');
-        } catch (err) {
+        } catch {
             setMessage('Failed to submit request.');
         } finally {
             setLoading(false);

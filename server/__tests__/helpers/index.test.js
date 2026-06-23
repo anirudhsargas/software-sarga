@@ -1,7 +1,7 @@
 const {
   normalizeMobile, normalizeMobileWithCountry,
   getTodayDate, asyncHandler, sortByPositionThenName,
-  formatDate, formatPhone
+  formatDate: _formatDate, formatPhone: _formatPhone
 } = require('../../helpers');
 
 describe('normalizeMobile', () => {

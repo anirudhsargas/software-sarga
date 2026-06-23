@@ -149,7 +149,7 @@ router.post('/change-request', auth.authenticate, async (req, res) => {
 router.get('/change-requests', auth.authenticate, async (req, res) => {
     try {
         const { status } = req.query;
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         let whereClauses = [];
         const params = [];
@@ -658,7 +658,7 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
         }
         try {
             console.log(`[DailyReport] laser-live requested by user id=${req.user.id} role=${req.user.role} branch=${branchId} -> machines_count=${machines.length}`);
-        } catch (e) { }
+        } catch (_e) { /* ignored */ }
 
         // 2. Get machine readings for today
         const machineIds = machines.map(m => m.id);
@@ -761,7 +761,7 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
                     const first = group[0];
                     const totalCash = group.reduce((s, e) => s + Number(e.cash_amount || 0), 0);
                     const totalUpi = group.reduce((s, e) => s + Number(e.upi_amount || 0), 0);
-                    const totalAmt = group.reduce((s, e) => s + Number(e.total_amount || 0), 0);
+                    const _totalAmt = group.reduce((s, e) => s + Number(e.total_amount || 0), 0);
                     const totalCopies = group.reduce((s, e) => s + Number(e.copies || 0), 0);
                     const machineNames = [...new Set(group.map(e => e.machine_name))].join(', ');
 
@@ -966,7 +966,7 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
 
         const allEntries = [...workEntries, ...billingEntries, ...transferEntries].sort((a, b) => new Date(b.time) - new Date(a.time));
         const entryCount = allEntries.length;
-        const incomeCount = workEntries.length + billingEntries.length + transferEntries.filter(e => e.type === 'income').length;
+        const _incomeCount = workEntries.length + billingEntries.length + transferEntries.filter(e => e.type === 'income').length;
 
         res.json({
             machines: machineData,
@@ -1198,7 +1198,7 @@ router.get('/internal-usage', auth.authenticate, async (req, res) => {
         // Parse order_lines for sheets/prints
         const rows = bills.map(b => {
             let lines = [];
-            try { lines = JSON.parse(b.order_lines || '[]'); } catch {}
+            try { lines = JSON.parse(b.order_lines || '[]'); } catch (_ignored) { /* ignored */ }
             const totalPrints = lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
             const totalSheets = lines.reduce((s, l) => s + (Number(l.sheets) || 0), 0);
             return {

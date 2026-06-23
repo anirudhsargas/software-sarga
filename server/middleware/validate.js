@@ -1,7 +1,7 @@
 const { z } = require('zod');
 
 // ---- Reusable primitives ----
-const mobile10 = z.string().regex(/^\d{10}$/, 'Must be exactly 10 digits');
+const mobile10 = z.string().regex(/^\d{10}$/, 'Must be exactly 10 digits'); // eslint-disable-line no-unused-vars
 const positiveDecimal = z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0, 'Amount cannot be negative').optional());
 const requiredPositiveNumber = z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0, 'Amount cannot be negative'));
 const requiredString = (label) => z.string().min(1, `${label} is required`).trim();
@@ -14,6 +14,7 @@ const loginSchema = z.object({
 });
 
 // Password validation regex - min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+// eslint-disable-next-line no-useless-escape
 const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&^#()_+\-=\[\]{};':",./<>?\|`~])[A-Za-z\d@$!%*?&^#()_+\-=\[\]{};':",./<>?\|`~]{8,}$/;
 
 const changePasswordSchema = z.object({
@@ -23,6 +24,7 @@ const changePasswordSchema = z.object({
         .regex(/[A-Z]/, 'Password must contain at least one uppercase letter (A-Z)')
         .regex(/[a-z]/, 'Password must contain at least one lowercase letter (a-z)')
         .regex(/[0-9]/, 'Password must contain at least one number (0-9)')
+        // eslint-disable-next-line no-useless-escape
         .regex(/[@$!%*?&^#()_+\-=\[\]{};':",./<>?\|`~]/, 'Password must contain at least one special character (@$!%*?&^#()_+-=[]{};\'":.;<>,...)')
         .refine(pwd => passwordRegex.test(pwd), {
             message: 'Password does not meet complexity requirements'
@@ -68,7 +70,7 @@ const addPaymentSchema = z.object({
 });
 
 // ---- Branches ----
-const branchSchema = z.object({
+const branchSchema = z.object({ // eslint-disable-line no-unused-vars
     name: requiredString('Branch name'),
     address: z.string().optional().nullable().or(z.literal('')),
     phone: z.string().optional().nullable().or(z.literal('')),

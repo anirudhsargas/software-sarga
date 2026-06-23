@@ -1,5 +1,5 @@
 const request = require('supertest');
-const { app, generateTestToken, insertTestBranch, insertTestStaff, cleanTestData, testPool } = require('./setup');
+const { app, generateTestToken, insertTestBranch, insertTestStaff, cleanTestData, testPool: _testPool } = require('./setup');
 
 describe('Payments', () => {
   let adminToken;
@@ -107,7 +107,7 @@ describe('Payments', () => {
         '/api/website/checkout/webhook',
       ];
 
-      let anyResponded = false;
+      let _anyResponded = false;
       for (const ep of endpoints) {
         try {
           const res = await request(app)
@@ -115,10 +115,10 @@ describe('Payments', () => {
             .send(webhookPayload)
             .set('Content-Type', 'application/json');
           if (res.status !== 404) {
-            anyResponded = true;
+            _anyResponded = true;
             expect(res.body).toBeDefined();
           }
-        } catch (e) {
+        } catch (_e) {
           // endpoint may not exist
         }
       }

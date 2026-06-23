@@ -12,13 +12,13 @@ const InventoryImage = ({ item, onUpdate, size = 40, isAdmin = false }) => {
 
     // Resolution Logic
     let displayUrl = null;
-    let source = item.image_source || 'Default';
+    let _source = item.image_source || 'Default';
 
     if (item.cached_image_url) {
         displayUrl = imgUrl(item.cached_image_url);
     } else if (item.product_image_url || item.image_url) {
         displayUrl = imgUrl(item.product_image_url || item.image_url);
-        source = 'Product';
+        _source = 'Product';
     }
 
     const handleUploadClick = (e) => {
@@ -69,7 +69,7 @@ const InventoryImage = ({ item, onUpdate, size = 40, isAdmin = false }) => {
             await api.delete(`/inventory/${item.id}/image`);
             toast.success('Custom image removed');
             if (onUpdate) onUpdate(item.id, null, 'Default');
-        } catch (err) {
+        } catch {
             toast.error('Failed to remove image');
         } finally {
             setLoading(false);

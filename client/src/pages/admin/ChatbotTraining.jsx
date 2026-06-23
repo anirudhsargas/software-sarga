@@ -45,7 +45,7 @@ const ChatbotTraining = () => {
       setUnlabeledCount(data.unlabeled || 0);
       setPendingCount(data.pending || 0);
       setIsOffline(data.healthy === false);
-    } catch (e) {
+    } catch {
       setIsOffline(true);
     }
   }, []);
@@ -59,7 +59,7 @@ const ChatbotTraining = () => {
       rows.forEach(r => map[r.intent] = (map[r.intent]||0)+1);
       const chart = INTENTS.map(i => ({ intent: i, count: map[i] || 0 }));
       setIntentDist(chart);
-    } catch (e) {
+    } catch {
       // silently ignore
     }
   }, []);
@@ -72,7 +72,7 @@ const ChatbotTraining = () => {
       setTrainingPage(data.page || page);
       setTrainingLimit(data.limit || limit);
       setTrainingTotal(data.total || 0);
-    } catch (e) {
+    } catch {
       toast.error('Failed to fetch training examples');
     }
   }, []);
@@ -81,7 +81,7 @@ const ChatbotTraining = () => {
     try {
       const res = await api.get('chatbot/logs', { params: { labeled: false, limit: 20 }, skipGlobalErrorHandling: true });
       setMessages(res.data.rows || []);
-    } catch (e) {
+    } catch {
       toast.error('Failed to fetch messages');
     }
   }, []);
@@ -128,7 +128,7 @@ const ChatbotTraining = () => {
       } else {
         toast.success(res.data.message || 'Retrain triggered');
       }
-    } catch (e) {
+    } catch {
       toast.error('Retrain failed');
     } finally {
       setRetraining(false);
@@ -141,7 +141,7 @@ const ChatbotTraining = () => {
       setMessages(prev => prev.filter(m => m.id !== logId));
       setLabeledToday(n => n + 1);
       toast.success('Label saved');
-    } catch (e) {
+    } catch {
       toast.error('Failed to save label');
     }
   }, []);
@@ -156,7 +156,7 @@ const ChatbotTraining = () => {
       toast.success('Example added');
       fetchIntentDistribution();
       fetchTrainingExamples(trainingPage, trainingLimit, trainingQuery);
-    } catch (e) { toast.error('Failed to add example'); }
+    } catch { toast.error('Failed to add example'); }
   }, [fetchIntentDistribution, fetchTrainingExamples, trainingPage, trainingLimit, trainingQuery]);
 
   const bulkImport = useCallback(async (lines) => {
@@ -170,7 +170,7 @@ const ChatbotTraining = () => {
       toast.success('Imported examples');
       fetchIntentDistribution();
       fetchTrainingExamples(trainingPage, trainingLimit, trainingQuery);
-    } catch (e) { toast.error('Import failed'); }
+    } catch { toast.error('Import failed'); }
   }, [fetchIntentDistribution, fetchTrainingExamples, trainingPage, trainingLimit, trainingQuery]);
 
   return (

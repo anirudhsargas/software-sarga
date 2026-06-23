@@ -88,7 +88,7 @@ router.get('/logs', auth.authenticate, authorizeAdmin, async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM sarga_daily_report_logs ORDER BY created_at DESC LIMIT 10');
         res.json(rows);
-    } catch (error) {
+    } catch (_error) {
         res.status(500).json({ error: 'Failed to fetch logs' });
     }
 });
@@ -102,7 +102,7 @@ router.get('/status', auth.authenticate, authorizeAdmin, async (req, res) => {
             nextRunTime: settings.length > 0 ? settings[0].send_time : null,
             timezone: settings.length > 0 ? settings[0].timezone : null
         });
-    } catch (error) {
+    } catch (_error) {
         res.status(500).json({ error: 'Failed to fetch status' });
     }
 });

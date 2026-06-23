@@ -157,7 +157,7 @@ module.exports = (upload, removeUploadFile) => {
         try {
             const [rows] = await pool.query("SELECT * FROM sarga_product_categories ORDER BY name ASC");
             res.json(rows);
-        } catch (err) {
+        } catch (_err) {
             res.status(500).json({ message: 'Database error' });
         }
     });
@@ -165,7 +165,7 @@ module.exports = (upload, removeUploadFile) => {
     // List All Products (paginated for sync/search)
     router.get('/products', authenticateToken, async (req, res) => {
         try {
-            const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+            const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
             const search = req.query.search ? `%${req.query.search}%` : null;
 
             let where = 'WHERE p.is_active = 1';
@@ -326,7 +326,7 @@ module.exports = (upload, removeUploadFile) => {
             invalidateHierarchyCache();
             auditLog(req.user.id, 'CATEGORY_DELETE', `Deleted product category #${req.params.id}`, { entity_type: 'product_category', entity_id: req.params.id });
             res.json({ message: 'Category deleted' });
-        } catch (err) {
+        } catch (_err) {
             res.status(500).json({ message: 'Database error' });
         }
     });
@@ -341,7 +341,7 @@ module.exports = (upload, removeUploadFile) => {
             invalidateHierarchyCache();
             auditLog(req.user.id, newState ? 'CATEGORY_ENABLE' : 'CATEGORY_DISABLE', `${newState ? 'Enabled' : 'Disabled'} category #${req.params.id}`, { entity_type: 'product_category', entity_id: req.params.id });
             res.json({ message: newState ? 'Category enabled' : 'Category disabled', is_active: newState });
-        } catch (err) {
+        } catch (_err) {
             res.status(500).json({ message: 'Database error' });
         }
     });
@@ -351,7 +351,7 @@ module.exports = (upload, removeUploadFile) => {
         try {
             const [rows] = await pool.query("SELECT * FROM sarga_product_subcategories WHERE category_id = ? ORDER BY name ASC", [req.params.id]);
             res.json(rows);
-        } catch (err) {
+        } catch (_err) {
             res.status(500).json({ message: 'Database error' });
         }
     });
@@ -488,7 +488,7 @@ module.exports = (upload, removeUploadFile) => {
             invalidateHierarchyCache();
             auditLog(req.user.id, newState ? 'SUBCATEGORY_ENABLE' : 'SUBCATEGORY_DISABLE', `${newState ? 'Enabled' : 'Disabled'} subcategory #${req.params.id}`, { entity_type: 'product_subcategory', entity_id: req.params.id });
             res.json({ message: newState ? 'Subcategory enabled' : 'Subcategory disabled', is_active: newState });
-        } catch (err) {
+        } catch (_err) {
             res.status(500).json({ message: 'Database error' });
         }
     });
@@ -498,7 +498,7 @@ module.exports = (upload, removeUploadFile) => {
         try {
             const [rows] = await pool.query("SELECT * FROM sarga_products WHERE subcategory_id = ? ORDER BY name ASC", [req.params.id]);
             res.json(rows);
-        } catch (err) {
+        } catch (_err) {
             res.status(500).json({ message: 'Database error' });
         }
     });
@@ -792,7 +792,7 @@ module.exports = (upload, removeUploadFile) => {
             invalidateHierarchyCache();
             auditLog(req.user.id, newState ? 'PRODUCT_ENABLE' : 'PRODUCT_DISABLE', `${newState ? 'Enabled' : 'Disabled'} product #${req.params.id}`, { entity_type: 'product', entity_id: req.params.id });
             res.json({ message: newState ? 'Product enabled' : 'Product disabled', is_active: newState });
-        } catch (err) {
+        } catch (_err) {
             res.status(500).json({ message: 'Database error' });
         }
     });
@@ -1475,7 +1475,7 @@ module.exports = (upload, removeUploadFile) => {
                 extras,
                 links
             });
-        } catch (err) {
+        } catch (_err) {
             res.status(500).json({ message: 'Database error' });
         }
     });

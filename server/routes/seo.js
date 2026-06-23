@@ -62,7 +62,7 @@ router.get('/sitemap.xml', async (req, res) => {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   ${urls.join('')}
 </urlset>`);
-  } catch (err) {
+  } catch (_err) {
     res.status(500).send('Error generating sitemap');
   }
 });

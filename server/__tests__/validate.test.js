@@ -1,7 +1,7 @@
 const {
   loginSchema, changePasswordSchema, branchSchema, addCustomerSchema, addJobSchema,
   addPaymentSchema, addVendorSchema, addStaffSchema, addInventorySchema,
-  paperInventorySchema, consumablesInventorySchema, attendanceSchema,
+  paperInventorySchema, consumablesInventorySchema: _consumablesInventorySchema, attendanceSchema,
   officeExpenseSchema, addPaperTypeSchema,
   addWebsiteInquirySchema, addWebsiteReviewSchema,
 } = require('../middleware/validate');

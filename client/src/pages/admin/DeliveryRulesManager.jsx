@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, {useState, useEffect, useCallback} from 'react'
 import { Loader2, Plus, Edit2, Trash2 } from 'lucide-react'
 import PageContainer from '../../components/ui/PageContainer'
 import api from '../../services/api'
@@ -16,7 +16,7 @@ function DeliveryRulesManager() {
     try {
       const res = await api.get('/delivery/rules')
       setRules(res.data.rules || [])
-    } catch (e) { toast.error('Failed to load delivery rules') }
+    } catch { toast.error('Failed to load delivery rules') }
     finally { setLoading(false) }
   }, [])
 
@@ -36,13 +36,13 @@ function DeliveryRulesManager() {
         toast.success('Rule created')
       }
       setShowForm(false); loadRules()
-    } catch (e) { toast.error('Failed to save') }
+    } catch { toast.error('Failed to save') }
   }, [])
 
   const remove = useCallback(async (id) => {
     if (!confirm('Delete this rule?')) return
     try { await api.delete(`/delivery/rules/${id}`); toast.success('Deleted'); loadRules() }
-    catch (e) { toast.error('Failed to delete') }
+    catch { toast.error('Failed to delete') }
   }, [])
 
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>

@@ -1,5 +1,5 @@
 const { pool } = require('../database');
-const axios = require('axios');
+const axios = require('axios'); // eslint-disable-line no-unused-vars
 
 // Placeholder for image matching logic using a placeholder service since no specific API was provided
 async function findImageMatch(productName, subcategory, category) {

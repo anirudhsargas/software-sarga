@@ -26,7 +26,7 @@ function PickupBookings() {
       if (filter.status) params.status = filter.status
       const res = await api.get('/pickup/bookings', { params })
       setBookings(res.data.bookings || [])
-    } catch (e) { toast.error('Failed to load') }
+    } catch { toast.error('Failed to load') }
     finally { setLoading(false) }
   }, [])
 
@@ -37,7 +37,7 @@ function PickupBookings() {
       await api.put(`/pickup/bookings/${id}/status`, { status })
       toast.success(`Marked as ${status}`)
       loadBookings()
-    } catch (e) { toast.error('Failed') }
+    } catch { toast.error('Failed') }
   }, [])
 
   if (loading) return <div className="loading-spinner"><Loader2 size={36} className="spinning" /></div>

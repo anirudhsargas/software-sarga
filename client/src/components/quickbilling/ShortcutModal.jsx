@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Minus } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 const QUICK_VALUES = [1, 2, 5, 10, 50, 100];
 

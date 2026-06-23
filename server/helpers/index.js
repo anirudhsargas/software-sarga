@@ -29,10 +29,10 @@ const normalizeMobile = (value, defaultRegion = 'IN') => {
             if (phoneUtil.isValidNumber(parsed)) {
                 return phoneUtil.format(parsed, PNF.E164);
             }
-        } catch (err) {
+        } catch (_err) {
             // parsing failed - fall through to legacy fallback
         }
-    } catch (err) {
+    } catch (_err) {
         // google-libphonenumber not installed / require failed - fall back
     }
 
@@ -67,7 +67,7 @@ const normalizeMobileWithCountry = (value, countryCode, defaultRegion = 'IN') =>
         else if (/^\d+$/.test(cc)) combined = `+${cc}${value}`;
         else combined = `${value}`;
         return normalizeMobile(combined, defaultRegion);
-    } catch (err) {
+    } catch (_err) {
         return normalizeMobile(value, defaultRegion);
     }
 };

@@ -43,7 +43,7 @@ const CUSTOMER_PAYMENT_SUMMARY_COLUMNS = [
 router.get('/customers', authenticateToken, customerCache(), async (req, res) => {
     try {
         const { search, type: typeFilter } = req.query;
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         let where = '';
         const params = [];
@@ -105,7 +105,7 @@ router.get('/customers/:id', authenticateToken, async (req, res) => {
         const [rows] = await pool.query(`SELECT ${CUSTOMER_COLUMNS} FROM sarga_customers WHERE id = ?`, [id]);
         if (!rows[0]) return res.status(404).json({ message: 'Customer not found' });
         res.json(rows[0]);
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });

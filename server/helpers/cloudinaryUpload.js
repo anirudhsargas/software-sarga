@@ -61,7 +61,7 @@ async function uploadBufferToCloudinary(buffer, filename, folder = 'uploads', op
       ...options,
     };
 
-    const result = await cloudinary.uploader.upload_stream(
+    const result = await cloudinary.uploader.upload_stream( // eslint-disable-line no-unused-vars
       defaultOptions,
       (error, result) => {
         if (error) throw error;

@@ -33,7 +33,7 @@ const PaperMovementHistory = () => {
             ]);
             setMovements(moveRes.data);
             setBranches(branchRes.data);
-        } catch (err) {
+        } catch {
             toast.error('Failed to load history');
         } finally {
             setLoading(false);

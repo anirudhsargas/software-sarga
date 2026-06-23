@@ -28,7 +28,7 @@ app.get('/api/health', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT 1 AS ok');
         dbStatus = rows?.[0]?.ok === 1 ? 'connected' : 'error';
-    } catch (e) {
+    } catch (_e) {
         dbStatus = 'error';
     }
     res.status(dbStatus === 'connected' ? 200 : 503).json({
@@ -61,7 +61,7 @@ const allowedOrigins = [
 ].filter(Boolean).map(o => o.replace(/\/$/, ''));
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
+const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS; // eslint-disable-line no-unused-vars
 
 if (!JWT_SECRET) {
     logger.error('FATAL: JWT_SECRET environment variable is not defined. Refusing to start.');
@@ -190,7 +190,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({ storage: multer.memoryStorage(), fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Middleware wrapper: after multer parses the buffer, push it to Cloudinary.
-const uploadToCloudinaryMiddleware = (fieldName, folder = 'uploads') => [
+const uploadToCloudinaryMiddleware = (fieldName, folder = 'uploads') => [ // eslint-disable-line no-unused-vars
     upload.single(fieldName),
     async (req, res, next) => {
         if (!req.file || !req.file.buffer) return next(); // no file uploaded — skip
@@ -239,7 +239,7 @@ app.use('/uploads', (req, res, next) => {
                     await cloudinary.api.resource(pubId);
                     const url = getCloudinaryUrl(pubId);
                     return res.redirect(302, url);
-                } catch (err) {
+                } catch (_err) {
                     // not found in this id, continue to next
                 }
             }
@@ -275,7 +275,7 @@ const asyncHandler = (fn) => (req, res, next) => {
 // --------------- Response Caching (Redis-backed) ---------------
 // node-cache removed — all caching now flows through Redis via cacheService / middleware/cache.
 // cacheMiddleware and invalidateCache are re-exported here so existing route imports continue to work.
-const { redisCache, routeCache } = require('./middleware/cache');
+const { redisCache, routeCache: _routeCache } = require('./middleware/cache');
 const { invalidatePattern } = require('./services/cacheService');
 
 const cacheMiddleware = (duration = 300) => redisCache(duration, 'route');
@@ -440,7 +440,7 @@ app.get('/api/ping', async (req, res) => {
     try {
         if (pool) await pool.query('SELECT 1');
         res.json({ status: 'ok', db: 'connected', time: new Date().toISOString() });
-    } catch (err) {
+    } catch (_err) {
         res.status(503).json({ status: 'error', db: 'disconnected', time: new Date().toISOString() });
     }
 });
@@ -463,7 +463,7 @@ if (process.env.NODE_ENV !== 'test') {
             logger.warn(`[Redis] Connection failed, using in-memory cache: ${err.message}`);
         }
 
-        const server = app.listen(PORT, '0.0.0.0', () => {
+        const _server = app.listen(PORT, '0.0.0.0', () => {
             const mode = process.env.NODE_ENV || 'development';
             const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');
             logger.info(`Server running on port ${PORT} (${mode}, DB: ${dbHost})`);

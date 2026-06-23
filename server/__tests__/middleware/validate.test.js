@@ -1,13 +1,13 @@
 const {
   validate, loginSchema, changePasswordSchema, addStaffSchema,
-  addCustomerSchema, addInventorySchema, attendanceSchema,
+  addCustomerSchema, addInventorySchema, attendanceSchema: _attendanceSchema,
   addPaymentSchema, addJobSchema, paperInventorySchema,
   addPaperTypeSchema, paperInwardSchema, paperOutwardSchema,
   addVendorSchema, addBlogPostSchema, addCctvCameraSchema,
   addMachineSchema, machineReadingSchema, addScheduleSchema,
   addProductCategorySchema, addProductSubcategorySchema, addProductSchema,
   addWebsiteInquirySchema, addWebsiteReviewSchema,
-  emiMasterSchema, kuriMasterSchema, consumablesInventorySchema
+  emiMasterSchema: _emiMasterSchema, kuriMasterSchema: _kuriMasterSchema, consumablesInventorySchema: _consumablesInventorySchema
 } = require('../../middleware/validate');
 
 describe('loginSchema', () => {

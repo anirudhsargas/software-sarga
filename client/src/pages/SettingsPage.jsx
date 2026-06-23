@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, {useState, useEffect, Suspense} from 'react';
 import { Settings as SettingsIcon, DollarSign, CreditCard, Building2, Globe, Plus, Edit2, Trash2, Save, X, Loader2, ToggleLeft, ToggleRight, Sparkles, Layout, UserSquare, ShieldCheck, CheckCircle } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -222,7 +222,7 @@ function TaxSettings() {
 
     useEffect(() => {
         (async () => {
-            try { const { data } = await api.get('/tax-settings'); setTaxes(data); } catch { /* ignore */ }
+            try { const { data } = await api.get('/tax-settings'); setTaxes(data); } catch (err) { /* ignore */ }
             setLoading(false);
         })();
     }, []);
@@ -323,7 +323,7 @@ function PaymentModeSettings() {
 
     useEffect(() => {
         (async () => {
-            try { const { data } = await api.get('/payment-modes'); setModes(data); } catch { /* ignore */ }
+            try { const { data } = await api.get('/payment-modes'); setModes(data); } catch (err) { /* ignore */ }
             setLoading(false);
         })();
     }, []);

@@ -163,7 +163,7 @@ router.post('/recurring-invoices/process', authenticateToken, authorizeRoles('Ad
         );
         let generated = 0;
         for (const ri of due) {
-            const items = typeof ri.items === 'string' ? JSON.parse(ri.items) : (ri.items || []);
+            const items = typeof ri.items === 'string' ? JSON.parse(ri.items) : (ri.items || []); // eslint-disable-line no-unused-vars
             // Create invoice from recurring template
             await conn.query(
                 `INSERT INTO sarga_customer_payments

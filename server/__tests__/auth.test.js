@@ -1,6 +1,5 @@
 const request = require('supertest');
-const bcrypt = require('bcryptjs');
-const { app, generateTestToken, insertTestBranch, insertTestStaff, cleanTestData, testPool } = require('./setup');
+const { app, generateTestToken, insertTestBranch, insertTestStaff, cleanTestData, testPool: _testPool } = require('./setup');
 
 describe('Auth Endpoints', () => {
   let branchId;

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Layers, Loader2, Plus, Minus, Search, Maximize2, Hash, UserSquare, Calendar, X, RotateCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { optimizePlateLayout, findBestPlateSize, getFittingItems, MATERIAL_TYPES } from '../utils/nestingOptimizer';
+import {optimizePlateLayout, getFittingItems, MATERIAL_TYPES} from '../utils/nestingOptimizer';
 import { PAPER_SIZES } from '../utils/paperOptimizer';
 import PageContainer from '../components/ui/PageContainer';
 
@@ -31,7 +31,7 @@ const PlateManagement = () => {
     const [gutter, setGutter] = useState(5); // mm spacing between items
     const [allowRotation, setAllowRotation] = useState(true);
     const [showOnlyFitting, setShowOnlyFitting] = useState(false);
-    const [autoOptimize, setAutoOptimize] = useState(false);
+    const [_autoOptimize, _setAutoOptimize] = useState(false);
     const [viewMode, setViewMode] = useState('both'); // 'dummy', 'nesting', 'both'
 
     useEffect(() => {
@@ -186,7 +186,7 @@ const PlateManagement = () => {
         setSelectedJobs(newSelected);
     };
 
-    const filteredJobs = useMemo(() => {
+    const _filteredJobs = useMemo(() => {
         if (!search) return jobs;
         const lowSearch = search.toLowerCase();
         return jobs.filter(j =>
@@ -483,8 +483,8 @@ const PlateManagement = () => {
                                                 maxWidth: '500px',
                                                 minHeight: '200px'
                                             }}>
-                                                {nestingResult.placedItems.map((item, idx) => {
-                                                    const scale = 100 / plateDimensions.width; // percentage based
+                                                {nestingResult.placedItems.map((item, _idx) => {
+                                                    const _scale = 100 / plateDimensions.width; // percentage based
                                                     const left = (item.x / plateDimensions.width) * 100;
                                                     const top = (item.y / plateDimensions.height) * 100;
                                                     const width = (item.placedWidth / plateDimensions.width) * 100;

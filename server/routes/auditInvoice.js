@@ -12,7 +12,7 @@ const { paginate } = require('../helpers/pagination');
  */
 router.get('/audit-logs', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const { entity_type, entity_id, action, user_id, startDate, endDate } = req.query;
-  const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+  const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
   let whereClauses = [];
   const params = [];
@@ -71,7 +71,7 @@ router.get('/audit-logs/entity/:type/:id', authenticateToken, authorizeRoles('Ad
  */
 router.get('/invoices', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), asyncHandler(async (req, res) => {
   const { customer_id, startDate, endDate, status } = req.query;
-  const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+  const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
   let whereClauses = [];
   const params = [];

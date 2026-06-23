@@ -40,7 +40,7 @@ console.log('WARNING: This will overwrite all current data! Press Ctrl+C within 
 setTimeout(() => {
     const restoreCmd = `mysql -u ${DB_USER} ${DB_PASS ? '-p' + DB_PASS : ''} ${DB_NAME} < "${backupFile}"`;
 
-    exec(restoreCmd, (error, stdout, stderr) => {
+    exec(restoreCmd, (error, _stdout, _stderr) => {
         if (error) {
             console.error('Restore failed:', error.message);
             process.exit(1);

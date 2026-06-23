@@ -8,14 +8,14 @@
  */
 const sharp = require('sharp');
 let pdfParse;
-try { pdfParse = require('pdf-parse'); } catch (e) { pdfParse = null; }
+try { pdfParse = require('pdf-parse'); } catch (_e) { pdfParse = null; }
 const fs = require('fs');
 const path = require('path');
 
 // ─── Constants ─────────────────────────────────────────────────
 
 const MIN_DPI = 300;
-const REQUIRED_COLOR_MODE = 'cmyk';
+const REQUIRED_COLOR_MODE = 'cmyk'; // eslint-disable-line no-unused-vars
 const MIN_BLEED_MM = 3;
 const MM_PER_INCH = 25.4;
 
@@ -149,7 +149,7 @@ async function analyzePDF(filePath) {
         info.hasText = (pdfData.text || '').trim().length > 0;
 
         // Check for common PDF issues
-        const rawText = pdfData.text || '';
+        const rawText = pdfData.text || ''; // eslint-disable-line no-unused-vars
 
         // Font embedding check (heuristic: check if Creator mentions common authoring tools)
         const creator = (info.creator || '').toLowerCase();

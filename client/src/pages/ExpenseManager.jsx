@@ -10,7 +10,7 @@ import {
 import localDb from '../services/localDb';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
-import { fmt, fmtDate } from './expense-manager/constants';
+import {} from './expense-manager/constants';
 import './ExpenseManager.css';
 import ServerError from '../components/ServerError';
 import toast from 'react-hot-toast';

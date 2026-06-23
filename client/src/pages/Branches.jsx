@@ -50,7 +50,7 @@ const Branches = () => {
         try {
             if (editingBranch) {
                 // Optimistic UI Update for edit
-                const prevBranches = [...branches];
+                const _prevBranches = [...branches];
                 setBranches(prev => prev.map(b => b.id === editingBranch.id ? { ...b, ...formData } : b));
                 await api.put(`/branches/${editingBranch.id}`, formData);
                 toast.success('Branch updated successfully');

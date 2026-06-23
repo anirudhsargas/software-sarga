@@ -5,7 +5,7 @@
  */
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
-const path = require('path');
+const path = require('path'); // eslint-disable-line no-unused-vars
 
 // ─── Constants ─────────────────────────────────────────────────
 

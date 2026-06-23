@@ -105,7 +105,7 @@ router.get('/accounts/gst-summary', authenticateToken, authorizeRoles('Admin', '
 // ─── Sales Register (sales bills list with GST) ───
 router.get('/accounts/sales-register', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const { startDate, endDate, branch_id, customer_id, search } = req.query;
-  const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+  const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
   let where = '1=1';
   const params = [];
@@ -166,7 +166,7 @@ router.get('/accounts/sales-register', authenticateToken, authorizeRoles('Admin'
 // ─── Purchase Register (vendor bills with GST) ───
 router.get('/accounts/purchase-register', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const { startDate, endDate, branch_id, vendor_id, search } = req.query;
-  const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+  const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
   let where = '1=1';
   const params = [];

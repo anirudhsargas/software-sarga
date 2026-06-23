@@ -293,7 +293,7 @@ const CustomerPayments = () => {
         setPaymentsTotal(result.total || 0);
         setPaymentsTotalPages(result.totalPages || 1);
         setPaymentsError(null);
-      } catch {
+      } catch (err) {
         setPaymentsError('Failed to fetch payments (online & offline both failed)');
       }
     } finally {

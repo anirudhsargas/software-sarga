@@ -1,6 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import usePolling from '../hooks/usePolling';
+import React, {useEffect, useState, useMemo} from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Phone, Mail, MapPin, Building2, Hash, Star,
@@ -14,7 +13,7 @@ import localDb from '../services/localDb';
 import toast from 'react-hot-toast';
 import Pagination from '../components/Pagination';
 import { useOnlineStatus } from '../hooks/useOffline';
-import { whatsappUrl, paymentReminderMessage, dueCollectionMessage } from '../utils/whatsapp';
+import { whatsappUrl, _paymentReminderMessage, dueCollectionMessage } from '../utils/whatsapp';
 import { formatForDisplay, telHref } from '../utils/phone';
 import Skeleton, { SkeletonText, SkeletonAvatar, SkeletonTitle, SkeletonKpi } from '../components/Skeleton';
 import SecureImage from '../components/SecureImage';
@@ -105,7 +104,7 @@ const CustomerDetails = () => {
   const [expandedJob, setExpandedJob] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [paymentsPage, setPaymentsPage] = useState(1);
-  const [paymentsLimit, setPaymentsLimit] = useState(10);
+  const [paymentsLimit, _setPaymentsLimit] = useState(10);
   const isOnline = useOnlineStatus();
 
   // Design history state
@@ -749,7 +748,7 @@ const CustomerDetails = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
               {designs.map(d => {
                 const isImage = d.file_type === 'image';
-                const isPdf = d.file_type === 'pdf';
+                const _isPdf = d.file_type === 'pdf';
                 const serverBase = getServerBase();
                 const fileUrl = `${serverBase}${d.file_url}`;
 

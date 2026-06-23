@@ -7,7 +7,7 @@ import {
     Image, Calendar, Truck, Globe, Layout, Menu
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
-import api, { imgUrl } from '../services/api';
+import api, {} from '../services/api';
 import RequiresConnection from '../components/RequiresConnection';
 import SecureImage from '../components/SecureImage';
 const ImageCropModal = lazy(() => import('../components/ImageCropModal'));
@@ -359,7 +359,7 @@ const Dashboard = () => {
     const [profilePreview, setProfilePreview] = useState('');
     const [profileSaving, setProfileSaving] = useState(false);
     const [profileTab, setProfileTab] = useState('profile');
-    const { theme, setTheme, resolvedTheme } = useTheme();
+    const { theme, setTheme, _resolvedTheme } = useTheme();
     const [preferences, setPreferences] = useState(() => {
         try {
             const saved = localStorage.getItem('user_preferences');
@@ -805,7 +805,7 @@ const Dashboard = () => {
                 if (prev === next) return prev;
                 return next;
             });
-        } catch (e) {
+        } catch {
             // ignore
         }
     }, [user?.role]);
@@ -938,7 +938,7 @@ const Dashboard = () => {
         setCropState({ file });
     }, []);
 
-    const handleCropCancel = useCallback(() => {
+    const _handleCropCancel = useCallback(() => {
         setCropState(null);
     }, []);
 

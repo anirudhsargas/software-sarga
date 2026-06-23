@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { pool } = require('../database');
-const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles: _authorizeRoles } = require('../middleware/auth');
 const { asyncHandler, getTodayDate } = require('../helpers');
 const { branchFilter } = require('../middleware/branchFilter');
 

@@ -63,7 +63,7 @@ const PaperStockDashboard = () => {
             ]);
             setStock(stockRes.data);
             setBranches(branchesRes.data);
-        } catch (err) {
+        } catch {
             toast.error('Failed to load stock data');
         } finally {
             setLoading(false);

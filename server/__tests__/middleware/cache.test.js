@@ -1,5 +1,3 @@
-const jwt = require('jsonwebtoken');
-
 jest.mock('../../database', () => ({
   pool: { query: jest.fn(() => Promise.resolve([[]])) },
 }));

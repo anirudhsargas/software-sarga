@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import api from '../services/api';
-import toast from 'react-hot-toast';
 
 /**
  * Custom hook for handling API requests with offline/error handling

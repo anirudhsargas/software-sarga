@@ -16,7 +16,7 @@ function HeroCanvas() {
     let ctx;
     try {
       ctx = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    } catch (_) {
+    } catch {
       canvas.style.display = 'none';
       return;
     }
@@ -124,7 +124,7 @@ export default function HomePage() {
       const canvas = document.createElement('canvas');
       const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
       setHasWebGL(!!gl);
-    } catch (_) {
+    } catch {
       setHasWebGL(false);
     }
   }, []);

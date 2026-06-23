@@ -92,7 +92,7 @@ function initializeScheduler() {
 
     // Bill email parser — daily at 9:00 AM
     try {
-        const { scheduleDaily, runNow } = require('./billScheduler');
+        const { scheduleDaily, runNow: _runNow } = require('./billScheduler');
         scheduleDaily();
         tasks.push('Bill Email Parser');
         logSchedule('Bill Email Parser', '0 9 * * *', 'scheduled');

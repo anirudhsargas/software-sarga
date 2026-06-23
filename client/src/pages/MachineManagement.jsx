@@ -13,7 +13,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import { syncManager } from '../services/syncWorkerManager';
 import MeterVerification from '../components/MeterVerification';
-import { formatCurrency, formatCurrencyDecimal } from '../utils/formatters';
+import {formatCurrencyDecimal} from '../utils/formatters';
 import './MachineManagement.css';
 import PageContainer from '../components/ui/PageContainer';
 
@@ -141,14 +141,14 @@ const MachineManagement = () => {
         try {
             const res = await api.get('/branches');
             setBranches(res.data);
-        } catch (e) { console.error('Error fetching branches:', e); }
+        } catch { console.error('Error fetching branches:', e); }
     };
 
     const fetchStaff = async () => {
         try {
             const res = await api.get('/staff');
             setStaffList(Array.isArray(res.data) ? res.data : res.data.data || []);
-        } catch (e) { console.error('Error fetching staff:', e); }
+        } catch { console.error('Error fetching staff:', e); }
     };
 
     const fetchMachines = async () => {
@@ -168,7 +168,7 @@ const MachineManagement = () => {
 
             const res = await api.get('/machines', { params });
             setMachines(res.data);
-        } catch (e) { console.error('Error fetching machines:', e); }
+        } catch { console.error('Error fetching machines:', e); }
         finally { setLoading(false); }
     };
 
@@ -176,7 +176,7 @@ const MachineManagement = () => {
         try {
             const res = await api.get('/machines/book-assignments');
             setBookAssignments(res.data || { Offset: [], Laser: [], Other: [] });
-        } catch (e) { console.error('Error fetching book assignments:', e); }
+        } catch { console.error('Error fetching book assignments:', e); }
     };
 
     const fetchLiveCount = async (machineId, ipAddress) => {
@@ -185,7 +185,7 @@ const MachineManagement = () => {
             setLiveCountLoading(true);
             const res = await api.get(`/machines/${machineId}/mpr-meter-data`);
             setLiveCount(res.data.meter_data);
-        } catch (_) {
+        } catch {
             setLiveCount(null);
         } finally {
             setLiveCountLoading(false);
@@ -273,7 +273,7 @@ const MachineManagement = () => {
         try {
             if (editingMachine) {
                 // Optimistic UI Update for edit
-                const prevMachines = [...machines];
+                const _prevMachines = [...machines];
                 setMachines(prev => prev.map(m => m.id === editingMachine.id ? { ...m, ...formData } : m));
                 await api.put(`/machines/${editingMachine.id}`, formData);
             } else {

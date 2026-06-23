@@ -131,7 +131,7 @@ function parseNaturalQuery(query) {
     ]);
 
     const words = query
-        .replace(/[#₹,.\-\/]/g, ' ')
+        .replace(/[#₹,.\-/]/g, ' ')
         .split(/\s+/)
         .filter(w => w.length > 1 && !stopWords.has(w.toLowerCase()) && !/^\d+$/.test(w));
 

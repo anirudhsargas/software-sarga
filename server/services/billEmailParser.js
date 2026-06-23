@@ -141,7 +141,7 @@ async function processParsedEmail(parsed, uid, imap) {
     // mark as seen to avoid reprocessing
     try {
       if (imap && uid) imap.addFlags(uid, '\\Seen', () => {});
-    } catch (e) { /* ignore */ }
+    } catch (_e) { /* ignore */ }
   }
 }
 
@@ -172,12 +172,12 @@ async function runBillParser() {
     function safeFinish() {
       if (finished) return;
       finished = true;
-      try { imap.end(); } catch (e) { /* ignore */ }
+      try { imap.end(); } catch (_e) { /* ignore */ }
       resolve(report);
     }
 
     imap.once('ready', () => {
-      imap.openBox('INBOX', false, (err, box) => {
+      imap.openBox('INBOX', false, (err, _box) => {
         if (err) { report.errors.push(err.message); return safeFinish(); }
         imap.search(['UNSEEN', ['FROM', FROM_ADDRESS]], (err, results) => {
           if (err) { report.errors.push(err.message); return safeFinish(); }
@@ -190,7 +190,7 @@ async function runBillParser() {
 
           const f = imap.fetch(results, { bodies: '', struct: true, markSeen: false });
 
-          f.on('message', (msg, seqno) => {
+          f.on('message', (msg, _seqno) => {
             let uid = null;
             let envelope = null;
             msg.once('attributes', (attrs) => { uid = attrs.uid; envelope = attrs.envelope; });
@@ -217,7 +217,7 @@ async function runBillParser() {
                 } catch (err) {
                   console.error('Failed to parse/process raw email:', err.message);
                   report.errors.push(err.message);
-                  if (imap && uid) try { imap.addFlags(uid, '\\Seen', () => {}); } catch (e) {}
+                  if (imap && uid) try { imap.addFlags(uid, '\\Seen', () => {}); } catch (_e) { /* ignored */ }
                 }
               });
             });

@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { pool } = require('../database');
-const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles: _authorizeRoles } = require('../middleware/auth');
 
 // ════════════════════════════════════════════════════════════════════
 //  Statistical Helpers — Pure JS, no external ML libraries needed
@@ -11,9 +11,9 @@ function linearRegression(points) {
     const n = points.length;
     if (n < 2) return { slope: 0, intercept: points[0]?.y || 0, r2: 0 };
 
-    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, _sumY2 = 0;
     for (const { x, y } of points) {
-        sumX += x; sumY += y; sumXY += x * y; sumX2 += x * x; sumY2 += y * y;
+        sumX += x; sumY += y; sumXY += x * y; sumX2 += x * x; _sumY2 += y * y;
     }
     const denom = n * sumX2 - sumX * sumX;
     if (denom === 0) return { slope: 0, intercept: sumY / n, r2: 0 };
@@ -31,7 +31,7 @@ function linearRegression(points) {
 }
 
 /** Weighted moving average — recent months weighted more */
-function weightedMovingAverage(values, weights = null) {
+function _weightedMovingAverage(values, weights = null) {
     if (values.length === 0) return 0;
     if (!weights) {
         // Default: linearly increasing weights
@@ -247,7 +247,7 @@ router.get('/forecast', authenticateToken, async (req, res) => {
             next_month: nextMonthLabel,
             overall: {
                 history: overallSeries,
-                forecast: overallForecast.map((f, i) => {
+                forecast: overallForecast.map((f, _i) => {
                     const fMonth = (now.getMonth() + f.monthOffset) % 12;
                     const fYear = now.getFullYear() + Math.floor((now.getMonth() + f.monthOffset) / 12);
                     return { ...f, label: `${MONTH_NAMES[fMonth]} ${fYear}` };
@@ -423,7 +423,7 @@ router.get('/stock-recommendations', authenticateToken, async (req, res) => {
         `);
 
         // Category-level demand for next month (use category from jobs)
-        const [catDemand] = await pool.query(`
+        const [_catDemand] = await pool.query(`
             SELECT COALESCE(category, 'Uncategorized') AS category,
                    MONTH(created_at) AS mo,
                    COUNT(*) AS orders,

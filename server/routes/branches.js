@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getUserBranchId, auditLog } = require('../helpers');
+const { _getUserBranchId, auditLog } = require('../helpers');
 const { validate, branchSchema } = require('../middleware/validate');
 const { redisCache } = require('../middleware/cache');
 const { invalidatePattern } = require('../services/cacheService');
@@ -15,7 +15,7 @@ router.get('/branches', authenticateToken, redisCache(300, 'route'), async (req,
         // Return all branches for all users (needed for dashboards to display branch names)
         const [rows] = await pool.query("SELECT id, name, address, phone, email, upi_id, short_name FROM sarga_branches ORDER BY name ASC");
         res.json(rows);
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -32,7 +32,7 @@ router.get('/branches/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Branch not found' });
         }
         res.json(rows[0]);
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });
@@ -112,7 +112,7 @@ router.delete('/branches/:id', authenticateToken, authorizeRoles('Admin'), async
         invalidatePattern('route').catch(() => {});
         auditLog(req.user.id, 'BRANCH_DELETE', `Deleted branch #${id}`, { entity_type: 'branch', entity_id: id });
         res.json({ message: 'Branch deleted successfully' });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
 });

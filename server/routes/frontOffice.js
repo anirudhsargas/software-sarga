@@ -337,7 +337,7 @@ router.get('/front-office/active-jobs', authenticateToken, async (req, res) => {
         const { branchId } = await branchFilter(req);
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const activeStatuses = "('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production')";
         const [[{ total }]] = await pool.query(
@@ -365,7 +365,7 @@ router.get('/front-office/due-customers', authenticateToken, async (req, res) =>
         const { branchId } = await branchFilter(req);
         const custBranchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const [[{ total }]] = await pool.query(
             `SELECT COUNT(*) as total FROM (
@@ -404,7 +404,7 @@ router.get('/front-office/overdue-jobs', authenticateToken, async (req, res) => 
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
         const today = getTodayDate();
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const [[{ total }]] = await pool.query(
             `SELECT COUNT(*) as total FROM sarga_jobs j WHERE j.delivery_date < ? AND j.status NOT IN ('Delivered', 'Cancelled') ${branchWhere}`,
@@ -432,7 +432,7 @@ router.get('/front-office/recent-payments', authenticateToken, async (req, res) 
         const { branchId } = await branchFilter(req);
         const payBranchWhere = branchId ? ' AND p.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const [[{ total }]] = await pool.query(
             `SELECT COUNT(*) as total FROM sarga_customer_payments p WHERE 1=1 ${payBranchWhere}`, branchParams
@@ -486,7 +486,7 @@ router.get('/front-office/delivered', authenticateToken, async (req, res) => {
         const { branchId } = await branchFilter(req);
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const [[{ total }]] = await pool.query(
             `SELECT COUNT(*) as total FROM sarga_jobs j WHERE j.status = 'Delivered' ${branchWhere}`,
@@ -518,7 +518,7 @@ router.get('/front-office/completed', authenticateToken, async (req, res) => {
         const { branchId } = await branchFilter(req);
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
         const branchParams = branchId ? [branchId] : [];
-        const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
+        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit || 50);
 
         const [[{ total }]] = await pool.query(
             `SELECT COUNT(*) as total FROM sarga_jobs j WHERE j.status = 'Completed' ${branchWhere}`,

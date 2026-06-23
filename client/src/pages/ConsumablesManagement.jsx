@@ -200,7 +200,7 @@ const ConsumablesManagement = () => {
                 toast.success('Consumable item added');
             } else {
                 // Optimistic UI Update for edit
-                const prevConsumables = [...consumables];
+                const _prevConsumables = [...consumables];
                 setConsumables(prev => prev.map(c => c.id === selectedItem.id ? { ...c, ...formData } : c));
                 await api.put(`/inventory/consumables/${selectedItem.id}`, formData);
                 toast.success('Consumable item updated');

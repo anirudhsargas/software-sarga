@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -272,7 +272,6 @@ const DesignDashboard = () => {
             ) : (
               assignedSorted.map(b => {
                 const overdue = isOverdue(b.due_date);
-                const dueClass = isDueToday(b.due_date) ? 'danger' : overdue ? 'danger' : 'pending';
                 return (
                   <div
                     key={b.id}
@@ -453,7 +452,7 @@ const DesignDashboard = () => {
               {notifications.length > 0 && (
                 <span style={{
                   width: 18, height: 18, borderRadius: '50%',
-                  background: 'var(--danger)', color: '#fff',
+                  background: 'var(--danger)', color: 'var(--on-danger, #fff)',
                   display: 'grid', placeItems: 'center',
                   fontSize: 10, fontWeight: 800
                 }}>

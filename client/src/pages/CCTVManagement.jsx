@@ -94,7 +94,7 @@ const CCTVManagement = () => {
         rtsp_path: data.rtsp_path
       });
       setShowCameraModal(true);
-    } catch {
+    } catch (err) {
       toast.error('Failed to load camera details');
     }
   };
@@ -140,7 +140,7 @@ const CCTVManagement = () => {
       await api.put(`cctv/cameras/${cam.id}`, { is_active: !cam.is_active });
       fetchCameras();
       toast.success(cam.is_active ? 'Camera disabled' : 'Camera enabled');
-    } catch {
+    } catch (err) {
       toast.error('Failed to update camera');
     }
   };

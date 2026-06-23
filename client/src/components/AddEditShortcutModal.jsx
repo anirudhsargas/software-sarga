@@ -348,7 +348,7 @@ const AddEditShortcutModal = ({ open, onClose, onSave, editingShortcut, targetBr
               borderRadius: 'var(--radius-sm)',
               border: 'none',
               background: 'var(--accent)',
-              color: '#fff',
+              color: 'var(--on-accent, #fff)',
               cursor: 'pointer',
               fontSize: 'var(--text-sm)',
               fontWeight: 500,

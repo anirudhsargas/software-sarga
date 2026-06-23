@@ -64,7 +64,7 @@ const FullBillModal = ({ open, onClose, vendorBillId = null, documentId = null }
     }
     if (!document?.file_path) return '';
     return imgUrl(document.file_path);
-  }, [document?.file_blob, document?.file_path]);
+  }, [document?.file_blob, document?.file_path, document]);
 
   // Cleanup blob URL on unmount / change
   useEffect(() => {

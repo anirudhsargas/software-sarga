@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
 import * as localDb from '../services/localDb';
 import { toast } from 'react-hot-toast';
 import VendorModal from './VendorModal';
@@ -17,7 +16,7 @@ const Vendors = ({
   canDelete = true,
   canAdd = true
 }) => {
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

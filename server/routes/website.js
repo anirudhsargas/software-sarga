@@ -28,7 +28,6 @@ module.exports = (upload) => {
   // Debugging: log incoming POST paths for website router
   router.use((req, res, next) => {
     if (req.method === 'POST') {
-      // eslint-disable-next-line no-console
       console.log(`[Website Debug] ${req.method} ${req.path}`);
     }
     next();
@@ -460,7 +459,7 @@ router.get('/customer/dashboard', asyncHandler(async (req, res) => {
   let decoded;
   try {
     decoded = jwt.verify(token, JWT_SECRET);
-  } catch (err) {
+  } catch (_err) {
     return res.status(401).json({ message: 'Invalid token' });
   }
 
@@ -487,7 +486,7 @@ router.get('/job/:id', asyncHandler(async (req, res) => {
   const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
   if (!token) return res.status(401).json({ message: 'Missing token' });
   let decoded;
-  try { decoded = jwt.verify(token, JWT_SECRET); } catch (err) { return res.status(401).json({ message: 'Invalid token' }); }
+  try { decoded = jwt.verify(token, JWT_SECRET); } catch (_err) { return res.status(401).json({ message: 'Invalid token' }); }
 
   const customerId = decoded.id;
   const jobId = req.params.id;
@@ -536,7 +535,7 @@ router.post('/jobs/:id/proofs/:proofId/review-customer', asyncHandler(async (req
   const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
   if (!token) return res.status(401).json({ message: 'Missing token' });
   let decoded;
-  try { decoded = jwt.verify(token, JWT_SECRET); } catch (err) { return res.status(401).json({ message: 'Invalid token' }); }
+  try { decoded = jwt.verify(token, JWT_SECRET); } catch (_err) { return res.status(401).json({ message: 'Invalid token' }); }
 
   const customerId = decoded.id;
   const jobId = req.params.id;
@@ -577,7 +576,7 @@ router.get('/invoices/:invoiceId/download', asyncHandler(async (req, res) => {
   const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
   if (!token) return res.status(401).json({ message: 'Missing token' });
   let decoded;
-  try { decoded = jwt.verify(token, JWT_SECRET); } catch (err) { return res.status(401).json({ message: 'Invalid token' }); }
+  try { decoded = jwt.verify(token, JWT_SECRET); } catch (_err) { return res.status(401).json({ message: 'Invalid token' }); }
 
   const customerId = decoded.id;
   const invoiceId = req.params.invoiceId;

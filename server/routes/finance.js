@@ -17,7 +17,7 @@ const invalidateFinance = () => invalidateFinanceCache().catch(() => {});
 router.get('/emi-master', authenticateToken, async (req, res) => {
   try {
     const branchScope = await branchFilter(req, { column: 'em.branch_id' });
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
     let whereClauses = [];
     const params = [];
@@ -390,7 +390,7 @@ router.post('/emi-payments', authenticateToken, authorizeRoles('Admin', 'Account
 router.get('/kuri-master', authenticateToken, async (req, res) => {
   try {
     const { branchId } = await branchFilter(req);
-    const { limit, offset, page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
     let whereClauses = [];
     const params = [];

@@ -40,7 +40,7 @@ const normalizeReportDate = (value) => {
     if (typeof value === 'number') return new Date(value).toISOString().slice(0, 10);
     try {
         return new Date(value).toISOString().slice(0, 10);
-    } catch (err) {
+    } catch {
         return '';
     }
 };
@@ -226,7 +226,7 @@ const DailyReport = () => {
         const d = new Date(ts);
         return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
     };
-    const formatDateDisplay = (dateStr) => {
+    const _formatDateDisplay = (dateStr) => {
         const d = new Date(dateStr + 'T00:00:00');
         return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     };
@@ -273,7 +273,7 @@ const DailyReport = () => {
                 try {
                     const booksRes = await api.get('/machines/my-books');
                     assignedBooks = booksRes.data || [];
-                } catch (err) { assignedBooks = []; }
+                } catch { assignedBooks = []; }
                 setMyBooks(assignedBooks);
 
             const res = await api.get('/daily-report/opening-balance', { params: { date: reportDate, ...branchParam } });
@@ -601,7 +601,7 @@ const DailyReport = () => {
         fetchAttendanceData();
     }, [fetchLiveCounts, loadTabData, fetchAttendanceData, fetchCreditTransactions]), AUTO_REFRESH_INTERVAL, pollingEnabled);
 
-    const manualRefresh = () => { loadAllData(); };
+    const _manualRefresh = () => { loadAllData(); };
 
     // Credit totals for today's quick view
     const creditTotals = React.useMemo(() => (creditTransactions || []).reduce((acc, t) => {
@@ -653,7 +653,7 @@ const DailyReport = () => {
                 if (bookKey === 'Offset') fetchCreditTransactions();
                 else if (bookKey === 'Laser') fetchLaserCredits();
                 else if (bookKey === 'Other') fetchOtherCredits();
-            } catch (err) {
+            } catch {
                 toast.error('Failed to delete credit');
             }
         };
@@ -1669,7 +1669,7 @@ const DailyReport = () => {
                                         <Monitor size={14} /> MACHINE OPENING COUNTS
                                     </h4>
                                     <div className="stack-sm">
-                                        {promptMachines.map((m, idx) => (
+                                        {promptMachines.map((m, _idx) => (
                                             <div key={m.id} className="row gap-md items-center">
                                                 <div className="opening-prompt-machine-info">
                                                     <div className="opening-prompt-machine-name">{m.machine_name}</div>
@@ -1969,7 +1969,7 @@ const DailyReport = () => {
                                     if (creditModalData.book_type === 'Offset') fetchCreditTransactions();
                                     else if (creditModalData.book_type === 'Laser') fetchLaserCredits();
                                     else if (creditModalData.book_type === 'Other') fetchOtherCredits();
-                                } catch (err) {
+                                } catch {
                                     toast.error('Failed to add credit');
                                 }
                             }}>Save Credit</button>

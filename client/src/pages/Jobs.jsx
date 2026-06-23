@@ -1,6 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import usePolling from '../hooks/usePolling';
 import { Search, FileText, Loader2, Plus, Trash2, IndianRupee, RotateCcw, Zap, ChevronDown, Building2, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
@@ -13,7 +12,7 @@ import { useOptimistic } from '../hooks/useOptimistic';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import { formatForDisplay } from '../utils/phone';
-import { formatCurrency, formatCurrencyDecimal } from '../utils/formatters';
+import {formatCurrencyDecimal} from '../utils/formatters';
 import PageContainer from '../components/ui/PageContainer';
 
 // ── Priority helpers ──
@@ -58,9 +57,9 @@ const UrgencyBadge = ({ urgency }) => {
     );
 };
 
-const formatRupee = (value) => formatCurrencyDecimal(value, 2);
+const _formatRupee = (value) => formatCurrencyDecimal(value, 2);
 
-const getStatusColor = (status) => {
+const _getStatusColor = (status) => {
     const colors = {
         'Pending': 'badge--warning',
         'Processing': 'badge--info',
@@ -72,8 +71,8 @@ const getStatusColor = (status) => {
     return colors[status] || 'badge--default';
 };
 
-const canManageOrderStatus = (role) => ['Admin', 'Front Office', 'front office'].includes(role);
-const canDeleteOrder = (role) => ['Admin', 'Accountant'].includes(role);
+const _canManageOrderStatus = (role) => ['Admin', 'Front Office', 'front office'].includes(role);
+const _canDeleteOrder = (role) => ['Admin', 'Accountant'].includes(role);
 const isFinanceRole = (role) => ['Admin', 'Accountant', 'Front Office', 'front office'].includes(role);
 const getTableColumnCount = (sortByPriority, financialsVisible) => 8 + (sortByPriority ? 1 : 0) + (financialsVisible ? 1 : 0);
 
@@ -128,7 +127,7 @@ const Jobs = () => {
     const [debouncedFilterInput, setDebouncedFilterInput] = useState(filterInput);
     const [branches, setBranches] = useState([]);
     const [error, setError] = useState('');
-    const [activeTab, setActiveTab] = useState('active'); // active, completed, delivered, due, overdue, payments
+    const [activeTab, _setActiveTab] = useState('active'); // active, completed, delivered, due, overdue, payments
     const [sortByPriority, setSortByPriority] = useState(false);
     const [deliveryDueModal, setDeliveryDueModal] = useState({
         isOpen: false,
@@ -149,9 +148,9 @@ const Jobs = () => {
 
     const userRole = auth.getUser()?.role;
     const isFinancialsVisible = isFinanceRole(userRole);
-    const searchQuery = debouncedFilterInput.search;
-    const statusFilter = debouncedFilterInput.status;
-    const branchFilter = debouncedFilterInput.branch;
+    const _searchQuery = debouncedFilterInput.search;
+    const _statusFilter = debouncedFilterInput.status;
+    const _branchFilter = debouncedFilterInput.branch;
     const categoryFilter = debouncedFilterInput.category;
 
     const fetchJobs = useCallback(async (pageNum = 1) => {
@@ -215,7 +214,7 @@ const Jobs = () => {
         setFilterInput(prev => prev[key] === value ? prev : { ...prev, [key]: value });
     }, []);
 
-    const toggleExpandedPayment = useCallback((paymentId) => {
+    const _toggleExpandedPayment = useCallback((paymentId) => {
         setExpandedPayments(prev => {
             const next = new Set(prev);
             next.has(paymentId) ? next.delete(paymentId) : next.add(paymentId);
@@ -406,7 +405,7 @@ const Jobs = () => {
 
     const displayJobs = useMemo(() => getDisplayJobs(jobs, sortByPriority), [jobs, sortByPriority]);
     const renderItems = useMemo(() => getRenderItems(displayJobs), [displayJobs]);
-    const visibleRenderItems = useMemo(() => renderItems.slice(0, PAGE_SIZE), [renderItems]);
+    const _visibleRenderItems = useMemo(() => renderItems.slice(0, PAGE_SIZE), [renderItems]);
     const tableColumnCount = useMemo(() => getTableColumnCount(sortByPriority, isFinancialsVisible), [sortByPriority, isFinancialsVisible]);
 
     return (
@@ -574,7 +573,7 @@ const Jobs = () => {
 
                                 const renderJobRow = (j, opts = {}) => {
                                     const { isSubRow = false, isSummaryRow = false, groupJobs = null } = opts;
-                                    const totalCols = 6 + (sortByPriority ? 1 : 0) + (isFinancialsVisible ? 2 : 0);
+                                    const _totalCols = 6 + (sortByPriority ? 1 : 0) + (isFinancialsVisible ? 2 : 0);
                                     return (
                                         <tr
                                             key={j.id}
