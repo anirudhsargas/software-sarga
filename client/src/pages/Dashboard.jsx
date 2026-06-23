@@ -17,8 +17,8 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { useLocation } from 'react-router-dom';
 import ProgressBar from '../components/ProgressBar';
-import AnomalyPanel from '../components/AnomalyPanel';
-import InsightsPanel from '../components/InsightsPanel';
+const AnomalyPanel = React.lazy(() => import('../components/AnomalyPanel'));
+const InsightsPanel = React.lazy(() => import('../components/InsightsPanel'));
 import PaperSidePanel from '../components/PaperSidePanel';
 import Button from '../components/Button';
 import useTranslation from '../hooks/useTranslation';
@@ -74,7 +74,7 @@ const Reports = React.lazy(() => import('./Reports'));
 const ScheduleManagement = React.lazy(() => import('./ScheduleManagement'));
 const Invoices = React.lazy(() => import('./Invoices'));
 const SalesLayout = React.lazy(() => import('./SalesLayout'));
-const InternalTransactions = React.lazy(() => import('./InternalTransactions'));
+const InternalTransfers = React.lazy(() => import('./InternalTransfers'));
 const StockTransfer = React.lazy(() => import('./StockTransfer'));
 const ConsumablesManagement = React.lazy(() => import('./ConsumablesManagement'));
 const PaperStockDashboard = React.lazy(() => import('./PaperStockDashboard'));
@@ -103,13 +103,6 @@ const DesignBookingsCMS = React.lazy(() => import('./DesignBookingsCMS'));
 const AccessRestricted = React.lazy(() => import('./AccessRestricted'));
 const ShortcutsPage = React.lazy(() => import('./ShortcutsPage'));
 
-// Design Studio Pages
-const DesignStudioHome = React.lazy(() => import('./design-studio/DesignStudioHome'));
-const DesignEditor = React.lazy(() => import('./design-studio/DesignEditor'));
-const AlbumDesigner = React.lazy(() => import('./design-studio/AlbumDesigner'));
-const InvitationScanner = React.lazy(() => import('./design-studio/InvitationScanner'));
-const AIMatterBuilder = React.lazy(() => import('./design-studio/AIMatterBuilder'));
-const AIDesignGenerator = React.lazy(() => import('./design-studio/AIDesignGenerator'));
 
 const PageLoader = React.memo(() => (
     <div className="page-loader">
@@ -571,8 +564,7 @@ const Dashboard = () => {
         { key: 'dashboard', name: 'Summary', icon: Grid, path: '/dashboard', roles: ['Admin'], group: 'main' },
         { key: 'dashboard', name: 'Front Office', icon: Grid, path: '/dashboard', roles: ['Front Office'], group: 'main' },
         { key: 'dashboard', name: 'Dashboard', icon: Grid, path: '/dashboard', roles: ['Accountant', 'Other Staff', 'Designer'], group: 'main' },
-        // Design Studio
-        { key: 'design-studio', name: 'Design Studio', icon: Layout, path: '/dashboard/design-studio', roles: ['Admin', 'Designer'], group: 'main' },
+
         // Sales
         { key: 'sales_customers', name: 'Customers', icon: UserSquare, path: '/dashboard/sales/customers', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
         { key: 'sales_orders', name: 'Orders', icon: ClipboardList, path: '/dashboard/sales/orders', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
@@ -966,6 +958,7 @@ const Dashboard = () => {
 
     return (
         <div className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
+            <a href="#main-content" className="skip-link">Skip to main content</a>
             <ProgressBar active={isNavigating} />
             {/* Mobile/Tablet Sidebar Overlay */}
             {sidebarOpen && <div className="sidebar-overlay sidebar-overlay--visible" onClick={closeSidebar} aria-hidden="true"></div>}
@@ -983,9 +976,9 @@ const Dashboard = () => {
                 <div className="sidebar-header">
                     <div className="logo-wrap">
                         {companyInfo.logo ? (
-                           <img src={companyInfo.logo} alt={companyInfo.name} className="logo-img" />
+                           <img src={companyInfo.logo} alt={companyInfo.name} className="logo-img" width="32" height="32" />
                         ) : (
-                           <img src="/icons/icon-192.png" alt="Sarga" className="logo-img" />
+                           <img src="/icons/icon-192.png" alt="Sarga" className="logo-img" width="32" height="32" />
                         )}
                         <span className="logo-text">{companyInfo.name}</span>
                     </div>
@@ -995,7 +988,7 @@ const Dashboard = () => {
                         aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                         title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     >
-                        {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+                        {sidebarCollapsed ? <ChevronRight size={18} aria-hidden="true" /> : <ChevronLeft size={18} aria-hidden="true" />}
                     </button>
                 </div>
 
@@ -1016,7 +1009,7 @@ const Dashboard = () => {
                 </nav>
 
                 <div className="sidebar-footer">
-                    <div className="user-profile" onClick={() => setShowProfilePanel(true)} role="button" tabIndex={0} aria-label="User profile">
+                    <div className="user-profile" onClick={() => setShowProfilePanel(true)} role="button" tabIndex={0} aria-label="User profile" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowProfilePanel(true); } }}>
                         <div className="user-avatar">
                             {user?.image_url ? (
                                 <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
@@ -1036,7 +1029,7 @@ const Dashboard = () => {
             </aside>
 
             {/* Main Content */}
-            <main className="main-content">
+            <main className="main-content" id="main-content">
                 {/* Global App Bar */}
                 <header className="global-appbar">
                     {/* LEFT: Hamburger & Breadcrumb */}
@@ -1046,7 +1039,7 @@ const Dashboard = () => {
                             aria-label="Toggle navigation menu"
                             onClick={handleHamburgerClick}
                         >
-                            <Menu size={20} />
+                            <Menu size={20} aria-hidden="true" />
                         </button>
                         <div className="appbar-breadcrumb">
                             {getBreadcrumbs()}
@@ -1055,8 +1048,8 @@ const Dashboard = () => {
 
                     {/* CENTER: Smart Search */}
                     <div className="appbar-center">
-                        <div className="appbar-search" onClick={() => setSearchOpen(true)} role="button" tabIndex={0} aria-label="Search" onKeyDown={(e) => { if (e.key === 'Enter') setSearchOpen(true); }}>
-                            <Search size={16} />
+                        <div className="appbar-search" onClick={() => setSearchOpen(true)} role="button" tabIndex={0} aria-label="Search" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSearchOpen(true); } }}>
+                            <Search size={16} aria-hidden="true" />
                             <span className="appbar-search-placeholder">Search... <kbd className="appbar-kbd">⌘K</kbd></span>
                         </div>
                     </div>
@@ -1083,7 +1076,7 @@ const Dashboard = () => {
                             title="Notifications"
                             aria-label={`${anomalyCount} notifications`}
                         >
-                            <ShieldAlert size={20} />
+                            <ShieldAlert size={20} aria-hidden="true" />
                             {anomalyCount > 0 && (
                                 <span className="appbar-badge">
                                     {anomalyCount > 99 ? '99+' : anomalyCount}
@@ -1098,7 +1091,7 @@ const Dashboard = () => {
                             role="button"
                             tabIndex={0}
                             aria-label="Open profile panel"
-                            onKeyDown={(e) => { if (e.key === 'Enter') setShowProfilePanel(true); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowProfilePanel(true); } }}
                         >
                             <div className="user-avatar avatar-sm">
                                 {user?.image_url ? (
@@ -1165,7 +1158,7 @@ const Dashboard = () => {
                             <Route path="vendors/*" element={<Vendors />} />
                             <Route path="machines" element={<MachineManagement />} />
                             <Route path="daily-report" element={<DailyReport />} />
-                            <Route path="internal-transactions" element={<InternalTransactions />} />
+                            <Route path="internal-transactions" element={<InternalTransfers />} />
                             <Route path="stock-transfer" element={<StockTransfer />} />
                             <Route path="attendance-salary" element={<AttendanceSalary />} />
                             <Route path="ai-monitoring" element={<RequiresConnection feature="AI Monitoring"><AIMonitoring /></RequiresConnection>} />
@@ -1213,13 +1206,6 @@ const Dashboard = () => {
                                 </SectionErrorBoundary>
                             } />
                             <Route path="shortcuts" element={<ShortcutsPage />} />
-                            {/* Design Studio Routes */}
-                            <Route path="design-studio" element={<DesignStudioHome />} />
-                            <Route path="design-studio/editor/:id" element={<DesignEditor />} />
-                            <Route path="design-studio/album" element={<AlbumDesigner />} />
-                            <Route path="design-studio/scanner" element={<InvitationScanner />} />
-                            <Route path="design-studio/ai-matter" element={<AIMatterBuilder />} />
-                            <Route path="design-studio/ai-design" element={<AIDesignGenerator />} />
                             <Route path="*" element={<NotFound />} />
 
                         </Routes>
@@ -1249,7 +1235,7 @@ const Dashboard = () => {
                             >
                                 Edit Profile
                             </button>
-                            <button className="modal-close modal-close--static" aria-label="Close profile panel" onClick={() => setShowProfilePanel(false)} title="Close"><X size={20} /></button>
+                            <button className="modal-close modal-close--static" aria-label="Close profile panel" onClick={() => setShowProfilePanel(false)} title="Close"><X size={20} aria-hidden="true" /></button>
                         </div>
                         {/* Attendance & Salary for staff roles */}
                         {['Designer', 'Printer', 'Front Office', 'Other Staff'].includes(user?.role) && (
@@ -1275,7 +1261,7 @@ const Dashboard = () => {
                     <div className="modal modal--profile">
                         <div className="modal-header">
                             <h2 className="modal-title">Edit Profile</h2>
-                            <button className="modal-close modal-close--static" aria-label="Close profile modal" onClick={() => setShowProfileModal(false)} title="Close"><X size={20} /></button>
+                            <button className="modal-close modal-close--static" aria-label="Close profile modal" onClick={() => setShowProfileModal(false)} title="Close"><X size={20} aria-hidden="true" /></button>
                         </div>
 
                         {/* Tab Navigation */}
@@ -1370,7 +1356,7 @@ const Dashboard = () => {
                                     <div style={{ gridColumn: '1 / -1' }}>
                                         <div className="password-card">
                                             <div className="password-card__info">
-                                                <h4>Password</h4>
+                                                <h3>Password</h3>
                                                 <p>Last changed: <span style={{ color: 'var(--muted)' }}>Update periodically for security</span></p>
                                             </div>
                                             <button

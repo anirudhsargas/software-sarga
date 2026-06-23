@@ -67,6 +67,7 @@ const StaffLayout = () => {
 
     return (
         <div className="dashboard-layout">
+            <a href="#main-content" className="skip-link">Skip to main content</a>
             {/* Mobile/tablet overlay */}
             {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} aria-hidden="true" />}
 
@@ -127,10 +128,11 @@ const StaffLayout = () => {
                     <div className="appbar-left">
                         <button
                             className="appbar-hamburger"
-                            aria-label="Toggle navigation menu"
+                            aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                            aria-pressed={sidebarOpen}
                             onClick={toggleSidebar}
                         >
-                            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+                            {sidebarOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
                         </button>
                         <div className="appbar-breadcrumb">
                             <span className="breadcrumb-current">Staff Portal</span>
@@ -138,11 +140,11 @@ const StaffLayout = () => {
                     </div>
                     <div className="appbar-right">
                         <NavLink to="/staff-settings" className="appbar-icon-btn" title="Settings" aria-label="Settings" onClick={closeSidebar}>
-                            <Settings size={18} />
+                            <Settings size={18} aria-hidden="true" />
                         </NavLink>
                     </div>
                 </header>
-                <main className="content-container">
+                <main id="main-content" className="content-container">
                     <div className="page-container">
                         <Outlet />
                     </div>

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { Search, ExternalLink, RefreshCw, Loader2, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
+import { Search, ExternalLink, RefreshCw, Loader2, CheckCircle, XCircle, Clock, Eye, Palette } from 'lucide-react';
+import EmptyState from '../../components/EmptyState';
 import PageContainer from '../../components/ui/PageContainer';
 
 const STATUSES = [
@@ -136,7 +137,7 @@ function ArtworkManager() {
 
       <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1fr' : '1fr', gap: '1.5rem' }}>
         {/* Table */}
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-wrapper">
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border)' }}>
@@ -182,7 +183,7 @@ function ArtworkManager() {
                 </tr>
               ))}
               {uploads.length === 0 && (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No artwork uploads found</td></tr>
+                <tr><td colSpan={8}><EmptyState icon={Palette} title="No artwork uploads found" /></td></tr>
               )}
             </tbody>
           </table>

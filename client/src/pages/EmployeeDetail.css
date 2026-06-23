@@ -780,7 +780,7 @@
 .role-badge.role-front_office   { background: var(--info-bg);           color: var(--info); }
 .role-badge.role-accountant     { background: var(--warning-bg);        color: var(--warning); }
 .role-badge.role-designer       { background: var(--success-bg);        color: var(--success); }
-.role-badge.role-printer        { background: #EAF3DE;                  color: #3B6D11; }
+.role-badge.role-printer        { background: var(--success-bg);                  color: var(--success); }
 .role-badge.role-other_staff    { background: var(--bg-2);             color: var(--text-muted); }
 
 .staff-meta-row {

@@ -628,11 +628,11 @@ const Inventory = () => {
         }
     };
 
-    const toggleSelect = (id) => {
+    const toggleSelect = useCallback((id) => {
         setSelectedIds(prev =>
             prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
         );
-    };
+    }, []);
 
     const getStockBasedPrintQty = (item) => {
         const stockQty = Number(item?.quantity) || 0;
@@ -798,12 +798,12 @@ const Inventory = () => {
         }
     };
 
-    const getStatus = (item) => {
+    const getStatus = useCallback((item) => {
         if (Number(item.quantity) <= Number(item.reorder_level || 0)) return 'low';
         return 'ok';
-    };
+    }, []);
 
-    const openItemDetail = async (itemId) => {
+    const openItemDetail = useCallback(async (itemId) => {
         setDetailLoading(true);
         setShowDetailModal(true);
         try {
@@ -815,7 +815,7 @@ const Inventory = () => {
         } finally {
             setDetailLoading(false);
         }
-    };
+    }, []);
 
     return (
         <PageContainer>
@@ -1102,7 +1102,7 @@ const Inventory = () => {
                         >
                             <Bell size={16} />
                             {pendingRequestsCount > 0 && (
-                                <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--error)', color: 'var(--on-accent)', borderRadius: '50%', width: 14, height: 14, fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                                <span className="inv-badge">
                                     {pendingRequestsCount}
                                 </span>
                             )}
@@ -1148,7 +1148,7 @@ const Inventory = () => {
                                     {!isFrontOffice && <th>Cost</th>}
                                     <th>Price</th>
                                     <th>Status</th>
-                                    <th style={{ width: 80 }}>Actions</th>
+                                    <th className="th-actions">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1158,13 +1158,13 @@ const Inventory = () => {
                                             <div className="inv-skeleton">
                                                 {[1, 2, 3, 4, 5].map(i => (
                                                     <div key={i} className="inv-skeleton-row">
-                                                        <div className="inv-skeleton-cell" style={{ width: 24, height: 16 }} />
-                                                        <div className="inv-skeleton-cell" style={{ width: 36, height: 36, borderRadius: 8 }} />
-                                                        <div className="inv-skeleton-cell" style={{ flex: 2 }} />
-                                                        <div className="inv-skeleton-cell" style={{ flex: 1 }} />
-                                                        <div className="inv-skeleton-cell" style={{ flex: 0.5 }} />
-                                                        <div className="inv-skeleton-cell" style={{ flex: 0.5 }} />
-                                                        <div className="inv-skeleton-cell" style={{ width: 60 }} />
+                                                        <div className="inv-skeleton-cell inv-skeleton-cell--xs" />
+                                                        <div className="inv-skeleton-cell inv-skeleton-cell--sm" />
+                                                        <div className="inv-skeleton-cell inv-skeleton-cell--md" />
+                                                        <div className="inv-skeleton-cell inv-skeleton-cell--half" />
+                                                        <div className="inv-skeleton-cell inv-skeleton-cell--quarter" />
+                                                        <div className="inv-skeleton-cell inv-skeleton-cell--quarter" />
+                                                        <div className="inv-skeleton-cell inv-skeleton-cell--action" />
                                                         <div className="inv-skeleton-cell" style={{ width: 80 }} />
                                                     </div>
                                                 ))}
@@ -1194,7 +1194,7 @@ const Inventory = () => {
                                                     />
                                                 </td>
                                                 <td>
-                                                    <div role="button" tabIndex={0} className="inv-item-cell">
+                                                    <div role="button" tabIndex={0} className="inv-item-cell" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); } }}>
                                                         <InventoryImage item={item} onUpdate={handleImageUpdate} isAdmin={isAdmin} size={40} />
                                                         <div className="inv-item-info" onClick={() => openItemDetail(item.id)}>
                                                             <span className="inv-item-name">{item.name}</span>
@@ -1203,7 +1203,7 @@ const Inventory = () => {
                                                     </div>
                                                 </td>
                                                 <td data-label="Category">
-                                                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{item.category || item.product_subcategory_name || '-'}</span>
+                                                    <span className="text-sm text-muted">{item.category || item.product_subcategory_name || '-'}</span>
                                                 </td>
                                                 <td data-label="Stock">
                                                     <div className="inv-stock-cell">
@@ -1213,11 +1213,11 @@ const Inventory = () => {
                                                 </td>
                                                 {!isFrontOffice && (
                                                     <td data-label="Cost">
-                                                        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>₹{Number(item.cost_price).toFixed(2)}</span>
+                                                        <span className="text-sm text-muted">₹{Number(item.cost_price).toFixed(2)}</span>
                                                     </td>
                                                 )}
                                                 <td data-label="Price">
-                                                    <span className="text-sm" style={{ fontWeight: 600 }}>₹{Number(item.sell_price || 0).toFixed(2)}</span>
+                                                    <span className="text-sm font-semibold">₹{Number(item.sell_price || 0).toFixed(2)}</span>
                                                 </td>
                                                 <td data-label="Status">
                                                     <span className={`inv-pill ${isLow ? 'inv-pill--low' : 'inv-pill--ok'}`}>
@@ -1295,7 +1295,7 @@ const Inventory = () => {
                         ) : items.map(item => (
                             <div key={item.id} className="card" style={{ padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--surface)', border: '1px solid var(--border)' }}>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                                    <div role="button" tabIndex={0} style={{ width: 84, height: 84, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface-2)', cursor: 'pointer' }} onClick={() => openItemDetail(item.id)}>
+                                    <div role="button" tabIndex={0} style={{ width: 84, height: 84, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface-2)', cursor: 'pointer' }} onClick={() => openItemDetail(item.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openItemDetail(item.id); } }}>
                                         <InventoryImage item={item} onUpdate={handleImageUpdate} isAdmin={isAdmin} size={84} />
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -1365,7 +1365,7 @@ const Inventory = () => {
                                 {filteredProducts.length > 0 && (
                                     <div className="dropdown mt-4">
                                         {filteredProducts.map(p => (
-                                            <div role="button" tabIndex={0} key={p.id} className="dropdown-item" onClick={() => selectProduct(p)}>
+                                            <div role="button" tabIndex={0} key={p.id} className="dropdown-item" onClick={() => selectProduct(p)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProduct(p); } }}>
                                                 <div className="text-sm font-medium">{p.name}</div>
                                                 <div className="muted text-xs">{p.category_name} &rsaquo; {p.subcategory_name}</div>
                                             </div>
@@ -1648,7 +1648,7 @@ const Inventory = () => {
                                 {filteredProducts.length > 0 && (
                                     <div className="dropdown mt-4">
                                         {filteredProducts.map(p => (
-                                            <div role="button" tabIndex={0} key={p.id} className="dropdown-item" onClick={() => selectProduct(p, true)}>
+                                            <div role="button" tabIndex={0} key={p.id} className="dropdown-item" onClick={() => selectProduct(p, true)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProduct(p, true); } }}>
                                                 <div className="text-sm font-medium">{p.name}</div>
                                                 <div className="muted text-xs">{p.category_name} &rsaquo; {p.subcategory_name}</div>
                                             </div>
@@ -2147,7 +2147,7 @@ const Inventory = () => {
             )}
 
             {showRestockModal && restockData.id && (
-                <div className="modal-backdrop" style={{ zIndex: 1050 }}>
+                <div className="modal-backdrop" style={{ zIndex: 'var(--z-modal-high)' }}>
                     <div className="modal" style={{ maxWidth: '400px' }}>
                         <button className="modal-close" onClick={() => setShowRestockModal(false)}>
                             <X size={22} />
@@ -2214,8 +2214,8 @@ const Inventory = () => {
 
             {/* Product Detail Dashboard Modal */}
             {showDetailModal && (
-                <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => { setShowDetailModal(false); setDetailItem(null); }}>
-                    <div role="button" tabIndex={0} className="modal" style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => { setShowDetailModal(false); setDetailItem(null); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowDetailModal(false); setDetailItem(null); } }}>
+                    <div role="button" tabIndex={0} className="modal" style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
                         <button className="modal-close" onClick={() => { setShowDetailModal(false); setDetailItem(null); }}>
                             <X size={22} />
                         </button>
@@ -2604,8 +2604,8 @@ const Inventory = () => {
 
             {/* Stock Requests Panel */}
             {showStockRequestsPanel && (
-                <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setShowStockRequestsPanel(false)}>
-                    <div role="button" tabIndex={0} className="modal" style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setShowStockRequestsPanel(false)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowStockRequestsPanel(false); } }}>
+                    <div role="button" tabIndex={0} className="modal" style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
                         <button className="modal-close" onClick={() => setShowStockRequestsPanel(false)}>
                             <X size={22} />
                         </button>

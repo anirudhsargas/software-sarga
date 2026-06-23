@@ -205,20 +205,6 @@ router.post('/inquiry', inquiryLimiter, async (req, res) => {
   }
 
   try {
-    // Create inquiries table if it doesn't exist
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS sarga_website_inquiries (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        phone VARCHAR(20) NOT NULL,
-        email VARCHAR(100),
-        service VARCHAR(100),
-        message TEXT NOT NULL,
-        branch VARCHAR(50) DEFAULT 'Perambra',
-        status ENUM('New', 'Contacted', 'Closed') DEFAULT 'New',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
 
     await pool.query(
       `INSERT INTO sarga_website_inquiries (name, phone, email, service, message, branch)
@@ -382,17 +368,6 @@ router.post('/customer/send-otp', inquiryLimiter, asyncHandler(async (req, res) 
   if (!rows || rows.length === 0) return res.status(404).json({ message: 'Customer not found' });
   const customer = rows[0];
 
-  // Ensure OTP table exists
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS sarga_customer_otps (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      customer_id INT NOT NULL,
-      code_hash VARCHAR(128) NOT NULL,
-      expires_at TIMESTAMP NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (customer_id) REFERENCES sarga_customers(id) ON DELETE CASCADE
-    )
-  `);
 
   // Generate 6-digit OTP
   const otp = String(Math.floor(100000 + Math.random() * 900000));

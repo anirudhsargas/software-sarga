@@ -412,6 +412,7 @@ const PrinterDashboard = () => {
             return (
               <div role="button" tabIndex={0} key={idx}
                 onClick={() => handleJobClick(job.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleJobClick(job.id); } }}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '1.4fr 1.2fr 1fr 0.9fr 1fr 80px',

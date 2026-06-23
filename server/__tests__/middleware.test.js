@@ -11,7 +11,8 @@ describe('Auth Middleware', () => {
   let pool;
 
   beforeAll(() => {
-    process.env.JWT_SECRET = 'test-jwt-secret-key-that-is-at-least-32-chars-long-for-testing';
+    const { TEST_JWT_SECRET } = require('./helpers/testUtils');
+    process.env.JWT_SECRET = TEST_JWT_SECRET;
     const auth = require('../middleware/auth');
     authenticateToken = auth.authenticateToken;
     authorizeRoles = auth.authorizeRoles;

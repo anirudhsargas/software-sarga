@@ -21,7 +21,7 @@ router.get('/business/profile', asyncHandler(async (req, res) => {
   if (!customerId) return res.status(401).json({ error: 'Authentication required' });
 
   let [profiles] = await pool.query(
-    'SELECT * FROM sarga_business_profiles WHERE customer_id = ?',
+    'SELECT id, customer_id, company_name, industry, contact_person, contact_phone, contact_email, website, gst_number, billing_address, shipping_address, created_at, updated_at FROM sarga_business_profiles WHERE customer_id = ?',
     [customerId]
   );
 
@@ -39,7 +39,7 @@ router.get('/business/profile', asyncHandler(async (req, res) => {
 
   // Get brand assets
   const [assets] = await pool.query(
-    "SELECT * FROM sarga_brand_assets WHERE customer_id = ? ORDER BY asset_type",
+    'SELECT id, customer_id, asset_type, name, url, file_path, created_at FROM sarga_brand_assets WHERE customer_id = ? ORDER BY asset_type',
     [customerId]
   );
 
@@ -96,7 +96,7 @@ router.get('/business/assets', asyncHandler(async (req, res) => {
   if (!customerId) return res.status(401).json({ error: 'Authentication required' });
 
   const [assets] = await pool.query(
-    'SELECT * FROM sarga_brand_assets WHERE customer_id = ? ORDER BY asset_type, name',
+    'SELECT id, customer_id, asset_type, name, url, file_path, created_at FROM sarga_brand_assets WHERE customer_id = ? ORDER BY asset_type, name',
     [customerId]
   );
   res.json({ assets });

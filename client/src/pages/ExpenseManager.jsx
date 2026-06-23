@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import usePolling from '../hooks/usePolling';
 import {
@@ -51,6 +51,45 @@ const VALID_TABS = new Set(tabs.map(t => t.key).concat('reports'));
 const ExpenseManager = () => {
   useSEO('Expense Manager');
   const { user } = useAuth();
+
+  const triggerBillsRef = useRef(null);
+  const triggerReqRef = useRef(null);
+  const triggerReqListRef = useRef(null);
+
+  useEffect(() => {
+    if (showBillsPanel) {
+      triggerBillsRef.current = document.activeElement;
+    } else if (triggerBillsRef.current) {
+      triggerBillsRef.current.focus();
+      triggerBillsRef.current = null;
+    }
+  }, [showBillsPanel]);
+
+  useEffect(() => {
+    if (showRequestModal) {
+      triggerReqRef.current = document.activeElement;
+    } else if (triggerReqRef.current) {
+      triggerReqRef.current.focus();
+      triggerReqRef.current = null;
+    }
+  }, [showRequestModal]);
+
+  useEffect(() => {
+    if (showRequestsListModal) {
+      triggerReqListRef.current = document.activeElement;
+    } else if (triggerReqListRef.current) {
+      triggerReqListRef.current.focus();
+      triggerReqListRef.current = null;
+    }
+  }, [showRequestsListModal]);
+
+  useEffect(() => {
+    return () => {
+      triggerBillsRef.current?.focus();
+      triggerReqRef.current?.focus();
+      triggerReqListRef.current?.focus();
+    };
+  }, []);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
@@ -266,11 +305,11 @@ const ExpenseManager = () => {
 
       {/* ═══════ Bills & Docs Side Panel ═══════ */}
       {showBillsPanel && (
-        <div role="button" tabIndex={0} className="em-sidepanel-backdrop" onClick={() => setShowBillsPanel(false)}>
-          <div role="button" tabIndex={0} className="em-sidepanel" onClick={(e) => e.stopPropagation()}>
+        <div className="em-sidepanel-backdrop" onClick={() => setShowBillsPanel(false)} role="dialog" aria-modal="true" aria-labelledby="bills-panel-title">
+          <div className="em-sidepanel" onClick={(e) => e.stopPropagation()}>
             <div className="em-sidepanel__header">
-              <div className="em-sidepanel__title"><FileText size={16} /> Bills & Docs</div>
-              <button className="btn btn-ghost btn-icon" onClick={() => setShowBillsPanel(false)}><X size={18} /></button>
+              <div id="bills-panel-title" className="em-sidepanel__title"><FileText size={16} aria-hidden="true" /> Bills & Docs</div>
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowBillsPanel(false)} aria-label="Close bills panel"><X size={18} aria-hidden="true" /></button>
             </div>
             <div className="em-sidepanel__content">
               <BillsDocsTab onError={setError} />
@@ -305,12 +344,12 @@ const ExpenseManager = () => {
 
       {/* Vendor/Utility Request Modal (Front Office) */}
       {showRequestModal && (
-        <div className="modal-backdrop" onClick={() => setShowRequestModal(false)}>
+        <div className="modal-backdrop" onClick={() => setShowRequestModal(false)} role="dialog" aria-modal="true" aria-labelledby="request-modal-title">
           <div className="em-modal" onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
-              <h2>Request New {requestForm.request_type}</h2>
-              <button className="btn btn-ghost btn-icon" onClick={() => setShowRequestModal(false)}>
-                <X size={18} />
+              <h2 id="request-modal-title">Request New {requestForm.request_type}</h2>
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowRequestModal(false)} aria-label="Close request modal">
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
             <form onSubmit={submitVendorRequest}>
@@ -403,17 +442,17 @@ const ExpenseManager = () => {
 
       {/* Vendor Requests List Modal (Admin/Accountant) */}
       {showRequestsListModal && (
-        <div className="modal-backdrop" onClick={() => setShowRequestsListModal(false)}>
+        <div className="modal-backdrop" onClick={() => setShowRequestsListModal(false)} role="dialog" aria-modal="true" aria-labelledby="requests-list-title">
           <div className="em-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '900px' }}>
             <div className="em-modal__header">
-              <h2>Vendor/Utility Requests</h2>
-              <button className="btn btn-ghost btn-icon" onClick={() => setShowRequestsListModal(false)}>
-                <X size={18} />
+              <h2 id="requests-list-title">Vendor/Utility Requests</h2>
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowRequestsListModal(false)} aria-label="Close requests list">
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
             <div className="em-modal__body">
               <div className="em-table-wrap">
-                <table className="em-table">
+                <table className="em-table" aria-label="Pending vendor and utility requests">
                   <thead>
                     <tr>
                       <th>Type</th>

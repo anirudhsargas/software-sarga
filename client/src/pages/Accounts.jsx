@@ -14,6 +14,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import './Accounts.css';
 
+import EmptyState from '../components/EmptyState';
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
 const TABS = [
@@ -910,20 +911,19 @@ const BillsDocsTab = () => {
                     )}
                 </div>
             ) : (
-                <div className="acc-empty">
-                    <FolderOpen size={48} />
-                    <h3>No documents yet</h3>
-                    <p>Upload your first bill or document to get started</p>
-                    <button className="acc-btn acc-btn--primary" onClick={openUploadModal}>
-                        <Upload size={15} /> Upload Document
-                    </button>
-                </div>
+                <EmptyState
+                    icon={FileText}
+                    title="No documents yet"
+                    description="Upload your first bill or document to get started."
+                    actionLabel="Upload Document"
+                    onAction={openUploadModal}
+                />
             )}
 
             {/* Upload Modal */}
             {showUploadModal && (
                 <div className="acc-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) closeUploadModal(); }}>
-                    <div role="button" tabIndex={0} className="acc-modal" onClick={e => e.stopPropagation()}>
+                    <div role="button" tabIndex={0} className="acc-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
                         <div className="acc-modal__header">
                             <h2>Upload Document</h2>
                             <button className="acc-btn acc-btn--ghost acc-btn--icon" aria-label="Close upload modal" onClick={() => closeUploadModal()}><X size={18} /></button>
@@ -1262,10 +1262,6 @@ const LoadingSpinner = () => (
     <div className="acc-loading">
         <Loader2 className="spin" size={36} />
     </div>
-);
-
-const EmptyState = ({ text }) => (
-    <div className="acc-empty-text">{text}</div>
 );
 
 const Pagination = ({ page, totalPages, onChange }) => {

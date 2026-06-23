@@ -982,7 +982,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                 </div>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
+                  <div className="table-wrapper">
                 <table className="em-table">
                   <thead>
                     <tr>
@@ -1070,7 +1070,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
           <div className="em-vendor-list">
             {paginatedVendors.map(v => (
               <div key={v.id} className="em-vendor-card" onDoubleClick={() => openVendorDetail(v)}>
-                <div role="button" tabIndex={0}  className="em-vendor-card__header" onClick={() => setExpandedVendor(expandedVendor === v.id ? null : v.id)}>
+                <div role="button" tabIndex={0}  className="em-vendor-card__header" onClick={() => setExpandedVendor(expandedVendor === v.id ? null : v.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedVendor(expandedVendor === v.id ? null : v.id); } }}>
                   <div className="em-vendor-card__avatar"><Store size={18} /></div>
                   <div className="em-vendor-card__info">
                     <div className="em-vendor-card__name">{v.name}</div>
@@ -1123,7 +1123,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
       {/* ── Add/Edit Vendor Modal ── */}
       {showForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header">
               <h2>{editingVendor ? 'Edit Vendor' : 'Add Vendor'}</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowForm(false)}><X size={18} /></button>
@@ -1181,7 +1181,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
       {/* ── Vendor Request Modal (Front Office) ── */}
       {showRequestForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowRequestForm(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header">
               <h2>Request Vendor</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowRequestForm(false)}><X size={18} /></button>
@@ -1227,8 +1227,8 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
       {/* Purchase Recording Modal */}
       {showPurchaseForm && (
-        <div role="button" tabIndex={0}  className="em-modal-backdrop" onClick={() => setShowPurchaseForm(false)}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0}  className="em-modal-backdrop" onClick={() => setShowPurchaseForm(false)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowPurchaseForm(false); } }}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <form onSubmit={handlePurchaseSubmit}>
               <div className="em-modal__header">
                 <h3><ShoppingCart size={18} /> Record Purchase — {purchaseForm.vendor_name}</h3>
@@ -1269,8 +1269,8 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
       {/* Itemized Bill Modal */}
       {showBillForm && (
-        <div role="button" tabIndex={0}  className="em-modal-overlay" onClick={() => setShowBillForm(false)}>
-          <div role="button" tabIndex={0}  className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0}  className="em-modal-overlay" onClick={() => setShowBillForm(false)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowBillForm(false); } }}>
+          <div role="button" tabIndex={0}  className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <form onSubmit={handleBillSubmit}>
               <div className="em-modal__header">
                 <h3><Package size={18} /> Record Bill with Items</h3>
@@ -1297,7 +1297,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                     <label style={{ fontWeight: 600 }}>Line Items</label>
                     <button type="button" className="btn btn-sm btn-ghost" onClick={addBillItemRow}><Plus size={14} /> Add Row</button>
                   </div>
-                  <div style={{ overflowX: 'auto' }}>
+              <div className="table-wrapper">
                     <table className="em-table" style={{ minWidth: 600 }}>
                       <thead>
                         <tr>
@@ -1354,7 +1354,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
       {/* Add Inventory Item Modal (from vendor detail) */}
       {showAddInventoryModal && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowAddInventoryModal(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header">
               <h2>Add Inventory Item</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowAddInventoryModal(false)}><X size={18} /></button>

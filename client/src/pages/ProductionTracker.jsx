@@ -206,7 +206,7 @@ const JobCard = ({ job, onNavigate }) => {
     const priColor = PRIORITY_COLORS[job.priority] || PRIORITY_COLORS.Medium;
 
     return (
-        <div className="production-job-card" onClick={onNavigate} role="button" tabIndex={0}>
+        <div className="production-job-card" onClick={onNavigate} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate(); } }}>
             {/* Priority indicator */}
             <div className="production-job-priority" style={{ background: priColor }}
                  title={`${job.priority} priority`} />

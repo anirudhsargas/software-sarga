@@ -7,6 +7,15 @@ const ShortcutModal = ({ shortcut, onClose, onAdd }) => {
     const [price, setPrice] = useState(Number(shortcut.default_price));
     const [calculatedTotal, setCalculatedTotal] = useState(Number(shortcut.default_price));
     const inputRef = useRef(null);
+    const triggerRef = useRef(null);
+
+    // Capture triggering element on mount and restore on unmount
+    useEffect(() => {
+        triggerRef.current = document.activeElement;
+        return () => {
+            triggerRef.current?.focus();
+        };
+    }, []);
 
     // Auto focus quantity input
     useEffect(() => {
@@ -52,16 +61,16 @@ const ShortcutModal = ({ shortcut, onClose, onAdd }) => {
     const quickValues = [1, 2, 5, 10, 50, 100];
 
     return (
-        <div className="qb-modal-overlay" onClick={onClose} onKeyDown={handleKeyDown}>
+        <div className="qb-modal-overlay" onClick={onClose} onKeyDown={handleKeyDown} role="dialog" aria-modal="true" aria-labelledby="shortcut-title">
             <div className="qb-modal" onClick={e => e.stopPropagation()}>
                 <div className="qb-modal-header">
-                    <h3 style={{ margin: 0 }}>{shortcut.display_name || shortcut.name}</h3>
-                    <button className="btn btn-icon" onClick={onClose}><X size={20} /></button>
+                    <h3 id="shortcut-title" style={{ margin: 0 }}>{shortcut.display_name || shortcut.name}</h3>
+                    <button className="btn btn-icon" onClick={onClose} aria-label="Close shortcut modal"><X size={20} aria-hidden="true" /></button>
                 </div>
                 
                 <div className="qb-modal-body">
                     <div className="qb-qty-stepper">
-                        <button className="qb-qty-btn" onClick={() => setQuantity(q => Math.max(1, q - 1))}><Minus size={20}/></button>
+                        <button className="qb-qty-btn" onClick={() => setQuantity(q => Math.max(1, q - 1))} aria-label="Decrease quantity"><Minus size={20} aria-hidden="true" /></button>
                         <input 
                             ref={inputRef}
                             type="number" 
@@ -70,7 +79,7 @@ const ShortcutModal = ({ shortcut, onClose, onAdd }) => {
                             onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                             min="1"
                         />
-                        <button className="qb-qty-btn" onClick={() => setQuantity(q => q + 1)}><Plus size={20}/></button>
+                        <button className="qb-qty-btn" onClick={() => setQuantity(q => q + 1)} aria-label="Increase quantity"><Plus size={20} aria-hidden="true" /></button>
                     </div>
 
                     <div className="qb-quick-values">

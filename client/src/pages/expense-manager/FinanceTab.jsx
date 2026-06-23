@@ -387,7 +387,7 @@ const FinanceTab = ({ branches, onError }) => {
                 {emis.map(e => {
                   const paidPct = Math.min(((e.total_paid || 0) / (e.loan_amount || 1)) * 100, 100);
                   return (
-                    <div role="button" tabIndex={0}  key={e.id} className="em-finance-card" onClick={() => openEmiDetail(e)} style={{ cursor: 'pointer' }}>
+                    <div role="button" tabIndex={0}  key={e.id} className="em-finance-card" onClick={() => openEmiDetail(e)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEmiDetail(e); } }} style={{ cursor: 'pointer' }}>
                       <div className="em-finance-card__header">
                         <Landmark size={18} style={{ color: 'var(--accent-2)' }} />
                         <div className="em-finance-card__title">{e.institution_name}</div>
@@ -450,7 +450,7 @@ const FinanceTab = ({ branches, onError }) => {
             <>
               <div className="em-finance-cards">
                 {kuris.map(k => (
-                  <div role="button" tabIndex={0}  key={k.id} className="em-finance-card" onClick={() => openKuriDetail(k)} style={{ cursor: 'pointer' }}>
+                  <div role="button" tabIndex={0}  key={k.id} className="em-finance-card" onClick={() => openKuriDetail(k)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openKuriDetail(k); } }} style={{ cursor: 'pointer' }}>
                     <div className="em-finance-card__header">
                       <Repeat size={18} style={{ color: 'var(--accent)' }} />
                       <div className="em-finance-card__title">{k.kuri_name}</div>
@@ -486,7 +486,7 @@ const FinanceTab = ({ branches, onError }) => {
       {/* ── Kuri Request Modal (Front Office) ── */}
       {showKuriRequest && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowKuriRequest(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header"><h2>Request Kuri</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowKuriRequest(false)}><X size={18} /></button></div>
             <form onSubmit={submitKuriRequest}>
               <div className="em-modal__body">
@@ -513,7 +513,7 @@ const FinanceTab = ({ branches, onError }) => {
       {/* ── EMI Form Modal ── */}
       {showEmiForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowEmiForm(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header"><h2>{editingEmi ? 'Edit' : 'Add'} EMI</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowEmiForm(false)}><X size={18} /></button></div>
             <form onSubmit={submitEmi}>
               <div className="em-modal__body">
@@ -540,7 +540,7 @@ const FinanceTab = ({ branches, onError }) => {
       {/* ── Kuri Form Modal ── */}
       {showKuriForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowKuriForm(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header"><h2>{editingKuri ? 'Edit' : 'Add'} Kuri</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowKuriForm(false)}><X size={18} /></button></div>
             <form onSubmit={submitKuri}>
               <div className="em-modal__body">
@@ -568,7 +568,7 @@ const FinanceTab = ({ branches, onError }) => {
       {/* ── Payment Recording Modal ── */}
       {showPayForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) { setShowPayForm(false); setPayConfirming(false); } }}>
-          <div role="button" tabIndex={0}  className="em-modal em-modal--sm" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal em-modal--sm" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header"><h2>Record {payType === 'emi' ? 'EMI' : 'Kuri'} Payment</h2><button className="btn btn-ghost btn-icon" onClick={() => { setShowPayForm(false); setPayConfirming(false); }}><X size={18} /></button></div>
             {!payConfirming ? (
               <form onSubmit={handlePayReview}>

@@ -589,7 +589,7 @@ Generated 2026-06-20. Scans `client/src/components/` (staff MIS portal) and `web
 | **FinishSimulator** `*` | `website/src/components/FinishSimulator.jsx` | hybrid | Tailwind + inline + `<style>` | 117 | * orphaned |
 | **PricingCalculator** | `website/src/components/PricingCalculator.jsx` | hybrid | `.pricing-*` + `<style>`; deps: `var(--card-bg)`, `var(--border-color)` | 287 | `pages/PricingPage.jsx` |
 | **PreflightChecker** `*` | `website/src/components/PreflightChecker.jsx` | hybrid | `.preflight-*` + inline; deps: `var(--error)`, `var(--success)`, `var(--card-bg)` | 147 | * orphaned |
-| **Product3DPreview** `*⚠` | `website/src/components/Product3DPreview.jsx` | hybrid | Tailwind + inline | 177 | * orphaned — imports deleted `@react-three/fiber` + `three` (not in package.json) |
+| **Product3DPreview** | `website/src/components/Product3DPreview.jsx` | pure | none | 3 | * Cleaned Up (Stub) |
 | **PromoBanner** `*` | `website/src/components/PromoBanner.jsx` | hybrid | PromoBanner.css + inline | 60 | * orphaned |
 | **ReviewsWidget** `*` | `website/src/components/ReviewsWidget/ReviewsWidget.jsx` | hybrid | ReviewsWidget.css (`.rw-*` BEM) | 212 | * orphaned |
 | **SEO** | `website/src/components/SEO.jsx` | pure | none (returns null, imperative DOM) | 66 | BlogList, BlogPostDetail, Checkout, DesignBooking, OrderView, PickupBooking, Portfolio, PricingPage, SampleRequest |
@@ -624,14 +624,6 @@ Generated 2026-06-20. Scans `client/src/components/` (staff MIS portal) and `web
 |---|---|---|---|
 | onCheckComplete | function | — | — |
 | jobId | string\|number | — | — |
-
-**Product3DPreview**
-| Prop | Type | Required | Default |
-|---|---|---|---|
-| productType | string | — | `"default"` |
-| designUrl | string | — | — |
-| height | number | — | `300` |
-| interactive | boolean | — | `true` |
 
 **PromoBanner** — none
 
@@ -708,9 +700,7 @@ Generated 2026-06-20. Scans `client/src/components/` (staff MIS portal) and `web
 
 ### Deleted-Package Imports
 
-| Component | Imports | Status |
-|---|---|---|
-| **Product3DPreview** (`website/src/components/Product3DPreview.jsx`) | `@react-three/fiber`, `@react-three/drei`, `three` | ⚠ **None of these are in `website/package.json`.** The component will fail at build/runtime. Either the dependency was removed or the component is dead code. |
+None. All issues resolved.
 
 ### Components Over 300 Lines (Split Candidates)
 
@@ -735,4 +725,10 @@ Generated 2026-06-20. Scans `client/src/components/` (staff MIS portal) and `web
 | CSS files | 11 | 7 | 18 |
 | Orphaned (`*`) | 14 | 6 | 20 |
 | >300 lines (`!`) | 8 | 0 | 8 |
-| Deleted-dependency import | 0 | 1 | 1 |
+| Deleted-dependency import | 0 | 0 | 0 |
+
+---
+
+## Last Updated
+* **Timestamp**: 2026-06-22
+* **Changes**: Resolved Product3DPreview build-risk warning and marked it as a clean stub.

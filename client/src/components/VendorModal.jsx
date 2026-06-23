@@ -103,7 +103,7 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
   };
 
   return (
-    <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'var(--modal-overlay, rgba(0,0,0,0.3))', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', zIndex: 1000, padding: 20 }}>
+    <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'var(--modal-overlay, rgba(0,0,0,0.3))', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', zIndex: 'var(--z-modal)', padding: 20 }}>
       <div className="modal-content-premium" style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 28, width: '100%', maxWidth: 720, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' }}>
         <div className="modal-header-premium" style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

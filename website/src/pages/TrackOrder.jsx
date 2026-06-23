@@ -96,7 +96,7 @@ export default function TrackOrder() {
       <section className="page-header" id="track-header">
         <div className="page-header__bg" />
         <div className="container page-header__content">
-          <span className="badge badge-primary">Order Tracking</span>
+          <span className="badge badge--primary">Order Tracking</span>
           <h1 className="page-header__title">
             Track Your <span className="text-gradient">Order Status</span>
           </h1>
@@ -180,7 +180,7 @@ export default function TrackOrder() {
                   <h3 className="track-result__code">{jobData.job_code || jobData.id}</h3>
                   <p className="track-result__customer">{jobData.customer_name}</p>
                 </div>
-                <span className={`badge ${jobData.status === 'Delivered' ? 'badge-success' : 'badge-primary'}`}>
+                <span className={`badge ${jobData.status === 'Delivered' ? 'badge--success' : 'badge--primary'}`}>
                   {jobData.status}
                 </span>
               </div>

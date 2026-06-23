@@ -204,7 +204,7 @@ const AttendanceSalary = () => {
       </div>
 
       {/* Month Navigator + Calendar */}
-      <div style={{ background: 'var(--surface, #1e1e2e)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 10px', marginBottom: 24, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 10px', marginBottom: 24, overflow: 'hidden' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <button className="btn btn-ghost" onClick={() => changeMonth(-1)} style={{ padding: '6px 10px' }}><ChevronLeft size={18} /></button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

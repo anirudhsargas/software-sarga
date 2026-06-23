@@ -50,7 +50,7 @@ const ManageShortcuts = ({ onClose }) => {
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
+        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 'var(--z-modal-high)' }}>
             <div className="modal" onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div className="modal-header">
                     <h2>Manage Shortcuts</h2>

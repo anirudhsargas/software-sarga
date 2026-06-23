@@ -156,6 +156,7 @@ const WebInquiries = React.memo(() => {
                                         setSelectedInquiry(iq);
                                         setNoteDraft(iq.internal_notes || '');
                                     }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedInquiry(iq); setNoteDraft(iq.internal_notes || ''); } }}
                                 >
                                     <div className="inquiry-card-header">
                                         <h3 className="inquiry-name">{iq.name}</h3>

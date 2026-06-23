@@ -1004,35 +1004,6 @@
 }
 
 /* ── Modal Overrides ── */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--modal-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: var(--space-16);
-}
-
-.modal {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  max-width: 480px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal--sm {
-  max-width: 360px;
-}
-
-.modal--lg {
-  max-width: 560px;
-}
-
 .modal__header {
   display: flex;
   align-items: center;
@@ -1047,24 +1018,10 @@
   font-weight: 600;
 }
 
-.modal-close {
-  background: none;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  padding: var(--space-4);
-  border-radius: var(--radius-xs);
-  display: flex;
-  transition: color 0.15s;
-}
-
-.modal-close:hover {
-  color: var(--text);
-}
-
 .modal__body {
   padding: var(--space-16) var(--space-18);
 }
+
 
 /* ── Stack ── */
 .stack-sm {
@@ -1224,4 +1181,9 @@
 .dark .billing-tab--active {
   background: var(--surface);
   color: var(--secondary);
+}
+
+@media (max-width: 768px) {
+  .billing-toolbar { flex-direction: column; gap: var(--space-12); }
+  .billing-grid { grid-template-columns: 1fr; }
 }

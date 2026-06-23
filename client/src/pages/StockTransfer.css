@@ -76,16 +76,7 @@
   color: var(--warning);
 }
 
-/* Status badge colors */
-.badge {
-  display: inline-block;
-  padding: var(--space-4) var(--space-10);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
+
 
 /* Mode switch */
 .mode-switch {
@@ -271,26 +262,7 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Badge variants */
-.badge-primary {
-  background: var(--primary);
-  color: white;
-}
 
-.badge-warning {
-  background: var(--warning);
-  color: white;
-}
-
-.badge-ghost {
-  background: var(--surface-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.badge--bg-secondary {
-  background: var(--surface-2);
-}
 
 /* Transfer path inline */
 .transfer-path-inline {

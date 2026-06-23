@@ -392,7 +392,7 @@ const ProductRequests = () => {
                                     {productResults.length > 0 && !selectedProduct && (
                                         <div className="dropdown mt-4" style={{ maxHeight: 200, overflowY: 'auto' }}>
                                             {productResults.map(p => (
-                                                <div key={p.id} className="dropdown-item" role="button" tabIndex={0} onClick={() => selectProduct(p)}>
+                                                <div key={p.id} className="dropdown-item" role="button" tabIndex={0} onClick={() => selectProduct(p)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProduct(p); } }}>
                                                     <div className="font-semibold text-sm">{p.name}</div>
                                                     <div className="muted text-xs">{p.product_code} · {p.company_name || '—'}</div>
                                                 </div>

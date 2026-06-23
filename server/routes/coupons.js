@@ -77,7 +77,7 @@ router.put('/coupons/:id', authenticateToken, authorizeRoles('Admin'), asyncHand
     const { id } = req.params;
     const { discount_type, discount_value, usage_type, max_uses, min_order_amount, expiry_date, is_active } = req.body;
 
-    const [existing] = await pool.query('SELECT * FROM sarga_coupons WHERE id = ?', [id]);
+    const [existing] = await pool.query('SELECT id, code, discount_type, discount_value, usage_type, max_uses, used_count, min_order_amount, expiry_date, is_active, created_at FROM sarga_coupons WHERE id = ?', [id]);
     if (!existing.length) {
         return res.status(404).json({ message: 'Coupon not found.' });
     }
@@ -121,7 +121,7 @@ router.put('/coupons/:id', authenticateToken, authorizeRoles('Admin'), asyncHand
 // Delete (deactivate) coupon
 router.delete('/coupons/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const [existing] = await pool.query('SELECT * FROM sarga_coupons WHERE id = ?', [id]);
+    const [existing] = await pool.query('SELECT id, code, discount_type, discount_value, usage_type, max_uses, used_count, min_order_amount, expiry_date, is_active, created_at FROM sarga_coupons WHERE id = ?', [id]);
     if (!existing.length) {
         return res.status(404).json({ message: 'Coupon not found.' });
     }

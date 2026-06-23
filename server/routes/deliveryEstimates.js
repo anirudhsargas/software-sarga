@@ -40,13 +40,13 @@ router.get('/delivery/estimate', asyncHandler(async (req, res) => {
   // 1. Find matching rule
   let category = product_type || service_type;
   let [rules] = await pool.query(
-    'SELECT * FROM sarga_delivery_rules WHERE (product_category = ? OR service_type = ?) AND is_active = 1 LIMIT 1',
+    'SELECT id, product_category, service_type, base_days, capacity_per_day, rush_multiplier, is_active FROM sarga_delivery_rules WHERE (product_category = ? OR service_type = ?) AND is_active = 1 LIMIT 1',
     [category, category]
   );
 
   if (rules.length === 0) {
     [rules] = await pool.query(
-      'SELECT * FROM sarga_delivery_rules WHERE is_active = 1 ORDER BY base_days DESC LIMIT 1'
+      'SELECT id, product_category, service_type, base_days, capacity_per_day, rush_multiplier, is_active FROM sarga_delivery_rules WHERE is_active = 1 ORDER BY base_days DESC LIMIT 1'
     );
   }
 
@@ -166,7 +166,7 @@ router.get('/delivery/estimate', asyncHandler(async (req, res) => {
 
 // ─── ADMIN: Manage delivery rules ───
 router.get('/delivery/rules', asyncHandler(async (req, res) => {
-  const [rows] = await pool.query('SELECT * FROM sarga_delivery_rules WHERE is_active = 1 ORDER BY product_category');
+  const [rows] = await pool.query('SELECT id, product_category, service_type, base_days, capacity_per_day, rush_multiplier, is_active, created_at FROM sarga_delivery_rules WHERE is_active = 1 ORDER BY product_category LIMIT 100');
   res.json({ rules: rows });
 }));
 

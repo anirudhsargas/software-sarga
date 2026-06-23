@@ -155,36 +155,42 @@
 }
 
 /* ── Status Button Text Visibility Fix ── */
-.sv-status-badge {
+div.sv-status-badge,
+span.sv-status-badge {
   font-weight: 600;
   font-size: var(--text-sm);
   line-height: 1.3;
-  color: inherit !important;
+  color: inherit;
 }
 
-.sv-status-badge--completed {
-  background: var(--success) !important;
-  border: 1px solid var(--success) !important;
-  color: var(--text-inverse) !important;
+div.sv-status-badge--completed,
+span.sv-status-badge--completed {
+  background: var(--success);
+  border: 1px solid var(--success);
+  color: var(--text-inverse);
 }
 
-.sv-status-badge--pending,
-.sv-status-badge--draft {
-  background: color-mix(in srgb, var(--warning) 15%, transparent) !important;
-  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent) !important;
-  color: rgb(202, 138, 4) !important;
+div.sv-status-badge--pending,
+span.sv-status-badge--pending,
+div.sv-status-badge--draft,
+span.sv-status-badge--draft {
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+  color: rgb(202, 138, 4);
 }
 
-.sv-status-badge--verified {
-  background: color-mix(in srgb, var(--success) 15%, transparent) !important;
-  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent) !important;
-  color: var(--success) !important;
+div.sv-status-badge--verified,
+span.sv-status-badge--verified {
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  color: var(--success);
 }
 
-.sv-status-badge--partial {
-  background: rgba(249, 115, 22, 0.15) !important;
-  border: 1px solid rgba(249, 115, 22, 0.3) !important;
-  color: rgb(234, 88, 12) !important;
+div.sv-status-badge--partial,
+span.sv-status-badge--partial {
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  color: rgb(234, 88, 12);
 }
 
 /* ── Settings Page Toggle Alignment ── */

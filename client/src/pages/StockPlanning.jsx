@@ -246,7 +246,7 @@ const StockPlanning = () => {
 
             {/* Traffic-light Table */}
             <div className="panel">
-                <div style={{ overflowX: 'auto' }}>
+                <div className="table-wrapper">
                     <table className="data-table" style={{ width: '100%' }}>
                         <thead>
                             <tr>
@@ -305,9 +305,9 @@ const StockPlanning = () => {
 
             {/* Purchase List Modal */}
             {showModal && (
-                <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setShowModal(false)}>
+                <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setShowModal(false)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowModal(false); } }}>
                     <div role="button" tabIndex={0} className="modal" style={{ maxWidth: 800, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
-                        onClick={e => e.stopPropagation()}>
+                        onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
                         <button className="modal-close" onClick={() => setShowModal(false)}><X size={20} /></button>
                         <h2 className="section-title mb-16">Purchase List</h2>
 
@@ -442,7 +442,8 @@ const StockPlanning = () => {
                                                     setManualItem(prev => ({ ...prev, name: p.name, material_id: p.id, unit: p.unit || 'pcs' }));
                                                     setSearchQuery(p.name);
                                                     setSearchResults([]);
-                                                }}>
+                                                }}
+                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setManualItem(prev => ({ ...prev, name: p.name, material_id: p.id, unit: p.unit || 'pcs' })); setSearchQuery(p.name); setSearchResults([]); } }}>
                                                 <span style={{ fontWeight: 500 }}>{p.name}</span>
                                                 <span className="muted text-sm">{p.unit || 'pcs'}</span>
                                             </div>

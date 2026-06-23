@@ -5,6 +5,22 @@ import './ReceiptModal.css';
 import { normalizeToE164 } from '../utils/phone';
 
 const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
+    const triggerRef = React.useRef(null);
+    React.useEffect(() => {
+        if (isOpen) {
+            triggerRef.current = document.activeElement;
+        } else if (triggerRef.current) {
+            triggerRef.current.focus();
+            triggerRef.current = null;
+        }
+    }, [isOpen]);
+
+    React.useEffect(() => {
+        return () => {
+            triggerRef.current?.focus();
+        };
+    }, []);
+
     React.useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -50,16 +66,16 @@ const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
     };
 
     const modalContent = (
-        <div role="button" tabIndex={0} className="receipt-overlay" onClick={onClose}>
-            <div role="button" tabIndex={0} className="receipt-modal" onClick={e => e.stopPropagation()}>
+        <div role="dialog" aria-modal="true" aria-labelledby="receipt-title" className="receipt-overlay" onClick={onClose} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose(); } }}>
+            <div className="receipt-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
                 <div className="receipt-modal__header">
-                    <h2>Payment Receipt</h2>
+                    <h2 id="receipt-title">Payment Receipt</h2>
                     <div className="receipt-modal__actions">
                         <button className="btn btn-primary btn-sm no-print" onClick={handlePrint}>
                             <Printer size={16} /> Print Receipt
                         </button>
-                        <button className="btn btn-ghost btn-sm no-print" onClick={onClose}>
-                            <X size={18} />
+                        <button className="btn btn-ghost btn-sm no-print" onClick={onClose} aria-label="Close receipt">
+                            <X size={18} aria-hidden="true" />
                         </button>
                     </div>
                 </div>
@@ -106,7 +122,7 @@ const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
                     </div>
 
                     {/* Payment Breakdown */}
-                    <table className="receipt-table">
+                    <table className="receipt-table" aria-label="Receipt itemized charges">
                         <thead>
                             <tr>
                                 <th>Description</th>

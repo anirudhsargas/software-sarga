@@ -27,7 +27,7 @@ const monthLabel = (m) => {
 
 /* ─── KPI Card ─── */
 const KpiCard = ({ label, value, sub, color = '', icon: Icon, onClick }) => (
-  <div role="button" tabIndex={0} className={`acc-kpi ${color} ${onClick ? 'acc-kpi--clickable' : ''} hover-lift`} onClick={onClick}>
+  <div role="button" tabIndex={0} className={`acc-kpi ${color} ${onClick ? 'acc-kpi--clickable' : ''} hover-lift`} onClick={onClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}>
     <div className="acc-kpi__icon">{Icon && <Icon size={20} />}</div>
     <div className="acc-kpi__body">
       <div className="acc-kpi__label">{label}</div>
@@ -54,7 +54,7 @@ const Section = ({ title, icon: Icon, action, children }) => {
 };
 
 /* ─── Alert Card ─── */
-const AlertCard = ({ icon, color, bg, title, desc, onAction }) => (
+const AlertCard = ({ icon, color, bg, title, desc, onAction, onActionLabel }) => (
   <div className="acc-alert hover-lift" style={{ background: bg, borderColor: `${color}22` }}>
     <div className="acc-alert__icon-wrap" style={{ background: `${color}18` }}>
       {icon ? React.createElement(icon, { size: 18, style: { color } }) : null}
@@ -64,7 +64,7 @@ const AlertCard = ({ icon, color, bg, title, desc, onAction }) => (
       <div className="acc-alert__desc">{desc}</div>
     </div>
     {onAction && (
-      <button className="acc-alert__action" onClick={onAction}><ArrowRight size={14} /></button>
+      <button className="acc-alert__action" onClick={onAction} aria-label={onActionLabel || "View alert details"}><ArrowRight size={14} aria-hidden="true" /></button>
     )}
   </div>
 );
@@ -455,7 +455,8 @@ const AccountantDashboard = () => {
                       const badgeClass = j.payment_status === 'Paid' ? 'acc-badge--paid' : j.payment_status === 'Partial' ? 'acc-badge--partial' : 'acc-badge--unpaid';
                       return (
                         <div role="button" tabIndex={0} key={j.id} className="acc-list-item acc-list-item--clickable"
-                          onClick={() => navigate(`/dashboard/jobs/${j.id}`)}>
+                          onClick={() => navigate(`/dashboard/jobs/${j.id}`)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/dashboard/jobs/${j.id}`); } }}>
                           <div className="acc-list-item__left">
                             <div className="acc-list-item__primary">
                               <span style={{ color: 'var(--accent)', marginRight: 6 }}>#{j.job_number}</span>
@@ -536,7 +537,7 @@ const AccountantDashboard = () => {
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, padding: '6px 8px', borderRadius: 6, background: 'var(--bg)' }}>
                         <span style={{ color: 'var(--muted)', fontWeight: 500 }}>{t.month}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>{fmtCur(t.total)}</span>
+                          <span style={{ fontWeight: 700, fontFamily: 'var(--font-heading)' }}>{fmtCur(t.total)}</span>
                           {pct !== null && (
                             <span className={`acc-trend-tag ${pct > 0 ? 'acc-trend-tag--up' : 'acc-trend-tag--down'}`}>
                               {pct > 0 ? '▲' : '▼'}{Math.abs(pct).toFixed(0)}%
@@ -609,8 +610,8 @@ const AccountantDashboard = () => {
 
                 {/* Summary comparison table */}
                 {expDash.branch_expenses.length > 1 && (
-                  <div style={{ marginTop: 16, overflowX: 'auto' }}>
-                    <table className="acc-table">
+                  <div style={{ marginTop: 16 }} className="table-wrapper">
+                    <table className="acc-table" aria-label="Branch Performance Summary">
                       <thead>
                         <tr>
                           <th>Branch</th>
@@ -653,8 +654,8 @@ const AccountantDashboard = () => {
             <div className="acc-panel">
               <Section title="Recent Expense Payments" icon={Receipt}
                 action={<button className="acc-section__action" onClick={() => navigate('/dashboard/expenses')}>View All <ChevronRight size={13} /></button>}>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="acc-table">
+                <div className="table-wrapper">
+                  <table className="acc-table" aria-label="Recent Expense Payments List">
                     <thead>
                       <tr>
                         <th>Payee</th>
@@ -688,8 +689,8 @@ const AccountantDashboard = () => {
           {rentLocations.length > 0 && (
             <div className="acc-panel">
               <Section title={`Rent Status — ${monthLabel(month)}`} icon={Building2}>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="acc-table">
+                <div className="table-wrapper">
+                  <table className="acc-table" aria-label="Rent Status Details">
                     <thead>
                       <tr>
                         <th>Property</th>

@@ -65,7 +65,7 @@ const ProgressBar = ({ active, onComplete }) => {
       left: 0,
       width: '100%',
       height: '3px',
-      zIndex: 9999,
+      zIndex: 'var(--z-toast)',
       background: 'var(--card)',
       pointerEvents: 'none'
     }}>

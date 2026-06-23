@@ -55,7 +55,7 @@
 
 .shortcuts-suggestions__count {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: var(--text-2xs);
   font-weight: 600;
   padding: 2px 7px;
@@ -183,7 +183,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;

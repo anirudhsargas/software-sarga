@@ -73,7 +73,7 @@ export default function Contact() {
       <section className="page-header" id="contact-header">
         <div className="page-header__bg" />
         <div className="container page-header__content">
-          <span className="badge badge-accent">Get in Touch</span>
+          <span className="badge badge--danger">Get in Touch</span>
           <h1 className="page-header__title">
             Let's Create Something <span className="text-gradient">Amazing Together</span>
           </h1>

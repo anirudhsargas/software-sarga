@@ -74,7 +74,7 @@ export default function BlogList() {
       <section className="page-header" id="blog-header">
         <div className="page-header__bg" />
         <div className="container page-header__content">
-          <span className="badge badge-primary">Sarga Knowledge Hub</span>
+          <span className="badge badge--primary">Sarga Knowledge Hub</span>
           <h1 className="page-header__title">
             The Print & <span className="text-gradient">Design Journal</span>
           </h1>

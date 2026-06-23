@@ -135,14 +135,7 @@
 .status-badge--published { background: var(--success-bg); color: var(--success); }
 .status-badge--scheduled { background: var(--warning-bg); color: var(--warning); }
 
-/* Form split columns modal */
-.modal--large {
-  max-width: 1100px;
-  width: 95%;
-  height: 90vh;
-  display: flex;
-  flex-direction: column;
-}
+
 
 .post-modal-form {
   display: flex;
@@ -239,9 +232,9 @@
 .editor-preview-pane p { margin-bottom: var(--space-md); }
 
 .modal-footer {
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-16) var(--space-24);
   border-top: 1px solid var(--border);
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-md);
+  gap: var(--space-12);
 }

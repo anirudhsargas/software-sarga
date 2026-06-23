@@ -224,7 +224,7 @@ const PredictionCard = ({ prediction: p, isExpanded, onToggle, detail, detailLoa
         onMouseLeave={(e) => {
             e.currentTarget.style.boxShadow = '';
         }}>
-            <div role="button" tabIndex={0} className="p-16" style={{ cursor: 'pointer' }} onClick={onToggle}>
+            <div role="button" tabIndex={0} aria-expanded={isExpanded} className="p-16" style={{ cursor: 'pointer' }} onClick={onToggle} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}>
                 <div className="row gap-md items-start">
                     {/* Alert icon */}
                     <div style={{
@@ -492,7 +492,7 @@ const SummaryTile = ({ icon, label, value, color }) => (
             fontSize: 24,
             fontWeight: 700,
             color: color || 'var(--text)',
-            fontFamily: "'Space Grotesk', sans-serif"
+            fontFamily: 'var(--font-heading)'
         }}>{value ?? '—'}</div>
     </div>
 );

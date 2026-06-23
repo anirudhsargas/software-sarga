@@ -174,7 +174,7 @@
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 10;
-    background: #000;
+    background: var(--text);
     border-radius: var(--radius-md);
     overflow: hidden;
     border: 1px solid var(--border);
@@ -207,7 +207,7 @@
     position: absolute;
     width: 28px;
     height: 28px;
-    border-color: #ffffff;
+    border-color: var(--surface);
     border-style: solid;
 }
 .si-scan-corner--tl { top: 0; left: 0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
@@ -221,7 +221,7 @@
     left: 8px;
     right: 8px;
     height: 2px;
-    background: linear-gradient(90deg, transparent, #fff, transparent);
+    background: linear-gradient(90deg, transparent, var(--surface), transparent);
     animation: si-scan-sweep 2s ease-in-out infinite;
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
 }
@@ -257,9 +257,9 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
-.si-status-badge--idle { background: rgba(0,0,0,0.6); color: #fff; }
-.si-status-badge--scanning { background: rgba(59, 130, 246, 0.85); color: #fff; }
-.si-status-badge--found { background: rgba(16, 185, 129, 0.9); color: #fff; animation: si-found-pulse 0.4s ease; }
+.si-status-badge--idle { background: rgba(0,0,0,0.6); color: var(--surface); }
+.si-status-badge--scanning { background: rgba(59, 130, 246, 0.85); color: var(--surface); }
+.si-status-badge--found { background: rgba(16, 185, 129, 0.9); color: var(--surface); animation: si-found-pulse 0.4s ease; }
 
 @keyframes si-found-pulse {
     0% { transform: scale(0.8); opacity: 0; }
@@ -757,7 +757,7 @@
 .si-form-actions { display: flex; gap: var(--space-8); justify-content: flex-end; margin-top: var(--space-4); }
 .si-btn-danger {
     background: var(--danger) !important;
-    color: #fff !important;
+    color: var(--surface) !important;
     border-color: var(--danger) !important;
 }
 

@@ -20,16 +20,6 @@ async function findPaperItems(pool) {
   return rows || [];
 }
 
-async function ensureMappingTable(pool) {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS sarga_inventory_to_paper_inventory (
-      inventory_item_id INT NOT NULL,
-      paper_item_id INT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_inv_paper (inventory_item_id, paper_item_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-}
 
 async function migrate(poolOrOptions = {}) {
   const pool = poolOrOptions.pool || defaultPool;
@@ -41,7 +31,7 @@ async function migrate(poolOrOptions = {}) {
     return { migrated: 0 };
   }
 
-  await ensureMappingTable(pool);
+
 
   let migratedCount = 0;
 

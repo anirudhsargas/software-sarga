@@ -146,7 +146,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
       {/* Rent Form Modal */}
       {showForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header"><h2>{editing ? 'Edit' : 'Add'} Rent Location</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowForm(false)}><X size={18} /></button></div>
             <form onSubmit={submitRent}>
               <div className="em-modal__body">
@@ -170,7 +170,7 @@ const RentTab = ({ branches, onPayment, onError }) => {
       {/* ── Rent Request Modal (Front Office) ── */}
       {showRequestForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowRequestForm(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header"><h2>Request Rent Location</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowRequestForm(false)}><X size={18} /></button></div>
             <form onSubmit={submitRentRequest}>
               <div className="em-modal__body">

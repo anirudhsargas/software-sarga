@@ -5,53 +5,6 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { paginate } = require('../helpers/pagination');
 
-// ── Ensure tables exist ──────────────────────────────────────
-const ensureTables = async () => {
-    const conn = await pool.getConnection();
-    try {
-        await conn.query(`
-            CREATE TABLE IF NOT EXISTS sarga_quotes (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                quote_number VARCHAR(30) NOT NULL UNIQUE,
-                customer_id INT,
-                customer_name VARCHAR(150),
-                customer_mobile VARCHAR(20),
-                customer_email VARCHAR(150),
-                customer_address TEXT,
-                customer_gst VARCHAR(30),
-                date DATE NOT NULL,
-                valid_until DATE,
-                status ENUM('draft','sent','accepted','rejected','expired','converted') DEFAULT 'draft',
-                notes TEXT,
-                subtotal DECIMAL(12,2) DEFAULT 0,
-                discount_percent DECIMAL(5,2) DEFAULT 0,
-                discount_amount DECIMAL(12,2) DEFAULT 0,
-                tax_rate DECIMAL(5,2) DEFAULT 0,
-                tax_amount DECIMAL(12,2) DEFAULT 0,
-                total DECIMAL(12,2) DEFAULT 0,
-                converted_invoice_id INT,
-                branch_id INT,
-                created_by INT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE SET NULL
-            )
-        `);
-        await conn.query(`
-            CREATE TABLE IF NOT EXISTS sarga_quote_items (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                quote_id INT NOT NULL,
-                item_name VARCHAR(255) NOT NULL,
-                description TEXT,
-                quantity DECIMAL(10,2) DEFAULT 1,
-                unit_price DECIMAL(12,2) NOT NULL,
-                total DECIMAL(12,2) NOT NULL,
-                FOREIGN KEY (quote_id) REFERENCES sarga_quotes(id) ON DELETE CASCADE
-            )
-        `);
-    } finally { conn.release(); }
-};
-ensureTables().catch(e => console.error('Quote tables init error:', e));
 
 // ── Generate next quote number ───────────────────────────────
 async function nextQuoteNumber() {

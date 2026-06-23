@@ -275,10 +275,10 @@ const InternalUsageReport = () => {
                                                 </div>
                                             )}
                                         </td>
-                                        <td style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontSize: 13 }}>
+                                        <td style={{ textAlign: 'right', fontFamily: 'var(--font-heading)', fontSize: 13 }}>
                                             {bill.sheets > 0 ? formatNum(bill.sheets) : '—'}
                                         </td>
-                                        <td style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, fontWeight: 600 }}>
+                                        <td style={{ textAlign: 'right', fontFamily: 'var(--font-heading)', fontSize: 13, fontWeight: 600 }}>
                                             {bill.prints > 0 ? formatNum(bill.prints) : '—'}
                                         </td>
                                         <td style={{ fontSize: 12, color: 'var(--muted)' }}>{bill.added_by}</td>
@@ -288,10 +288,10 @@ const InternalUsageReport = () => {
                             <tfoot>
                                 <tr style={{ background: 'var(--surface-2, var(--bg))', fontWeight: 700 }}>
                                     <td colSpan={3} style={{ textAlign: 'right', fontSize: 13, paddingRight: 12 }}>Total</td>
-                                    <td style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif" }}>
+                                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-heading)' }}>
                                         {formatNum(bills.reduce((s, b) => s + (b.sheets || 0), 0))}
                                     </td>
-                                    <td style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif" }}>
+                                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-heading)' }}>
                                         {formatNum(totalPrints)}
                                     </td>
                                     <td />

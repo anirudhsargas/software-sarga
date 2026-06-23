@@ -50,7 +50,7 @@ const SummaryCards = ({ summary }) => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--muted)', fontSize: '13px' }}>
                         <span style={{ color: c.color }}>{c.icon}</span> {c.label}
                     </div>
-                    <div style={{ fontSize: '28px', fontWeight: 700, color: c.value > 0 ? c.color : 'var(--text)', fontFamily: "'Space Grotesk', sans-serif" }}>
+                    <div style={{ fontSize: '28px', fontWeight: 700, color: c.value > 0 ? c.color : 'var(--text)', fontFamily: 'var(--font-heading)' }}>
                         {c.value}
                     </div>
                 </div>
@@ -83,7 +83,7 @@ const ScoreBar = ({ score, max = 140 }) => {
             <div style={{ flex: 1, height: '6px', borderRadius: '3px', background: 'var(--bg-2)' }}>
                 <div style={{ width: `${pct}%`, height: '100%', borderRadius: '3px', background: color, transition: 'width 0.4s ease' }} />
             </div>
-            <span style={{ fontSize: '12px', fontWeight: 600, color, fontFamily: "'Space Grotesk', sans-serif", minWidth: '24px' }}>{score}</span>
+            <span style={{ fontSize: '12px', fontWeight: 600, color, fontFamily: 'var(--font-heading)', minWidth: '24px' }}>{score}</span>
         </div>
     );
 };
@@ -124,7 +124,7 @@ const JobRow = ({ job, position, onPriorityChange }) => {
                 alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700,
                 background: position <= 3 ? urgencyConfig.bg : 'var(--bg-2)',
                 color: position <= 3 ? urgencyConfig.color : 'var(--muted)',
-                fontFamily: "'Space Grotesk', sans-serif"
+                fontFamily: 'var(--font-heading)'
             }}>
                 {position}
             </div>
@@ -151,7 +151,7 @@ const JobRow = ({ job, position, onPriorityChange }) => {
             </div>
 
             {/* Amount */}
-            <div style={{ fontSize: '13px', fontWeight: 500, fontFamily: "'Space Grotesk', sans-serif" }}>
+            <div style={{ fontSize: '13px', fontWeight: 500, fontFamily: 'var(--font-heading)' }}>
                 {formatCurrency(job.total_amount)}
             </div>
 
@@ -202,7 +202,7 @@ const MachineQueueCard = ({ queue, onRefresh }) => {
             border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '16px'
         }}>
             {/* Machine Header */}
-            <div role="button" tabIndex={0} onClick={() => setExpanded(p => !p)}
+            <div role="button" tabIndex={0} aria-expanded={expanded} onClick={() => setExpanded(p => !p)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(p => !p); } }}
                 style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '14px 16px', cursor: 'pointer', borderBottom: expanded ? '1px solid var(--border)' : 'none',
@@ -304,7 +304,7 @@ const StatsPanel = ({ stats }) => {
                 <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--bg)' }}>
                     <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>On-Time Delivery</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                        <span style={{ fontSize: '24px', fontWeight: 700, color: onTimePct >= 80 ? 'var(--success)' : 'var(--warning)', fontFamily: "'Space Grotesk', sans-serif" }}>
+                        <span style={{ fontSize: '24px', fontWeight: 700, color: onTimePct >= 80 ? 'var(--success)' : 'var(--warning)', fontFamily: 'var(--font-heading)' }}>
                             {onTimePct}%
                         </span>
                         <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
@@ -318,7 +318,7 @@ const StatsPanel = ({ stats }) => {
                     <div key={m.machine_type} style={{ padding: '12px', borderRadius: '10px', background: 'var(--bg)' }}>
                         <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>{m.machine_type} Avg</div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                            <span style={{ fontSize: '24px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>
+                            <span style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'var(--font-heading)' }}>
                                 {m.avg_hours_to_complete || 0}h
                             </span>
                             <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
@@ -333,7 +333,7 @@ const StatsPanel = ({ stats }) => {
                     <div key={m.machine_id} style={{ padding: '12px', borderRadius: '10px', background: 'var(--bg)' }}>
                         <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>{m.machine_name}</div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                            <span style={{ fontSize: '24px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>
+                            <span style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'var(--font-heading)' }}>
                                 {m.jobs_completed}
                             </span>
                             <span style={{ fontSize: '12px', color: 'var(--muted)' }}>

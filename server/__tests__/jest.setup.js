@@ -1,5 +1,6 @@
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-jwt-secret-that-is-at-least-32-chars-long!!';
+const { TEST_JWT_SECRET } = require('./helpers/testUtils');
+process.env.JWT_SECRET = TEST_JWT_SECRET;
 process.env.JWT_SECRET_PREVIOUS = '';
 process.env.DB_HOST = process.env.TEST_DB_HOST || 'localhost';
 process.env.DB_PORT = process.env.TEST_DB_PORT || '3306';

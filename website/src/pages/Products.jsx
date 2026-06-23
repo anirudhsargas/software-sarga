@@ -89,7 +89,7 @@ export default function Products() {
       <section className="page-header" id="products-header">
         <div className="page-header__bg" />
         <div className="container page-header__content">
-          <span className="badge badge-primary">Sarga Catalog</span>
+          <span className="badge badge--primary">Sarga Catalog</span>
           <h1 className="page-header__title">
             Explore Our <span className="text-gradient">Premium Products</span>
           </h1>

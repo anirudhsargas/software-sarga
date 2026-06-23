@@ -948,7 +948,7 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
 
         // 6. Manual Credits
         const [manualCredits] = await pool.query(
-            `SELECT * FROM sarga_daily_credit_transactions 
+            `SELECT id, transaction_type, amount, description, customer_id, report_date, branch_id, book_type FROM sarga_daily_credit_transactions 
              WHERE report_date = ? AND branch_id = ? AND book_type = 'Laser'`,
             [date, branchId]
         );
@@ -1126,7 +1126,7 @@ router.get('/other-live', auth.authenticate, async (req, res) => {
 
         // 5. Manual Credits
         const [manualCredits] = await pool.query(
-            `SELECT * FROM sarga_daily_credit_transactions 
+            `SELECT id, transaction_type, amount, description, customer_id, report_date, branch_id, book_type FROM sarga_daily_credit_transactions 
              WHERE report_date = ? AND branch_id = ? AND book_type = 'Other'`,
             [date, branchId]
         );
@@ -1388,7 +1388,7 @@ router.get('/credits', auth.authenticate, async (req, res) => {
         if (!date || !book_type) return res.status(400).json({ error: 'Date and book_type are required' });
 
         const [rows] = await pool.query(
-            `SELECT * FROM sarga_daily_credit_transactions 
+            `SELECT id, transaction_type, amount, description, customer_id, customer_name, report_date, branch_id, book_type, created_at FROM sarga_daily_credit_transactions 
              WHERE report_date = ? AND branch_id = ? AND book_type = ?
              ORDER BY created_at ASC`,
             [date, branchId, book_type]
@@ -1429,7 +1429,7 @@ router.delete('/credits/:id', auth.authenticate, async (req, res) => {
         const creditId = req.params.id;
         
         // Fetch before delete for logging
-        const [existing] = await pool.query('SELECT * FROM sarga_daily_credit_transactions WHERE id = ?', [creditId]);
+        const [existing] = await pool.query('SELECT id, customer_name, amount FROM sarga_daily_credit_transactions WHERE id = ?', [creditId]);
         if (existing.length === 0) return res.status(404).json({ error: 'Credit transaction not found' });
 
         await pool.query('DELETE FROM sarga_daily_credit_transactions WHERE id = ?', [creditId]);

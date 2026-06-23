@@ -5,7 +5,8 @@ jest.mock('../../database', () => ({
 }));
 
 beforeAll(() => {
-  process.env.JWT_SECRET = 'test-secret-key-that-is-at-least-32-chars-long!!';
+  const { TEST_JWT_SECRET } = require('../helpers/testUtils');
+  process.env.JWT_SECRET = TEST_JWT_SECRET;
 });
 
 describe('cache middleware', () => {

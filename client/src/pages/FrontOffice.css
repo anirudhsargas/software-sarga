@@ -767,8 +767,8 @@
 .fo-stat-card--amber .fo-stat-card__icon { background: var(--warning-bg); color: var(--warning); }
 .fo-stat-card--green .fo-stat-card__icon { background: var(--success-bg); color: var(--success); }
 .fo-stat-card--red .fo-stat-card__icon { background: var(--error-bg); color: var(--error); }
-.fo-stat-card--teal .fo-stat-card__icon { background: rgba(13, 148, 136, 0.08); color: #0d9488; }
-.fo-stat-card--purple .fo-stat-card__icon { background: rgba(147, 51, 234, 0.08); color: #9333ea; }
+.fo-stat-card--teal .fo-stat-card__icon { background: rgba(13, 148, 136, 0.08); color: var(--info); }
+.fo-stat-card--purple .fo-stat-card__icon { background: rgba(147, 51, 234, 0.08); color: var(--info); }
 
 /* ── Tabs ── */
 .fo-tabs {
@@ -1412,4 +1412,9 @@
   .os-success__actions .btn {
     width: 100%;
   }
+}
+
+@media (max-width: 768px) {
+  .fo-stats { grid-template-columns: 1fr 1fr; }
+  .fo-grid { grid-template-columns: 1fr; }
 }

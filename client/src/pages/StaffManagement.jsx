@@ -43,7 +43,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
         <td>{new Date(s.created_at).toLocaleDateString()}</td>
         <td>
             {isAdmin ? (
-                <div role="button" tabIndex={0} className="row gap-sm" onClick={(e) => e.stopPropagation()}>
+                <div role="button" tabIndex={0} className="row gap-sm" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
                     <button
                         className="btn btn-ghost"
                         style={{ padding: '6px', minWidth: 'auto', border: 'none' }}

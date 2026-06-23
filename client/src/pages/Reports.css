@@ -122,7 +122,7 @@
     font-size: var(--text-xs);
     white-space: nowrap;
     box-shadow: var(--shadow-lg);
-    z-index: 9999;
+    z-index: var(--z-dropdown);
     pointer-events: none;
     animation: fade-in 0.1s ease-out;
 }

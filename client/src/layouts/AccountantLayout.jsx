@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import AccountantSidebar from '../components/accounting/AccountantSidebar';
 import './AccountantLayout.css';
 
 // Lazy load pages
-const AccountantDashboard = React.lazy(() => import('../pages/accounting/AccountantDashboard'));
+const AccountantDashboard = React.lazy(() => import('../pages/AccountantDashboard'));
 
 export default function AccountantLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -62,6 +62,7 @@ export default function AccountantLayout() {
 
   return (
     <div className="acc-layout-root">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       {/* Overlay for mobile/tablet */}
       {sidebarOpen && (
         <div className="acc-overlay" onClick={closeSidebar} aria-hidden="true" />
@@ -69,15 +70,16 @@ export default function AccountantLayout() {
 
       <AccountantSidebar isOpen={sidebarOpen} onClose={closeSidebar} />
 
-      <main className="acc-main-content">
+      <main id="main-content" className="acc-main-content">
         {/* Hamburger for mobile/tablet */}
         <button
           ref={hamburgerRef}
           className="acc-hamburger"
           onClick={toggleSidebar}
           aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-pressed={sidebarOpen}
         >
-          {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          {sidebarOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
         </button>
 
         <Suspense fallback={<div className="acc-loading-page">Loading...</div>}>

@@ -1198,7 +1198,7 @@ const JobDetail = () => {
                                                     <button onClick={handleUpdateRequired} className="plate-edit-button">OK</button>
                                                 </div>
                                             ) : (
-                                                <div role="button" tabIndex={0} onClick={() => { setRequiredInput(String(req)); setEditingRequired(true); }} className="paper-summary-value" title="Click to edit">
+                                                <div role="button" tabIndex={0} onClick={() => { setRequiredInput(String(req)); setEditingRequired(true); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRequiredInput(String(req)); setEditingRequired(true); } }} className="paper-summary-value" title="Click to edit">
                                                     {req || '—'}
                                                 </div>
                                             )}

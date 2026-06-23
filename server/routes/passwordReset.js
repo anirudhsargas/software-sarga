@@ -15,21 +15,6 @@ const resetLimiter = rateLimit({
     legacyHeaders: false
 });
 
-// Ensure reset tokens table exists
-const ensureTable = async () => {
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS sarga_password_reset_tokens (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            staff_id INT NOT NULL,
-            token VARCHAR(64) NOT NULL UNIQUE,
-            expires_at DATETIME NOT NULL,
-            used BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE
-        )
-    `);
-};
-ensureTable().catch(e => console.error('Password reset table init error:', e));
 
 function getTransporter() {
     return nodemailer.createTransport({

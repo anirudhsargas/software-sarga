@@ -1360,7 +1360,7 @@ const EmployeeDetail = () => {
                 </div>
             )}
             {confirmDialog.show && (
-                <div className="employee-detail__modal" style={{ zIndex: 1000, background: 'var(--shadow-sm)', backdropFilter: 'blur(4px)' }}>
+                <div className="employee-detail__modal" style={{ zIndex: 'var(--z-modal)', background: 'var(--shadow-sm)', backdropFilter: 'blur(4px)' }}>
                     <div className="employee-detail__modal-card" style={{
                         textAlign: 'center',
                         padding: '32px 24px',

@@ -76,7 +76,7 @@ export default function Services() {
       <section className="page-header" id="services-header">
         <div className="page-header__bg" />
         <div className="container page-header__content">
-          <span className="badge badge-primary">Sarga Service Suite</span>
+          <span className="badge badge--primary">Sarga Service Suite</span>
           <h1 className="page-header__title">
             Professional Printing, <span className="text-gradient">Crafted Since 1994</span>
           </h1>

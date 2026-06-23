@@ -14,16 +14,6 @@ function ensureDataDir() {
 async function saveChat({ uuid, user_message, bot_response, rule_id }) {
   // Prefer DB when available, fall back to file storage
   try {
-    await pool.query(
-      `CREATE TABLE IF NOT EXISTS sarga_website_chat_messages (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        uuid VARCHAR(50),
-        user_message TEXT,
-        bot_response TEXT,
-        rule_id VARCHAR(100),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )`
-    );
 
     await pool.query(
       `INSERT INTO sarga_website_chat_messages (uuid, user_message, bot_response, rule_id)

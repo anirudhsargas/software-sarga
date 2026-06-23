@@ -170,4 +170,4 @@ const InventoryImage = ({ item, onUpdate, size = 40, isAdmin = false }) => {
     );
 };
 
-export default InventoryImage;
+export default React.memo(InventoryImage);

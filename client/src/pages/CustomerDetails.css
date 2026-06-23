@@ -67,7 +67,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-lg);
-  z-index: 9999;
+  z-index: var(--z-dropdown);
   min-width: 190px;
   overflow: hidden;
 }
@@ -896,4 +896,9 @@
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+@media (max-width: 768px) {
+  .cd-header { flex-direction: column; align-items: flex-start; gap: var(--space-12); }
+  .cd-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }

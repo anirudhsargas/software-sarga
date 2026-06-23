@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Plus, Edit2, Trash2, Power, PowerOff, Loader2, Building2, Settings,
     Users, UserPlus, X, Eye, Hash, Gauge, IndianRupee, ClipboardList,
@@ -24,6 +24,56 @@ const MachineManagement = () => {
     const { confirm } = useConfirm();
     const user = auth.getUser();
     const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
+
+    const triggerRef = useRef(null);
+    const triggerWorkRef = useRef(null);
+    const triggerAssignRef = useRef(null);
+    const triggerBookAssignRef = useRef(null);
+
+    useEffect(() => {
+        if (showModal) {
+            triggerRef.current = document.activeElement;
+        } else if (triggerRef.current) {
+            triggerRef.current.focus();
+            triggerRef.current = null;
+        }
+    }, [showModal]);
+
+    useEffect(() => {
+        if (showWorkModal) {
+            triggerWorkRef.current = document.activeElement;
+        } else if (triggerWorkRef.current) {
+            triggerWorkRef.current.focus();
+            triggerWorkRef.current = null;
+        }
+    }, [showWorkModal]);
+
+    useEffect(() => {
+        if (showAssignModal) {
+            triggerAssignRef.current = document.activeElement;
+        } else if (triggerAssignRef.current) {
+            triggerAssignRef.current.focus();
+            triggerAssignRef.current = null;
+        }
+    }, [showAssignModal]);
+
+    useEffect(() => {
+        if (showBookAssignModal) {
+            triggerBookAssignRef.current = document.activeElement;
+        } else if (triggerBookAssignRef.current) {
+            triggerBookAssignRef.current.focus();
+            triggerBookAssignRef.current = null;
+        }
+    }, [showBookAssignModal]);
+
+    useEffect(() => {
+        return () => {
+            triggerRef.current?.focus();
+            triggerWorkRef.current?.focus();
+            triggerAssignRef.current?.focus();
+            triggerBookAssignRef.current?.focus();
+        };
+    }, []);
 
     const [machines, setMachines] = useState([]);
     const [branches, setBranches] = useState([]);
@@ -1000,11 +1050,11 @@ const MachineManagement = () => {
 
                 {/* Work Entry Modal */}
                 {showWorkModal && (
-                    <div role="button" tabIndex={0} className="modal-overlay" onClick={() => setShowWorkModal(false)}>
-                        <div role="button" tabIndex={0} className="modal mm-work-modal" onClick={e => e.stopPropagation()}>
+                    <div role="dialog" aria-modal="true" aria-labelledby="work-modal-title" className="modal-overlay" onClick={() => setShowWorkModal(false)}>
+                        <div className="modal mm-work-modal" onClick={e => e.stopPropagation()}>
                             <div className="modal-header">
-                                <h2>Add Work Entry</h2>
-                                <button className="btn btn-ghost" onClick={() => setShowWorkModal(false)}>×</button>
+                                <h2 id="work-modal-title">Add Work Entry</h2>
+                                <button className="btn btn-ghost" onClick={() => setShowWorkModal(false)} aria-label="Close work entry modal">×</button>
                             </div>
                             <form onSubmit={handleAddWork}>
                                 <div className="modal-body stack-md">
@@ -1119,11 +1169,11 @@ const MachineManagement = () => {
             }
         }
         return (
-            <div role="button" tabIndex={0} className="modal-overlay" onClick={() => setShowAssignModal(false)}>
-                <div role="button" tabIndex={0} className="modal mm-assign-modal" onClick={e => e.stopPropagation()}>
+            <div role="dialog" aria-modal="true" aria-labelledby="assign-modal-title" className="modal-overlay" onClick={() => setShowAssignModal(false)}>
+                <div className="modal mm-assign-modal" onClick={e => e.stopPropagation()}>
                     <div className="modal-header modal-header--flex">
-                        <h2>Assign Staff</h2>
-                        <button className="btn btn-ghost" onClick={() => setShowAssignModal(false)}>×</button>
+                        <h2 id="assign-modal-title">Assign Staff</h2>
+                        <button className="btn btn-ghost" onClick={() => setShowAssignModal(false)} aria-label="Close staff assignment modal">×</button>
                     </div>
                     <div className="modal-body mm-assign-modal-body">
                         <p className="text-sm muted mm-assign-hint">Select staff members to assign to this machine. Multiple selections allowed.</p>
@@ -1301,11 +1351,11 @@ const MachineManagement = () => {
 
             {/* Add/Edit Machine Modal */}
             {showModal && (
-                <div role="button" tabIndex={0} className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>
-                    <div role="button" tabIndex={0} className="modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }} role="dialog" aria-modal="true" aria-labelledby="machine-modal-title">
+                    <div className="modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header modal-header--flex">
-                            <h2>{editingMachine ? 'Edit Machine' : 'Add New Machine'}</h2>
-                            <button className="btn btn-ghost ml-auto" onClick={() => { setShowModal(false); resetForm(); }}>×</button>
+                            <h2 id="machine-modal-title">{editingMachine ? 'Edit Machine' : 'Add New Machine'}</h2>
+                            <button className="btn btn-ghost ml-auto" onClick={() => { setShowModal(false); resetForm(); }} aria-label="Close machine modal">×</button>
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div className="modal-body stack-md">
@@ -1480,11 +1530,11 @@ const MachineManagement = () => {
                     (!bookAssignBranchId || String(s.branch_id) === String(bookAssignBranchId))
                 );
                 return (
-                    <div role="button" tabIndex={0} className="modal-overlay" onClick={() => setShowBookAssignModal(false)}>
-                        <div role="button" tabIndex={0} className="modal mm-modal-sm" onClick={e => e.stopPropagation()}>
+                    <div role="dialog" aria-modal="true" aria-labelledby="book-assign-modal-title" className="modal-overlay" onClick={() => setShowBookAssignModal(false)}>
+                        <div className="modal mm-modal-sm" onClick={e => e.stopPropagation()}>
                             <div className="modal-header">
-                                <h2>Assign Staff — {bookAssignType} Book</h2>
-                                <button className="btn btn-ghost" onClick={() => setShowBookAssignModal(false)}>×</button>
+                                <h2 id="book-assign-modal-title">Assign Staff — {bookAssignType} Book</h2>
+                                <button className="btn btn-ghost" onClick={() => setShowBookAssignModal(false)} aria-label="Close cash book assignment modal">×</button>
                             </div>
                             <div className="modal-body mm-modal-body-scroll">
                                 <p className="text-sm muted mm-modal-desc">

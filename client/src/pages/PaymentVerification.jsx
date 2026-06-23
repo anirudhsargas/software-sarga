@@ -176,7 +176,7 @@ const PaymentVerification = () => {
 
             return (
               <div key={p.id} className={`pv-card ${isExpanded ? 'pv-card--expanded' : ''}`}>
-                <div role="button" tabIndex={0} className="pv-card-main" onClick={() => setExpandedId(isExpanded ? null : p.id)}>
+                <div role="button" tabIndex={0} aria-expanded={isExpanded} className="pv-card-main" onClick={() => setExpandedId(isExpanded ? null : p.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : p.id); } }}>
                   {/* Left: method icon */}
                   <div className="pv-card-method">
                     <span className="pv-method-emoji">{METHOD_ICONS[p.payment_method] || '💰'}</span>

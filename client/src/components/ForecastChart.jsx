@@ -232,7 +232,7 @@ export default function ForecastChart() {
                             <span key={i} style={{
                                 padding: '3px 10px', borderRadius: '8px', fontSize: '11px',
                                 background: 'var(--bg-2, var(--bg))', color: 'var(--text)',
-                                fontFamily: "'Space Grotesk', sans-serif",
+                                fontFamily: 'var(--font-heading)',
                             }}>
                                 {f.feature_name.replace(/^svc_/, '').replace(/_/g, ' ')}
                                 <span style={{ marginLeft: '4px', color: 'var(--muted)' }}>

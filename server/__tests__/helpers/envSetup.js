@@ -1,5 +1,6 @@
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test_jwt_secret_key_for_testing_purposes_only_32chars';
+const { TEST_JWT_SECRET } = require('./testUtils');
+process.env.JWT_SECRET = TEST_JWT_SECRET;
 process.env.JWT_SECRET_PREVIOUS = '';
 process.env.DB_HOST = 'localhost';
 process.env.DB_PORT = '3306';

@@ -23,6 +23,22 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
     const fileInputRef = useRef(null);
     const camDivId = useRef(`qr-cam-${Math.random().toString(36).slice(2)}`);
     const prevIsOpenRef = useRef(isOpen);
+    const triggerRef = useRef(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            triggerRef.current = document.activeElement;
+        } else if (triggerRef.current) {
+            triggerRef.current.focus();
+            triggerRef.current = null;
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        return () => {
+            triggerRef.current?.focus();
+        };
+    }, []);
 
     const [mode, setMode] = useState('file');
     const [cameraError, setCameraError] = useState('');
@@ -281,15 +297,15 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="modal-backdrop animate-fade-in" style={{ zIndex: 1000 }}>
+        <div className="modal-backdrop animate-fade-in" style={{ zIndex: 'var(--z-modal)' }} role="dialog" aria-modal="true" aria-labelledby="scanner-modal-title">
             <div className="modal animate-scale-in" style={{ maxWidth: '460px', width: '92%', position: 'relative' }}>
                 <div className="modal-header">
                     <div className="row gap-sm items-center">
-                        <Camera size={18} />
-                        <h2 className="modal-title" style={{ margin: 0 }}>Scan QR / Barcode</h2>
+                        <Camera size={18} aria-hidden="true" />
+                        <h2 id="scanner-modal-title" className="modal-title" style={{ margin: 0 }}>Scan QR / Barcode</h2>
                     </div>
-                    <button className="modal-close modal-close--static" onClick={onClose}>
-                        <X size={20} />
+                    <button className="modal-close modal-close--static" onClick={onClose} aria-label="Close scanner">
+                        <X size={20} aria-hidden="true" />
                     </button>
                 </div>
 

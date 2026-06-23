@@ -5,7 +5,7 @@
       (function() {
         try {
           var VALID_MODES = ['light', 'dark', 'system'];
-          var STORAGE_KEY = 'sarga_theme';
+          var STORAGE_KEY = 'app-theme';
 
           function getSystemPref() {
             return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -15,14 +15,24 @@
 
           function applyTheme(mode) {
             var effective = mode === 'system' ? getSystemPref() : mode;
+            if (!effective) effective = 'light';
+            var isDark = effective === 'dark';
             document.documentElement.setAttribute('data-theme', effective);
             document.documentElement.style.colorScheme = effective;
+            document.body.setAttribute('data-theme', effective);
+            if (isDark) {
+              document.documentElement.classList.add('dark');
+            } else {
+              document.documentElement.classList.remove('dark');
+            }
+            var meta = document.getElementById('theme-color');
+            if (meta) meta.content = isDark ? '#0A0A0A' : '#f5f3ef';
           }
 
           var saved = localStorage.getItem(STORAGE_KEY);
           if (!saved || !isValidTheme(saved)) {
-            saved = 'dark';
-            localStorage.setItem(STORAGE_KEY, 'dark');
+            saved = 'system';
+            localStorage.setItem(STORAGE_KEY, 'system');
           }
 
           applyTheme(saved);
@@ -46,13 +56,6 @@
     <meta name="keywords" content="Sarga, printing, offset printing, digital printing, design, Perambra, Meppayur, Kerala, Kozhikode" />
     <meta name="author" content="Sarga" />
     <meta name="theme-color" id="theme-color" content="#f5f3ef" />
-    <script>
-      (function() {
-        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-        var meta = document.getElementById('theme-color');
-        if (meta) meta.content = isDark ? '#0A0A0A' : '#f5f3ef';
-      })();
-    </script>
 
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/favicon.png" />

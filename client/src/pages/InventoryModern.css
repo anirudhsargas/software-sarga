@@ -762,3 +762,8 @@
   border-radius: var(--radius-md);
 }
 
+@media (max-width: 768px) {
+  .inv-toolbar { flex-direction: column; }
+  .inv-grid { grid-template-columns: 1fr; }
+}
+

@@ -434,7 +434,7 @@ const BlogCMS = () => {
       {/* CREATE / EDIT POST MODAL */}
       {showPostModal && (
         <div className="modal-backdrop">
-          <div className="modal modal--large card glass">
+          <div className="modal modal--blog card glass">
             <div className="modal-header">
               <h2>{editingPostId ? 'Edit Blog Article' : 'Create SEO Article'}</h2>
               <button className="btn-close" onClick={() => setShowPostModal(false)}>✕</button>
@@ -632,7 +632,7 @@ const BlogCMS = () => {
       {/* CREATE AUTHOR MODAL */}
       {showAuthorModal && (
         <div className="modal-backdrop modal-backdrop--high">
-          <div className="modal card glass" style={{ maxWidth: 500 }}>
+          <div className="modal modal--billing card glass">
             <div className="modal-header">
               <h2>Add Author Profile</h2>
               <button className="btn-close" onClick={() => setShowAuthorModal(false)}>✕</button>

@@ -4,6 +4,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import { Tag, Plus, X, Trash2, ToggleLeft, ToggleRight, Loader2, Edit3, CheckCircle, Clock, Infinity as InfinityIcon } from 'lucide-react';
 import PageContainer from '../components/ui/PageContainer';
+import EmptyState from '../components/EmptyState';
 
 const usageTypeLabels = { one_time: 'One-Time', limited: 'Limited', unlimited: 'Unlimited' };
 
@@ -15,6 +16,22 @@ const CouponManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  const triggerRef = React.useRef(null);
+  useEffect(() => {
+      if (showModal) {
+          triggerRef.current = document.activeElement;
+      } else if (triggerRef.current) {
+          triggerRef.current.focus();
+          triggerRef.current = null;
+      }
+  }, [showModal]);
+
+  useEffect(() => {
+      return () => {
+          triggerRef.current?.focus();
+      };
+  }, []);
   const [form, setForm] = useState({
     code: '',
     discount_type: 'percent',
@@ -136,11 +153,7 @@ const CouponManagement = () => {
           Loading coupons...
         </div>
       ) : coupons.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--muted)' }}>
-          <Tag size={40} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.3 }} />
-          <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>No coupons yet</div>
-          <div style={{ fontSize: '13px' }}>Create your first coupon to offer discounts</div>
-        </div>
+        <EmptyState icon={Tag} title="No coupons yet" description="Create your first coupon to get started." />
       ) : (
         <div style={{ display: 'grid', gap: '12px' }}>
           {coupons.map(c => {
@@ -173,7 +186,7 @@ const CouponManagement = () => {
                       {c.code}
                     </div>
                     <div>
-                      <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)', fontFamily: "'Space Grotesk', sans-serif" }}>
+                      <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-heading)' }}>
                         {c.discount_type === 'percent' ? `${Number(c.discount_value)}%` : `₹${Number(c.discount_value).toFixed(0)}`}
                       </span>
                       <span className="muted" style={{ fontSize: '13px', marginLeft: '4px' }}>off</span>
@@ -182,11 +195,11 @@ const CouponManagement = () => {
 
                   {/* Right: Actions */}
                   <div className="row gap-xs items-center">
-                    <button className="icon-button" title="Edit" onClick={() => openEdit(c)}><Edit3 size={16} /></button>
-                    <button className="icon-button" title={c.is_active ? 'Deactivate' : 'Activate'} onClick={() => toggleActive(c)}>
-                      {c.is_active ? <ToggleRight size={18} style={{ color: 'var(--success)' }} /> : <ToggleLeft size={18} style={{ color: 'var(--muted)' }} />}
+                    <button className="icon-button" title="Edit" aria-label={`Edit coupon ${c.code}`} onClick={() => openEdit(c)}><Edit3 size={16} aria-hidden="true" /></button>
+                    <button className="icon-button" title={c.is_active ? 'Deactivate' : 'Activate'} aria-pressed={c.is_active} aria-label={c.is_active ? "Deactivate coupon" : "Activate coupon"} onClick={() => toggleActive(c)}>
+                      {c.is_active ? <ToggleRight size={18} style={{ color: 'var(--success)' }} aria-hidden="true" /> : <ToggleLeft size={18} style={{ color: 'var(--muted)' }} aria-hidden="true" />}
                     </button>
-                    <button className="icon-button" title="Delete" onClick={() => deleteCoupon(c)} style={{ color: 'var(--error)' }}><Trash2 size={16} /></button>
+                    <button className="icon-button" title="Delete" aria-label={`Deactivate coupon ${c.code}`} onClick={() => deleteCoupon(c)} style={{ color: 'var(--error)' }}><Trash2 size={16} aria-hidden="true" /></button>
                   </div>
                 </div>
 
@@ -224,13 +237,14 @@ const CouponManagement = () => {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => { setShowModal(false); resetForm(); }}>
-          <div role="button" tabIndex={0} className="modal" style={{ maxWidth: '480px', width: '92%', position: 'relative' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => { setShowModal(false); resetForm(); }} role="dialog" aria-modal="true" aria-labelledby="coupon-modal-title">
+          <div className="modal" style={{ maxWidth: '480px', width: '92%', position: 'relative' }} onClick={e => e.stopPropagation()}>
             <button className="icon-button" onClick={() => { setShowModal(false); resetForm(); }}
+              aria-label="Close modal"
               style={{ position: 'absolute', top: '18px', right: '18px' }}>
-              <X size={20} />
+              <X size={20} aria-hidden="true" />
             </button>
-            <h2 className="section-title mb-24">{editing ? 'Edit Coupon' : 'Create Coupon'}</h2>
+            <h2 id="coupon-modal-title" className="section-title mb-24">{editing ? 'Edit Coupon' : 'Create Coupon'}</h2>
 
             <div className="stack-md">
               {/* Code */}

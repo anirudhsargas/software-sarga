@@ -13,6 +13,14 @@ const CameraCapture = ({ onCapture, onClose }) => {
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [cameraError, setCameraError] = useState('');
 
+  const triggerRef = useRef(null);
+  useEffect(() => {
+    triggerRef.current = document.activeElement;
+    return () => {
+      triggerRef.current?.focus();
+    };
+  }, []);
+
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -129,7 +137,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
 
   const overlay = {
     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    zIndex: 10000, backgroundColor: 'var(--shadow-sm)',
+    zIndex: 'var(--z-overlay)', backgroundColor: 'var(--shadow-sm)',
     display: 'flex', flexDirection: 'column'
   };
 
@@ -163,12 +171,12 @@ const CameraCapture = ({ onCapture, onClose }) => {
     <div style={overlay}>
       <div style={header}>
         <button onClick={onClose} style={headerBtn}>
-          <X size={20} /> Exit
+          <X size={20} aria-hidden="true" /> Exit
         </button>
         <span style={{ color: 'var(--card)', fontSize: '16px', fontWeight: 600 }}>Capture Bill</span>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={() => setShowGrid(!showGrid)} style={toolBtn(showGrid)}>Grid</button>
-          <button onClick={toggleFlash} style={toolBtn(isFlashOn)}>Flash {isFlashOn ? 'ON' : 'OFF'}</button>
+          <button onClick={() => setShowGrid(!showGrid)} style={toolBtn(showGrid)} aria-pressed={showGrid} aria-label="Toggle camera grid">Grid</button>
+          <button onClick={toggleFlash} style={toolBtn(isFlashOn)} aria-pressed={isFlashOn} aria-label={`Toggle flash ${isFlashOn ? 'OFF' : 'ON'}`}>Flash {isFlashOn ? 'ON' : 'OFF'}</button>
         </div>
       </div>
 
@@ -211,7 +219,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
           </div>
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--foreground)' }}>
-            <img src={capturedPhoto.src} alt="Captured" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+            <img src={capturedPhoto.src} alt="Preview of captured photo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
           </div>
         )}
       </div>
@@ -226,7 +234,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
             <button onClick={() => fileInputRef.current?.click()} style={actionBtn}>
               Gallery
             </button>
-            <button onClick={capturePhoto} disabled={cameraLoading} style={{
+            <button onClick={capturePhoto} disabled={cameraLoading} aria-label="Capture photo" style={{
               width: '72px', height: '72px', borderRadius: '50%',
               border: '4px solid rgba(255,255,255,0.8)',
               background: 'transparent', cursor: cameraLoading ? 'not-allowed' : 'pointer',

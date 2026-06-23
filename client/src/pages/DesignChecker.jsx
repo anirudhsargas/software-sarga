@@ -69,7 +69,7 @@ const DesignChecker = () => {
                 {/* Main Panel */}
                 <div className="panel">
                     {/* Drop zone */}
-                    <div role="button" tabIndex={0} onClick={() => inputRef.current?.click()}
+                    <div role="button" tabIndex={0} onClick={() => inputRef.current?.click()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.click(); } }}
                         onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
                         style={{
                             border: `2px dashed ${dragActive ? 'var(--accent)' : 'var(--border)'}`,
@@ -84,7 +84,7 @@ const DesignChecker = () => {
                         {file ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                                 {preview ? (
-                                    <img loading="lazy" src={preview} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)' }} />
+                                    <img loading="lazy" src={preview} alt={`Design preview for ${file?.name || 'uploaded design'}`} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)' }} />
                                 ) : (
                                     <div style={{ width: 64, height: 64, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', display: 'grid', placeItems: 'center' }}>
                                         <Image size={24} style={{ color: 'var(--muted)' }} />
@@ -117,7 +117,7 @@ const DesignChecker = () => {
                         <div style={{ marginTop: 24 }}>
                             {/* Score bar */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, padding: '16px 18px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                                <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 32, fontWeight: 700, color: result.score >= 80 ? 'var(--success)' : result.score >= 50 ? 'var(--warning)' : 'var(--error)' }}>
+                                <div style={{ fontFamily: 'var(--font-heading)', fontSize: 32, fontWeight: 700, color: result.score >= 80 ? 'var(--success)' : result.score >= 50 ? 'var(--warning)' : 'var(--error)' }}>
                                     {result.score || 0}
                                 </div>
                                 <div>

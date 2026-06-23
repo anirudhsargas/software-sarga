@@ -15,6 +15,22 @@ function PortfolioManager() {
   const [form, setForm] = useState({ title: '', description: '', category: 'Custom Projects', cover_image: '', gallery_images: [], featured: false, published: true, position: 0 })
   const [search, setSearch] = useState('')
   const [uploading, setUploading] = useState(false)
+
+  const triggerRef = useRef(null)
+  useEffect(() => {
+    if (showForm) {
+      triggerRef.current = document.activeElement
+    } else if (triggerRef.current) {
+      triggerRef.current.focus()
+      triggerRef.current = null
+    }
+  }, [showForm])
+
+  useEffect(() => {
+    return () => {
+      triggerRef.current?.focus()
+    }
+  }, [])
   const filtered = projects.filter(p => !search || p.title?.toLowerCase().includes(search.toLowerCase()) || p.category?.toLowerCase().includes(search.toLowerCase()))
 
   const loadProjects = useCallback(async () => {
@@ -126,9 +142,12 @@ function PortfolioManager() {
       <div className="mgr-search"><Search size={16} /><input className="input" placeholder="Search projects..." value={search} onChange={e => setSearch(e.target.value)} /></div>
 
       {showForm && (
-        <div className="mgr-form-overlay">
+        <div className="mgr-form-overlay" role="dialog" aria-modal="true" aria-labelledby="portfolio-form-title">
           <div className="mgr-form">
-            <div className="mgr-form-header"><h3>{editing ? 'Edit Project' : 'New Project'}<button className="btn btn-sm btn-ghost" onClick={() => setShowForm(false)}><X size={18} /></button></h3></div>
+            <div className="mgr-form-header">
+              <h3 id="portfolio-form-title">{editing ? 'Edit Project' : 'New Project'}</h3>
+              <button className="btn btn-sm btn-ghost" onClick={() => setShowForm(false)} aria-label="Close project modal"><X size={18} aria-hidden="true" /></button>
+            </div>
             <div className="mgr-form-body">
               <div className="form-group"><label>Title *</label><input className="input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
               <div className="form-group"><label>Description</label><textarea className="input" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
@@ -139,14 +158,17 @@ function PortfolioManager() {
                   <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
                   {uploading && <Loader2 size={16} className="spinning" />}
                 </div>
-                {form.cover_image && <img src={form.cover_image} alt="" className="mgr-preview" />}
+                {form.cover_image && <img src={form.cover_image} alt="Portfolio cover image preview" className="mgr-preview" />}
               </div>
               <div className="form-group">
                 <label>Gallery Images</label>
                 <input type="file" accept="image/*" onChange={handleGalleryUpload} disabled={uploading} />
                 <div className="mgr-gallery-preview">
                   {form.gallery_images.map((img, i) => (
-                    <div key={i} className="mgr-gallery-item"><img src={img} alt="" /><button onClick={() => removeGalleryImage(i)}><X size={14} /></button></div>
+                    <div key={i} className="mgr-gallery-item">
+                      <img src={img} alt={`Portfolio gallery image ${i + 1}`} />
+                      <button onClick={() => removeGalleryImage(i)} aria-label={`Remove gallery image ${i + 1}`}><X size={14} aria-hidden="true" /></button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -161,19 +183,27 @@ function PortfolioManager() {
       )}
 
       <div className="mgr-table-wrap">
-        <table className="mgr-table">
+        <table className="mgr-table" aria-label="Portfolio projects list">
           <thead><tr><th>Image</th><th>Title</th><th>Category</th><th>Featured</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {filtered.map(p => (
               <tr key={p.id}>
-                <td>{p.cover_image ? <img src={p.cover_image} alt="" className="mgr-thumb" /> : '-'}</td>
+                <td>{p.cover_image ? <img src={p.cover_image} alt={`Cover for ${p.title || 'portfolio item'}`} className="mgr-thumb" /> : '-'}</td>
                 <td>{p.title}</td>
                 <td>{p.category}</td>
-                <td><button className="btn btn-sm btn-ghost" onClick={() => toggleFeature(p.id, p.featured)}><Star size={16} className={p.featured ? 'star-filled' : ''} /></button></td>
-                <td><button className="btn btn-sm btn-ghost" onClick={() => togglePublish(p.id, p.published)}>{p.published ? <Eye size={16} /> : <EyeOff size={16} />}</button></td>
+                <td>
+                  <button className="btn btn-sm btn-ghost" onClick={() => toggleFeature(p.id, p.featured)} aria-pressed={p.featured} aria-label={p.featured ? "Unfeature project" : "Feature project"}>
+                    <Star size={16} className={p.featured ? 'star-filled' : ''} aria-hidden="true" />
+                  </button>
+                </td>
+                <td>
+                  <button className="btn btn-sm btn-ghost" onClick={() => togglePublish(p.id, p.published)} aria-pressed={p.published} aria-label={p.published ? "Unpublish project" : "Publish project"}>
+                    {p.published ? <Eye size={16} aria-hidden="true" /> : <EyeOff size={16} aria-hidden="true" />}
+                  </button>
+                </td>
                 <td className="mgr-actions">
-                  <button className="btn btn-sm btn-ghost" onClick={() => editProject(p.id)}><Edit3 size={16} /></button>
-                  <button className="btn btn-sm btn-ghost txt-danger" onClick={() => deleteProject(p.id)}><Trash2 size={16} /></button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => editProject(p.id)} aria-label={`Edit project ${p.title}`}><Edit3 size={16} aria-hidden="true" /></button>
+                  <button className="btn btn-sm btn-ghost txt-danger" onClick={() => deleteProject(p.id)} aria-label={`Delete project ${p.title}`}><Trash2 size={16} aria-hidden="true" /></button>
                 </td>
               </tr>
             ))}

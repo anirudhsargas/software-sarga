@@ -154,7 +154,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 1100;
+  z-index: var(--z-modal-high);
   display: flex;
   flex-direction: column;
   color: var(--background);

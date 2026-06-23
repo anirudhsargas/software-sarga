@@ -1,0 +1,3 @@
+Calling powershell with args: -Command "echo 123" 
+Calling powershell via cmd with args: -Command "echo 123" 
+Calling powershell via absolute cmd with args: -Command "echo 123" 

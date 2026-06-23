@@ -446,6 +446,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
               key={u.key}
               className={`em-utility-card ${isPaid ? 'em-utility-card--paid' : 'em-utility-card--pending'}`}
               onClick={(e) => handleUtilityCardClick(e, u.key)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleUtilityCardClick(e, u.key); } }}
               style={{ cursor: 'pointer' }}
             >
               <div className="em-utility-card__header">
@@ -461,7 +462,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                   <span className="em-status-badge em-status-badge--pending"><AlertTriangle size={11} /> Not paid this month</span>
                 )}
               </div>
-              <div role="button" tabIndex={0}  className="em-utility-card__actions" onClick={e => e.stopPropagation()}>
+              <div role="button" tabIndex={0}  className="em-utility-card__actions" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
                 <button type="button" className="btn btn-sm em-utility-card__btn-bill" onClick={(e) => { e.stopPropagation(); openBillForm(u.key); }}>
                   <ShoppingCart size={13} /> Bill
                 </button>
@@ -508,8 +509,8 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
 
       {/* ── Add Utility Type Modal ── */}
       {showAddType && (
-        <div role="button" tabIndex={0}  className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowAddType(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0}  className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowAddType(false); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) setShowAddType(false); } }}>
+          <div role="button" tabIndex={0}  className="em-modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header">
               <h2>Add Utility Type</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowAddType(false)}><X size={18} /></button>
@@ -530,8 +531,8 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
 
       {/* ── Fetch From Email Report Modal ── */}
       {showFetchReport && (
-        <div role="button" tabIndex={0}  className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowFetchReport(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0}  className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowFetchReport(false); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) setShowFetchReport(false); } }}>
+          <div role="button" tabIndex={0}  className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header">
               <h2>Fetch Bills From Email</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowFetchReport(false)}><X size={18} /></button>
@@ -548,8 +549,8 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
 
       {/* ── Manage Connections Modal ── */}
       {showConnectionsModal && (
-        <div role="button" tabIndex={0}  className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowConnectionsModal(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0}  className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowConnectionsModal(false); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) setShowConnectionsModal(false); } }}>
+          <div role="button" tabIndex={0}  className="em-modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header">
               <h2>Manage Connections — {selectedUtility || billForm.utility_type || 'Utility'}</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowConnectionsModal(false)}><X size={18} /></button>
@@ -591,7 +592,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
       {/* ── Request Utility Type Modal (Front Office) ── */}
       {showRequestType && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowRequestType(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header">
               <h2>Request Utility Type</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowRequestType(false)}><X size={18} /></button>
@@ -619,8 +620,8 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
 
       {/* ── Bill Recording Modal ── */}
       {showBillForm && (
-        <div role="button" tabIndex={0}  className="em-modal-backdrop" onClick={() => setShowBillForm(false)}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+        <div role="button" tabIndex={0}  className="em-modal-backdrop" onClick={() => setShowBillForm(false)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowBillForm(false); } }}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <form onSubmit={handleBillSubmit}>
               <div className="em-modal__header">
                 <h3><ShoppingCart size={18} /> Record Bill — {billForm.utility_type}</h3>

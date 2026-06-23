@@ -175,7 +175,7 @@ const BillsDocsTab = ({ onError }) => {
       {/* Bill Upload Modal */}
       {showUpload && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowUpload(false); }}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header"><h2>Upload Document</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowUpload(false)}><X size={18} /></button></div>
             <form onSubmit={uploadDoc}>
               <div className="em-modal__body">

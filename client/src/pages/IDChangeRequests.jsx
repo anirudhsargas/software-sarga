@@ -1,4 +1,2 @@
-import { useSEO } from '../hooks/useSEO';
-import IDChangeRequests from './Requests';
-
-export default IDChangeRequests;
+/* Deprecated / Cleaned Up */
+export default function IDChangeRequests() { return null; }

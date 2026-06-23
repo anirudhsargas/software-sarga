@@ -59,13 +59,14 @@ export const SyncStatusBar = () => {
       tabIndex={0}
       className={`sync-bar sync-bar--${status}`}
       onClick={status !== 'syncing' && isOnline ? syncNow : undefined}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (status !== 'syncing' && isOnline) syncNow(); } }}
       title={isOnline ? 'Click to sync now' : 'Offline'}
       style={{
         cursor: status !== 'syncing' && isOnline ? 'pointer' : 'default',
         position: 'fixed',
         bottom: '20px',
         right: '20px',
-        zIndex: 9999,
+        zIndex: 'var(--z-toast)',
         display: 'inline-flex',
         alignItems: 'center',
         gap: '6px',

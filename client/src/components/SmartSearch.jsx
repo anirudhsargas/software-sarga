@@ -46,16 +46,25 @@ const SmartSearch = ({ isOpen, onClose }) => {
   const timerRef = useRef(null);
   const abortRef = useRef(null);
   const navigate = useNavigate();
+  const triggerRef = useRef(null);
 
-  // Focus input and load recent searches when opened
+  // Focus input and load recent searches when opened, and handle focus restoration
   useEffect(() => {
     if (isOpen) {
+      triggerRef.current = document.activeElement;
       setQuery('');
       setResults({ customers: [], jobs: [], products: [] });
       setSelectedIndex(0);
       setRecentSearches(getRecentSearches());
       setTimeout(() => inputRef.current?.focus(), 50);
     }
+    return () => {
+      if (isOpen) {
+        setTimeout(() => {
+          triggerRef.current?.focus();
+        }, 0);
+      }
+    };
   }, [isOpen]);
 
   // Debounced search with abort
@@ -174,19 +183,15 @@ const SmartSearch = ({ isOpen, onClose }) => {
     <>
       {/* Backdrop */}
       <div
-        role="button"
-        tabIndex={0}
-        aria-label="Close search"
         className="smart-search-backdrop"
         onClick={onClose}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onClose(); }}
       />
 
       {/* Search Panel */}
-      <div className="smart-search-panel" onKeyDown={handleKeyDown}>
+      <div className="smart-search-panel" onKeyDown={handleKeyDown} role="dialog" aria-modal="true" aria-label="Global Search Palette">
         {/* Search Input */}
         <div className="smart-search-input-wrap">
-          <Search size={18} className="smart-search-icon" />
+          <Search size={18} className="smart-search-icon" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
@@ -195,10 +200,10 @@ const SmartSearch = ({ isOpen, onClose }) => {
             value={query}
             onChange={e => setQuery(e.target.value)}
             autoComplete="off"
-            aria-label="Global search"
+            aria-label="Search customers, jobs, and products"
             aria-autocomplete="list"
           />
-          {loading && <Loader2 size={16} className="animate-spin smart-search-spinner" />}
+          {loading && <Loader2 size={16} className="animate-spin smart-search-spinner" aria-label="Loading" />}
           {query && (
             <button
               className="smart-search-clear-query"
@@ -206,16 +211,16 @@ const SmartSearch = ({ isOpen, onClose }) => {
               title="Clear search"
               aria-label="Clear search"
             >
-              <X size={14} />
+              <X size={14} aria-hidden="true" />
             </button>
           )}
           <button className="smart-search-close" onClick={onClose} title="Close (Esc)" aria-label="Close search">
-            <X size={16} />
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 
         {/* Results */}
-        <div className="smart-search-results">
+        <div className="smart-search-results" aria-live="polite" aria-atomic="false">
 
           {/* Empty / hint state */}
           {query.length < 2 && !showRecent && (
@@ -231,7 +236,7 @@ const SmartSearch = ({ isOpen, onClose }) => {
             <div className="smart-search-group">
               <div className="smart-search-group-label" style={{ justifyContent: 'space-between' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Clock size={14} /> Recent Searches
+                  <Clock size={14} aria-hidden="true" /> Recent Searches
                 </span>
                 <button
                   className="smart-search-clear-recent"
@@ -248,10 +253,10 @@ const SmartSearch = ({ isOpen, onClose }) => {
                   tabIndex={0}
                   className="smart-search-item smart-search-item--recent"
                   onClick={() => handleRecentClick(term)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleRecentClick(term); }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRecentClick(term); } }}
                 >
                   <div className="smart-search-item-icon" style={{ background: 'var(--surface-2)', color: 'var(--muted)' }}>
-                    <Clock size={15} />
+                    <Clock size={15} aria-hidden="true" />
                   </div>
                   <div className="smart-search-item-info">
                     <span className="smart-search-item-title">{term}</span>
@@ -299,7 +304,7 @@ const SmartSearch = ({ isOpen, onClose }) => {
           {results.customers.length > 0 && (
             <div className="smart-search-group">
               <div className="smart-search-group-label">
-                <User size={14} /> Customers
+                <User size={14} aria-hidden="true" /> Customers
                 <span className="smart-search-group-count">{results.customers.length}</span>
               </div>
               {results.customers.map(c => {
@@ -310,17 +315,17 @@ const SmartSearch = ({ isOpen, onClose }) => {
                     className={`smart-search-item ${idx === selectedIndex ? 'smart-search-item--active' : ''}`}
                     onClick={() => handleNavigate({ type: 'customer', data: c })}
                     onMouseEnter={() => setSelectedIndex(idx)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleNavigate({ type: 'customer', data: c }); }}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNavigate({ type: 'customer', data: c }); } }}
                   >
                     <div className="smart-search-item-icon" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
-                      <User size={16} />
+                      <User size={16} aria-hidden="true" />
                     </div>
                     <div className="smart-search-item-info">
                       <span className="smart-search-item-title">
                         <Highlight text={c.name} query={query} />
                       </span>
                       <span className="smart-search-item-sub">
-                        {c.mobile && <><Phone size={11} /> <Highlight text={c.mobile} query={query} /></>}
+                        {c.mobile && <><Phone size={11} aria-hidden="true" /> <Highlight text={c.mobile} query={query} /></>}
                         {c.type && <> · {c.type}</>}
                         {c.job_count > 0 && <> · {c.job_count} orders</>}
                       </span>
@@ -336,7 +341,7 @@ const SmartSearch = ({ isOpen, onClose }) => {
           {results.jobs.length > 0 && (
             <div className="smart-search-group">
               <div className="smart-search-group-label">
-                <Briefcase size={14} /> Orders
+                <Briefcase size={14} aria-hidden="true" /> Orders
                 <span className="smart-search-group-count">{results.jobs.length}</span>
               </div>
               {results.jobs.map(j => {
@@ -351,14 +356,14 @@ const SmartSearch = ({ isOpen, onClose }) => {
                     className={`smart-search-item ${idx === selectedIndex ? 'smart-search-item--active' : ''}`}
                     onClick={() => handleNavigate({ type: 'job', data: j })}
                     onMouseEnter={() => setSelectedIndex(idx)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleNavigate({ type: 'job', data: j }); }}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNavigate({ type: 'job', data: j }); } }}
                   >
                     <div className="smart-search-item-icon" style={{ background: 'var(--surface-2)', color: 'var(--success)' }}>
-                      <Briefcase size={16} />
+                      <Briefcase size={16} aria-hidden="true" />
                     </div>
                     <div className="smart-search-item-info">
                       <span className="smart-search-item-title">
-                        <Hash size={12} style={{ display: 'inline', verticalAlign: 'middle' }} />
+                        <Hash size={12} style={{ display: 'inline', verticalAlign: 'middle' }} aria-hidden="true" />
                         <Highlight text={j.job_number} query={query} />
                         {j.product_name && <span style={{ fontWeight: 400, marginLeft: 6, opacity: 0.7 }}>— {j.product_name}</span>}
                       </span>
@@ -382,7 +387,7 @@ const SmartSearch = ({ isOpen, onClose }) => {
           {results.products.length > 0 && (
             <div className="smart-search-group">
               <div className="smart-search-group-label">
-                <Package size={14} /> Products
+                <Package size={14} aria-hidden="true" /> Products
                 <span className="smart-search-group-count">{results.products.length}</span>
               </div>
               {results.products.map(p => {
@@ -393,10 +398,10 @@ const SmartSearch = ({ isOpen, onClose }) => {
                     className={`smart-search-item ${idx === selectedIndex ? 'smart-search-item--active' : ''}`}
                     onClick={() => handleNavigate({ type: 'product', data: p })}
                     onMouseEnter={() => setSelectedIndex(idx)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleNavigate({ type: 'product', data: p }); }}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNavigate({ type: 'product', data: p }); } }}
                   >
                     <div className="smart-search-item-icon" style={{ background: 'var(--warning-soft, rgba(234,179,8,0.12))', color: 'var(--warning)' }}>
-                      <Package size={16} />
+                      <Package size={16} aria-hidden="true" />
                     </div>
                     <div className="smart-search-item-info">
                       <span className="smart-search-item-title">

@@ -312,7 +312,7 @@ const CCTVAttendance = () => {
       {/* Manual Entry Modal */}
       {showManual && (
         <div className="modal-backdrop">
-          <div className="modal" style={{ maxWidth: 440 }}>
+          <div className="modal modal--narrow">
             <button className="modal-close" onClick={() => setShowManual(false)} title="Close">
               <X size={20} />
             </button>

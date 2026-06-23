@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { X, Package, Minus, Plus } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -13,6 +13,21 @@ export default function PaperSidePanel({ open, onClose }) {
     const [paperTypes, setPaperTypes] = useState([]);
     const [selectedIds, setSelectedIds] = useState([]);
     const [selectedPaperType, setSelectedPaperType] = useState('');
+
+    const triggerRef = useRef(null);
+
+    useEffect(() => {
+        if (open) {
+            triggerRef.current = document.activeElement;
+        }
+        return () => {
+            if (open) {
+                setTimeout(() => {
+                    triggerRef.current?.focus();
+                }, 0);
+            }
+        };
+    }, [open]);
 
     useEffect(() => {
         if (!open) return;
@@ -193,30 +208,40 @@ export default function PaperSidePanel({ open, onClose }) {
         }
     };
 
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && open) {
+                onClose && onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [open, onClose]);
+
     if (!open) return null;
 
     return (
-        <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => onClose && onClose()}>
-            <div role="button" tabIndex={0} className="em-modal" style={{ width: 420, height: '100vh', right: 0, position: 'fixed', top: 0, margin: 0, borderRadius: 0 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="paper-side-panel-title" onClick={() => onClose && onClose()}>
+            <div className="em-modal" style={{ width: 420, height: '100vh', right: 0, position: 'fixed', top: 0, margin: 0, borderRadius: 0 }} onClick={e => e.stopPropagation()}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Package size={18} />
-                        <strong>Paper Management</strong>
+                        <Package size={18} aria-hidden="true" />
+                        <strong id="paper-side-panel-title">Paper Management</strong>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <select value={filter} onChange={e => setFilter(e.target.value)} style={{ padding: '6px 8px', borderRadius: 6 }}>
+                        <select value={filter} onChange={e => setFilter(e.target.value)} style={{ padding: '6px 8px', borderRadius: 6 }} aria-label="Filter category">
                             <option value="all">All</option>
                             <option value="laser">Laser</option>
                             <option value="offset">Offset</option>
                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => onClose && onClose()}><X size={16} /></button>
+                        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => onClose && onClose()} aria-label="Close paper panel"><X size={16} aria-hidden="true" /></button>
                     </div>
                 </div>
 
                 <div style={{ padding: 12, overflowY: 'auto', height: 'calc(100% - 56px)' }}>
                     {loading ? (
-                        <div style={{ padding: 24, textAlign: 'center' }}>Loading...</div>
+                        <div style={{ padding: 24, textAlign: 'center' }} aria-busy="true" aria-live="polite">Loading...</div>
                     ) : papers.length === 0 ? (
                         <div style={{ padding: 24, textAlign: 'center' }}>No paper items found in inventory.</div>
                     ) : (
@@ -224,7 +249,7 @@ export default function PaperSidePanel({ open, onClose }) {
                             {papers.map((p) => (
                                 <div key={p.id} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', width: 28 }}>
-                                        <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleSelect(p.id)} />
+                                        <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleSelect(p.id)} aria-label={`Select ${p.name}`} />
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontWeight: 700 }}>{p.name}</div>
@@ -235,11 +260,11 @@ export default function PaperSidePanel({ open, onClose }) {
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                         <div style={{ display: 'flex', gap: 6 }}>
-                                            <button className="btn btn-ghost btn-sm" title="Consume 1" onClick={() => handleConsume(p, 1)}><Minus size={14} /></button>
-                                            <button className="btn btn-ghost btn-sm" title="Consume 5" onClick={() => handleConsume(p, 5)}><Minus size={14} /></button>
+                                            <button className="btn btn-ghost btn-sm" title="Consume 1" onClick={() => handleConsume(p, 1)} aria-label={`Consume 1 sheet of ${p.name}`}><Minus size={14} aria-hidden="true" /></button>
+                                            <button className="btn btn-ghost btn-sm" title="Consume 5" onClick={() => handleConsume(p, 5)} aria-label={`Consume 5 sheets of ${p.name}`}><Minus size={14} aria-hidden="true" /></button>
                                             <button className="btn btn-ghost btn-sm" title="Consume custom" onClick={() => {
                                                 const v = window.prompt('Sheets to consume', '1'); if (v !== null) handleConsume(p, Number(v));
-                                            }}><Plus size={14} /></button>
+                                            }} aria-label={`Consume custom sheets of ${p.name}`}><Plus size={14} aria-hidden="true" /></button>
                                         </div>
                                     </div>
                                 </div>
@@ -255,18 +280,18 @@ export default function PaperSidePanel({ open, onClose }) {
 
                         <div style={{ display: 'grid', gap: 8 }}>
                             <div style={{ display: 'flex', gap: 8 }}>
-                                <select value={mapForm.parent_inventory_item_id} onChange={e => setMapForm(prev => ({ ...prev, parent_inventory_item_id: e.target.value }))} style={{ flex: 1 }}>
+                                <select value={mapForm.parent_inventory_item_id} onChange={e => setMapForm(prev => ({ ...prev, parent_inventory_item_id: e.target.value }))} style={{ flex: 1 }} aria-label="Select parent sheet">
                                     <option value="">Select parent sheet</option>
                                     {papers.map(p => (
                                         <option key={p.id} value={p.id}>{p.name} · {p.size_code || p.model_name}</option>
                                     ))}
                                 </select>
-                                <input placeholder="Child size code" value={mapForm.child_size_code} onChange={e => setMapForm(prev => ({ ...prev, child_size_code: e.target.value }))} style={{ width: 120 }} />
+                                <input placeholder="Child size code" value={mapForm.child_size_code} onChange={e => setMapForm(prev => ({ ...prev, child_size_code: e.target.value }))} style={{ width: 120 }} aria-label="Child size code" />
                             </div>
                             <div style={{ display: 'flex', gap: 8 }}>
-                                <input type="number" min={1} placeholder="Pieces per parent" value={mapForm.pieces_per_parent} onChange={e => setMapForm(prev => ({ ...prev, pieces_per_parent: e.target.value }))} style={{ width: 140 }} />
-                                <input type="number" step="0.1" placeholder="Loss %" value={mapForm.loss_pct} onChange={e => setMapForm(prev => ({ ...prev, loss_pct: e.target.value }))} style={{ width: 120 }} />
-                                <input type="number" placeholder="Min waste" value={mapForm.min_waste} onChange={e => setMapForm(prev => ({ ...prev, min_waste: e.target.value }))} style={{ width: 120 }} />
+                                <input type="number" min={1} placeholder="Pieces per parent" value={mapForm.pieces_per_parent} onChange={e => setMapForm(prev => ({ ...prev, pieces_per_parent: e.target.value }))} style={{ width: 140 }} aria-label="Pieces per parent" />
+                                <input type="number" step="0.1" placeholder="Loss %" value={mapForm.loss_pct} onChange={e => setMapForm(prev => ({ ...prev, loss_pct: e.target.value }))} style={{ width: 120 }} aria-label="Loss percentage" />
+                                <input type="number" placeholder="Min waste" value={mapForm.min_waste} onChange={e => setMapForm(prev => ({ ...prev, min_waste: e.target.value }))} style={{ width: 120 }} aria-label="Minimum waste" />
                                 <button className="btn btn-primary" onClick={saveMapping}>Save</button>
                             </div>
 
@@ -297,26 +322,26 @@ export default function PaperSidePanel({ open, onClose }) {
                         </div>
                         <div style={{ display: 'grid', gap: 8 }}>
                             <div style={{ display: 'flex', gap: 8 }}>
-                                <input placeholder="Job ID" value={manualConsume.jobId} onChange={e => setManualConsume(prev => ({ ...prev, jobId: e.target.value }))} style={{ width: 100 }} />
-                                <select value={manualConsume.mode} onChange={e => setManualConsume(prev => ({ ...prev, mode: e.target.value }))}>
+                                <input placeholder="Job ID" value={manualConsume.jobId} onChange={e => setManualConsume(prev => ({ ...prev, jobId: e.target.value }))} style={{ width: 100 }} aria-label="Job ID" />
+                                <select value={manualConsume.mode} onChange={e => setManualConsume(prev => ({ ...prev, mode: e.target.value }))} aria-label="Consumption mode">
                                     <option value="parent">Cut from Parent</option>
                                     <option value="direct">Direct Inventory</option>
                                 </select>
-                                <input placeholder="Paper size (child)" value={manualConsume.paper_size} onChange={e => setManualConsume(prev => ({ ...prev, paper_size: e.target.value }))} />
+                                <input placeholder="Paper size (child)" value={manualConsume.paper_size} onChange={e => setManualConsume(prev => ({ ...prev, paper_size: e.target.value }))} aria-label="Paper size (child)" />
                             </div>
                             <div style={{ display: 'flex', gap: 8 }}>
                                 {manualConsume.mode === 'parent' ? (
-                                    <select value={manualConsume.parent_inventory_item_id} onChange={e => setManualConsume(prev => ({ ...prev, parent_inventory_item_id: e.target.value }))} style={{ flex: 1 }}>
+                                    <select value={manualConsume.parent_inventory_item_id} onChange={e => setManualConsume(prev => ({ ...prev, parent_inventory_item_id: e.target.value }))} style={{ flex: 1 }} aria-label="Select parent sheet">
                                         <option value="">Select parent</option>
                                         {papers.map(p => <option key={p.id} value={p.id}>{p.name} · {p.size_code || p.model_name}</option>)}
                                     </select>
                                 ) : (
-                                    <select value={manualConsume.inventory_item_id} onChange={e => setManualConsume(prev => ({ ...prev, inventory_item_id: e.target.value }))} style={{ flex: 1 }}>
+                                    <select value={manualConsume.inventory_item_id} onChange={e => setManualConsume(prev => ({ ...prev, inventory_item_id: e.target.value }))} style={{ flex: 1 }} aria-label="Select inventory item">
                                         <option value="">Select inventory item</option>
                                         {papers.map(p => <option key={p.id} value={p.id}>{p.name} · {p.size_code || p.model_name}</option>)}
                                     </select>
                                 )}
-                                <input type="number" min={1} placeholder="Required sheets" value={manualConsume.required_sheets} onChange={e => setManualConsume(prev => ({ ...prev, required_sheets: e.target.value }))} style={{ width: 130 }} />
+                                <input type="number" min={1} placeholder="Required sheets" value={manualConsume.required_sheets} onChange={e => setManualConsume(prev => ({ ...prev, required_sheets: e.target.value }))} style={{ width: 130 }} aria-label="Required sheets" />
                                 <button className="btn btn-primary" onClick={executeConsume}>Consume</button>
                             </div>
                         </div>

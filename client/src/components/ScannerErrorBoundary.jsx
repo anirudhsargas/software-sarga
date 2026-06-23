@@ -15,7 +15,7 @@ export default class ScannerErrorBoundary extends React.Component {
     render() {
         if (this.state.error) {
             return (
-                <div className="modal-backdrop animate-fade-in" style={{ zIndex: 1000 }}>
+                <div className="modal-backdrop animate-fade-in" style={{ zIndex: 'var(--z-modal)' }}>
                     <div className="modal animate-scale-in" style={{ maxWidth: '460px', width: '92%', position: 'relative', padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                             <AlertTriangle size={20} style={{ color: 'var(--warning)', flexShrink: 0 }} />

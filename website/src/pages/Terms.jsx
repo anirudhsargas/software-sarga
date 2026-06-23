@@ -4,7 +4,7 @@ export default function Terms() {
       <section className="page-header">
         <div className="page-header__bg" />
         <div className="container page-header__content">
-          <span className="badge badge-primary">Legal</span>
+          <span className="badge badge--primary">Legal</span>
           <h1 className="page-header__title">Terms of Service</h1>
           <p className="page-header__subtitle">
             Terms and conditions governing the use of Sarga Prints services.

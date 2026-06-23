@@ -24,6 +24,23 @@ const AIMonitoring = () => {
     const [selectedAlert, setSelectedAlert] = useState(null);
     const [filter, setFilter] = useState('all');
 
+    const triggerRef = React.useRef(null);
+
+    useEffect(() => {
+        if (selectedAlert) {
+            triggerRef.current = document.activeElement;
+        } else if (triggerRef.current) {
+            triggerRef.current.focus();
+            triggerRef.current = null;
+        }
+    }, [selectedAlert]);
+
+    useEffect(() => {
+        return () => {
+            triggerRef.current?.focus();
+        };
+    }, []);
+
     const fetchData = async () => {
         try {
             const [dashRes, alertRes] = await Promise.all([
@@ -107,7 +124,7 @@ const AIMonitoring = () => {
                 {/* Alerts List */}
                 <div className="panel">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-                        <h2 style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>Alerts</h2>
+                        <h2 style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-heading)' }}>Alerts</h2>
                         <div style={{ display: 'flex', gap: 6 }}>
                             {['all', 'ACTIVE', 'RESOLVED', 'DISMISSED'].map(f => (
                                 <button key={f} className={`btn ${filter === f ? 'btn-primary' : 'btn-ghost'}`}
@@ -130,6 +147,7 @@ const AIMonitoring = () => {
                                 return (
                                     <div role="button" tabIndex={0} key={alert.id}
                                         onClick={() => setSelectedAlert(alert)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedAlert(alert); } }}
                                         style={{
                                             padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
                                             background: sev.bg, border: `1px solid ${sev.border}`,
@@ -195,10 +213,10 @@ const AIMonitoring = () => {
 
             {/* Alert Detail Modal */}
             {selectedAlert && (
-                <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setSelectedAlert(null)}>
-                    <div role="button" tabIndex={0} className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
-                        <button className="modal-close" onClick={() => setSelectedAlert(null)}><XCircle size={18} /></button>
-                        <h2 className="section-title mb-16">{selectedAlert.alert_type?.replace(/_/g, ' ')}</h2>
+                <div className="modal-backdrop" onClick={() => setSelectedAlert(null)} role="dialog" aria-modal="true" aria-labelledby="ai-alert-title">
+                    <div className="modal modal--customer" onClick={e => e.stopPropagation()}>
+                        <button className="modal-close" onClick={() => setSelectedAlert(null)} aria-label="Close details modal"><XCircle size={18} aria-hidden="true" /></button>
+                        <h2 id="ai-alert-title" className="section-title mb-16">{selectedAlert.alert_type?.replace(/_/g, ' ')}</h2>
 
                         <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
                             {[

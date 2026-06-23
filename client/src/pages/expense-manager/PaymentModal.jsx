@@ -114,7 +114,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+      <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
         <div className="em-modal__header">
           <h2>Record Payment</h2>
           <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18} /></button>

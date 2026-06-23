@@ -251,7 +251,7 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
           </button>
         </div>
         
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-wrapper">
           <table style={{ width: '100%' }}>
             <thead>
               <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
@@ -290,9 +290,9 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
                     {formatCurrency(inv.amount - (inv.paid_amount || 0))}
                   </td>
                   <td style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
-                    <span className={`badge-premium badge-premium--${
-                      inv.status === 'overdue' ? 'error' : 
-                      inv.status === 'partial' ? 'warning' : 'accent'
+                    <span className={`badge badge--pill badge--${
+                      inv.status === 'overdue' ? 'danger' : 
+                      inv.status === 'partial' ? 'warning' : 'primary'
                     }`}>
                       {inv.status}
                     </span>

@@ -11,9 +11,6 @@
   margin-bottom: var(--space-16);
 }
 
-.customer-page .modal {
-  max-width: 520px;
-}
 
 .customer-page .modal form .responsive-form-row {
   display: grid;

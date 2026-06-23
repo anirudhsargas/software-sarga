@@ -41,14 +41,14 @@ const Vendors = () => {
 
   const getStatusBadge = (status) => {
     const statusClasses = {
-      paid: 'status-badge--success',
-      partial: 'status-badge--info',
-      overdue: 'status-badge--error',
-      pending: 'status-badge--warning'
+      paid: 'badge--success',
+      partial: 'badge--info',
+      overdue: 'badge--danger',
+      pending: 'badge--warning'
     };
 
     return (
-      <span className={`status-badge ${statusClasses[status] || 'status-badge--default'}`}>
+      <span className={`badge ${statusClasses[status] || 'badge--default'}`}>
         {status?.charAt(0).toUpperCase() + status?.slice(1)}
       </span>
     );

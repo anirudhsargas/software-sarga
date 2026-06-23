@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
 router.get('/inventory/consumables', async (req, res) => {
     try {
         const { category, branch, search } = req.query;
-        let query = 'SELECT * FROM consumables_inventory WHERE 1=1';
+        let query = 'SELECT id, name, category, quantity, unit, reorder_level, cost_price, sell_price, branch, created_at, updated_at FROM consumables_inventory WHERE 1=1';
         const params = [];
         if (category && category !== 'all') {
             query += ' AND category = ?';
@@ -22,7 +22,7 @@ router.get('/inventory/consumables', async (req, res) => {
             query += ' AND name LIKE ?';
             params.push(`%${search}%`);
         }
-        query += ' ORDER BY name ASC';
+        query += ' ORDER BY name ASC LIMIT 200';
         const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {

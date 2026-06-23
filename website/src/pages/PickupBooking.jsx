@@ -110,7 +110,7 @@ export default function PickupBooking() {
       <section className="page-header">
         <div className="page-header__bg" />
         <div className="container page-header__content">
-          <span className="badge badge-primary">Convenience</span>
+          <span className="badge badge--primary">Convenience</span>
           <h1 className="page-header__title">Schedule a <span className="text-gradient">Pickup</span></h1>
           <p className="page-header__subtitle">Reserve a time slot to collect your order from our branches</p>
         </div>

@@ -4,7 +4,7 @@
     inset: 0;
     background: var(--modal-overlay);
     backdrop-filter: blur(4px);
-    z-index: 9998;
+    z-index: var(--z-overlay);
     animation: fadeIn 0.2s ease-out;
 }
 
@@ -19,7 +19,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: 0 20px 25px -5px var(--shadow-sm), 0 10px 10px -5px var(--shadow-sm);
-    z-index: 9999;
+    z-index: calc(var(--z-overlay) + 1);
     overflow: hidden;
     animation: slideDown 0.25s ease-out;
 }

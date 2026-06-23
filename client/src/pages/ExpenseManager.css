@@ -1205,8 +1205,6 @@ select.em-input {
 }
 
 /* ─── Modal Backdrop ──────────────────────────────────── */
-.em-page~.modal-backdrop,
-.modal-backdrop,
 .em-modal-backdrop {
     position: fixed;
     inset: 0;
@@ -1214,11 +1212,10 @@ select.em-input {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: var(--z-modal);
     backdrop-filter: blur(3px);
 }
 
-.dark .modal-backdrop,
 .dark .em-modal-backdrop {
     background: var(--modal-overlay);
 }

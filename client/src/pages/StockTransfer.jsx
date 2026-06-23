@@ -279,6 +279,7 @@ const StockTransfer = () => {
                                         <div role="button" tabIndex={0} key={item.id} 
                                             className="dropdown-item"
                                             onClick={() => { setSelectedItem(item); setSearchQuery(item.name); }}
+                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedItem(item); setSearchQuery(item.name); } }}
                                         >
                                             <div className="dropdown-item__name">{item.name}</div>
                                             <div className="dropdown-item__meta">SKU: {item.sku || 'N/A'} • Global: {item.quantity} {item.unit}</div>
@@ -292,7 +293,7 @@ const StockTransfer = () => {
                                     <div className="panel panel--selected-item">
                                         <div className="selected-item-header">
                                             <div>
-                                                <div className="badge badge-primary">{selectedItem.sku || 'NO SKU'}</div>
+                                                <div className="badge badge--primary">{selectedItem.sku || 'NO SKU'}</div>
                                                 <div className="selected-item-name">{selectedItem.name}</div>
                                             </div>
                                             <button className="btn btn-ghost btn-icon" onClick={() => setSelectedItem(null)}><XCircle size={16} /></button>
@@ -384,7 +385,7 @@ const StockTransfer = () => {
                                 <ArrowDownLeft size={24} className="icon-primary" />
                                 <h3>Incoming Requests (Action Required)</h3>
                             </div>
-                            <div className="badge badge-primary">{inboundReqs.length} Pending</div>
+                            <div className="badge badge--primary">{inboundReqs.length} Pending</div>
                         </div>
                         
                         <div className="table-scroll">
@@ -400,7 +401,7 @@ const StockTransfer = () => {
                                     ) : inboundReqs.map(req => (
                                         <tr key={req.id}>
                                             <td><div className="font-semibold">{req.item_name}</div><div className="text-xs muted">{req.item_sku}</div></td>
-                                            <td><div className="badge badge-ghost">{req.from_branch_name}</div></td>
+                                            <td><div className="badge badge--default">{req.from_branch_name}</div></td>
                                             <td className="font-bold">{req.quantity}</td>
                                             <td>{getStatusBadge(req.status)}</td>
                                             <td>
@@ -433,7 +434,7 @@ const StockTransfer = () => {
                                 <ArrowUpRight size={24} className="icon-warning" />
                                 <h3>Outgoing Requests (Sent by You)</h3>
                              </div>
-                             <div className="badge badge-warning">{outboundReqs.length} Sent</div>
+                             <div className="badge badge--warning">{outboundReqs.length} Sent</div>
                         </div>
 
                         <div className="table-scroll">
@@ -449,7 +450,7 @@ const StockTransfer = () => {
                                     ) : outboundReqs.map(req => (
                                         <tr key={req.id}>
                                             <td><div className="font-semibold">{req.item_name}</div><div className="text-xs muted">{req.item_sku}</div></td>
-                                            <td><div className="badge badge-ghost">{req.to_branch_name}</div></td>
+                                            <td><div className="badge badge--default">{req.to_branch_name}</div></td>
                                             <td className="font-bold">{req.quantity}</td>
                                             <td>{getStatusBadge(req.status)}</td>
                                             <td>
@@ -483,9 +484,9 @@ const StockTransfer = () => {
                                         <td><div className="font-semibold">{item.item_name}</div></td>
                                         <td>
                                             <div className="transfer-path-inline">
-                                                <span className="badge badge-ghost badge--bg-secondary">{item.to_branch_short_name || item.to_branch_name}</span>
+                                                <span className="badge badge--default">{item.to_branch_short_name || item.to_branch_name}</span>
                                                 <ArrowRight size={12} />
-                                                <span className="badge badge-ghost badge--bg-secondary">{item.from_branch_short_name || item.from_branch_name}</span>
+                                                <span className="badge badge--default">{item.from_branch_short_name || item.from_branch_name}</span>
                                             </div>
                                         </td>
                                         <td className="font-bold">{item.quantity}</td>

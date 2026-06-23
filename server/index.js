@@ -340,7 +340,6 @@ try {
     logger.warn('[DevRoutes] Not loaded:', (e && e.stack) ? e.stack : (e && e.message) ? e.message : e);
 }
 app.use('/api', require('./routes/frontOffice'));
-app.use('/api/quick-billing', require('./routes/quickBilling'));
 app.use('/api/shortcuts', require('./routes/shortcuts'));
 app.use('/api', require('./routes/expenses'));
 app.use('/api', require('./routes/finance'));

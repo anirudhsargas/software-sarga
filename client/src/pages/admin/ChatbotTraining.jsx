@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { Brain } from 'lucide-react';
+import EmptyState from '../../components/EmptyState';
 import SkeletonLoader from '../../components/SkeletonLoader';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import ChatWidget from '../../components/chatbot/ChatWidget';
@@ -231,7 +233,7 @@ const ChatbotTraining = () => {
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <div style={{ height: 180, display: 'grid', placeItems: 'center', color: 'var(--text-muted)' }}>No data yet</div>
+                  <div style={{ height: 180, display: 'grid', placeItems: 'center' }}><EmptyState icon={Brain} title="No training data yet" /></div>
                 )}
               </div>
             </div>

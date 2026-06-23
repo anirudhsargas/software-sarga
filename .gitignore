@@ -38,6 +38,8 @@ website/docs/
 uploads/
 
 # Database backups and sensitive data
+*.sqlite
+*.sqlite3
 *.sql
 !server/schemas/*.sql
 !server/migrations/*.sql

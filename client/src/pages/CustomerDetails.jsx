@@ -119,6 +119,8 @@ const CustomerDetails = () => {
   const [uploadJobId, setUploadJobId] = useState('');
   const [uploading, setUploading] = useState(false);
   const [previewDesign, setPreviewDesign] = useState(null);
+  const uploadModalTriggerRef = useRef(null);
+  const previewDesignTriggerRef = useRef(null);
 
   /* ───── fetch ───── */
   const fetchDashboard = async (silent = false) => {
@@ -157,6 +159,28 @@ const CustomerDetails = () => {
   useEffect(() => {
     if (location.state?.fromPayment) fetchDashboard(true);
   }, [location.state]);
+
+  useEffect(() => {
+    if (uploadModal) {
+      uploadModalTriggerRef.current = document.activeElement;
+    } else if (uploadModalTriggerRef.current) {
+      setTimeout(() => {
+        uploadModalTriggerRef.current?.focus();
+        uploadModalTriggerRef.current = null;
+      }, 0);
+    }
+  }, [uploadModal]);
+
+  useEffect(() => {
+    if (previewDesign) {
+      previewDesignTriggerRef.current = document.activeElement;
+    } else if (previewDesignTriggerRef.current) {
+      setTimeout(() => {
+        previewDesignTriggerRef.current?.focus();
+        previewDesignTriggerRef.current = null;
+      }, 0);
+    }
+  }, [previewDesign]);
 
 
   // Fetch designs when tab switches to designs
@@ -444,7 +468,8 @@ const CustomerDetails = () => {
             <div className="cd-orders-list">
               {filteredJobs.map(job => (
                 <div key={job.id} className="cd-order-card">
-                  <div role="button" tabIndex={0} className="cd-order-header" onClick={() => setExpandedJob(expandedJob === job.id ? null : job.id)}>
+                  <div role="button" tabIndex={0} aria-expanded={expandedJob === job.id} className="cd-order-header" onClick={() => setExpandedJob(expandedJob === job.id ? null : job.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedJob(expandedJob === job.id ? null : job.id); } }}>
                     <div className="cd-order-left">
                       <span className="cd-order-number">#{job.job_number || job.id}</span>
                       <span className="cd-order-name">{job.job_name}</span>
@@ -661,7 +686,7 @@ const CustomerDetails = () => {
 
           {/* Payments table */}
           <div className="cd-pay-table-wrap">
-            <table className="table cd-pay-table">
+            <table className="table cd-pay-table" aria-label="Payments and dues history">
               <thead>
                 <tr>
                   <th>Date</th>
@@ -739,6 +764,7 @@ const CustomerDetails = () => {
                   >
                     {/* Thumbnail / Preview */}
                     <div role="button" tabIndex={0} onClick={() => isImage ? setPreviewDesign(d) : window.open(fileUrl, '_blank')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); isImage ? setPreviewDesign(d) : window.open(fileUrl, '_blank'); } }}
                       style={{
                         height: 160, background: 'var(--bg, #f3f4f6)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -851,27 +877,28 @@ const CustomerDetails = () => {
       )}
       {/* Upload Design Modal */}
       {uploadModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-          <div style={{ background: 'var(--surface, #222)', borderRadius: 16, width: '100%', maxWidth: 500, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 'var(--z-modal)', padding: 20 }}
+          role="dialog" aria-modal="true" aria-labelledby="upload-modal-title">
+          <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 500, padding: 32, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Upload size={20} color="var(--accent)" />
+                  <Upload size={20} color="var(--accent)" aria-hidden="true" />
                 </div>
-                <h2 style={{ margin: 0, fontSize: '20px' }}>Upload Designs</h2>
+                <h2 id="upload-modal-title" style={{ margin: 0, fontSize: '20px' }}>Upload Designs</h2>
               </div>
-              <button onClick={() => setUploadModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
-                <X size={20} />
+              <button onClick={() => setUploadModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }} aria-label="Close upload designs modal">
+                <X size={20} aria-hidden="true" />
               </button>
             </div>
 
             {/* File Drop Zone */}
             <div
               onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--accent)'; }}
-              onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border, #555)'; }}
-              onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--border, #555)'; setUploadFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]); }}
+              onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+              onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--border)'; setUploadFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]); }}
               style={{
-                border: '2px dashed var(--border, #555)', borderRadius: 12, padding: 24,
+                border: '2px dashed var(--border)', borderRadius: 12, padding: 24,
                 textAlign: 'center', marginBottom: 16, cursor: 'pointer', transition: 'border-color 0.2s'
               }}
               onClick={() => document.getElementById('design-file-input').click()}
@@ -891,11 +918,13 @@ const CustomerDetails = () => {
                 <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{uploadFiles.length} file(s) selected</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {uploadFiles.map((f, i) => (
-                    <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', background: 'var(--bg, #333)', borderRadius: 6, fontSize: 11, fontWeight: 500 }}>
+                    <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', background: 'var(--bg)', borderRadius: 6, fontSize: 11, fontWeight: 500 }}>
                       {f.name}
                       <button onClick={() => setUploadFiles(prev => prev.filter((_, j) => j !== i))}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error)', padding: 0, display: 'flex' }}>
-                        <X size={12} />
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error)', padding: 0, display: 'flex' }}
+                        aria-label="Remove file"
+                      >
+                        <X size={12} aria-hidden="true" />
                       </button>
                     </span>
                   ))}
@@ -909,14 +938,14 @@ const CustomerDetails = () => {
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>Title (optional)</label>
                 <input type="text" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} placeholder="e.g., Business Card Design v2"
                   name="uploadTitle"
-                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px solid var(--border, #555)', background: 'var(--bg, #333)', color: 'inherit', outline: 'none', fontSize: 13 }}
+                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none', fontSize: 13 }}
                 />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>Link to Job (optional)</label>
                 <select value={uploadJobId} onChange={e => setUploadJobId(e.target.value)}
                   name="uploadJobId"
-                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px solid var(--border, #555)', background: 'var(--bg, #333)', color: 'inherit', outline: 'none', fontSize: 13 }}>
+                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none', fontSize: 13 }}>
                   <option value="">No job linked</option>
                   {(data?.jobs || []).slice(0, 50).map(j => (
                     <option key={j.id} value={j.id}>#{j.job_number} — {j.job_name}</option>
@@ -927,7 +956,7 @@ const CustomerDetails = () => {
                 <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>Tags (comma-separated)</label>
                 <input type="text" value={uploadTags} onChange={e => setUploadTags(e.target.value)} placeholder="e.g., logo, visiting card, letterhead"
                   name="uploadTags"
-                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px solid var(--border, #555)', background: 'var(--bg, #333)', color: 'inherit', outline: 'none', fontSize: 13 }}
+                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none', fontSize: 13 }}
                 />
               </div>
               <div>
@@ -952,12 +981,15 @@ const CustomerDetails = () => {
 
       {/* Design Preview Lightbox */}
       {previewDesign && (
-        <div role="button" tabIndex={0} style={{ position: 'fixed', inset: 0, background: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 20, cursor: 'zoom-out' }}
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 'var(--z-modal-high)', padding: 20, cursor: 'zoom-out' }}
+          role="dialog" aria-modal="true" aria-label="Design preview"
           onClick={() => setPreviewDesign(null)}
         >
           <button onClick={() => setPreviewDesign(null)}
-            style={{ position: 'absolute', top: 20, right: 20, background: 'var(--card)', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
-            <X size={16} /> Close
+            style={{ position: 'absolute', top: 20, right: 20, background: 'var(--card)', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}
+            aria-label="Close design preview"
+          >
+            <X size={16} aria-hidden="true" /> Close
           </button>
           <SecureImage
             src={previewDesign.file_url}

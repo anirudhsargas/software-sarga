@@ -330,7 +330,7 @@ const PaperLayoutGenerator = () => {
                             ].map((s, i) => (
                                 <div key={i} className="summary-tile" style={{ minHeight: 'auto', padding: 14 }}>
                                     <div className="summary-tile__title">{s.label}</div>
-                                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", color: s.color || 'var(--accent)' }}>{s.value}</div>
+                                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-heading)', color: s.color || 'var(--accent)' }}>{s.value}</div>
                                 </div>
                             ))}
                         </div>
@@ -349,7 +349,7 @@ const PaperLayoutGenerator = () => {
                             ].map((s, i) => (
                                 <div key={i} className="summary-tile" style={{ minHeight: 'auto', padding: 14 }}>
                                     <div className="summary-tile__title">{s.label}</div>
-                                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", color: 'var(--accent)' }}>{s.value}</div>
+                                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-heading)', color: 'var(--accent)' }}>{s.value}</div>
                                 </div>
                             ))}
                         </div>

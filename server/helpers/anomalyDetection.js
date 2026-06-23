@@ -33,24 +33,6 @@ function zScore(value, avg, sd) {
 async function computeStaffBaselines() {
     const conn = await pool.getConnection();
     try {
-        // Ensure the profile table exists
-        await conn.query(`
-            CREATE TABLE IF NOT EXISTS sarga_staff_behavior_profile (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                staff_id INT NOT NULL UNIQUE,
-                avg_login_hour DECIMAL(5,2) DEFAULT 0,
-                std_login_hour DECIMAL(5,2) DEFAULT 0,
-                avg_discount_pct DECIMAL(5,2) DEFAULT 0,
-                std_discount_pct DECIMAL(5,2) DEFAULT 0,
-                avg_order_value DECIMAL(12,2) DEFAULT 0,
-                std_order_value DECIMAL(12,2) DEFAULT 0,
-                avg_daily_actions INT DEFAULT 0,
-                std_daily_actions INT DEFAULT 0,
-                known_devices TEXT,
-                last_computed TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (staff_id) REFERENCES sarga_staff(id) ON DELETE CASCADE
-            )
-        `);
 
         // Fetch list of staff with their branch ids
         const [staffList] = await conn.query('SELECT id, branch_id FROM sarga_staff');
@@ -188,7 +170,7 @@ async function computeStaffBaselines() {
 async function checkLoginAnomaly(staffId, loginHour, deviceInfo) {
     const alerts = [];
     const [profiles] = await pool.query(
-        'SELECT * FROM sarga_staff_behavior_profile WHERE staff_id = ?', [staffId]
+        'SELECT id, staff_id, avg_login_hour, std_login_hour, avg_discount_pct, std_discount_pct, avg_void_amount, std_void_amount, avg_refund_pct, std_refund_pct, avg_order_value, std_order_value, created_at, updated_at FROM sarga_staff_behavior_profile WHERE staff_id = ?', [staffId]
     );
     const profile = profiles[0];
     if (!profile) return alerts;
@@ -239,7 +221,7 @@ async function checkLoginAnomaly(staffId, loginHour, deviceInfo) {
 async function checkDiscountAnomaly(staffId, discountPercent, orderValue) {
     const alerts = [];
     const [profiles] = await pool.query(
-        'SELECT * FROM sarga_staff_behavior_profile WHERE staff_id = ?', [staffId]
+        'SELECT id, staff_id, avg_login_hour, std_login_hour, avg_discount_pct, std_discount_pct, avg_void_amount, std_void_amount, avg_refund_pct, std_refund_pct, avg_order_value, std_order_value, created_at, updated_at FROM sarga_staff_behavior_profile WHERE staff_id = ?', [staffId]
     );
     const profile = profiles[0];
     if (!profile) return alerts;

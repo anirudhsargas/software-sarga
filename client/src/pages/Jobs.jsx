@@ -510,14 +510,7 @@ const Jobs = () => {
                         </thead>
                         <tbody>
                             {(() => {
-                                let displayJobs = [...jobs];
-                                if (sortByPriority) {
-                                    displayJobs = displayJobs.map(j => {
-                                        const { score, urgency } = computeClientPriority(j);
-                                        return { ...j, _score: score, _urgency: urgency };
-                                    }).sort((a, b) => b._score - a._score);
-                                }
-
+                                // Use the memoized displayJobs (already sorted/prioritized by getDisplayJobs)
                                 if (loading && jobs.length === 0) {
                                     const cols = [
                                       { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
@@ -544,7 +537,7 @@ const Jobs = () => {
                                 if (error && jobs.length === 0) {
                                     return (
                                         <tr>
-                                            <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
+                                            <td colSpan={tableColumnCount} style={{ textAlign: 'center', padding: '20px' }}>
                                                 <ServerError onRetry={() => fetchJobs(1)} message={error} />
                                             </td>
                                         </tr>

@@ -167,6 +167,8 @@ export default function InsightsPanel() {
         <div 
             onMouseEnter={handleInteraction}
             onClick={handleInteraction}
+            aria-live="polite"
+            aria-atomic="false"
             style={{ 
                 margin: '0 0 12px', 
                 borderRadius: '8px', 
@@ -180,6 +182,7 @@ export default function InsightsPanel() {
             {/* Header bar - compact, height <= 36px */}
             <div role="button"
                 tabIndex={0}
+                aria-expanded={expanded}
                 onClick={() => setExpanded(e => !e)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(x => !x); } }}
                 style={{
@@ -219,9 +222,10 @@ export default function InsightsPanel() {
                     onClick={(e) => { e.stopPropagation(); handleInteraction(); fetchInsights(true); }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
                     title="Refresh insights"
+                    aria-label="Refresh insights"
                     disabled={loading}
                 >
-                    <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+                    <RefreshCw size={12} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
                 </button>
                 {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 <button
@@ -230,7 +234,7 @@ export default function InsightsPanel() {
                     title="Dismiss"
                     aria-label="Dismiss banner"
                 >
-                    <X size={14} />
+                    <X size={14} aria-hidden="true" />
                 </button>
             </div>
 

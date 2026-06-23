@@ -1042,7 +1042,7 @@ const Billing = () => {
                 <div className="font-semibold">{form.name}</div>
                 <div className="text-xs muted">{form.mobile}</div>
               </div>
-              <button className="btn btn-ghost btn-xs" onClick={handleChangeCustomer} style={{ marginLeft: 'auto' }}><X size={14} /></button>
+              <button className="btn btn-ghost btn-xs" onClick={handleChangeCustomer} style={{ marginLeft: 'auto' }} aria-label="Clear customer selection"><X size={14} aria-hidden="true" /></button>
             </div>
             <div className="billing-customer-card__details">
               <span><Phone size={12} /> {form.mobile}</span>

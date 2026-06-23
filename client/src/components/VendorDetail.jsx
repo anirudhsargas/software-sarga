@@ -195,15 +195,15 @@ const VendorDetail = ({
           </button>
           <div>
              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                <h1 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: '-0.02em', fontFamily: 'var(--font-heading, "Space Grotesk")' }}>
+                <h1 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: '-0.02em', fontFamily: 'var(--font-heading)' }}>
                   {details.name}
                 </h1>
                 {details.vendor_code && (
-                  <span className="badge-premium badge-premium--accent" style={{ fontWeight: 800 }}>
+                  <span className="badge badge--pill badge--primary" style={{ fontWeight: 800 }}>
                     {details.vendor_code}
                   </span>
                 )}
-                <span className="badge-premium badge-premium--subtle">
+                <span className="badge badge--pill badge--subtle">
                   {details.category?.replace('_', ' ')}
                 </span>
              </div>
@@ -215,7 +215,7 @@ const VendorDetail = ({
              </p>
 
              <div className="detail-chip-row">
-               <span className={`badge-premium ${details.pending_amount > 0 ? 'badge-premium--warning' : 'badge-premium--success'}`}>
+                <span className={`badge badge--pill badge--${details.pending_amount > 0 ? 'warning' : 'success'}`}>
                  {details.pending_amount > 0 ? 'Payment pending' : 'Account settled'}
                </span>
                <span className="detail-tag">
@@ -341,7 +341,7 @@ const VendorDetail = ({
                         <div className="invoice-title">
                           <span className="invoice-icon"><FileText size={16} /></span>
                           <span style={{ fontWeight: 700 }}>{inv.invoice_number || `INV-${inv.id}`}</span>
-                          <span className={`badge-premium badge-premium--${inv.status === 'paid' ? 'success' : inv.status === 'partial' ? 'warning' : 'error'}`}>
+                          <span className={`badge badge--pill badge--${inv.status === 'paid' ? 'success' : inv.status === 'partial' ? 'warning' : 'danger'}`}>
                             {inv.status}
                           </span>
                         </div>

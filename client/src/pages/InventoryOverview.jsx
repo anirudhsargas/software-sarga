@@ -159,7 +159,8 @@ const InventoryOverview = () => {
 
             <div className="grid grid--3 mt-md">
                 {cards.map((c) => (
-                    <div role="button" tabIndex={0} key={c.key} className="panel stack-xs" style={{ cursor: 'pointer' }} onClick={() => navigate(c.href)}>
+                    <div role="button" tabIndex={0} key={c.key} className="panel stack-xs" style={{ cursor: 'pointer' }} onClick={() => navigate(c.href)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(c.href); } }}>
                         <div className="row items-center gap-sm">
                             <c.icon size={28} className="text-primary" />
                             <div>

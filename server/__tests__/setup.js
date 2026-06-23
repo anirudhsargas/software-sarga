@@ -17,7 +17,8 @@ if (!process.env.DB_HOST) {
 process.env.NODE_ENV = 'test';
 process.env.DB_SSL = 'false';
 process.env.PGSSLMODE = 'disable';
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret_key_that_is_at_least_32_chars_long_!X';
+const { TEST_JWT_SECRET } = require('./helpers/testUtils');
+process.env.JWT_SECRET = process.env.JWT_SECRET || TEST_JWT_SECRET;
 process.env.JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS || '';
 process.env.CLOUDINARY_CLOUD_NAME = '';
 process.env.CLOUDINARY_API_KEY = '';

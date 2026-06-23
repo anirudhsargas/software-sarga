@@ -59,7 +59,7 @@ const ShortcutCard = ({ shortcut, onTap, onEdit, onDelete, editable }) => {
       }}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter') onTap?.(shortcut); }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap?.(shortcut); } }}
     >
       {editable && (
         <div

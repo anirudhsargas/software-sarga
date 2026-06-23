@@ -79,6 +79,31 @@ const Customers = () => {
     const mobileRef = useRef(null);
     const suggestRef = useRef(null);
 
+    const triggerAddRef = useRef(null);
+    const triggerEditRef = useRef(null);
+
+    useEffect(() => {
+        if (showAddModal) {
+            triggerAddRef.current = document.activeElement;
+        } else if (triggerAddRef.current) {
+            setTimeout(() => {
+                triggerAddRef.current?.focus();
+                triggerAddRef.current = null;
+            }, 0);
+        }
+    }, [showAddModal]);
+
+    useEffect(() => {
+        if (showEditModal) {
+            triggerEditRef.current = document.activeElement;
+        } else if (triggerEditRef.current) {
+            setTimeout(() => {
+                triggerEditRef.current?.focus();
+                triggerEditRef.current = null;
+            }, 0);
+        }
+    }, [showEditModal]);
+
     // --- ADVANCED JOB MODAL STATE ---
     const [showJobModal, setShowJobModal] = useState(false);
     const [hierarchy, setHierarchy] = useState([]);
@@ -821,7 +846,7 @@ const Customers = () => {
             {/* Modals... */}
             {showAddModal && (
                 <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="add-customer-title" style={{ alignItems: 'flex-start', paddingTop: '8vh' }}>
-                    <div className="modal">
+                    <div className="modal modal--customer">
                         <div className="modal-header">
                             <h2 id="add-customer-title" className="modal-title">Add New Customer</h2>
                             <button className="modal-close modal-close--static" aria-label="Close add customer modal" onClick={() => closeAddModal()}><X size={20} aria-hidden="true" /></button>
@@ -830,7 +855,7 @@ const Customers = () => {
                         <div className="modal-body">
                         <form onSubmit={handleAddCustomer} noValidate>
                             <div style={{ marginBottom: 16 }}>
-                                <label htmlFor="add-customer-name" className="label" style={{ marginBottom: 6, display: 'block' }}>Customer Name</label>
+                                <label htmlFor="add-customer-name" className="label" style={{ marginBottom: 6, display: 'block' }}>Customer Name <span aria-hidden="true">*</span></label>
                                 <div className="autocomplete-wrapper">
                                     <input
                                         id="add-customer-name"
@@ -848,9 +873,14 @@ const Customers = () => {
                                         autoFocus
                                         autoComplete="off"
                                         placeholder="Start typing customer name..."
+                                        aria-required="true"
+                                        aria-haspopup="listbox"
+                                        aria-autocomplete="list"
+                                        aria-controls="add-customer-name-suggestions"
+                                        aria-expanded={showSuggestions && suggestions.length > 0}
                                     />
                                     {showSuggestions && suggestions.length > 0 && (
-                                        <div className="autocomplete-dropdown" ref={suggestRef} role="listbox" aria-label="Customer suggestions">
+                                        <div className="autocomplete-dropdown" ref={suggestRef} role="listbox" aria-label="Customer suggestions" id="add-customer-name-suggestions">
                                             {suggestions.map((c, i) => (
                                                 <div
                                                     key={c.id}
@@ -875,7 +905,7 @@ const Customers = () => {
                                 </div>
                             </div>
                             <div style={{ marginBottom: 16 }}>
-                                <label htmlFor="add-customer-phone" className="label" style={{ marginBottom: 6, display: 'block' }}>Mobile Number</label>
+                                <label htmlFor="add-customer-phone" className="label" style={{ marginBottom: 6, display: 'block' }}>Mobile Number <span aria-hidden="true">*</span></label>
                                 <div className="autocomplete-wrapper">
                                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                                         <CountryCodeSelect id="add-customer-country" name="customerCountry" value={newCustomer.countryCode} onChange={(val) => updateNewCustomer({ countryCode: val })} />
@@ -894,10 +924,15 @@ const Customers = () => {
                                             required
                                             autoComplete="tel"
                                             placeholder="Mobile number"
+                                            aria-required="true"
+                                            aria-haspopup="listbox"
+                                            aria-autocomplete="list"
+                                            aria-controls="add-customer-phone-suggestions"
+                                            aria-expanded={showSuggestions && suggestions.length > 0}
                                         />
                                     </div>
                                     {showSuggestions && suggestions.length > 0 && (
-                                        <div className="autocomplete-dropdown" role="listbox" aria-label="Mobile suggestions">
+                                        <div className="autocomplete-dropdown" role="listbox" aria-label="Mobile suggestions" id="add-customer-phone-suggestions">
                                             {suggestions.map((c, i) => (
                                                 <div
                                                     key={c.id}
@@ -959,7 +994,7 @@ const Customers = () => {
 
             {showEditModal && selectedCustomer && (
                 <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="edit-customer-title" style={{ alignItems: 'flex-start', paddingTop: '8vh' }}>
-                    <div className="modal">
+                    <div className="modal modal--customer">
                         <div className="modal-header">
                             <h2 id="edit-customer-title" className="modal-title">Edit Customer</h2>
                             <button className="modal-close modal-close--static" aria-label="Close edit customer modal" onClick={() => closeEditModal()}><X size={20} aria-hidden="true" /></button>
@@ -968,7 +1003,7 @@ const Customers = () => {
                         <div className="modal-body">
                         <form onSubmit={handleUpdateCustomer} noValidate>
                             <div style={{ marginBottom: 16 }}>
-                                <label htmlFor="edit-customer-name" className="label" style={{ marginBottom: 6, display: 'block' }}>Customer Name</label>
+                                <label htmlFor="edit-customer-name" className="label" style={{ marginBottom: 6, display: 'block' }}>Customer Name <span aria-hidden="true">*</span></label>
                                 <div className="autocomplete-wrapper">
                                     <input
                                         id="edit-customer-name"
@@ -984,9 +1019,14 @@ const Customers = () => {
                                         required
                                         autoComplete="off"
                                         placeholder="Customer name"
+                                        aria-required="true"
+                                        aria-haspopup="listbox"
+                                        aria-autocomplete="list"
+                                        aria-controls="edit-customer-name-suggestions"
+                                        aria-expanded={showSuggestions && suggestions.length > 0}
                                     />
                                     {showSuggestions && suggestions.length > 0 && (
-                                        <div className="autocomplete-dropdown" role="listbox" aria-label="Customer suggestions">
+                                        <div className="autocomplete-dropdown" role="listbox" aria-label="Customer suggestions" id="edit-customer-name-suggestions">
                                             {suggestions.map((c, i) => (
                                                 <div
                                                     key={c.id}
@@ -1011,7 +1051,7 @@ const Customers = () => {
                                 </div>
                             </div>
                             <div style={{ marginBottom: 16 }}>
-                                <label htmlFor="edit-customer-phone" className="label" style={{ marginBottom: 6, display: 'block' }}>Mobile Number</label>
+                                <label htmlFor="edit-customer-phone" className="label" style={{ marginBottom: 6, display: 'block' }}>Mobile Number <span aria-hidden="true">*</span></label>
                                 <div className="autocomplete-wrapper">
                                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                                         <CountryCodeSelect id="edit-customer-country" name="editCustomerCountry" value={selectedCustomer?.countryCode || '+91'} onChange={(val) => updateSelectedCustomer({ countryCode: val })} />
@@ -1029,10 +1069,15 @@ const Customers = () => {
                                             required
                                             autoComplete="tel"
                                             placeholder="Mobile number"
+                                            aria-required="true"
+                                            aria-haspopup="listbox"
+                                            aria-autocomplete="list"
+                                            aria-controls="edit-customer-phone-suggestions"
+                                            aria-expanded={showSuggestions && suggestions.length > 0}
                                         />
                                     </div>
                                     {showSuggestions && suggestions.length > 0 && (
-                                        <div className="autocomplete-dropdown" role="listbox" aria-label="Mobile suggestions">
+                                        <div className="autocomplete-dropdown" role="listbox" aria-label="Mobile suggestions" id="edit-customer-phone-suggestions">
                                             {suggestions.map((c, i) => (
                                                 <div
                                                     key={c.id}

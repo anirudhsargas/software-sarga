@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
-const TEST_JWT_SECRET = 'test_secret_key_that_is_at_least_32_characters_long_for_test';
+const TEST_JWT_SECRET = 'test_jwt_secret_key_that_is_at_least_32_chars_long_for_sarga_only';
 
 function createTestToken(overrides = {}) {
   return jwt.sign(

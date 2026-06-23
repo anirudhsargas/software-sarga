@@ -7,7 +7,7 @@ const CameraPermissionModal = ({ isOpen, onClose, onRetry }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="modal-backdrop animate-fade-in" style={{ zIndex: 10100 }}>
+        <div className="modal-backdrop animate-fade-in" style={{ zIndex: 'var(--z-overlay)' }}>
             <div className="modal animate-scale-in" style={{ maxWidth: '500px', width: '92%', position: 'relative', padding: '28px' }}>
                 
                 {/* Close Button */}

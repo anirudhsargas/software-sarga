@@ -100,6 +100,7 @@ const DesignerLayout = () => {
 
   return (
     <div className="designer-layout">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
 
       {/* ── Sidebar overlay (mobile) ── */}
       <div
@@ -198,10 +199,11 @@ const DesignerLayout = () => {
           <button
             className="designer-topbar__menu-btn"
             onClick={() => setSidebarOpen(o => !o)}
-            aria-label="Toggle navigation"
+            aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-pressed={sidebarOpen}
             id="topbar-menu-btn"
           >
-            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+            {sidebarOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
           </button>
 
           {/* Page title */}
@@ -235,7 +237,7 @@ const DesignerLayout = () => {
         </header>
 
         {/* Content */}
-        <main className="designer-content" id="designer-main-content">
+        <main className="designer-content" id="main-content">
           <Outlet />
         </main>
       </div>

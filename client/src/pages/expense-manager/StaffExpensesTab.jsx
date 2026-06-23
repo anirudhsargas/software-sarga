@@ -292,7 +292,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
       ) : (
         <div className="em-staff-grid">
           {staffList.map(s => (
-            <div role="button" tabIndex={0}  key={s.id} className="em-staff-card" onClick={() => openStaffSalary(s)}>
+            <div role="button" tabIndex={0}  key={s.id} className="em-staff-card" onClick={() => openStaffSalary(s)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openStaffSalary(s); } }}>
               <div style={{ alignSelf: 'flex-start' }}>
                 <input
                   name="staff_checkbox"
@@ -342,7 +342,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
 
       {showBulkModal && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closeBulkModal(); }}>
-          <div role="button" tabIndex={0}  className="em-modal em-modal--sm" onClick={(e) => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal em-modal--sm" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header">
               <h2>Bulk Salary Payment ({selectedStaffIds.length} staff)</h2>
               <button className="btn btn-ghost btn-icon" aria-label="Close bulk salary modal" onClick={() => closeBulkModal()}><X size={18} /></button>

@@ -1121,7 +1121,7 @@ const DailyReport = () => {
                             const isExpanded = expandedIds.has(entry.id);
                             return (
                                 <React.Fragment key={`${type}-${entry.id}-${i}`}>
-                                    <tr className={hasLines ? 'entry-table tr--clickable' : ''} onClick={hasLines ? () => toggleExpand(entry.id) : undefined} role={hasLines ? "button" : "row"} tabIndex={hasLines ? 0 : undefined} onKeyDown={hasLines ? (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(entry.id); } } : undefined}>
+                                    <tr className={hasLines ? 'entry-table tr--clickable' : ''} onClick={hasLines ? () => toggleExpand(entry.id) : undefined} role={hasLines ? "button" : "row"} aria-expanded={hasLines ? expandedIds.has(entry.id) : undefined} tabIndex={hasLines ? 0 : undefined} onKeyDown={hasLines ? (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(entry.id); } } : undefined}>
                                         <td>
                                             <span className="entry-table-time">
                                                 <Clock size={10} /> {formatTime(entry.time)}

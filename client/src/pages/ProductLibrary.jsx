@@ -1376,6 +1376,7 @@ const ProductLibrary = () => {
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => navigateBack(viewPath.length - 2)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateBack(viewPath.length - 2); } }}
                                 title="Go back"
                                 style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--accent)', cursor: 'pointer', fontSize: 13, fontWeight: 500, textDecoration: 'none', whiteSpace: 'nowrap' }}
                             >
@@ -1634,7 +1635,7 @@ const ProductLibrary = () => {
                                         </button>
                                     </div>
                                     )}
-                                    <div role="button" tabIndex={0} aria-label={`View ${cat.name}`} className="product-card__image-wrap" onClick={() => toggleCat(cat.id)}>
+                                    <div role="button" tabIndex={0} aria-label={`View ${cat.name}`} className="product-card__image-wrap" onClick={() => toggleCat(cat.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCat(cat.id); } }}>
                                         {cat.image_url ? (
                                             <div className="product-card__img-wrap">
                                                 <SecureImage src={cat.image_url} alt={cat.name} className="product-card__img" loading="lazy" />
@@ -1648,7 +1649,7 @@ const ProductLibrary = () => {
                                             <GripVertical size={16} />
                                         </div>
                                     </div>
-                                    <div role="button" tabIndex={0} className="product-card__content" onClick={() => toggleCat(cat.id)}>
+                                    <div role="button" tabIndex={0} className="product-card__content" onClick={() => toggleCat(cat.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCat(cat.id); } }}>
                                         <div className="product-card__name">{cat.name}</div>
                                         <div className="product-card__meta">
                                             {cat.subcategories?.length || 0} Sub-categories
@@ -1745,7 +1746,7 @@ const ProductLibrary = () => {
                                         </button>
                                     </div>
                                     )}
-                                    <div role="button" tabIndex={0} aria-label={`View ${sub.name}`} className="product-card__image-wrap" onClick={() => setViewPath([viewPath[0], sub.id])}>
+                                    <div role="button" tabIndex={0} aria-label={`View ${sub.name}`} className="product-card__image-wrap" onClick={() => setViewPath([viewPath[0], sub.id])} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewPath([viewPath[0], sub.id]); } }}>
                                         {sub.image_url ? (
                                             <SecureImage src={sub.image_url} alt={sub.name} className="product-card__img" />
                                         ) : (
@@ -1757,7 +1758,7 @@ const ProductLibrary = () => {
                                             <GripVertical size={16} />
                                         </div>
                                     </div>
-                                    <div role="button" tabIndex={0} className="product-card__content" onClick={() => setViewPath([viewPath[0], sub.id])}>
+                                    <div role="button" tabIndex={0} className="product-card__content" onClick={() => setViewPath([viewPath[0], sub.id])} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewPath([viewPath[0], sub.id]); } }}>
                                         <div className="product-card__name">{sub.name}</div>
                                         <div className="product-card__meta">
                                             {sub.products?.length || 0} Products
@@ -1809,7 +1810,7 @@ const ProductLibrary = () => {
                                     </div>
                                     )}
                                     <div className="product-card__image-wrap" style={{ position: 'relative' }}>
-                                        <div role="button" tabIndex={0} style={{ position: 'absolute', top: 8, left: 8, zIndex: 6 }} onClick={(e) => e.stopPropagation()}>
+                                        <div role="button" tabIndex={0} style={{ position: 'absolute', top: 8, left: 8, zIndex: 6 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
                                             <input
                                                 type="checkbox"
                                                 checked={selectedProductIds.includes(prod.id)}
@@ -2169,6 +2170,7 @@ const ProductLibrary = () => {
                                 <div className="stack-sm">
                                     <label className="label">Media</label>
                                     <div role="button" tabIndex={0} className="image-upload-frame"
+                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.getElementById('product-image-input').click(); } }}
                                         style={{
                                             position: 'relative',
                                             width: '120px',
@@ -2313,7 +2315,7 @@ const ProductLibrary = () => {
                                             return (
                                                 <div style={{
                                                     position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
-                                                    zIndex: 1000,
+                                                    zIndex: 'var(--z-dropdown)',
                                                     background: 'var(--surface-3, #2d3748)',
                                                     border: '1px solid var(--border, #4a5568)',
                                                     borderRadius: '12px',

@@ -1162,6 +1162,7 @@ const Payments = () => {
                                                 <div role="button" tabIndex={0} key={item.id}
                                                     className="dropdown-item row justify-between p-8 hover-surface"
                                                     onClick={() => addBillItem(item)}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addBillItem(item); } }}
                                                 >
                                                     <div>
                                                         <div className="text-sm font-medium">{item.name}</div>

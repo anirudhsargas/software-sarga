@@ -147,19 +147,19 @@ router.get('/offset/:id', auth.authenticate, async (req, res) => {
 
         // Get work entries
         const [workEntries] = await pool.query(
-            'SELECT * FROM sarga_daily_work_entries WHERE report_id = ? ORDER BY entry_time',
+            'SELECT id, staff_id, entry_time, exit_time, hours_worked, job_id, description, report_id, created_at FROM sarga_daily_work_entries WHERE report_id = ? ORDER BY entry_time',
             [id]
         );
 
         // Get expenses
         const [expenses] = await pool.query(
-            'SELECT * FROM sarga_daily_expenses WHERE report_id = ? ORDER BY created_at',
+            'SELECT id, amount, description, category, expense_type, report_id, created_at FROM sarga_daily_expenses WHERE report_id = ? ORDER BY created_at',
             [id]
         );
 
         // Get credit transactions
         const [creditTransactions] = await pool.query(
-            'SELECT * FROM sarga_daily_credit_transactions WHERE report_id = ? ORDER BY created_at',
+            'SELECT id, transaction_type, amount, description, customer_id, customer_name, report_id, created_at FROM sarga_daily_credit_transactions WHERE report_id = ? ORDER BY created_at',
             [id]
         );
 

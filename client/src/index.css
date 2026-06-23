@@ -1,4 +1,6 @@
 @import './styles/buttons.css';
+@import './styles/components/modals.css';
+@import './styles/components/badges.css';
 
 /* ══════════════════════════════════════════════════
    SARGA DESIGN SYSTEM v2 — Production Design Tokens
@@ -77,6 +79,24 @@
   /* Skeleton */
   --skeleton-base: var(--surface-2);
   --skeleton-shimmer: var(--surface);
+
+  /* Z-Index Scale */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 1000;
+  --z-modal-stack-1: 1001;
+  --z-modal-stack-2: 1002;
+  --z-modal-stack-3: 1003;
+  --z-modal-high: 1100;
+  --z-tooltip: 5000;
+  --z-toast: 6000;
+  --z-overlay: 9000;
+
+  /* Font Stack */
+  --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
 /* ── Fluid Typography ── */
@@ -458,7 +478,7 @@ button:focus-visible {
   background: var(--accent);
   color: var(--on-accent);
   border-radius: var(--radius-md);
-  z-index: 9999;
+  z-index: var(--z-toast);
   font-weight: 600;
   text-decoration: none;
 }
@@ -831,25 +851,7 @@ body {
 .status-badge--success { background: var(--success-bg); color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
 .status-badge--error { background: var(--error-bg); color: var(--error); border-color: color-mix(in srgb, var(--error) 30%, transparent); }
 
-/* ══════════════════════════════════════════════════
-   BADGE
-   ══════════════════════════════════════════════════ */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-3) var(--space-10);
-  border-radius: var(--radius-xs);
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-  border: 1px solid transparent;
-}
-.badge--default { background: var(--surface-2); color: var(--muted); }
-.badge--primary { background: var(--accent-soft); color: var(--accent); }
-.badge--success { background: var(--success-bg); color: var(--success); }
-.badge--warning { background: var(--warning-bg); color: var(--warning); }
-.badge--danger { background: var(--error-bg); color: var(--error); }
-.badge--info { background: var(--info-bg); color: var(--info); }
+
 
 /* ══════════════════════════════════════════════════
    SUMMARY / DASHBOARD
@@ -1546,64 +1548,7 @@ textarea.input-field:disabled {
 .alert--error { background: var(--error-bg); border-color: var(--error); color: var(--error-text); }
 .alert--info { background: var(--info-bg); border-color: var(--info); color: var(--info); }
 
-/* ══════════════════════════════════════════════════
-   MODAL
-   ══════════════════════════════════════════════════ */
-.modal-backdrop {
-  position: fixed; inset: 0;
-  background: var(--modal-overlay);
-  backdrop-filter: blur(4px);
-  z-index: 50;
-  display: flex; align-items: center; justify-content: center;
-  animation: backdrop-in 200ms ease forwards;
-  padding: var(--space-16);
-}
 
-@keyframes backdrop-in {
-  from { opacity: 0; backdrop-filter: blur(0px); }
-  to { opacity: 1; backdrop-filter: blur(4px); }
-}
-
-.modal {
-  background: var(--modal-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-modal);
-  box-shadow: var(--shadow-xl);
-  max-width: 500px; width: 100%;
-  max-height: 90dvh; overflow-y: auto;
-  animation: modal-in 220ms var(--ease-spring) forwards;
-}
-
-.modal--large {
-  max-width: 640px;
-}
-
-@media (max-width: 639px) {
-  .modal {
-    max-width: 100%;
-    border-radius: var(--radius-lg);
-    margin: 0 8px;
-  }
-  .modal-header { padding: var(--space-16); }
-  .modal-body { padding: var(--space-16); }
-  .modal-footer { padding: var(--space-12) var(--space-16); }
-}
-
-@keyframes modal-in {
-  from { opacity: 0; transform: scale(0.92) translateY(12px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: var(--space-24); border-bottom: 1px solid var(--border);
-}
-.modal-title { font-size: var(--text-xl); font-weight: 700; color: var(--text-heading); margin: 0; }
-.modal-body { padding: var(--space-24); }
-.modal-footer {
-  display: flex; gap: var(--space-12); justify-content: flex-end;
-  padding: var(--space-16) var(--space-24); border-top: 1px solid var(--border);
-}
 
 /* ── Confirm Modal ── */
 .confirm-modal {
@@ -2074,7 +2019,7 @@ textarea.input-field:disabled {
   position: absolute; top: 100%; right: 0; margin-top: var(--space-4);
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
-  padding: var(--space-4); z-index: 9999; min-width: 150px;
+  padding: var(--space-4); z-index: var(--z-dropdown); min-width: 150px;
 }
 
 .theme-toggle-option {
@@ -2468,3 +2413,43 @@ textarea.input-field:disabled {
   .staff-toolbar { flex-direction: column; align-items: stretch; }
   .branch-filter-select { width: 100%; }
 }
+
+/* ── Utility: Table Wrapper ── */
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.min-w-0 { min-width: 0; }
+
+/* ── Performance Fix: Inventory Skeleton Utilities ── */
+.inv-skeleton-cell--xs { width: 24px; height: 16px; }
+.inv-skeleton-cell--sm { width: 36px; height: 36px; border-radius: 8px; }
+.inv-skeleton-cell--md { flex: 2; }
+.inv-skeleton-cell--half { flex: 1; }
+.inv-skeleton-cell--quarter { flex: 0.5; }
+.inv-skeleton-cell--action { width: 60px; }
+.inv-skeleton-cell--lg { width: 80px; }
+
+.inv-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--error);
+  color: var(--on-accent);
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+/* ── Performance Fix: Table Column Widths ── */
+.th-actions { width: 80px; }
+
+/* ── Performance Fix: Text Utilities ── */
+.text-muted { color: var(--text-muted); }
+.font-semibold { font-weight: 600; }

@@ -191,7 +191,7 @@ const Branches = () => {
                                             )}
                                         </td>
                                         <td>
-                                            <div role="button" tabIndex={0} className="row gap-sm" onClick={(e) => e.stopPropagation()}>
+                                            <div role="button" tabIndex={0} className="row gap-sm" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
                                                 <button
                                                     className="btn btn-ghost"
                                                     style={{ padding: '8px', minWidth: 'auto', border: 'none' }}

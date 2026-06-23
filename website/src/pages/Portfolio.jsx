@@ -52,7 +52,7 @@ export default function Portfolio() {
       <section className="page-header">
         <div className="page-header__bg" />
         <div className="container page-header__content">
-          <span className="badge badge-primary">Our Work</span>
+          <span className="badge badge--primary">Our Work</span>
           <h1 className="page-header__title">Portfolio <span className="text-gradient">Gallery</span></h1>
           <p className="page-header__subtitle">Explore our premium printing and design projects</p>
         </div>

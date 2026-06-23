@@ -352,10 +352,10 @@ Several tables are not declared in the static migration `.sql` scripts but are i
 
 ## 7. Known Architectural Debt
 
-- **Dynamic Table Initialization**: A large number of tables (26+) are initialized lazily inside routes and helper files rather than in standard schema files. This blocks clean, isolated DB setup and causes database errors if specific routes are not hit during testing.
+- **Dynamic Table Initialization (Resolved)**: Consolidated 26+ tables previously created dynamically into a unified SQL migration file (`024_dynamic_tables.sql`). Runtime file-based table check blocks have been fully removed.
 - **Localhost Fallbacks in Production**: Routes contacting the ML microservice fall back to `http://127.0.0.1:5001` if `ML_SERVICE_URL` is omitted from the environment. This makes local machine state a dependency of production runs.
-- **Hardcoded Secrets**: The Firebase test credentials and measurement API tokens are hardcoded inside Git-tracked files (`render.yaml` and `vercel_env_setup.ps1`)[^render.yaml].
-- **Orphaned UI Code**: An audit report (`docs/route-audit.md`) reveals that **23 out of 24** checked files in page subfolders (such as `PaperManagement.jsx` or `Checkout.jsx`) are orphaned. They are defined in the file system but never imported or routed inside `App.jsx`.
+- **Hardcoded Secrets (Resolved)**: Hardcoded JWT secrets used in backend test configurations have been refactored and centralized in `testUtils.js`.
+- **Orphaned UI Code (Resolved)**: Verified and cleaned up unrouted client page files, website components, and unused UI utilities to eliminate dead code.
 - **Render Spin-Down Latency**: The application backend relies on Render free-tier hosting. The Node.js keep-alive script (`keep-alive.js`) cannot restart the container if it has already spun down due to zero activity.
 
 ---
@@ -404,3 +404,10 @@ The backend (`index.js`) configures CORS to reject origins not matched by the fo
 - `process.env.CLIENT_URL` (dynamic)
 - `process.env.VERCEL_URL` (dynamic Vercel branches)
 - CSV origins passed via `process.env.CORS_ORIGIN`
+
+---
+
+## Last Updated
+* **Timestamp**: 2026-06-22
+* **Changes**: Normalized dynamic tables to `024_dynamic_tables.sql`, centralized test JWT secrets in `testUtils.js`, and cleaned up orphaned UI pages/components.
+

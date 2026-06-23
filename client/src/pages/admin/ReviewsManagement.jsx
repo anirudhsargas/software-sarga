@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { Star, Trash2, Edit3, Plus, RefreshCw, ExternalLink, Star as StarIcon, Search } from 'lucide-react';
+import EmptyState from '../../components/EmptyState';
 import PageContainer from '../../components/ui/PageContainer';
 
 const STARS = [1, 2, 3, 4, 5];
@@ -181,7 +182,7 @@ function ReviewsManagement() {
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: 'auto' }}>
+      <div className="table-wrapper">
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid var(--border)' }}>
@@ -216,7 +217,7 @@ function ReviewsManagement() {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No reviews found</td></tr>
+              <tr><td colSpan={7}><EmptyState icon={Star} title="No reviews found" /></td></tr>
             )}
           </tbody>
         </table>

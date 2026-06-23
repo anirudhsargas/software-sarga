@@ -66,10 +66,11 @@ export default function AnomalyPanel() {
     if (count === 0 && !loading) return null;
 
     return (
-        <div style={{ margin: '0 0 16px', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--card-bg, #fff)' }}>
+        <div aria-live="polite" aria-atomic="false" style={{ margin: '0 0 16px', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--card-bg, #fff)' }}>
             {/* Header bar */}
             <div role="button"
                 tabIndex={0}
+                aria-expanded={expanded}
                 onClick={() => setExpanded(e => !e)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(x => !x); } }}
                 style={{
@@ -90,9 +91,10 @@ export default function AnomalyPanel() {
                     onClick={(e) => { e.stopPropagation(); fetchAnomalies(); }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'inherit', display: 'flex' }}
                     title="Refresh"
+                    aria-label="Refresh anomalies"
                     disabled={loading}
                 >
-                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
                 </button>
                 {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </div>

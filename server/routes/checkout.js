@@ -44,7 +44,7 @@ router.post('/checkout/cart', asyncHandler(async (req, res) => {
 
   // Check for existing active cart
   let [carts] = await pool.query(
-    'SELECT * FROM sarga_carts WHERE (customer_id = ? OR session_id = ?) AND status = "active" ORDER BY created_at DESC LIMIT 1',
+    'SELECT id, customer_id, session_id, status, created_at, updated_at FROM sarga_carts WHERE (customer_id = ? OR session_id = ?) AND status = "active" ORDER BY created_at DESC LIMIT 1',
     [customerId || 0, sessionId]
   );
 
@@ -89,7 +89,7 @@ router.post('/checkout/cart/items', asyncHandler(async (req, res) => {
 
   // Get or create cart
   let [carts] = await pool.query(
-    'SELECT * FROM sarga_carts WHERE (customer_id = ? OR session_id = ?) AND status = "active" ORDER BY created_at DESC LIMIT 1',
+    'SELECT id, customer_id, session_id, status, created_at, updated_at FROM sarga_carts WHERE (customer_id = ? OR session_id = ?) AND status = "active" ORDER BY created_at DESC LIMIT 1',
     [customerId || 0, sessionId]
   );
   let cartId;
@@ -134,7 +134,7 @@ router.get('/checkout/cart/items', asyncHandler(async (req, res) => {
   const sessionId = req.headers['x-sarga-uuid'] || uuidv4();
 
   let [carts] = await pool.query(
-    'SELECT * FROM sarga_carts WHERE (customer_id = ? OR session_id = ?) AND status = "active" ORDER BY created_at DESC LIMIT 1',
+    'SELECT id, customer_id, session_id, status, created_at, updated_at FROM sarga_carts WHERE (customer_id = ? OR session_id = ?) AND status = "active" ORDER BY created_at DESC LIMIT 1',
     [customerId || 0, sessionId]
   );
   if (carts.length === 0) return res.json({ items: [], cart: null });
@@ -200,12 +200,12 @@ router.post('/checkout/coupon/apply', asyncHandler(async (req, res) => {
   if (!code) return res.status(400).json({ error: 'Coupon code required' });
 
   const [[coupon]] = await pool.query(
-    'SELECT * FROM sarga_coupons WHERE code = ? AND is_active = 1 AND expiry_date >= CURDATE() AND (max_uses IS NULL OR used_count < max_uses) LIMIT 1',
+    'SELECT id, code, discount_type, discount_value, max_discount_amount, max_uses, used_count, min_order_amount, expiry_date, is_active FROM sarga_coupons WHERE code = ? AND is_active = 1 AND expiry_date >= CURDATE() AND (max_uses IS NULL OR used_count < max_uses) LIMIT 1',
     [code]
   );
   if (!coupon) return res.status(400).json({ error: 'Invalid or expired coupon' });
 
-  const [[cart]] = await pool.query('SELECT * FROM sarga_carts WHERE id = ?', [cart_id]);
+  const [[cart]] = await pool.query('SELECT id, customer_id, session_id, status, subtotal, gst_amount, total, created_at, updated_at FROM sarga_carts WHERE id = ?', [cart_id]);
   if (!cart) return res.status(404).json({ error: 'Cart not found' });
 
   let discount = 0;

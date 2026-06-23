@@ -22,6 +22,16 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
   const [showExtractedItems, setShowExtractedItems] = useState(false);
   const { errors, validate, focusFirstError, formRef } = useFormValidation();
   const fileInputRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  useEffect(() => {
+    triggerRef.current = document.activeElement;
+    return () => {
+      setTimeout(() => {
+        triggerRef.current?.focus();
+      }, 0);
+    };
+  }, []);
 
   useEffect(() => {
     if (vendor) {
@@ -126,10 +136,10 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
   };
 
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="invoice-modal-title">
       <div className="modal">
         <div className="modal-header">
-          <h2 className="modal-title">Add New Invoice</h2>
+          <h2 id="invoice-modal-title" className="modal-title">Add New Invoice</h2>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button
               onClick={handleScanBill}
@@ -140,7 +150,7 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
               <Upload size={16} />
               {scanning ? 'Scanning...' : 'Scan Bill'}
             </button>
-            <button onClick={onClose} className="icon-button"><X size={20} /></button>
+            <button onClick={onClose} className="icon-button" aria-label="Close invoice modal"><X size={20} aria-hidden="true" /></button>
           </div>
           <input
             ref={fileInputRef}
@@ -180,10 +190,11 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
 
             <div className="form-grid">
               <div>
-                <label className="label">
-                  Invoice Date *
+                <label htmlFor="invoice_date" className="label">
+                  Invoice Date <span aria-hidden="true">*</span>
                 </label>
                 <input
+                  id="invoice_date"
                   type="date"
                   name="invoice_date"
                   value={formData.invoice_date}
@@ -191,8 +202,11 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
                   className={`input-field ${
                     errors.invoice_date ? 'input-field--error' : ''
                   }`}
+                  aria-describedby={errors.invoice_date ? 'invoice-date-error' : undefined}
+                  aria-invalid={errors.invoice_date ? 'true' : 'false'}
+                  aria-required="true"
                 />
-                {errors.invoice_date && <p className="error-text">{errors.invoice_date}</p>}
+                {errors.invoice_date && <p id="invoice-date-error" className="error-text" role="alert">{errors.invoice_date}</p>}
               </div>
 
               <div>
@@ -213,10 +227,11 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
             </div>
 
             <div>
-              <label className="label">
-                Amount (₹) *
+              <label htmlFor="amount" className="label">
+                Amount (₹) <span aria-hidden="true">*</span>
               </label>
               <input
+                id="amount"
                 type="number"
                 name="amount"
                 value={formData.amount}
@@ -227,8 +242,11 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
                   errors.amount ? 'input-field--error' : ''
                 }`}
                 placeholder="0.00"
+                aria-describedby={errors.amount ? 'amount-error' : undefined}
+                aria-invalid={errors.amount ? 'true' : 'false'}
+                aria-required="true"
               />
-              {errors.amount && <p className="error-text">{errors.amount}</p>}
+              {errors.amount && <p id="amount-error" className="error-text" role="alert">{errors.amount}</p>}
               {formData.amount && (
                 <p className="help-text">
                   {formatCurrency(formData.amount)}

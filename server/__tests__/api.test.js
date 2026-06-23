@@ -37,7 +37,8 @@ jest.mock('axios', () => ({
   })),
 }));
 
-process.env.JWT_SECRET = 'test-jwt-secret-key-that-is-at-least-32-chars-long!!';
+const { TEST_JWT_SECRET } = require('./helpers/testUtils');
+process.env.JWT_SECRET = TEST_JWT_SECRET;
 process.env.NODE_ENV = 'test';
 
 const request = require('supertest');

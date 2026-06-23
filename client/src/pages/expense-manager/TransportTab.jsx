@@ -217,7 +217,7 @@ const TransportTab = ({ onError }) => {
       {/* Transport Form Modal */}
       {showForm && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closeFormModal(); }}>
-          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()}>
+          <div role="button" tabIndex={0}  className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
             <div className="em-modal__header"><h2>{editing ? 'Edit' : 'Add'} Transport Expense</h2><button className="btn btn-ghost btn-icon" aria-label="Close transport expense form" onClick={() => closeFormModal()}><X size={18} /></button></div>
             {!confirming && formDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
             {!confirming ? (

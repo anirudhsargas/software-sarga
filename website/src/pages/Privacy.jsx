@@ -4,7 +4,7 @@ export default function Privacy() {
       <section className="page-header">
         <div className="page-header__bg" />
         <div className="container page-header__content">
-          <span className="badge badge-primary">Legal</span>
+          <span className="badge badge--primary">Legal</span>
           <h1 className="page-header__title">Privacy Policy</h1>
           <p className="page-header__subtitle">
             How Sarga Prints collects, uses, and protects your personal information.

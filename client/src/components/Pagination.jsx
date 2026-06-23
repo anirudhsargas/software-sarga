@@ -42,7 +42,7 @@ const Pagination = React.memo(({ page, totalPages, total, limit = 20, onPageChan
   if (totalPages <= 1) return null;
 
   return (
-    <div className="pagination">
+    <div className="pagination" role="navigation" aria-label="Pagination Navigation">
       {/* Record count */}
       <span className="pagination__info">
         Showing {start}–{end} of {total}
@@ -55,8 +55,9 @@ const Pagination = React.memo(({ page, totalPages, total, limit = 20, onPageChan
           onClick={() => handlePageChange(1)}
           disabled={page === 1 || loading}
           title="First page"
+          aria-label="First page"
         >
-          <ChevronsLeft size={15} />
+          <ChevronsLeft size={15} aria-hidden="true" />
         </button>
 
         {/* Previous */}
@@ -65,19 +66,22 @@ const Pagination = React.memo(({ page, totalPages, total, limit = 20, onPageChan
           onClick={() => handlePageChange(page - 1)}
           disabled={page === 1 || loading}
           title="Previous page"
+          aria-label="Previous page"
         >
-          <ChevronLeft size={15} />
+          <ChevronLeft size={15} aria-hidden="true" />
         </button>
 
         {/* Page numbers */}
         {getPages.map((p, i) => (
           p === '...'
-            ? <span key={`dots-${i}`} className="pagination__dots">···</span>
+            ? <span key={`dots-${i}`} className="pagination__dots" aria-hidden="true">···</span>
             : <button
                 key={p}
                 className={`pagination__btn ${page === p ? 'pagination__btn--active' : ''}`}
                 onClick={() => handlePageChange(p)}
                 disabled={loading}
+                aria-label={`Page ${p}`}
+                aria-current={page === p ? 'page' : undefined}
               >
                 {p}
               </button>
@@ -89,8 +93,9 @@ const Pagination = React.memo(({ page, totalPages, total, limit = 20, onPageChan
           onClick={() => handlePageChange(page + 1)}
           disabled={page === totalPages || loading}
           title="Next page"
+          aria-label="Next page"
         >
-          <ChevronRight size={15} />
+          <ChevronRight size={15} aria-hidden="true" />
         </button>
 
         {/* Last page */}
@@ -99,8 +104,9 @@ const Pagination = React.memo(({ page, totalPages, total, limit = 20, onPageChan
           onClick={() => handlePageChange(totalPages)}
           disabled={page === totalPages || loading}
           title="Last page"
+          aria-label="Last page"
         >
-          <ChevronsRight size={15} />
+          <ChevronsRight size={15} aria-hidden="true" />
         </button>
       </div>
 
@@ -114,6 +120,7 @@ const Pagination = React.memo(({ page, totalPages, total, limit = 20, onPageChan
           defaultValue={page}
           className="pagination__jump-input"
           onKeyDown={handleKeyDown}
+          aria-label="Go to page"
         />
         <span className="pagination__jump-label">of {totalPages}</span>
       </div>

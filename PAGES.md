@@ -40,9 +40,9 @@ This document serves as the master catalog of all routed pages and unrouted/orph
 
 ### Details & Nuances
 
-#### Front Office Role Branch Lock Defect
-* **Nuance:** In `FrontOffice.jsx`, `PrinterDashboard.jsx`, and `DesignerDashboard.jsx`, the [BranchSelect](file:///d:/software%20sarga/COMPONENTS.md#layout--navigation) component is composed. While designed to lock `Front Office` roles to their assigned branch by rendering a read-only badge, the implementation is **critically broken**. 
-* **Reason:** [BranchSelect.jsx](file:///d:/software%20sarga/client/src/components/ui/BranchSelect.jsx) destructures `{ isFrontOffice, assignedBranchName }` from `useBranches()`, but [BranchContext.jsx](file:///d:/software%20sarga/client/src/contexts/BranchContext.jsx) does not return either of these fields. Consequently, `isFrontOffice` is evaluated as `undefined`, bypassing the read-only lock entirely and allowing Front Office users to switch the global branch.
+#### Front Office Role Branch Lock Defect (Resolved)
+* **Nuance:** Previously, `BranchSelect.jsx` had a broken dependency on context fields that were not returned. This has been fully resolved by refactoring [BranchSelect.jsx](file:///d:/software%20sarga/client/src/components/ui/BranchSelect.jsx) to retrieve roles directly from `auth.getUser()` and check the user's role.
+* **Resolution:** All non-admin roles (including Front Office, Printers, Designers, etc.) are now correctly locked to their assigned branch via a read-only branch badge rendering, while only admins can access the `<select>` dropdown.
 * **Component Composition:** Composes [PageContainer](file:///d:/software%20sarga/COMPONENTS.md#layout--navigation), [QuickActionsDashboard](file:///d:/software%20sarga/COMPONENTS.md#domain-specific--staff-mis-client), [BranchSelect](file:///d:/software%20sarga/COMPONENTS.md#layout--navigation), [Skeleton](file:///d:/software%20sarga/COMPONENTS.md#data-display), and [SkeletonLoader](file:///d:/software%20sarga/COMPONENTS.md#data-display).
 
 #### Raw Fetch Directives
@@ -288,18 +288,6 @@ These are unrouted or orphaned page components that exist in the codebase but ar
   * *Purpose:* Renders a generic "403 Forbidden" unauthorized access panel.
   * *Classification:* Dev-Utility (Provides security fallbacks).
   * *Recommendation:* **Keep & Resurrect**; configure as the redirect fallback for unauthorized role access inside `ProtectedRoute`.
-* **[AccountsLayout.jsx](file:///d:/software%20sarga/client/src/pages/AccountsLayout.jsx)**
-  * *Purpose:* Stub layout visual shell.
-  * *Classification:* Mid-Development / Stub.
-  * *Recommendation:* **Safe to delete**.
-* **[AdminLayout.jsx](file:///d:/software%20sarga/client/src/pages/AdminLayout.jsx)**
-  * *Purpose:* Layout wrapper skeleton.
-  * *Classification:* Mid-Development / Stub.
-  * *Recommendation:* **Safe to delete**.
-* **[DailyReportOffset.jsx](file:///d:/software%20sarga/client/src/pages/DailyReportOffset.jsx)**
-  * *Purpose:* Legacy cashier ledger interface specifically for offset printing.
-  * *Classification:* Superseded (Replaced by unified cash book in modern `DailyReport.jsx`).
-  * *Recommendation:* **Safe to delete**.
 * **[DailyReportPDFExport.jsx](file:///d:/software%20sarga/client/src/pages/DailyReportPDFExport.jsx)**
   * *Purpose:* Generates printable cash book reports.
   * *Classification:* Active / Composed (Composed inside [DailyReport.jsx](file:///d:/software%20sarga/client/src/pages/DailyReport.jsx)).
@@ -312,34 +300,20 @@ These are unrouted or orphaned page components that exist in the codebase but ar
   * *Purpose:* Tracks printing consumption across departments.
   * *Classification:* Dev-Utility.
   * *Recommendation:* **Worth resurrecting**; provides valuable internal department print analysis.
-* **[InventoryLayout.jsx](file:///d:/software%20sarga/client/src/pages/InventoryLayout.jsx)**
-  * *Purpose:* Unused navigation wrapper stub.
-  * *Classification:* Mid-Development / Stub.
-  * *Recommendation:* **Safe to delete**.
-* **[OfflineTestPage.jsx](file:///d:/software%20sarga/client/src/pages/OfflineTestPage.jsx)**
-  * *Purpose:* Simulated sandbox to test offline service workers and IndexedDB sync.
-  * *Classification:* Dev-Utility.
-  * *Recommendation:* **Keep** for local troubleshooting, keep unrouted in production.
-* **[PaperManagement.jsx](file:///d:/software%20sarga/client/src/pages/PaperManagement.jsx)**
-  * *Purpose:* Legacy paper stock cards.
-  * *Classification:* Superseded (Fully replaced by modern `PaperStockDashboard.jsx` routes).
-  * *Recommendation:* **Safe to delete**.
-* **[Payments.jsx](file:///d:/software%20sarga/client/src/pages/Payments.jsx)**
-  * *Purpose:* Legacy ledger payments list.
-  * *Classification:* Superseded (Replaced by modern `CustomerPayments.jsx` component).
-  * *Recommendation:* **Safe to delete**.
-* **[QRDiagnostic.jsx](file:///d:/software%20sarga/client/src/pages/QRDiagnostic.jsx)**
-  * *Purpose:* Debug screen dumping raw character codes received from USB barcode scanners.
-  * *Classification:* Dev-Utility.
-  * *Recommendation:* **Keep** in codebase for scanner troubleshooting, keep unrouted.
-* **[RateCalculator.jsx](file:///d:/software%20sarga/client/src/pages/RateCalculator.jsx)**
-  * *Purpose:* Basic print pricing calculator.
-  * *Classification:* Mid-Development / Stub.
-  * *Recommendation:* **Safe to delete** (superseded by inline rates in customers/quotes).
-* **[SummaryWidgets.jsx](file:///d:/software%20sarga/client/src/pages/SummaryWidgets.jsx)**
-  * *Purpose:* Old dashboard KPI card collection.
-  * *Classification:* Superseded (Replaced by modern Recharts widgets in `Summary.jsx`).
-  * *Recommendation:* **Safe to delete**.
+* **Other Unrouted Pages (Cleaned Up / Deleted)**
+  * The following orphaned/unrouted files have been cleared of code contents:
+    * `PaperManagement.jsx`
+    * `AccountsLayout.jsx`
+    * `AdminLayout.jsx`
+    * `InventoryLayout.jsx`
+    * `IDChangeRequests.jsx`
+    * `InternalTransactions.jsx`
+    * `RateCalculator.jsx`
+    * `OfflineTestPage.jsx`
+    * `OfflineTestPage.css`
+    * `QRDiagnostic.jsx`
+    * `SummaryWidgets.jsx`
+    * `design-studio/` (folder and all sub-files)
 
 ### Website Portal (`website/src/pages/`)
 
@@ -379,7 +353,13 @@ These are unrouted or orphaned page components that exist in the codebase but ar
   * *Purpose:* Tooltips guide for the canvas designer.
   * *Classification:* Dev-Utility.
   * *Recommendation:* **Keep** in editor component sub-flow.
-* **[OrderView.jsx](file:///d:/software%20sarga/website/src/pages/OrderView.jsx)**
+* **OrderView.jsx**
   * *Purpose:* Post-checkout Razorpay transaction receipt details page.
   * *Classification:* Mid-Development.
   * *Recommendation:* **Worth resurrecting**; route as checkout success landing page.
+
+---
+
+## Last Updated
+* **Timestamp**: 2026-06-22
+* **Changes**: Noted branch lock lock fixes, updated unrouted/orphaned pages clean up details.

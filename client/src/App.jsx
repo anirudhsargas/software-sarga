@@ -77,6 +77,38 @@ const ProtectedRoute = ({ children, roles }) => {
 };
 
 
+import { useState } from 'react';
+
+function ToastAnnouncer() {
+  const [message, setMessage] = useState('');
+  
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList') {
+          const toastText = mutation.target.textContent;
+          if (toastText && toastText !== message) {
+            setMessage(toastText);
+          }
+        }
+      });
+    });
+    
+    const toastContainer = document.querySelector('.react-hot-toast');
+    if (toastContainer) {
+      observer.observe(toastContainer, { childList: true, subtree: true });
+    }
+    
+    return () => observer.disconnect();
+  }, [message]);
+  
+  return (
+    <div aria-live="polite" aria-atomic="true" className="sr-only" style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}>
+      {message}
+    </div>
+  );
+}
+
 function App() {
   useEffect(() => {
     // Remove splash screen after app mounts
@@ -144,6 +176,7 @@ function App() {
               error: { duration: 4000 },
             }}
           />
+          <ToastAnnouncer />
           <Suspense fallback={<AppShellSkeleton />}>
             <Routes>
               {/* Public routes */}
