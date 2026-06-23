@@ -244,7 +244,7 @@ CREATE TABLE IF NOT EXISTS sarga_inventory_to_paper_inventory (
   inventory_item_id INT NOT NULL,
   paper_item_id INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_inv_paper (inventory_item_id, paper_item_id)
+  PRIMARY KEY (inventory_item_id, paper_item_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 8. Three Books System Tables
