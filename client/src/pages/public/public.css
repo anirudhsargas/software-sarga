@@ -10,6 +10,12 @@
   min-height: 100dvh;
 }
 
+.public-shell > main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── Header ── */
 .public-header {
   position: sticky;
