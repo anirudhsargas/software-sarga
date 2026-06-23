@@ -9,6 +9,8 @@ import localDb from '../../services/localDb';
 import { fmt, fmtDate, thisMonth } from './constants';
 import PageContainer from '../../components/ui/PageContainer';
 
+const CHART_COLORS = ['var(--error)', 'var(--warning)', 'var(--accent-2)', 'var(--success)', 'var(--accent)', 'var(--destructive)', 'var(--accent)', 'var(--warning)'];
+
 const DashboardTab = ({ branches, onPayment }) => {
   const [loading, setLoading] = useState(false);
   const [dashboard, setDashboard] = useState(null);
@@ -207,11 +209,10 @@ const DashboardTab = ({ branches, onPayment }) => {
             <>
               <div className="em-donut-legend">
                 {Object.entries(d.by_category).sort((a, b) => b[1] - a[1]).map(([cat, val], i) => {
-                  const colors = ['var(--error)', 'var(--warning)', 'var(--accent-2)', 'var(--success)', 'var(--accent)', 'var(--destructive)', 'var(--accent)', 'var(--warning)'];
                   const pct = ((val / d.total_expenses) * 100).toFixed(1);
                   return (
                     <div key={cat} className="em-donut-legend__item">
-                      <span className="em-donut-legend__dot" style={{ background: colors[i % colors.length] }} />
+                      <span className="em-donut-legend__dot" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
                       <span className="em-donut-legend__cat">{cat}</span>
                       <span className="em-donut-legend__pct">{pct}%</span>
                       <span className="em-donut-legend__amt">₹{fmt(val)}</span>
@@ -221,11 +222,10 @@ const DashboardTab = ({ branches, onPayment }) => {
               </div>
               <div className="em-breakdown" style={{ marginTop: 14 }}>
                 {Object.entries(d.by_category).sort((a, b) => b[1] - a[1]).map(([cat, val], i) => {
-                  const colors = ['var(--error)', 'var(--warning)', 'var(--accent-2)', 'var(--success)', 'var(--accent)', 'var(--destructive)', 'var(--accent)', 'var(--warning)'];
                   return (
                     <div key={cat} className="em-breakdown__row">
                       <div className="em-breakdown__cat">{cat}</div>
-                      <div className="em-breakdown__bar-wrap"><div className="em-breakdown__bar" style={{ width: `${Math.max((val / d.total_expenses) * 100, 4)}%`, background: colors[i % colors.length] }} /></div>
+                      <div className="em-breakdown__bar-wrap"><div className="em-breakdown__bar" style={{ width: `${Math.max((val / d.total_expenses) * 100, 4)}%`, background: CHART_COLORS[i % CHART_COLORS.length] }} /></div>
                       <div className="em-breakdown__amt">₹{fmt(val)}</div>
                     </div>
                   );

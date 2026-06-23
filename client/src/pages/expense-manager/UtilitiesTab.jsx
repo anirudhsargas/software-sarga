@@ -60,10 +60,10 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
     try { return JSON.parse(localStorage.getItem('custom_utility_types') || '[]'); } catch { return []; }
   });
 
-  const UTILITY_TYPES = [
+  const UTILITY_TYPES = React.useMemo(() => [
     ...DEFAULT_UTILITY_TYPES,
     ...customTypes.map(name => ({ key: name, icon: Zap, color: 'var(--accent)' }))
-  ];
+  ], [customTypes]);
 
   const handleAddType = () => {
     const name = newTypeName.trim();
