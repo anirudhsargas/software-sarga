@@ -1822,7 +1822,7 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
     if (bill_number) fieldScores.push(/^[A-Z0-9\/\-]{2,20}$/i.test(bill_number) ? 0.95 : 0.7);
     if (bill_date) { const d = new Date(bill_date); fieldScores.push(!isNaN(d.getTime()) ? 0.98 : 0.6); }
     if (amount && Number(amount) > 0) fieldScores.push(0.95);
-    const     const uploadConfidence = fieldScores.length > 0
+    const uploadConfidence = fieldScores.length > 0
       ? Math.round((fieldScores.reduce((a, b) => a + b, 0) / fieldScores.length) * 100) / 100
       : null;
 
