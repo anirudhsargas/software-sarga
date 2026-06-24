@@ -7,8 +7,7 @@ const { validate, addJobSchema } = require('../middleware/validate');
 const { fileToBase64 } = require('../utils/base64');
 const { paginate } = require('../helpers/pagination');
 const { branchFilter } = require('../middleware/branchFilter');
-const { invalidateDashboardCache, invalidateCustomerCache, getCache, setCache, invalidatePattern } = require('../services/cacheService');
-const { isRedisConnected } = require('../config/redis');
+const { invalidateDashboardCache, invalidateCustomerCache, invalidatePattern } = require('../services/cacheService');
 
 const normalizeBookTypeFromCategory = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
@@ -45,25 +44,10 @@ const SUBCATEGORY_COLUMNS = 'id, category_id, name, position, image_url, is_acti
 const PRODUCT_COLUMNS = 'id, subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product, is_active, created_at, updated_at';
 const PAYMENT_SUMMARY_COLUMNS = 'id, customer_id, customer_name, customer_mobile, total_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, created_at, verification_status';
 
-// --- REDIS-BACKED CACHE for product hierarchy data ---
-const HIERARCHY_CACHE_TTL = 300; // 5 minutes in seconds
-const HIERARCHY_REDIS_KEY = 'sarga:hierarchy:data';
+// --- PRODUCT HIERARCHY DATA ---
 
 const getHierarchyData = async () => {
-    // 1. Try Redis first (shared across all instances)
-    if (isRedisConnected()) {
-        try {
-            const cached = await getCache(HIERARCHY_REDIS_KEY, 'hierarchy');
-            if (cached) {
-                // Inventory is always fetched live (real-time stock levels)
-                const [inventory] = await pool.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id");
-                return { ...cached, inventory };
-            }
-        } catch (_cacheErr) {
-            // Redis error — fall through to DB
-        }
-    }
-    // 2. DB fetch (cache miss or Redis down)
+    // DB fetch (no caching)
     const [categories, subcategories, products, inventory, slabs, extras, links] = await Promise.all([
         pool.query(`SELECT ${CATEGORY_COLUMNS} FROM sarga_product_categories`).then(r => r[0]),
         pool.query(`SELECT ${SUBCATEGORY_COLUMNS} FROM sarga_product_subcategories`).then(r => r[0]),
@@ -96,15 +80,12 @@ const getHierarchyData = async () => {
         p.links = linksByProduct[p.id] || [];
     });
 
-    const hierarchyData = { categories, subcategories, products };
-    // Store in Redis (without inventory — live data never cached)
-    setCache(HIERARCHY_REDIS_KEY, hierarchyData, HIERARCHY_CACHE_TTL).catch(() => {});
     return { categories, subcategories, products, inventory };
 };
 
-// Invalidate hierarchy cache (call after product/category CRUD)
+// Invalidate hierarchy cache (call after product/category CRUD) (No-op now that Redis is removed)
 const invalidateHierarchyCache = () => {
-    invalidatePattern('hierarchy').catch(() => {});
+    // No-op
 };
 
 // --- HELPER: PRICING ENGINE ---

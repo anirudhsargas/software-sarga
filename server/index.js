@@ -15,8 +15,7 @@ const rateLimit = require('express-rate-limit');
 const { initDb, pool } = require('./database');
 const { getTodayDate } = require('./helpers');
 const logger = require('./helpers/logger');
-const { verifyWithAnySecret } = require('./middleware/auth');
-const { connectRedis, disconnectRedis, redisHealthCheck } = require('./config/redis');
+const verifyWithAnySecret = require('./middleware/auth').verifyWithAnySecret;
 
 // Express app and basic config
 const app = express();
@@ -39,12 +38,7 @@ app.get('/api/health', async (req, res) => {
     });
 });
 
-// Redis health check endpoint
-app.get('/api/health/redis', async (req, res) => {
-    const health = await redisHealthCheck();
-    const statusCode = health.status === 'connected' ? 200 : 503;
-    res.status(statusCode).json(health);
-});
+
 
 // Configure allowed CORS origins (normalize and remove trailing slashes)
 const allowedOrigins = [
@@ -456,13 +450,6 @@ if (process.env.NODE_ENV !== 'test') {
     initDb().then(async () => {
         logger.info('[DB] Database initialized successfully');
 
-        // Connect to Redis (non-blocking: server starts even if Redis is down)
-        try {
-            await connectRedis();
-        } catch (err) {
-            logger.warn(`[Redis] Connection failed, using in-memory cache: ${err.message}`);
-        }
-
         const _server = app.listen(PORT, '0.0.0.0', () => {
             const mode = process.env.NODE_ENV || 'development';
             const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');
@@ -535,7 +522,6 @@ if (process.env.NODE_ENV !== 'test') {
     // Graceful shutdown
     const gracefulShutdown = async (signal) => {
         logger.info(`[Server] ${signal} received. Shutting down gracefully...`);
-        await disconnectRedis();
         process.exit(0);
     };
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

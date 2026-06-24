@@ -2,15 +2,11 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { pool } = require('../database');
 const logger = require('../helpers/logger');
-const { getCache, setCache, CACHE_ENABLED } = require('../services/cacheService');
-const { isRedisConnected } = require('../config/redis');
-
 // Session cache TTL — defaults to 12 hours (matching JWT expiry in auth.js routes)
 const SESSION_CACHE_TTL = parseInt(process.env.SESSION_CACHE_TTL || '43200', 10);
 
 /**
- * Returns a Redis key for a session token.
- * We hash the JWT so raw tokens are never stored in Redis.
+ * Returns a key for a session token (unused now that Redis is removed).
  */
 function sessionCacheKey(token) {
     const hash = crypto.createHash('sha256').update(token).digest('hex');
@@ -18,29 +14,15 @@ function sessionCacheKey(token) {
 }
 
 /**
- * Check session revocation — Redis first, DB fallback.
+ * Check session revocation — DB check.
  * Returns true if session IS revoked (should reject), false if valid.
  */
 async function isSessionRevoked(token) {
-    const key = sessionCacheKey(token);
-    // 1. Try Redis first
-    if (CACHE_ENABLED && isRedisConnected()) {
-        try {
-            const cached = await getCache(key, 'session');
-            if (cached === 'revoked') return true;
-            if (cached === 'active') return false;
-        } catch { /* fall through to DB */ }
-    }
-    // 2. DB fallback
     try {
         const [sessions] = await pool.query('SELECT is_revoked FROM sarga_user_sessions WHERE session_token = ? LIMIT 1', [token]);
         if (sessions.length > 0 && sessions[0].is_revoked) {
-            // Cache revoked state for remaining TTL
-            setCache(key, 'revoked', SESSION_CACHE_TTL).catch(() => {});
             return true;
         }
-        // Cache active state
-        setCache(key, 'active', SESSION_CACHE_TTL).catch(() => {});
         return false;
     } catch (dbErr) {
         logger.error('Session DB check error:', dbErr);
@@ -49,11 +31,10 @@ async function isSessionRevoked(token) {
 }
 
 /**
- * Mark a token as revoked in Redis immediately (called on logout).
+ * Mark a token as revoked (no-op now that Redis is removed).
  */
 async function revokeSessionInCache(token) {
-    const key = sessionCacheKey(token);
-    await setCache(key, 'revoked', SESSION_CACHE_TTL).catch(() => {});
+    // No-op
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;

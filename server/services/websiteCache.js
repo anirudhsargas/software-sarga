@@ -3,54 +3,11 @@ const logger = require('../helpers/logger');
 
 const TTL = process.env.WEBSITE_CACHE_TTL_MS ? Number(process.env.WEBSITE_CACHE_TTL_MS) : 30_000;
 
-// In-memory fallback cache
+// In-memory cache
 const cache = {
   products: { ts: 0, data: [] },
   categories: { ts: 0, data: [] },
 };
-
-// Try to initialize Redis (ioredis) when REDIS_URL is provided. If not available,
-// we'll continue using the in-memory cache. Redis is optional but recommended for
-// multi-instance deployments so invalidation can be propagated across instances.
-let redis = null;
-let redisPub = null;
-let redisSub = null;
-const REDIS_CHANNEL = 'website-cache-invalidate';
-
-if (process.env.REDIS_URL) {
-  try {
-    const IORedis = require('ioredis');
-    redis = new IORedis(process.env.REDIS_URL);
-    // Create separate pub/sub clients to avoid interference
-    redisPub = new IORedis(process.env.REDIS_URL);
-    redisSub = new IORedis(process.env.REDIS_URL);
-
-    redisSub.subscribe(REDIS_CHANNEL, (err) => {
-      if (err) logger.warn('[WebsiteCache] Failed to subscribe to Redis channel:', err.message);
-      else logger.info('[WebsiteCache] Subscribed to Redis invalidation channel');
-    });
-
-    redisSub.on('message', (channel, message) => {
-      if (channel !== REDIS_CHANNEL) return;
-      try {
-        const type = message || null;
-        if (!type) {
-          cache.products.ts = 0;
-          cache.categories.ts = 0;
-        } else {
-          if (type === 'products') cache.products.ts = 0;
-          if (type === 'categories') cache.categories.ts = 0;
-        }
-        logger.info('[WebsiteCache] Received invalidation message from Redis:', type || 'all');
-      } catch (e) {
-        logger.warn('[WebsiteCache] Error processing invalidation message:', e.message);
-      }
-    });
-  } catch (_e) {
-    logger.warn('[WebsiteCache] ioredis not available or failed to initialize, using in-memory cache');
-    redis = null;
-  }
-}
 
 async function loadProducts() {
   const [rows] = await pool.query(
@@ -90,18 +47,6 @@ async function loadCategories() {
 
 async function getProducts() {
   try {
-    // If redis is configured, attempt to read from redis first
-    if (redis) {
-      const key = 'website:products';
-      const raw = await redis.get(key);
-      if (raw) {
-        try { return JSON.parse(raw); } catch (_e) { /* fallthrough */ }
-      }
-      const rows = await loadProducts();
-      try { await redis.set(key, JSON.stringify(rows), 'PX', TTL); } catch (e) { logger.warn('[WebsiteCache] Failed to write products to redis:', e.message); }
-      return rows;
-    }
-
     if (Date.now() - cache.products.ts > TTL) {
       cache.products.data = await loadProducts();
       cache.products.ts = Date.now();
@@ -116,17 +61,6 @@ async function getProducts() {
 
 async function getCategories() {
   try {
-    if (redis) {
-      const key = 'website:categories';
-      const raw = await redis.get(key);
-      if (raw) {
-        try { return JSON.parse(raw); } catch (_e) { /* fallthrough */ }
-      }
-      const rows = await loadCategories();
-      try { await redis.set(key, JSON.stringify(rows), 'PX', TTL); } catch (e) { logger.warn('[WebsiteCache] Failed to write categories to redis:', e.message); }
-      return rows;
-    }
-
     if (Date.now() - cache.categories.ts > TTL) {
       cache.categories.data = await loadCategories();
       cache.categories.ts = Date.now();
@@ -148,22 +82,6 @@ function invalidate(type) {
     if (type === 'products') cache.products.ts = 0;
     if (type === 'categories') cache.categories.ts = 0;
     logger.info(`[WebsiteCache] Invalidated cache: ${type}`);
-  }
-
-  // Remove keys from Redis and publish invalidation so other instances pick it up
-  if (redis && redisPub) {
-    try {
-      const delKey = (k) => redis.del(k).catch(() => {});
-      if (!type) {
-        delKey('website:products');
-        delKey('website:categories');
-      } else if (type === 'products') delKey('website:products');
-      else if (type === 'categories') delKey('website:categories');
-
-      redisPub.publish(REDIS_CHANNEL, type || '');
-    } catch (e) {
-      logger.warn('[WebsiteCache] Failed to publish invalidation to Redis:', e.message);
-    }
   }
 }
 
