@@ -236,13 +236,10 @@ api.interceptors.response.use(
         }
 
         if (status === 401) {
-            const hadToken = error.config?.headers?.Authorization;
-            if (hadToken) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                if (window.location.pathname !== '/login') {
-                    window.location.href = '/login';
-                }
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
             }
         }
 
