@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS sarga_bill_extraction_logs (
   INDEX idx_field (field_name)
 );
 
-ALTER TABLE sarga_bills_documents ADD COLUMN IF NOT EXISTS extraction_confidence DECIMAL(5, 2) DEFAULT NULL;
-ALTER TABLE sarga_bills_documents ADD COLUMN IF NOT EXISTS extraction_status ENUM('pending', 'processing', 'completed', 'failed', 'manual') DEFAULT 'pending';
-ALTER TABLE sarga_bills_documents ADD COLUMN IF NOT EXISTS extraction_errors TEXT;
-ALTER TABLE sarga_bills_documents ADD COLUMN IF NOT EXISTS manual_correction_required TINYINT(1) DEFAULT 0;
+ALTER TABLE sarga_bills_documents ADD COLUMN extraction_confidence DECIMAL(5, 2) DEFAULT NULL;
+ALTER TABLE sarga_bills_documents ADD COLUMN extraction_status ENUM('pending', 'processing', 'completed', 'failed', 'manual') DEFAULT 'pending';
+ALTER TABLE sarga_bills_documents ADD COLUMN extraction_errors TEXT;
+ALTER TABLE sarga_bills_documents ADD COLUMN manual_correction_required TINYINT(1) DEFAULT 0;
