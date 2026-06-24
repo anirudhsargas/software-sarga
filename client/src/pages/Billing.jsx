@@ -52,7 +52,7 @@ const defaultJobData = () => ({
   job_name: '', description: '', quantity: 1, unit_price: 0, total_amount: 0, advance_paid: 0,
   delivery_date: '', applied_extras: [], customPaperRate: 0, is_double_side: false,
   machine_id: '', waste_prints: 0, proof_prints: 0, count_to_machine: false,
-  colour: '', numbering_from: '', numbering_to: '', special_instructions: '',
+  colour: '', paper_preference: '', numbering_from: '', numbering_to: '', special_instructions: '',
   matter_text: '', matter_file: null, matter_preview: null
 });
 
@@ -141,6 +141,15 @@ const Billing = () => {
   const [assignSelections, setAssignSelections] = useState({});
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
+  const staffByRole = useMemo(() => {
+    const groups = {};
+    (staffOptions || []).forEach(s => {
+      const role = s.role || 'Other';
+      if (!groups[role]) groups[role] = [];
+      groups[role].push(s);
+    });
+    return groups;
+  }, [staffOptions]);
   const [showScanner, setShowScanner] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
@@ -278,7 +287,10 @@ const Billing = () => {
 
   // Fetch staff for assignment
   useEffect(() => {
-    api.get('/staff?active=true').then(r => setStaffOptions(Array.isArray(r.data?.data) ? r.data.data : Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    api.get('/staff?active=true&all=true').then(r => {
+      const all = Array.isArray(r.data?.data) ? r.data.data : Array.isArray(r.data) ? r.data : [];
+      setStaffOptions(all.filter(s => s.role !== 'Front Office' && s.role !== 'Accountant'));
+    }).catch(() => {});
   }, []);
 
   // ── Shortcut Prefill ──
@@ -308,6 +320,7 @@ const Billing = () => {
       proof_prints: 0,
       book_type: 'Laser',
       colour: '',
+      paper_preference: '',
       numbering_from: '',
       numbering_to: '',
       special_instructions: '',
@@ -318,7 +331,7 @@ const Billing = () => {
     };
     setOrderLines([line]);
     // Prefill payment mode
-    const payMap = { cash: 'Cash', upi: 'UPI', card: 'Card', credit: 'Credit' };
+    const payMap = { cash: 'Cash', upi: 'UPI', card: 'Cash', credit: 'Credit' };
     const method = payMap[sc.payment_mode] || 'Cash';
     setPayment(prev => ({
       ...prev,
@@ -535,7 +548,7 @@ const Billing = () => {
       waste_prints: 0,
       proof_prints: 0,
       book_type: derivedBookType,
-      colour: '', numbering_from: '', numbering_to: '', special_instructions: '',
+      colour: '', paper_preference: '', numbering_from: '', numbering_to: '', special_instructions: '',
       matter_text: '', matter_file: null, matter_preview: null,
       is_inventory_item: false,
     };
@@ -639,7 +652,7 @@ const Billing = () => {
             calculation_type: 'flat', applied_extras: [], customPaperRate: 0, is_double_side: false,
             description: '', category: '', subcategory: '', machine_id: null,
             waste_prints: 0, proof_prints: 0, book_type: 'Other',
-            colour: '', numbering_from: '', numbering_to: '', special_instructions: '',
+            colour: '', paper_preference: '', numbering_from: '', numbering_to: '', special_instructions: '',
             matter_text: '', matter_file: null, matter_preview: null,
             is_inventory_item: true,
           }]);
@@ -1582,6 +1595,33 @@ const Billing = () => {
           </div>
         </div>
 
+        {/* Order Description Details */}
+        <div className="billing-summary-details" style={{ marginTop: 16, padding: '12px', border: '1px solid var(--border)', borderRadius: 8 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--text-muted)' }}>Job Details</div>
+          {orderLines.map((line, idx) => (
+            <div key={line.id} style={{ marginBottom: idx < orderLines.length - 1 ? 8 : 0, padding: 8, background: 'var(--surface-2)', borderRadius: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>{line.product_name}</div>
+              <div className="row gap-sm" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <input type="text" placeholder="Colour" value={line.colour || ''}
+                  onChange={e => updateLine(line.id, 'colour', e.target.value)}
+                  style={{ flex: 1, minWidth: 80, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)' }} />
+                <input type="text" placeholder="Paper" value={line.paper_preference || ''}
+                  onChange={e => updateLine(line.id, 'paper_preference', e.target.value)}
+                  style={{ flex: 1, minWidth: 80, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)' }} />
+                <input type="text" inputMode="numeric" placeholder="From" value={line.numbering_from || ''}
+                  onChange={e => updateLine(line.id, 'numbering_from', e.target.value)}
+                  style={{ width: 70, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)' }} />
+                <input type="text" inputMode="numeric" placeholder="To" value={line.numbering_to || ''}
+                  onChange={e => updateLine(line.id, 'numbering_to', e.target.value)}
+                  style={{ width: 70, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)' }} />
+              </div>
+              <input type="text" placeholder="Special instructions..." value={line.special_instructions || ''}
+                onChange={e => updateLine(line.id, 'special_instructions', e.target.value)}
+                style={{ width: '100%', marginTop: 4, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)' }} />
+            </div>
+          ))}
+        </div>
+
         {/* Draft + Preview actions */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setActiveTab('payment')}>
@@ -1677,8 +1717,12 @@ const Billing = () => {
                           aria-label={`Assign staff for job ${job.job_number || job.id}`}
                         >
                           <option value="">— Assign Staff —</option>
-                          {Array.isArray(staffOptions) && staffOptions.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}{s.role ? ` (${s.role})` : ''}</option>
+                          {Object.keys(staffByRole).map(role => (
+                            <optgroup key={role} label={role}>
+                              {staffByRole[role].map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </optgroup>
                           ))}
                         </select>
                       </div>

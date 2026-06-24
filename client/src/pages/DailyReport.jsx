@@ -19,6 +19,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import BranchSelect from '../components/ui/BranchSelect';
 import './DailyReport.css';
 import PageContainer from '../components/ui/PageContainer';
+import OpeningSetupModal from '../components/OpeningSetupModal';
 
 const TABS = [
     { key: 'Offset', label: 'Offset', icon: BookOpen, color: 'var(--accent)', bg: 'var(--surface-2)' },
@@ -174,10 +175,8 @@ const DailyReport = () => {
 
     // Opening balance prompt modal
     const [showOpeningPrompt, setShowOpeningPrompt] = useState(false);
-    const [promptBalances, setPromptBalances] = useState({ Offset: '', Laser: '', Other: '' });
+    const [promptBalances, setPromptBalances] = useState({});
     const [promptMachines, setPromptMachines] = useState([]);
-    const [machineOpeningTemps, setMachineOpeningTemps] = useState({});
-    const [savingPrompt, setSavingPrompt] = useState(false);
     const [promptDone, setPromptDone] = useState(false);
     const [prevClosing, setPrevClosing] = useState({ Offset: 0, Laser: 0, Other: 0 });
     const [_myBooks, setMyBooks] = useState([]);
@@ -313,9 +312,6 @@ const DailyReport = () => {
                             opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''
                         }));
                         setPromptMachines(machines);
-                        setMachineOpeningTemps(
-                            machines.reduce((acc, m) => ({ ...acc, [m.id]: m.opening_count }), {})
-                        );
                         const newBalances = {};
                         relevantBooks.forEach(b => {
                             newBalances[b] = prevData[b] > 0 ? String(prevData[b]) : '';
@@ -328,40 +324,17 @@ const DailyReport = () => {
         })();
     }, [reportDate]);
 
-    // ─── Save Opening Prompt ────────────────────────────────────
-    const handleSavePrompt = async () => {
-        setSavingPrompt(true);
-        try {
-            // Save balances — ignore 403 (already locked from a prior attempt)
-            for (const bookType of Object.keys(promptBalances)) {
-                try {
-                    await api.put('/daily-report/opening-balance', {
-                        date: reportDate, book_type: bookType, cash_opening: parseFloat(promptBalances[bookType]) || 0
-                    });
-                } catch (err) {
-                    if (err.response?.status !== 403) throw err;
-                }
-            }
+    // ─── Handle Opening Prompt Save/Skip ────────────────────────
+    const handleOpeningPromptSave = useCallback(() => {
+        setShowOpeningPrompt(false);
+        setPromptDone(true);
+        loadAllData();
+    }, [loadAllData]);
 
-            // Save machine readings — ignore 403 (already locked), fail on others
-            for (const m of promptMachines.filter(m => m.opening_count !== '' && m.opening_count !== null)) {
-                try {
-                    await api.post(`/machines/${m.id}/readings`, {
-                        reading_date: reportDate, opening_count: parseInt(m.opening_count) || 0
-                    });
-                } catch (err) {
-                    if (err.response?.status !== 403) throw err;
-                }
-            }
-
-            setShowOpeningPrompt(false);
-            setPromptDone(true);
-            loadAllData();
-        } catch (err) {
-            console.error('Error saving opening data:', err);
-            toast.error(err.response?.data?.error || 'Failed to save opening data. Please try again.');
-        } finally { setSavingPrompt(false); }
-    };
+    const handleOpeningPromptSkip = useCallback(() => {
+        setShowOpeningPrompt(false);
+        setPromptDone(true);
+    }, []);
 
     // ─── Fetch Opening Balances ─────────────────────────────────
     const fetchOpeningBalances = useCallback(async () => {
@@ -1618,85 +1591,15 @@ const DailyReport = () => {
 
     return (
         <PageContainer>
-            {/* Opening Balance Prompt Modal */}
             {showOpeningPrompt && (
-                <div className="modal-backdrop">
-                    <div className="modal opening-prompt-modal">
-                        <div className="opening-prompt-header">
-                            <div className="opening-prompt-icon">
-                                <IndianRupee size={20} />
-                            </div>
-                            <div>
-                                <h2 className="section-title opening-prompt-title">Good Morning!</h2>
-                                <p className="opening-prompt-subtitle">Set opening values for today</p>
-                            </div>
-                        </div>
-
-                        <div className="stack-md opening-prompt-content">
-                            {Object.keys(promptBalances).length > 0 && (
-                                <div className="panel panel--tight opening-prompt-panel">
-                                    <h4 className="opening-prompt-panel-title">
-                                        <Wallet size={14} /> CASH OPENING BALANCES
-                                    </h4>
-                                    <div className="stack-sm">
-                                        {TABS.filter(tab => Object.prototype.hasOwnProperty.call(promptBalances, tab.key)).map(tab => (
-                                            <div key={tab.key} className="row gap-md items-center opening-prompt-balance-row">
-                                                <div className="opening-prompt-balance-label">
-                                                    <div className="opening-prompt-balance-dot" style={{ background: tab.color }} />
-                                                    {tab.label}
-                                                </div>
-                                                <div className="opening-prompt-balance-input-wrapper">
-                                                    <input type="number" className="input-field opening-prompt-balance-input"
-                                                        value={promptBalances[tab.key]}
-                                                        onChange={(e) => setPromptBalances(prev => ({ ...prev, [tab.key]: e.target.value }))}
-                                                        placeholder="₹ 0.00" step="0.01"
-                                                    />
-                                                    {prevClosing[tab.key] > 0 && (
-                                                        <div className="opening-prompt-prev-closing">
-                                                            prev: ₹{Number(prevClosing[tab.key]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {promptMachines.length > 0 && (
-                                <div className="panel panel--tight opening-prompt-panel">
-                                    <h4 className="opening-prompt-machine-panel-title">
-                                        <Monitor size={14} /> MACHINE OPENING COUNTS
-                                    </h4>
-                                    <div className="stack-sm">
-                                        {promptMachines.map((m, _idx) => (
-                                            <div key={m.id} className="row gap-md items-center">
-                                                <div className="opening-prompt-machine-info">
-                                                    <div className="opening-prompt-machine-name">{m.machine_name}</div>
-                                                    {m.location && <div className="opening-prompt-machine-location">{m.location}</div>}
-                                                </div>
-                                                <input type="number" className="input-field opening-prompt-machine-input"
-                                                    value={machineOpeningTemps[m.id] || ''}
-                                                    onChange={(e) => setMachineOpeningTemps(prev => ({ ...prev, [m.id]: e.target.value }))}
-                                                    placeholder="Counter reading"
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="row gap-sm justify-end opening-prompt-actions">
-                            <button className="btn btn-ghost" onClick={() => { setShowOpeningPrompt(false); setPromptDone(true); }}>
-                                Skip for now
-                            </button>
-                            <button className="btn btn-primary" onClick={handleSavePrompt} disabled={savingPrompt}>
-                                <Check size={16} /> {savingPrompt ? 'Saving...' : 'Save & Continue'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <OpeningSetupModal
+                    balances={promptBalances}
+                    machines={promptMachines}
+                    prevClosing={prevClosing}
+                    branchName={branchName}
+                    onSave={handleOpeningPromptSave}
+                    onSkip={handleOpeningPromptSkip}
+                />
             )}
 
             {/* Change Request Modal */}

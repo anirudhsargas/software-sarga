@@ -151,6 +151,10 @@ export default function Quotes() {
 
     const [quotes, setQuotes] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [totalQuotes, setTotalQuotes] = useState(0);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const LIMIT = 10;
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState(null);
     
@@ -253,24 +257,20 @@ export default function Quotes() {
             const params = new URLSearchParams();
             if (searchQuery) params.set('search', searchQuery);
             if (statusFilter) params.set('status', statusFilter);
+            params.set('page', page);
+            params.set('limit', LIMIT);
             const { data } = await api.get(`/quotes?${params}`);
-            setQuotes(data.data || data);
+            const items = data.data || data;
+            setQuotes(items);
+            setTotalQuotes(data.total || items.length);
+            setTotalPages(data.total ? Math.ceil(data.total / LIMIT) : 1);
         } catch { toast.error('Failed to load quotes'); }
         finally { setLoading(false); }
-    }, [searchQuery, statusFilter]);
+    }, [searchQuery, statusFilter, page]);
+
+    useEffect(() => { setPage(1); }, [searchQuery, statusFilter]);
 
     useEffect(() => { fetchQuotes(); }, [fetchQuotes]);
-
-    // Visibility Listener: Pause sync / refresh when hidden, restore when visible
-    useEffect(() => {
-        const handleVisibility = () => {
-            if (document.visibilityState === 'visible') {
-                fetchQuotes();
-            }
-        };
-        document.addEventListener('visibilitychange', handleVisibility);
-        return () => document.removeEventListener('visibilitychange', handleVisibility);
-    }, [fetchQuotes]);
 
     // Keyboard ESC key modal closer
     useEffect(() => {
@@ -455,6 +455,15 @@ export default function Quotes() {
                             onDelete={handleDelete} 
                         />
                     ))}
+                </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && !loading && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 16 }}>
+                    <button className="btn btn-ghost btn-sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>← Prev</button>
+                    <span className="text-sm muted">Page {page} of {totalPages} ({totalQuotes} total)</span>
+                    <button className="btn btn-ghost btn-sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
                 </div>
             )}
 
