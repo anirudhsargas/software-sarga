@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus, ScanLine, Search, Wallet, IndianRupee, Truck, FileText, Printer, Clock, UserPlus
+  Plus, ScanLine, Search, Wallet, IndianRupee, Truck, FileText, Printer, Clock, UserPlus, CalendarCheck
 } from 'lucide-react';
 
 const QUICK_ACTIONS = [
@@ -77,6 +77,13 @@ const QUICK_ACTIONS = [
     icon: UserPlus,
     route: '/dashboard/customers/new',
     color: 'var(--success)'
+  },
+  {
+    id: 'attendance',
+    label: 'Attendance',
+    icon: CalendarCheck,
+    route: '/dashboard/daily-report',
+    color: 'var(--primary)'
   }
 ];
 
