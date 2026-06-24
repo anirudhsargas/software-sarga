@@ -1,3 +1,5 @@
-ALTER TABLE sarga_daily_credit_transactions
-  ADD COLUMN description VARCHAR(500) NULL
-  AFTER amount;
+-- This migration is handled programmatically in database.js
+-- to avoid DELIMITER / multi-statement limitations in Aiven MySQL.
+--
+-- ALTER TABLE sarga_daily_credit_transactions
+--   ADD COLUMN description VARCHAR(500) NULL AFTER amount;

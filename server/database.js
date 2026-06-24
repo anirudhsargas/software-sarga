@@ -8,6 +8,21 @@ const loadSchemaFiles = async (connection) => {
   if (!fs.existsSync(schemaDir)) return;
   const files = fs.readdirSync(schemaDir).filter(f => f.endsWith('.sql')).sort();
   for (const file of files) {
+    if (file === '022_add_description_to_credit_transactions.sql') {
+      const [cols] = await connection.query(`
+        SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'sarga_daily_credit_transactions'
+          AND COLUMN_NAME = 'description'
+      `);
+      if (cols.length === 0) {
+        await connection.query(`
+          ALTER TABLE sarga_daily_credit_transactions
+            ADD COLUMN description VARCHAR(500) NULL AFTER amount
+        `);
+      }
+      continue;
+    }
     const rawSql = fs.readFileSync(path.join(schemaDir, file), 'utf8');
     // Remove multi-line comments
     const noMultiLineComments = rawSql.replace(/\/\*[\s\S]*?\*\//g, '');
