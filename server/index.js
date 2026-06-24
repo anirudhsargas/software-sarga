@@ -19,6 +19,7 @@ const verifyWithAnySecret = require('./middleware/auth').verifyWithAnySecret;
 
 // Express app and basic config
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Health check endpoint for Render keepalive (no auth, checks DB connectivity)
