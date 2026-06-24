@@ -23,6 +23,21 @@ const loadSchemaFiles = async (connection) => {
       }
       continue;
     }
+    if (file === '023_fix_credit_transactions_columns.sql') {
+      const [cols] = await connection.query(`
+        SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'sarga_daily_credit_transactions'
+          AND COLUMN_NAME = 'customer_id'
+      `);
+      if (cols.length === 0) {
+        await connection.query(`
+          ALTER TABLE sarga_daily_credit_transactions
+            ADD COLUMN customer_id INT NULL AFTER description
+        `);
+      }
+      continue;
+    }
     const rawSql = fs.readFileSync(path.join(schemaDir, file), 'utf8');
     // Remove multi-line comments
     const noMultiLineComments = rawSql.replace(/\/\*[\s\S]*?\*\//g, '');

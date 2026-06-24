@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ScanLine, Wallet, IndianRupee, CalendarCheck } from 'lucide-react';
+import { ScanLine, Wallet, IndianRupee, CalendarCheck, Keyboard } from 'lucide-react';
 
 const QUICK_ACTIONS = [
   {
@@ -30,6 +30,13 @@ const QUICK_ACTIONS = [
     icon: CalendarCheck,
     route: '/dashboard/daily-report',
     color: 'var(--primary)'
+  },
+  {
+    id: 'shortcuts',
+    label: 'Shortcuts',
+    icon: Keyboard,
+    route: '/dashboard/shortcuts',
+    color: 'var(--accent)'
   }
 ];
 

@@ -67,38 +67,53 @@ async function cleanDuplicateInventoryLinks() {
                 }
                 
                 // Insert new cloned inventory item with the product's actual name
-                const [insertResult] = await pool.query(
-                    `INSERT INTO sarga_inventory 
-                     (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, item_type, source_code, model_name, size_code, hsn, gst_rate, vendor_name, vendor_contact, purchase_link)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [
-                        prod.name,
-                        sku || null,
-                        inventoryCategory,
-                        originalInv.unit || 'pcs',
-                        originalInv.quantity || 0, // Carry over quantity safely
-                        originalInv.reorder_level || 0,
-                        originalInv.cost_price || 0,
-                        originalInv.sell_price || 0,
-                        originalInv.item_type || 'Retail',
-                        prod.company_code || originalInv.source_code || null,
-                        prod.name,
-                        prod.size || originalInv.size_code || null,
-                        originalInv.hsn || null,
-                        originalInv.gst_rate || 0,
-                        originalInv.vendor_name || null,
-                        originalInv.vendor_contact || null,
-                        originalInv.purchase_link || null
-                    ]
-                );
-                
-                const newInventoryId = insertResult.insertId;
-                
-                // Auto-generate SKU if still none
-                if (!sku) {
-                    const catPart = (inventoryCategory || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
-                    const autoSku = `${catPart}-${String(newInventoryId).padStart(4, '0')}`;
-                    await pool.query('UPDATE sarga_inventory SET sku = ? WHERE id = ?', [autoSku, newInventoryId]);
+                let newInventoryId;
+                let skuExists = false;
+
+                if (sku) {
+                    const [existing] = await pool.query(
+                        'SELECT id FROM sarga_inventory WHERE sku = ?', [sku]
+                    );
+                    if (existing.length > 0) {
+                        newInventoryId = existing[0].id;
+                        skuExists = true;
+                    }
+                }
+
+                if (!skuExists) {
+                    const [insertResult] = await pool.query(
+                        `INSERT INTO sarga_inventory 
+                         (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, item_type, source_code, model_name, size_code, hsn, gst_rate, vendor_name, vendor_contact, purchase_link)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            prod.name,
+                            sku || null,
+                            inventoryCategory,
+                            originalInv.unit || 'pcs',
+                            originalInv.quantity || 0, // Carry over quantity safely
+                            originalInv.reorder_level || 0,
+                            originalInv.cost_price || 0,
+                            originalInv.sell_price || 0,
+                            originalInv.item_type || 'Retail',
+                            prod.company_code || originalInv.source_code || null,
+                            prod.name,
+                            prod.size || originalInv.size_code || null,
+                            originalInv.hsn || null,
+                            originalInv.gst_rate || 0,
+                            originalInv.vendor_name || null,
+                            originalInv.vendor_contact || null,
+                            originalInv.purchase_link || null
+                        ]
+                    );
+                    
+                    newInventoryId = insertResult.insertId;
+                    
+                    // Auto-generate SKU if still none
+                    if (!sku) {
+                        const catPart = (inventoryCategory || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
+                        const autoSku = `${catPart}-${String(newInventoryId).padStart(4, '0')}`;
+                        await pool.query('UPDATE sarga_inventory SET sku = ? WHERE id = ?', [autoSku, newInventoryId]);
+                    }
                 }
                 
                 // Update the product's link to point to this new inventory item
