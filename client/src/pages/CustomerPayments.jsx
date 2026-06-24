@@ -352,7 +352,7 @@ const CustomerPayments = () => {
   };
 
   const filteredCustomers = useMemo(() => {
-    let list = customers;
+    let list = customers.filter((c) => (c.type || '').toLowerCase() !== 'walk-in');
     if (filterPendingOnly) {
       list = list.filter((c) => Number(c.due_amount) > 0);
     }
@@ -434,6 +434,7 @@ const CustomerPayments = () => {
       const isCashUpiCombo = selected.length === 2 && selected.includes('Cash') && selected.includes('UPI');
       const paymentMethod = isCashUpiCombo ? 'Both' : selected[0];
 
+      const isWalkIn = !formData.customer_id || formData.customer_name === 'Walk-in';
       const savedPaymentLocal = {
         ...formData,
         customer_id: formData.customer_id ? Number(formData.customer_id) : null,
@@ -453,7 +454,8 @@ const CustomerPayments = () => {
         account_transfer_amount: transferAmount,
         order_lines: orderLines,
         job_ids: jobIdsToSend,
-        type: 'Customer'
+        type: 'Customer',
+        auto_deliver: isWalkIn
       };
 
       const result = await localDb.createPayment(savedPaymentLocal);

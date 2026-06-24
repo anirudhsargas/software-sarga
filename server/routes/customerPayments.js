@@ -85,7 +85,7 @@ router.get('/customer-payments', authenticateToken, async (req, res) => {
         const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
 
         // Use proper destructuring for mysql2/promise
-        const [countRows] = await pool.query(`SELECT COUNT(*) as total FROM sarga_customer_payments cp ${whereSection}`, params);
+        const [countRows] = await pool.query(`SELECT COUNT(*) as total FROM sarga_customer_payments cp LEFT JOIN sarga_invoices i ON i.payment_id = cp.id ${whereSection}`, params);
         const total = countRows && countRows[0] ? countRows[0].total : 0;
         
         const [rows] = await pool.query(

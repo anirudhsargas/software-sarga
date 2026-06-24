@@ -1881,22 +1881,74 @@ router.post('/jobs/:id/paper-logs', authenticateToken, async (req, res) => {
                         const avail = Number(bs[0].quantity || 0);
                         if (avail <= 0) {
                             // Nothing to deduct at branch level — fallback to global inventory
+                            const [invBefore] = await pool.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [invId]);
+                            const qtyBefore = Number(invBefore[0]?.quantity || 0);
                             await pool.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
+                            await pool.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Auto-consumption via job print log', ?)`,
+                                [invId, -qtyToConsume, qtyBefore, qtyBefore - qtyToConsume, jobId, req.user?.id]
+                            );
                         } else if (avail >= qtyToConsume) {
                             await pool.query('UPDATE sarga_branch_stock SET quantity = quantity - ? WHERE inventory_item_id = ? AND branch_id = ?', [qtyToConsume, invId, branchId]);
+                            await pool.query(
+                                `UPDATE sarga_inventory i
+                                 SET quantity = (SELECT COALESCE(SUM(quantity), 0) FROM sarga_branch_stock WHERE inventory_item_id = i.id)
+                                 WHERE id = ?`,
+                                [invId]
+                            );
+                            await pool.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, ?, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Auto-consumption via job print log', ?)`,
+                                [invId, branchId, -qtyToConsume, avail, avail - qtyToConsume, jobId, req.user?.id]
+                            );
                         } else {
                             // Partial: zero out branch and deduct remainder from global
                             const remainder = qtyToConsume - avail;
                             await pool.query('UPDATE sarga_branch_stock SET quantity = 0 WHERE inventory_item_id = ? AND branch_id = ?', [invId, branchId]);
+                            
+                            const [invBefore] = await pool.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [invId]);
+                            const qtyBeforeGlobal = Number(invBefore[0]?.quantity || 0);
                             await pool.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [remainder, invId]);
+
+                            await pool.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, ?, 'Consumption', ?, ?, 0, 'job', ?, 'Auto-consumption via job print log (branch part)', ?)`,
+                                [invId, branchId, -avail, avail, jobId, req.user?.id]
+                            );
+                            await pool.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Auto-consumption via job print log (global part)', ?)`,
+                                [invId, -remainder, qtyBeforeGlobal, qtyBeforeGlobal - remainder, jobId, req.user?.id]
+                            );
                         }
                     } else {
                         // No branch row — consume from global inventory
+                        const [invBefore] = await pool.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [invId]);
+                        const qtyBefore = Number(invBefore[0]?.quantity || 0);
                         await pool.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
+                        await pool.query(
+                            `INSERT INTO sarga_inventory_movement_log
+                             (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                             VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Auto-consumption via job print log', ?)`,
+                            [invId, -qtyToConsume, qtyBefore, qtyBefore - qtyToConsume, jobId, req.user?.id]
+                        );
                     }
                 } else {
                     // No branch context — consume from global inventory
+                    const [invBefore] = await pool.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [invId]);
+                    const qtyBefore = Number(invBefore[0]?.quantity || 0);
                     await pool.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
+                    await pool.query(
+                        `INSERT INTO sarga_inventory_movement_log
+                         (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                         VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Auto-consumption via job print log', ?)`,
+                        [invId, -qtyToConsume, qtyBefore, qtyBefore - qtyToConsume, jobId, req.user?.id]
+                    );
                 }
 
                 // Record consumption in inventory consumption table for audit
@@ -2037,26 +2089,85 @@ router.post('/jobs/:id/consume-paper', authenticateToken, async (req, res) => {
                         if (avail >= parent_needed) {
                             await conn.query('UPDATE sarga_branch_stock SET quantity = quantity - ? WHERE inventory_item_id = ? AND branch_id = ?', [parent_needed, parentId, branchId]);
                             consumedFromBranch = parent_needed;
+                            // Recalculate global quantity
+                            await conn.query(
+                                `UPDATE sarga_inventory i
+                                 SET quantity = (SELECT COALESCE(SUM(quantity), 0) FROM sarga_branch_stock WHERE inventory_item_id = i.id)
+                                 WHERE id = ?`,
+                                [parentId]
+                            );
+                            // Log movement
+                            await conn.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, ?, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Paper consumption for job (branch)', ?)`,
+                                [parentId, branchId, -parent_needed, avail, avail - parent_needed, jobId, req.user.id]
+                            );
                         } else if (avail > 0) {
                             const remainder = parent_needed - avail;
                             await conn.query('UPDATE sarga_branch_stock SET quantity = 0 WHERE inventory_item_id = ? AND branch_id = ?', [parentId, branchId]);
+                            
+                            const [invBefore] = await conn.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [parentId]);
+                            const qtyBeforeGlobal = Number(invBefore[0]?.quantity || 0);
                             await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [remainder, parentId]);
                             consumedFromBranch = avail;
                             consumedFromGlobal = remainder;
+
+                            // Log branch movement
+                            await conn.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, ?, 'Consumption', ?, ?, 0, 'job', ?, 'Paper consumption for job (branch part)', ?)`,
+                                [parentId, branchId, -avail, avail, jobId, req.user.id]
+                            );
+                            // Log global movement
+                            await conn.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Paper consumption for job (global part)', ?)`,
+                                [parentId, -remainder, qtyBeforeGlobal, qtyBeforeGlobal - remainder, jobId, req.user.id]
+                            );
                         } else {
                             // no branch stock
+                            const [invBefore] = await conn.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [parentId]);
+                            const qtyBefore = Number(invBefore[0]?.quantity || 0);
                             await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [parent_needed, parentId]);
                             consumedFromGlobal = parent_needed;
+
+                            await conn.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Paper consumption for job', ?)`,
+                                [parentId, -parent_needed, qtyBefore, qtyBefore - parent_needed, jobId, req.user.id]
+                            );
                         }
                     } else {
                         // no branch row
+                        const [invBefore] = await conn.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [parentId]);
+                        const qtyBefore = Number(invBefore[0]?.quantity || 0);
                         await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [parent_needed, parentId]);
                         consumedFromGlobal = parent_needed;
+
+                        await conn.query(
+                            `INSERT INTO sarga_inventory_movement_log
+                             (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                             VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Paper consumption for job', ?)`,
+                            [parentId, -parent_needed, qtyBefore, qtyBefore - parent_needed, jobId, req.user.id]
+                        );
                     }
                 } else {
                     // No branch context — consume from global inventory
+                    const [invBefore] = await conn.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [parentId]);
+                    const qtyBefore = Number(invBefore[0]?.quantity || 0);
                     await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [parent_needed, parentId]);
                     consumedFromGlobal = parent_needed;
+
+                    await conn.query(
+                        `INSERT INTO sarga_inventory_movement_log
+                         (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                         VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Paper consumption for job', ?)`,
+                        [parentId, -parent_needed, qtyBefore, qtyBefore - parent_needed, jobId, req.user.id]
+                    );
                 }
 
                 // Read remaining global quantity
@@ -2104,23 +2215,82 @@ router.post('/jobs/:id/consume-paper', authenticateToken, async (req, res) => {
                         if (avail >= qtyToConsume) {
                             await conn.query('UPDATE sarga_branch_stock SET quantity = quantity - ? WHERE inventory_item_id = ? AND branch_id = ?', [qtyToConsume, invId, branchId]);
                             consumedFromBranch = qtyToConsume;
+                            // Recalculate global quantity
+                            await conn.query(
+                                `UPDATE sarga_inventory i
+                                 SET quantity = (SELECT COALESCE(SUM(quantity), 0) FROM sarga_branch_stock WHERE inventory_item_id = i.id)
+                                 WHERE id = ?`,
+                                [invId]
+                            );
+                            // Log movement
+                            await conn.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, ?, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Direct paper consumption for job (branch)', ?)`,
+                                [invId, branchId, -qtyToConsume, avail, avail - qtyToConsume, jobId, req.user.id]
+                            );
                         } else if (avail > 0) {
                             const remainder = qtyToConsume - avail;
                             await conn.query('UPDATE sarga_branch_stock SET quantity = 0 WHERE inventory_item_id = ? AND branch_id = ?', [invId, branchId]);
+                            
+                            const [invBefore] = await conn.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [invId]);
+                            const qtyBeforeGlobal = Number(invBefore[0]?.quantity || 0);
                             await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [remainder, invId]);
                             consumedFromBranch = avail;
                             consumedFromGlobal = remainder;
+
+                            // Log branch movement
+                            await conn.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, ?, 'Consumption', ?, ?, 0, 'job', ?, 'Direct paper consumption for job (branch part)', ?)`,
+                                [invId, branchId, -avail, avail, jobId, req.user.id]
+                            );
+                            // Log global movement
+                            await conn.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Direct paper consumption for job (global part)', ?)`,
+                                [invId, -remainder, qtyBeforeGlobal, qtyBeforeGlobal - remainder, jobId, req.user.id]
+                            );
                         } else {
+                            const [invBefore] = await conn.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [invId]);
+                            const qtyBefore = Number(invBefore[0]?.quantity || 0);
                             await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
                             consumedFromGlobal = qtyToConsume;
+
+                            await conn.query(
+                                `INSERT INTO sarga_inventory_movement_log
+                                 (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                                 VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Direct paper consumption for job', ?)`,
+                                [invId, -qtyToConsume, qtyBefore, qtyBefore - qtyToConsume, jobId, req.user.id]
+                            );
                         }
                     } else {
+                        const [invBefore] = await conn.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [invId]);
+                        const qtyBefore = Number(invBefore[0]?.quantity || 0);
                         await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
                         consumedFromGlobal = qtyToConsume;
+
+                        await conn.query(
+                            `INSERT INTO sarga_inventory_movement_log
+                             (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                             VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Direct paper consumption for job', ?)`,
+                            [invId, -qtyToConsume, qtyBefore, qtyBefore - qtyToConsume, jobId, req.user.id]
+                        );
                     }
                 } else {
+                    const [invBefore] = await conn.query('SELECT quantity FROM sarga_inventory WHERE id = ?', [invId]);
+                    const qtyBefore = Number(invBefore[0]?.quantity || 0);
                     await conn.query('UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?', [qtyToConsume, invId]);
                     consumedFromGlobal = qtyToConsume;
+
+                    await conn.query(
+                        `INSERT INTO sarga_inventory_movement_log
+                         (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                         VALUES (?, NULL, 'Consumption', ?, ?, GREATEST(?, 0), 'job', ?, 'Direct paper consumption for job', ?)`,
+                        [invId, -qtyToConsume, qtyBefore, qtyBefore - qtyToConsume, jobId, req.user.id]
+                    );
                 }
 
                 // Read remaining

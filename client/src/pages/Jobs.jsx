@@ -417,7 +417,7 @@ const Jobs = () => {
                     </h1>
                 </div>
                 <div className="flex gap-sm flex-wrap">
-                    <button className="btn btn-primary" onClick={() => navigate('/dashboard/sales/orders/create')}>
+                    <button className="btn btn-primary" onClick={() => navigate('/dashboard/sales/invoices', { state: { action: 'create' } })}>
                         <Plus size={18} aria-hidden="true" /> Create Job
                     </button>
                 </div>

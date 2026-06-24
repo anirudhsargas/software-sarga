@@ -8,17 +8,29 @@ const { paginate } = require('../helpers/pagination');
 // Ensure that only Admin or Accountant can access these endpoints
 const allowedRoles = ['Admin', 'Accountant'];
 
+async function logInventoryMovement(conn, inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by) {
+    await conn.query(
+        `INSERT INTO sarga_inventory_movement_log
+         (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes || null, created_by || null]
+    );
+}
+
 // GET /stock-verification/:month
 // Fetches the stock verification for a specific month (YYYY-MM).
 // If no draft exists, it returns a new draft with all current inventory items.
 router.get('/:month', authenticateToken, authorizeRoles(...allowedRoles), async (req, res) => {
     try {
         const { month } = req.params;
+        const branchId = ['Admin', 'Accountant'].includes(req.user.role)
+            ? (req.query.branch_id || req.user.branch_id)
+            : req.user.branch_id;
 
-        // Check if there is already an existing verification for this month
+        // Check if there is already an existing verification for this month and branch
         const [verifications] = await pool.query(
-            'SELECT * FROM sarga_stock_verifications WHERE month = ?',
-            [month]
+            'SELECT * FROM sarga_stock_verifications WHERE month = ? AND branch_id = ?',
+            [month, branchId]
         );
 
         let verification = verifications[0];
@@ -29,15 +41,17 @@ router.get('/:month', authenticateToken, authorizeRoles(...allowedRoles), async 
             const [items] = await pool.query(
                 `SELECT 
                     i.id AS inventory_item_id,
-                    COALESCE(vi.system_quantity, i.quantity) AS system_quantity,
+                    COALESCE(vi.system_quantity, bs.quantity, 0) AS system_quantity,
                     vi.physical_quantity,
                     vi.notes,
                     i.name, i.sku, i.category, i.unit, i.cost_price
                  FROM sarga_inventory i
+                 LEFT JOIN sarga_branch_stock bs
+                   ON bs.inventory_item_id = i.id AND bs.branch_id = ?
                  LEFT JOIN sarga_stock_verification_items vi
                    ON vi.inventory_item_id = i.id AND vi.verification_id = ?
                  ORDER BY i.category, i.name`,
-                [verification.id]
+                [branchId, verification.id]
             );
             return res.json({ verification, items });
         }
@@ -47,11 +61,14 @@ router.get('/:month', authenticateToken, authorizeRoles(...allowedRoles), async 
         // It gets saved when they click "Save Draft" or "Complete Verification".
         const [inventoryItems] = await pool.query(
             `SELECT 
-                id as inventory_item_id, 
-                quantity as system_quantity,
-                name, sku, category, unit, cost_price
-             FROM sarga_inventory
-             ORDER BY category, name`
+                i.id as inventory_item_id, 
+                COALESCE(bs.quantity, 0) as system_quantity,
+                i.name, i.sku, i.category, i.unit, i.cost_price
+             FROM sarga_inventory i
+             LEFT JOIN sarga_branch_stock bs
+               ON bs.inventory_item_id = i.id AND bs.branch_id = ?
+             ORDER BY i.category, i.name`,
+            [branchId]
         );
 
         // Populate a fresh items array based on current inventory
@@ -66,7 +83,8 @@ router.get('/:month', authenticateToken, authorizeRoles(...allowedRoles), async 
                 id: null,
                 month,
                 status: 'Draft',
-                verified_by: null
+                verified_by: null,
+                branch_id: branchId
             },
             items: draftItems
         });
@@ -84,6 +102,9 @@ router.post('/', authenticateToken, authorizeRoles(...allowedRoles), async (req,
     try {
         const { month, status, items } = req.body;
         const userId = req.user.id;
+        const branchId = ['Admin', 'Accountant'].includes(req.user.role)
+            ? (req.body.branch_id || req.user.branch_id)
+            : req.user.branch_id;
 
         if (!month || !/^20\d{2}-(0[1-9]|1[0-2])$/.test(month)) {
             return res.status(400).json({ message: 'Invalid month format. Use YYYY-MM.' });
@@ -96,8 +117,8 @@ router.post('/', authenticateToken, authorizeRoles(...allowedRoles), async (req,
 
         // Check if there's an existing record
         const [existing] = await connection.query(
-            'SELECT * FROM sarga_stock_verifications WHERE month = ? FOR UPDATE',
-            [month]
+            'SELECT * FROM sarga_stock_verifications WHERE month = ? AND branch_id = ? FOR UPDATE',
+            [month, branchId]
         );
 
         let verificationId;
@@ -121,8 +142,8 @@ router.post('/', authenticateToken, authorizeRoles(...allowedRoles), async (req,
         } else {
             // Create new record
             const [insertResult] = await connection.query(
-                'INSERT INTO sarga_stock_verifications (month, status, verified_by) VALUES (?, ?, ?)',
-                [month, status, userId]
+                'INSERT INTO sarga_stock_verifications (month, status, verified_by, branch_id) VALUES (?, ?, ?, ?)',
+                [month, status, userId, branchId]
             );
             verificationId = insertResult.insertId;
         }
@@ -145,7 +166,7 @@ router.post('/', authenticateToken, authorizeRoles(...allowedRoles), async (req,
             );
         }
 
-        // If completing, we must update the main inventory
+        // If completing, we must update the branch stock and main inventory
         if (status === 'Completed') {
             for (const item of items) {
                 // Only update if a physical quantity was provided
@@ -154,34 +175,47 @@ router.post('/', authenticateToken, authorizeRoles(...allowedRoles), async (req,
                     const sysQty = Number(item.system_quantity) || 0;
 
                     if (physQty !== sysQty) {
-                        // Log consumption or restock based on the difference?
-                        // For a pure physical verification, we simply OVERWRITE the current quantity
+                        // Update branch stock
                         await connection.query(
-                            'UPDATE sarga_inventory SET quantity = ? WHERE id = ?',
-                            [physQty, item.inventory_item_id]
+                            `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity)
+                             VALUES (?, ?, ?)
+                             ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)`,
+                            [item.inventory_item_id, branchId, physQty]
                         );
 
-                        // We log the adjustment to the consumption/reorders table just to have a trail
+                        // Recalculate global quantity
+                        await connection.query(
+                            `UPDATE sarga_inventory i
+                             SET quantity = (
+                                 SELECT COALESCE(SUM(quantity), 0)
+                                 FROM sarga_branch_stock
+                                 WHERE inventory_item_id = i.id
+                             )
+                             WHERE id = ?`,
+                            [item.inventory_item_id]
+                        );
+
+                        // Log variance as an Adjustment record in sarga_inventory_movement_log
                         const diff = physQty - sysQty;
-                        if (diff < 0) {
-                            // Shrinkage/Loss -> Consumption
-                            await connection.query(
-                                'INSERT INTO sarga_inventory_consumption (inventory_item_id, quantity_consumed, consumed_by_user_id, notes) VALUES (?, ?, ?, ?)',
-                                [item.inventory_item_id, Math.abs(diff), userId, `Stock verification variance (${month})`]
-                            );
-                        } else if (diff > 0) {
-                            // Extra Found -> Restock
-                            await connection.query(
-                                'INSERT INTO sarga_inventory_reorders (inventory_item_id, quantity_received, cost_price, notes, days_since_last_reorder) VALUES (?, ?, COALESCE((SELECT cost_price FROM sarga_inventory WHERE id = ?), 0), ?, NULL)',
-                                [item.inventory_item_id, diff, item.inventory_item_id, `Stock verification variance (${month})`]
-                            );
-                        }
+                        await logInventoryMovement(
+                            connection,
+                            item.inventory_item_id,
+                            branchId,
+                            'Adjustment',
+                            diff,
+                            sysQty,
+                            physQty,
+                            'stock_verification',
+                            verificationId,
+                            item.notes || `Stock verification variance (${month})`,
+                            userId
+                        );
                     }
                 }
             }
-            auditLog(userId, 'STOCK_VERIFICATION_COMPLETE', `Completed stock verification for ${month}`);
+            auditLog(userId, 'STOCK_VERIFICATION_COMPLETE', `Completed stock verification for ${month} (Branch #${branchId})`);
         } else {
-            auditLog(userId, 'STOCK_VERIFICATION_DRAFT', `Saved stock verification draft for ${month}`);
+            auditLog(userId, 'STOCK_VERIFICATION_DRAFT', `Saved stock verification draft for ${month} (Branch #${branchId})`);
         }
 
         await connection.commit();
@@ -203,13 +237,14 @@ router.get('/history/list', authenticateToken, authorizeRoles(...allowedRoles), 
 
         const baseFrom = `
             FROM sarga_stock_verifications v 
-            LEFT JOIN sarga_staff s ON v.verified_by = s.id`;
+            LEFT JOIN sarga_staff s ON v.verified_by = s.id
+            LEFT JOIN sarga_branches b ON v.branch_id = b.id`;
 
         const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`);
         const [rows] = await pool.query(`
-            SELECT v.*, s.name as verified_by_name 
+            SELECT v.*, s.name as verified_by_name, b.name as branch_name 
             ${baseFrom}
-            ORDER BY v.month DESC
+            ORDER BY v.month DESC, b.name ASC
             LIMIT ? OFFSET ?
         `, [limit, offset]);
         

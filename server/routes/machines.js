@@ -1412,10 +1412,17 @@ router.get('/:id/live-count', auth.authenticate, async (req, res) => {
         }
 
         // Update machine poll info
-        await pool.query(
-            'UPDATE sarga_machines SET last_polled_at = NOW(), health_status = ? WHERE id = ?',
-            [health_status, id]
-        );
+        if (meter_value !== null && (!meterData || !meterData.error)) {
+            await pool.query(
+                'UPDATE sarga_machines SET last_polled_at = NOW(), last_meter_value = ?, health_status = ? WHERE id = ?',
+                [meter_value, health_status, id]
+            );
+        } else {
+            await pool.query(
+                'UPDATE sarga_machines SET last_polled_at = NOW(), health_status = ? WHERE id = ?',
+                [health_status, id]
+            );
+        }
 
         // Update reading sync info if we have a reading
         if (latestReading && meter_value != null) {

@@ -1292,6 +1292,15 @@ const MachineManagement = () => {
                                     <span className={`badge ${getTypeColor(machine.machine_type)} mm-badge-sm`}>{machine.machine_type}</span>
                                     <span className="text-xs muted">{machine.counter_type}</span>
                                     {machine.is_active !== 1 && <span className="badge badge--danger mm-badge-sm">Inactive</span>}
+                                    {machine.health_status && (
+                                        <span className={`badge mm-badge-sm ${
+                                            machine.health_status === 'healthy' ? 'badge--success' :
+                                            machine.health_status === 'warning' ? 'badge--warning' :
+                                            machine.health_status === 'critical' ? 'badge--danger' : 'badge--type-walk-in'
+                                        }`}>
+                                            {machine.health_status.charAt(0).toUpperCase() + machine.health_status.slice(1)}
+                                        </span>
+                                    )}
                                 </div>
                                 {isAdmin && (
                                     <div className="mm-card-actions">
@@ -1326,6 +1335,11 @@ const MachineManagement = () => {
                                 {machine.ip_address && (
                                     <div className="mm-card-info-row">
                                         <span className="muted mm-ip-address">IP: {machine.ip_address}</span>
+                                    </div>
+                                )}
+                                {machine.last_polled_at && (
+                                    <div className="mm-card-info-row">
+                                        <span className="muted text-xs">Sync: {new Date(machine.last_polled_at).toLocaleString()}</span>
                                     </div>
                                 )}
 

@@ -632,7 +632,7 @@ async function ensureProductLibraryFromInventoryItem({ inventoryId, name, catego
 // ========== OFFICE & ADMIN EXPENSES ==========
 
 // Get office expenses dashboard
-router.get('/office-dashboard', authenticateToken, async (req, res) => {
+router.get('/office-dashboard', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, role } = req.user;
 
@@ -697,7 +697,7 @@ router.get('/office-dashboard', authenticateToken, async (req, res) => {
 });
 
 // Get all office expenses with filters
-router.get('/office-expenses', authenticateToken, async (req, res) => {
+router.get('/office-expenses', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { expense_type, start_date, end_date } = req.query;
@@ -812,7 +812,7 @@ router.put('/office-expenses/:id', authenticateToken, authorizeRoles('Admin', 'A
 });
 
 // Delete office expense
-router.delete('/office-expenses/:id', authenticateToken, async (req, res) => {
+router.delete('/office-expenses/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
   try {
     if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only admins can delete expenses' });
@@ -831,7 +831,7 @@ router.delete('/office-expenses/:id', authenticateToken, async (req, res) => {
 // ========== TRANSPORT & DELIVERY EXPENSES ==========
 
 // Get transport dashboard
-router.get('/transport-dashboard', authenticateToken, async (req, res) => {
+router.get('/transport-dashboard', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, role } = req.user;
 
@@ -906,7 +906,7 @@ router.get('/transport-dashboard', authenticateToken, async (req, res) => {
 });
 
 // Get all transport expenses with filters
-router.get('/transport-expenses', authenticateToken, async (req, res) => {
+router.get('/transport-expenses', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { transport_type, start_date, end_date } = req.query;
@@ -1030,7 +1030,7 @@ router.put('/transport-expenses/:id', authenticateToken, authorizeRoles('Admin',
 });
 
 // Delete transport expense
-router.delete('/transport-expenses/:id', authenticateToken, async (req, res) => {
+router.delete('/transport-expenses/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
   try {
     if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only admins can delete expenses' });
@@ -1049,7 +1049,7 @@ router.delete('/transport-expenses/:id', authenticateToken, async (req, res) => 
 // ========== MISCELLANEOUS EXPENSES ==========
 
 // Get miscellaneous dashboard
-router.get('/misc-dashboard', authenticateToken, async (req, res) => {
+router.get('/misc-dashboard', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, role } = req.user;
 
@@ -1127,7 +1127,7 @@ router.get('/misc-dashboard', authenticateToken, async (req, res) => {
 });
 
 // Get all miscellaneous expenses with filters
-router.get('/misc-expenses', authenticateToken, async (req, res) => {
+router.get('/misc-expenses', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { expense_category, start_date, end_date } = req.query;
@@ -1249,7 +1249,7 @@ router.put('/misc-expenses/:id', authenticateToken, authorizeRoles('Admin', 'Acc
 });
 
 // Delete miscellaneous expense
-router.delete('/misc-expenses/:id', authenticateToken, async (req, res) => {
+router.delete('/misc-expenses/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
   try {
     if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only admins/accountants can delete expenses' });
@@ -1268,7 +1268,7 @@ router.delete('/misc-expenses/:id', authenticateToken, async (req, res) => {
 // ========== PETTY CASH MANAGEMENT ==========
 
 // Get petty cash dashboard
-router.get('/petty-cash-dashboard', authenticateToken, async (req, res) => {
+router.get('/petty-cash-dashboard', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, role } = req.user;
 
@@ -1343,7 +1343,7 @@ router.get('/petty-cash-dashboard', authenticateToken, async (req, res) => {
 });
 
 // Get petty cash ledger with filters
-router.get('/petty-cash-ledger', authenticateToken, async (req, res) => {
+router.get('/petty-cash-ledger', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { transaction_type, start_date, end_date } = req.query;
@@ -1460,7 +1460,7 @@ router.post('/petty-cash', authenticateToken, authorizeRoles('Admin', 'Accountan
 });
 
 // Update petty cash transaction (Admin/Accountant only, recalculates balances)
-router.put('/petty-cash/:id', authenticateToken, async (req, res) => {
+router.put('/petty-cash/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only admins/accountants can edit petty cash transactions' });
@@ -1533,7 +1533,7 @@ router.put('/petty-cash/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete petty cash transaction (Admin/Accountant only)
-router.delete('/petty-cash/:id', authenticateToken, async (req, res) => {
+router.delete('/petty-cash/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
   try {
     if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only admins/accountants can delete petty cash transactions' });
@@ -1595,7 +1595,7 @@ router.delete('/petty-cash/:id', authenticateToken, async (req, res) => {
 // ========== BILLS & DOCUMENTS STORAGE ==========
 
 // Get bills/documents with search filters
-router.get('/bills-documents', authenticateToken, async (req, res) => {
+router.get('/bills-documents', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { document_type, vendor_name, start_date, end_date, related_tab } = req.query;
@@ -1658,7 +1658,7 @@ router.get('/bills-documents', authenticateToken, async (req, res) => {
 });
 
 // Get full bill/document details (document + linked vendor bill + items)
-router.get('/bills-documents/:id/full', authenticateToken, async (req, res) => {
+router.get('/bills-documents/:id/full', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { branch_id, role } = req.user;
     const { id } = req.params;
@@ -2041,7 +2041,7 @@ router.put('/bills-documents/:id', authenticateToken, authorizeRoles('Admin', 'A
 });
 
 // Delete bill/document
-router.delete('/bills-documents/:id', authenticateToken, async (req, res) => {
+router.delete('/bills-documents/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
   try {
     if (!['Admin', 'Accountant'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Only admins/accountants can delete documents' });
@@ -2446,7 +2446,7 @@ router.post('/bills-documents/:id/retry-extraction', authenticateToken, authoriz
 });
 
 // Get extraction logs for a bill document
-router.get('/bills-documents/:id/extraction-logs', authenticateToken, async (req, res) => {
+router.get('/bills-documents/:id/extraction-logs', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { id } = req.params;
     const [logs] = await pool.query(
@@ -2466,7 +2466,7 @@ router.get('/bills-documents/:id/extraction-logs', authenticateToken, async (req
 });
 
 // Get inventory products for bill linking
-router.get('/bills-documents/suggest-products', authenticateToken, async (req, res) => {
+router.get('/bills-documents/suggest-products', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { keyword, category } = req.query;
 
@@ -2606,7 +2606,7 @@ const getDefaultStartDate = () => {
 
 const getDefaultEndDate = () => new Date().toISOString().slice(0, 10);
 
-router.get('/reports/monthly-expenses', authenticateToken, async (req, res) => {
+router.get('/reports/monthly-expenses', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const startDate = req.query.start_date || getDefaultStartDate();
     const endDate = req.query.end_date || getDefaultEndDate();
@@ -2640,7 +2640,7 @@ router.get('/reports/monthly-expenses', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/reports/category-wise', authenticateToken, async (req, res) => {
+router.get('/reports/category-wise', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const unionA = buildExpenseUnionQuery(req, start_date, end_date);
@@ -2668,7 +2668,7 @@ router.get('/reports/category-wise', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/reports/branch-wise', authenticateToken, async (req, res) => {
+router.get('/reports/branch-wise', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const unionA = buildExpenseUnionQuery(req, start_date, end_date);
@@ -2688,7 +2688,7 @@ router.get('/reports/branch-wise', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/reports/vendor-ledger', authenticateToken, async (req, res) => {
+router.get('/reports/vendor-ledger', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { vendor_id, vendor_name, start_date, end_date } = req.query;
     const params = [];
@@ -2721,7 +2721,7 @@ router.get('/reports/vendor-ledger', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/reports/utility-statement', authenticateToken, async (req, res) => {
+router.get('/reports/utility-statement', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { start_date, end_date, utility_type } = req.query;
     const payParams = [];
@@ -2818,7 +2818,7 @@ router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accoun
 });
 
 // List utility bills
-router.get('/utility-bills', authenticateToken, async (req, res) => {
+router.get('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { utility_type, branch_id } = req.query;
     const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
@@ -2875,7 +2875,7 @@ router.delete('/utility-bills/:id', authenticateToken, authorizeRoles('Admin'), 
 });
 
 // --- Utility Connections CRUD ---
-router.get('/utility-connections', authenticateToken, async (req, res) => {
+router.get('/utility-connections', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { utility_type, branch_id } = req.query;
     const params = [];
@@ -2929,7 +2929,7 @@ router.delete('/utility-connections/:id', authenticateToken, authorizeRoles('Adm
   }
 });
 
-router.get('/reports/rent-statement', authenticateToken, async (req, res) => {
+router.get('/reports/rent-statement', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const params = [];
@@ -2953,7 +2953,7 @@ router.get('/reports/rent-statement', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/reports/emi-statement', authenticateToken, async (req, res) => {
+router.get('/reports/emi-statement', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const params = [];
@@ -2977,7 +2977,7 @@ router.get('/reports/emi-statement', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/reports/kuri-statement', authenticateToken, async (req, res) => {
+router.get('/reports/kuri-statement', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const params = [];
@@ -3001,7 +3001,7 @@ router.get('/reports/kuri-statement', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/reports/cash-vs-bank', authenticateToken, async (req, res) => {
+router.get('/reports/cash-vs-bank', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const unionA = buildExpenseUnionQuery(req, start_date, end_date);

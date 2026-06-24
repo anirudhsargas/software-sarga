@@ -154,7 +154,8 @@ const Invoices = () => {
         methods: invoice.payment_method || 'Cash',
         referenceNumber: invoice.reference_number || null
       },
-      jobs: []
+      jobs: [],
+      description: invoice.description || ''
     };
   };
 

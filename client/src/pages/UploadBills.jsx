@@ -75,6 +75,8 @@ const UploadBills = () => {
   const [selectedBranchId, setSelectedBranchId] = useState(auth.getUser()?.branch_id || '');
   const [savingBills, setSavingBills] = useState(new Set());
   const [billRejections, setBillRejections] = useState({});
+  const [reuploadingBillId, setReuploadingBillId] = useState(null);
+  const reuploadInputRef = useRef(null);
 
   // Fetch branches & categories on mount
   useEffect(() => {
@@ -262,9 +264,120 @@ const UploadBills = () => {
       }
       return remaining;
     });
-    setCapturedBills(prev => prev.filter(b => b.id !== id));
+    setCapturedBills(prev => prev.map(b => b.id === id ? { ...b, status: 'rejected' } : b));
     setBillRejections(prev => ({ ...prev, [id]: reason || 'Manually rejected by user' }));
     toast('Bill rejected');
+  };
+
+  const handleReupload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !reuploadingBillId) return;
+
+    if (!ALLOWED_BILL_TYPES.includes(file.type) || file.size > 10 * 1024 * 1024) {
+      toast.error('Invalid file. Only PDF, JPG, PNG under 10MB are supported.');
+      return;
+    }
+
+    const isPdf = file.type === 'application/pdf';
+    const src = isPdf ? '/icons/pdf-icon.png' : URL.createObjectURL(file);
+    const label = file.name.length > 20 ? `${file.name.slice(0, 17)}...` : file.name;
+
+    setCapturedBills(prev => prev.map(b => b.id === reuploadingBillId ? {
+      ...b,
+      file,
+      src,
+      label,
+      status: 'pending'
+    } : b));
+
+    // Remove from billRejections list if tracked there
+    setBillRejections(prev => {
+      const next = { ...prev };
+      delete next[reuploadingBillId];
+      return next;
+    });
+
+    setReuploadingBillId(null);
+    toast.success('Bill replaced and set to pending');
+  };
+
+  const retryExtraction = async (id) => {
+    const bill = capturedBills.find(b => b.id === id);
+    if (!bill) return;
+
+    const loadingToastId = toast.loading('Retrying OCR extraction...');
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', bill.file);
+      
+      const response = await api.post('/bills-documents/extract-details', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const data = response.data;
+      const details = data.extracted_data || {};
+      const gst = data.gst_analysis || {};
+      const confidenceScores = data.confidence_scores || data.extraction_metadata?.confidence_scores || {};
+      const extractionLogs = data.extraction_logs || data.extraction_metadata?.extraction_logs || [];
+      const extractionStatus = data.extraction_metadata?.extraction_status || 'completed';
+      const ocrEngine = data.extraction_metadata?.ocr_engine || 'gemini';
+      const duplicateWarning = data.extraction_metadata?.duplicate_warning || null;
+
+      setExtractedBillsData(prev => {
+        const itemExists = prev.some(b => b.id === id);
+        const newBillData = {
+          id: bill.id,
+          label: bill.label,
+          src: bill.src,
+          file: bill.file,
+          confidence: data.confidence || 0.8,
+          confidence_scores: confidenceScores,
+          extraction_logs: extractionLogs,
+          extraction_status: extractionStatus,
+          ocr_engine: ocrEngine,
+          duplicate_warning: duplicateWarning,
+          detectedType: details.detected_type || 'Invoice',
+          vendor_name: details.vendor_name || '',
+          bill_number: details.bill_number || '',
+          bill_date: details.bill_date || new Date().toISOString().slice(0, 10),
+          amount: details.amount || '',
+          tax: details.tax || '0.00',
+          gst_category: gst.gst_category || '',
+          gst_confidence: gst.confidence || 0,
+          taxable_amount: gst.taxable_amount || details.amount || 0,
+          tax_amount: gst.tax_amount || details.tax || 0,
+          has_vendor_gstin: gst.has_vendor_gstin || false,
+          items: (details.items || []).map((it, idx) => ({
+            serial_no: it.serial_no || idx + 1,
+            item_name: it.description || it.item_name || '',
+            hsn_sac: it.hsn_sac || '',
+            quantity: it.quantity || '',
+            rate: it.rate || it.unit_price || '',
+            gst_percent: it.gst_percent || 18,
+            mrp: it.mrp || it.total_amount || ''
+          })),
+          uncertainFields: detectUncertainties(details, data.confidence),
+          showExtractionLogs: false,
+          status: 'ready',
+          extractionFailed: false
+        };
+
+        if (itemExists) {
+          return prev.map(b => b.id === id ? newBillData : b);
+        } else {
+          return [...prev, newBillData];
+        }
+      });
+
+      // Update status in capturedBills
+      setCapturedBills(prev => prev.map(b => b.id === id ? { ...b, status: 'completed' } : b));
+
+      toast.success('Extraction successful!', { id: loadingToastId });
+    } catch (err) {
+      console.error('OCR retry error for bill:', id, err);
+      toast.error('OCR retry failed again. Please enter details manually.', { id: loadingToastId });
+    }
   };
 
   const resetRejectedBill = (id) => {
@@ -290,26 +403,28 @@ const UploadBills = () => {
 
   // --- OCR STEPPER FLOW ---
   const startOcrProcessing = async () => {
-    if (capturedBills.length === 0) {
-      toast.error('No bills captured to process.');
+    const billsToProcess = capturedBills.filter(b => b.status !== 'approved');
+    if (billsToProcess.length === 0) {
+      toast.error('No pending or rejected bills to process.');
       return;
     }
 
     setUiState('ocr');
     
     // Initialize stepper logs
-    const initialProgress = capturedBills.map(b => ({
+    const initialProgress = billsToProcess.map(b => ({
       billId: b.id,
       currentStep: 0,
       error: ''
     }));
     setOcrProgress(initialProgress);
+    setCapturedBills(prev => prev.map(b => b.status !== 'approved' ? { ...b, status: 'processing' } : b));
 
     const extractedResults = [];
 
     // Process sequentially
-    for (let i = 0; i < capturedBills.length; i++) {
-      const bill = capturedBills[i];
+    for (let i = 0; i < billsToProcess.length; i++) {
+      const bill = billsToProcess[i];
       setProcessingIndex(i);
 
       const updateStep = (stepNo) => {
@@ -392,6 +507,7 @@ const UploadBills = () => {
           status: 'ready'
         });
 
+        setCapturedBills(prev => prev.map(b => b.id === bill.id ? { ...b, status: 'completed' } : b));
       } catch (err) {
         console.error('OCR error for bill:', bill.id, err);
         // Fallback mock details if extraction fails
@@ -416,6 +532,8 @@ const UploadBills = () => {
           status: 'ready',
           extractionFailed: true
         });
+
+        setCapturedBills(prev => prev.map(b => b.id === bill.id ? { ...b, status: 'failed' } : b));
       }
     }
 
@@ -557,11 +675,21 @@ const UploadBills = () => {
       setExtractedBillsData(prev => {
         const remaining = prev.filter(b => b.id !== id);
         if (remaining.length === 0) {
-          setUiState('success');
+          setCapturedBills(currCaptured => {
+            const updatedCaptured = currCaptured.map(b => b.id === id ? { ...b, status: 'approved' } : b);
+            const hasUnapproved = updatedCaptured.some(b => b.status !== 'approved');
+            if (hasUnapproved) {
+              setUiState('dashboard');
+            } else {
+              setUiState('success');
+            }
+            return updatedCaptured;
+          });
+        } else {
+          setCapturedBills(prevCaptured => prevCaptured.map(b => b.id === id ? { ...b, status: 'approved' } : b));
         }
         return remaining;
       });
-      setCapturedBills(prev => prev.filter(b => b.id !== id));
       toast.success(`✓ ${bill.label} confirmed & saved`);
     } catch (err) {
       toast.error(`Failed to upload ${bill.label}: ${err.response?.data?.message || err.message}`);
@@ -622,10 +750,22 @@ const UploadBills = () => {
       toast.success(`${succeeded.length} of ${toConfirm.length} bills confirmed`);
       setExtractedBillsData(prev => {
         const remaining = prev.filter(b => !succeededSet.has(b.id));
-        if (remaining.length === 0) setUiState('success');
+        if (remaining.length === 0) {
+          setCapturedBills(currCaptured => {
+            const updatedCaptured = currCaptured.map(b => succeededSet.has(b.id) ? { ...b, status: 'approved' } : b);
+            const hasUnapproved = updatedCaptured.some(b => b.status !== 'approved');
+            if (hasUnapproved) {
+              setUiState('dashboard');
+            } else {
+              setUiState('success');
+            }
+            return updatedCaptured;
+          });
+        } else {
+          setCapturedBills(prevCaptured => prevCaptured.map(b => succeededSet.has(b.id) ? { ...b, status: 'approved' } : b));
+        }
         return remaining;
       });
-      setCapturedBills(prev => prev.filter(b => !succeededSet.has(b.id)));
       setSelectedReviewIds([]);
     } else {
       toast.error('Failed to confirm any selected bills.');
@@ -804,11 +944,56 @@ const UploadBills = () => {
                         <img src={bill.src} alt={bill.label} className="queue-thumbnail border" />
                         <div className="flex-1 stack-xxs">
                           <span className="text-xs font-semibold">{bill.label}</span>
-                          <span className="status-badge status-pending text-xxs">
-                            <Loader2 size={10} className="mr-4" /> Pending
-                          </span>
+                          {(() => {
+                            switch (bill.status) {
+                              case 'approved':
+                                return (
+                                  <span className="status-badge text-xxs" style={{ backgroundColor: '#dcfce7', color: '#166534', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '4px' }}>
+                                    <CheckCircle size={10} /> Approved
+                                  </span>
+                                );
+                              case 'rejected':
+                                return (
+                                  <span className="status-badge text-xxs" style={{ backgroundColor: '#fee2e2', color: '#991b1b', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '4px' }}>
+                                    <X size={10} /> Rejected (Re-upload Required)
+                                  </span>
+                                );
+                              case 'processing':
+                                return (
+                                  <span className="status-badge text-xxs" style={{ backgroundColor: '#dbeafe', color: '#1e40af', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '4px' }}>
+                                    <Loader2 size={10} className="animate-spin" /> Processing
+                                  </span>
+                                );
+                              case 'failed':
+                                return (
+                                  <span className="status-badge text-xxs" style={{ backgroundColor: '#fee2e2', color: '#991b1b', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '4px' }}>
+                                    <AlertCircle size={10} /> Extraction Failed
+                                  </span>
+                                );
+                              case 'pending':
+                              default:
+                                return (
+                                  <span className="status-badge status-pending text-xxs">
+                                    <Loader2 size={10} className="mr-4" /> Pending
+                                  </span>
+                                );
+                            }
+                          })()}
                         </div>
                         <div className="row gap-xxs">
+                          {bill.status === 'rejected' && (
+                            <button 
+                              className="btn btn-ghost btn-xs text-primary row items-center" 
+                              onClick={() => {
+                                setReuploadingBillId(bill.id);
+                                reuploadInputRef.current?.click();
+                              }}
+                              title="Re-upload/Replace File"
+                              style={{ padding: '2px 6px', height: 'auto', display: 'inline-flex', alignItems: 'center' }}
+                            >
+                              <RotateCcw size={10} className="mr-4" /> Re-upload
+                            </button>
+                          )}
                           <button className="btn btn-ghost btn-icon btn-xs" onClick={() => reorderBill(index, 'left')} disabled={index === 0}>
                             ←
                           </button>
@@ -825,14 +1010,14 @@ const UploadBills = () => {
                 )}
               </div>
 
-              {capturedBills.length > 0 && (
+              {capturedBills.length > 0 && capturedBills.some(b => b.status !== 'approved') && (
                 <div className="queue-actions-footer stack-sm border-top pt-16">
                   <div className="session-info-strip row space-between text-xs">
                     <span className="muted">Estimated OCR processing time:</span>
-                    <span className="bold text-primary">{capturedBills.length * ESTIMATED_TIME_PER_BILL}s</span>
+                    <span className="bold text-primary">{capturedBills.filter(b => b.status !== 'approved').length * ESTIMATED_TIME_PER_BILL}s</span>
                   </div>
                   <button className="btn btn-primary btn--full mt-8" onClick={startOcrProcessing}>
-                    <Sparkles size={16} className="mr-8" /> Process All ({capturedBills.length} Bill{capturedBills.length !== 1 ? 's' : ''})
+                    <Sparkles size={16} className="mr-8" /> Process All ({capturedBills.filter(b => b.status !== 'approved').length} Bill{capturedBills.filter(b => b.status !== 'approved').length !== 1 ? 's' : ''})
                   </button>
                 </div>
               )}
@@ -859,7 +1044,13 @@ const UploadBills = () => {
                             <X size={10} className="mr-4" /> Rejected: {reason}
                           </span>
                         </div>
-                        <button className="btn btn-ghost btn-xs text-primary" onClick={() => resetRejectedBill(id)}>
+                        <button 
+                          className="btn btn-ghost btn-xs text-primary" 
+                          onClick={() => {
+                            setReuploadingBillId(id);
+                            reuploadInputRef.current?.click();
+                          }}
+                        >
                           <RotateCcw size={12} className="mr-4" /> Re-upload
                         </button>
                       </div>
@@ -878,6 +1069,13 @@ const UploadBills = () => {
             hidden 
             accept=".pdf,.png,.jpg,.jpeg,.webp" 
             onChange={handleFileUpload} 
+          />
+          <input 
+            ref={reuploadInputRef} 
+            type="file" 
+            hidden 
+            accept=".pdf,.png,.jpg,.jpeg,.webp" 
+            onChange={handleReupload} 
           />
         </div>
       )}
@@ -1238,6 +1436,18 @@ const UploadBills = () => {
                         <span>{bill.duplicate_warning.vendor_name} - {bill.duplicate_warning.bill_number || 'No#'} - ₹{bill.duplicate_warning.amount}</span>
                         <span className="muted">({new Date(bill.duplicate_warning.created_at).toLocaleDateString()})</span>
                       </div>
+                    </div>
+                  )}
+
+                  {bill.extractionFailed && (
+                    <div className="border p-12 stack-xs" style={{ background: '#fef2f2', borderColor: '#fee2e2', borderRadius: '6px', margin: '8px 0' }}>
+                      <div className="row gap-xs items-center text-xs text-error font-semibold">
+                        <AlertCircle size={14} /> Extraction Failed
+                      </div>
+                      <p className="muted text-xxs">We couldn't automatically parse this document. You can retry the OCR extraction or fill the fields manually.</p>
+                      <button className="btn btn-secondary border btn-xs mt-8 row items-center justify-center w-100" onClick={() => retryExtraction(bill.id)} style={{ width: '100%' }}>
+                        <RefreshCw size={12} className="mr-4" /> Retry OCR Extraction
+                      </button>
                     </div>
                   )}
 

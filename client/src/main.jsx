@@ -1,10 +1,50 @@
 import * as Sentry from "@sentry/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { registerSW } from 'virtual:pwa-register';
 
 import "./index.css";
 import "./styles/global-fixes.css";
 import App from "./App.jsx";
+
+// Service worker and auto-update polling in production
+if (import.meta.env.PROD) {
+  registerSW({
+    onNeedRefresh() {
+      window.dispatchEvent(new CustomEvent('sw.update'));
+    },
+    onOfflineReady() {
+      console.log('App ready to work offline');
+    }
+  });
+
+  const getMetaVersion = () => {
+    const meta = document.querySelector('meta[name="app-version"]');
+    return meta ? meta.getAttribute('content') : null;
+  };
+
+  const checkVersion = async () => {
+    try {
+      const response = await fetch('/api/version');
+      if (!response.ok) return;
+      const data = await response.json();
+      const currentVersion = getMetaVersion() || '1.0.0';
+      if (data.version && data.version !== currentVersion) {
+        if (data.critical) {
+          window.location.reload(true);
+        } else {
+          window.dispatchEvent(new CustomEvent('app.update', { detail: { version: data.version } }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check app version:', err);
+    }
+  };
+
+  // Check version on startup and every 5 minutes
+  checkVersion();
+  setInterval(checkVersion, 5 * 60 * 1000);
+}
 
 // ── Sentry ─────────────────────────────
 

@@ -20,7 +20,7 @@ import BranchSelect from '../components/ui/BranchSelect';
 import './Customers.css';
 import PageContainer from '../components/ui/PageContainer';
 
-const CUSTOMER_TYPES = ['Walk-in', 'Retail', 'Offset'];
+const CUSTOMER_TYPES = ['Retail', 'Offset'];
 const ADMIN_ROLES = ['admin', 'super_admin'];
 
 const Customers = () => {
@@ -1173,31 +1173,6 @@ const Customers = () => {
                                     <div className="stack-sm">
                                         <select
                                             className="input-field"
-                                            onChange={(e) => {
-                                                const _subId = e.target.value;
-                                            }}
-                                            defaultValue=""
-                                        >
-                                            <option value="" disabled>Select Product Hierarchy...</option>
-                                            {hierarchy.map(cat => (
-                                                <optgroup key={cat.id} label={cat.name}>
-                                                    {cat.subcategories.map(sub => (
-                                                        <optgroup key={sub.id} label={`  -- ${sub.name}`}>
-                                                            {sub.products.map(p => (
-                                                                <option key={p.id} value={p.id}>{p.name}</option>
-                                                            ))}
-                                                        </optgroup>
-                                                    ))}
-                                                </optgroup>
-                                            ))}
-                                        </select>
-
-                                        {/* Since standard select can't show nested perfectly, let's use a simple dropdown and handle change */}
-                                        <div className="text-xs muted italic">Select a product to apply its pricing rules.</div>
-
-                                        {/* Mocking the choice update for now, will refine with real selection logic */}
-                                        <select
-                                            className="input-field"
                                             value={selectedProduct?.id || ""}
                                             onChange={(e) => {
                                                 const pid = e.target.value;
@@ -1215,6 +1190,7 @@ const Customers = () => {
                                                 )
                                             )}
                                         </select>
+                                        <div className="text-xs muted italic">Select a product to apply its pricing rules.</div>
                                     </div>
                                 </div>
 

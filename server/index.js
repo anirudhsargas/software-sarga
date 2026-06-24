@@ -440,6 +440,14 @@ app.get('/api/ping', async (req, res) => {
     }
 });
 
+// App version endpoint
+app.get('/api/version', (req, res) => {
+    res.json({
+        version: process.env.APP_VERSION || '1.0.0',
+        critical: process.env.APP_VERSION_CRITICAL === 'true'
+    });
+});
+
 // --------------- Error Handling ---------------
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');

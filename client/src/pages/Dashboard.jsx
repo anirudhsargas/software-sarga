@@ -302,6 +302,18 @@ const NavigateToCustomerDetails = () => {
     return <Navigate to={`/dashboard/sales/customers/${id}`} replace />;
 };
 
+const ProtectedSubRoute = ({ children, roles }) => {
+    const { user } = useAuth();
+    if (!user) {
+        return <Navigate to="/login" replace />;
+    }
+    const normalizedUserRole = user.role;
+    if (roles && !roles.map(r => r.toLowerCase().trim()).includes(normalizedUserRole?.toLowerCase().trim())) {
+        return <Navigate to="/access-denied" replace />;
+    }
+    return children;
+};
+
 const Dashboard = () => {
     const { user, logout, updateUser } = useAuth();
     const normalizedUserRole = useMemo(() => {
@@ -1121,14 +1133,14 @@ const Dashboard = () => {
                             {/* Sales Consolidated Workspace */}
                             <Route path="sales" element={<SalesLayout />}>
                                 <Route index element={<Navigate to="orders" replace />} />
-                                <Route path="overview" element={<Summary />} />
-                                <Route path="customers" element={<Customers />} />
-                                <Route path="customers/:id" element={<CustomerDetails />} />
-                                <Route path="orders" element={<Jobs />} />
-                                <Route path="orders/:id" element={<JobDetail />} />
-                                <Route path="quotes" element={<Quotes />} />
-                                <Route path="invoices" element={<Invoices />} />
-                                <Route path="payments" element={<CustomerPayments />} />
+                                <Route path="overview" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Summary /></ProtectedSubRoute>} />
+                                <Route path="customers" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Customers /></ProtectedSubRoute>} />
+                                <Route path="customers/:id" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><CustomerDetails /></ProtectedSubRoute>} />
+                                <Route path="orders" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer']}><Jobs /></ProtectedSubRoute>} />
+                                <Route path="orders/:id" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer']}><JobDetail /></ProtectedSubRoute>} />
+                                <Route path="quotes" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Quotes /></ProtectedSubRoute>} />
+                                <Route path="invoices" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Invoices /></ProtectedSubRoute>} />
+                                <Route path="payments" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><CustomerPayments /></ProtectedSubRoute>} />
                             </Route>
 
                             {/* Redirects for legacy/flat routes */}
@@ -1141,71 +1153,73 @@ const Dashboard = () => {
                             <Route path="customers" element={<Navigate to="/dashboard/sales/customers" replace />} />
                             <Route path="customers/:id" element={<NavigateToCustomerDetails />} />
 
-                            <Route path="staff" element={<StaffManagement />} />
-                            <Route path="employee/:staffId" element={<EmployeeDetail />} />
-                            <Route path="branches" element={<Branches />} />
-                            <Route path="products" element={<ProductLibrary />} />
-                            <Route path="product-requests" element={<ProductRequests />} />
-                            <Route path="requests" element={<IDChangeRequests />} />
-                            <Route path="inventory" element={<Inventory />} />
-                            <Route path="inventory/overview" element={<InventoryOverview />} />
-                            <Route path="inventory/scan" element={<ScanItem />} />
-                            <Route path="stock-verification" element={<StockVerification />} />
-                            <Route path="stock-planning" element={<RequiresConnection feature="Stock Planning"><StockPlanning /></RequiresConnection>} />
-                            <Route path="payment-verification" element={<PaymentVerification />} />
-                            <Route path="expenses" element={<ExpenseManager />} />
-                            <Route path="expenses/upload-bills" element={<UploadBills />} />
-                            <Route path="vendors/*" element={<Vendors />} />
-                            <Route path="machines" element={<MachineManagement />} />
-                            <Route path="daily-report" element={<DailyReport />} />
-                            <Route path="internal-transactions" element={<InternalTransfers />} />
-                            <Route path="stock-transfer" element={<StockTransfer />} />
-                            <Route path="attendance-salary" element={<AttendanceSalary />} />
-                            <Route path="ai-monitoring" element={<RequiresConnection feature="AI Monitoring"><AIMonitoring /></RequiresConnection>} />
-                            <Route path="design-check" element={<RequiresConnection feature="Design Checker"><DesignChecker /></RequiresConnection>} />
-                            <Route path="paper-layout" element={<RequiresConnection feature="Paper Layout Generator"><PaperLayoutGenerator /></RequiresConnection>} />
-                            <Route path="job-priority" element={<JobPriority />} />
-                            <Route path="sales-prediction" element={<RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection>} />
-                            <Route path="reports" element={<Reports />} />
-                            <Route path="accounts" element={<RequiresConnection feature="Accounts & GST"><Accounts /></RequiresConnection>} />
-                            <Route path="plates" element={<PlateManagement />} />
-                            <Route path="order-predictions" element={<RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection>} />
-                            <Route path="predictions" element={<RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection>} />
-                            <Route path="production-tracker" element={<RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection>} />
-                            <Route path="coupons" element={<CouponManagement />} />
-                            <Route path="cctv-attendance" element={<CCTVAttendance />} />
-                            <Route path="cctv-management" element={<CCTVManagement />} />
-                            <Route path="schedules" element={<ScheduleManagement />} />
-                            <Route path="other-staff-dashboard" element={<OtherStaffDashboard />} />
-                            <Route path="printer-dashboard" element={<PrinterDashboard />} />
-                            <Route path="designer-dashboard" element={<DesignerDashboard />} />
-                            <Route path="inventory/paper" element={<PaperStockDashboard />} />
-                            <Route path="paper/stock" element={<PaperStockDashboard />} />
-                            <Route path="paper/inward" element={<PaperInward />} />
-                            <Route path="paper/outward" element={<PaperOutward />} />
-                            <Route path="paper/movements" element={<PaperMovementHistory />} />
-                            <Route path="paper/alerts" element={<PaperAlerts />} />
-                            <Route path="paper/transfer" element={<PaperTransfer />} />
-                            <Route path="inventory/consumables" element={<ConsumablesManagement />} />
-                            <Route path="recurring-invoices" element={<RecurringInvoices />} />
-                            <Route path="settings" element={<SettingsPage />} />
-                            <Route path="admin/chatbot-training" element={<ChatbotTraining />} />
-                            <Route path="admin/reviews" element={<ReviewsManagement />} />
-                            <Route path="admin/artwork" element={<ArtworkManager />} />
-                            <Route path="admin/portfolio" element={<PortfolioManager />} />
-                            <Route path="admin/promotions" element={<PromotionsManager />} />
-                            <Route path="admin/pickup-bookings" element={<PickupBookings />} />
-                            <Route path="admin/delivery-rules" element={<DeliveryRulesManager />} />
-                            <Route path="admin/translations" element={<TranslationsManager />} />
-                            <Route path="web-inquiries" element={<WebInquiries />} />
-                            <Route path="blog-cms" element={<BlogCMS />} />
-                            <Route path="sample-requests" element={<SampleRequestsCMS />} />
+                            <Route path="staff" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><StaffManagement /></ProtectedSubRoute>} />
+                            <Route path="employee/:staffId" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><EmployeeDetail /></ProtectedSubRoute>} />
+                            <Route path="branches" element={<ProtectedSubRoute roles={['Admin']}><Branches /></ProtectedSubRoute>} />
+                            <Route path="products" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Designer']}><ProductLibrary /></ProtectedSubRoute>} />
+                            <Route path="product-requests" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><ProductRequests /></ProtectedSubRoute>} />
+                            <Route path="requests" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><IDChangeRequests /></ProtectedSubRoute>} />
+                            <Route path="inventory" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Inventory /></ProtectedSubRoute>} />
+                            <Route path="inventory/overview" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><InventoryOverview /></ProtectedSubRoute>} />
+                            <Route path="inventory/scan" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><ScanItem /></ProtectedSubRoute>} />
+                            <Route path="stock-verification" element={<ProtectedSubRoute roles={['Accountant', 'Admin']}><StockVerification /></ProtectedSubRoute>} />
+                            <Route path="stock-planning" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><RequiresConnection feature="Stock Planning"><StockPlanning /></RequiresConnection></ProtectedSubRoute>} />
+                            <Route path="payment-verification" element={<ProtectedSubRoute roles={['Accountant', 'Admin']}><PaymentVerification /></ProtectedSubRoute>} />
+                            <Route path="expenses" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><ExpenseManager /></ProtectedSubRoute>} />
+                            <Route path="expenses/upload-bills" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><UploadBills /></ProtectedSubRoute>} />
+                            <Route path="vendors/*" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><Vendors /></ProtectedSubRoute>} />
+                            <Route path="machines" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><MachineManagement /></ProtectedSubRoute>} />
+                            <Route path="daily-report" element={<ProtectedSubRoute roles={['Front Office', 'Admin', 'Accountant']}><DailyReport /></ProtectedSubRoute>} />
+                            <Route path="internal-transactions" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><InternalTransfers /></ProtectedSubRoute>} />
+                            <Route path="stock-transfer" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><StockTransfer /></ProtectedSubRoute>} />
+                            <Route path="attendance-salary" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><AttendanceSalary /></ProtectedSubRoute>} />
+                            <Route path="ai-monitoring" element={<ProtectedSubRoute roles={['Admin']}><RequiresConnection feature="AI Monitoring"><AIMonitoring /></RequiresConnection></ProtectedSubRoute>} />
+                            <Route path="design-check" element={<ProtectedSubRoute roles={['Designer']}><RequiresConnection feature="Design Checker"><DesignChecker /></RequiresConnection></ProtectedSubRoute>} />
+                            <Route path="paper-layout" element={<ProtectedSubRoute roles={['Front Office', 'Designer']}><RequiresConnection feature="Paper Layout Generator"><PaperLayoutGenerator /></RequiresConnection></ProtectedSubRoute>} />
+                            <Route path="job-priority" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Designer', 'Printer']}><JobPriority /></ProtectedSubRoute>} />
+                            <Route path="sales-prediction" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection></ProtectedSubRoute>} />
+                            <Route path="reports" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><Reports /></ProtectedSubRoute>} />
+                            <Route path="accounts" element={<ProtectedSubRoute roles={['Accountant', 'Admin']}><RequiresConnection feature="Accounts & GST"><Accounts /></RequiresConnection></ProtectedSubRoute>} />
+                            <Route path="plates" element={<ProtectedSubRoute roles={['Designer', 'Admin']}><PlateManagement /></ProtectedSubRoute>} />
+                            <Route path="order-predictions" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection></ProtectedSubRoute>} />
+                            <Route path="predictions" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection></ProtectedSubRoute>} />
+                            <Route path="production-tracker" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection></ProtectedSubRoute>} />
+                            <Route path="coupons" element={<ProtectedSubRoute roles={['Admin']}><CouponManagement /></ProtectedSubRoute>} />
+                            <Route path="cctv-attendance" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><CCTVAttendance /></ProtectedSubRoute>} />
+                            <Route path="cctv-management" element={<ProtectedSubRoute roles={['Admin']}><CCTVManagement /></ProtectedSubRoute>} />
+                            <Route path="schedules" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><ScheduleManagement /></ProtectedSubRoute>} />
+                            <Route path="other-staff-dashboard" element={<ProtectedSubRoute roles={['Other Staff']}><OtherStaffDashboard /></ProtectedSubRoute>} />
+                            <Route path="printer-dashboard" element={<ProtectedSubRoute roles={['Printer']}><PrinterDashboard /></ProtectedSubRoute>} />
+                            <Route path="designer-dashboard" element={<ProtectedSubRoute roles={['Designer']}><DesignerDashboard /></ProtectedSubRoute>} />
+                            <Route path="inventory/paper" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><PaperStockDashboard /></ProtectedSubRoute>} />
+                            <Route path="paper/stock" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><PaperStockDashboard /></ProtectedSubRoute>} />
+                            <Route path="paper/inward" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><PaperInward /></ProtectedSubRoute>} />
+                            <Route path="paper/outward" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><PaperOutward /></ProtectedSubRoute>} />
+                            <Route path="paper/movements" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><PaperMovementHistory /></ProtectedSubRoute>} />
+                            <Route path="paper/alerts" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><PaperAlerts /></ProtectedSubRoute>} />
+                            <Route path="paper/transfer" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><PaperTransfer /></ProtectedSubRoute>} />
+                            <Route path="inventory/consumables" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><ConsumablesManagement /></ProtectedSubRoute>} />
+                            <Route path="recurring-invoices" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RecurringInvoices /></ProtectedSubRoute>} />
+                            <Route path="settings" element={<ProtectedSubRoute roles={['Admin']}><SettingsPage /></ProtectedSubRoute>} />
+                            <Route path="admin/chatbot-training" element={<ProtectedSubRoute roles={['Admin']}><ChatbotTraining /></ProtectedSubRoute>} />
+                            <Route path="admin/reviews" element={<ProtectedSubRoute roles={['Admin']}><ReviewsManagement /></ProtectedSubRoute>} />
+                            <Route path="admin/artwork" element={<ProtectedSubRoute roles={['Admin']}><ArtworkManager /></ProtectedSubRoute>} />
+                            <Route path="admin/portfolio" element={<ProtectedSubRoute roles={['Admin']}><PortfolioManager /></ProtectedSubRoute>} />
+                            <Route path="admin/promotions" element={<ProtectedSubRoute roles={['Admin']}><PromotionsManager /></ProtectedSubRoute>} />
+                            <Route path="admin/pickup-bookings" element={<ProtectedSubRoute roles={['Admin']}><PickupBookings /></ProtectedSubRoute>} />
+                            <Route path="admin/delivery-rules" element={<ProtectedSubRoute roles={['Admin']}><DeliveryRulesManager /></ProtectedSubRoute>} />
+                            <Route path="admin/translations" element={<ProtectedSubRoute roles={['Admin']}><TranslationsManager /></ProtectedSubRoute>} />
+                            <Route path="web-inquiries" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><WebInquiries /></ProtectedSubRoute>} />
+                            <Route path="blog-cms" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Designer']}><BlogCMS /></ProtectedSubRoute>} />
+                            <Route path="sample-requests" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><SampleRequestsCMS /></ProtectedSubRoute>} />
                             <Route path="design-bookings" element={
-                                <SectionErrorBoundary name="DesignBookings" title="Design Bookings" message="No bookings available">
-                                    <DesignBookingsCMS />
-                                </SectionErrorBoundary>
+                                <ProtectedSubRoute roles={['Admin', 'Front Office', 'Designer']}>
+                                    <SectionErrorBoundary name="DesignBookings" title="Design Bookings" message="No bookings available">
+                                        <DesignBookingsCMS />
+                                    </SectionErrorBoundary>
+                                </ProtectedSubRoute>
                             } />
-                            <Route path="shortcuts" element={<ShortcutsPage />} />
+                            <Route path="shortcuts" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><ShortcutsPage /></ProtectedSubRoute>} />
                             <Route path="*" element={<NotFound />} />
 
                         </Routes>

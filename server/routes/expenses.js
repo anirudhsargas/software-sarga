@@ -8,7 +8,7 @@ const { analyticsCache } = require('../middleware/cache');
 // ═══════════════════════════════════════════════════════════════════════
 //  EXPENSE DASHBOARD — Aggregated stats
 // ═══════════════════════════════════════════════════════════════════════
-router.get('/expense-dashboard', authenticateToken, analyticsCache(), async (req, res) => {
+router.get('/expense-dashboard', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), analyticsCache(), async (req, res) => {
     try {
         const { month } = req.query; // YYYY-MM
         let branchIds = null;
@@ -130,7 +130,7 @@ router.get('/expense-dashboard', authenticateToken, analyticsCache(), async (req
 // ═══════════════════════════════════════════════════════════════════════
 //  RENT LOCATIONS — CRUD
 // ═══════════════════════════════════════════════════════════════════════
-router.get('/rent-locations', authenticateToken, async (req, res) => {
+router.get('/rent-locations', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const branchId = !['Admin', 'Accountant'].includes(req.user.role)
             ? req.user.branch_id
@@ -205,7 +205,7 @@ const expenseSubCategories = {
     'Miscellaneous': ['Petty Cash', 'Tips', 'Donations', 'Small Tools', 'Emergency Purchases']
 };
 
-router.get('/expense-categories', authenticateToken, (req, res) => {
+router.get('/expense-categories', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), (req, res) => {
     res.json(expenseSubCategories);
 });
 
@@ -214,7 +214,7 @@ router.get('/expense-categories', authenticateToken, (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════
 
 // Get all requests (Admin/Accountant see all, Front Office sees only their own)
-router.get('/vendor-requests', authenticateToken, async (req, res) => {
+router.get('/vendor-requests', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { status } = req.query; // 'Pending', 'Approved', 'Rejected', or undefined (all)
         const isAdmin = ['Admin', 'Accountant'].includes(req.user.role);
@@ -261,7 +261,7 @@ router.get('/vendor-requests', authenticateToken, async (req, res) => {
 });
 
 // Create a new vendor/utility request (Front Office, Admin, Accountant)
-router.post('/vendor-requests', authenticateToken, async (req, res) => {
+router.post('/vendor-requests', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { request_type, name, contact_person, phone, address, gstin, branch_id, request_reason } = req.body;
 
@@ -451,7 +451,7 @@ async function trackPaymentFrequency(payeeName, category, amount) {
 }
 
 // GET /api/expense-vendors - Get all expense vendors (unified from vendors table)
-router.get('/expense-vendors', authenticateToken, async (req, res) => {
+router.get('/expense-vendors', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const [rows] = await pool.query(
             `SELECT id, name, type, contact_person, phone, address, gstin, branch_id, order_link, created_at

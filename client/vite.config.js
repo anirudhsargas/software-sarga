@@ -31,12 +31,12 @@ export default defineConfig({
       ],
     }),
     VitePWA({
-      registerType: 'autoUpdate', // Automatically update and reload when a new version is available
+      registerType: 'prompt', // Prompt the user before updating
       includeAssets: ['favicon.png', 'icons/*.png', 'icons/*.webp', 'icons/*.avif', 'assets/**/*'],
       manifest: false, // we already have public/manifest.json
       workbox: {
         cleanupOutdatedCaches: true,
-        skipWaiting: true,
+        skipWaiting: false,
         clientsClaim: true,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit for caching
         // Cache JS, CSS, HTML, images, fonts

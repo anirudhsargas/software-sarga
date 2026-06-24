@@ -5,11 +5,16 @@ import api, { devFallback } from '../services/api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import PageContainer from '../components/ui/PageContainer';
+import { useAuth } from '../hooks/useAuth';
+import { SkeletonCard } from '../components/Skeleton';
 
 const InventoryOverview = () => {
     useSEO('Inventory Overview');
 
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const isPrivileged = ['Admin', 'Accountant'].includes(user?.role);
+
     const [loading, setLoading] = useState(true);
     const [productsTotal, setProductsTotal] = useState(0);
     const [productsLowCount, setProductsLowCount] = useState(0);
@@ -19,8 +24,16 @@ const InventoryOverview = () => {
     const [consumablesLowCount, setConsumablesLowCount] = useState(0);
     const [lowStockRows, setLowStockRows] = useState([]);
     const [branches, setBranches] = useState([]);
-    const [filterBranch, setFilterBranch] = useState('');
+    const [filterBranch, setFilterBranch] = useState(() => {
+        return isPrivileged ? '' : (user?.branch_id || '');
+    });
     const [movementSummary, setMovementSummary] = useState(null);
+
+    useEffect(() => {
+        if (!isPrivileged && user?.branch_id) {
+            setFilterBranch(user.branch_id);
+        }
+    }, [user, isPrivileged]);
 
     const fetchOverview = async () => {
         setLoading(true);
@@ -178,6 +191,7 @@ const InventoryOverview = () => {
                             aria-label="Filter by Branch"
                             value={filterBranch}
                             onChange={(e) => setFilterBranch(e.target.value)}
+                            disabled={!isPrivileged}
                             style={{ width: '100%', padding: '4px 8px', background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'inherit', fontSize: 13 }}
                         >
                             <option value="">All Branches</option>
@@ -192,23 +206,29 @@ const InventoryOverview = () => {
                 </div>
             </div>
 
-            <div className="grid grid--3 mt-md">
-                {cards.map((c) => (
-                    <div role="button" tabIndex={0} key={c.key} className="panel stack-xs" style={{ cursor: 'pointer' }} onClick={() => navigate(c.href)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(c.href); } }}>
-                        <div className="row items-center gap-sm">
-                            <c.icon size={28} className="text-primary" />
-                            <div>
-                                <div className="muted text-xs uppercase">{c.title}</div>
-                                <div style={{ fontSize: '1.6rem', fontWeight: 800 }}>{c.total}</div>
+            {loading ? (
+                <div className="grid grid--3 mt-md">
+                    <SkeletonCard count={3} height={120} />
+                </div>
+            ) : (
+                <div className="grid grid--3 mt-md">
+                    {cards.map((c) => (
+                        <div role="button" tabIndex={0} key={c.key} className="panel stack-xs" style={{ cursor: 'pointer' }} onClick={() => navigate(c.href)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(c.href); } }}>
+                            <div className="row items-center gap-sm">
+                                <c.icon size={28} className="text-primary" />
+                                <div>
+                                    <div className="muted text-xs uppercase">{c.title}</div>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 800 }}>{c.total}</div>
+                                </div>
+                            </div>
+                            <div style={{ marginTop: 8 }}>
+                                <div className="text-xs muted">Low stock: <span className="text-danger font-bold">{c.low}</span></div>
                             </div>
                         </div>
-                        <div style={{ marginTop: 8 }}>
-                            <div className="text-xs muted">Low stock: <span className="text-danger font-bold">{c.low}</span></div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
 
             {movementSummary && (
                 <div className="panel mt-md" style={{ padding: '16px 20px' }}>
@@ -246,9 +266,15 @@ const InventoryOverview = () => {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr>
-                                    <td colSpan={5} className="text-center p-xl"><RefreshCcw className="animate-spin muted" size={28} /></td>
-                                </tr>
+                                Array.from({ length: 5 }).map((_, index) => (
+                                    <tr key={index}>
+                                        <td><div className="skeleton" style={{ width: '80%', height: 16, borderRadius: 4 }} /></td>
+                                        <td><div className="skeleton" style={{ width: '60%', height: 16, borderRadius: 4 }} /></td>
+                                        <td><div className="skeleton" style={{ width: '40%', height: 16, borderRadius: 4 }} /></td>
+                                        <td><div className="skeleton" style={{ width: '50%', height: 16, borderRadius: 4 }} /></td>
+                                        <td><div className="skeleton" style={{ width: '70%', height: 16, borderRadius: 4 }} /></td>
+                                    </tr>
+                                ))
                             ) : lowStockRows.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="text-center p-xl muted">No low stock alerts</td>

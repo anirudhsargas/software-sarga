@@ -81,7 +81,10 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const origGet = api.get.bind(api);
 
 const getRequestKey = (url, config) => {
-    const path = typeof url === 'string' ? url : (url && url.url) || '';
+    let path = typeof url === 'string' ? url : (url && url.url) || '';
+    if (path.startsWith('/')) {
+        path = path.slice(1);
+    }
     let params = '';
     try {
         if (config && config.params) params = JSON.stringify(config.params);

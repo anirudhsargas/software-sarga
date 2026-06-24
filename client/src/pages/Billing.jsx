@@ -223,7 +223,8 @@ const Billing = () => {
         advance_paid: b.advance_paid != null ? b.advance_paid : (b.advancePaid != null ? b.advancePaid : 0),
         payment_method: b.payment_method || b.paymentMethod || 'Cash',
         payment_date: b.payment_date || b.paymentDate || b.created_at,
-        order_lines: b.orderLines || b.order_lines || []
+        order_lines: b.orderLines || b.order_lines || [],
+        description: b.description || b.notes || ''
       };
       printInvoicePDF(printData);
     } catch {
@@ -233,7 +234,7 @@ const Billing = () => {
 
   // Derived
   const isWalkIn = form.type === 'Walk-in';
-  const needsGst = form.type === 'Offset' || form.type === 'Retail' || form.type === 'Wholesale';
+  const needsGst = form.type === 'Offset' || form.type === 'Retail';
   const _isInternalBill = location.state?.internal || form.type === 'Internal' || form.type === 'Stock Transfer';
 
   // ── Data loading ──
@@ -285,7 +286,7 @@ const Billing = () => {
     const sc = location.state?.fromShortcut && location.state?.shortcut;
     if (!sc) return;
     // Prefill customer type
-    const typeMap = { walk_in: 'Walk-in', regular: 'Retail', credit: 'Wholesale' };
+    const typeMap = { walk_in: 'Walk-in', regular: 'Retail', credit: 'Retail' };
     setForm(prev => ({ ...prev, type: typeMap[sc.customer_type] || 'Walk-in' }));
     // Prefill order line
     const line = {
@@ -374,7 +375,6 @@ const Billing = () => {
     if (!form.type) return false;
     if (isWalkIn) return orderLines.length > 0;
     if (form.type === 'Retail') return orderLines.length > 0;
-    if (form.type === 'Wholesale') return form.gst.trim().length > 0 && orderLines.length > 0;
     return form.mobile.length === 10 && form.name.trim().length > 0 && orderLines.length > 0;
   }, [form.mobile, form.name, form.gst, form.type, isWalkIn, orderLines.length]);
 
@@ -741,7 +741,8 @@ const Billing = () => {
       const lastBill = {
         customer: { name: form.name, mobile: form.mobile, address: form.address, gst: form.gst },
         orderLines, totals, payment: { method: payMethodLabel, cash_amount: cashAmt, upi_amount: upiAmt, cheque_amount: chequeAmt, account_transfer_amount: transferAmt },
-        jobs: result.jobs || [], upiId: branchUpiId
+        jobs: result.jobs || [], upiId: branchUpiId,
+        description: payment.description || ''
       };
       setLastBillData(lastBill);
       setLastOrderCustomerType(form.type);
@@ -970,7 +971,6 @@ const Billing = () => {
             <option value="Retail" style={{ background: 'var(--card)' }}>Retail</option>
             <option value="Walk-in" style={{ background: 'var(--card)' }}>Walk-in</option>
             <option value="Offset" style={{ background: 'var(--card)' }}>Offset</option>
-            <option value="Wholesale" style={{ background: 'var(--card)' }}>Wholesale</option>
           </select>
           <ChevronDown size={14} style={{ position: 'absolute', right: '12px', pointerEvents: 'none', color: 'var(--text-muted)' }} />
         </div>
@@ -1079,7 +1079,7 @@ const Billing = () => {
                   <FileText size={14} className="billing-field__icon" aria-hidden="true" />
                   <label htmlFor="billing-gst" className="sr-only">GST Number</label>
                   <input id="billing-gst" name="billingGst" ref={customerGstRef} type="text"
-                    placeholder={form.type === 'Wholesale' ? 'GST Number *' : 'GST Number'}
+                    placeholder={'GST Number'}
                     value={form.gst} onChange={e => setForm(p => ({ ...p, gst: e.target.value }))}
                     onKeyDown={e => { if (e.key === 'Enter') { customerEmailRef.current?.focus(); } }}
                     className="billing-field__input" autoComplete="off" />
@@ -1436,7 +1436,7 @@ const Billing = () => {
 
         {/* Payment method chips */}
         <div className="billing-chips billing-chips--payment">
-          {['Cash', 'UPI', 'Card', 'Cheque', 'Account Transfer'].map(m => (
+          {['Cash', 'UPI', 'Cheque', 'Account Transfer'].map(m => (
             <button key={m} className={`chip ${payment.selectedMethods.includes(m) ? 'active' : ''}`}
               onClick={() => handlePaymentMethod(m)}>
               {m}

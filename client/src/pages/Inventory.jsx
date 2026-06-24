@@ -73,7 +73,19 @@ const Inventory = () => {
         fetchInventory();
     }, []);
     const [branches, setBranches] = useState([]);
-    const [filterBranch, setFilterBranch] = useState('');
+    const [filterBranch, setFilterBranch] = useState(() => {
+        const u = auth.getUser();
+        const priv = ['Admin', 'Accountant'].includes(u?.role);
+        return priv ? '' : (u?.branch_id || '');
+    });
+
+    useEffect(() => {
+        const u = auth.getUser();
+        const priv = ['Admin', 'Accountant'].includes(u?.role);
+        if (!priv && u?.branch_id) {
+            setFilterBranch(u.branch_id);
+        }
+    }, []);
     const [filterCategory, setFilterCategory] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterVendor, setFilterVendor] = useState('');
@@ -975,6 +987,7 @@ const Inventory = () => {
                                 aria-label="Filter by Branch"
                                 value={filterBranch}
                                 onChange={(e) => { setFilterBranch(e.target.value); setPage(1); }}
+                                disabled={!isAdmin}
                             >
                                 <option value="">All Branches</option>
                                 {branches.map(b => (
@@ -1057,7 +1070,16 @@ const Inventory = () => {
                             </select>
                         </div>
                         {(filterType || filterBranch || filterCategory || filterStatus || filterVendor) && (
-                            <button className="inv-chip-clear" onClick={() => { setFilterType(''); setFilterBranch(''); setFilterCategory(''); setFilterStatus(''); setFilterVendor(''); setPage(1); }}>
+                            <button className="inv-chip-clear" onClick={() => { 
+                                const u = auth.getUser();
+                                const priv = ['Admin', 'Accountant'].includes(u?.role);
+                                setFilterType(''); 
+                                setFilterBranch(priv ? '' : (u?.branch_id || '')); 
+                                setFilterCategory(''); 
+                                setFilterStatus(''); 
+                                setFilterVendor(''); 
+                                setPage(1); 
+                            }}>
                                 <X size={12} /> Clear
                             </button>
                         )}
