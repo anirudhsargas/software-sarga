@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Camera, Upload, X, AlertCircle, Loader2, CheckCircle, Plus, Trash2, 
   RotateCcw, Sparkles, Sliders, RefreshCw, Layers, ShieldAlert, ArrowLeft,
-  ChevronRight, Edit3, Check, Eye, HelpCircle, FileText
+  ChevronRight, Edit3, Check, Eye, HelpCircle, FileText, Bug
 } from 'lucide-react';
 import api from '../services/api';
 import auth from '../services/auth';
@@ -74,6 +74,7 @@ const UploadBills = () => {
   const [_categories, setCategories] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(auth.getUser()?.branch_id || '');
   const [savingBills, setSavingBills] = useState(new Set());
+  const [billRejections, setBillRejections] = useState({});
 
   // Fetch branches & categories on mount
   useEffect(() => {
@@ -253,6 +254,28 @@ const UploadBills = () => {
     toast('Bill removed from session');
   };
 
+  const rejectBill = (id, reason = '') => {
+    setExtractedBillsData(prev => {
+      const remaining = prev.filter(b => b.id !== id);
+      if (remaining.length === 0) {
+        setUiState('dashboard');
+      }
+      return remaining;
+    });
+    setCapturedBills(prev => prev.filter(b => b.id !== id));
+    setBillRejections(prev => ({ ...prev, [id]: reason || 'Manually rejected by user' }));
+    toast('Bill rejected');
+  };
+
+  const resetRejectedBill = (id) => {
+    setBillRejections(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    toast('Bill ready for re-upload');
+  };
+
   const reorderBill = (index, direction) => {
     if (direction === 'left' && index === 0) return;
     if (direction === 'right' && index === capturedBills.length - 1) return;
@@ -326,6 +349,11 @@ const UploadBills = () => {
         const data = response.data;
         const details = data.extracted_data || {};
         const gst = data.gst_analysis || {};
+        const confidenceScores = data.confidence_scores || data.extraction_metadata?.confidence_scores || {};
+        const extractionLogs = data.extraction_logs || data.extraction_metadata?.extraction_logs || [];
+        const extractionStatus = data.extraction_metadata?.extraction_status || 'completed';
+        const ocrEngine = data.extraction_metadata?.ocr_engine || 'gemini';
+        const duplicateWarning = data.extraction_metadata?.duplicate_warning || null;
         
         // Push parsed result
         extractedResults.push({
@@ -334,6 +362,11 @@ const UploadBills = () => {
           src: bill.src,
           file: bill.file,
           confidence: data.confidence || 0.8,
+          confidence_scores: confidenceScores,
+          extraction_logs: extractionLogs,
+          extraction_status: extractionStatus,
+          ocr_engine: ocrEngine,
+          duplicate_warning: duplicateWarning,
           detectedType: details.detected_type || 'Invoice',
           vendor_name: details.vendor_name || '',
           bill_number: details.bill_number || '',
@@ -355,6 +388,7 @@ const UploadBills = () => {
             mrp: it.mrp || it.total_amount || ''
           })),
           uncertainFields: detectUncertainties(details, data.confidence),
+          showExtractionLogs: false,
           status: 'ready'
         });
 
@@ -388,6 +422,27 @@ const UploadBills = () => {
     setExtractedBillsData(extractedResults);
     setSelectedReviewIds(extractedResults.map(r => r.id));
     setUiState('review');
+  };
+
+  const getConfidenceLevel = (score) => {
+    if (score >= 0.7) return 'high';
+    if (score >= 0.4) return 'medium';
+    return 'low';
+  };
+
+  const getConfidenceColor = (score) => {
+    const level = getConfidenceLevel(score);
+    if (level === 'high') return '#22c55e';
+    if (level === 'medium') return '#eab308';
+    return '#ef4444';
+  };
+
+  const getConfidenceBadge = (score) => {
+    const level = getConfidenceLevel(score);
+    const pct = Math.round(score * 100);
+    if (level === 'high') return { icon: '✓', className: 'conf-badge-high', label: `${pct}%`, color: '#22c55e' };
+    if (level === 'medium') return { icon: '⚠', className: 'conf-badge-medium', label: `${pct}%`, color: '#eab308' };
+    return { icon: '✗', className: 'conf-badge-low', label: `${pct}%`, color: '#ef4444' };
   };
 
   const detectUncertainties = (details, confidence) => {
@@ -749,7 +804,9 @@ const UploadBills = () => {
                         <img src={bill.src} alt={bill.label} className="queue-thumbnail border" />
                         <div className="flex-1 stack-xxs">
                           <span className="text-xs font-semibold">{bill.label}</span>
-                          <span className="muted text-xxs">Pending processing</span>
+                          <span className="status-badge status-pending text-xxs">
+                            <Loader2 size={10} className="mr-4" /> Pending
+                          </span>
                         </div>
                         <div className="row gap-xxs">
                           <button className="btn btn-ghost btn-icon btn-xs" onClick={() => reorderBill(index, 'left')} disabled={index === 0}>
@@ -780,6 +837,37 @@ const UploadBills = () => {
                 </div>
               )}
             </div>
+
+            {/* Rejected Bills Section */}
+            {Object.keys(billRejections).length > 0 && (
+              <div className="session-queue-panel border stack-sm">
+                <div className="queue-header row space-between items-center pb-8 border-bottom">
+                  <span className="bold text-sm font-semibold text-error">
+                    <X size={14} className="mr-4" /> Rejected ({Object.keys(billRejections).length})
+                  </span>
+                  <button className="btn btn-ghost btn-xs" onClick={() => setBillRejections({})}>
+                    Clear All
+                  </button>
+                </div>
+                <div className="queue-list-container flex-1">
+                  <div className="queue-rows stack-xs">
+                    {Object.entries(billRejections).map(([id, reason]) => (
+                      <div key={id} className="queue-item-row border row gap-sm items-center p-8">
+                        <div className="flex-1 stack-xxs">
+                          <span className="text-xs font-semibold">Bill {id.slice(0, 8)}</span>
+                          <span className="status-badge status-rejected text-xxs">
+                            <X size={10} className="mr-4" /> Rejected: {reason}
+                          </span>
+                        </div>
+                        <button className="btn btn-ghost btn-xs text-primary" onClick={() => resetRejectedBill(id)}>
+                          <RotateCcw size={12} className="mr-4" /> Re-upload
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
 
@@ -933,6 +1021,12 @@ const UploadBills = () => {
       {uiState === 'ocr' && (
         <div className="ocr-processing-view border stack-lg p-32 text-center animate-fade-in" style={{ maxWidth: '600px', margin: '40px auto' }}>
           
+          <div className="row gap-sm mb-16">
+            <button className="btn btn-ghost btn-sm" onClick={() => { setUiState('dashboard'); }}>
+              <ArrowLeft size={16} className="mr-4" /> Back to Upload
+            </button>
+          </div>
+
           <div className="processing-header stack-sm items-center">
             <Loader2 size={48} className="animate-spin text-primary mb-8" />
             <h2 className="section-title">Smart OCR Extraction</h2>
@@ -1082,9 +1176,32 @@ const UploadBills = () => {
                     <img src={bill.src} alt={bill.label} className="review-card-thumbnail border" />
                     <div className="flex-1 stack-xxs">
                       <span className="font-semibold text-xs">{bill.label}</span>
-                      <span className="muted text-xxs">OCR Confidence: {Math.round(bill.confidence * 100)}%</span>
+                      <div className="row gap-xs items-center">
+                        <span 
+                          className="text-xxs font-semibold"
+                          style={{ color: getConfidenceColor(bill.confidence) }}
+                        >
+                          {getConfidenceBadge(bill.confidence).icon} {Math.round(bill.confidence * 100)}%
+                        </span>
+                        <span className="muted text-xxs">({bill.ocr_engine || 'gemini'})</span>
+                        {bill.extraction_status === 'low_confidence' && (
+                          <span className="status-badge status-warning text-xxs" style={{ background: '#fef3c7', color: '#92400e' }}>Low Conf</span>
+                        )}
+                        {bill.duplicate_warning && (
+                          <span className="status-badge text-xxs" style={{ background: '#fee2e2', color: '#991b1b' }}>Duplicate?</span>
+                        )}
+                      </div>
                     </div>
                     
+                    {/* Extraction logs toggle */}
+                    <button 
+                      className="btn btn-ghost btn-icon btn-xs" 
+                      onClick={() => handleReviewFieldChange(bill.id, 'showExtractionLogs', !bill.showExtractionLogs)}
+                      title="Toggle extraction debug logs"
+                    >
+                      <Bug size={12} />
+                    </button>
+
                     {/* Uncertainty alert badge */}
                     {hasUncertainties && (
                       <span className="uncertain-alert-badge" title="Fields require manual checking">
@@ -1093,18 +1210,57 @@ const UploadBills = () => {
                     )}
                   </div>
 
+                  {/* Extraction logs debug section */}
+                  {bill.showExtractionLogs && bill.extraction_logs && bill.extraction_logs.length > 0 && (
+                    <div className="extraction-logs-panel border p-8" style={{ background: '#f8fafc', fontSize: '10px', maxHeight: '200px', overflowY: 'auto' }}>
+                      <div className="font-semibold text-xxs mb-4">Extraction Logs</div>
+                      {bill.extraction_logs.map((log, idx) => {
+                        const logColor = log.confidence_score >= 0.7 ? '#22c55e' : log.confidence_score >= 0.4 ? '#eab308' : '#ef4444';
+                        return (
+                          <div key={idx} className="row gap-xs items-center py-2 border-bottom" style={{ borderBottom: '1px solid #e5e7eb' }}>
+                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: logColor, display: 'inline-block' }} />
+                            <span className="font-semibold" style={{ minWidth: '80px' }}>{log.field_name}</span>
+                            <span style={{ color: logColor, minWidth: '35px' }}>{Math.round(log.confidence_score * 100)}%</span>
+                            <span className="muted" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(log.extracted_value || '').slice(0, 60)}</span>
+                            <span className="muted">{log.ocr_engine || ''}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Duplicate warning */}
+                  {bill.duplicate_warning && (
+                    <div className="border p-8" style={{ background: '#fef2f2', borderColor: '#fecaca', borderRadius: '4px' }}>
+                      <div className="row gap-xs items-center text-xxs" style={{ color: '#991b1b' }}>
+                        <AlertCircle size={10} />
+                        <span className="font-semibold">Possible duplicate:</span>
+                        <span>{bill.duplicate_warning.vendor_name} - {bill.duplicate_warning.bill_number || 'No#'} - ₹{bill.duplicate_warning.amount}</span>
+                        <span className="muted">({new Date(bill.duplicate_warning.created_at).toLocaleDateString()})</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Fields Grid */}
                   <div className="review-card-fields stack-sm">
                     
                     {/* Vendor Field */}
                     <div className={`field-row stack-xxs ${bill.uncertainFields.includes('vendor_name') ? 'uncertain-highlight' : ''}`}>
-                      <label className="label text-xxs">Vendor *</label>
+                      <div className="row space-between items-center">
+                        <label className="label text-xxs">Vendor *</label>
+                        {bill.confidence_scores?.vendor_name && (
+                          <span className="conf-badge" style={{ color: getConfidenceColor(bill.confidence_scores.vendor_name), fontSize: '10px' }}>
+                            {getConfidenceBadge(bill.confidence_scores.vendor_name).icon} {getConfidenceBadge(bill.confidence_scores.vendor_name).label}
+                          </span>
+                        )}
+                      </div>
                       <input 
                         type="text"
                         value={bill.vendor_name}
                         onChange={(e) => handleReviewFieldChange(bill.id, 'vendor_name', e.target.value)}
                         placeholder="e.g. Acme Corp"
                         className="review-input-field text-xs"
+                        style={bill.confidence_scores?.vendor_name < 0.4 ? { borderColor: '#ef4444' } : bill.confidence_scores?.vendor_name < 0.7 ? { borderColor: '#eab308' } : {}}
                       />
                       {bill.uncertainFields.includes('vendor_name') && (
                         <span className="uncertainty-caption">Vendor name unclear. Confirm?</span>
@@ -1114,22 +1270,38 @@ const UploadBills = () => {
                     {/* Invoice Number & Date row */}
                     <div className="row gap-sm">
                       <div className={`field-row flex-1 stack-xxs ${bill.uncertainFields.includes('bill_number') ? 'uncertain-highlight' : ''}`}>
-                        <label className="label text-xxs">Invoice No.</label>
+                        <div className="row space-between items-center">
+                          <label className="label text-xxs">Invoice No.</label>
+                          {bill.confidence_scores?.bill_number && (
+                            <span className="conf-badge" style={{ color: getConfidenceColor(bill.confidence_scores.bill_number), fontSize: '10px' }}>
+                              {getConfidenceBadge(bill.confidence_scores.bill_number).icon} {getConfidenceBadge(bill.confidence_scores.bill_number).label}
+                            </span>
+                          )}
+                        </div>
                         <input 
                           type="text"
                           value={bill.bill_number}
                           onChange={(e) => handleReviewFieldChange(bill.id, 'bill_number', e.target.value)}
                           placeholder="e.g. INV-102"
                           className="review-input-field text-xs"
+                          style={bill.confidence_scores?.bill_number < 0.4 ? { borderColor: '#ef4444' } : bill.confidence_scores?.bill_number < 0.7 ? { borderColor: '#eab308' } : {}}
                         />
                       </div>
                       <div className="field-row flex-1 stack-xxs">
-                        <label className="label text-xxs">Invoice Date</label>
+                        <div className="row space-between items-center">
+                          <label className="label text-xxs">Invoice Date</label>
+                          {bill.confidence_scores?.bill_date && (
+                            <span className="conf-badge" style={{ color: getConfidenceColor(bill.confidence_scores.bill_date), fontSize: '10px' }}>
+                              {getConfidenceBadge(bill.confidence_scores.bill_date).icon} {getConfidenceBadge(bill.confidence_scores.bill_date).label}
+                            </span>
+                          )}
+                        </div>
                         <input 
                           type="date"
                           value={bill.bill_date}
                           onChange={(e) => handleReviewFieldChange(bill.id, 'bill_date', e.target.value)}
                           className="review-input-field text-xs"
+                          style={bill.confidence_scores?.bill_date < 0.4 ? { borderColor: '#ef4444' } : bill.confidence_scores?.bill_date < 0.7 ? { borderColor: '#eab308' } : {}}
                         />
                       </div>
                     </div>
@@ -1137,7 +1309,14 @@ const UploadBills = () => {
                     {/* Amount & Tax row */}
                     <div className="row gap-sm">
                       <div className={`field-row flex-1 stack-xxs ${bill.uncertainFields.includes('amount') ? 'uncertain-highlight' : ''}`}>
-                        <label className="label text-xxs">Total Amount (₹) *</label>
+                        <div className="row space-between items-center">
+                          <label className="label text-xxs">Total Amount (₹) *</label>
+                          {bill.confidence_scores?.total_amount && (
+                            <span className="conf-badge" style={{ color: getConfidenceColor(bill.confidence_scores.total_amount), fontSize: '10px' }}>
+                              {getConfidenceBadge(bill.confidence_scores.total_amount).icon} {getConfidenceBadge(bill.confidence_scores.total_amount).label}
+                            </span>
+                          )}
+                        </div>
                         <input 
                           type="number"
                           value={bill.amount}
@@ -1195,8 +1374,8 @@ const UploadBills = () => {
                     <button className="btn btn-ghost border btn-xs flex-1" onClick={() => setIsEditingId(bill.id)}>
                       <Edit3 size={12} className="mr-4" /> Edit Items
                     </button>
-                    <button className="btn btn-ghost text-error btn-xs" onClick={() => removeBill(bill.id)} title="Delete bill">
-                      Reject
+                    <button className="btn btn-ghost text-error btn-xs" onClick={() => rejectBill(bill.id)} title="Reject bill">
+                      <X size={12} className="mr-4" /> Reject
                     </button>
                     <button className="btn btn-primary btn-xs flex-1" onClick={() => confirmSingleBill(bill.id)}>
                       Confirm
@@ -1214,9 +1393,14 @@ const UploadBills = () => {
               <CheckCircle size={48} className="text-success mb-8" />
               <h3>All Bills Reviewed</h3>
               <p className="muted text-xs">There are no bills left to review in this session.</p>
-              <button className="btn btn-primary btn-sm mt-12" onClick={() => navigate(redirectPath)}>
-                Done &amp; Return
-              </button>
+              <div className="row gap-sm justify-center mt-12">
+                <button className="btn btn-ghost border" onClick={() => { setUiState('dashboard'); }}>
+                  <ArrowLeft size={16} className="mr-4" /> Back to Upload
+                </button>
+                <button className="btn btn-primary" onClick={() => navigate(redirectPath)}>
+                  Done &amp; Return
+                </button>
+              </div>
             </div>
           )}
 
@@ -1376,7 +1560,7 @@ const UploadBills = () => {
           </p>
 
           <div className="action-buttons row gap-sm justify-center mt-16">
-            <button className="btn btn-ghost border" onClick={() => { setCapturedBills([]); setUiState('dashboard'); }}>
+            <button className="btn btn-ghost border" onClick={() => { setCapturedBills([]); setBillRejections({}); setUiState('dashboard'); }}>
               Upload More
             </button>
             <button className="btn btn-primary" onClick={() => navigate(redirectPath)}>

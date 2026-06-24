@@ -1309,13 +1309,15 @@ const CustomerPayments = () => {
                 </div>
                 <div>
                   <label htmlFor="cp-notes" className="label">Purpose / Notes</label>
-                  <input
+                  <textarea
                     id="cp-notes"
                     className="input-field"
+                    rows="3"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Optional notes"
                     aria-label="Payment purpose or notes"
+                    style={{ resize: 'vertical', minHeight: 60 }}
                   />
                 </div>
               </div>
@@ -1324,14 +1326,15 @@ const CustomerPayments = () => {
             {payment.selectedMethods.length === 1 && payment.selectedMethods[0] === 'Cash' && (
               <div>
                 <label htmlFor="cp-cash-notes" className="label">Purpose / Notes</label>
-                <input
+                <textarea
                   id="cp-cash-notes"
                   name="cpCashNotes"
                   className="input-field"
+                  rows="3"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Optional notes"
-                  autoComplete="off"
+                  style={{ resize: 'vertical', minHeight: 60 }}
                 />
               </div>
             )}

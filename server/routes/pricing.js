@@ -3,6 +3,7 @@ const router = express.Router();
 const { pool } = require('../database');
 const logger = require('../helpers/logger'); // eslint-disable-line no-unused-vars
 const { invalidatePattern } = require('../services/cacheService');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 const invalidateCache = (pattern) => invalidatePattern(pattern).catch(() => {});
 
@@ -367,12 +368,12 @@ router.get('/pricing/express', asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: Pricing Rules CRUD ───
-router.get('/pricing/admin/finishes', asyncHandler(async (req, res) => {
+router.get('/pricing/admin/finishes', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query('SELECT * FROM product_finishes ORDER BY category, position');
   res.json({ finishes: rows });
 }));
 
-router.post('/pricing/admin/finishes', asyncHandler(async (req, res) => {
+router.post('/pricing/admin/finishes', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const { name, category, description, unit_price, price_type } = req.body;
   if (!name || !category) return res.status(400).json({ error: 'name and category required' });
   const [result] = await pool.query(
@@ -383,7 +384,7 @@ router.post('/pricing/admin/finishes', asyncHandler(async (req, res) => {
   res.status(201).json({ id: result.insertId, message: 'Finish created' });
 }));
 
-router.put('/pricing/admin/finishes/:id', asyncHandler(async (req, res) => {
+router.put('/pricing/admin/finishes/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const { name, category, description, unit_price, price_type, is_active } = req.body;
   const sets = []; const params = [];
   if (name !== undefined) { sets.push('name = ?'); params.push(name); }
@@ -399,14 +400,14 @@ router.put('/pricing/admin/finishes/:id', asyncHandler(async (req, res) => {
   res.json({ message: 'Finish updated' });
 }));
 
-router.delete('/pricing/admin/finishes/:id', asyncHandler(async (req, res) => {
+router.delete('/pricing/admin/finishes/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   await pool.query('DELETE FROM product_finishes WHERE id = ?', [req.params.id]);
   invalidateCache('/api/pricing');
   res.json({ message: 'Finish deleted' });
 }));
 
 // Admin: Pricing Tiers CRUD
-router.get('/pricing/admin/tiers/:product_id', asyncHandler(async (req, res) => {
+router.get('/pricing/admin/tiers/:product_id', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query(
     'SELECT * FROM pricing_tiers WHERE product_id = ? ORDER BY min_qty',
     [req.params.product_id]
@@ -414,7 +415,7 @@ router.get('/pricing/admin/tiers/:product_id', asyncHandler(async (req, res) => 
   res.json({ tiers: rows });
 }));
 
-router.post('/pricing/admin/tiers', asyncHandler(async (req, res) => {
+router.post('/pricing/admin/tiers', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const { product_id, min_qty, max_qty, unit_price, setup_fee, gst_rate } = req.body;
   if (!product_id || min_qty === undefined || unit_price === undefined) {
     return res.status(400).json({ error: 'product_id, min_qty, unit_price required' });
@@ -427,7 +428,7 @@ router.post('/pricing/admin/tiers', asyncHandler(async (req, res) => {
   res.status(201).json({ id: result.insertId, message: 'Tier created' });
 }));
 
-router.put('/pricing/admin/tiers/:id', asyncHandler(async (req, res) => {
+router.put('/pricing/admin/tiers/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const { min_qty, max_qty, unit_price, setup_fee, gst_rate } = req.body;
   const sets = []; const params = [];
   if (min_qty !== undefined) { sets.push('min_qty = ?'); params.push(min_qty); }
@@ -442,14 +443,14 @@ router.put('/pricing/admin/tiers/:id', asyncHandler(async (req, res) => {
   res.json({ message: 'Tier updated' });
 }));
 
-router.delete('/pricing/admin/tiers/:id', asyncHandler(async (req, res) => {
+router.delete('/pricing/admin/tiers/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   await pool.query('DELETE FROM pricing_tiers WHERE id = ?', [req.params.id]);
   invalidateCache('/api/pricing');
   res.json({ message: 'Tier deleted' });
 }));
 
 // Admin: Pricing Rules CRUD
-router.get('/pricing/admin/rules/:product_id', asyncHandler(async (req, res) => {
+router.get('/pricing/admin/rules/:product_id', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query(
     'SELECT * FROM pricing_rules WHERE product_id = ? ORDER BY size_name, gsm',
     [req.params.product_id]

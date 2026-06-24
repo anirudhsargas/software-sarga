@@ -1511,11 +1511,12 @@ const Billing = () => {
           <div className="billing-field">
             <MessageSquare size={14} className="billing-field__icon" aria-hidden="true" />
             <label htmlFor="billing-notes" className="sr-only">Notes</label>
-            <input id="billing-notes" name="billingNotes" type="text"
+            <textarea id="billing-notes" name="billingNotes"
               placeholder="Notes (optional)"
+              rows="3"
               value={payment.description}
               onChange={e => setPayment(p => ({ ...p, description: e.target.value }))}
-              className="billing-field__input" autoComplete="off" />
+              className="billing-field__input" style={{ resize: 'vertical', minHeight: 60 }} />
           </div>
         </div>
 

@@ -247,6 +247,95 @@ router.get('/count-requests', auth.authenticate, auth.requireRole(['Admin', 'Acc
     }
 });
 
+// ==================== MACHINE HEALTH (must be before /:id) ====================
+
+// GET /machines/health — Health status for all machines
+router.get('/health', auth.authenticate, async (req, res) => {
+    try {
+        const user = req.user;
+        const params = [];
+
+        let branchFilter = '';
+        if (!['Admin', 'Accountant'].includes(user.role)) {
+            branchFilter = 'WHERE m.branch_id = ?';
+            params.push(user.branch_id);
+        }
+
+        const [rows] = await pool.query(`
+            SELECT m.id, m.machine_name, m.machine_type, m.branch_id, b.name as branch_name,
+                (SELECT mr.reading_date FROM sarga_machine_readings mr
+                 WHERE mr.machine_id = m.id ORDER BY mr.reading_date DESC LIMIT 1) as last_reading_date,
+                (SELECT mr.opening_count FROM sarga_machine_readings mr
+                 WHERE mr.machine_id = m.id ORDER BY mr.reading_date DESC LIMIT 1) as last_opening_count,
+                (SELECT mr.closing_count FROM sarga_machine_readings mr
+                 WHERE mr.machine_id = m.id ORDER BY mr.reading_date DESC LIMIT 1) as last_closing_count,
+                (SELECT mr.sync_source FROM sarga_machine_readings mr
+                 WHERE mr.machine_id = m.id ORDER BY mr.reading_date DESC LIMIT 1) as last_sync_source,
+                (SELECT mr.sync_timestamp FROM sarga_machine_readings mr
+                 WHERE mr.machine_id = m.id ORDER BY mr.reading_date DESC LIMIT 1) as last_sync_timestamp,
+                m.last_polled_at, m.health_status, m.last_meter_value,
+                (SELECT mr.opening_count FROM sarga_machine_readings mr
+                 WHERE mr.machine_id = m.id AND mr.reading_date = CURDATE()) as today_manual_entry,
+                (SELECT mpr.total_prints FROM sarga_mpr_meter_data mpr
+                 WHERE mpr.machine_id = m.id ORDER BY mpr.fetched_at DESC LIMIT 1) as mpr_meter_value
+            FROM sarga_machines m
+            LEFT JOIN sarga_branches b ON m.branch_id = b.id
+            ${branchFilter}
+            ORDER BY m.machine_name ASC
+        `, params);
+
+        const today = new Date().toISOString().split('T')[0];
+        const todayDate = new Date(today);
+
+        const result = rows.map(m => {
+            let health_status = m.health_status || 'unknown';
+            let last_sync_time = null;
+
+            if (m.last_sync_timestamp) {
+                last_sync_time = m.last_sync_timestamp;
+            } else if (m.last_reading_date) {
+                last_sync_time = m.last_reading_date;
+            }
+
+            if (m.last_reading_date) {
+                const lastDate = new Date(m.last_reading_date);
+                const diffDays = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+                if (diffDays === 0) {
+                    health_status = 'healthy';
+                } else if (diffDays <= 2) {
+                    health_status = 'warning';
+                } else {
+                    health_status = 'critical';
+                }
+            }
+
+            const current_reading = m.today_manual_entry || m.last_opening_count || null;
+            const db_value = m.last_closing_count || null;
+            const meter_value = m.mpr_meter_value || m.last_meter_value || null;
+            const has_mismatch = current_reading !== null && meter_value !== null && current_reading !== meter_value;
+
+            return {
+                machine_id: m.id,
+                machine_name: m.machine_name,
+                machine_type: m.machine_type,
+                branch_id: m.branch_id,
+                branch_name: m.branch_name,
+                last_sync_time,
+                health_status,
+                current_reading,
+                db_value,
+                meter_value,
+                has_mismatch
+            };
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error fetching machine health:', error);
+        res.status(500).json({ error: 'Failed to fetch machine health' });
+    }
+});
+
 // ==================== GET SINGLE MACHINE (FULL DETAILS) ====================
 router.get('/:id', auth.authenticate, async (req, res) => {
     try {
@@ -1219,6 +1308,141 @@ router.get('/:id/meter-comparison', auth.authenticate, async (req, res) => {
     } catch (error) {
         console.error('Error fetching meter comparison:', error);
         res.status(500).json({ error: 'Failed to fetch comparison history' });
+    }
+});
+
+// ==================== LIVE COUNT ====================
+
+// GET /machines/:id/live-count — Live count for a specific machine
+router.get('/:id/live-count', auth.authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = req.user;
+
+        // Check machine exists
+        const [machines] = await pool.query(
+            'SELECT m.*, b.name as branch_name FROM sarga_machines m LEFT JOIN sarga_branches b ON m.branch_id = b.id WHERE m.id = ?',
+            [id]
+        );
+        if (machines.length === 0) {
+            return res.status(404).json({ error: 'Machine not found' });
+        }
+
+        const machine = machines[0];
+
+        // Non-admin/accountant: check assignment
+        if (!['Admin', 'Accountant'].includes(user.role)) {
+            const [assignment] = await pool.query(
+                'SELECT id FROM sarga_machine_staff_assignments WHERE machine_id = ? AND staff_id = ?',
+                [id, user.id]
+            );
+            if (assignment.length === 0) {
+                return res.status(403).json({ error: 'You are not assigned to this machine' });
+            }
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+
+        // Fetch today's reading
+        const [todayReading] = await pool.query(
+            `SELECT * FROM sarga_machine_readings WHERE machine_id = ? AND reading_date = ?`,
+            [id, today]
+        );
+
+        // Fetch latest reading if no today's reading
+        let latestReading = todayReading.length > 0 ? todayReading[0] : null;
+        if (!latestReading) {
+            const [latest] = await pool.query(
+                `SELECT * FROM sarga_machine_readings WHERE machine_id = ? ORDER BY reading_date DESC LIMIT 1`,
+                [id]
+            );
+            latestReading = latest.length > 0 ? latest[0] : null;
+        }
+
+        // Fetch MPR meter data if IP is configured
+        let meterData = null;
+        if (machine.ip_address) {
+            try {
+                const mprService = require('../services/mprIntegration');
+                meterData = await mprService.fetchBizhubMeterCounts(
+                    machine.ip_address,
+                    6000,
+                    machine.snmp_community || 'public',
+                    machine.mpr_username || null,
+                    machine.mpr_password || null
+                );
+            } catch (mprErr) {
+                console.warn(`[live-count] MPR fetch failed for machine #${id}:`, mprErr.message);
+                // Fall back to stored meter value
+                meterData = machine.last_meter_value
+                    ? { total_prints: machine.last_meter_value, fetched_at: machine.last_polled_at, error: null }
+                    : { total_prints: null, fetched_at: null, error: mprErr.message };
+            }
+        }
+
+        const manual_entry = latestReading ? latestReading.opening_count : null;
+        const meter_value = meterData && meterData.total_prints != null ? meterData.total_prints : null;
+        const difference = manual_entry !== null && meter_value !== null ? manual_entry - meter_value : null;
+
+        let last_sync_time = null;
+        if (latestReading) {
+            last_sync_time = latestReading.sync_timestamp || latestReading.created_at || latestReading.reading_date;
+        }
+
+        // Health status based on reading date recency
+        let health_status = 'unknown';
+        if (latestReading && latestReading.reading_date) {
+            const readDate = new Date(latestReading.reading_date);
+            const diffDays = Math.floor((now - readDate) / (1000 * 60 * 60 * 24));
+            if (diffDays === 0) health_status = 'healthy';
+            else if (diffDays <= 2) health_status = 'warning';
+            else health_status = 'critical';
+        }
+
+        // Timestamp correctness validation
+        let timestamp_correctness = { valid: true, message: null };
+        if (latestReading && latestReading.reading_date) {
+            const readDate = new Date(latestReading.reading_date);
+            if (readDate > now) {
+                timestamp_correctness = { valid: false, message: 'Reading date is in the future' };
+            } else if ((now - readDate) > 24 * 60 * 60 * 1000) {
+                timestamp_correctness = { valid: false, message: 'Reading is more than 1 day old' };
+            }
+        }
+
+        // Update machine poll info
+        await pool.query(
+            'UPDATE sarga_machines SET last_polled_at = NOW(), health_status = ? WHERE id = ?',
+            [health_status, id]
+        );
+
+        // Update reading sync info if we have a reading
+        if (latestReading && meter_value != null) {
+            await pool.query(
+                'UPDATE sarga_machine_readings SET sync_source = ?, sync_timestamp = NOW() WHERE id = ?',
+                [meterData && !meterData.error ? 'mpr' : 'manual', latestReading.id]
+            );
+        }
+
+        res.json({
+            machine_id: id,
+            machine_name: machine.machine_name,
+            machine_type: machine.machine_type,
+            branch_id: machine.branch_id,
+            branch_name: machine.branch_name,
+            manual_entry,
+            meter_data: meter_value,
+            difference,
+            last_sync_time,
+            health_status,
+            timestamp_correctness,
+            reading_date: latestReading ? latestReading.reading_date : null,
+            meter_data_raw: meterData
+        });
+    } catch (error) {
+        console.error('Error fetching live count:', error);
+        res.status(500).json({ error: 'Failed to fetch live count' });
     }
 });
 

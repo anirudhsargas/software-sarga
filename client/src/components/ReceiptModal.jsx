@@ -176,7 +176,7 @@ const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
                         )}
                         {description && (
                             <div className="mt-4">
-                                <span className="receipt-label text-xs">Notes: {description}</span>
+                                <span className="receipt-label text-xs" style={{ whiteSpace: 'pre-wrap' }}>Notes: {description}</span>
                             </div>
                         )}
                     </div>

@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog, getUserBranchId } = require('../helpers');
+const { branchFilter } = require('../middleware/branchFilter');
 const { invalidateHierarchyCache } = require('./jobs');
 const { validate, addInventorySchema } = require('../middleware/validate');
 const { paginate } = require('../helpers/pagination');
@@ -22,6 +23,15 @@ const normalizeSkuInput = (value) => {
     const normalized = normalizeScannedCode(value);
     return normalized || null;
 };
+
+async function logInventoryMovement(conn, inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by) {
+    await conn.query(
+        `INSERT INTO sarga_inventory_movement_log
+         (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes || null, created_by || null]
+    );
+}
 
 async function findInventoryByScannedCode(rawCode) {
     const normalized = normalizeScannedCode(rawCode);
@@ -71,12 +81,12 @@ async function findInventoryByScannedCode(rawCode) {
 
 // --- INVENTORY ROUTES (Admin Only) ---
 
-// List Inventory with enhanced filtering
+// List Inventory with enhanced filtering and branch stock support
 router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
     try {
+        const { branchId: filterBranchId } = await branchFilter(req, { column: 'i.id', allowPrivilegedQuery: true, queryKey: 'branch_id', nullableForPrivileged: true });
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
         
-        // Input validation and sanitization
         const search = req.query.search ? `%${String(req.query.search).trim().substring(0, 100)}%` : null;
         const itemType = req.query.item_type ? String(req.query.item_type).trim() : null;
         const category = req.query.category ? String(req.query.category).trim() : null;
@@ -88,17 +98,14 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
         const sortBy = req.query.sort_by ? String(req.query.sort_by).toLowerCase().trim() : 'created_at';
         const sortOrder = req.query.sort_order ? String(req.query.sort_order).toUpperCase().trim() : 'DESC';
         
-        // Validate sort parameters
         const validSortFields = ['id', 'name', 'sku', 'quantity', 'cost_price', 'mrp', 'category', 'created_at', 'updated_at'];
         const validSortOrders = ['ASC', 'DESC'];
         const finalSortBy = validSortFields.includes(sortBy) ? `i.${sortBy}` : 'i.created_at';
         const finalSortOrder = validSortOrders.includes(sortOrder) ? sortOrder : 'DESC';
         
-        // Validate status
         const validStatuses = ['low', 'ok', 'out-of-stock', 'in-stock'];
         const finalStatus = validStatuses.includes(status) ? status : null;
         
-        // Validate price range
         if (priceMin !== null && priceMax !== null && priceMin > priceMax) {
             return res.status(400).json({ 
                 success: false,
@@ -108,26 +115,33 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
 
         let whereClauses = [];
         let params = [];
+        let joinClauses = [];
+        let selectExtra = '';
 
-        // Search filter (name or SKU)
+        // Branch stock join and select
+        if (filterBranchId) {
+            joinClauses.push(`LEFT JOIN sarga_branch_stock bs ON bs.inventory_item_id = i.id AND bs.branch_id = ?`);
+            params.push(filterBranchId);
+            selectExtra = `, COALESCE(bs.quantity, 0) AS branch_stock`;
+        } else {
+            selectExtra = `, (SELECT COALESCE(SUM(quantity), 0) FROM sarga_branch_stock WHERE inventory_item_id = i.id) AS total_branch_stock`;
+        }
+
         if (search) {
             whereClauses.push(`(i.name LIKE ? OR i.sku LIKE ?)`);
             params.push(search, search);
         }
 
-        // Item type filter (with case-insensitive comparison)
         if (itemType) {
             whereClauses.push(`LOWER(i.item_type) = LOWER(?)`);
             params.push(itemType);
         }
 
-        // Category filter (check both inventory category and product subcategory)
         if (category) {
             whereClauses.push(`(LOWER(i.category) = LOWER(?) OR LOWER(ps.name) = LOWER(?))`);
             params.push(category, category);
         }
 
-        // Vendor name filter (partial match)
         const vendorName = req.query.vendor_name ? String(req.query.vendor_name).trim() : null;
         if (vendorName) {
             const v = vendorName.substring(0, 100);
@@ -135,18 +149,18 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
             params.push(`%${v}%`);
         }
 
-        // Status filter (stock level indicators)
+        // Status filter — use branch stock when branch is specified
+        const stockExpr = filterBranchId ? 'COALESCE(bs.quantity, 0)' : 'i.quantity';
         if (finalStatus === 'low') {
-            whereClauses.push(`i.quantity <= COALESCE(i.reorder_level, 10)`);
+            whereClauses.push(`${stockExpr} <= COALESCE(i.reorder_level, 10)`);
         } else if (finalStatus === 'ok') {
-            whereClauses.push(`i.quantity > COALESCE(i.reorder_level, 10)`);
+            whereClauses.push(`${stockExpr} > COALESCE(i.reorder_level, 10)`);
         } else if (finalStatus === 'out-of-stock') {
-            whereClauses.push(`i.quantity = 0`);
+            whereClauses.push(`${stockExpr} <= 0`);
         } else if (finalStatus === 'in-stock') {
-            whereClauses.push(`i.quantity > 0`);
+            whereClauses.push(`${stockExpr} > 0`);
         }
 
-        // Price range filter (cost price)
         if (priceMin !== null) {
             whereClauses.push(`i.cost_price >= ?`);
             params.push(priceMin);
@@ -156,30 +170,32 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
             params.push(priceMax);
         }
 
-        // Quantity range filter
         if (quantityMin !== null) {
-            whereClauses.push(`i.quantity >= ?`);
+            whereClauses.push(`${stockExpr} >= ?`);
             params.push(quantityMin);
         }
         if (quantityMax !== null) {
-            whereClauses.push(`i.quantity <= ?`);
+            whereClauses.push(`${stockExpr} <= ?`);
             params.push(quantityMax);
         }
 
+        const joinSection = joinClauses.length > 0 ? ' ' + joinClauses.join(' ') : '';
         const whereSection = whereClauses.length > 0 ? ` WHERE ` + whereClauses.join(' AND ') : '';
 
         const countQuery = `SELECT COUNT(DISTINCT i.id) as total 
                          FROM sarga_inventory i 
                          LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
                          LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
+                         ${joinSection}
                          ${whereSection}`;
         
-        const dataQuery = `SELECT DISTINCT i.*, p.id as linked_product_id, p.image_url as product_image_url, ps.name as product_subcategory_name, pc.name as product_category_name, spi.image_url as cached_image_url, spi.source as image_source, spi.confidence as image_confidence, spi.is_locked as image_locked 
+        const dataQuery = `SELECT DISTINCT i.*, p.id as linked_product_id, p.image_url as product_image_url, ps.name as product_subcategory_name, pc.name as product_category_name, spi.image_url as cached_image_url, spi.source as image_source, spi.confidence as image_confidence, spi.is_locked as image_locked ${selectExtra}
                         FROM sarga_inventory i 
                         LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
                         LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
                         LEFT JOIN sarga_product_categories pc ON ps.category_id = pc.id
                         LEFT JOIN sarga_product_images spi ON i.id = spi.inventory_item_id
+                        ${joinSection}
                         ${whereSection}
                         ORDER BY ${finalSortBy} ${finalSortOrder}, i.id ASC
                         LIMIT ? OFFSET ?`;
@@ -197,7 +213,73 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
     }
 });
 
-// Get single inventory item detail with full product info
+// Low stock items per branch (uses sarga_branch_stock when branch is specified)
+router.get('/inventory/low-stock', authenticateToken, async (req, res) => {
+    try {
+        const { branchId: filterBranchId } = await branchFilter(req, { column: 'bs.branch_id', allowPrivilegedQuery: true, queryKey: 'branch_id' });
+
+        let where = '';
+        let params = [];
+        if (filterBranchId) {
+            where = 'WHERE bs.branch_id = ? AND bs.quantity <= COALESCE(i.reorder_level, 10)';
+            params.push(filterBranchId);
+        } else {
+            where = 'WHERE i.quantity <= COALESCE(i.reorder_level, 10)';
+        }
+
+        const [rows] = await pool.query(
+            `SELECT i.id, i.name, i.sku, i.quantity AS global_stock, i.reorder_level, i.category, i.unit,
+                    COALESCE(bs.quantity, 0) AS branch_stock, b.id AS branch_id, b.name AS branch_name, b.short_name AS branch_short_name
+             FROM sarga_inventory i
+             LEFT JOIN sarga_branch_stock bs ON bs.inventory_item_id = i.id${filterBranchId ? ' AND bs.branch_id = ?' : ''}
+             LEFT JOIN sarga_branches b ON b.id = bs.branch_id
+             ${where}
+             ORDER BY ${filterBranchId ? 'bs.quantity' : 'i.quantity'} ASC
+             LIMIT 200`,
+            filterBranchId ? [...params, filterBranchId] : params
+        );
+
+        res.json(rows);
+    } catch (err) {
+        console.error('Low stock fetch error:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Get movement log for an inventory item
+router.get('/inventory/:id/movements', authenticateToken, async (req, res) => {
+    try {
+        const itemId = parseInt(req.params.id);
+        if (!Number.isFinite(itemId)) return res.status(400).json({ message: 'Invalid item id' });
+
+        const { branchId: filterBranchId } = await branchFilter(req, { column: 'ml.branch_id', allowPrivilegedQuery: true, queryKey: 'branch_id' });
+        const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+
+        let where = 'WHERE ml.inventory_item_id = ?';
+        let params = [itemId];
+        if (filterBranchId) {
+            where += ' AND ml.branch_id = ?';
+            params.push(filterBranchId);
+        }
+
+        const [rows] = await pool.query(
+            `SELECT ml.*, s.name AS created_by_name, b.name AS branch_name
+             FROM sarga_inventory_movement_log ml
+             LEFT JOIN sarga_staff s ON ml.created_by = s.id
+             LEFT JOIN sarga_branches b ON ml.branch_id = b.id
+             ${where}
+             ORDER BY ml.created_at DESC LIMIT ?`,
+            [...params, limit]
+        );
+
+        res.json(rows);
+    } catch (err) {
+        console.error('Movement log fetch error:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Get single inventory item detail with full product info, branch stock, and movement log
 router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
     try {
         const [rows] = await pool.query(
@@ -238,6 +320,25 @@ router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Front O
             consumptions = cRows;
         }
 
+        // Get branch stock for all branches
+        const [branchStocks] = await pool.query(
+            `SELECT b.id AS branch_id, b.name AS branch_name, b.short_name AS branch_short_name, COALESCE(bs.quantity, 0) AS quantity
+             FROM sarga_branches b
+             LEFT JOIN sarga_branch_stock bs ON bs.branch_id = b.id AND bs.inventory_item_id = ?
+             ORDER BY b.name`,
+            [item.id]
+        );
+
+        // Get movement log (last 20)
+        const [movements] = await pool.query(
+            `SELECT ml.*, s.name AS created_by_name
+             FROM sarga_inventory_movement_log ml
+             LEFT JOIN sarga_staff s ON ml.created_by = s.id
+             WHERE ml.inventory_item_id = ?
+             ORDER BY ml.created_at DESC LIMIT 20`,
+            [item.id]
+        );
+
         // Calculate derived values
         const costPrice = Number(item.cost_price) || 0;
         const gstRate = Number(item.gst_rate) || 0;
@@ -252,7 +353,9 @@ router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Front O
             stock_value: stockValue.toFixed(2),
             margin: margin.toFixed(1),
             restocks,
-            consumptions
+            consumptions,
+            branch_stocks: branchStocks,
+            movements
         });
     } catch (err) {
         console.error('Inventory detail error:', err);
@@ -626,7 +729,9 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
 
         if (existingItem) {
             // Update existing item: increment quantity and update other details to latest
-            const newQuantity = Number(existingItem.quantity) + (Number(quantity) || 0);
+            const qtyToAdd = Number(quantity) || 0;
+            const oldQty = Number(existingItem.quantity);
+            const newQuantity = oldQty + qtyToAdd;
             await pool.query(
                 `UPDATE sarga_inventory 
                  SET quantity = ?, sku = COALESCE(?, sku), category = ?, unit = ?, reorder_level = ?, cost_price = ?, sell_price = ?, hsn = ?, discount = ?, gst_rate = ?,
@@ -655,6 +760,27 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
             );
 
             const inventoryId = existingItem.id;
+
+            // Update branch stock and log movement
+            if (qtyToAdd > 0) {
+                const branchId = req.body.branch_id || (await getUserBranchId(req.user.id));
+                if (branchId) {
+                    await pool.query(
+                        `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity) 
+                         VALUES (?, ?, ?) 
+                         ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
+                        [inventoryId, branchId, qtyToAdd, qtyToAdd]
+                    );
+                    const [bsRow] = await pool.query(
+                        'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
+                        [inventoryId, branchId]
+                    );
+                    const qtyBefore = oldQty;
+                    const qtyAfter = Number(bsRow[0]?.quantity || qtyToAdd);
+                    await logInventoryMovement(pool, inventoryId, branchId, 'Purchase', qtyToAdd, qtyBefore, qtyAfter, 'inventory_add', null, null, req.user.id);
+                }
+            }
+
             if (product_id) {
                 await pool.query(
                     "UPDATE sarga_products SET inventory_item_id = ?, is_physical_product = 1 WHERE id = ?",
@@ -727,6 +853,20 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
             }
         }
 
+        // Add branch stock entry and movement log if quantity > 0
+        const initialQty = Number(quantity) || 0;
+        if (initialQty > 0) {
+            const branchId = req.body.branch_id || (await getUserBranchId(req.user.id));
+            if (branchId) {
+                await pool.query(
+                    `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity) VALUES (?, ?, ?)
+                     ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
+                    [inventoryId, branchId, initialQty, initialQty]
+                );
+                await logInventoryMovement(pool, inventoryId, branchId, 'Purchase', initialQty, 0, initialQty, 'inventory_add', null, null, req.user.id);
+            }
+        }
+
         auditLog(req.user.id, 'INVENTORY_ADD', `Added new item ${name} (${finalSku || 'no-sku'})`);
         res.status(201).json({ id: inventoryId, sku: finalSku, message: 'Inventory item added' });
     } catch (err) {
@@ -796,7 +936,7 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
     }
 });
 
-// Consume Inventory Item
+// Consume Inventory Item — updates sarga_branch_stock and logs movement
 router.post('/inventory/:id/consume', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
     const { id } = req.params;
     const { quantity_consumed, notes } = req.body;
@@ -823,6 +963,22 @@ router.post('/inventory/:id/consume', authenticateToken, authorizeRoles('Admin',
             [id, qtyToConsume, req.user.id, notes || null]
         );
 
+        // Update branch stock and log movement
+        const branchId = req.body.branch_id || (await getUserBranchId(req.user.id));
+        if (branchId) {
+            const [bsBefore] = await pool.query(
+                'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
+                [id, branchId]
+            );
+            const qtyBefore = Number(bsBefore[0]?.quantity || 0);
+            await pool.query(
+                'UPDATE sarga_branch_stock SET quantity = GREATEST(quantity - ?, 0) WHERE inventory_item_id = ? AND branch_id = ?',
+                [qtyToConsume, id, branchId]
+            );
+            const qtyAfter = Math.max(0, qtyBefore - qtyToConsume);
+            await logInventoryMovement(pool, id, branchId, 'Consumption', -qtyToConsume, qtyBefore, qtyAfter, 'consume', null, notes || null, req.user.id);
+        }
+
         auditLog(req.user.id, 'INVENTORY_CONSUME', `Consumed ${qtyToConsume} of item ${id} (${rows[0].name})`);
         res.json({ message: 'Stock consumed successfully' });
     } catch (_err) {
@@ -830,7 +986,7 @@ router.post('/inventory/:id/consume', authenticateToken, authorizeRoles('Admin',
     }
 });
 
-// Restock Inventory Item
+// Restock Inventory Item — updates sarga_branch_stock and logs movement
 router.post('/inventory/:id/restock', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { id } = req.params;
     const { quantity_received, cost_price, notes: _notes } = req.body;
@@ -840,7 +996,6 @@ router.post('/inventory/:id/restock', authenticateToken, authorizeRoles('Admin',
     }
 
     try {
-        // Calculate days since last reorder
         const [lastReorderRows] = await pool.query(
             'SELECT created_at FROM sarga_inventory_reorders WHERE inventory_item_id = ? ORDER BY created_at DESC LIMIT 1',
             [id]
@@ -868,6 +1023,24 @@ router.post('/inventory/:id/restock', authenticateToken, authorizeRoles('Admin',
             'INSERT INTO sarga_inventory_reorders (inventory_item_id, quantity_received, cost_price, days_since_last_reorder) VALUES (?, ?, ?, ?)',
             [id, received, newCost, daysSince]
         );
+
+        // Update branch stock and log movement
+        const branchId = req.body.branch_id || (await getUserBranchId(req.user.id));
+        if (branchId) {
+            const [bsBefore] = await pool.query(
+                'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
+                [id, branchId]
+            );
+            const qtyBefore = Number(bsBefore[0]?.quantity || 0);
+            await pool.query(
+                `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity) 
+                 VALUES (?, ?, ?) 
+                 ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
+                [id, branchId, received, received]
+            );
+            const qtyAfter = qtyBefore + received;
+            await logInventoryMovement(pool, id, branchId, 'Purchase', received, qtyBefore, qtyAfter, 'restock', null, _notes || null, req.user.id);
+        }
 
         auditLog(req.user.id, 'INVENTORY_RESTOCK', `Restocked ${received} of item ${id} (${item.name}). Days gap: ${daysSince}`);
         res.json({ message: 'Restocked successfully', days_since_last_reorder: daysSince });
@@ -1065,6 +1238,9 @@ router.delete('/inventory/all', authenticateToken, authorizeRoles('Admin'), asyn
         // Unlink products that reference inventory items
         await connection.query('UPDATE sarga_products SET inventory_item_id = NULL, is_physical_product = 0');
 
+        // Delete movement log (no FK cascade from inventory deletion in all cases)
+        await connection.query('DELETE FROM sarga_inventory_movement_log');
+
         // Delete all items from sarga_inventory (cascades to other tables)
         await connection.query('DELETE FROM sarga_inventory');
 
@@ -1094,6 +1270,7 @@ router.delete('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Acco
 
         // Manually delete dependencies to avoid FK constraint failures (for legacy schemas without ON DELETE CASCADE)
         await pool.query('DELETE FROM sarga_branch_stock WHERE inventory_item_id = ?', [id]);
+        await pool.query('DELETE FROM sarga_inventory_movement_log WHERE inventory_item_id = ?', [id]);
         await pool.query('DELETE FROM sarga_inventory_reorders WHERE inventory_item_id = ?', [id]);
         await pool.query('DELETE FROM sarga_inventory_consumption WHERE inventory_item_id = ?', [id]);
         await pool.query('DELETE FROM sarga_paper_cut_map WHERE parent_inventory_item_id = ?', [id]);
@@ -1149,6 +1326,14 @@ router.post('/inventory/transfer', authenticateToken, authorizeRoles('Admin', 'A
             [qty, inventory_item_id, from_branch_id]
         );
 
+        // 2b. Log source branch movement (Transfer Out)
+        const [srcBefore] = await connection.query(
+            'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
+            [inventory_item_id, from_branch_id]
+        );
+        const srcQtyBefore = Number(srcBefore[0]?.quantity || 0) + qty;
+        await logInventoryMovement(connection, inventory_item_id, from_branch_id, 'Transfer Out', -qty, srcQtyBefore, srcQtyBefore - qty, 'transfer', null, notes || null, req.user.id);
+
         // 3. Add to destination
         await connection.query(
             `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity) 
@@ -1156,6 +1341,14 @@ router.post('/inventory/transfer', authenticateToken, authorizeRoles('Admin', 'A
              ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
             [inventory_item_id, to_branch_id, qty, qty]
         );
+
+        // 3b. Log destination branch movement (Transfer In)
+        const [dstBefore] = await connection.query(
+            'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
+            [inventory_item_id, to_branch_id]
+        );
+        const dstQtyBefore = Number(dstBefore[0]?.quantity || 0);
+        await logInventoryMovement(connection, inventory_item_id, to_branch_id, 'Transfer In', qty, dstQtyBefore, dstQtyBefore + qty, 'transfer', null, notes || null, req.user.id);
 
         // 4. Log transfer (inserting into sarga_stock_requests as a 'Completed' transfer for unified reporting)
         await connection.query(

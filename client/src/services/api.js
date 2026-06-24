@@ -220,12 +220,12 @@ api.interceptors.response.use(
         }
 
         if (status === 403) {
-            try { toast.error(userMsg || 'Access denied.'); } catch {}
+            try { toast.error(userMsg || "Access denied. You don't have permission for this action."); } catch {}
             const token = localStorage.getItem('token');
             if (!token) {
                 window.location.href = '/login';
-            } else if (window.location.pathname !== '/dashboard') {
-                window.location.href = '/dashboard';
+            } else if (window.location.pathname !== '/access-denied') {
+                window.location.href = '/access-denied';
             }
             return Promise.reject(error);
         }
@@ -258,6 +258,21 @@ export const getAuthHeader = () => {
 };
 
 export default api;
+
+/** Preload frequently used static data so it's cached before any page needs it */
+export const preloadStaticData = () => {
+    const endpoints = [
+        'branches',
+        'product-hierarchy',
+        'company-settings',
+        'machines'
+    ];
+    endpoints.forEach(endpoint => {
+        cachedGet(endpoint).catch(() => {
+            // Silently ignore — data will load when the relevant page opens
+        });
+    });
+};
 
 // When running locally without an auth token, point read-only requests to dev routes
 export const devFallback = (path) => {

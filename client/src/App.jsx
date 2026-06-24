@@ -10,6 +10,7 @@ const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const ServerError = lazy(() => import('./pages/ServerError'));
 const NetworkError = lazy(() => import('./pages/NetworkError'));
+const AccessDenied = lazy(() => import('./pages/AccessDenied'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const StaffSettingsPage = lazy(() => import('./pages/StaffSettingsPage'));
@@ -25,7 +26,9 @@ import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from './theme/ThemeProvider';
 
 import { syncManager } from './services/syncWorkerManager';
+import { preloadStaticData } from './services/api';
 import { SyncStatusBar } from './components/SyncStatusBar';
+import UpdateNotification from './components/UpdateNotification';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const PublicLayout = lazy(() => import('./pages/public/PublicLayout'));
@@ -70,7 +73,7 @@ const ProtectedRoute = ({ children, roles }) => {
 
   const user = auth.getUser();
   if (roles && !roles.includes(user.role)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/access-denied" replace />;
   }
 
   return children;
@@ -120,6 +123,9 @@ function App() {
     // Initialize sync worker
     syncManager.init();
 
+    // Preload frequently used static data
+    preloadStaticData();
+
     // Update token when it changes
     const token = localStorage.getItem('token');
     if (token) syncManager.updateToken(token);
@@ -161,6 +167,7 @@ function App() {
         <BranchProvider>
         <ConfirmProvider>
           <SyncStatusBar />
+          <UpdateNotification />
           <Toaster
             position="top-center"
             toastOptions={{
@@ -269,6 +276,7 @@ function App() {
               <Route path="/profile" element={<Navigate to="/dashboard" replace />} />
               <Route path="/error/server" element={<ServerError />} />
               <Route path="/error/network" element={<NetworkError />} />
+              <Route path="/access-denied" element={<AccessDenied />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -165,12 +166,12 @@ router.get('/delivery/estimate', asyncHandler(async (req, res) => {
 }));
 
 // ─── ADMIN: Manage delivery rules ───
-router.get('/delivery/rules', asyncHandler(async (req, res) => {
+router.get('/delivery/rules', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query('SELECT id, product_category, service_type, base_days, capacity_per_day, rush_multiplier, is_active, created_at FROM sarga_delivery_rules WHERE is_active = 1 ORDER BY product_category LIMIT 100');
   res.json({ rules: rows });
 }));
 
-router.post('/delivery/rules', asyncHandler(async (req, res) => {
+router.post('/delivery/rules', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const { product_category, service_type, base_days, capacity_per_day } = req.body;
   if (!product_category || !service_type) return res.status(400).json({ error: 'product_category and service_type required' });
   const [result] = await pool.query(
@@ -180,7 +181,7 @@ router.post('/delivery/rules', asyncHandler(async (req, res) => {
   res.status(201).json({ id: result.insertId, message: 'Rule created' });
 }));
 
-router.put('/delivery/rules/:id', asyncHandler(async (req, res) => {
+router.put('/delivery/rules/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   const { base_days, capacity_per_day, is_active, product_category, service_type } = req.body;
   const sets = []; const params = [];
   if (base_days !== undefined) { sets.push('base_days = ?'); params.push(base_days); }
@@ -194,7 +195,7 @@ router.put('/delivery/rules/:id', asyncHandler(async (req, res) => {
   res.json({ message: 'Rule updated' });
 }));
 
-router.delete('/delivery/rules/:id', asyncHandler(async (req, res) => {
+router.delete('/delivery/rules/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
   await pool.query('DELETE FROM sarga_delivery_rules WHERE id = ?', [req.params.id]);
   res.json({ message: 'Rule deleted' });
 }));

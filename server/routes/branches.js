@@ -38,7 +38,7 @@ router.get('/branches/:id', authenticateToken, async (req, res) => {
 });
 
 // Temporary DB Debug route
-router.get('/branches/debug-db/show', async (req, res) => {
+router.get('/branches/debug-db/show', authenticateToken, async (req, res) => {
     try {
         const [tables] = await pool.query("SHOW TABLES");
         let shortcutErr = null;

@@ -1816,12 +1816,23 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
       branchId: branch_id
     });
 
+    // Compute extraction confidence from provided data
+    const fieldScores = [];
+    if (vendor_name) fieldScores.push(vendor_name.length >= 3 ? 0.95 : 0.6);
+    if (bill_number) fieldScores.push(/^[A-Z0-9\/\-]{2,20}$/i.test(bill_number) ? 0.95 : 0.7);
+    if (bill_date) { const d = new Date(bill_date); fieldScores.push(!isNaN(d.getTime()) ? 0.98 : 0.6); }
+    if (amount && Number(amount) > 0) fieldScores.push(0.95);
+    const     const uploadConfidence = fieldScores.length > 0
+      ? Math.round((fieldScores.reduce((a, b) => a + b, 0) / fieldScores.length) * 100) / 100
+      : null;
+
     const [result] = await pool.query(
       `INSERT INTO sarga_bills_documents 
        (branch_id, document_type, related_tab, related_id, vendor_name, vendor_gstin, bill_number, bill_date,
         amount, subtotal, tax_amount, sgst_amount, cgst_amount, gst_confidence, gst_category,
-        file_path, file_name, file_type, file_size_kb, description, line_items, uploaded_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        file_path, file_name, file_type, file_size_kb, description, line_items, uploaded_by,
+        extraction_confidence, extraction_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         branch_id,
         normalizedDocumentType,
@@ -1844,7 +1855,9 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
         Math.ceil(req.file.size / 1024),
         description || null,
         typeof line_items === 'string' ? line_items : (normalizedLineItems.length > 0 ? JSON.stringify(normalizedLineItems) : null),
-        uploaded_by
+        uploaded_by,
+        uploadConfidence,
+        'completed'
       ]
     );
 
@@ -2171,11 +2184,20 @@ router.post('/bills-documents/extract-details', authenticateToken, authorizeRole
     }
 
     console.log('[Bill Extraction] Starting extraction for:', req.file.filename);
-    const { processBillDocument } = require('../helpers/billExtraction');
+    const { processBillDocument, checkDuplicateBill } = require('../helpers/billExtraction');
     const filePath = req.file.path;
+    const { branch_id } = req.user;
+
+    // Check for duplicate before processing
+    const duplicate = await checkDuplicateBill({
+      vendorName: req.body.vendor_name,
+      billNumber: req.body.bill_number,
+      amount: req.body.amount,
+      branchId: branch_id
+    });
 
     // Process bill and extract details
-    const result = await processBillDocument(filePath);
+    const result = await processBillDocument(filePath, { billDocumentId: null });
 
     // Clean up temp file
     fs.promises.unlink(filePath).catch((err) => console.log('File cleanup issue:', err.message));
@@ -2216,10 +2238,230 @@ router.post('/bills-documents/extract-details', authenticateToken, authorizeRole
       item_count: items.length,
     };
 
+    // Append extraction metadata
+    result.suggestions.extraction_metadata = {
+      ocr_engine: result.ocr_engine || 'gemini',
+      confidence_scores: result.suggestions.confidence_scores || {},
+      extraction_logs: result.extraction_logs || [],
+      extraction_status: result.suggestions.confidence >= 0.7 ? 'completed' : (result.suggestions.confidence >= 0.4 ? 'partial' : 'low_confidence'),
+      duplicate_warning: duplicate ? {
+        id: duplicate.id,
+        vendor_name: duplicate.vendor_name,
+        bill_number: duplicate.bill_number,
+        amount: duplicate.amount,
+        bill_date: duplicate.bill_date,
+        created_at: duplicate.created_at
+      } : null
+    };
+
+    // Log extraction results
+    try {
+      const { logExtractionToDatabase } = require('../helpers/billExtraction');
+      const extractionLogs = result.suggestions.extraction_logs || [];
+      if (extractionLogs.length > 0 && result?.extraction?.billDocumentId) {
+        await logExtractionToDatabase({
+          billDocumentId: result.extraction.billDocumentId,
+          extractionType: 'auto',
+          fieldLogs: extractionLogs,
+          overallConfidence: result.suggestions.confidence || 0,
+          processingTimeMs: 0
+        });
+      }
+    } catch (logError) {
+      console.warn('[ExtractionLog] Non-fatal log error:', logError.message);
+    }
+
     res.json(result.suggestions);
   } catch (error) {
     console.error('Bill extraction error:', error.message, error.stack);
     res.status(500).json({ error: 'Failed to extract bill details', details: error.message });
+  }
+});
+
+// Manual correction endpoint for extracted fields
+router.post('/bills-documents/:id/manual-correct', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { field_name, corrected_value } = req.body;
+
+    if (!field_name) {
+      return res.status(400).json({ error: 'field_name is required' });
+    }
+
+    const [docRows] = await pool.query(
+      'SELECT id FROM sarga_bills_documents WHERE id = ?', [id]
+    );
+    if (!docRows.length) {
+      return res.status(404).json({ error: 'Bill document not found' });
+    }
+
+    // Update the document field if it maps to a document column
+    const fieldMap = {
+      vendor_name: 'vendor_name',
+      bill_number: 'bill_number',
+      bill_date: 'bill_date',
+      amount: 'amount',
+      total_amount: 'amount',
+      tax_amount: 'tax_amount',
+      subtotal: 'subtotal'
+    };
+    const dbColumn = fieldMap[field_name];
+    if (dbColumn) {
+      const updateData = {};
+      updateData[dbColumn] = corrected_value;
+      await pool.query(`UPDATE sarga_bills_documents SET ? WHERE id = ?`, [updateData, id]);
+    }
+
+    // Log the correction
+    await pool.query(
+      `UPDATE sarga_bill_extraction_logs 
+       SET is_corrected = 1, corrected_value = ?, corrected_by = ?, corrected_at = NOW()
+       WHERE bill_document_id = ? AND field_name = ?
+       ORDER BY id DESC LIMIT 1`,
+      [corrected_value || null, req.user.id, id, field_name]
+    );
+
+    // If no log row existed, insert one
+    const [logRows] = await pool.query(
+      `SELECT id FROM sarga_bill_extraction_logs 
+       WHERE bill_document_id = ? AND field_name = ? LIMIT 1`,
+      [id, field_name]
+    );
+    if (logRows.length === 0) {
+      await pool.query(
+        `INSERT INTO sarga_bill_extraction_logs 
+         (bill_document_id, extraction_type, field_name, extracted_value, confidence_score, is_corrected, corrected_value, corrected_by, corrected_at, ocr_engine)
+         VALUES (?, 'manual', ?, NULL, 0, 1, ?, ?, NOW(), 'manual')`,
+        [id, field_name, corrected_value || null, req.user.id]
+      );
+    }
+
+    // Mark document as manually corrected
+    await pool.query(
+      `UPDATE sarga_bills_documents 
+       SET extraction_status = 'manual', manual_correction_required = 0
+       WHERE id = ?`,
+      [id]
+    );
+
+    auditLog(req.user.id, 'BILL_MANUAL_CORRECT', `Manual correction on bill #${id}: ${field_name} = ${corrected_value}`, {
+      entity_type: 'bill_document', entity_id: id
+    });
+
+    res.json({ success: true, message: `Field '${field_name}' corrected` });
+  } catch (error) {
+    console.error('Manual correction error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Retry extraction for a bill document
+router.post('/bills-documents/:id/retry-extraction', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [docRows] = await pool.query(
+      `SELECT id, file_path, file_type FROM sarga_bills_documents WHERE id = ?`, [id]
+    );
+    if (!docRows.length) {
+      return res.status(404).json({ error: 'Bill document not found' });
+    }
+
+    const doc = docRows[0];
+    const localPath = doc.file_path?.startsWith('/uploads/')
+      ? path.join(__dirname, '..', doc.file_path)
+      : null;
+
+    if (!localPath || !fs.existsSync(localPath)) {
+      return res.status(400).json({ error: 'Original file not available for re-extraction' });
+    }
+
+    // Update status to processing
+    await pool.query(
+      `UPDATE sarga_bills_documents SET extraction_status = 'processing' WHERE id = ?`,
+      [id]
+    );
+
+    const { processBillDocument, logExtractionToDatabase } = require('../helpers/billExtraction');
+    const result = await processBillDocument(localPath, { billDocumentId: Number(id) });
+
+    if (!result.success) {
+      await pool.query(
+        `UPDATE sarga_bills_documents SET extraction_status = 'failed', extraction_errors = ? WHERE id = ?`,
+        [result.error?.slice(0, 500) || 'Unknown error', id]
+      );
+      return res.status(400).json({ error: result.message, details: result.error });
+    }
+
+    // Log extraction results
+    const extractionLogs = result.suggestions?.extraction_logs || [];
+    if (extractionLogs.length > 0) {
+      await logExtractionToDatabase({
+        billDocumentId: Number(id),
+        extractionType: 'retry',
+        fieldLogs: extractionLogs,
+        overallConfidence: result.suggestions.confidence || 0,
+        processingTimeMs: 0
+      });
+    }
+
+    // Update document with new extraction data
+    const extracted = result.suggestions?.extracted_data || {};
+    await pool.query(
+      `UPDATE sarga_bills_documents 
+       SET vendor_name = COALESCE(?, vendor_name),
+           bill_number = COALESCE(?, bill_number),
+           bill_date = COALESCE(?, bill_date),
+           amount = COALESCE(?, amount),
+           extraction_confidence = ?,
+           extraction_status = ?,
+           extraction_errors = NULL,
+           manual_correction_required = CASE WHEN ? < 0.7 THEN 1 ELSE 0 END
+       WHERE id = ?`,
+      [
+        extracted.vendor_name || null,
+        extracted.bill_number || null,
+        extracted.bill_date || null,
+        extracted.amount || null,
+        result.suggestions.confidence || 0,
+        result.suggestions.confidence >= 0.7 ? 'completed' : 'completed',
+        result.suggestions.confidence || 0,
+        id
+      ]
+    );
+
+    auditLog(req.user.id, 'BILL_RETRY_EXTRACTION', `Retried extraction on bill #${id}`, {
+      entity_type: 'bill_document', entity_id: id
+    });
+
+    res.json({
+      success: true,
+      suggestions: result.suggestions,
+      extraction_logs: extractionLogs
+    });
+  } catch (error) {
+    console.error('Retry extraction error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get extraction logs for a bill document
+router.get('/bills-documents/:id/extraction-logs', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [logs] = await pool.query(
+      `SELECT id, extraction_type, field_name, extracted_value, confidence_score,
+              is_corrected, corrected_value, corrected_by, corrected_at,
+              ocr_engine, processing_time_ms, error_message, created_at
+       FROM sarga_bill_extraction_logs
+       WHERE bill_document_id = ?
+       ORDER BY created_at ASC`,
+      [id]
+    );
+    res.json(logs);
+  } catch (error) {
+    console.error('Get extraction logs error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

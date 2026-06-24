@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { extractBillData } = require('../utils/ocrParser');
+const { pool } = require('../database');
 
 // Load server/.env explicitly so this helper works even when Node is started from workspace root.
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -33,11 +34,59 @@ async function extractWithPaddleOCR(filePath) {
     }
 
     console.log('[PaddleOCR] Extraction successful');
-    return result.text;
+    return { text: result.text, confidence: result.confidence || 0.85 };
   } catch (error) {
     console.warn('[PaddleOCR] Extraction failed:', error.message);
     throw error;
   }
+}
+
+async function extractWithPaddleOCRWithRetry(filePath) {
+  const preprocessingSteps = [
+    { name: 'none', contrast: 1.0, brightness: 1.0, sharpen: 0 },
+    { name: 'high_contrast', contrast: 1.4, brightness: 1.05, sharpen: 1 },
+    { name: 'brightened', contrast: 1.0, brightness: 1.2, sharpen: 0 },
+    { name: 'sharpened', contrast: 1.2, brightness: 1.0, sharpen: 2 },
+    { name: 'grayscale_boost', contrast: 1.5, brightness: 0.95, sharpen: 1 }
+  ];
+
+  let lastError = null;
+
+  for (const step of preprocessingSteps) {
+    try {
+      const imageData = fs.readFileSync(filePath);
+      const base64Data = imageData.toString('base64');
+      const mimeType = getMimeType(filePath);
+      const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+      const response = await fetch(`${ML_SERVICE_URL}/ocr/extract-text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: dataUrl,
+          return_details: false,
+          preprocessing: step
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `PaddleOCR service error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success && result.text && result.text.trim().length > 10) {
+        console.log(`[PaddleOCR] Extraction successful with preprocessing: ${step.name}`);
+        return { text: result.text, confidence: result.confidence || 0.8, preprocessing: step.name };
+      }
+      lastError = new Error('PaddleOCR returned insufficient text');
+    } catch (error) {
+      lastError = error;
+      console.warn(`[PaddleOCR] Retry ${step.name} failed:`, error.message);
+    }
+  }
+
+  throw lastError || new Error('PaddleOCR extraction failed after all retries');
 }
 
 function getGeminiClient() {
@@ -89,6 +138,157 @@ function extractJson(text) {
 function toNumber(value, fallback = 0) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function calculateFieldConfidence(fieldName, value, extractedData = {}) {
+  if (value === null || value === undefined || value === '') return 0.15;
+  const str = String(value).trim();
+  if (!str) return 0.15;
+
+  switch (fieldName) {
+    case 'vendor_name':
+      if (str.length >= 3 && /[A-Za-z]/.test(str)) return 0.85;
+      if (str.length >= 2) return 0.55;
+      return 0.3;
+    case 'bill_number':
+      if (/^[A-Z0-9][A-Z0-9\/\-]{2,20}$/i.test(str)) return 0.9;
+      if (/[\dA-Z]/i.test(str) && str.length >= 2) return 0.6;
+      return 0.25;
+    case 'bill_date':
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) return 0.95;
+      }
+      if (/^\d{2}[-/]\d{2}[-/]\d{2,4}$/.test(str)) return 0.65;
+      return 0.2;
+    case 'total_amount':
+    case 'amount': {
+      const num = toNumber(value, 0);
+      if (num > 0 && num < 1e9) return 0.9;
+      if (num > 0) return 0.7;
+      return 0.2;
+    }
+    case 'tax_amount':
+    case 'tax': {
+      const num = toNumber(value, 0);
+      if (num > 0) return 0.85;
+      return 0.5;
+    }
+    case 'subtotal': {
+      const num = toNumber(value, 0);
+      if (num > 0) return 0.85;
+      return 0.4;
+    }
+    case 'category':
+      if (str.length >= 3) return 0.75;
+      return 0.35;
+    case 'items': {
+      const items = Array.isArray(value) ? value : [];
+      if (items.length === 0) return 0.1;
+      const validItems = items.filter(i => String(i?.description || i?.item_name || '').trim().length > 0);
+      const ratio = validItems.length / Math.max(items.length, 1);
+      const hasRates = items.some(i => toNumber(i?.rate || i?.unit_price || i?.cost_price, 0) > 0);
+      const hasQty = items.some(i => toNumber(i?.quantity, 0) > 0);
+      let score = ratio * 0.5;
+      if (hasRates) score += 0.25;
+      if (hasQty) score += 0.25;
+      return Math.min(score, 1.0);
+    }
+    case 'vendor_gstin':
+      if (/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}\d[Z]{1}[A-Z\d]{1}$/i.test(str)) return 0.98;
+      if (str.length >= 10) return 0.5;
+      return 0.2;
+    default:
+      return str.length > 0 ? 0.6 : 0.1;
+  }
+}
+
+function computeOverallConfidence(extracted) {
+  const fields = ['vendor_name', 'bill_number', 'bill_date', 'total_amount', 'tax_amount', 'subtotal', 'category', 'items'];
+  const scores = fields.map(f => calculateFieldConfidence(f, extracted[f] || extracted[mapFieldName(f)], extracted));
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+  return Math.round(avg * 100) / 100;
+}
+
+function mapFieldName(field) {
+  const map = { total_amount: 'amount', tax_amount: 'tax', items: 'items' };
+  return map[field] || field;
+}
+
+function buildExtractionLogEntry({ fieldName, value, confidence, ocrEngine, processingTimeMs, error }) {
+  return {
+    field_name: fieldName,
+    extracted_value: value !== null && value !== undefined ? String(value) : null,
+    confidence_score: Math.round(confidence * 100) / 100,
+    ocr_engine: ocrEngine || 'gemini',
+    processing_time_ms: processingTimeMs || 0,
+    error_message: error || null
+  };
+}
+
+async function logExtractionToDatabase({ billDocumentId, extractionType, fieldLogs, overallConfidence, processingTimeMs, error }) {
+  try {
+    if (!fieldLogs || fieldLogs.length === 0) return;
+    for (const log of fieldLogs) {
+      await pool.query(
+        `INSERT INTO sarga_bill_extraction_logs 
+         (bill_document_id, extraction_type, field_name, extracted_value, confidence_score, ocr_engine, processing_time_ms, error_message)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          billDocumentId || null,
+          extractionType || 'auto',
+          log.field_name,
+          log.extracted_value,
+          log.confidence_score,
+          log.ocr_engine || 'gemini',
+          log.processing_time_ms || 0,
+          log.error_message
+        ]
+      );
+    }
+    if (billDocumentId) {
+      const extractionStatus = error ? 'failed' : (overallConfidence >= 0.7 ? 'completed' : 'completed');
+      await pool.query(
+        `UPDATE sarga_bills_documents 
+         SET extraction_confidence = ?, extraction_status = ?, extraction_errors = ?
+         WHERE id = ?`,
+        [
+          overallConfidence || 0,
+          extractionStatus,
+          error ? String(error).slice(0, 500) : null,
+          billDocumentId
+        ]
+      );
+    }
+  } catch (dbError) {
+    console.warn('[ExtractionLog] Failed to write extraction log:', dbError.message);
+  }
+}
+
+async function checkDuplicateBill({ vendorName, billNumber, amount, branchId }) {
+  try {
+    if (!vendorName && !billNumber) return null;
+    const [rows] = await pool.query(
+      `SELECT id, vendor_name, bill_number, amount, bill_date, created_at
+       FROM sarga_bills_documents
+       WHERE (? IS NULL OR LOWER(TRIM(vendor_name)) = LOWER(TRIM(?)))
+         AND (? IS NULL OR LOWER(TRIM(bill_number)) = LOWER(TRIM(?)))
+         AND (? IS NULL OR ABS(COALESCE(amount, 0) - ?) < 0.01)
+         AND branch_id = ?
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [
+        vendorName || null, vendorName || null,
+        billNumber || null, billNumber || null,
+        amount ? Number(amount) : null, amount ? Number(amount) : null,
+        branchId || 0
+      ]
+    );
+    return rows.length > 0 ? rows[0] : null;
+  } catch (error) {
+    console.warn('[DuplicateCheck] Error:', error.message);
+    return null;
+  }
 }
 
 function isQuotaOrRateLimitError(error) {
@@ -310,31 +510,63 @@ function suggestInventory(extracted) {
   return suggestions;
 }
 
-async function processBillDocument(filePath) {
+async function processBillDocument(filePath, options = {}) {
+  const startTime = Date.now();
+  const extractionLogs = [];
+  let ocrEngine = 'gemini';
+  let overallConfidence = 0;
+  let extracted = null;
+
   try {
     console.log('[Gemini] Processing bill:', filePath);
-    let extracted;
+
     try {
       extracted = await extractWithGemini(filePath);
+      ocrEngine = 'gemini';
     } catch (geminiError) {
-      if (!isQuotaOrRateLimitError(geminiError)) {
+      if (!isQuotaOrRateLimitError(geminiError) && !options.forceFallback) {
         throw geminiError;
       }
 
       console.warn('[Gemini] Quota/rate limit reached. Falling back to PaddleOCR.');
+      ocrEngine = 'paddleocr';
       try {
-        const paddleText = await extractWithPaddleOCR(filePath);
-        // Parse PaddleOCR text using existing parser
+        const paddleResult = await extractWithPaddleOCRWithRetry(filePath);
         const mimeType = getMimeType(filePath);
-        const ocrData = { ...await extractBillData(filePath, mimeType), raw_text: paddleText };
+        const ocrData = { ...await extractBillData(filePath, mimeType), raw_text: paddleResult.text };
         const fallbackSuggestions = buildSuggestionsFromOcr(ocrData);
-        return { success: true, suggestions: fallbackSuggestions };
+
+        extractionLogs.push(buildExtractionLogEntry({
+          fieldName: 'raw_text', value: paddleResult.text ? paddleResult.text.slice(0, 500) : null,
+          confidence: paddleResult.confidence || 0.7, ocrEngine: 'paddleocr', processingTimeMs: Date.now() - startTime
+        }));
+
+        overallConfidence = computeOverallConfidence(fallbackSuggestions.extracted_data);
+        fallbackSuggestions.confidence = overallConfidence;
+        fallbackSuggestions.extraction_logs = extractionLogs;
+
+        if (options.billDocumentId) {
+          await logExtractionToDatabase({
+            billDocumentId: options.billDocumentId,
+            extractionType: 'auto_fallback',
+            fieldLogs: extractionLogs,
+            overallConfidence,
+            processingTimeMs: Date.now() - startTime
+          });
+        }
+
+        return { success: true, suggestions: fallbackSuggestions, ocr_engine: 'paddleocr', extraction_logs: extractionLogs };
       } catch (_paddleError) {
         console.warn('[PaddleOCR] Failed. Falling back to Tesseract OCR.');
+        ocrEngine = 'tesseract';
         const mimeType = getMimeType(filePath);
         const ocrData = await extractBillData(filePath, mimeType);
         const fallbackSuggestions = buildSuggestionsFromOcr(ocrData);
-        return { success: true, suggestions: fallbackSuggestions };
+
+        overallConfidence = computeOverallConfidence(fallbackSuggestions.extracted_data);
+        fallbackSuggestions.confidence = overallConfidence;
+
+        return { success: true, suggestions: fallbackSuggestions, ocr_engine: 'tesseract', extraction_logs: extractionLogs };
       }
     }
 
@@ -353,7 +585,6 @@ async function processBillDocument(filePath) {
         const gstPct = toNumber(line?.gst_percent, 0);
         const taxable = qty * unitPrice;
         const gstAmt = gstPct > 0 ? taxable * gstPct / 100 : 0;
-        // Prefer Gemini's amount if given and greater than taxable (meaning it includes GST)
         const lineAmount = toNumber(line?.amount, 0);
         const totalAmount = lineAmount > taxable + 0.01 ? lineAmount : (gstAmt > 0 ? taxable + gstAmt : lineAmount || taxable);
         const billMrp = toNumber(line?.mrp, 0);
@@ -375,6 +606,54 @@ async function processBillDocument(filePath) {
       confidence: Math.max(0, Math.min(1, toNumber(extracted?.confidence, 0.9)))
     };
 
+    extractionLogs.push(buildExtractionLogEntry({
+      fieldName: 'vendor_name', value: normalized.vendor_name,
+      confidence: calculateFieldConfidence('vendor_name', normalized.vendor_name),
+      ocrEngine, processingTimeMs: Date.now() - startTime
+    }));
+    extractionLogs.push(buildExtractionLogEntry({
+      fieldName: 'bill_number', value: normalized.bill_number,
+      confidence: calculateFieldConfidence('bill_number', normalized.bill_number),
+      ocrEngine, processingTimeMs: Date.now() - startTime
+    }));
+    extractionLogs.push(buildExtractionLogEntry({
+      fieldName: 'bill_date', value: normalized.bill_date,
+      confidence: calculateFieldConfidence('bill_date', normalized.bill_date),
+      ocrEngine, processingTimeMs: Date.now() - startTime
+    }));
+    extractionLogs.push(buildExtractionLogEntry({
+      fieldName: 'total_amount', value: normalized.total_amount,
+      confidence: calculateFieldConfidence('total_amount', normalized.total_amount),
+      ocrEngine, processingTimeMs: Date.now() - startTime
+    }));
+    extractionLogs.push(buildExtractionLogEntry({
+      fieldName: 'tax_amount', value: normalized.tax_amount,
+      confidence: calculateFieldConfidence('tax_amount', normalized.tax_amount),
+      ocrEngine, processingTimeMs: Date.now() - startTime
+    }));
+    extractionLogs.push(buildExtractionLogEntry({
+      fieldName: 'subtotal', value: normalized.subtotal,
+      confidence: calculateFieldConfidence('subtotal', normalized.subtotal),
+      ocrEngine, processingTimeMs: Date.now() - startTime
+    }));
+    extractionLogs.push(buildExtractionLogEntry({
+      fieldName: 'category', value: normalized.category,
+      confidence: calculateFieldConfidence('category', normalized.category),
+      ocrEngine, processingTimeMs: Date.now() - startTime
+    }));
+    extractionLogs.push(buildExtractionLogEntry({
+      fieldName: 'items', value: normalized.line_items,
+      confidence: calculateFieldConfidence('items', normalized.line_items),
+      ocrEngine, processingTimeMs: Date.now() - startTime
+    }));
+
+    overallConfidence = computeOverallConfidence({
+      ...normalized,
+      total_amount: normalized.total_amount,
+      tax_amount: normalized.tax_amount,
+      items: normalized.line_items
+    });
+
     const suggestions = {
       extracted_data: {
         amount: normalized.total_amount,
@@ -390,20 +669,69 @@ async function processBillDocument(filePath) {
       },
       category_suggestions: suggestCategories(normalized),
       inventory_suggestions: suggestInventory(normalized),
-      confidence: normalized.confidence,
+      confidence: overallConfidence,
+      confidence_scores: {
+        vendor_name: calculateFieldConfidence('vendor_name', normalized.vendor_name),
+        bill_number: calculateFieldConfidence('bill_number', normalized.bill_number),
+        bill_date: calculateFieldConfidence('bill_date', normalized.bill_date),
+        total_amount: calculateFieldConfidence('total_amount', normalized.total_amount),
+        tax_amount: calculateFieldConfidence('tax_amount', normalized.tax_amount),
+        subtotal: calculateFieldConfidence('subtotal', normalized.subtotal),
+        category: calculateFieldConfidence('category', normalized.category),
+        items: calculateFieldConfidence('items', normalized.line_items)
+      },
+      extraction_logs: extractionLogs,
+      ocr_engine: ocrEngine,
       raw_text: JSON.stringify(normalized)
     };
 
-    console.log('[Gemini] Extraction successful, confidence:', normalized.confidence);
-    return { success: true, suggestions };
+    if (options.billDocumentId) {
+      await logExtractionToDatabase({
+        billDocumentId: options.billDocumentId,
+        extractionType: 'auto',
+        fieldLogs: extractionLogs,
+        overallConfidence,
+        processingTimeMs: Date.now() - startTime
+      });
+    }
+
+    console.log(`[Gemini] Extraction successful, confidence: ${overallConfidence}, engine: ${ocrEngine}`);
+    return { success: true, suggestions, ocr_engine: ocrEngine, extraction_logs: extractionLogs };
   } catch (error) {
+    const processingTimeMs = Date.now() - startTime;
     console.error('[Gemini] Extraction failed:', error.message);
+
+    extractionLogs.push(buildExtractionLogEntry({
+      fieldName: 'error', value: null,
+      confidence: 0, ocrEngine, processingTimeMs,
+      error: error.message
+    }));
+
+    if (options.billDocumentId) {
+      await logExtractionToDatabase({
+        billDocumentId: options.billDocumentId,
+        extractionType: 'auto',
+        fieldLogs: extractionLogs,
+        overallConfidence: 0,
+        processingTimeMs,
+        error: error.message
+      });
+    }
+
     return {
       success: false,
       message: `Could not extract bill details: ${error.message}`,
-      error: error.message
+      error: error.message,
+      extraction_logs: extractionLogs
     };
   }
 }
 
-module.exports = { processBillDocument };
+module.exports = {
+  processBillDocument,
+  calculateFieldConfidence,
+  computeOverallConfidence,
+  buildExtractionLogEntry,
+  logExtractionToDatabase,
+  checkDuplicateBill
+};

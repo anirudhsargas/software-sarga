@@ -72,6 +72,8 @@ const Inventory = () => {
     const handleImageUpdate = useCallback(() => {
         fetchInventory();
     }, []);
+    const [branches, setBranches] = useState([]);
+    const [filterBranch, setFilterBranch] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterVendor, setFilterVendor] = useState('');
@@ -175,10 +177,11 @@ const Inventory = () => {
 
     useEffect(() => {
         fetchInventory();
-    }, [page, debouncedSearch, filterType, filterCategory, filterStatus, filterVendor, limit]);
+    }, [page, debouncedSearch, filterType, filterCategory, filterStatus, filterVendor, filterBranch, limit]);
 
     useEffect(() => {
         fetchHierarchy();
+        fetchBranches();
     }, []);
 
     useEffect(() => {
@@ -246,6 +249,7 @@ const Inventory = () => {
                 category: filterCategory || undefined,
                 status: filterStatus || undefined,
                 vendor_name: filterVendor || undefined,
+                branch_id: filterBranch || undefined,
                 limit: limit || 50
             };
             const res = await api.get('/inventory', { params });
@@ -292,6 +296,15 @@ const Inventory = () => {
             setHierarchy(hierarchyData || []);
         } catch (err) {
             console.error("Fetch hierarchy error:", err);
+        }
+    }
+
+    async function fetchBranches() {
+        try {
+            const res = await api.get('/branches');
+            setBranches(Array.isArray(res.data) ? res.data : (res.data?.data || []));
+        } catch (err) {
+            console.error("Fetch branches error:", err);
         }
     }
 
@@ -378,7 +391,10 @@ const Inventory = () => {
     const pendingRequestsCount = stockRequests.filter(r => ['Pending', 'Sent'].includes(r.status)).length;
 
     const lowStockCount = useMemo(() =>
-        items.filter(i => Number(i.quantity) <= Number(i.reorder_level || 0)).length,
+        items.filter(i => {
+            const stock = i.branch_stock !== undefined ? Number(i.branch_stock) : Number(i.quantity);
+            return stock <= Number(i.reorder_level || 0);
+        }).length,
     [items]);
 
     const inventoryValue = useMemo(() =>
@@ -769,7 +785,7 @@ const Inventory = () => {
         e.preventDefault();
         setSaving(true);
         try {
-            await api.post(`/inventory/${consumeData.id}/consume`, { quantity: consumeData.quantity, notes: consumeData.notes });
+            await api.post(`/inventory/${consumeData.id}/consume`, { quantity: consumeData.quantity, notes: consumeData.notes, branch_id: filterBranch || undefined });
             toast.success('Stock consumed');
             setShowConsumeModal(false);
             setConsumeData({ id: null, quantity: '', notes: '' });
@@ -785,7 +801,7 @@ const Inventory = () => {
         e.preventDefault();
         setSaving(true);
         try {
-            await api.post(`/inventory/${restockData.id}/restock`, { quantity_received: restockData.quantity, cost_price: restockData.cost, notes: restockData.notes });
+            await api.post(`/inventory/${restockData.id}/restock`, { quantity_received: restockData.quantity, cost_price: restockData.cost, notes: restockData.notes, branch_id: filterBranch || undefined });
             toast.success(`Restocked successfully`);
             setShowRestockModal(false);
             setRestockData({ id: null, quantity: '', cost: '', notes: '' });
@@ -798,7 +814,8 @@ const Inventory = () => {
     };
 
     const getStatus = useCallback((item) => {
-        if (Number(item.quantity) <= Number(item.reorder_level || 0)) return 'low';
+        const stock = item.branch_stock !== undefined ? Number(item.branch_stock) : Number(item.quantity);
+        if (stock <= Number(item.reorder_level || 0)) return 'low';
         return 'ok';
     }, []);
 
@@ -949,6 +966,23 @@ const Inventory = () => {
                             </select>
                         </div>
                         <div className="inv-chip">
+                            <label htmlFor="inv-branch" className="sr-only">
+                                Filter by Branch
+                            </label>
+                            <select
+                                id="inv-branch"
+                                name="filterBranch"
+                                aria-label="Filter by Branch"
+                                value={filterBranch}
+                                onChange={(e) => { setFilterBranch(e.target.value); setPage(1); }}
+                            >
+                                <option value="">All Branches</option>
+                                {branches.map(b => (
+                                    <option key={b.id} value={b.id}>{b.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="inv-chip">
                             <label htmlFor="inv-category" className="sr-only">
                                 Filter by Category
                             </label>
@@ -1022,8 +1056,8 @@ const Inventory = () => {
                                 <option value={100}>100 / page</option>
                             </select>
                         </div>
-                        {(filterType || filterCategory || filterStatus || filterVendor) && (
-                            <button className="inv-chip-clear" onClick={() => { setFilterType(''); setFilterCategory(''); setFilterStatus(''); setFilterVendor(''); setPage(1); }}>
+                        {(filterType || filterBranch || filterCategory || filterStatus || filterVendor) && (
+                            <button className="inv-chip-clear" onClick={() => { setFilterType(''); setFilterBranch(''); setFilterCategory(''); setFilterStatus(''); setFilterVendor(''); setPage(1); }}>
                                 <X size={12} /> Clear
                             </button>
                         )}
@@ -1206,8 +1240,11 @@ const Inventory = () => {
                                                 </td>
                                                 <td data-label="Stock">
                                                     <div className="inv-stock-cell">
-                                                        <span className="inv-stock-value">{Number(item.quantity).toLocaleString()}</span>
+                                                        <span className="inv-stock-value">{item.branch_stock !== undefined ? Number(item.branch_stock).toLocaleString() : Number(item.quantity).toLocaleString()}</span>
                                                         <span className="inv-stock-unit">{item.unit}</span>
+                                                        {item.branch_stock !== undefined && item.total_branch_stock !== undefined && (
+                                                            <span className="inv-stock-total text-xs muted" style={{ marginLeft: 4 }}>/ {Number(item.total_branch_stock).toLocaleString()}</span>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 {!isFrontOffice && (
@@ -1280,9 +1317,24 @@ const Inventory = () => {
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, padding: 16 }}>
                         {loading ? (
-                            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 24 }}>
-                                <Loader2 className="animate-spin inv-loading-spinner" size={28} />
-                            </div>
+                            <>
+                                {[1, 2, 3, 4, 5, 6].map(i => (
+                                    <div key={i} className="card" style={{ padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                            <div className="skeleton" style={{ width: 84, height: 84, borderRadius: 8, flexShrink: 0 }} />
+                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                <div className="skeleton" style={{ height: 16, width: '80%', borderRadius: 4 }} />
+                                                <div className="skeleton" style={{ height: 12, width: '50%', borderRadius: 4 }} />
+                                                <div className="skeleton" style={{ height: 12, width: '30%', borderRadius: 4 }} />
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <div className="skeleton" style={{ height: 12, width: '25%', borderRadius: 4 }} />
+                                            <div className="skeleton" style={{ height: 12, width: '20%', borderRadius: 4 }} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </>
                         ) : items.length === 0 ? (
                             <div style={{ gridColumn: '1/-1' }}>
                                 <div className="inv-empty">
@@ -1304,7 +1356,7 @@ const Inventory = () => {
                                                 <div className="inv-item-sku" style={{ marginTop: 2 }}>{item.sku || '-'}</div>
                                             </div>
                                             <div style={{ marginLeft: 8, textAlign: 'right' }}>
-                                                <div className="inv-stock-value">{Number(item.quantity).toLocaleString()}</div>
+                                                <div className="inv-stock-value">{item.branch_stock !== undefined ? Number(item.branch_stock).toLocaleString() : Number(item.quantity).toLocaleString()}</div>
                                                 <div className="inv-stock-unit">{item.unit}</div>
                                             </div>
                                         </div>
@@ -2497,6 +2549,44 @@ const Inventory = () => {
                                                             <td>{c.quantity_consumed}</td>
                                                             <td>{c.consumed_by || '-'}</td>
                                                             <td className="muted">{c.notes || '-'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Movement Log */}
+                                {detailItem.movements && detailItem.movements.length > 0 && (
+                                    <div className="panel panel--tight mb-16">
+                                        <h3 className="text-sm font-medium mb-12" style={{ fontWeight: 600 }}>
+                                            <ArrowLeftRight size={14} style={{ marginRight: 6 }} />
+                                            Stock Movement Log
+                                        </h3>
+                                        <div className="table-scroll">
+                                            <table className="table" style={{ fontSize: '0.8rem' }}>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Date</th>
+                                                        <th>Type</th>
+                                                        <th>Branch</th>
+                                                        <th>Qty Change</th>
+                                                        <th>Before</th>
+                                                        <th>After</th>
+                                                        <th>By</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {detailItem.movements.map((m, i) => (
+                                                        <tr key={i}>
+                                                            <td>{new Date(m.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</td>
+                                                            <td><span className={`badge ${m.movement_type === 'Purchase' ? 'badge--ok' : m.movement_type === 'Consumption' ? 'badge--warn' : m.movement_type === 'Transfer In' ? '' : 'badge--error'}`}>{m.movement_type}</span></td>
+                                                            <td>{m.branch_name || '-'}</td>
+                                                            <td style={{ color: m.quantity_change > 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>{m.quantity_change > 0 ? '+' : ''}{m.quantity_change}</td>
+                                                            <td>{m.quantity_before}</td>
+                                                            <td>{m.quantity_after}</td>
+                                                            <td>{m.created_by_name || '-'}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>

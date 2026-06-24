@@ -76,6 +76,11 @@ router.get('/customer-payments', authenticateToken, async (req, res) => {
             whereClauses.push('cp.payment_date <= ?');
             params.push(endDate);
         }
+        if (req.query.search) {
+            const searchPattern = `%${req.query.search}%`;
+            whereClauses.push('(cp.description LIKE ? OR cp.customer_name LIKE ? OR cp.reference_number LIKE ? OR i.invoice_number LIKE ?)');
+            params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+        }
 
         const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
 

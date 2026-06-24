@@ -103,16 +103,25 @@ def extract_text():
                         })
         
         full_text = '\n'.join(extracted_text)
+        confidence_values = [c for _, _, c in [(line[0], line[1], line[1][1] if len(line[1]) > 1 else 0.0) for line in (result[0] or [])] if isinstance(c, (int, float))]
+        avg_confidence = round(sum(confidence_values) / len(confidence_values), 4) if confidence_values else 0.0
         
         response = {
             "success": True,
-            "text": full_text
+            "text": full_text,
+            "confidence": avg_confidence,
+            "confidence_details": {
+                "mean": avg_confidence,
+                "min": round(min(confidence_values), 4) if confidence_values else 0.0,
+                "max": round(max(confidence_values), 4) if confidence_values else 0.0,
+                "line_count": len(extracted_text)
+            }
         }
         
         if return_details:
             response["details"] = details
         
-        logger.info(f"OCR extraction completed: {len(extracted_text)} lines extracted")
+        logger.info(f"OCR extraction completed: {len(extracted_text)} lines, confidence: {avg_confidence:.4f}")
         return jsonify(response)
         
     except Exception as e:

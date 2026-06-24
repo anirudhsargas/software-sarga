@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useMemo, useState } from 'react';
-import { File, FileText, Package, Inbox, AlertTriangle, Search, RefreshCcw } from 'lucide-react';
+import { File, FileText, Package, Inbox, AlertTriangle, Search, RefreshCcw, ArrowLeftRight, TrendingUp } from 'lucide-react';
 import api, { devFallback } from '../services/api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -18,31 +18,31 @@ const InventoryOverview = () => {
     const [consumablesTotal, setConsumablesTotal] = useState(0);
     const [consumablesLowCount, setConsumablesLowCount] = useState(0);
     const [lowStockRows, setLowStockRows] = useState([]);
+    const [branches, setBranches] = useState([]);
+    const [filterBranch, setFilterBranch] = useState('');
+    const [movementSummary, setMovementSummary] = useState(null);
 
     const fetchOverview = async () => {
         setLoading(true);
         try {
-            // Products summary: use paginated endpoint to get total SKUs
-            const prodSummary = await api.get('/inventory', { params: { limit: 1, page: 1 } });
+            const branchParam = filterBranch ? { branch_id: filterBranch } : {};
+
+            const prodSummary = await api.get('/inventory', { params: { limit: 1, page: 1, ...branchParam } });
             let prodTotal = 0;
             if (prodSummary && prodSummary.data) {
-                // server-side paginated response
                 if (Array.isArray(prodSummary.data)) prodTotal = prodSummary.data.length;
                 else prodTotal = Number(prodSummary.data.total) || 0;
             }
 
-            // Products low-stock list
-            const prodLowResp = await api.get('/inventory', { params: { status: 'low', limit: 1000, page: 1 } });
+            const prodLowResp = await api.get('/inventory', { params: { status: 'low', limit: 1000, page: 1, ...branchParam } });
             let prodLowList = prodLowResp?.data?.data ?? prodLowResp?.data ?? [];
             if (!Array.isArray(prodLowList) && prodLowResp?.data && Array.isArray(prodLowResp.data)) prodLowList = prodLowResp.data;
 
-            // Paper
             const paperResp = await api.get('/inventory/paper');
             const paperList = Array.isArray(paperResp.data) ? paperResp.data : (paperResp.data?.data || []);
             const paperLowResp = await api.get('/inventory/paper/low-stock');
             const paperLowList = Array.isArray(paperLowResp.data) ? paperLowResp.data : (paperLowResp.data?.data || []);
 
-            // Consumables
             const consResp = await api.get(devFallback('/inventory/consumables'));
             const consList = Array.isArray(consResp.data) ? consResp.data : (consResp.data?.data || []);
             const consLowResp = await api.get(devFallback('/inventory/consumables/low-stock'));
@@ -55,7 +55,6 @@ const InventoryOverview = () => {
             setConsumablesTotal(Array.isArray(consList) ? consList.length : 0);
             setConsumablesLowCount(Array.isArray(consLowList) ? consLowList.length : 0);
 
-            // Normalize low stock rows into unified shape
             const normalized = [];
 
             if (Array.isArray(prodLowList)) {
@@ -64,9 +63,9 @@ const InventoryOverview = () => {
                         id: `prod-${p.id}`,
                         name: p.name || p.sku || 'Unnamed',
                         type: 'Product',
-                        stockLeft: p.quantity ?? 0,
+                        stockLeft: p.branch_stock !== undefined ? p.branch_stock : (p.quantity ?? 0),
                         reorderLevel: p.reorder_level ?? 0,
-                        branch: p.branch || '-'
+                        branch: p.branch || (p.branch_name || '-')
                     });
                 });
             }
@@ -77,9 +76,9 @@ const InventoryOverview = () => {
                         id: `paper-${p.id}`,
                         name: p.paper_name || 'Paper',
                         type: 'Paper',
-                        stockLeft: p.ream_count ?? 0,
+                        stockLeft: p.branch_stock !== undefined ? p.branch_stock : (p.ream_count ?? 0),
                         reorderLevel: p.reorder_level_reams ?? 0,
-                        branch: p.branch || '-'
+                        branch: p.branch || (p.branch_name || '-')
                     });
                 });
             }
@@ -90,20 +89,31 @@ const InventoryOverview = () => {
                         id: `cons-${c.id}`,
                         name: c.name || 'Consumable',
                         type: 'Consumable',
-                        stockLeft: c.quantity_in_stock ?? 0,
+                        stockLeft: c.branch_stock !== undefined ? c.branch_stock : (c.quantity_in_stock ?? 0),
                         reorderLevel: c.reorder_level ?? 0,
-                        branch: c.branch || '-'
+                        branch: c.branch || (c.branch_name || '-')
                     });
                 });
             }
 
-            // Sort by type then stockLeft ascending
             normalized.sort((a, b) => {
                 if (a.type === b.type) return Number(a.stockLeft) - Number(b.stockLeft);
                 return a.type.localeCompare(b.type);
             });
 
             setLowStockRows(normalized);
+
+            // Fetch movement summary
+            try {
+                const movRes = await api.get('/inventory/low-stock', { params: { limit: 1, ...branchParam } });
+                if (movRes.data) {
+                    setMovementSummary({
+                        lowStockCount: Array.isArray(movRes.data) ? movRes.data.length : 0
+                    });
+                }
+            } catch {
+                // non-critical
+            }
         } catch (err) {
             console.error('Overview fetch error:', err);
             toast.error('Failed to load inventory overview');
@@ -114,6 +124,18 @@ const InventoryOverview = () => {
 
     useEffect(() => {
         fetchOverview();
+    }, [filterBranch]);
+
+    useEffect(() => {
+        const fetchBranches = async () => {
+            try {
+                const res = await api.get('/branches');
+                setBranches(Array.isArray(res.data) ? res.data : (res.data?.data || []));
+            } catch {
+                // non-critical
+            }
+        };
+        fetchBranches();
     }, []);
 
     const cards = useMemo(() => ([
@@ -151,6 +173,19 @@ const InventoryOverview = () => {
                     <p className="section-subtitle">Consolidated stock summary across Products, Paper, and Consumables.</p>
                 </div>
                 <div className="row gap-sm">
+                    <div className="inv-chip" style={{ minWidth: 180 }}>
+                        <select
+                            aria-label="Filter by Branch"
+                            value={filterBranch}
+                            onChange={(e) => setFilterBranch(e.target.value)}
+                            style={{ width: '100%', padding: '4px 8px', background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'inherit', fontSize: 13 }}
+                        >
+                            <option value="">All Branches</option>
+                            {branches.map(b => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                            ))}
+                        </select>
+                    </div>
                     <button className="btn btn-ghost" onClick={() => fetchOverview()} disabled={loading}>
                         <RefreshCcw size={16} /> Refresh
                     </button>
@@ -174,6 +209,21 @@ const InventoryOverview = () => {
                     </div>
                 ))}
             </div>
+
+            {movementSummary && (
+                <div className="panel mt-md" style={{ padding: '16px 20px' }}>
+                    <div className="row items-center gap-sm">
+                        <TrendingUp size={20} className="text-primary" />
+                        <div>
+                            <div className="text-sm font-semibold">Stock Movement Summary</div>
+                            <div className="text-xs muted">
+                                {movementSummary.lowStockCount} item{movementSummary.lowStockCount !== 1 ? 's' : ''} currently below reorder level
+                                {filterBranch ? ' for selected branch' : ' across all branches'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="panel mt-md">
                 <div className="row space-between items-center mb-sm">

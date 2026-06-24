@@ -1,0 +1,141 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { RefreshCw, X } from 'lucide-react';
+
+const STORAGE_KEY = 'update_dismissed';
+
+function getMetaVersion() {
+  const meta = document.querySelector('meta[name="app-version"]');
+  return meta ? meta.getAttribute('content') : null;
+}
+
+export const UpdateNotification = () => {
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [dismissed, setDismissed] = useState(
+    () => sessionStorage.getItem(STORAGE_KEY) === 'true'
+  );
+  const [version, setVersion] = useState(getMetaVersion);
+
+  const reload = useCallback(() => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+    }
+    window.location.reload(true);
+  }, []);
+
+  const dismiss = useCallback(() => {
+    setDismissed(true);
+    sessionStorage.setItem(STORAGE_KEY, 'true');
+  }, []);
+
+  useEffect(() => {
+    const handleSWUpdate = () => {
+      setUpdateAvailable(true);
+      setDismissed(false);
+      sessionStorage.removeItem(STORAGE_KEY);
+    };
+
+    const handleAppUpdate = (e) => {
+      if (e.detail?.version) setVersion(e.detail.version);
+      handleSWUpdate();
+    };
+
+    window.addEventListener('sw.update', handleSWUpdate);
+    window.addEventListener('app.update', handleAppUpdate);
+
+    navigator.serviceWorker?.addEventListener('controllerchange', () => {
+      window.location.reload(true);
+    });
+
+    return () => {
+      window.removeEventListener('sw.update', handleSWUpdate);
+      window.removeEventListener('app.update', handleAppUpdate);
+    };
+  }, []);
+
+  const show = updateAvailable && !dismissed;
+
+  return (
+    <>
+      {show && (
+        <div
+          role="alert"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 'var(--z-toast)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            padding: '12px 20px',
+            background: 'var(--card)',
+            borderBottom: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-md)',
+            fontSize: '14px',
+            color: 'var(--text-primary)',
+            fontWeight: 500,
+          }}
+        >
+          <RefreshCw size={16} style={{ color: 'var(--accent)' }} />
+          <span>A new version is available.</span>
+          <button
+            onClick={reload}
+            style={{
+              padding: '6px 16px',
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              background: 'var(--accent)',
+              color: 'var(--on-accent)',
+              fontWeight: 600,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Reload
+          </button>
+          <button
+            onClick={dismiss}
+            aria-label="Dismiss"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
+      {version && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '80px',
+            right: '20px',
+            zIndex: 'var(--z-toast)',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-full)',
+            padding: '4px 12px',
+            fontSize: '10px',
+            color: 'var(--text-muted)',
+            fontWeight: 500,
+            opacity: 0.7,
+            pointerEvents: 'none',
+          }}
+        >
+          v{version}
+        </div>
+      )}
+    </>
+  );
+};
+
+export default UpdateNotification;

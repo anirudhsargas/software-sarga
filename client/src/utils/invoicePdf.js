@@ -246,6 +246,24 @@ export async function generateInvoicePDF(billData) {
 
   y += 6;
 
+  // ─── NOTES SECTION (if description present) ───
+  const { description } = billData;
+  if (description) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...primary);
+    doc.text('Notes', margin, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...textDark);
+    const lines = doc.splitTextToSize(String(description), pageWidth - margin * 2);
+    lines.forEach((line) => {
+      y += 5;
+      doc.text(line, margin, y);
+    });
+    y += 6;
+  }
+
   // ─── QR CODE + TERMS + FOOTER pinned to bottom of page ───
   const qrSize = 34;
   const termsFont = 6;
