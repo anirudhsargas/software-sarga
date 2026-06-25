@@ -26,7 +26,13 @@ if (import.meta.env.PROD) {
 
   const checkVersion = async () => {
     try {
-      const response = await fetch(`${API_URL}version`);
+      // Use the full absolute API URL to ensure we hit the backend (Render),
+      // not Vercel's edge (which has no /api/version route). Build the URL
+      // explicitly so relative-path API_URL values don't cause a 404.
+      const versionUrl = API_URL.startsWith('http')
+        ? `${API_URL.replace(/\/?$/, '/')}version`
+        : 'https://software-sarga-2.onrender.com/api/version';
+      const response = await fetch(versionUrl);
       if (!response.ok) return;
       const data = await response.json();
       const currentVersion = getMetaVersion() || '1.0.0';
