@@ -4,6 +4,21 @@ if (typeof globalThis.ImageData === 'undefined') globalThis.ImageData = class Im
 if (typeof globalThis.Path2D === 'undefined') globalThis.Path2D = class Path2D { constructor() {} };
 
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+
+// Setup global Axios interceptor to prevent connection refused/timeout logs for ML Service in production when not configured
+const axios = require('axios');
+axios.interceptors.request.use((config) => {
+    const mlUrl = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5001';
+    if (config.url && config.url.startsWith(mlUrl)) {
+        const isLocal = mlUrl.includes('127.0.0.1') || mlUrl.includes('localhost');
+        const isNotConfigured = !process.env.ML_SERVICE_URL || process.env.ML_SERVICE_URL === 'none';
+        if (process.env.NODE_ENV === 'production' && (isLocal || isNotConfigured)) {
+            throw new Error('ML Service not configured in production (skipping call)');
+        }
+    }
+    return config;
+}, (error) => Promise.reject(error));
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
