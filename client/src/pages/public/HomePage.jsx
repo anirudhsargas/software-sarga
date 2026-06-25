@@ -15,7 +15,7 @@ function HeroCanvas() {
 
     let ctx;
     try {
-      ctx = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      ctx = canvas.getContext('2d');
     } catch {
       canvas.style.display = 'none';
       return;
@@ -33,7 +33,6 @@ function HeroCanvas() {
     const resize = () => {
       canvas.width = canvas.offsetWidth * (window.devicePixelRatio || 1);
       canvas.height = canvas.offsetHeight * (window.devicePixelRatio || 1);
-      ctx.viewport(0, 0, canvas.width, canvas.height);
     };
 
     const init = () => {

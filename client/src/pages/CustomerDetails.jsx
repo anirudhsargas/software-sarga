@@ -13,7 +13,7 @@ import localDb from '../services/localDb';
 import toast from 'react-hot-toast';
 import Pagination from '../components/Pagination';
 import { useOnlineStatus } from '../hooks/useOffline';
-import { whatsappUrl, _paymentReminderMessage, dueCollectionMessage } from '../utils/whatsapp';
+import { whatsappUrl, dueCollectionMessage } from '../utils/whatsapp';
 import { formatForDisplay, telHref } from '../utils/phone';
 import Skeleton, { SkeletonText, SkeletonAvatar, SkeletonTitle, SkeletonKpi } from '../components/Skeleton';
 import SecureImage from '../components/SecureImage';

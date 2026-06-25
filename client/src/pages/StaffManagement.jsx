@@ -12,8 +12,8 @@ import Pagination from '../components/Pagination';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import CountryCodeSelect from '../components/CountryCodeSelect';
-import { formatForDisplay, _telHref } from '../utils/phone';
-import { _validatePhone, filterMobile } from '../utils/validators';
+import { formatForDisplay } from '../utils/phone';
+import { filterMobile } from '../utils/validators';
 
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
