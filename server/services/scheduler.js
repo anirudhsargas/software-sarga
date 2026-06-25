@@ -110,6 +110,8 @@ function initializeScheduler() {
         logSchedule('Daily Book Automation', 'dynamic', 'error', e);
     }
 
+
+
     // Summary
     logger.info(`[Scheduler] Initialized with ${tasks.length} tasks: ${tasks.join(', ')}`);
     return { tasks, registeredJobs };

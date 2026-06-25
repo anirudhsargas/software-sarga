@@ -38,6 +38,42 @@ const loadSchemaFiles = async (connection) => {
       }
       continue;
     }
+    if (file === '029_sheets_backup_jobs.sql') {
+      const [tables] = await connection.query(`
+        SELECT TABLE_NAME FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'sarga_backup_jobs'
+      `);
+      if (tables.length === 0) {
+        await connection.query(`
+          CREATE TABLE sarga_backup_jobs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            triggered_by ENUM('cron', 'manual') NOT NULL DEFAULT 'cron',
+            status ENUM('running', 'completed', 'failed') NOT NULL DEFAULT 'running',
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP NULL,
+            tables_backed_up INT DEFAULT 0,
+            rows_written INT DEFAULT 0,
+            error_message TEXT NULL
+          )
+        `);
+      } else {
+        await connection.query('DROP TABLE sarga_backup_jobs');
+        await connection.query(`
+          CREATE TABLE sarga_backup_jobs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            triggered_by ENUM('cron', 'manual') NOT NULL DEFAULT 'cron',
+            status ENUM('running', 'completed', 'failed') NOT NULL DEFAULT 'running',
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP NULL,
+            tables_backed_up INT DEFAULT 0,
+            rows_written INT DEFAULT 0,
+            error_message TEXT NULL
+          )
+        `);
+      }
+      continue;
+    }
     const rawSql = fs.readFileSync(path.join(schemaDir, file), 'utf8');
     // Remove multi-line comments
     const noMultiLineComments = rawSql.replace(/\/\*[\s\S]*?\*\//g, '');

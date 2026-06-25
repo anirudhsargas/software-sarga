@@ -2522,3 +2522,24 @@ body[data-theme="dark"] table thead th {
 .skip-link:focus {
   top: 0;
 }
+
+/* ── Table row hover ── */
+.table-row-hover {
+  transition: background var(--transition-fast);
+}
+.table-row-hover:hover {
+  background: var(--surface-2);
+}
+
+.table-row-hover td:first-child {
+  border-radius: 8px 0 0 8px;
+}
+.table-row-hover td:last-child {
+  border-radius: 0 8px 8px 0;
+}
+
+/* ── Pulse skeleton animation ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

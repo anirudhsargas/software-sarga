@@ -4,7 +4,7 @@ import { Routes, Route, NavLink, useNavigate, Navigate, useParams } from 'react-
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store,
     Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare, Star, Upload,
-    Image, Calendar, Truck, Globe, Layout, Menu
+    Image, Calendar, Truck, Globe, Layout, Menu, Database
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, {} from '../services/api';
@@ -86,6 +86,7 @@ const PaperTransfer = React.lazy(() => import('./PaperTransfer'));
 const Quotes = React.lazy(() => import('./Quotes'));
 const ScanItem = React.lazy(() => import('./ScanItem'));
 const SettingsPage = React.lazy(() => import('./SettingsPage'));
+const BackupSettingsPage = React.lazy(() => import('./BackupSettingsPage'));
 const UploadBills = React.lazy(() => import('./UploadBills'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
 const ChatbotTraining = React.lazy(() => import('./admin/ChatbotTraining'));
@@ -621,6 +622,7 @@ const Dashboard = () => {
         { key: 'manage', name: 'CCTV', icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Schedule & Time', icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'admin' },
         { key: 'manage', name: 'Settings', icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'admin' },
+        { key: 'manage', name: 'Google Sheets Backup', icon: Database, path: '/dashboard/backup', roles: ['Admin'], group: 'admin' },
         // Website Group Items
         { key: 'manage', name: 'Chatbot Training', icon: Brain, path: '/dashboard/admin/chatbot-training', roles: ['Admin'], group: 'website' },
         { key: 'manage', name: 'Customer Reviews', icon: Star, path: '/dashboard/admin/reviews', roles: ['Admin'], group: 'website' },
@@ -1221,6 +1223,7 @@ const Dashboard = () => {
                             <Route path="inventory/consumables" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><ConsumablesManagement /></ProtectedSubRoute>} />
                             <Route path="recurring-invoices" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RecurringInvoices /></ProtectedSubRoute>} />
                             <Route path="settings" element={<ProtectedSubRoute roles={['Admin']}><SettingsPage /></ProtectedSubRoute>} />
+                            <Route path="backup" element={<ProtectedSubRoute roles={['Admin']}><BackupSettingsPage /></ProtectedSubRoute>} />
                             <Route path="admin/chatbot-training" element={<ProtectedSubRoute roles={['Admin']}><ChatbotTraining /></ProtectedSubRoute>} />
                             <Route path="admin/reviews" element={<ProtectedSubRoute roles={['Admin']}><ReviewsManagement /></ProtectedSubRoute>} />
                             <Route path="admin/artwork" element={<ProtectedSubRoute roles={['Admin']}><ArtworkManager /></ProtectedSubRoute>} />

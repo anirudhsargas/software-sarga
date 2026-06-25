@@ -63,6 +63,9 @@ if (!JWT_SECRET) {
     process.exit(1);
 }
 
+if (!process.env.GOOGLE_SA_KEY) console.warn('[backup] WARNING: GOOGLE_SA_KEY not set');
+if (!process.env.GOOGLE_SHEET_ID) console.warn('[backup] WARNING: GOOGLE_SHEET_ID not set');
+
 logger.info('[CORS] Configured origins:', allowedOrigins);
 
 app.use(cors({
@@ -353,6 +356,8 @@ app.use('/api/admin/internal-books', require('./routes/internalBooks'));
 app.use('/api/daily-reports', require('./routes/dailyReports'));
 app.use('/api/daily-report', require('./routes/dailyReportUnified'));
 app.use('/api', require('./routes/backup'));
+const sheetsBackupRoutes = require('./routes/sheetsBackup');
+app.use('/api/backup', sheetsBackupRoutes);
 
 // AI Features Routes
 app.use('/api/ai/monitoring', require('./routes/aiMonitoring'));

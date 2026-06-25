@@ -5,7 +5,7 @@ import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon, ChevronLeft, Search, Filter, Link as LinkIcon, ExternalLink, Loader2 } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon, ChevronLeft, Search, Filter, Link as LinkIcon, ExternalLink, Loader2, ArrowRight, Clock, Check } from 'lucide-react';
 import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
 import {
@@ -3098,34 +3098,137 @@ const ProductLibrary = () => {
                 onComplete={handleCropComplete}
             />
             {showUpdateRequestModal && activeUpdateRequest && (
-                <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: '760px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div className="modal-backdrop" onClick={closeUpdateRequestModal}>
+                    <div className="modal" style={{ maxWidth: '800px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+                        onClick={e => e.stopPropagation()}>
                         <div className="modal-header" style={{ padding: '20px 24px', flexShrink: 0 }}>
-                            <h2 className="modal-title" style={{ margin: 0 }}>{`Review Update Request — ${activeUpdateRequest.product_name || `#${activeUpdateRequest.product_id}`}`}</h2>
-                            <button className="modal-close modal-close--static" onClick={closeUpdateRequestModal}><X size={20} /></button>
+                            <div className="row space-between items-center" style={{ width: '100%' }}>
+                                <h3 className="section-title" style={{ margin: 0 }}>Review Update Request</h3>
+                                <button className="modal-close modal-close--static" onClick={closeUpdateRequestModal}><X size={20} /></button>
+                            </div>
                         </div>
                         <div className="modal-body" style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
-                            <div className="row gap-md">
-                                <div style={{ flex: 1 }}>
-                                    <strong>Current</strong>
-                                    <pre style={{ whiteSpace: 'pre-wrap', background: 'var(--surface-2)', padding: 12, borderRadius: 8, marginTop: 8 }}>{JSON.stringify(activeUpdateRequest.current_data, null, 2)}</pre>
+                            {/* Product info header */}
+                            <div className="row space-between items-center mb-16 flex-wrap gap-sm">
+                                <div>
+                                    <span className="font-semibold" style={{ fontSize: 16 }}>
+                                        {activeUpdateRequest.product_name || `Product #${activeUpdateRequest.product_id}`}
+                                    </span>
+                                    <span className="muted text-sm ml-8">#{activeUpdateRequest.id}</span>
                                 </div>
-                                <div style={{ flex: 1 }}>
-                                    <strong>Proposed</strong>
-                                    <pre style={{ whiteSpace: 'pre-wrap', background: 'var(--surface-2)', padding: 12, borderRadius: 8, marginTop: 8 }}>{JSON.stringify(activeUpdateRequest.proposed_data, null, 2)}</pre>
+                                <span className="badge" style={{
+                                    background: 'var(--warning-bg)', color: 'var(--warning)', fontWeight: 600
+                                }}>Pending</span>
+                            </div>
+
+                            {/* Metadata */}
+                            <div className="row gap-md mb-16 text-sm flex-wrap" style={{ color: 'var(--text-muted)' }}>
+                                <span><Clock size={13} style={{ verticalAlign: 'middle' }} /> {new Date(activeUpdateRequest.requested_at).toLocaleString()}</span>
+                                <span>· By: {activeUpdateRequest.requested_by_name || activeUpdateRequest.requested_by}</span>
+                                {activeUpdateRequest.priority && (
+                                    <span>· Priority: <span style={{
+                                        color: activeUpdateRequest.priority === 'Urgent' ? 'var(--error)' : activeUpdateRequest.priority === 'High' ? 'var(--warning)' : 'var(--text)',
+                                        fontWeight: 600
+                                    }}>{activeUpdateRequest.priority}</span></span>
+                                )}
+                            </div>
+
+                            {/* Changes diff table */}
+                            {(() => {
+                                const curr = typeof activeUpdateRequest.current_data === 'string' ? JSON.parse(activeUpdateRequest.current_data) : activeUpdateRequest.current_data || {};
+                                const prop = typeof activeUpdateRequest.proposed_data === 'string' ? JSON.parse(activeUpdateRequest.proposed_data) : activeUpdateRequest.proposed_data || {};
+                                const allKeys = [...new Set([...Object.keys(curr), ...Object.keys(prop)])];
+                                const FIELD_LABELS = {
+                                    name: 'Name', product_code: 'Code', company_name: 'Company',
+                                    size: 'Size', calculation_type: 'Calc Type', description: 'Description',
+                                    sell_price: 'Sell Price', cost_price: 'Cost Price',
+                                    category_id: 'Category', sub_category_id: 'Sub-Category',
+                                    hsn_code: 'HSN Code', gst_rate: 'GST Rate',
+                                };
+                                const changedKeys = allKeys.filter(k => String(curr[k] || '') !== String(prop[k] || ''));
+                                return (
+                                    <div className="panel p-16 mb-16">
+                                        <div className="row space-between items-center mb-12">
+                                            <h4 className="font-semibold">Changes</h4>
+                                            {changedKeys.length > 0 && (
+                                                <span className="badge" style={{ background: 'var(--warning-bg)', color: 'var(--warning)', fontWeight: 600 }}>
+                                                    {changedKeys.length} change{changedKeys.length > 1 ? 's' : ''}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {allKeys.length === 0 ? (
+                                            <div className="p-12 text-center muted text-sm">No field data available</div>
+                                        ) : (
+                                            <div className="table-scroll">
+                                                <table className="table" style={{ width: '100%' }}>
+                                                    <thead>
+                                                        <tr>
+                                                            <th style={{ width: '20%' }}>Field</th>
+                                                            <th style={{ width: '35%' }}>Current</th>
+                                                            <th style={{ width: '10%' }}></th>
+                                                            <th style={{ width: '35%' }}>Proposed</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {allKeys.map(k => {
+                                                            const curVal = curr[k];
+                                                            const propVal = prop[k];
+                                                            const changed = String(curVal ?? '') !== String(propVal ?? '');
+                                                            if (!changed && !propVal && !curVal) return null;
+                                                            return (
+                                                                <tr key={k}>
+                                                                    <td className="font-semibold text-sm">{FIELD_LABELS[k] || k}</td>
+                                                                    <td style={{ color: changed ? 'var(--text-muted)' : 'var(--text)' }}>
+                                                                        {curVal !== null && curVal !== undefined ? String(curVal) : '—'}
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'center' }}>
+                                                                        {changed && <ArrowRight size={14} style={{ color: 'var(--warning)' }} />}
+                                                                    </td>
+                                                                    <td style={{ color: changed ? 'var(--success)' : 'var(--text)', fontWeight: changed ? 600 : 400 }}>
+                                                                        {propVal !== null && propVal !== undefined ? String(propVal) : '—'}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Request notes */}
+                            {activeUpdateRequest.notes && (
+                                <div className="panel p-16 mb-16">
+                                    <h4 className="font-semibold mb-4">Request Notes</h4>
+                                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{activeUpdateRequest.notes}</p>
                                 </div>
+                            )}
+
+                            {/* Admin note */}
+                            <div className="panel p-16">
+                                <label className="label font-semibold mb-4">Admin Note <span className="muted text-xs">(optional)</span></label>
+                                <textarea
+                                    className="input-field"
+                                    rows={3}
+                                    style={{ width: '100%', resize: 'vertical' }}
+                                    value={activeUpdateRequest.admin_note || ''}
+                                    onChange={(e) => setActiveUpdateRequest({ ...activeUpdateRequest, admin_note: e.target.value })}
+                                    placeholder="Add a note explaining your decision..."
+                                />
                             </div>
                         </div>
-                        <div style={{ marginTop: 12 }}>
-                            <label className="label">Admin note (optional)</label>
-                            <textarea className="input" rows={3} value={activeUpdateRequest.admin_note || ''} onChange={(e) => setActiveUpdateRequest({ ...activeUpdateRequest, admin_note: e.target.value })} />
-                            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                                <button className="btn btn-ghost" onClick={() => handleReviewUpdateRequest(activeUpdateRequest.id, 'reject', activeUpdateRequest.admin_note)}>Reject</button>
-                                <button className="btn btn-primary" onClick={() => handleReviewUpdateRequest(activeUpdateRequest.id, 'approve', activeUpdateRequest.admin_note)}>Approve & Apply</button>
-                            </div>
-                        </div>
+                        <div className="modal-footer" style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-ghost" onClick={() => handleReviewUpdateRequest(activeUpdateRequest.id, 'reject', activeUpdateRequest.admin_note)}>
+                                <X size={14} /> Reject
+                            </button>
+                            <button className="btn btn-primary" onClick={() => handleReviewUpdateRequest(activeUpdateRequest.id, 'approve', activeUpdateRequest.admin_note)}>
+                                <Check size={14} /> Approve & Apply
+                            </button>
                         </div>
                     </div>
+                </div>
             )}
         </PageContainer>
     );

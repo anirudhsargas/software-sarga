@@ -2,16 +2,16 @@ import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { X, Check, Eye, Loader2, Search, Save, Send, History, ArrowRight, Clock, AlertTriangle, FileText } from 'lucide-react';
+import { X, Check, Eye, Loader2, Search, Save, Send, History, ArrowRight, Clock, AlertTriangle, FileText, AlertCircle, HelpCircle } from 'lucide-react';
 import { useConfirm } from '../contexts/ConfirmContext';
 import PageContainer from '../components/ui/PageContainer';
 import useAuth from '../hooks/useAuth';
 
 const STATUS_CONFIG = {
-    Draft: { color: 'var(--text-muted)', bg: 'var(--surface-2)', label: 'Draft' },
-    Pending: { color: 'var(--warning)', bg: 'var(--warning-bg)', label: 'Pending' },
-    Approved: { color: 'var(--success)', bg: 'var(--success-bg)', label: 'Approved' },
-    Rejected: { color: 'var(--error)', bg: 'var(--error-bg)', label: 'Rejected' },
+    Draft: { color: 'var(--text-muted)', bg: 'var(--surface-2)', label: 'Draft', icon: FileText },
+    Pending: { color: 'var(--warning)', bg: 'var(--warning-bg)', label: 'Pending', icon: Clock },
+    Approved: { color: 'var(--success)', bg: 'var(--success-bg)', label: 'Approved', icon: Check },
+    Rejected: { color: 'var(--error)', bg: 'var(--error-bg)', label: 'Rejected', icon: X },
 };
 
 const FIELDS = [
@@ -173,6 +173,11 @@ const ProductRequests = () => {
 
     const [filterStatus, setFilterStatus] = useState('all');
 
+    const filteredRequests = useMemo(() =>
+        requests.filter(r => filterStatus === 'all' || r.status === filterStatus),
+        [requests, filterStatus]
+    );
+
     return (
         <PageContainer>
             {/* Header */}
@@ -190,35 +195,71 @@ const ProductRequests = () => {
 
             {/* Status filter tabs */}
             <div className="row gap-xs mb-16" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
-                {FILTER_TABS.map(st => (
-                    <button
-                        key={st}
-                        className={`btn btn-sm ${filterStatus === st ? 'btn-primary' : 'btn-ghost'}`}
-                        onClick={() => { setFilterStatus(st); setPage(1); }}
-                    >
-                        {st === 'all' ? 'All' : st}
-                        {st !== 'all' && (
+                {FILTER_TABS.map(st => {
+                    const isActive = filterStatus === st;
+                    const sc = st !== 'all' ? STATUS_CONFIG[st] : null;
+                    const Icon = sc?.icon || null;
+                    const count = st === 'all' ? requests.length : requests.filter(r => r.status === st).length;
+                    return (
+                        <button
+                            key={st}
+                            className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`}
+                            onClick={() => { setFilterStatus(st); setPage(1); }}
+                            style={{ position: 'relative' }}
+                        >
+                            {Icon && <Icon size={13} style={{ marginRight: 4 }} />}
+                            {st === 'all' ? 'All' : sc.label}
                             <span className="badge" style={{
-                                background: STATUS_CONFIG[st]?.bg || 'var(--surface-2)',
-                                color: STATUS_CONFIG[st]?.color || 'var(--text-muted)',
-                                marginLeft: 4
+                                background: isActive ? 'rgba(255,255,255,0.2)' : (sc?.bg || 'var(--surface-2)'),
+                                color: isActive ? '#fff' : (sc?.color || 'var(--text-muted)'),
+                                marginLeft: 6,
+                                fontSize: 11,
+                                padding: '1px 6px'
                             }}>
-                                {requests.filter(r => r.status === st).length}
+                                {count}
                             </span>
-                        )}
-                    </button>
-                ))}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Requests list */}
             {loading ? (
-                <div className="card p-20 flex-center"><Loader2 className="animate-spin" size={20} /> Loading…</div>
+                <div className="panel p-20 stack-sm">
+                    {[1, 2, 3, 4, 5].map(i => (
+                        <div key={i} className="row gap-md items-center" style={{ padding: '12px 0', borderBottom: i < 5 ? '1px solid var(--border)' : 'none' }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface-2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ width: '40%', height: 14, borderRadius: 4, background: 'var(--surface-2)', animation: 'pulse 1.5s ease-in-out infinite', marginBottom: 6 }} />
+                                <div style={{ width: '25%', height: 12, borderRadius: 4, background: 'var(--surface-2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                            </div>
+                            <div style={{ width: 70, height: 24, borderRadius: 12, background: 'var(--surface-2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                            <div style={{ width: 100, height: 28, borderRadius: 6, background: 'var(--surface-2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                        </div>
+                    ))}
+                </div>
             ) : (
                 <div className="panel">
-                    {requests.length === 0 ? (
-                        <div className="p-32 text-center muted">
-                            <FileText size={36} style={{ opacity: 0.4, marginBottom: 8 }} />
-                            <div>No requests found</div>
+                    {filteredRequests.length === 0 ? (
+                        <div className="p-32 text-center">
+                            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--surface-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                                {filterStatus === 'Pending' ? <Clock size={28} style={{ opacity: 0.3 }} /> :
+                                 filterStatus === 'Approved' ? <Check size={28} style={{ opacity: 0.3 }} /> :
+                                 filterStatus === 'Rejected' ? <X size={28} style={{ opacity: 0.3 }} /> :
+                                 filterStatus === 'Draft' ? <FileText size={28} style={{ opacity: 0.3 }} /> :
+                                 <FileText size={28} style={{ opacity: 0.3 }} />}
+                            </div>
+                            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                                {filterStatus === 'all' ? 'No requests yet' : `No ${filterStatus.toLowerCase()} requests`}
+                            </div>
+                            <p className="muted text-sm" style={{ maxWidth: 300, margin: '0 auto' }}>
+                                {filterStatus === 'all' ? 'Product update requests submitted by staff will appear here for review.' : `No requests with "${filterStatus}" status at the moment.`}
+                            </p>
+                            {filterStatus === 'all' && (
+                                <button className="btn btn-primary mt-16" onClick={() => { setShowNewRequest(true); }}>
+                                    <Send size={14} /> New Request
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <div className="table-scroll">
@@ -234,16 +275,25 @@ const ProductRequests = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {requests.filter(r => filterStatus === 'all' || r.status === filterStatus).map(r => {
+                                    {filteredRequests.map(r => {
                                         const sc = STATUS_CONFIG[r.status] || STATUS_CONFIG.Draft;
+                                        const StatusIcon = sc.icon;
                                         return (
-                                            <tr key={r.id}>
-                                                <td className="text-sm">#{r.id}</td>
-                                                <td><span className="font-semibold">{r.product_name || `#${r.product_id}`}</span></td>
-                                                <td className="text-sm">{r.requested_by_name || r.requested_by}</td>
-                                                <td className="text-sm">{new Date(r.requested_at).toLocaleString()}</td>
+                                            <tr key={r.id} className="table-row-hover">
+                                                <td className="text-sm" style={{ color: 'var(--text-muted)' }}>#{r.id}</td>
                                                 <td>
-                                                    <span className="badge" style={{ background: sc.bg, color: sc.color, fontWeight: 600 }}>
+                                                    <span className="font-semibold">{r.product_name || `Product #${r.product_id}`}</span>
+                                                    {r.priority && ['High', 'Urgent'].includes(r.priority) && (
+                                                        <span className="badge ml-8" style={{ background: 'var(--error-bg)', color: 'var(--error)', fontSize: 10, padding: '1px 6px' }}>
+                                                            {r.priority}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="text-sm">{r.requested_by_name || `Staff #${r.requested_by}`}</td>
+                                                <td className="text-sm" style={{ whiteSpace: 'nowrap' }}>{new Date(r.requested_at).toLocaleString()}</td>
+                                                <td>
+                                                    <span className="badge row gap-4" style={{ background: sc.bg, color: sc.color, fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>
+                                                        <StatusIcon size={12} />
                                                         {sc.label}
                                                     </span>
                                                 </td>
@@ -252,7 +302,7 @@ const ProductRequests = () => {
                                                         <button className="btn btn-ghost btn-sm" onClick={() => open(r)} title="View Details"><Eye size={14} /></button>
                                                         {isAdmin && r.status === 'Pending' && (
                                                             <>
-                                                                <button className="btn btn-ghost btn-sm text-error" onClick={() => review(r.id, 'reject')}><X size={14} /> Reject</button>
+                                                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => review(r.id, 'reject')}><X size={14} /> Reject</button>
                                                                 <button className="btn btn-primary btn-sm" onClick={() => review(r.id, 'approve')}><Check size={14} /> Approve</button>
                                                             </>
                                                         )}
@@ -265,15 +315,20 @@ const ProductRequests = () => {
                             </table>
                         </div>
                     )}
-                    <div className="row space-between items-center p-12 border-top">
-                        <div className="row gap-sm items-center">
-                            <button className="btn btn-ghost" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || loading}>Prev</button>
-                            <button className="btn btn-ghost" onClick={() => setPage(p => p + 1)} disabled={!canNext || loading}>Next</button>
-                            <span className="muted text-sm ml-8">Page {page}</span>
+                    <div className="row space-between items-center p-12 border-top flex-wrap gap-sm">
+                        <div className="row gap-xs items-center">
+                            <button className="btn btn-ghost btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || loading}>
+                                Prev
+                            </button>
+                            <span className="muted text-sm px-8" style={{ fontWeight: 500 }}>{page}</span>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setPage(p => p + 1)} disabled={!canNext || loading}>
+                                Next
+                            </button>
+                            <span className="muted text-xs ml-4">({filteredRequests.length} shown)</span>
                         </div>
-                        <div className="row gap-sm items-center">
-                            <label className="muted text-sm">Per page:</label>
-                            <select className="input-field" style={{ width: 80 }} value={limit} onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}>
+                        <div className="row gap-xs items-center">
+                            <label className="muted text-xs">Per page:</label>
+                            <select className="input-field" style={{ width: 72, padding: '4px 8px', fontSize: 12 }} value={limit} onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}>
                                 <option value={10}>10</option>
                                 <option value={25}>25</option>
                                 <option value={50}>50</option>
@@ -287,69 +342,109 @@ const ProductRequests = () => {
             {/* Detail Modal */}
             {selected && (
                 <div className="modal-backdrop" onClick={close}>
-                    <div className="modal" style={{ maxWidth: 900 }} onClick={e => e.stopPropagation()}>
-                        <button className="modal-close" onClick={close}><X size={20} /></button>
+                    <div className="modal" style={{ maxWidth: 900, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3 className="section-title">Request #{selected.id}</h3>
-                            <span className="badge" style={{
-                                background: (STATUS_CONFIG[selected.status] || STATUS_CONFIG.Draft).bg,
-                                color: (STATUS_CONFIG[selected.status] || STATUS_CONFIG.Draft).color,
-                                fontWeight: 600
-                            }}>
-                                {(STATUS_CONFIG[selected.status] || STATUS_CONFIG.Draft).label}
-                            </span>
+                            <div>
+                                <h3 className="section-title">Request #{selected.id}</h3>
+                                <span className="text-sm muted">{selected.product_name || `Product #${selected.product_id}`}</span>
+                            </div>
+                            <div className="row gap-sm items-center">
+                                {(() => {
+                                    const sc = STATUS_CONFIG[selected.status] || STATUS_CONFIG.Draft;
+                                    const Si = sc.icon;
+                                    return (
+                                        <span className="badge row gap-4" style={{ background: sc.bg, color: sc.color, fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>
+                                            <Si size={13} /> {sc.label}
+                                        </span>
+                                    );
+                                })()}
+                                <button className="modal-close" onClick={close}><X size={20} /></button>
+                            </div>
                         </div>
 
-                        <div className="row gap-sm mt-12 mb-16 text-sm" style={{ color: 'var(--text-muted)' }}>
-                            <span><Clock size={13} style={{ verticalAlign: 'middle' }} /> Requested: {new Date(selected.requested_at).toLocaleString()}</span>
-                            <span>· By: {selected.requested_by_name || selected.requested_by}</span>
-                            {selected.priority && <span>· Priority: {selected.priority}</span>}
-                        </div>
-
-                        <div className="stack-md">
-                            <div className="panel p-16">
-                                <h4 className="font-semibold mb-12">Changes</h4>
-                                <table className="table" style={{ width: '100%' }}>
-                                    <thead>
-                                        <tr>
-                                            <th style={{ width: '25%' }}>Field</th>
-                                            <th style={{ width: '35%' }}>Current Value</th>
-                                            <th style={{ width: '5%' }}></th>
-                                            <th style={{ width: '35%' }}>New Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {FIELDS.map(f => {
-                                            const curr = selected.current_data?.[f.key];
-                                            const prop = selected.proposed_data?.[f.key];
-                                            const changed = String(curr || '') !== String(prop || '');
-                                            if (!changed && !prop) return null;
-                                            return (
-                                                <tr key={f.key}>
-                                                    <td className="font-semibold">{f.label}</td>
-                                                    <td style={{ color: changed ? 'var(--text-muted)' : 'var(--text)' }}>
-                                                        {curr || '—'}
-                                                    </td>
-                                                    <td>{changed && <ArrowRight size={14} style={{ color: 'var(--warning)' }} />}</td>
-                                                    <td style={{ color: changed ? 'var(--success)' : 'var(--text)' }}>
-                                                        {changed ? (prop || '—') : (curr || '—')}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                        <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px' }}>
+                            <div className="row gap-md mt-16 mb-16 text-sm flex-wrap" style={{ color: 'var(--text-muted)' }}>
+                                <span><Clock size={13} style={{ verticalAlign: 'middle' }} /> {new Date(selected.requested_at).toLocaleString()}</span>
+                                <span>· By: {selected.requested_by_name || selected.requested_by}</span>
+                                {selected.priority && (
+                                    <span>· Priority: <span style={{
+                                        color: selected.priority === 'Urgent' ? 'var(--error)' : selected.priority === 'High' ? 'var(--warning)' : 'inherit',
+                                        fontWeight: 600
+                                    }}>{selected.priority}</span></span>
+                                )}
+                                {selected.reviewed_by && <span>· Reviewed by: {selected.reviewed_by}</span>}
                             </div>
 
-                            {selected.notes && (
+                            <div className="stack-md">
                                 <div className="panel p-16">
-                                    <h4 className="font-semibold mb-4">Notes</h4>
-                                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{selected.notes}</p>
+                                    <div className="row space-between items-center mb-12">
+                                        <h4 className="font-semibold">Changes</h4>
+                                        {(() => {
+                                            const changedCount = FIELDS.filter(f => {
+                                                const curr = selected.current_data?.[f.key];
+                                                const prop = selected.proposed_data?.[f.key];
+                                                return String(curr || '') !== String(prop || '');
+                                            }).length;
+                                            return changedCount > 0 ? (
+                                                <span className="badge" style={{ background: 'var(--warning-bg)', color: 'var(--warning)', fontWeight: 600 }}>
+                                                    {changedCount} change{changedCount > 1 ? 's' : ''}
+                                                </span>
+                                            ) : null;
+                                        })()}
+                                    </div>
+                                    <div className="table-scroll">
+                                        <table className="table" style={{ width: '100%' }}>
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ width: '20%' }}>Field</th>
+                                                    <th style={{ width: '35%' }}>Current</th>
+                                                    <th style={{ width: '10%' }}></th>
+                                                    <th style={{ width: '35%' }}>Proposed</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {FIELDS.map(f => {
+                                                    const curr = selected.current_data?.[f.key];
+                                                    const prop = selected.proposed_data?.[f.key];
+                                                    const changed = String(curr ?? '') !== String(prop ?? '');
+                                                    if (!changed && !prop) return null;
+                                                    return (
+                                                        <tr key={f.key}>
+                                                            <td className="font-semibold text-sm">{f.label}</td>
+                                                            <td style={{ color: changed ? 'var(--text-muted)' : 'var(--text)' }}>
+                                                                {curr ?? '—'}
+                                                            </td>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                {changed && <ArrowRight size={14} style={{ color: 'var(--warning)' }} />}
+                                                            </td>
+                                                            <td style={{ color: changed ? 'var(--success)' : 'var(--text)', fontWeight: changed ? 600 : 400 }}>
+                                                                {changed ? (prop ?? '—') : (curr ?? '—')}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                            )}
+
+                                {selected.notes && (
+                                    <div className="panel p-16">
+                                        <h4 className="font-semibold mb-4">Request Notes</h4>
+                                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{selected.notes}</p>
+                                    </div>
+                                )}
+
+                                {selected.admin_note && (
+                                    <div className="panel p-16" style={{ borderLeft: '3px solid var(--primary)' }}>
+                                        <h4 className="font-semibold mb-4">Admin Response</h4>
+                                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{selected.admin_note}</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="modal-footer row gap-sm justify-end mt-16">
+                        <div className="modal-footer" style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                             {isAdmin && selected.status === 'Pending' && (
                                 <>
                                     <button className="btn btn-ghost" onClick={() => review(selected.id, 'reject')} disabled={reviewing}>
@@ -471,16 +566,17 @@ const ProductRequests = () => {
                                                                     {changed && <ArrowRight size={14} style={{ color: 'var(--warning)' }} />}
                                                                 </td>
                                                                 <td>
-                                                                    <input
-                                                                        className="input-field"
-                                                                        style={{
-                                                                            width: '100%',
-                                                                            borderColor: changed ? 'var(--warning)' : 'var(--border)',
-                                                                            background: changed ? 'var(--warning-bg)' : 'var(--surface)'
-                                                                        }}
-                                                                        value={newVal || ''}
-                                                                        onChange={e => handleChange(f.key, e.target.value)}
-                                                                    />
+                                                                <input
+                                                                    className="input-field"
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        borderColor: changed ? 'var(--warning)' : 'var(--border)',
+                                                                        background: changed ? 'var(--warning-bg)' : 'var(--surface)',
+                                                                        transition: 'border-color var(--transition-fast), background var(--transition-fast)'
+                                                                    }}
+                                                                    value={newVal || ''}
+                                                                    onChange={e => handleChange(f.key, e.target.value)}
+                                                                />
                                                                 </td>
                                                             </tr>
                                                         );
@@ -499,7 +595,7 @@ const ProductRequests = () => {
                         </div>
 
                         {selectedProduct && (
-                            <div className="modal-footer row gap-sm justify-end border-top pt-12 mt-12">
+                            <div className="modal-footer" style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                                 <button className="btn btn-ghost" onClick={() => submitRequest('Draft')} disabled={submitting || !hasChanges}>
                                     {submitting ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Draft
                                 </button>
