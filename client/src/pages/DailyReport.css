@@ -1,37 +1,54 @@
 /* Daily Report Page Styles */
 
 /* ── Cash Opening Card ── */
+/* ── Glassmorphic Cash Opening Card ── */
 .cash-opening-card {
-    background: var(--surface-2);
+    background: linear-gradient(135deg, var(--surface-2), color-mix(in srgb, var(--surface-2), transparent 40%));
+    backdrop-filter: blur(12px);
     border: 1px solid var(--surface-3);
     border-radius: var(--radius-lg);
-    padding: 20px 24px;
+    padding: 24px 28px;
     margin-bottom: 24px;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+}
+
+.cash-opening-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent), transparent 93%) 0%, transparent 70%);
+    pointer-events: none;
 }
 
 .cash-opening-header {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
     margin-bottom: 20px;
 }
 
 .cash-opening-icon {
-    width: 44px;
-    height: 44px;
+    width: 46px;
+    height: 46px;
     border-radius: var(--radius-md);
-    background: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent), transparent 90%);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
     color: var(--accent);
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--accent), transparent 95%);
+    font-size: 18px;
     flex-shrink: 0;
 }
 
 .cash-opening-title {
-    font-size: 15px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 600;
     color: var(--text);
     margin-bottom: 2px;
 }
@@ -44,19 +61,21 @@
 .cash-opening-badge.done {
     margin-left: auto;
     font-size: 12px;
-    padding: 4px 10px;
+    padding: 6px 14px;
     border-radius: 99px;
-    background: color-mix(in srgb, var(--success), transparent 85%);
+    background: color-mix(in srgb, var(--success), transparent 90%);
     color: var(--success);
+    border: 1px solid color-mix(in srgb, var(--success), transparent 80%);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+    font-weight: 500;
 }
 
 .cash-opening-form {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
 }
 
 .cash-amount-input-wrap {
@@ -66,16 +85,22 @@
     border-radius: var(--radius-md);
     background: var(--bg);
     overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.cash-amount-input-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent), transparent 90%);
 }
 
 .currency-prefix {
-    padding: 0 14px;
-    font-size: 18px;
-    font-weight: 500;
+    padding: 0 16px;
+    font-size: 20px;
+    font-weight: 600;
     color: var(--muted);
-    background: var(--surface-2);
-    border-right: 1px solid var(--surface-3);
-    height: 52px;
+    background: var(--surface-3);
+    border-right: 1px solid var(--border);
+    height: 54px;
     display: flex;
     align-items: center;
     flex-shrink: 0;
@@ -85,12 +110,13 @@
     flex: 1;
     border: none;
     outline: none;
-    padding: 0 16px;
-    font-size: 22px;
-    font-weight: 500;
+    padding: 0 20px;
+    font-size: 24px;
+    font-weight: 700;
     color: var(--text);
     background: transparent;
-    height: 52px;
+    height: 54px;
+    font-family: 'Outfit', sans-serif;
 }
 
 .cash-amount-input::-webkit-outer-spin-button,
@@ -103,8 +129,10 @@
 }
 
 .cash-opening-submit {
-    height: 44px;
+    height: 48px;
     font-size: 14px;
+    font-weight: 600;
+    border-radius: var(--radius-md);
 }
 
 .cash-opening-set-display {
@@ -114,91 +142,229 @@
 }
 
 .opening-amount-display {
-    font-size: 28px;
-    font-weight: 500;
+    font-size: 32px;
+    font-weight: 800;
     color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: -0.02em;
 }
 
-/* ── Cashbook Summary Strip ── */
-.cashbook-summary-strip {
-    display: flex;
-    align-items: center;
+/* ── Modern Summary Cards Grid ── */
+.dr-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.dr-summary-card {
     background: var(--surface-2);
     border: 1px solid var(--surface-3);
     border-radius: var(--radius-lg);
-    padding: 16px 24px;
-    margin-bottom: 16px;
-    gap: 0;
-}
-
-.summary-item {
-    flex: 1;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 0 20px;
+    gap: 8px;
+    box-shadow: var(--shadow-sm);
 }
 
-.summary-item:first-child { padding-left: 0; }
-.summary-item:last-child  { padding-right: 0; }
-
-.summary-divider {
-    width: 1px;
-    height: 40px;
-    background: var(--surface-3);
-    flex-shrink: 0;
+.dr-summary-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--card-hover-border);
+    box-shadow: var(--shadow-md);
 }
 
-.summary-label {
+.dr-summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: var(--card-accent);
+}
+
+/* Modifier Colors and Glows */
+.dr-summary-card--income {
+    --card-accent: linear-gradient(90deg, #10b981, #059669);
+    --card-hover-border: color-mix(in srgb, var(--success), transparent 50%);
+}
+.dr-summary-card--income:hover {
+    box-shadow: 0 10px 20px -10px color-mix(in srgb, var(--success), transparent 85%);
+}
+
+.dr-summary-card--expense {
+    --card-accent: linear-gradient(90deg, #f43f5e, #e11d48);
+    --card-hover-border: color-mix(in srgb, var(--error), transparent 50%);
+}
+.dr-summary-card--expense:hover {
+    box-shadow: 0 10px 20px -10px color-mix(in srgb, var(--error), transparent 85%);
+}
+
+.dr-summary-card--balance {
+    --card-accent: linear-gradient(90deg, #6366f1, #4f46e5);
+    --card-hover-border: color-mix(in srgb, var(--accent), transparent 50%);
+}
+.dr-summary-card--balance:hover {
+    box-shadow: 0 10px 20px -10px color-mix(in srgb, var(--accent), transparent 85%);
+}
+
+.dr-summary-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dr-summary-card__label {
     font-size: 12px;
+    font-weight: 600;
     color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-.summary-value {
-    font-size: 18px;
-    font-weight: 500;
+.dr-summary-card__icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-3);
+    color: var(--muted);
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.dr-summary-card--income .dr-summary-card__icon {
+    background: color-mix(in srgb, var(--success), transparent 90%);
+    color: var(--success);
+}
+
+.dr-summary-card--expense .dr-summary-card__icon {
+    background: color-mix(in srgb, var(--error), transparent 90%);
+    color: var(--error);
+}
+
+.dr-summary-card--balance .dr-summary-card__icon {
+    background: color-mix(in srgb, var(--accent), transparent 90%);
+    color: var(--accent);
+}
+
+.dr-summary-card__value {
+    font-size: 26px;
+    font-weight: 700;
     color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: -0.02em;
 }
 
-.summary-item.income .summary-value  { color: var(--success); }
-.summary-item.expense .summary-value { color: var(--error); }
+.dr-summary-card__footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: auto;
+}
 
-/* ── Cashbook Add Row ── */
+/* ── Modern Inline Cashbook Add Row Form ── */
 .cashbook-add-row {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     align-items: center;
     background: var(--surface-2);
     border: 1px solid var(--surface-3);
     border-radius: var(--radius-lg);
-    padding: 12px 16px;
-    margin-bottom: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
+    flex-wrap: nowrap;
 }
 
 .cashbook-add-row .form-select,
 .cashbook-add-row .form-input {
-    height: 38px;
+    height: 42px;
     border-radius: var(--radius-md);
     font-size: 14px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    padding: 0 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.cashbook-add-row .form-select { flex: 0 0 120px; }
-.cashbook-add-row .form-input  { flex: 2; }
+.cashbook-add-row .form-select:focus,
+.cashbook-add-row .form-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent), transparent 90%);
+}
 
-.cash-amount-input-wrap.compact { height: 38px; flex: 1; }
-.cash-amount-input.compact      { height: 38px; font-size: 15px; padding: 0 12px; }
-.currency-prefix.small          { height: 38px; font-size: 15px; padding: 0 10px; }
+.cashbook-add-row .form-select {
+    flex: 0 0 130px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.cashbook-add-row .form-input {
+    flex: 1;
+}
+
+.cash-amount-input-wrap.compact {
+    height: 42px;
+    flex: 0 0 160px;
+    border-radius: var(--radius-md);
+    background: var(--bg);
+    border: 1px solid var(--border);
+}
+
+.cash-amount-input-wrap.compact:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent), transparent 90%);
+}
+
+.cash-amount-input.compact {
+    height: 40px;
+    font-size: 15px;
+    padding: 0 12px;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+}
+
+.currency-prefix.small {
+    height: 40px;
+    font-size: 15px;
+    padding: 0 10px;
+    background: var(--surface-3);
+    border-right: 1px solid var(--border);
+}
+
+@media (max-width: 1024px) {
+    .cashbook-add-row {
+        flex-wrap: wrap;
+    }
+    .cashbook-add-row .form-select {
+        flex: 1 1 calc(50% - 6px);
+    }
+    .cash-amount-input-wrap.compact {
+        flex: 1 1 calc(50% - 6px);
+    }
+    .cashbook-add-row .form-input {
+        flex: 1 1 100%;
+    }
+}
 
 @media (max-width: 640px) {
-    .cashbook-add-row { flex-wrap: wrap; }
-    .cashbook-add-row .form-select { flex: 1 1 100px; }
-    .cashbook-add-row .form-input  { flex: 1 1 180px; }
-    .cash-amount-input-wrap.compact { min-width: 140px; }
-    .cashbook-summary-strip { flex-direction: column; gap: 12px; align-items: stretch; }
-    .summary-divider { width: 100%; height: 1px; }
-    .summary-item { padding: 0; }
-    .cash-opening-card { padding: 16px; }
-    .opening-amount-display { font-size: 22px; }
+    .dr-summary-cards {
+        grid-template-columns: 1fr;
+    }
+    .cash-opening-card {
+        padding: 20px;
+    }
+    .opening-amount-display {
+        font-size: 26px;
+    }
 }
 
 /* Credit List Panel */
@@ -1238,61 +1404,91 @@ select:focus-visible,
 }
 
 /* Tab Bar */
+/* Tab Bar Segmented Control */
 .dr-tab-bar {
-  display: flex;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  background: var(--surface-2);
-  border-radius: var(--radius-md);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+    display: flex;
+    gap: 6px;
+    padding: 6px;
+    background: var(--surface-2);
+    border-radius: var(--radius-lg);
+    overflow-x: auto;
+    border: 1px solid var(--surface-3);
+    box-shadow: inset 0 2px 4px var(--shadow-sm);
+    margin-bottom: 24px;
 }
 
 .dr-tab {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-8) var(--space-14);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--muted);
-  background: transparent;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s;
-  flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    background: transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
 }
 
 .dr-tab:hover {
-  color: var(--text);
-  background: var(--surface);
+    color: var(--text);
+    background: color-mix(in srgb, var(--tab-color, var(--accent)), transparent 92%);
 }
 
 .dr-tab--active {
-  color: var(--text);
-  background: var(--surface);
-  font-weight: 600;
-  box-shadow: 0 1px 3px var(--shadow-sm);
+    color: var(--tab-color, var(--text));
+    background: var(--bg);
+    font-weight: 600;
+    box-shadow: var(--shadow-sm), 0 0 12px color-mix(in srgb, var(--tab-color, var(--accent)), transparent 90%);
+    border: 1px solid color-mix(in srgb, var(--tab-color, var(--accent)), transparent 80%);
+}
+
+.dr-tab-icon {
+    color: var(--muted);
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.dr-tab--active .dr-tab-icon {
+    color: var(--tab-color, var(--accent));
+    transform: scale(1.1);
 }
 
 .dr-tab__badge {
-  font-size: var(--text-2xs);
-  padding: var(--space-1) var(--space-6);
-  border-radius: var(--radius-md);
-  background: var(--border);
-  color: var(--muted);
-  font-weight: 600;
-  margin-left: var(--space-2);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: var(--surface-3);
+    color: var(--muted);
+    font-weight: 600;
+    transition: all 0.2s ease;
+    margin-left: 4px;
+}
+
+.dr-tab--active .dr-tab__badge {
+    background: color-mix(in srgb, var(--tab-color, var(--accent)), transparent 90%);
+    color: var(--tab-color, var(--accent));
 }
 
 /* Machine Card */
 .dr-machine-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-16);
+    background: var(--surface-2);
+    border: 1px solid var(--surface-3);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.dr-machine-card:hover {
+    border-color: color-mix(in srgb, var(--accent), transparent 70%);
+    box-shadow: var(--shadow-md);
 }
 
 .machine-view-row {
@@ -1398,4 +1594,173 @@ select:focus-visible,
     font-size: var(--text-2xl);
     font-weight: 800;
     font-family: 'Space Grotesk', sans-serif;
+}
+
+/* Machine Section Statistics styling */
+.dr-machine-card .stack-sm {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.machine-card-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--surface-3);
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+}
+
+.machine-card-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.machine-card-location {
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--surface-3);
+    padding: 2px 8px;
+    border-radius: 99px;
+}
+
+.machine-view-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+}
+
+.dr-machine-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.dr-machine-stat__label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+}
+
+.dr-machine-stat__value {
+    font-size: 18px;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    color: var(--text);
+}
+
+.machine-stat-value--primary {
+    color: var(--accent);
+}
+
+.machine-stat--today {
+    background: color-mix(in srgb, var(--success), transparent 90%) !important;
+    border: 1px solid color-mix(in srgb, var(--success), transparent 80%);
+    padding: 6px 12px !important;
+    border-radius: var(--radius-md) !important;
+}
+
+.machine-stat-value--today {
+    color: var(--success) !important;
+}
+
+.machine-stat--waste {
+    background: color-mix(in srgb, var(--error), transparent 90%) !important;
+    border: 1px solid color-mix(in srgb, var(--error), transparent 80%);
+    padding: 6px 12px !important;
+    border-radius: var(--radius-md) !important;
+}
+
+.machine-stat-value--waste {
+    color: var(--error) !important;
+}
+
+.machine-stat--proof {
+    background: color-mix(in srgb, var(--warning), transparent 90%) !important;
+    border: 1px solid color-mix(in srgb, var(--warning), transparent 80%);
+    padding: 6px 12px !important;
+    border-radius: var(--radius-md) !important;
+}
+
+.machine-stat-value--proof {
+    color: var(--warning) !important;
+}
+
+/* ── Premium Badges & Tables Styling Overrides ── */
+.entry-table-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-weight: 600;
+}
+
+.badge--success {
+    background: color-mix(in srgb, var(--success), transparent 92%) !important;
+    color: var(--success) !important;
+    border: 1px solid color-mix(in srgb, var(--success), transparent 80%) !important;
+}
+
+.badge--danger {
+    background: color-mix(in srgb, var(--error), transparent 92%) !important;
+    color: var(--error) !important;
+    border: 1px solid color-mix(in srgb, var(--error), transparent 80%) !important;
+}
+
+.badge--warning {
+    background: color-mix(in srgb, var(--warning), transparent 92%) !important;
+    color: var(--warning) !important;
+    border: 1px solid color-mix(in srgb, var(--warning), transparent 80%) !important;
+}
+
+.badge--info {
+    background: color-mix(in srgb, var(--accent), transparent 92%) !important;
+    color: var(--accent) !important;
+    border: 1px solid color-mix(in srgb, var(--accent), transparent 80%) !important;
+}
+
+.badge--default {
+    background: var(--surface-3) !important;
+    color: var(--muted) !important;
+    border: 1px solid var(--border) !important;
+}
+
+.entry-table tr {
+    transition: background-color 0.15s ease;
+}
+
+.entry-table tr:hover {
+    background-color: color-mix(in srgb, var(--accent), transparent 97%) !important;
+}
+
+/* Custom Scrollbar for Containers */
+.entry-table-container::-webkit-scrollbar,
+.credit-list-table-container::-webkit-scrollbar,
+.staff-table-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.entry-table-container::-webkit-scrollbar-track,
+.credit-list-table-container::-webkit-scrollbar-track,
+.staff-table-container::-webkit-scrollbar-track {
+    background: var(--surface-2);
+}
+
+.entry-table-container::-webkit-scrollbar-thumb,
+.credit-list-table-container::-webkit-scrollbar-thumb,
+.staff-table-container::-webkit-scrollbar-thumb {
+    background: var(--surface-3);
+    border-radius: 99px;
+}
+
+.entry-table-container::-webkit-scrollbar-thumb:hover,
+.credit-list-table-container::-webkit-scrollbar-thumb:hover,
+.staff-table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--border);
 }

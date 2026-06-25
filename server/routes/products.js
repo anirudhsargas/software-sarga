@@ -504,7 +504,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Add Product with Slabs and Extras
-    router.post('/products', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
+    router.post('/products', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Designer', 'Front Office'), upload.single('image'), async (req, res) => {
         const { subcategory_id, name, product_code, calculation_type, description, inventory_item_id, isPhysicalProduct, company_name, company_code, size, extraInv } = req.body;
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
@@ -514,6 +514,48 @@ module.exports = (upload, removeUploadFile) => {
             const cloudinaryResult = await uploadToCloudinary(req.file.path, 'products');
             imageUrl = cloudinaryResult.secure_url;
         }
+
+        // Intercept Accountant, Designer, Front Office - create request instead of direct creation
+        if (req.user.role !== 'Admin') {
+            try {
+                if (!subcategory_id) {
+                    return res.status(400).json({ message: 'Subcategory is required' });
+                }
+                if (!name || !String(name).trim()) {
+                    return res.status(400).json({ message: 'Product name is required' });
+                }
+                const proposedData = {
+                    subcategory_id,
+                    name: String(name).trim(),
+                    product_code: product_code || null,
+                    company_name: company_name || null,
+                    company_code: company_code || null,
+                    size: size || null,
+                    calculation_type,
+                    description,
+                    image_url: imageUrl,
+                    has_paper_rate: req.body.has_paper_rate === 'true' || req.body.has_paper_rate === 1 || req.body.has_paper_rate === '1' ? 1 : 0,
+                    paper_rate: Number(req.body.paper_rate) || 0,
+                    has_double_side_rate: req.body.has_double_side_rate === 'true' || req.body.has_double_side_rate === 1 || req.body.has_double_side_rate === '1' ? 1 : 0,
+                    inventory_item_id: inventory_item_id || null,
+                    is_physical_product: isPhysicalProduct === 'true' || isPhysicalProduct === 1 || isPhysicalProduct === '1' ? 1 : 0,
+                    slabs: slabs || [],
+                    extras: extras || [],
+                    links: typeof req.body.links === 'string' ? JSON.parse(req.body.links) : (req.body.links || []),
+                    extraInv: parsedExtraInv
+                };
+                const [insertResult] = await pool.query(
+                    `INSERT INTO sarga_product_update_requests (product_id, current_data, proposed_data, requested_by, status, request_type)
+                     VALUES (NULL, NULL, ?, ?, 'pending', 'add')`,
+                    [JSON.stringify(proposedData), req.user.id]
+                );
+                return res.status(202).json({ message: 'Product addition request submitted for Admin approval.', request_id: insertResult.insertId, status: 'pending' });
+            } catch (err) {
+                console.error('Submit product addition request error:', err);
+                return res.status(500).json({ message: 'Failed to submit product addition request.' });
+            }
+        }
+
         const connection = await pool.getConnection();
         try {
             if (!subcategory_id) {
@@ -604,7 +646,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Update Product
-    router.put('/products/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
+    router.put('/products/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Designer', 'Front Office'), upload.single('image'), async (req, res) => {
         const { id } = req.params;
 
         // Handle inventory-only items (inv-{id} format) - redirect to inventory update
@@ -612,6 +654,10 @@ module.exports = (upload, removeUploadFile) => {
             const inventoryId = parseInt(id.replace('inv-', ''), 10);
             if (isNaN(inventoryId)) {
                 return res.status(400).json({ message: 'Invalid inventory ID' });
+            }
+
+            if (req.user.role !== 'Admin') {
+                return res.status(403).json({ message: 'Only Admin can update inventory-only items.' });
             }
 
             const { name, product_code, extraInv } = req.body;
@@ -653,6 +699,60 @@ module.exports = (upload, removeUploadFile) => {
             const cloudinaryResult = await uploadToCloudinary(req.file.path, 'products');
             imageUrl = cloudinaryResult.secure_url;
         }
+
+        // Intercept Accountant, Designer, Front Office - create request instead of direct update
+        if (req.user.role !== 'Admin') {
+            try {
+                // Fetch product details
+                const [productRows] = await pool.query('SELECT * FROM sarga_products WHERE id = ? LIMIT 1', [id]);
+                const product = productRows[0];
+                if (!product) return res.status(404).json({ message: 'Product not found' });
+
+                // Check pending request
+                const [pendingRows] = await pool.query(`SELECT id FROM sarga_product_update_requests WHERE product_id = ? AND status = 'pending' LIMIT 1`, [id]);
+                if (pendingRows.length > 0) return res.status(409).json({ message: 'An update request is already pending for this product.' });
+
+                // Fetch slabs, extras, links
+                const [currSlabs] = await pool.query('SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC', [id]);
+                const [currExtras] = await pool.query('SELECT * FROM sarga_product_extras_template WHERE product_id = ?', [id]);
+                const [currLinks] = await pool.query('SELECT id, name, url FROM sarga_product_links WHERE product_id = ? ORDER BY id ASC', [id]);
+
+                const currentData = Object.assign({}, product, { slabs: currSlabs, extras: currExtras, links: currLinks });
+
+                const proposedData = {
+                    subcategory_id: subcategory_id ? Number(subcategory_id) : product.subcategory_id,
+                    name: name ? String(name).trim() : product.name,
+                    product_code: product_code !== undefined ? product_code : product.product_code,
+                    company_name: company_name !== undefined ? company_name : product.company_name,
+                    company_code: company_code !== undefined ? company_code : product.company_code,
+                    size: size !== undefined ? size : product.size,
+                    calculation_type: calculation_type !== undefined ? calculation_type : product.calculation_type,
+                    description: description !== undefined ? description : product.description,
+                    has_paper_rate: has_paper_rate !== undefined ? (has_paper_rate === 'true' || has_paper_rate === 1 || has_paper_rate === '1') : product.has_paper_rate,
+                    paper_rate: paper_rate !== undefined ? Number(paper_rate) : product.paper_rate,
+                    has_double_side_rate: has_double_side_rate !== undefined ? (has_double_side_rate === 'true' || has_double_side_rate === 1 || has_double_side_rate === '1') : product.has_double_side_rate,
+                    inventory_item_id: inventory_item_id !== undefined ? inventory_item_id : product.inventory_item_id,
+                    is_physical_product: isPhysicalProduct !== undefined ? (isPhysicalProduct === 'true' || isPhysicalProduct === 1 || isPhysicalProduct === '1') : product.is_physical_product,
+                    slabs: slabs !== undefined ? slabs : currSlabs,
+                    extras: extras !== undefined ? extras : currExtras,
+                    links: typeof req.body.links === 'string' ? JSON.parse(req.body.links) : (req.body.links || currLinks),
+                    extraInv: parsedExtraInv,
+                    image_url: imageUrl || product.image_url
+                };
+
+                const [insertResult] = await pool.query(
+                    `INSERT INTO sarga_product_update_requests (product_id, current_data, proposed_data, requested_by, status, request_type)
+                     VALUES (?, ?, ?, ?, 'pending', 'edit')`,
+                    [id, JSON.stringify(currentData), JSON.stringify(proposedData), req.user.id]
+                );
+
+                return res.status(202).json({ message: 'Product update request submitted for Admin approval.', request_id: insertResult.insertId, status: 'pending' });
+            } catch (err) {
+                console.error('Submit product update request error:', err);
+                return res.status(500).json({ message: 'Failed to submit product update request.' });
+            }
+        }
+
         const connection = await pool.getConnection();
 
         try {
@@ -731,12 +831,16 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Delete Product
-    router.delete('/products/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    router.delete('/products/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Designer', 'Front Office'), async (req, res) => {
         // Handle inventory-only items (inv-{id} format) - redirect to inventory delete
         if (typeof req.params.id === 'string' && req.params.id.startsWith('inv-')) {
             const inventoryId = parseInt(req.params.id.replace('inv-', ''), 10);
             if (isNaN(inventoryId)) {
                 return res.status(400).json({ message: 'Invalid inventory ID' });
+            }
+
+            if (req.user.role !== 'Admin') {
+                return res.status(403).json({ message: 'Only Admin can delete inventory-only items.' });
             }
 
             try {
@@ -757,9 +861,42 @@ module.exports = (upload, removeUploadFile) => {
             }
         }
 
+        const productId = Number(req.params.id);
+
+        if (req.user.role !== 'Admin') {
+            try {
+                // Fetch product details
+                const [productRows] = await pool.query('SELECT * FROM sarga_products WHERE id = ? LIMIT 1', [productId]);
+                const product = productRows[0];
+                if (!product) return res.status(404).json({ message: 'Product not found' });
+
+                // Check pending request
+                const [pendingRows] = await pool.query(`SELECT id FROM sarga_product_update_requests WHERE product_id = ? AND status = 'pending' LIMIT 1`, [productId]);
+                if (pendingRows.length > 0) return res.status(409).json({ message: 'A request is already pending for this product.' });
+
+                // Fetch slabs, extras, links
+                const [currSlabs] = await pool.query('SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC', [productId]);
+                const [currExtras] = await pool.query('SELECT * FROM sarga_product_extras_template WHERE product_id = ?', [productId]);
+                const [currLinks] = await pool.query('SELECT id, name, url FROM sarga_product_links WHERE product_id = ? ORDER BY id ASC', [productId]);
+
+                const currentData = Object.assign({}, product, { slabs: currSlabs, extras: currExtras, links: currLinks });
+
+                const [insertResult] = await pool.query(
+                    `INSERT INTO sarga_product_update_requests (product_id, current_data, proposed_data, requested_by, status, request_type)
+                     VALUES (?, ?, ?, ?, 'pending', 'delete')`,
+                    [productId, JSON.stringify(currentData), JSON.stringify({}), req.user.id]
+                );
+
+                return res.status(202).json({ message: 'Product deletion request submitted for Admin approval.', request_id: insertResult.insertId, status: 'pending' });
+            } catch (err) {
+                console.error('Submit product deletion request error:', err);
+                return res.status(500).json({ message: 'Failed to submit product deletion request.' });
+            }
+        }
+
         try {
             // Check if the product has stock in inventory
-            const [prodRows] = await pool.query("SELECT inventory_item_id FROM sarga_products WHERE id = ?", [req.params.id]);
+            const [prodRows] = await pool.query("SELECT inventory_item_id FROM sarga_products WHERE id = ?", [productId]);
             if (prodRows.length > 0 && prodRows[0].inventory_item_id) {
                 const [invRows] = await pool.query("SELECT quantity FROM sarga_inventory WHERE id = ?", [prodRows[0].inventory_item_id]);
                 if (invRows.length > 0 && Number(invRows[0].quantity) > 0) {
@@ -767,9 +904,9 @@ module.exports = (upload, removeUploadFile) => {
                 }
             }
 
-            await pool.query("DELETE FROM sarga_products WHERE id = ?", [req.params.id]);
+            await pool.query("DELETE FROM sarga_products WHERE id = ?", [productId]);
             invalidateHierarchyCache();
-            auditLog(req.user.id, 'PRODUCT_DELETE', `Deleted product #${req.params.id}`, { entity_type: 'product', entity_id: req.params.id });
+            auditLog(req.user.id, 'PRODUCT_DELETE', `Deleted product #${productId}`, { entity_type: 'product', entity_id: productId });
             res.json({ message: 'Product deleted successfully' });
         } catch (err) {
             console.error('Delete product error:', err);
@@ -1196,7 +1333,7 @@ module.exports = (upload, removeUploadFile) => {
         });
 
         // Admin approves/rejects a product update request
-        router.patch('/products/update-requests/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+        router.patch('/products/update-requests/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
             const requestId = Number(req.params.id);
             const action = String(req.body?.action || '').toLowerCase();
             const adminNote = req.body?.note || null;
@@ -1213,7 +1350,7 @@ module.exports = (upload, removeUploadFile) => {
                 await connection.beginTransaction();
 
                 const [reqRows] = await connection.query(
-                    `SELECT id, product_id, current_data, proposed_data, status
+                    `SELECT id, product_id, current_data, proposed_data, status, request_type
                      FROM sarga_product_update_requests
                      WHERE id = ?
                      LIMIT 1`,
@@ -1232,83 +1369,165 @@ module.exports = (upload, removeUploadFile) => {
 
                 const proposed = requestRow.proposed_data ? JSON.parse(requestRow.proposed_data) : {};
                 const current = requestRow.current_data ? JSON.parse(requestRow.current_data) : {};
+                const requestType = requestRow.request_type || 'edit';
 
                 if (action === 'approve') {
-                    // Apply proposed changes to product row
-                    const prodId = requestRow.product_id;
+                    if (requestType === 'add') {
+                        // 1. Get next position
+                        const [posRows] = await connection.query(
+                            "SELECT COALESCE(MAX(position), 0) + 1 AS nextPos FROM sarga_products WHERE subcategory_id = ?",
+                            [proposed.subcategory_id]
+                        );
+                        const nextPos = posRows[0]?.nextPos || 1;
 
-                    // Map fields to update
-                    const upFields = ['subcategory_id','name','product_code','company_name','company_code','size','calculation_type','description','image_url','has_paper_rate','paper_rate','has_double_side_rate','inventory_item_id','is_physical_product'];
-                    const updateValues = [];
-                    const setParts = [];
-                    for (const f of upFields) {
-                        if (proposed[f] !== undefined) {
-                            setParts.push(`${f} = ?`);
-                            // Normalize booleans
-                            if (f === 'has_paper_rate' || f === 'has_double_side_rate' || f === 'is_physical_product') {
-                                updateValues.push(proposed[f] === true || proposed[f] === 'true' || Number(proposed[f]) === 1 ? 1 : 0);
-                            } else if (f === 'paper_rate') {
-                                updateValues.push(Number(proposed[f]) || 0);
-                            } else {
-                                updateValues.push(proposed[f] === '' ? null : proposed[f]);
+                        // 2. Insert into sarga_products
+                        const [prodResult] = await connection.query(
+                            "INSERT INTO sarga_products (subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            [
+                                proposed.subcategory_id,
+                                String(proposed.name).trim(),
+                                proposed.product_code || null,
+                                proposed.company_name || null,
+                                proposed.company_code || null,
+                                proposed.size || null,
+                                proposed.calculation_type,
+                                proposed.description || null,
+                                proposed.image_url || null,
+                                proposed.has_paper_rate === true || proposed.has_paper_rate === 'true' || proposed.has_paper_rate === 1 || proposed.has_paper_rate === '1' ? 1 : 0,
+                                Number(proposed.paper_rate) || 0,
+                                proposed.has_double_side_rate === true || proposed.has_double_side_rate === 'true' || proposed.has_double_side_rate === 1 || proposed.has_double_side_rate === '1' ? 1 : 0,
+                                nextPos,
+                                proposed.inventory_item_id || null,
+                                proposed.is_physical_product === true || proposed.is_physical_product === 'true' || proposed.is_physical_product === 1 || proposed.is_physical_product === '1' ? 1 : 0
+                            ]
+                        );
+                        const newProdId = prodResult.insertId;
+
+                        // 3. Insert slabs
+                        if (Array.isArray(proposed.slabs)) {
+                            for (const slab of proposed.slabs) {
+                                await connection.query(
+                                    "INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate, offset_unit_rate, double_side_unit_rate) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                    [newProdId, Number(slab.min_qty) || 0, (slab.max_qty === '' || slab.max_qty === null) ? null : Number(slab.max_qty), Number(slab.base_value) || 0, Number(slab.unit_rate) || 0, Number(slab.offset_unit_rate) || 0, Number(slab.double_side_unit_rate) || 0]
+                                );
                             }
                         }
-                    }
 
-                    if (setParts.length > 0) {
-                        const sql = `UPDATE sarga_products SET ${setParts.join(', ')} WHERE id = ?`;
-                        await connection.query(sql, [...updateValues, prodId]);
-                    }
+                        // 4. Insert extras
+                        if (Array.isArray(proposed.extras)) {
+                            for (const extra of proposed.extras) {
+                                await connection.query(
+                                    "INSERT INTO sarga_product_extras_template (product_id, purpose, amount) VALUES (?, ?, ?)",
+                                    [newProdId, extra.purpose, extra.amount]
+                                );
+                            }
+                        }
 
-                    // Replace slabs if provided
-                    if (Array.isArray(proposed.slabs)) {
-                        await connection.query('DELETE FROM sarga_product_slabs WHERE product_id = ?', [prodId]);
-                        for (const slab of proposed.slabs) {
-                            await connection.query(
-                                'INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate, offset_unit_rate, double_side_unit_rate) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                                [prodId, Number(slab.min_qty) || 0, (slab.max_qty === '' || slab.max_qty === null) ? null : Number(slab.max_qty), Number(slab.base_value) || 0, Number(slab.unit_rate) || 0, Number(slab.offset_unit_rate) || 0, Number(slab.double_side_unit_rate) || 0]
+                        // 5. Insert links
+                        if (Array.isArray(proposed.links)) {
+                            for (const link of proposed.links) {
+                                const linkName = String(link.name || '').trim();
+                                const linkUrl = String(link.url || '').trim();
+                                if (linkName && linkUrl) {
+                                    await connection.query(
+                                        "INSERT INTO sarga_product_links (product_id, name, url) VALUES (?, ?, ?)",
+                                        [newProdId, linkName, linkUrl]
+                                    );
+                                }
+                            }
+                        }
+
+                        // 6. Update request row to reference the new product
+                        await connection.query(
+                            `UPDATE sarga_product_update_requests SET product_id = ? WHERE id = ?`,
+                            [newProdId, requestId]
+                        );
+
+                        // Store newProdId on requestRow for post-commit actions
+                        requestRow.product_id = newProdId;
+
+                    } else if (requestType === 'delete') {
+                        const prodId = requestRow.product_id;
+                        await connection.query("DELETE FROM sarga_products WHERE id = ?", [prodId]);
+
+                    } else {
+                        // edit
+                        // Apply proposed changes to product row
+                        const prodId = requestRow.product_id;
+
+                        // Map fields to update
+                        const upFields = ['subcategory_id','name','product_code','company_name','company_code','size','calculation_type','description','image_url','has_paper_rate','paper_rate','has_double_side_rate','inventory_item_id','is_physical_product'];
+                        const updateValues = [];
+                        const setParts = [];
+                        for (const f of upFields) {
+                            if (proposed[f] !== undefined) {
+                                setParts.push(`${f} = ?`);
+                                // Normalize booleans
+                                if (f === 'has_paper_rate' || f === 'has_double_side_rate' || f === 'is_physical_product') {
+                                    updateValues.push(proposed[f] === true || proposed[f] === 'true' || Number(proposed[f]) === 1 ? 1 : 0);
+                                } else if (f === 'paper_rate') {
+                                    updateValues.push(Number(proposed[f]) || 0);
+                                } else {
+                                    updateValues.push(proposed[f] === '' ? null : proposed[f]);
+                                }
+                            }
+                        }
+
+                        if (setParts.length > 0) {
+                            const sql = `UPDATE sarga_products SET ${setParts.join(', ')} WHERE id = ?`;
+                            await connection.query(sql, [...updateValues, prodId]);
+                        }
+
+                        // Replace slabs if provided
+                        if (Array.isArray(proposed.slabs)) {
+                            await connection.query('DELETE FROM sarga_product_slabs WHERE product_id = ?', [prodId]);
+                            for (const slab of proposed.slabs) {
+                                await connection.query(
+                                    'INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate, offset_unit_rate, double_side_unit_rate) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                    [prodId, Number(slab.min_qty) || 0, (slab.max_qty === '' || slab.max_qty === null) ? null : Number(slab.max_qty), Number(slab.base_value) || 0, Number(slab.unit_rate) || 0, Number(slab.offset_unit_rate) || 0, Number(slab.double_side_unit_rate) || 0]
+                                );
+                            }
+                        }
+
+                        // Replace extras if provided
+                        if (Array.isArray(proposed.extras)) {
+                            await connection.query('DELETE FROM sarga_product_extras_template WHERE product_id = ?', [prodId]);
+                            for (const extra of proposed.extras) {
+                                await connection.query('INSERT INTO sarga_product_extras_template (product_id, purpose, amount) VALUES (?, ?, ?)', [prodId, extra.purpose, extra.amount]);
+                            }
+                        }
+
+                        // Replace links if provided
+                        if (Array.isArray(proposed.links)) {
+                            await connection.query('DELETE FROM sarga_product_links WHERE product_id = ?', [prodId]);
+                            for (const link of proposed.links) {
+                                const linkName = String(link.name || '').trim();
+                                const linkUrl = String(link.url || '').trim();
+                                if (linkName && linkUrl) {
+                                    await connection.query('INSERT INTO sarga_product_links (product_id, name, url) VALUES (?, ?, ?)', [prodId, linkName, linkUrl]);
+                                }
+                            }
+                        }
+
+                        // Sync inventory if product is linked
+                        const [updatedProd] = await connection.query('SELECT * FROM sarga_products WHERE id = ?', [prodId]);
+                        const upProd = updatedProd[0];
+                        if (upProd && upProd.inventory_item_id) {
+                            const slabsPayload = proposed.slabs || [];
+                            const extraInvPayload = proposed.extraInv || {};
+                            await syncInventoryFromProduct(
+                                connection,
+                                prodId,
+                                upProd.name,
+                                upProd.product_code,
+                                upProd.subcategory_id,
+                                slabsPayload,
+                                upProd.company_name,
+                                upProd.company_code,
+                                upProd.size,
+                                extraInvPayload
                             );
                         }
-                    }
-
-                    // Replace extras if provided
-                    if (Array.isArray(proposed.extras)) {
-                        await connection.query('DELETE FROM sarga_product_extras_template WHERE product_id = ?', [prodId]);
-                        for (const extra of proposed.extras) {
-                            await connection.query('INSERT INTO sarga_product_extras_template (product_id, purpose, amount) VALUES (?, ?, ?)', [prodId, extra.purpose, extra.amount]);
-                        }
-                    }
-
-                    // Replace links if provided
-                    if (Array.isArray(proposed.links)) {
-                        await connection.query('DELETE FROM sarga_product_links WHERE product_id = ?', [prodId]);
-                        for (const link of proposed.links) {
-                            const linkName = String(link.name || '').trim();
-                            const linkUrl = String(link.url || '').trim();
-                            if (linkName && linkUrl) {
-                                await connection.query('INSERT INTO sarga_product_links (product_id, name, url) VALUES (?, ?, ?)', [prodId, linkName, linkUrl]);
-                            }
-                        }
-                    }
-
-                    // Sync inventory if product is linked
-                    const [updatedProd] = await connection.query('SELECT * FROM sarga_products WHERE id = ?', [prodId]);
-                    const upProd = updatedProd[0];
-                    if (upProd && upProd.inventory_item_id) {
-                        const slabsPayload = proposed.slabs || [];
-                        const extraInvPayload = proposed.extraInv || {};
-                        await syncInventoryFromProduct(
-                            connection,
-                            prodId,
-                            upProd.name,
-                            upProd.product_code,
-                            upProd.subcategory_id,
-                            slabsPayload,
-                            upProd.company_name,
-                            upProd.company_code,
-                            upProd.size,
-                            extraInvPayload
-                        );
                     }
                 }
 
@@ -1323,7 +1542,7 @@ module.exports = (upload, removeUploadFile) => {
                 await connection.commit();
 
                 // Auto-create inventory if physical but not yet linked to an inventory item
-                if (action === 'approve') {
+                if (action === 'approve' && requestType !== 'delete') {
                     const prodId = requestRow.product_id;
                     try {
                         const [updatedProd] = await pool.query('SELECT * FROM sarga_products WHERE id = ?', [prodId]);
@@ -1377,6 +1596,8 @@ module.exports = (upload, removeUploadFile) => {
                 connection.release();
             }
         });
+
+
 
     // Get Full Product Details (including slabs and extras)
     router.get('/products/:id', authenticateToken, async (req, res) => {

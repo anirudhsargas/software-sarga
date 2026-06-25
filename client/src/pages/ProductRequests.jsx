@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { X, Check, Eye, Loader2, Search, Save, Send, History, ArrowRight, Clock, AlertTriangle, FileText } from 'lucide-react';
 import { useConfirm } from '../contexts/ConfirmContext';
 import PageContainer from '../components/ui/PageContainer';
+import useAuth from '../hooks/useAuth';
 
 const STATUS_CONFIG = {
     Draft: { color: 'var(--text-muted)', bg: 'var(--surface-2)', label: 'Draft' },
@@ -29,6 +30,8 @@ const FILTER_TABS = ['all', 'Draft', 'Pending', 'Approved', 'Rejected'];
 const ProductRequests = () => {
     useSEO('Product Requests');
 
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'Admin';
     const { confirm } = useConfirm();
     const [loading, setLoading] = useState(false);
     const [requests, setRequests] = useState([]);
@@ -247,7 +250,7 @@ const ProductRequests = () => {
                                                 <td>
                                                     <div className="row gap-xs">
                                                         <button className="btn btn-ghost btn-sm" onClick={() => open(r)} title="View Details"><Eye size={14} /></button>
-                                                        {r.status === 'Pending' && (
+                                                        {isAdmin && r.status === 'Pending' && (
                                                             <>
                                                                 <button className="btn btn-ghost btn-sm text-error" onClick={() => review(r.id, 'reject')}><X size={14} /> Reject</button>
                                                                 <button className="btn btn-primary btn-sm" onClick={() => review(r.id, 'approve')}><Check size={14} /> Approve</button>
@@ -347,7 +350,7 @@ const ProductRequests = () => {
                         </div>
 
                         <div className="modal-footer row gap-sm justify-end mt-16">
-                            {selected.status === 'Pending' && (
+                            {isAdmin && selected.status === 'Pending' && (
                                 <>
                                     <button className="btn btn-ghost" onClick={() => review(selected.id, 'reject')} disabled={reviewing}>
                                         <X size={14} /> Reject

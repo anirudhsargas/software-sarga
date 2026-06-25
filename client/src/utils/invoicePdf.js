@@ -160,9 +160,22 @@ export async function generateInvoicePDF(billData) {
   // ─── ORDER LINE ITEMS TABLE (compact) ───
   const tableBody = orderLines.map((line, idx) => {
     const jobNum = jobs[idx]?.job_number || '';
+    
+    // Construct extra details line
+    const details = [];
+    if (line.colour) details.push(`Color: ${line.colour}`);
+    if (line.paper_preference) details.push(`Paper: ${line.paper_preference}`);
+    if (line.numbering_from || line.numbering_to) {
+      details.push(`No: ${line.numbering_from || ''} - ${line.numbering_to || ''}`);
+    }
+    if (line.description) details.push(line.description);
+    if (line.special_instructions) details.push(`Note: ${line.special_instructions}`);
+    
+    const detailsStr = details.length > 0 ? `\n${details.join(' | ')}` : '';
+    
     return [
       idx + 1,
-      `${line.product_name || 'Item'}${jobNum ? ` (${jobNum})` : ''}`,
+      `${line.product_name || 'Item'}${jobNum ? ` (${jobNum})` : ''}${detailsStr}`,
       line.category || '',
       Number(line.quantity) || 1,
       `Rs. ${fmtAmt(line.unit_price)}`,

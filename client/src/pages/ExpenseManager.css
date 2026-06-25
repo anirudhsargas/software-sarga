@@ -671,38 +671,38 @@ select.em-input {
 
 /* Dark mode badges — ensure readability */
 .dark .em-type-badge--vendor {
-    background: var(--accent);
-    color: var(--border);
+    background: var(--secondary);
+    color: var(--text-primary);
 }
 
 .dark .em-type-badge--utility {
-    background: var(--warning);
+    background: var(--secondary);
     color: var(--warning);
 }
 
 .dark .em-type-badge--salary {
-    background: var(--success);
-    color: var(--muted-foreground);
+    background: var(--secondary);
+    color: var(--success);
 }
 
 .dark .em-type-badge--rent {
-    background: var(--destructive);
-    color: var(--border);
+    background: var(--secondary);
+    color: var(--destructive);
 }
 
 .dark .em-type-badge--other {
-    background: var(--muted-foreground);
-    color: var(--border);
+    background: var(--secondary);
+    color: var(--text-secondary);
 }
 
 .dark .em-type-badge--purchase {
-    background: var(--destructive);
-    color: var(--border);
+    background: var(--secondary);
+    color: var(--destructive);
 }
 
 .dark .em-type-badge--payment {
-    background: var(--success);
-    color: var(--muted-foreground);
+    background: var(--secondary);
+    color: var(--success);
 }
 
 /* ─── Amount Colors — explicit for both modes ─────────── */
@@ -854,7 +854,6 @@ select.em-input {
 
 .em-rent-card--due {
     border-left-color: var(--destructive);
-    background: var(--destructive);
 }
 
 .em-rent-card--upcoming {
@@ -867,7 +866,6 @@ select.em-input {
 
 .dark .em-rent-card--due {
     border-left-color: var(--destructive);
-    background: var(--destructive);
 }
 
 .dark .em-rent-card--upcoming {
@@ -1142,9 +1140,9 @@ select.em-input {
 }
 
 .dark .em-error {
-    background: var(--destructive);
-    border-color: var(--destructive);
-    color: var(--border);
+    background: var(--error-bg);
+    border-color: var(--error-border-trans);
+    color: var(--destructive);
 }
 
 /* ─── Loading / Empty ─────────────────────────────────── */
@@ -1560,12 +1558,12 @@ select.em-input {
 
 .em-essential-item--highlight {
     border-color: var(--danger);
-    background: var(--destructive);
+    background: var(--error-bg);
 }
 
 .em-essential-item--alert {
     border-color: var(--warning);
-    background: var(--warning);
+    background: var(--warning-bg);
     flex-direction: row;
     align-items: center;
     gap: var(--space-6);
@@ -1573,7 +1571,7 @@ select.em-input {
 
 .em-essential-item--success {
     border-color: var(--success);
-    background: var(--success);
+    background: var(--success-bg);
     flex-direction: row;
     align-items: center;
     gap: var(--space-6);
@@ -1766,22 +1764,22 @@ select.em-input {
 }
 
 .em-trend-badge--up {
-    background: var(--success);
+    background: var(--success-bg);
     color: var(--success);
 }
 
 .em-trend-badge--down {
-    background: var(--destructive);
+    background: var(--error-bg);
     color: var(--destructive);
 }
 
 .dark .em-trend-badge--up {
-    background: var(--success);
+    background: var(--success-bg);
     color: var(--success);
 }
 
 .dark .em-trend-badge--down {
-    background: var(--destructive);
+    background: var(--error-bg);
     color: var(--destructive);
 }
 
@@ -1807,29 +1805,29 @@ select.em-input {
 
 .em-alert-card--red {
     border-left-color: var(--destructive);
-    background: var(--destructive);
+    background: var(--error-bg);
 }
 
 .em-alert-card--amber {
     border-left-color: var(--warning);
-    background: var(--warning);
+    background: var(--warning-bg);
 }
 
 .em-alert-card--yellow {
     border-left-color: var(--warning);
-    background: var(--warning);
+    background: var(--warning-bg);
 }
 
 .dark .em-alert-card--red {
-    background: var(--destructive);
+    background: var(--error-bg);
 }
 
 .dark .em-alert-card--amber {
-    background: var(--warning);
+    background: var(--warning-bg);
 }
 
 .dark .em-alert-card--yellow {
-    background: var(--warning);
+    background: var(--warning-bg);
 }
 
 .em-alert-card__icon {
@@ -2454,23 +2452,23 @@ select.em-input {
 }
 
 .dark .em-status-badge--paid {
-    background: var(--success);
-    color: var(--muted-foreground);
+    background: var(--secondary);
+    color: var(--success);
 }
 
 .dark .em-status-badge--pending {
-    background: var(--warning);
+    background: var(--secondary);
     color: var(--warning);
 }
 
 .dark .em-status-badge--partial {
-    background: var(--accent);
-    color: var(--border);
+    background: var(--secondary);
+    color: var(--text-primary);
 }
 
 .dark .em-status-badge--overdue {
-    background: var(--destructive);
-    color: var(--border);
+    background: var(--secondary);
+    color: var(--destructive);
 }
 
 /* ─── Finance Cards ───────────────────────────────────── */

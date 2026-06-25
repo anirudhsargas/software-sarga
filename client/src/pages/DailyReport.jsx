@@ -5,7 +5,7 @@ import {
     BookOpen, Printer, Package, RefreshCw, TrendingUp, TrendingDown,
     Monitor, Hash, Building2, Check, Edit3, Lock, Send, FileText, Plus, Trash2,
     Calendar, Clock, ArrowUpRight, ArrowDownRight, X, Wallet, CreditCard,
-    IndianRupee, ChevronRight, ChevronLeft, BarChart3, Users
+    IndianRupee, ChevronRight, ChevronLeft, BarChart3, Users, Sunrise
 } from 'lucide-react';
 
 const PDFExport = React.lazy(() => import('./DailyReportPDFExport'));
@@ -335,6 +335,68 @@ const DailyReport = () => {
         setShowOpeningPrompt(false);
         setPromptDone(true);
     }, []);
+
+    const triggerOpeningSetup = useCallback(async () => {
+        try {
+            let assignedBooks = [];
+            try {
+                const booksRes = await api.get('/machines/my-books');
+                assignedBooks = booksRes.data || [];
+            } catch {
+                assignedBooks = ['Offset', 'Laser', 'Other'];
+            }
+            if (assignedBooks.length === 0) {
+                assignedBooks = ['Offset', 'Laser', 'Other'];
+            }
+
+            const balRes = await api.get('/daily-report/opening-balance', { params: { date: reportDate, ...branchParam } });
+            const currentBalances = balRes.data.balances || balRes.data || {};
+
+            let myMachines = [];
+            try {
+                const laserRes = await api.get('/daily-report/laser-live', { params: { date: reportDate, ...branchParam } });
+                myMachines = laserRes.data.machines || [];
+            } catch {}
+
+            let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
+            try {
+                const prevRes = await api.get('/daily-report/previous-closing', { params: { date: reportDate, ...branchParam } });
+                prevData = prevRes.data;
+            } catch {}
+
+            setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
+
+            const machines = myMachines.map(m => {
+                let count = '';
+                if (m.has_reading) {
+                    count = String(m.opening_count);
+                } else if (prevData.machines?.[m.id] !== undefined) {
+                    count = String(prevData.machines[m.id]);
+                }
+                return {
+                    id: m.id,
+                    machine_name: m.machine_name,
+                    location: m.location,
+                    opening_count: count
+                };
+            });
+            setPromptMachines(machines);
+
+            const newBalances = {};
+            assignedBooks.forEach(b => {
+                if (Number(currentBalances[b]) > 0) {
+                    newBalances[b] = String(currentBalances[b]);
+                } else {
+                    newBalances[b] = prevData[b] > 0 ? String(prevData[b]) : '';
+                }
+            });
+            setPromptBalances(newBalances);
+            setShowOpeningPrompt(true);
+        } catch (err) {
+            console.error('Error triggering opening setup:', err);
+            toast.error('Failed to load opening setup data');
+        }
+    }, [reportDate, selectedBranch, branchParam]);
 
     // ─── Fetch Opening Balances ─────────────────────────────────
     const fetchOpeningBalances = useCallback(async () => {
@@ -1199,81 +1261,7 @@ const DailyReport = () => {
         );
     };
 
-    const SummaryPanel = ({ summary, tabKey }) => {
-        const tabMeta = TABS.find(t => t.key === tabKey);
-        return (
-            <div className="dr-summary">
-                <div className="dr-summary-item">
-                    <span className="dr-summary-item__label">Opening</span>
-                    <span className="dr-summary-item__value">{formatCurrency(summary.cash_opening)}</span>
-                </div>
-                <div className="dr-summary-item">
-                    <span className="dr-summary-item__label">
-                        <TrendingUp size={12} /> Cash In
-                    </span>
-                    <span className="dr-summary-item__value dr-summary-item__value--success">{formatCurrency(summary.total_cash_in)}</span>
-                </div>
-                <div className="dr-summary-item">
-                    <span className="dr-summary-item__label">
-                        <CreditCard size={12} /> UPI In
-                    </span>
-                    <span className="dr-summary-item__value dr-summary-item__value--success">{formatCurrency(summary.total_upi_in)}</span>
-                </div>
-                {summary.total_cash_out !== undefined && summary.total_cash_out !== null && (
-                    <div className="dr-summary-item">
-                        <span className="dr-summary-item__label">
-                            <TrendingDown size={12} /> Cash Out
-                        </span>
-                        <span className="dr-summary-item__value dr-summary-item__value--error">{formatCurrency(summary.total_cash_out)}</span>
-                    </div>
-                )}
-                {summary.total_copies !== undefined && (
-                    <div className="dr-summary-item">
-                        <span className="dr-summary-item__label">
-                            <Hash size={12} /> Total Copies
-                        </span>
-                        <span className="dr-summary-item__value">{formatNum(summary.total_copies)}</span>
-                    </div>
-                )}
-                {summary.waste_prints > 0 && (
-                    <div className="dr-summary-item">
-                        <span className="dr-summary-item__label dr-summary-item__label--waste">
-                            <Hash size={12} /> Waste Prints
-                        </span>
-                        <span className="dr-summary-item__value dr-summary-item__value--waste">{formatNum(summary.waste_prints)}</span>
-                    </div>
-                )}
-                {summary.proof_prints > 0 && (
-                    <div className="dr-summary-item">
-                        <span className="dr-summary-item__label dr-summary-item__label--proof">
-                            <Hash size={12} /> Proof Prints
-                        </span>
-                        <span className="dr-summary-item__value dr-summary-item__value--proof">{formatNum(summary.proof_prints)}</span>
-                    </div>
-                )}
-                {summary.internal_prints > 0 && (
-                    <div className="dr-summary-item">
-                        <span className="dr-summary-item__label dr-summary-item__label--internal">
-                            🏠 Internal Prints
-                        </span>
-                        <span className="dr-summary-item__value dr-summary-item__value--internal">{formatNum(summary.internal_prints)}</span>
-                    </div>
-                )}
-                {summary.internal_bill_count > 0 && (
-                    <div className="dr-summary-item">
-                        <span className="dr-summary-item__label dr-summary-item__label--internal">Internal Jobs</span>
-                        <span className="dr-summary-item__value dr-summary-item__value--internal">{summary.internal_bill_count}</span>
-                    </div>
-                )}
-                <div className="dr-summary-closing">
-                    <span className="dr-summary-item__label">Cash Closing</span>
-                    <span className="dr-summary-item__value dr-summary-closing-value" style={{ color: tabMeta?.color || 'var(--primary)' }}>
-                        {formatCurrency(summary.cash_closing)}
-                    </span>
-                </div>
-            </div>
-        );
-    };
+
 
     const StatRow = ({ items }) => (
         <div className="row gap-md stat-row">
@@ -1478,20 +1466,44 @@ const DailyReport = () => {
         const opening = Number(summary.cash_opening) || 0;
         const closing = opening + totalIn - totalOut;
         return (
-            <div className="cashbook-summary-strip">
-                <div className="summary-item income">
-                    <span className="summary-label">Total In</span>
-                    <span className="summary-value">₹ {formatCurrency(totalIn)}</span>
+            <div className="dr-summary-cards">
+                <div className="dr-summary-card dr-summary-card--income">
+                    <div className="dr-summary-card__header">
+                        <span className="dr-summary-card__label">Total Inflow</span>
+                        <div className="dr-summary-card__icon">
+                            <ArrowUpRight size={16} />
+                        </div>
+                    </div>
+                    <div className="dr-summary-card__value">₹ {formatCurrency(totalIn)}</div>
+                    <div className="dr-summary-card__footer">
+                        <span>Cash: ₹ {formatCurrency(summary.total_cash_in || 0)}</span>
+                        <span>•</span>
+                        <span>UPI: ₹ {formatCurrency(summary.total_upi_in || 0)}</span>
+                    </div>
                 </div>
-                <div className="summary-divider" />
-                <div className="summary-item expense">
-                    <span className="summary-label">Total Out</span>
-                    <span className="summary-value">₹ {formatCurrency(totalOut)}</span>
+                <div className="dr-summary-card dr-summary-card--expense">
+                    <div className="dr-summary-card__header">
+                        <span className="dr-summary-card__label">Total Outflow</span>
+                        <div className="dr-summary-card__icon">
+                            <ArrowDownRight size={16} />
+                        </div>
+                    </div>
+                    <div className="dr-summary-card__value">₹ {formatCurrency(totalOut)}</div>
+                    <div className="dr-summary-card__footer">
+                        <span>Expenses & withdrawals</span>
+                    </div>
                 </div>
-                <div className="summary-divider" />
-                <div className="summary-item balance">
-                    <span className="summary-label">Closing Balance</span>
-                    <span className="summary-value">₹ {formatCurrency(closing)}</span>
+                <div className="dr-summary-card dr-summary-card--balance">
+                    <div className="dr-summary-card__header">
+                        <span className="dr-summary-card__label">Closing Balance</span>
+                        <div className="dr-summary-card__icon">
+                            <Wallet size={16} />
+                        </div>
+                    </div>
+                    <div className="dr-summary-card__value">₹ {formatCurrency(closing)}</div>
+                    <div className="dr-summary-card__footer">
+                        <span>Opening: ₹ {formatCurrency(opening)}</span>
+                    </div>
                 </div>
             </div>
         );
@@ -1599,6 +1611,7 @@ const DailyReport = () => {
                     branchName={branchName}
                     onSave={handleOpeningPromptSave}
                     onSkip={handleOpeningPromptSkip}
+                    date={reportDate}
                 />
             )}
 
@@ -1684,6 +1697,10 @@ const DailyReport = () => {
                 </div>
 
                 <div className="dr-controls">
+                    <button className="btn btn-ghost btn-sm dr-opening-setup-btn" onClick={triggerOpeningSetup} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '38px', padding: '0 12px' }}>
+                        <Sunrise size={15} />
+                        <span>Opening Setup</span>
+                    </button>
                     {canViewAllBranches && branches.length > 0 && (
                         <div className="dr-controls-branch">
                             <Building2 size={15} />
@@ -1729,27 +1746,27 @@ const DailyReport = () => {
                     return (
                         <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                             className={`dr-tab ${isActive ? 'dr-tab--active' : ''}`}
-                            style={isActive ? { borderLeft: `3px solid ${tab.color}` } : {}}
+                            style={{ '--tab-color': tab.color }}
                         >
-                            <TabIcon size={15} style={{ color: isActive ? tab.color : undefined }} />
+                            <TabIcon size={15} className="dr-tab-icon" />
                             {tab.label}
                             {tab.key === 'Offset' && liveCounts?.offset && (
-                                <span className="dr-tab__badge" style={{ background: isActive ? `${tab.color}15` : 'var(--accent-soft)', color: isActive ? tab.color : 'var(--muted)' }}>
+                                <span className="dr-tab__badge">
                                     {liveCounts.offset.income_count}
                                 </span>
                             )}
                             {tab.key === 'Laser' && liveCounts?.laser && (
-                                <span className="dr-tab__badge" style={{ background: isActive ? `${tab.color}15` : 'var(--accent-soft)', color: isActive ? tab.color : 'var(--muted)' }}>
+                                <span className="dr-tab__badge">
                                     {liveCounts.laser.income_count}
                                 </span>
                             )}
                             {tab.key === 'Other' && liveCounts?.other && (
-                                <span className="dr-tab__badge" style={{ background: isActive ? `${tab.color}15` : 'var(--accent-soft)', color: isActive ? tab.color : 'var(--muted)' }}>
+                                <span className="dr-tab__badge">
                                     {liveCounts.other.income_count}
                                 </span>
                             )}
                             {tab.key === 'Attendance' && attendanceData && (
-                                <span className="dr-tab__badge" style={{ background: isActive ? `${tab.color}15` : 'var(--accent-soft)', color: isActive ? tab.color : 'var(--muted)' }}>
+                                <span className="dr-tab__badge">
                                     {attendanceData.present}
                                 </span>
                             )}

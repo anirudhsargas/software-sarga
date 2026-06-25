@@ -10,7 +10,7 @@ async function findImageMatch(productName, subcategory, category) {
 
   // For demonstration/fallback, we will use Unsplash Source API or similar placeholder.
   // We simulate confidence logic.
-  // Real implementation could use SerpApi, Google Custom Search, or Gemini.
+  // Real implementation could use SerpApi or Google Custom Search.
   const encodedSearch = encodeURIComponent(searchString);
   const placeholderUrl = `https://ui-avatars.com/api/?name=${encodedSearch}&background=random&size=300`;
   

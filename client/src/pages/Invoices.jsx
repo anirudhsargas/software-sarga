@@ -600,7 +600,22 @@ const Invoices = () => {
                           <tr key={idx}>
                             <td>
                               <div className="font-semibold">{line.product_name}</div>
-                              {line.description && <div className="text-xs muted">{line.description}</div>}
+                              {(() => {
+                                const details = [];
+                                if (line.colour) details.push(`Color: ${line.colour}`);
+                                if (line.paper_preference) details.push(`Paper: ${line.paper_preference}`);
+                                if (line.numbering_from || line.numbering_to) {
+                                  details.push(`No: ${line.numbering_from || ''} - ${line.numbering_to || ''}`);
+                                }
+                                if (line.description) details.push(line.description);
+                                if (line.special_instructions) details.push(`Note: ${line.special_instructions}`);
+                                
+                                return details.length > 0 ? (
+                                  <div className="text-xs muted" style={{ marginTop: 2 }}>
+                                    {details.join(' | ')}
+                                  </div>
+                                ) : null;
+                              })()}
                             </td>
                             <td className="text-right">{line.quantity}</td>
                             <td className="text-right">{formatCurrency(line.unit_price, true)}</td>

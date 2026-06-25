@@ -343,6 +343,7 @@ app.use('/api', require('./routes/utilityEmail'));
 app.use('/api', require('./routes/coupons'));
 app.use('/api/stock-verification', require('./routes/stockVerification'));
 app.use('/api', require('./routes/stockRequests'));
+app.use('/api/ocr', require('./routes/ocr'));
 
 // Three Books System Routes
 app.use('/api/machines', require('./routes/machines'));

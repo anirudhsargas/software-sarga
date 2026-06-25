@@ -336,7 +336,7 @@ async function processMessage(message) {
 
   // Fallback if no match
   // Optional NLP/LLM fallback when enabled
-  if (process.env.USE_NLP === '1' || process.env.GEMINI_API_KEY) {
+  if (process.env.USE_NLP === '1') {
     try {
       const mlResp = await callMLService('/nlp/chat', { message });
       if (mlResp && !mlResp.fallback && mlResp.reply) {

@@ -70,8 +70,9 @@ const ProductLibrary = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
-    const isPrivileged = ['Admin', 'Accountant'].includes(user?.role);
+    const isAdmin = user?.role === 'Admin';
+    const isPrivileged = ['Admin', 'Accountant', 'Designer', 'Front Office'].includes(user?.role);
+    const canManageHierarchy = ['Admin', 'Accountant'].includes(user?.role);
     const isDesigner = user?.role === 'Designer';
     const canRequestImageUpdate = isDesigner;
     const { confirm } = useConfirm();
@@ -194,10 +195,9 @@ const ProductLibrary = () => {
     }
 
     useEffect(() => {
-        if (!isPrivileged) return;
-        fetchPendingImageRequests();
-        fetchPendingUpdateRequests();
-    }, [isPrivileged]);
+        if (canManageHierarchy) fetchPendingImageRequests();
+        if (isAdmin) fetchPendingUpdateRequests();
+    }, [isAdmin, canManageHierarchy]);
 
     useEffect(() => {
         if (!productImage) {
@@ -315,20 +315,32 @@ const ProductLibrary = () => {
         });
         if (!isConfirmed) return;
 
-        // Optimistic UI Update
-        setHierarchy(prev => prev.map(c => ({
-            ...c,
-            subcategories: c.subcategories?.map(s => ({
-                ...s,
-                products: s.products?.filter(p => !selectedProductIds.includes(p.id))
-            }))
-        })));
+        // Optimistic UI Update (Admin only)
+        if (isAdmin) {
+            setHierarchy(prev => prev.map(c => ({
+                ...c,
+                subcategories: c.subcategories?.map(s => ({
+                    ...s,
+                    products: s.products?.filter(p => !selectedProductIds.includes(p.id))
+                }))
+            })));
+        }
 
         try {
             const results = await Promise.allSettled(selectedProductIds.map(id => api.delete(`/products/${id}`)));
             const failed = results.filter(r => r.status === 'rejected').length;
-            if (failed === 0) toast.success('Deleted selected products');
-            else toast.success(`Deleted ${selectedProductIds.length - failed} products. ${failed} failed.`);
+            const fulfilled = results.filter(r => r.status === 'fulfilled');
+            const wasRequested = fulfilled.some(r => r.value?.status === 202);
+
+            if (failed === 0) {
+                if (wasRequested) {
+                    toast.success('Deletion request(s) submitted for Admin approval.');
+                } else {
+                    toast.success('Deleted selected products');
+                }
+            } else {
+                toast.success(`Processed ${selectedProductIds.length - failed} products. ${failed} failed.`);
+            }
             setSelectedProductIds([]);
             fetchHierarchy();
         } catch {
@@ -703,12 +715,17 @@ const ProductLibrary = () => {
             if (productImage) formData.append('image', productImage);
             else if (isEditing && newProduct.image_url) formData.append('image_url', newProduct.image_url);
 
+            let res;
             if (isEditing) {
-                await api.put(`/products/${editId}`, formData);
-                toast.success('Product updated successfully');
+                res = await api.put(`/products/${editId}`, formData);
             } else {
-                await api.post('/products', formData);
-                toast.success('Product added successfully');
+                res = await api.post('/products', formData);
+            }
+
+            if (res.status === 202) {
+                toast.success(res.data?.message || 'Product request submitted for Admin approval.');
+            } else {
+                toast.success(isEditing ? 'Product updated successfully' : 'Product added successfully');
             }
             resetProductForm();
             setShowProdModal(false);
@@ -809,7 +826,7 @@ const ProductLibrary = () => {
     };
 
     const handleReviewImageRequest = async (requestId, action) => {
-        if (!isPrivileged) return;
+        if (!canManageHierarchy) return;
         const isApprove = action === 'approve';
         const isConfirmed = await confirm({
             title: isApprove ? 'Approve Image Update' : 'Reject Image Update',
@@ -842,7 +859,7 @@ const ProductLibrary = () => {
     };
 
     const handleReviewUpdateRequest = async (requestId, action, adminNote) => {
-        if (!isPrivileged) return;
+        if (!isAdmin) return;
         const isApprove = action === 'approve';
         const isConfirmed = await confirm({
             title: isApprove ? 'Approve Update Request' : 'Reject Update Request',
@@ -956,7 +973,7 @@ const ProductLibrary = () => {
             setHierarchy(prev => prev.filter(c => c.id !== id));
         } else if (type === 'subcategory') {
             setHierarchy(prev => prev.map(c => ({ ...c, subcategories: c.subcategories?.filter(s => s.id !== id) })));
-        } else if (type === 'product') {
+        } else if (type === 'product' && isAdmin) {
             setHierarchy(prev => prev.map(c => ({
                 ...c,
                 subcategories: c.subcategories?.map(s => ({
@@ -968,7 +985,12 @@ const ProductLibrary = () => {
 
         try {
             const endpoint = type === 'category' ? `/product-categories/${id}` : type === 'subcategory' ? `/product-subcategories/${id}` : `/products/${id}`;
-            await api.delete(endpoint);
+            const res = await api.delete(endpoint);
+            if (res.status === 202) {
+                toast.success(res.data?.message || 'Product deletion request submitted for Admin approval.');
+            } else {
+                toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully`);
+            }
             fetchHierarchy();
         } catch (err) {
             toast.error(err.response?.data?.message || `Error deleting ${type}`);
@@ -1393,33 +1415,37 @@ const ProductLibrary = () => {
                             <p className="muted" style={{ margin: '2px 0 0' }}>Manage your printing categories, products, and pricing slabs.</p>
                         </div>
                     </div>
-                    {isPrivileged && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={handleResetUsage}>
-                            <RotateCcw size={15} /> Reset Usage Order
-                        </button>
-                        {viewInfo.type === 'root' && (
+                        {canManageHierarchy && (
+                            <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={handleResetUsage}>
+                                <RotateCcw size={15} /> Reset Usage Order
+                            </button>
+                        )}
+                        {viewInfo.type === 'root' && canManageHierarchy && (
                             <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setIsEditing(false); setNewCatName(''); setShowCatModal(true); }}>
                                 <Plus size={16} /> New Category
                             </button>
                         )}
                         {viewInfo.type === 'category' && (
                             <>
-                                <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); resetProductForm(); setSelectedSubId(viewInfo.items[0]?.id || null); setShowProdModal(true); }}>
-                                    <Plus size={16} /> New Product
-                                </button>
-                                <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); setNewSubName(''); setShowSubModal(true); }}>
-                                    <Plus size={16} /> New Sub-category
-                                </button>
+                                {isPrivileged && (
+                                    <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); resetProductForm(); setSelectedSubId(viewInfo.items[0]?.id || null); setShowProdModal(true); }}>
+                                        <Plus size={16} /> New Product
+                                    </button>
+                                )}
+                                {canManageHierarchy && (
+                                    <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); setNewSubName(''); setShowSubModal(true); }}>
+                                        <Plus size={16} /> New Sub-category
+                                    </button>
+                                )}
                             </>
                         )}
-                        {viewInfo.type === 'subcategory' && (
+                        {viewInfo.type === 'subcategory' && isPrivileged && (
                             <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.grandParent?.id || null); setSelectedSubId(viewInfo.parent.id); setIsEditing(false); resetProductForm(); setShowProdModal(true); }}>
                                 <Plus size={16} /> New Product
                             </button>
                         )}
                     </div>
-                    )}
                 </div>
 
                 {/* Breadcrumbs */}
@@ -1575,7 +1601,7 @@ const ProductLibrary = () => {
                     {isPrivileged && selectedProductIds.length > 0 && (
                         <div style={{ display: 'flex', gap: 8 }}>
                             <button className="btn btn-ghost btn-sm" onClick={exportSelectedCSV}>Export CSV</button>
-                            <button className="btn btn-ghost btn-sm" onClick={bulkToggleActive}>Toggle Active</button>
+                            {canManageHierarchy && <button className="btn btn-ghost btn-sm" onClick={bulkToggleActive}>Toggle Active</button>}
                             <button className="btn btn-danger btn-sm" onClick={bulkDeleteSelected}>Delete</button>
                         </div>
                     )}
@@ -1615,8 +1641,8 @@ const ProductLibrary = () => {
                             )}
 
                             {viewInfo.type === 'root' && viewInfo.items.map((cat, idx) => (
-                                <SortableItem key={cat.id} id={cat.id} disabled={!isAdmin} className={`product-card pointer${cat.is_active === 0 || cat.is_active === false ? ' product-card--disabled' : ''}`}>
-                                    {isPrivileged && (
+                                <SortableItem key={cat.id} id={cat.id} disabled={!canManageHierarchy} className={`product-card pointer${cat.is_active === 0 || cat.is_active === false ? ' product-card--disabled' : ''}`}>
+                                    {canManageHierarchy && (
                                     <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditCategory(cat); }} title="Edit Category" aria-label={`Edit ${cat.name}`}>
                                             <Edit2 size={14} />
@@ -1663,7 +1689,7 @@ const ProductLibrary = () => {
                                 </SortableItem>
                             ))}
 
-                        {isPrivileged && pendingImageRequests.length > 0 && (
+                        {canManageHierarchy && pendingImageRequests.length > 0 && (
                             <div className="bg-light p-12 rounded border stack-sm">
                                 <div className="row space-between items-center gap-md">
                                     <strong>Pending Product Image Approvals</strong>
@@ -1698,7 +1724,7 @@ const ProductLibrary = () => {
                                 ))}
                             </div>
                         )}
-                        {isPrivileged && pendingUpdateRequests.length > 0 && (
+                        {isAdmin && pendingUpdateRequests.length > 0 && (
                             <div className="bg-light p-12 rounded border stack-sm" style={{ marginTop: 12 }}>
                                 <div className="row space-between items-center gap-md">
                                     <strong>Pending Product Update Approvals</strong>
@@ -1726,8 +1752,8 @@ const ProductLibrary = () => {
                             </div>
                         )}
                             {viewInfo.type === 'category' && viewInfo.items.map((sub, idx) => (
-                                <SortableItem key={sub.id} id={sub.id} disabled={!isAdmin} className={`product-card pointer${sub.is_active === 0 || sub.is_active === false ? ' product-card--disabled' : ''}`}>
-                                    {isPrivileged && (
+                                <SortableItem key={sub.id} id={sub.id} disabled={!canManageHierarchy} className={`product-card pointer${sub.is_active === 0 || sub.is_active === false ? ' product-card--disabled' : ''}`}>
+                                    {canManageHierarchy && (
                                     <div className="product-card__actions" onClick={(e) => e.stopPropagation()}>
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); startEditSubcategory(sub); }} title="Edit Sub-category" aria-label={`Edit ${sub.name}`}>
                                             <Edit2 size={14} />
@@ -1795,20 +1821,24 @@ const ProductLibrary = () => {
                                         <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); handleDuplicateProduct(prod.id); }} title="Duplicate Product" aria-label={`Duplicate ${prod.name}`}>
                                             <Copy size={14} />
                                         </button>
-                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); moveItem('product', filteredProducts, prodIdx, -1); }} title="Move Up" aria-label={`Move ${prod.name} up`} disabled={prodIdx === 0}>
-                                            <ArrowUp size={14} />
-                                        </button>
-                                        <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); moveItem('product', filteredProducts, prodIdx, 1); }} title="Move Down" aria-label={`Move ${prod.name} down`} disabled={prodIdx === filteredProducts.length - 1}>
-                                            <ArrowDown size={14} />
-                                        </button>
-                                        <button
-                                            className={`product-card__btn${prod.is_active === 0 || prod.is_active === false ? ' product-card__btn--enable' : ''}`}
-                                            onClick={(e) => { e.stopPropagation(); handleToggleProduct(prod); }}
-                                            title={prod.is_active === 0 || prod.is_active === false ? 'Enable Product' : 'Disable Product'}
-                                            aria-label={prod.is_active === 0 || prod.is_active === false ? `Enable ${prod.name}` : `Disable ${prod.name}`}
-                                        >
-                                            {prod.is_active === 0 || prod.is_active === false ? <Eye size={14} /> : <EyeOff size={14} />}
-                                        </button>
+                                        {canManageHierarchy && (
+                                            <>
+                                                <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); moveItem('product', filteredProducts, prodIdx, -1); }} title="Move Up" aria-label={`Move ${prod.name} up`} disabled={prodIdx === 0}>
+                                                    <ArrowUp size={14} />
+                                                </button>
+                                                <button className="product-card__btn" onClick={(e) => { e.stopPropagation(); moveItem('product', filteredProducts, prodIdx, 1); }} title="Move Down" aria-label={`Move ${prod.name} down`} disabled={prodIdx === filteredProducts.length - 1}>
+                                                    <ArrowDown size={14} />
+                                                </button>
+                                                <button
+                                                    className={`product-card__btn${prod.is_active === 0 || prod.is_active === false ? ' product-card__btn--enable' : ''}`}
+                                                    onClick={(e) => { e.stopPropagation(); handleToggleProduct(prod); }}
+                                                    title={prod.is_active === 0 || prod.is_active === false ? 'Enable Product' : 'Disable Product'}
+                                                    aria-label={prod.is_active === 0 || prod.is_active === false ? `Enable ${prod.name}` : `Disable ${prod.name}`}
+                                                >
+                                                    {prod.is_active === 0 || prod.is_active === false ? <Eye size={14} /> : <EyeOff size={14} />}
+                                                </button>
+                                            </>
+                                        )}
                                         <button className="product-card__btn product-card__btn--delete" onClick={(e) => { e.stopPropagation(); handleDelete('product', prod.id, prod.name); }} title="Delete Product" aria-label={`Delete ${prod.name}`}>
                                             <Trash2 size={14} />
                                         </button>
@@ -2075,7 +2105,7 @@ const ProductLibrary = () => {
                                 </div>
                             </div>
                             )}
-                            <fieldset disabled={!isAdmin} style={{border:'none',padding:0,margin:0}}>
+                            <fieldset disabled={!isPrivileged} style={{border:'none',padding:0,margin:0}}>
 
                             {/* Modal Header Section with better hierarchy */}
                             <div className="modal-header-accent" style={{ 
@@ -2228,7 +2258,7 @@ const ProductLibrary = () => {
                                             e.target.value = '';
                                         }}
                                     />
-                                    {isAdmin && isEditing && productImagePreview && (
+                                    {isPrivileged && isEditing && productImagePreview && (
                                         <button type="button" className="btn btn-ghost btn-xs text-error btn--full" onClick={handleRemoveProductImage}>
                                             <Trash2 size={12} /> Remove
                                         </button>
@@ -2461,7 +2491,7 @@ const ProductLibrary = () => {
 
 
                             {/* Physical product toggle */}
-                            {isAdmin && (
+                            {isPrivileged && (
                             <>
                             <label style={{
                                 display: 'flex',
@@ -2558,7 +2588,7 @@ const ProductLibrary = () => {
                             )}
 
                             {/* Calculation Strategy - Refined UI */}
-                            {isAdmin && (
+                            {isPrivileged && (
                             <div className="product-form-section" style={{
                                 background: 'var(--surface-2, #1e293b)',
                                 padding: '24px',
@@ -2634,7 +2664,7 @@ const ProductLibrary = () => {
                             <div className="stack-sm">
                                 <div className="row space-between items-center gap-md">
                                     <label className="label mb-0">Pricing Rules</label>
-                                    {isAdmin && newProduct.calculation_type !== 'Normal' && (
+                                    {isPrivileged && newProduct.calculation_type !== 'Normal' && (
                                         <button type="button" className="btn btn-ghost btn-sm" onClick={addSlab}>
                                             <Plus size={14} /> Add Slab
                                         </button>
@@ -2889,14 +2919,14 @@ const ProductLibrary = () => {
                                                         )}
                                                     </>
                                                 )}
-                                                {isAdmin && (
+                                                {isPrivileged && (
                                                 <button type="button" className="btn btn-ghost btn-sm text-error" style={{ flexShrink: 0 }} onClick={() => removeSlab(idx)}>
                                                     <Trash2 size={14} />
                                                 </button>
                                                 )}
                                             </div>
                                         ))}
-                                        {isAdmin && (
+                                        {isPrivileged && (
                                         <div className="pt-8" style={{ borderTop: '1px solid var(--border)' }}>
                                             <button type="button" className="btn btn-ghost btn-sm" onClick={addSlab}>
                                                 <Plus size={14} /> Add Slab
@@ -2910,7 +2940,7 @@ const ProductLibrary = () => {
                             <div className="stack-sm" style={{ marginTop: '24px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', width: '100%' }}>
                                     <label className="label mb-0">Default Extra Charges</label>
-                                    {isAdmin && <button type="button" className="btn btn-ghost btn-sm" onClick={addExtra}><Plus size={14} /> Add Extra</button>}
+                                    {isPrivileged && <button type="button" className="btn btn-ghost btn-sm" onClick={addExtra}><Plus size={14} /> Add Extra</button>}
                                 </div>
                                 <div className="stack-sm bg-light p-16 rounded border">
                                     {newProduct.extras.length === 0 && <p className="muted text-xs">No template extras defined.</p>}
@@ -2938,7 +2968,7 @@ const ProductLibrary = () => {
                                                 }}
                                                 onWheel={e => e.target.blur()}
                                             />
-                                            {isAdmin && <button type="button" className="btn btn-ghost btn-sm text-error" style={{ flexShrink: 0 }} onClick={() => removeExtra(idx)}><Trash2 size={14} /></button>}
+                                            {isPrivileged && <button type="button" className="btn btn-ghost btn-sm text-error" style={{ flexShrink: 0 }} onClick={() => removeExtra(idx)}><Trash2 size={14} /></button>}
                                         </div>
                                     ))}
                                 </div>
@@ -2960,7 +2990,7 @@ const ProductLibrary = () => {
                                         </label>
                                         <span className="text-xs muted">Reference files, work paths, or templates.</span>
                                     </div>
-                                    {isAdmin && (
+                                    {isPrivileged && (
                                         <button type="button" className="btn btn-ghost btn-sm" onClick={addLink} style={{ borderRadius: '8px' }}>
                                             <Plus size={14} /> Add Asset
                                         </button>
@@ -3020,7 +3050,7 @@ const ProductLibrary = () => {
                                                         <ExternalLink size={14} />
                                                     </a>
                                                 )}
-                                                {isAdmin && (
+                                                {isPrivileged && (
                                                     <button type="button" className="btn btn-ghost btn-sm text-error" style={{ width: 34, height: 34, padding: 0, borderRadius: '8px' }} onClick={() => removeLink(idx)}>
                                                         <Trash2 size={14} />
                                                     </button>
@@ -3032,7 +3062,7 @@ const ProductLibrary = () => {
                             </div>
 
                             </fieldset>
-                            {isAdmin && (
+                            {isPrivileged && (
                                 <div style={{ marginTop: '24px', width: '100%' }}>
                                     <button type="submit" className="btn btn-primary btn--full" style={{
                                         width: '100%',
@@ -3048,22 +3078,10 @@ const ProductLibrary = () => {
                                         ) : (
                                             <>
                                                 <Save size={20} />
-                                                {isEditing ? 'Update Product in Library' : 'Create & Save Product'}
+                                                {isEditing ? (isAdmin ? 'Update Product in Library' : 'Submit Update for Admin Approval') : (isAdmin ? 'Create & Save Product' : 'Create & Submit for Admin Approval')}
                                             </>
                                         )}
                                     </button>
-                                </div>
-                            )}
-                            {!isPrivileged && isEditing && (
-                                <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
-                                    <button type="submit" className="btn btn-primary btn--full mt-8" disabled={saveLoading}>
-                                        {saveLoading ? 'Sending request...' : 'Send update request to Admin'}
-                                    </button>
-                                    {canRequestImageUpdate && (
-                                        <button type="button" className="btn btn-ghost mt-8" disabled={imageRequestSubmitting || !productImage} onClick={handleSubmitProductImageRequest}>
-                                            {imageRequestSubmitting ? 'Submitting...' : 'Submit Image Only'}
-                                        </button>
-                                    )}
                                 </div>
                             )}
                             </form>

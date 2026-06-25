@@ -54,14 +54,22 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
     setExtractedData(null);
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('bill', file);
 
-      const response = await api.post('/bills-documents/extract-details', fd, {
+      const response = await api.post('/api/ocr/extract', fd, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
       const data = response.data;
-      const extracted = data.extracted_data || {};
+      const ocrResult = data.data || {};
+
+      const extracted = {
+        bill_number: '',
+        bill_date: ocrResult.date || '',
+        amount: ocrResult.amount || '',
+        vendor_name: ocrResult.vendorName || '',
+        items: []
+      };
 
       setExtractedData(extracted);
 

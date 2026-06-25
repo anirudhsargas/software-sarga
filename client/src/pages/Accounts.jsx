@@ -1032,21 +1032,64 @@ const UploadBillTab = ({ onUploaded }) => {
         setError('');
         try {
             const formData = new FormData();
-            formData.append('file', file);
-            const response = await api.post('/bills-documents/extract-details', formData);
-            setExtractedData(response.data);
-            const gst = response.data.gst_analysis;
+            formData.append('bill', file);
+            const response = await api.post('/api/ocr/extract', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            
+            const ocrResult = response.data?.data || {};
+            const scaledConfidence = (ocrResult.confidence || 0) / 4;
+
+            // Build mock response data in the shape expected by Accounts.jsx
+            const mockResponseData = {
+                success: true,
+                extracted_data: {
+                    detected_type: 'Invoice',
+                    vendor_name: ocrResult.vendorName || '',
+                    bill_number: '',
+                    bill_date: ocrResult.date || '',
+                    amount: ocrResult.amount || '',
+                    items: []
+                },
+                confidence: scaledConfidence,
+                gst_analysis: {
+                    gst_category: ocrResult.gstNumber ? 'business' : 'expense',
+                    confidence: scaledConfidence >= 0.5 ? 0.8 : 0.4
+                },
+                category_suggestions: [
+                    {
+                        related_tab: (() => {
+                            const tabMap = {
+                                'Printing Materials': 'vendors',
+                                'Office Supplies': 'office',
+                                'Electricity': 'utilities',
+                                'Fuel': 'transport',
+                                'Transport': 'transport',
+                                'Maintenance': 'misc',
+                                'Food & Refreshments': 'misc',
+                                'Rent': 'rent',
+                                'Salary Advance': 'misc',
+                                'Miscellaneous': 'misc'
+                            };
+                            return tabMap[ocrResult.category] || 'misc';
+                        })()
+                    }
+                ]
+            };
+
+            setExtractedData(mockResponseData);
+            const gst = mockResponseData.gst_analysis;
             setGstAnalysis(gst || null);
-            setEditableItems(buildEditableItems(response.data.extracted_data?.items || []));
+            setEditableItems(buildEditableItems([]));
             setStep('review');
             setFinalForm(prev => ({
                 ...prev,
-                document_type: response.data.extracted_data.detected_type || 'Invoice',
-                vendor_name: response.data.extracted_data.vendor_name || '',
-                bill_number: response.data.extracted_data.bill_number || '',
-                bill_date: response.data.extracted_data.bill_date || '',
-                amount: response.data.extracted_data.amount || '',
-                related_tab: response.data.category_suggestions?.[0]?.related_tab || '',
+                document_type: mockResponseData.extracted_data.detected_type || 'Invoice',
+                vendor_name: mockResponseData.extracted_data.vendor_name || '',
+                bill_number: mockResponseData.extracted_data.bill_number || '',
+                bill_date: mockResponseData.extracted_data.bill_date || '',
+                amount: mockResponseData.extracted_data.amount || '',
+                related_tab: mockResponseData.category_suggestions?.[0]?.related_tab || '',
                 gst_category: gst?.gst_category || ''
             }));
         } catch (err) {

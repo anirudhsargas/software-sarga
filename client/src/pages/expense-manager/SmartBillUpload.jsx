@@ -358,17 +358,68 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     setError('');
     try {
       const formData = new FormData();
-      formData.append('file', file);
-      const response = await api.post('/bills-documents/extract-details', formData, {
+      formData.append('bill', file);
+      const response = await api.post('/api/ocr/extract', formData, {
         timeout: 120000,
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setExtractedData(response.data);
-      const extractedItems = response.data.extracted_data?.items || [];
-      const gst = response.data.gst_analysis;
+      
+      const ocrResult = response.data?.data || {};
+      
+      // Scale 0-4 confidence to 0.0 - 1.0 (so confidence < 2 translates to < 0.5)
+      const scaledConfidence = (ocrResult.confidence || 0) / 4;
+
+      const mockResponseData = {
+        success: true,
+        extracted_data: {
+          detected_type: 'Invoice',
+          vendor_name: ocrResult.vendorName || '',
+          bill_number: '',
+          bill_date: ocrResult.date || '',
+          amount: ocrResult.amount || '',
+          vendor_contact: '',
+          raw_text: ocrResult.rawText || '',
+          items: [],
+          vendor_gstin: ocrResult.gstNumber || ''
+        },
+        confidence: scaledConfidence,
+        gst_analysis: {
+          gst_category: ocrResult.gstNumber ? 'business' : 'expense',
+          confidence: scaledConfidence >= 0.5 ? 0.8 : 0.4,
+          has_vendor_gstin: !!ocrResult.gstNumber,
+          has_tax_amount: (ocrResult.cgst || ocrResult.sgst || ocrResult.igst) ? true : false,
+          taxable_amount: ocrResult.amount || 0,
+          tax_amount: (Number(ocrResult.cgst || 0) + Number(ocrResult.sgst || 0) + Number(ocrResult.igst || 0)) || 0,
+          item_count: 0
+        },
+        category_suggestions: [
+          {
+            related_tab: (() => {
+              const tabMap = {
+                'Printing Materials': 'vendors',
+                'Office Supplies': 'office',
+                'Electricity': 'utilities',
+                'Fuel': 'transport',
+                'Transport': 'transport',
+                'Maintenance': 'misc',
+                'Food & Refreshments': 'misc',
+                'Rent': 'rent',
+                'Salary Advance': 'misc',
+                'Miscellaneous': 'misc'
+              };
+              return tabMap[ocrResult.category] || 'misc';
+            })(),
+            score: scaledConfidence
+          }
+        ]
+      };
+
+      setExtractedData(mockResponseData);
+      const extractedItems = mockResponseData.extracted_data?.items || [];
+      const gst = mockResponseData.gst_analysis;
       setGstAnalysis(gst || null);
-      const billTax = Number(response.data.extracted_data?.tax || 0);
-      const billSubtotal = Number(response.data.extracted_data?.subtotal || 0);
+      const billTax = Number(mockResponseData.extracted_data?.tax || 0);
+      const billSubtotal = Number(mockResponseData.extracted_data?.subtotal || 0);
       const fallbackGstPct = (billTax > 0 && billSubtotal > 0)
         ? Math.round((billTax / billSubtotal) * 100)
         : 0;
@@ -377,23 +428,23 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
 
       setFinalForm(prev => ({
         ...prev,
-        document_type: response.data.extracted_data.detected_type || 'Invoice',
-        vendor_name: response.data.extracted_data.vendor_name || '',
-        bill_number: response.data.extracted_data.bill_number || '',
-        bill_date: response.data.extracted_data.bill_date || '',
-        amount: response.data.extracted_data.amount || '',
-        vendor_contact: response.data.extracted_data.vendor_contact || '',
-        related_tab: defaultRelatedTab || response.data.category_suggestions?.[0]?.related_tab || '',
+        document_type: mockResponseData.extracted_data.detected_type || 'Invoice',
+        vendor_name: mockResponseData.extracted_data.vendor_name || '',
+        bill_number: mockResponseData.extracted_data.bill_number || '',
+        bill_date: mockResponseData.extracted_data.bill_date || '',
+        amount: mockResponseData.extracted_data.amount || '',
+        vendor_contact: mockResponseData.extracted_data.vendor_contact || '',
+        related_tab: defaultRelatedTab || mockResponseData.category_suggestions?.[0]?.related_tab || '',
         gst_category: gst?.gst_category || ''
       }));
 
-      fetchHierarchyOptions(response.data.extracted_data.vendor_name || '');
+      fetchHierarchyOptions(mockResponseData.extracted_data.vendor_name || '');
 
       const rawParts = [
-        response.data.extracted_data.vendor_name,
-        response.data.extracted_data.raw_text,
-        ...(response.data.extracted_data.items || []).map(i => i.description),
-        response.data.extracted_data.amount ? `${response.data.extracted_data.amount}` : ''
+        mockResponseData.extracted_data.vendor_name,
+        mockResponseData.extracted_data.raw_text,
+        ...(mockResponseData.extracted_data.items || []).map(i => i.description),
+        mockResponseData.extracted_data.amount ? `${mockResponseData.extracted_data.amount}` : ''
       ].filter(Boolean);
       const ocrText = rawParts.join(' ').trim();
       setOcrRawText(ocrText);
@@ -410,7 +461,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
               'Bank & Finance': 'finance', 'Miscellaneous': 'misc'
             };
             const autoTab = tabMap[catRes.data.predicted_category] || '';
-            if (autoTab && !response.data.category_suggestions?.length) {
+            if (autoTab && !mockResponseData.category_suggestions?.length) {
               setFinalForm(prev => ({ ...prev, related_tab: autoTab }));
             }
           }
@@ -420,8 +471,8 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
       }
 
       // Fetch product suggestions if keywords found
-      if (response.data.extracted_data.items?.length > 0) {
-        const keywords = response.data.extracted_data.items
+      if (mockResponseData.extracted_data.items?.length > 0) {
+        const keywords = mockResponseData.extracted_data.items
           .slice(0, 2)
           .map(item => item.description)
           .join(' ');
@@ -1016,8 +1067,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
               <div className="low-confidence-warning">
                 <AlertCircle size={16} />
                 <span>
-                  Low extraction confidence ({Math.round((extractedData.confidence || 0) * 100)}%).
-                  For better results, upload a <strong>higher resolution image</strong> or a <strong>PDF</strong> directly.
+                  Low confidence — please verify extracted details.
                 </span>
               </div>
             )}

@@ -135,7 +135,11 @@ const addInventorySchema = z.object({
     item_type: z.enum(['Retail', 'Consumable']).optional().default('Retail'),
     vendor_name: z.string().optional().nullable().or(z.literal('')),
     vendor_contact: z.string().optional().nullable().or(z.literal('')),
-    purchase_link: z.string().optional().nullable().or(z.literal(''))
+    purchase_link: z.string().optional().nullable().or(z.literal('')),
+    branch_stocks: z.array(z.object({
+        branch_id: z.preprocess(Number, z.number().int()),
+        quantity: z.preprocess(Number, z.number().int().min(0))
+    })).optional().nullable()
 });
 
 const paperInventorySchema = z.object({

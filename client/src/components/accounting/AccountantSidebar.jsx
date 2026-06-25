@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, TrendingUp, Receipt, Users, Building2, 
@@ -6,27 +6,29 @@ import {
   FileText, CheckSquare, Calendar, BarChart2, Settings,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
+import useAuth from '../../hooks/useAuth';
 import './AccountantSidebar.css';
 
 const LINKS = [
-  { to: '/accounting/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/accounting/income', icon: TrendingUp, label: 'Income' },
-  { to: '/accounting/expenses', icon: Receipt, label: 'Expenses' },
-  { to: '/accounting/vendors', icon: Building2, label: 'Vendors' },
-  { to: '/accounting/customers', icon: Users, label: 'Customers' },
-  { to: '/accounting/purchases', icon: ShoppingCart, label: 'Purchases' },
-  { to: '/accounting/payments', icon: CreditCard, label: 'Payments' },
-  { to: '/accounting/ledger', icon: BookOpen, label: 'Ledger' },
-  { to: '/accounting/banks', icon: Landmark, label: 'Bank Accounts' },
-  { to: '/accounting/transactions', icon: Activity, label: 'Transactions' },
-  { to: '/accounting/bills', icon: FileText, label: 'Bills' },
-  { to: '/accounting/approvals', icon: CheckSquare, label: 'Approvals' },
-  { to: '/accounting/daily-book', icon: Calendar, label: 'Daily Book' },
-  { to: '/accounting/reports', icon: BarChart2, label: 'Reports' },
-  { to: '/accounting/settings', icon: Settings, label: 'Settings' }
+  { to: '/accounting/dashboard', icon: LayoutDashboard, label: 'Dashboard', key: 'dashboard' },
+  { to: '/accounting/income', icon: TrendingUp, label: 'Income', key: 'finance' },
+  { to: '/accounting/expenses', icon: Receipt, label: 'Expenses', key: 'finance' },
+  { to: '/accounting/vendors', icon: Building2, label: 'Vendors', key: 'finance' },
+  { to: '/accounting/customers', icon: Users, label: 'Customers', key: 'customers' },
+  { to: '/accounting/purchases', icon: ShoppingCart, label: 'Purchases', key: 'billing' },
+  { to: '/accounting/payments', icon: CreditCard, label: 'Payments', key: 'billing' },
+  { to: '/accounting/ledger', icon: BookOpen, label: 'Ledger', key: 'internal' },
+  { to: '/accounting/banks', icon: Landmark, label: 'Bank Accounts', key: 'internal' },
+  { to: '/accounting/transactions', icon: Activity, label: 'Transactions', key: 'internal' },
+  { to: '/accounting/bills', icon: FileText, label: 'Bills', key: 'billing' },
+  { to: '/accounting/approvals', icon: CheckSquare, label: 'Approvals', key: 'operations' },
+  { to: '/accounting/daily-book', icon: Calendar, label: 'Daily Book', key: 'reports' },
+  { to: '/accounting/reports', icon: BarChart2, label: 'Reports', key: 'reports' },
+  { to: '/accounting/settings', icon: Settings, label: 'Settings', key: 'manage' }
 ];
 
 export default function AccountantSidebar({ isOpen, onClose }) {
+  const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('acc_sidebar_collapsed') === 'true';
   });
@@ -34,6 +36,26 @@ export default function AccountantSidebar({ isOpen, onClose }) {
   useEffect(() => {
     localStorage.setItem('acc_sidebar_collapsed', collapsed);
   }, [collapsed]);
+
+  const filteredLinks = useMemo(() => {
+    if (!user?.settings) return LINKS;
+    try {
+      const settings = typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings;
+      if (settings.sidebar) {
+        return LINKS.filter(link => {
+          if (settings.sidebar[link.key] === false) return false;
+          // Fallback check for expenses/finance
+          if (link.key === 'finance' && settings.sidebar.expenses === false && (link.label === 'Expenses' || link.label === 'Vendors')) {
+            return false;
+          }
+          return true;
+        });
+      }
+    } catch (e) {
+      console.error('Error parsing accountant sidebar settings:', e);
+    }
+    return LINKS;
+  }, [user]);
 
   return (
     <aside className={`acc-sidebar ${collapsed ? 'collapsed' : ''} ${isOpen ? 'open' : ''}`}>
@@ -45,7 +67,7 @@ export default function AccountantSidebar({ isOpen, onClose }) {
       </div>
 
       <nav className="acc-nav">
-        {LINKS.map(link => (
+        {filteredLinks.map(link => (
           <NavLink 
             key={link.to} 
             to={link.to} 

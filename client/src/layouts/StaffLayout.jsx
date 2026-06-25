@@ -1,17 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { LayoutDashboard, CalendarDays, CheckSquare, LogOut, Settings, Menu, X } from 'lucide-react';
 import auth from '../services/auth';
+import useAuth from '../hooks/useAuth';
 
 const StaffLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const location = useLocation();
+    const { user, logout } = useAuth();
 
     const closeSidebar = useCallback(() => setSidebarOpen(false), []);
     const toggleSidebar = useCallback(() => setSidebarOpen(o => !o), []);
 
     const handleLogout = () => {
-        auth.logout();
+        logout();
     };
 
     // Lock body scroll when drawer open on mobile/tablet
@@ -87,24 +89,48 @@ const StaffLayout = () => {
 
                 <nav className="sidebar-nav">
                     <div className="sidebar-group-toggle active">Navigation</div>
-                    <NavLink to="/staff" end className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
-                        <div className="nav-item-inner">
-                            <LayoutDashboard size={20} />
-                            <span className="nav-label">Overview</span>
-                        </div>
-                    </NavLink>
-                    <NavLink to="/staff/leaves" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
-                        <div className="nav-item-inner">
-                            <CalendarDays size={20} />
-                            <span className="nav-label">Leave Mgmt</span>
-                        </div>
-                    </NavLink>
-                    <NavLink to="/staff/tasks" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
-                        <div className="nav-item-inner">
-                            <CheckSquare size={20} />
-                            <span className="nav-label">My Tasks</span>
-                        </div>
-                    </NavLink>
+                    {useMemo(() => {
+                        if (!user?.settings) return true;
+                        try {
+                            const settings = typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings;
+                            return settings.sidebar?.dashboard !== false;
+                        } catch { return true; }
+                    }, [user]) && (
+                        <NavLink to="/staff" end className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
+                            <div className="nav-item-inner">
+                                <LayoutDashboard size={20} />
+                                <span className="nav-label">Overview</span>
+                            </div>
+                        </NavLink>
+                    )}
+                    {useMemo(() => {
+                        if (!user?.settings) return true;
+                        try {
+                            const settings = typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings;
+                            return settings.sidebar?.manage !== false;
+                        } catch { return true; }
+                    }, [user]) && (
+                        <NavLink to="/staff/leaves" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
+                            <div className="nav-item-inner">
+                                <CalendarDays size={20} />
+                                <span className="nav-label">Leave Mgmt</span>
+                            </div>
+                        </NavLink>
+                    )}
+                    {useMemo(() => {
+                        if (!user?.settings) return true;
+                        try {
+                            const settings = typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings;
+                            return settings.sidebar?.jobs !== false;
+                        } catch { return true; }
+                    }, [user]) && (
+                        <NavLink to="/staff/tasks" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
+                            <div className="nav-item-inner">
+                                <CheckSquare size={20} />
+                                <span className="nav-label">My Tasks</span>
+                            </div>
+                        </NavLink>
+                    )}
                 </nav>
 
                 <div className="sidebar-footer">

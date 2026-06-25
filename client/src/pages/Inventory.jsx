@@ -450,6 +450,24 @@ const Inventory = () => {
         size_code: item.size_code || ''
     });
 
+    const openEditItem = useCallback((item) => {
+        const normalized = normalizeItem(item);
+        const bStocks = branches.map(b => {
+            const existing = item.branch_stocks?.find(bs => bs.branch_id === b.id);
+            return {
+                branch_id: b.id,
+                branch_name: b.name,
+                short_name: b.short_name,
+                quantity: existing ? Number(existing.quantity) : 0
+            };
+        });
+        setSelectedItem({
+            ...normalized,
+            branch_stocks: bStocks
+        });
+        setShowEditModal(true);
+    }, [branches]);
+
     const getImageId = (url) => {
         if (!url) return null;
         try {
@@ -951,7 +969,18 @@ const Inventory = () => {
                     </div>
                     <button
                         className="btn btn-primary"
-                        onClick={() => setShowAddModal(true)}
+                        onClick={() => {
+                            setNewItem({
+                                ...emptyItem,
+                                branch_stocks: branches.map(b => ({
+                                    branch_id: b.id,
+                                    branch_name: b.name,
+                                    short_name: b.short_name,
+                                    quantity: 0
+                                }))
+                            });
+                            setShowAddModal(true);
+                        }}
                     >
                         <Plus size={18} />
                         <span>Add Item</span>
@@ -1122,10 +1151,9 @@ const Inventory = () => {
                             type="button"
                             className="inv-action-btn"
                             onClick={() => setShowSelectPrintModal(true)}
-                            title="Select a product and print labels"
+                            title="Print Labels"
                         >
                             <QrCode size={16} />
-                            <span>Print Labels</span>
                         </button>
 
                         {/* Image Sync / Settings */}
@@ -1262,10 +1290,28 @@ const Inventory = () => {
                                                 </td>
                                                 <td data-label="Stock">
                                                     <div className="inv-stock-cell">
-                                                        <span className="inv-stock-value">{item.branch_stock !== undefined ? Number(item.branch_stock).toLocaleString() : Number(item.quantity).toLocaleString()}</span>
-                                                        <span className="inv-stock-unit">{item.unit}</span>
-                                                        {item.branch_stock !== undefined && item.total_branch_stock !== undefined && (
-                                                            <span className="inv-stock-total text-xs muted" style={{ marginLeft: 4 }}>/ {Number(item.total_branch_stock).toLocaleString()}</span>
+                                                        <div className="row items-center gap-xs">
+                                                            <span className="inv-stock-value">{item.branch_stock !== undefined ? Number(item.branch_stock).toLocaleString() : Number(item.quantity).toLocaleString()}</span>
+                                                            {item.branch_stock !== undefined && (
+                                                                <span className="inv-stock-total text-xs muted" style={{ marginLeft: 4 }}>
+                                                                    / {Number(item.quantity).toLocaleString()}
+                                                                </span>
+                                                            )}
+                                                            <span className="inv-stock-unit" style={{ marginLeft: 4 }}>{item.unit}</span>
+                                                            {item.branch_stocks && item.branch_stocks.length > 0 && (
+                                                                <span className="muted" style={{ fontSize: '8px', marginLeft: 4, opacity: 0.5 }}>▼</span>
+                                                            )}
+                                                        </div>
+                                                        {item.branch_stocks && item.branch_stocks.length > 0 && (
+                                                            <div className="inv-stock-popover">
+                                                                <div className="inv-stock-popover-title">Branch Stocks</div>
+                                                                {item.branch_stocks.map(bs => (
+                                                                    <div key={bs.branch_id} className="inv-stock-popover-item">
+                                                                        <span className="inv-stock-popover-branch">{bs.branch_name} ({bs.short_name})</span>
+                                                                        <span className="inv-stock-popover-qty">{Number(bs.quantity).toLocaleString()} {item.unit}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </td>
@@ -1306,7 +1352,7 @@ const Inventory = () => {
                                                             <button
                                                                 className="inv-action-btn"
                                                                 title="Edit"
-                                                                onClick={() => { setSelectedItem(normalizeItem(item)); setShowEditModal(true); }}
+                                                                onClick={() => openEditItem(item)}
                                                             >
                                                                 <Edit2 size={14} />
                                                             </button>
@@ -1378,8 +1424,28 @@ const Inventory = () => {
                                                 <div className="inv-item-sku" style={{ marginTop: 2 }}>{item.sku || '-'}</div>
                                             </div>
                                             <div style={{ marginLeft: 8, textAlign: 'right' }}>
-                                                <div className="inv-stock-value">{item.branch_stock !== undefined ? Number(item.branch_stock).toLocaleString() : Number(item.quantity).toLocaleString()}</div>
-                                                <div className="inv-stock-unit">{item.unit}</div>
+                                                <div className="inv-stock-cell" style={{ display: 'inline-block' }}>
+                                                    <div className="inv-stock-value">
+                                                        {item.branch_stock !== undefined ? Number(item.branch_stock).toLocaleString() : Number(item.quantity).toLocaleString()}
+                                                        {item.branch_stock !== undefined && (
+                                                            <span className="text-2xs muted" style={{ marginLeft: 2 }}>
+                                                                /{Number(item.quantity).toLocaleString()}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="inv-stock-unit">{item.unit}</div>
+                                                    {item.branch_stocks && item.branch_stocks.length > 0 && (
+                                                        <div className="inv-stock-popover" style={{ left: 'auto', right: 0 }}>
+                                                            <div className="inv-stock-popover-title">Branch Stocks</div>
+                                                            {item.branch_stocks.map(bs => (
+                                                                <div key={bs.branch_id} className="inv-stock-popover-item">
+                                                                    <span className="inv-stock-popover-branch">{bs.branch_name} ({bs.short_name})</span>
+                                                                    <span className="inv-stock-popover-qty">{Number(bs.quantity).toLocaleString()} {item.unit}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1393,7 +1459,7 @@ const Inventory = () => {
                                     <div className="inv-actions">
                                         {isAdmin && (
                                             <>
-                                                <button className="inv-action-btn" onClick={() => { setSelectedItem(normalizeItem(item)); setShowEditModal(true); }}><Edit2 size={14} /></button>
+                                                <button className="inv-action-btn" onClick={() => openEditItem(item)}><Edit2 size={14} /></button>
                                                 <button className="inv-action-btn inv-action-btn--danger" onClick={() => handleDeleteItem(item.id)}><Trash2 size={14} /></button>
                                             </>
                                         )}
@@ -1563,17 +1629,56 @@ const Inventory = () => {
                                     </>
                                 )}
                                 <div className="row gap-sm">
-                                    <div className="flex-1">
-                                        <label className="label">Quantity</label>
-                                        <input
-                                            name="addItemQty"
-                                            type="number"
-                                            className="input-field"
-                                            value={newItem.quantity}
-                                            onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                                            min="0"
-                                        />
-                                    </div>
+                                    {branches && branches.length > 0 ? (
+                                        <div className="flex-1" style={{ minWidth: '100%' }}>
+                                            <div className="panel panel--tight mb-8" style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)' }}>
+                                                <label className="label mb-8 font-semibold" style={{ color: 'var(--accent-2)' }}>Branch Stock Distribution</label>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+                                                    {newItem.branch_stocks?.map((bs, index) => (
+                                                        <div key={bs.branch_id} className="row items-center justify-between gap-sm p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                            <span className="text-xs font-medium text-muted">{bs.branch_name} ({bs.short_name})</span>
+                                                            <input
+                                                                type="number"
+                                                                className="input-field text-right"
+                                                                style={{ width: '80px', padding: 'var(--space-4) var(--space-8)', minHeight: '30px' }}
+                                                                value={bs.quantity}
+                                                                min="0"
+                                                                onChange={(e) => {
+                                                                    const val = Math.max(0, parseInt(e.target.value) || 0);
+                                                                    const updatedStocks = [...(newItem.branch_stocks || [])];
+                                                                    updatedStocks[index] = { ...bs, quantity: val };
+                                                                    const totalQty = updatedStocks.reduce((sum, s) => sum + s.quantity, 0);
+                                                                    setNewItem({
+                                                                        ...newItem,
+                                                                        branch_stocks: updatedStocks,
+                                                                        quantity: String(totalQty)
+                                                                    });
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="row items-center justify-between mt-8 pt-8" style={{ borderTop: '1px solid var(--border)' }}>
+                                                    <span className="text-xs font-semibold">Total Stock Available</span>
+                                                    <span className="text-sm font-bold text-accent">
+                                                        {newItem.quantity || '0'} {newItem.unit}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1">
+                                            <label className="label">Quantity</label>
+                                            <input
+                                                name="addItemQty"
+                                                type="number"
+                                                className="input-field"
+                                                value={newItem.quantity}
+                                                onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                                                min="0"
+                                            />
+                                        </div>
+                                    )}
                                     <div className="flex-1">
                                         <label className="label">Unit</label>
                                         <input
@@ -1846,17 +1951,56 @@ const Inventory = () => {
                                     </>
                                 )}
                                 <div className="row gap-sm">
-                                    <div className="flex-1">
-                                        <label className="label">Quantity</label>
-                                        <input
-                                            name="editItemQty"
-                                            type="number"
-                                            className="input-field"
-                                            value={selectedItem.quantity}
-                                            onChange={(e) => setSelectedItem({ ...selectedItem, quantity: e.target.value })}
-                                            min="0"
-                                        />
-                                    </div>
+                                    {branches && branches.length > 0 ? (
+                                        <div className="flex-1" style={{ minWidth: '100%' }}>
+                                            <div className="panel panel--tight mb-8" style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)' }}>
+                                                <label className="label mb-8 font-semibold" style={{ color: 'var(--accent-2)' }}>Branch Stock Distribution</label>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+                                                    {selectedItem.branch_stocks?.map((bs, index) => (
+                                                        <div key={bs.branch_id} className="row items-center justify-between gap-sm p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                            <span className="text-xs font-medium text-muted">{bs.branch_name} ({bs.short_name})</span>
+                                                            <input
+                                                                type="number"
+                                                                className="input-field text-right"
+                                                                style={{ width: '80px', padding: 'var(--space-4) var(--space-8)', minHeight: '30px' }}
+                                                                value={bs.quantity}
+                                                                min="0"
+                                                                onChange={(e) => {
+                                                                    const val = Math.max(0, parseInt(e.target.value) || 0);
+                                                                    const updatedStocks = [...(selectedItem.branch_stocks || [])];
+                                                                    updatedStocks[index] = { ...bs, quantity: val };
+                                                                    const totalQty = updatedStocks.reduce((sum, s) => sum + s.quantity, 0);
+                                                                    setSelectedItem({
+                                                                        ...selectedItem,
+                                                                        branch_stocks: updatedStocks,
+                                                                        quantity: String(totalQty)
+                                                                    });
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="row items-center justify-between mt-8 pt-8" style={{ borderTop: '1px solid var(--border)' }}>
+                                                    <span className="text-xs font-semibold">Total Stock Available</span>
+                                                    <span className="text-sm font-bold text-accent">
+                                                        {selectedItem.quantity || '0'} {selectedItem.unit}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1">
+                                            <label className="label">Quantity</label>
+                                            <input
+                                                name="editItemQty"
+                                                type="number"
+                                                className="input-field"
+                                                value={selectedItem.quantity}
+                                                onChange={(e) => setSelectedItem({ ...selectedItem, quantity: e.target.value })}
+                                                min="0"
+                                            />
+                                        </div>
+                                    )}
                                     <div className="flex-1">
                                         <label className="label">Unit</label>
                                         <input

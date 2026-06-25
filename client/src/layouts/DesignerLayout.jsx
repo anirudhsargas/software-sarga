@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   PenTool, Image, BookOpen, Clock, Settings, LogOut,
   Briefcase, BarChart2, Menu, X, Plus, ChevronRight
 } from 'lucide-react';
 import auth from '../services/auth';
+import useAuth from '../hooks/useAuth';
 import '../styles/designer-dashboard.css';
 
 const NAV_ITEMS = [
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
     label: 'Dashboard',
     kbd: 'D',
     id: 'nav-dashboard',
+    key: 'dashboard',
   },
   {
     to: '/designer/assigned',
@@ -22,6 +24,7 @@ const NAV_ITEMS = [
     label: 'Assigned Jobs',
     kbd: 'A',
     id: 'nav-assigned',
+    key: 'jobs',
   },
   {
     to: '/designer/bookings',
@@ -29,24 +32,28 @@ const NAV_ITEMS = [
     label: 'Design Queue',
     kbd: 'B',
     id: 'nav-bookings',
+    key: 'jobs',
   },
   {
     to: '/designer/library',
     icon: Image,
     label: 'Product Library',
     id: 'nav-library',
+    key: 'operations',
   },
   {
     to: '/designer/blocks',
     icon: BookOpen,
     label: 'Block Journal',
     id: 'nav-blocks',
+    key: 'operations',
   },
   {
     to: '/designer/analytics',
     icon: BarChart2,
     label: 'Analytics',
     id: 'nav-analytics',
+    key: 'reports',
   },
 ];
 
@@ -63,11 +70,11 @@ const DesignerLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const user = auth.getUser();
+  const { user, logout } = useAuth();
 
   const handleLogout = useCallback(() => {
-    auth.logout();
-  }, []);
+    logout();
+  }, [logout]);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -124,7 +131,18 @@ const DesignerLayout = () => {
         <nav className="designer-sidebar__nav">
           <div className="designer-sidebar__section-label">Navigation</div>
 
-          {NAV_ITEMS.map(item => {
+          {useMemo(() => {
+            if (!user?.settings) return NAV_ITEMS;
+            try {
+              const settings = typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings;
+              if (settings.sidebar) {
+                return NAV_ITEMS.filter(item => settings.sidebar[item.key] !== false);
+              }
+            } catch (e) {
+              console.error('Error parsing designer sidebar settings:', e);
+            }
+            return NAV_ITEMS;
+          }, [user]).map(item => {
             const IconComp = item.icon;
             return (
               <NavLink
@@ -149,16 +167,26 @@ const DesignerLayout = () => {
         </nav>
 
         {/* Quick action in sidebar */}
-        <div style={{ padding: '0 10px 12px' }}>
-          <button
-            className="designer-nav-link quick-action-btn quick-action-btn--primary"
-            style={{ width: '100%', justifyContent: 'center', borderRadius: 10 }}
-            onClick={() => navigate('/designer/bookings')}
-            id="sidebar-new-booking"
-          >
-            <Plus size={15} /> New Booking
-          </button>
-        </div>
+        {useMemo(() => {
+          if (!user?.settings) return true;
+          try {
+            const settings = typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings;
+            return settings.sidebar?.jobs !== false;
+          } catch {
+            return true;
+          }
+        }, [user]) && (
+          <div style={{ padding: '0 10px 12px' }}>
+            <button
+              className="designer-nav-link quick-action-btn quick-action-btn--primary"
+              style={{ width: '100%', justifyContent: 'center', borderRadius: 10 }}
+              onClick={() => navigate('/designer/bookings')}
+              id="sidebar-new-booking"
+            >
+              <Plus size={15} /> New Booking
+            </button>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="designer-sidebar__footer">
@@ -211,14 +239,24 @@ const DesignerLayout = () => {
 
           {/* Top right actions */}
           <div className="designer-topbar__actions">
-            <button
-              className="quick-action-btn quick-action-btn--primary"
-              onClick={() => navigate('/designer/bookings')}
-              id="topbar-new-booking"
-              style={{ padding: '7px 14px' }}
-            >
-              <Plus size={14} /> New
-            </button>
+            {useMemo(() => {
+              if (!user?.settings) return true;
+              try {
+                const settings = typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings;
+                return settings.sidebar?.jobs !== false;
+              } catch {
+                return true;
+              }
+            }, [user]) && (
+              <button
+                className="quick-action-btn quick-action-btn--primary"
+                onClick={() => navigate('/designer/bookings')}
+                id="topbar-new-booking"
+                style={{ padding: '7px 14px' }}
+              >
+                <Plus size={14} /> New
+              </button>
+            )}
 
             {/* User avatar */}
             <div

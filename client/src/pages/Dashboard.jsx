@@ -646,8 +646,28 @@ const Dashboard = () => {
             try {
                 const settings = typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings;
                 if (settings.sidebar) {
+                    const keyMapping = {
+                        sales_customers: 'customers',
+                        sales_orders: 'jobs',
+                        jobs: 'jobs',
+                        sales_quotes: 'billing',
+                        sales_invoices: 'billing',
+                        sales_payments: 'billing',
+                        shortcuts: 'billing',
+                        inventory: 'inventory',
+                        scanner: 'inventory',
+                        operations: 'operations',
+                        sample_requests: 'operations',
+                        design_bookings: 'operations',
+                        finance: 'finance',
+                        manage: 'manage',
+                        reports: 'reports',
+                        internal: 'internal',
+                        expenses: 'finance'
+                    };
                     items = items.filter(item => {
-                        // If setting exists for this key and is false, hide it
+                        const mappedKey = keyMapping[item.key] || item.key;
+                        if (settings.sidebar[mappedKey] === false) return false;
                         if (settings.sidebar[item.key] === false) return false;
                         return true;
                     });

@@ -242,8 +242,8 @@ const Billing = () => {
   }, []);
 
   // Derived
-  const isWalkIn = form.type === 'Walk-in';
-  const needsGst = form.type === 'Offset' || form.type === 'Retail';
+  const isWalkIn = form.type === 'Walk-in' || !form.name.trim();
+  const needsGst = !isWalkIn;
   const _isInternalBill = location.state?.internal || form.type === 'Internal' || form.type === 'Stock Transfer';
 
   // ── Data loading ──
@@ -710,7 +710,7 @@ const Billing = () => {
     try {
       let customerId = existingCustomer?.id;
       if (!customerId && form.name) {
-        const custPayload = { name: form.name, mobile: form.mobile || null, client_type: form.type, email: form.email || null, address: form.address || null, gstin: form.gst || null };
+        const custPayload = { name: form.name, mobile: form.mobile || null, client_type: isWalkIn ? 'Walk-in' : (form.type || 'Retail'), email: form.email || null, address: form.address || null, gstin: form.gst || null };
         const customer = await localDb.createCustomer(custPayload);
         customerId = customer.id;
       }
@@ -721,9 +721,9 @@ const Billing = () => {
       const payMethodLabel = payment.selectedMethods.length === 1 ? payment.selectedMethods[0] : 'Split';
       const billPayload = {
         customer_id: customerId || null,
-        customer_name: form.name,
+        customer_name: form.name.trim() || 'Walk-in Customer',
         customer_mobile: form.mobile || null,
-        customer_type: form.type,
+        customer_type: isWalkIn ? 'Walk-in' : (form.type || 'Retail'),
         total_amount: totals.gross,
         net_amount: totals.gross,
         sgst_amount: 0,
@@ -958,35 +958,7 @@ const Billing = () => {
       <div className="billing-section billing-section--customer" style={{ display: activeTab === 'customer' ? 'flex' : 'none' }}>
         <div className="billing-section__header"><User size={16} /> <h2>Customer</h2></div>
 
-        {/* Customer Type Dropdown */}
-        <div className="billing-field" style={{ marginBottom: '16px', position: 'relative' }}>
-          <Users size={14} className="billing-field__icon" aria-hidden="true" />
-          <label htmlFor="billing-customer-type" className="sr-only">Customer Type</label>
-          <select
-            id="billing-customer-type"
-            name="customerType"
-            className="billing-field__input"
-            value={form.type || ''}
-            onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
-            required
-            style={{
-              appearance: 'none',
-              background: 'transparent',
-              border: 'none',
-              width: '100%',
-              outline: 'none',
-              cursor: 'pointer',
-              color: 'var(--text)',
-              paddingRight: '24px'
-            }}
-          >
-            <option value="" disabled style={{ background: 'var(--card)', color: 'var(--text-muted)' }}>Select Customer Type *</option>
-            <option value="Retail" style={{ background: 'var(--card)' }}>Retail</option>
-            <option value="Walk-in" style={{ background: 'var(--card)' }}>Walk-in</option>
-            <option value="Offset" style={{ background: 'var(--card)' }}>Offset</option>
-          </select>
-          <ChevronDown size={14} style={{ position: 'absolute', right: '12px', pointerEvents: 'none', color: 'var(--text-muted)' }} />
-        </div>
+
 
         {/* Search existing customer */}
         <div className="autocomplete-wrapper" style={{ position: 'relative' }}>

@@ -11,7 +11,7 @@ const BOOK_TABS = [
     { key: 'Other', label: 'Other', color: 'var(--success)' },
 ];
 
-const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave, onSkip }) => {
+const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave, onSkip, date }) => {
     const [cashValues, setCashValues] = useState(() => {
         const init = {};
         Object.keys(balances).forEach(k => { init[k] = balances[k]; });
@@ -30,8 +30,8 @@ const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave
     const [editing, setEditing] = useState(false);
     const autosaveTimer = useRef(null);
 
-    const today = serverToday();
-    const formattedDate = new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+    const today = date || serverToday();
+    const formattedDate = new Date(today + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 
     const activeBookTabs = useMemo(() =>
         BOOK_TABS.filter(t => Object.prototype.hasOwnProperty.call(cashValues, t.key)),

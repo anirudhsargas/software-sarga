@@ -202,6 +202,36 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
         
         const [[{ total }]] = await pool.query(countQuery, params);
         const [rows] = await pool.query(dataQuery, [...params, limit, offset]);
+
+        const itemIds = rows.map(r => r.id);
+        if (itemIds.length > 0) {
+            const [stocks] = await pool.query(
+                `SELECT bs.inventory_item_id, bs.branch_id, bs.quantity, b.name as branch_name, b.short_name as branch_short_name
+                 FROM sarga_branch_stock bs
+                 JOIN sarga_branches b ON bs.branch_id = b.id
+                 WHERE bs.inventory_item_id IN (?)`,
+                [itemIds]
+            );
+
+            const stocksMap = stocks.reduce((acc, s) => {
+                if (!acc[s.inventory_item_id]) acc[s.inventory_item_id] = [];
+                acc[s.inventory_item_id].push({
+                    branch_id: s.branch_id,
+                    branch_name: s.branch_name,
+                    short_name: s.branch_short_name,
+                    quantity: s.quantity
+                });
+                return acc;
+            }, {});
+
+            rows.forEach(r => {
+                r.branch_stocks = stocksMap[r.id] || [];
+            });
+        } else {
+            rows.forEach(r => {
+                r.branch_stocks = [];
+            });
+        }
         
         res.json(response(rows, total));
     } catch (err) {
@@ -707,20 +737,23 @@ function generateAutoSku(category, itemId, sourceCode, modelName, sizeCode, item
 }
 
 router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(addInventorySchema), async (req, res) => {
-    const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link } = req.body;
+    const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link, branch_stocks } = req.body;
     const normalizedSku = normalizeSkuInput(sku);
 
+    const connection = await pool.getConnection();
     try {
+        await connection.beginTransaction();
+
         // 1. Check if an item with the same SKU already exists
         let existingItem = null;
         if (normalizedSku) {
-            const [skuMatches] = await pool.query("SELECT id, quantity FROM sarga_inventory WHERE REPLACE(UPPER(sku), ' ', '') = ?", [normalizedSku]);
+            const [skuMatches] = await connection.query("SELECT id, quantity FROM sarga_inventory WHERE REPLACE(UPPER(sku), ' ', '') = ?", [normalizedSku]);
             if (skuMatches.length > 0) existingItem = skuMatches[0];
         }
 
         // 2. If no SKU match, check if an item with the same Name and Category already exists
         if (!existingItem) {
-            const [nameMatches] = await pool.query(
+            const [nameMatches] = await connection.query(
                 "SELECT id, quantity FROM sarga_inventory WHERE name = ? AND (category = ? OR (category IS NULL AND ? IS NULL))",
                 [name, category || null, category || null]
             );
@@ -729,10 +762,13 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
 
         if (existingItem) {
             // Update existing item: increment quantity and update other details to latest
-            const qtyToAdd = Number(quantity) || 0;
+            let qtyToAdd = Number(quantity) || 0;
+            if (branch_stocks && branch_stocks.length > 0) {
+                qtyToAdd = branch_stocks.reduce((sum, bs) => sum + bs.quantity, 0);
+            }
             const oldQty = Number(existingItem.quantity);
             const newQuantity = oldQty + qtyToAdd;
-            await pool.query(
+            await connection.query(
                 `UPDATE sarga_inventory 
                  SET quantity = ?, sku = COALESCE(?, sku), category = ?, unit = ?, reorder_level = ?, cost_price = ?, sell_price = ?, hsn = ?, discount = ?, gst_rate = ?,
                      source_code = ?, model_name = ?, size_code = ?, item_type = ?, vendor_name = ?, vendor_contact = ?, purchase_link = ?
@@ -762,27 +798,45 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
             const inventoryId = existingItem.id;
 
             // Update branch stock and log movement
-            if (qtyToAdd > 0) {
+            if (branch_stocks && branch_stocks.length > 0) {
+                for (const bs of branch_stocks) {
+                    if (bs.quantity > 0) {
+                        const [bsBefore] = await connection.query(
+                            'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
+                            [inventoryId, bs.branch_id]
+                        );
+                        const qtyBefore = Number(bsBefore[0]?.quantity || 0);
+                        await connection.query(
+                            `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity) 
+                             VALUES (?, ?, ?) 
+                             ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
+                            [inventoryId, bs.branch_id, bs.quantity, bs.quantity]
+                        );
+                        const qtyAfter = qtyBefore + bs.quantity;
+                        await logInventoryMovement(connection, inventoryId, bs.branch_id, 'Purchase', bs.quantity, qtyBefore, qtyAfter, 'inventory_add', null, null, req.user.id);
+                    }
+                }
+            } else if (qtyToAdd > 0) {
                 const branchId = req.body.branch_id || (await getUserBranchId(req.user.id));
                 if (branchId) {
-                    await pool.query(
+                    await connection.query(
                         `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity) 
                          VALUES (?, ?, ?) 
                          ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
                         [inventoryId, branchId, qtyToAdd, qtyToAdd]
                     );
-                    const [bsRow] = await pool.query(
+                    const [bsRow] = await connection.query(
                         'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
                         [inventoryId, branchId]
                     );
                     const qtyBefore = oldQty;
                     const qtyAfter = Number(bsRow[0]?.quantity || qtyToAdd);
-                    await logInventoryMovement(pool, inventoryId, branchId, 'Purchase', qtyToAdd, qtyBefore, qtyAfter, 'inventory_add', null, null, req.user.id);
+                    await logInventoryMovement(connection, inventoryId, branchId, 'Purchase', qtyToAdd, qtyBefore, qtyAfter, 'inventory_add', null, null, req.user.id);
                 }
             }
 
             if (product_id) {
-                await pool.query(
+                await connection.query(
                     "UPDATE sarga_products SET inventory_item_id = ?, is_physical_product = 1 WHERE id = ?",
                     [inventoryId, product_id]
                 );
@@ -797,12 +851,18 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
                 }
             }
 
-            auditLog(req.user.id, 'INVENTORY_UPDATE_MERGE', `Merged ${quantity} unit(s) into item ${name} (ID: ${inventoryId})`);
+            await connection.commit();
+            auditLog(req.user.id, 'INVENTORY_UPDATE_MERGE', `Merged ${qtyToAdd} unit(s) into item ${name} (ID: ${inventoryId})`);
             return res.json({ id: inventoryId, message: 'Item quantity updated and merged' });
         }
 
         // 3. Normal Insert if no existing item found
-        const [result] = await pool.query(
+        let initialQty = Number(quantity) || 0;
+        if (branch_stocks && branch_stocks.length > 0) {
+            initialQty = branch_stocks.reduce((sum, bs) => sum + bs.quantity, 0);
+        }
+
+        const [result] = await connection.query(
             `INSERT INTO sarga_inventory (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             , [
@@ -810,7 +870,7 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
                 normalizedSku,
                 category || null,
                 unit || 'pcs',
-                Number(quantity) || 0,
+                initialQty,
                 Number(reorder_level) || 0,
                 Number(cost_price) || 0,
                 Number(sell_price) || 0,
@@ -833,12 +893,12 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
         let finalSku = normalizedSku;
         if (!finalSku) {
             finalSku = generateAutoSku(category, inventoryId, source_code, model_name, size_code, name);
-            await pool.query("UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL", [finalSku, inventoryId]);
+            await connection.query("UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL", [finalSku, inventoryId]);
         }
 
         // If a product_id was provided, link it to this inventory item
         if (product_id) {
-            await pool.query(
+            await connection.query(
                 "UPDATE sarga_products SET inventory_item_id = ?, is_physical_product = 1 WHERE id = ?",
                 [inventoryId, product_id]
             );
@@ -854,35 +914,59 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
         }
 
         // Add branch stock entry and movement log if quantity > 0
-        const initialQty = Number(quantity) || 0;
-        if (initialQty > 0) {
+        if (branch_stocks && branch_stocks.length > 0) {
+            for (const bs of branch_stocks) {
+                if (bs.quantity > 0) {
+                    await connection.query(
+                        `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity) VALUES (?, ?, ?)
+                         ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
+                        [inventoryId, bs.branch_id, bs.quantity, bs.quantity]
+                    );
+                    await logInventoryMovement(connection, inventoryId, bs.branch_id, 'Purchase', bs.quantity, 0, bs.quantity, 'inventory_add', null, null, req.user.id);
+                }
+            }
+        } else if (initialQty > 0) {
             const branchId = req.body.branch_id || (await getUserBranchId(req.user.id));
             if (branchId) {
-                await pool.query(
+                await connection.query(
                     `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity) VALUES (?, ?, ?)
                      ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
                     [inventoryId, branchId, initialQty, initialQty]
                 );
-                await logInventoryMovement(pool, inventoryId, branchId, 'Purchase', initialQty, 0, initialQty, 'inventory_add', null, null, req.user.id);
+                await logInventoryMovement(connection, inventoryId, branchId, 'Purchase', initialQty, 0, initialQty, 'inventory_add', null, null, req.user.id);
             }
         }
 
+        await connection.commit();
         auditLog(req.user.id, 'INVENTORY_ADD', `Added new item ${name} (${finalSku || 'no-sku'})`);
         res.status(201).json({ id: inventoryId, sku: finalSku, message: 'Inventory item added' });
     } catch (err) {
+        await connection.rollback();
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'SKU already exists' });
         res.status(500).json({ message: 'Database error' });
+    } finally {
+        connection.release();
     }
 });
 
 // Update Inventory Item
 router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(addInventorySchema), async (req, res) => {
     const { id } = req.params;
-    const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link } = req.body;
+    const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link, branch_stocks } = req.body;
     const normalizedSku = normalizeSkuInput(sku);
 
+    const connection = await pool.getConnection();
     try {
-        await pool.query(
+        await connection.beginTransaction();
+
+        // 1. If branch_stocks is passed, compute total quantity
+        let finalQuantity = Number(quantity) || 0;
+        if (branch_stocks && branch_stocks.length > 0) {
+            finalQuantity = branch_stocks.reduce((sum, bs) => sum + bs.quantity, 0);
+        }
+
+        // 2. Update sarga_inventory metadata and final quantity
+        await connection.query(
             `UPDATE sarga_inventory
              SET name = ?, sku = ?, category = ?, unit = ?, quantity = ?, reorder_level = ?, cost_price = ?, sell_price = ?, hsn = ?, discount = ?, gst_rate = ?,
                  source_code = ?, model_name = ?, size_code = ?, item_type = ?, vendor_name = ?, vendor_contact = ?, purchase_link = ?
@@ -892,7 +976,7 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
                 normalizedSku,
                 category || null,
                 unit || 'pcs',
-                Number(quantity) || 0,
+                finalQuantity,
                 Number(reorder_level) || 0,
                 Number(cost_price) || 0,
                 Number(sell_price) || 0,
@@ -910,29 +994,55 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
             ]
         );
 
-        // Management of product link
+        // 3. If branch_stocks is provided, update sarga_branch_stock
+        if (branch_stocks && branch_stocks.length > 0) {
+            for (const bs of branch_stocks) {
+                const [bsBefore] = await connection.query(
+                    'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
+                    [id, bs.branch_id]
+                );
+                const qtyBefore = Number(bsBefore[0]?.quantity || 0);
+                const qtyAfter = bs.quantity;
+
+                if (qtyBefore !== qtyAfter) {
+                    await connection.query(
+                        `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity) 
+                         VALUES (?, ?, ?) 
+                         ON DUPLICATE KEY UPDATE quantity = ?`,
+                        [id, bs.branch_id, qtyAfter, qtyAfter]
+                    );
+                    const qtyChange = qtyAfter - qtyBefore;
+                    await logInventoryMovement(connection, id, bs.branch_id, 'Adjustment', qtyChange, qtyBefore, qtyAfter, 'inventory_edit', null, 'Stock adjusted during edit', req.user.id);
+                }
+            }
+        }
+
+        // 4. Management of product link
         if (product_id) {
-            await pool.query(
+            await connection.query(
                 "UPDATE sarga_products SET inventory_item_id = ?, is_physical_product = 1 WHERE id = ?",
                 [id, product_id]
             );
         }
 
         // Propagate updates to any linked products in sarga_products
-        await pool.query(
+        await connection.query(
             `UPDATE sarga_products
              SET name = ?, product_code = ?
              WHERE inventory_item_id = ?`,
             [name, normalizedSku, id]
         );
 
+        await connection.commit();
         invalidateHierarchyCache();
-
         auditLog(req.user.id, 'INVENTORY_UPDATE', `Updated item ${id} (${name})`);
         res.json({ message: 'Inventory item updated' });
     } catch (err) {
+        await connection.rollback();
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'SKU already exists' });
         res.status(500).json({ message: 'Database error' });
+    } finally {
+        connection.release();
     }
 });
 
